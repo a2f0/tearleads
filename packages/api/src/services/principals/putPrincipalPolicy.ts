@@ -3,11 +3,9 @@ import {
   type PutPrincipalPolicyResult,
   runPutPrincipalPolicyWorkflow,
 } from "../../workflows/principals/putPrincipalPolicy";
-import type { ApiServiceRuntime } from "../runtime";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
-export async function putPrincipalPolicy(
-  runtime: ApiServiceRuntime,
-  input: PutPrincipalPolicyInput,
-): Promise<PutPrincipalPolicyResult> {
-  return runPutPrincipalPolicyWorkflow(runtime.db, input);
-}
+export const putPrincipalPolicy = createDatabaseWorkflowService<
+  PutPrincipalPolicyInput,
+  PutPrincipalPolicyResult
+>(runPutPrincipalPolicyWorkflow);

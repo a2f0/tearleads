@@ -3,7 +3,7 @@ import {
   ListDocumentAttachmentsError,
   runListDocumentAttachmentsWorkflow,
 } from "../../workflows/documents/listDocumentAttachments";
-import type { ApiServiceRuntime } from "../runtime";
+import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
 interface ListDocumentAttachmentsInput {
   documentId: string;
@@ -12,9 +12,7 @@ interface ListDocumentAttachmentsInput {
 
 export { ListDocumentAttachmentsError };
 
-export async function listDocumentAttachments(
-  runtime: ApiServiceRuntime,
-  input: ListDocumentAttachmentsInput,
-): Promise<ListDocumentAttachmentsResponse> {
-  return runListDocumentAttachmentsWorkflow(runtime.db, input);
-}
+export const listDocumentAttachments = createDatabaseWorkflowService<
+  ListDocumentAttachmentsInput,
+  ListDocumentAttachmentsResponse
+>(runListDocumentAttachmentsWorkflow);
