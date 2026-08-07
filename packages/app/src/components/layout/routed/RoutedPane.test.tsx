@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { act, fireEvent } from "@testing-library/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
+import {
+  forceMobileRoutedTier,
+  forceTabletRoutedTier,
+  renderRoutedPane,
+} from "../../../../test/helpers/routedPaneTestUtils";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
@@ -44,44 +48,6 @@ function installTestVisualViewport(): {
       act(() => viewport.dispatchEvent(new Event("resize")));
     },
     restore: () => Reflect.set(window, "visualViewport", original),
-  };
-}
-
-function forceMobileRoutedTier(): () => void {
-  const originalMatchMedia = window.matchMedia;
-
-  window.matchMedia = ((query: string) => ({
-    addEventListener: () => {},
-    addListener: () => {},
-    dispatchEvent: () => false,
-    matches: false,
-    media: query,
-    onchange: null,
-    removeEventListener: () => {},
-    removeListener: () => {},
-  })) as unknown as typeof window.matchMedia;
-
-  return () => {
-    window.matchMedia = originalMatchMedia;
-  };
-}
-
-function forceTabletRoutedTier(): () => void {
-  const originalMatchMedia = window.matchMedia;
-
-  window.matchMedia = ((query: string) => ({
-    addEventListener: () => {},
-    addListener: () => {},
-    dispatchEvent: () => false,
-    matches: query.includes("min-width"),
-    media: query,
-    onchange: null,
-    removeEventListener: () => {},
-    removeListener: () => {},
-  })) as unknown as typeof window.matchMedia;
-
-  return () => {
-    window.matchMedia = originalMatchMedia;
   };
 }
 
