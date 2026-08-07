@@ -2,6 +2,13 @@ import type { DocumentRow } from "@tearleads/client-sdk";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
+  type ReadTrackerRowCell,
+  readStructuredTrackerField,
+  type TrackerRow,
+  trackerDetailFields,
+  trackerRowMetadata,
+} from "../shared/trackerRows";
+import {
   formatTrackerMeasuredAt,
   TRACKER_EMPTY_VALUE,
 } from "../shared/trackerValues";
@@ -16,32 +23,22 @@ import {
   type WeightUnit,
 } from "./weightDocumentDefinition";
 
-type ReadRowCell = (id: string, field: string, storeValue: string) => string;
-
-export interface WeightEntryRow {
-  id: string;
+export interface WeightEntryRow extends TrackerRow {
   weight: string;
   // The unit this entry was recorded in, kept on the entry itself so a merge
   // between peers that chose different units can never restate a weight.
   unit: WeightUnit;
   measuredAt: string;
   notes: string;
-  createdAt: string;
-  createdBy: string;
-  createdByPeer: string | null;
-  updatedAt: string;
-  updatedBy: string;
-  updatedByPeer: string | null;
-  // Per-cell last-editor peers, keyed by the row's field keys, for field-level
-  // attribution in the row detail.
-  fieldEditors: Record<string, string | null>;
 }
 
 export function readTrackerNameField(
   structuredFields: Readonly<Record<string, string>>,
 ): string {
-  const value = structuredFields[WEIGHT_TRACKER_NAME_FIELD];
-  return typeof value === "string" ? value : "";
+  return readStructuredTrackerField(
+    structuredFields,
+    WEIGHT_TRACKER_NAME_FIELD,
+  );
 }
 
 // The unit new entries are seeded with. Unlike an entry's own unit, this is only
@@ -57,11 +54,11 @@ export function readTrackerUnitField(
 // optimistic in-flight cell overlay so controlled inputs stay smooth.
 export function toWeightEntryRows(
   rows: ReadonlyArray<DocumentRow>,
-  readCell: ReadRowCell,
+  readCell: ReadTrackerRowCell,
   trackerUnit: WeightUnit,
 ): WeightEntryRow[] {
   return rows.map((row) => ({
-    id: row.id,
+    ...trackerRowMetadata(row),
     // A row written before this document type carried per-entry units, or by a
     // client that omitted it, reads as the tracker's unit.
     unit: toWeightUnit(row.fields[WEIGHT_UNIT_FIELD] ?? trackerUnit),
@@ -80,13 +77,6 @@ export function toWeightEntryRows(
       WEIGHT_NOTES_FIELD,
       row.fields[WEIGHT_NOTES_FIELD] ?? "",
     ),
-    createdAt: row.createdAt,
-    createdBy: row.createdBy,
-    createdByPeer: row.createdByPeer,
-    updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy,
-    updatedByPeer: row.updatedByPeer,
-    fieldEditors: row.fieldEditors,
   }));
 }
 
@@ -106,25 +96,27 @@ export function toWeightEntryDetailFields(
   entry: WeightEntryRow,
   resolveRowWriter?: RowWriterResolver | undefined,
 ): RowDetailField[] {
-  const fieldWriter = (field: string): string | null =>
-    resolveRowWriter?.(entry.fieldEditors[field] ?? null) ?? null;
-  return [
-    {
-      label: "Weight",
-      value: formatWeight(entry),
-      writerUserId: fieldWriter(WEIGHT_MEASUREMENT_FIELD),
-    },
-    {
-      label: "Measured at",
-      value: formatMeasuredAt(entry),
-      writerUserId: fieldWriter(WEIGHT_MEASURED_AT_FIELD),
-    },
-    {
-      label: "Notes",
-      value: entry.notes,
-      writerUserId: fieldWriter(WEIGHT_NOTES_FIELD),
-    },
-  ];
+  return trackerDetailFields(
+    entry,
+    [
+      {
+        field: WEIGHT_MEASUREMENT_FIELD,
+        label: "Weight",
+        value: formatWeight,
+      },
+      {
+        field: WEIGHT_MEASURED_AT_FIELD,
+        label: "Measured at",
+        value: formatMeasuredAt,
+      },
+      {
+        field: WEIGHT_NOTES_FIELD,
+        label: "Notes",
+        value: (row) => row.notes,
+      },
+    ],
+    resolveRowWriter,
+  );
 }
 
 // One kilogram in pounds. Used only to *order* entries against each other —

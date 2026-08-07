@@ -1,11 +1,6 @@
-import { useMemo, useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import { DocumentRowDetailOverlay } from "../shared/DocumentRowDetail";
-import { TrackerReadActions } from "../shared/TrackerReadActions";
-import {
-  type TrackerReadColumn,
-  TrackerReadTable,
-} from "../shared/TrackerReadTable";
+import { TrackerIndexTable } from "../shared/TrackerIndexTable";
+import type { TrackerReadColumn } from "../shared/TrackerReadTable";
 import {
   type TrackerIndexRow,
   trackerMeasuredAtColumn,
@@ -104,6 +99,17 @@ function getWeightColumns(context: {
   ];
 }
 
+function buildWeightRows(
+  entries: ReadonlyArray<WeightEntryRow>,
+): WeightIndexRow[] {
+  return entries.map((entry, index) => ({
+    change: formatWeightChange(entry, entries[index - 1]),
+    changeValue: getWeightChange(entry, entries[index - 1]),
+    entry,
+    index,
+  }));
+}
+
 /**
  * The weight tracker's index view: every entry as one row of a single sortable
  * table.
@@ -120,67 +126,25 @@ export function WeightReadTable(params: {
   resolveRowWriter?: RowWriterResolver | undefined;
 }) {
   const { currentAuthorId, entries, onEnterEdit, resolveRowWriter } = params;
-  const [detailRowId, setDetailRowId] = useState<string | null>(null);
-  const rows = useMemo(
-    () =>
-      entries.map((entry, index) => ({
-        change: formatWeightChange(entry, entries[index - 1]),
-        changeValue: getWeightChange(entry, entries[index - 1]),
-        entry,
-        index,
-      })),
-    [entries],
-  );
-  const columns = useMemo(
-    () => getWeightColumns({ currentAuthorId, resolveRowWriter }),
-    [currentAuthorId, resolveRowWriter],
-  );
-  const detailRow = rows.find((row) => row.entry.id === detailRowId) ?? null;
 
   return (
-    <>
-      <TrackerReadTable
-        actionsLabel="Actions"
-        ariaLabel="Entries"
-        columns={columns}
-        columnStorageKey="tearleads.weight.entries:hidden-columns:v2"
-        defaultSortColumnId="ordinal"
-        emptyLabel="No entries"
-        renderActions={(row) => (
-          <TrackerReadActions
-            actionsAriaLabel={`Entry ${row.index + 1} actions`}
-            detailLabel="Attribution"
-            detailsOpen={detailRowId === row.entry.id}
-            directAriaLabel={`Entry ${row.index + 1} attribution`}
-            onEnterEdit={
-              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
-            }
-            onOpenDetails={() => setDetailRowId(row.entry.id)}
-          />
-        )}
-        rowKey={(row) => row.entry.id}
-        rows={rows}
-        sortMenuLabel="Sort entries"
-      />
-      {detailRow ? (
-        <DocumentRowDetailOverlay
-          createdAt={detailRow.entry.createdAt}
-          createdBy={
-            resolveRowWriter?.(detailRow.entry.createdByPeer) ??
-            detailRow.entry.createdBy
-          }
-          currentAuthorId={currentAuthorId}
-          fields={toWeightEntryDetailFields(detailRow.entry, resolveRowWriter)}
-          onClose={() => setDetailRowId(null)}
-          showFieldValues={false}
-          title={`Entry ${detailRow.index + 1}`}
-          updatedAt={detailRow.entry.updatedAt}
-          updatedBy={
-            resolveRowWriter?.(detailRow.entry.updatedByPeer) ??
-            detailRow.entry.updatedBy
-          }
-        />
-      ) : null}
-    </>
+    <TrackerIndexTable
+      actionsAriaLabel={(row) => `Entry ${row.index + 1} actions`}
+      ariaLabel="Entries"
+      buildRows={buildWeightRows}
+      columnStorageKey="tearleads.weight.entries:hidden-columns:v2"
+      currentAuthorId={currentAuthorId}
+      detailFields={toWeightEntryDetailFields}
+      detailLabel="Attribution"
+      detailTitle={(row) => `Entry ${row.index + 1}`}
+      directAriaLabel={(row) => `Entry ${row.index + 1} attribution`}
+      emptyLabel="No entries"
+      entries={entries}
+      getColumns={getWeightColumns}
+      onEnterEdit={onEnterEdit}
+      resolveRowWriter={resolveRowWriter}
+      showFieldValues={false}
+      sortMenuLabel="Sort entries"
+    />
   );
 }

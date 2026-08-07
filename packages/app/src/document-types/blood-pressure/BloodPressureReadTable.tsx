@@ -1,11 +1,6 @@
-import { useMemo, useState } from "react";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import { DocumentRowDetailOverlay } from "../shared/DocumentRowDetail";
-import { TrackerReadActions } from "../shared/TrackerReadActions";
-import {
-  type TrackerReadColumn,
-  TrackerReadTable,
-} from "../shared/TrackerReadTable";
+import { TrackerIndexTable } from "../shared/TrackerIndexTable";
+import type { TrackerReadColumn } from "../shared/TrackerReadTable";
 import {
   type TrackerIndexRow,
   trackerMeasuredAtColumn,
@@ -23,6 +18,12 @@ import {
 } from "./bloodPressureReadings";
 
 type BloodPressureIndexRow = TrackerIndexRow<BloodPressureReadingRow>;
+
+function buildBloodPressureRows(
+  readings: ReadonlyArray<BloodPressureReadingRow>,
+): BloodPressureIndexRow[] {
+  return readings.map((entry, index) => ({ entry, index }));
+}
 
 function getBloodPressureColumns(context: {
   currentAuthorId: string | null;
@@ -87,64 +88,25 @@ export function BloodPressureReadTable(params: {
   resolveRowWriter?: RowWriterResolver | undefined;
 }) {
   const { currentAuthorId, onEnterEdit, readings, resolveRowWriter } = params;
-  const [detailRowId, setDetailRowId] = useState<string | null>(null);
-  const rows = useMemo(
-    () => readings.map((entry, index) => ({ entry, index })),
-    [readings],
-  );
-  const columns = useMemo(
-    () => getBloodPressureColumns({ currentAuthorId, resolveRowWriter }),
-    [currentAuthorId, resolveRowWriter],
-  );
-  const detailRow = rows.find((row) => row.entry.id === detailRowId) ?? null;
 
   return (
-    <>
-      <TrackerReadTable
-        actionsLabel="Actions"
-        ariaLabel="Readings"
-        columns={columns}
-        columnStorageKey="tearleads.blood-pressure.readings:hidden-columns:v2"
-        defaultSortColumnId="ordinal"
-        emptyLabel="No readings"
-        renderActions={(row) => (
-          <TrackerReadActions
-            actionsAriaLabel={`Reading ${row.index + 1} actions`}
-            detailLabel="Attribution"
-            detailsOpen={detailRowId === row.entry.id}
-            directAriaLabel={`Reading ${row.index + 1} attribution`}
-            onEnterEdit={
-              onEnterEdit ? () => onEnterEdit(row.entry.id) : undefined
-            }
-            onOpenDetails={() => setDetailRowId(row.entry.id)}
-          />
-        )}
-        rowKey={(row) => row.entry.id}
-        rows={rows}
-        sortMenuLabel="Sort readings"
-      />
-      {detailRow ? (
-        <DocumentRowDetailOverlay
-          createdAt={detailRow.entry.createdAt}
-          createdBy={
-            resolveRowWriter?.(detailRow.entry.createdByPeer) ??
-            detailRow.entry.createdBy
-          }
-          currentAuthorId={currentAuthorId}
-          fields={toBloodPressureReadingDetailFields(
-            detailRow.entry,
-            resolveRowWriter,
-          )}
-          onClose={() => setDetailRowId(null)}
-          showFieldValues={false}
-          title={`Reading ${detailRow.index + 1}`}
-          updatedAt={detailRow.entry.updatedAt}
-          updatedBy={
-            resolveRowWriter?.(detailRow.entry.updatedByPeer) ??
-            detailRow.entry.updatedBy
-          }
-        />
-      ) : null}
-    </>
+    <TrackerIndexTable
+      actionsAriaLabel={(row) => `Reading ${row.index + 1} actions`}
+      ariaLabel="Readings"
+      buildRows={buildBloodPressureRows}
+      columnStorageKey="tearleads.blood-pressure.readings:hidden-columns:v2"
+      currentAuthorId={currentAuthorId}
+      detailFields={toBloodPressureReadingDetailFields}
+      detailLabel="Attribution"
+      detailTitle={(row) => `Reading ${row.index + 1}`}
+      directAriaLabel={(row) => `Reading ${row.index + 1} attribution`}
+      emptyLabel="No readings"
+      entries={readings}
+      getColumns={getBloodPressureColumns}
+      onEnterEdit={onEnterEdit}
+      resolveRowWriter={resolveRowWriter}
+      showFieldValues={false}
+      sortMenuLabel="Sort readings"
+    />
   );
 }
