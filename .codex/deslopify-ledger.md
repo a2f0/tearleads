@@ -521,3 +521,39 @@
   workflows or select infrastructure. Keep the non-async delete facade and the
   optional-input trial-expiry worker seam explicit because their call contracts
   differ from the shared async two-argument shape.
+
+### 2026-08-07 - Shared asynchronous system-container derivation
+
+- Status: accepted
+- Classification: duplicated React async-to-state lifecycle and redundant
+  per-consumer key derivation
+- Equivalence claim: user and organization system slots retain their initial
+  empty values, keep the prior non-empty projection while a replacement source
+  settles, reset after a missing source or active-source rejection, ignore stale
+  and unmounted results, and report the existing bootstrap and built-in Explorer
+  error labels. Bootstrap, Explorer, Contacts, and document Trash receive the
+  same user-container definitions and slots as before.
+- Risk notes: signing-key transitions, late promise settlement, provider order,
+  and sharing one derived array across consumers. Direct hook and provider
+  coverage proves stale-result suppression, reset/error behavior, retained state
+  during replacement, shared array identity, and exactly one derivation per key.
+- Files changed: shared async-derived-state hook, runtime-level user-system-
+  containers provider, app provider composition, and the bootstrap, Explorer,
+  Contacts, document-Trash, and built-in-slot consumers.
+- Baseline: 48 focused system-container, bootstrap, Explorer, and Contacts tests
+  passed at `081e5f74` before the refactor.
+- Verification: app TypeScript, four direct hook/provider tests, and all 135
+  bootstrap, Explorer-store, Contacts-store, and shared document-Trash tests
+  pass. `bun run check:affected` passes every static, architecture, OpenAPI, and
+  protocol-model gate; 2,262 app tests pass with one skip, and all 38 web E2E
+  tests pass.
+- Delta: 66 production lines removed net; three independent user-slot effects
+  become one runtime derivation shared by every consumer, and the remaining
+  organization-slot effect uses the common lifecycle. Direct lifecycle and
+  fan-out characterization coverage added.
+- Decision notes: derive user containers above the device-first/bootstrap stack
+  because the signing key is runtime-scoped, then expose a strict context to all
+  nested consumers. Preserve the bootstrap error label as the canonical failure
+  signal while eliminating duplicate Explorer/Contacts derivations and duplicate
+  error reports. Keep built-in organization slots local to Explorer because they
+  are feature-flagged presentation state rather than identity-wide runtime state.

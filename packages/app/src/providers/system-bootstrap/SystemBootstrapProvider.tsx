@@ -19,7 +19,6 @@ import {
   findExplorerSystemNode,
 } from "../../stores/explorer/ExplorerSystemContainers";
 import {
-  deriveUserSystemContainers,
   findUserSystemContainer,
   type UserSystemContainer,
 } from "../../stores/systemContainers";
@@ -42,6 +41,7 @@ import {
   usePromoteLocalSystemContainers,
   useProvisionedSystemContainerPull,
 } from "./systemContainerSyncEffects";
+import { useUserSystemContainers } from "./UserSystemContainersProvider";
 
 interface SystemBootstrapContextValue {
   readonly ensureBootstrapped: () => Promise<SystemBootstrapResult>;
@@ -52,42 +52,6 @@ interface SystemBootstrapContextValue {
 
 const SystemBootstrapContext =
   createContext<SystemBootstrapContextValue | null>(null);
-
-function useUserSystemContainers(input: {
-  readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly signingPrivateKey: Uint8Array | null;
-}): ReadonlyArray<UserSystemContainer> {
-  const [systemContainers, setSystemContainers] = useState<
-    ReadonlyArray<UserSystemContainer>
-  >([]);
-
-  useEffect(() => {
-    if (!input.signingPrivateKey) {
-      setSystemContainers([]);
-      return;
-    }
-
-    let cancelled = false;
-    void deriveUserSystemContainers(input.signingPrivateKey)
-      .then((nextSystemContainers) => {
-        if (!cancelled) {
-          setSystemContainers(nextSystemContainers);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setSystemContainers([]);
-          input.logError("Failed to derive system bootstrap slots", error);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [input.logError, input.signingPrivateKey]);
-
-  return systemContainers;
-}
 
 function useSystemBootstrapInput(input: {
   readonly bootstrapContacts: boolean | null;
@@ -283,10 +247,7 @@ export function SystemBootstrapProvider({
   const tearleads = useTearleads();
   const { containerStore: store } = useDeviceFirstContainerContents();
   const snapshot = useTearleadsExternalStoreSnapshot(store);
-  const systemContainers = useUserSystemContainers({
-    logError: tearleads.logError,
-    signingPrivateKey: appData.crypto.signingKeyPair?.signingPrivateKey ?? null,
-  });
+  const systemContainers = useUserSystemContainers();
   const primaryLocalOrganization = usePrimaryLocalOrganization({
     defaultOrganizationId: appData.auth.defaultOrganizationId,
     enabled:
