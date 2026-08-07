@@ -11,7 +11,6 @@ export { runPurgeDocumentWorkflow } from "./purgeDocument";
 export {
   assertCurrentContainerPathRefGroups,
   loadCurrentDocumentManifest,
-  loadSignerPublicKey,
 } from "./shared/verification";
 export {
   type DocumentSyncWorkflowResult,

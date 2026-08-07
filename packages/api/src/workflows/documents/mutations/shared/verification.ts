@@ -2,7 +2,6 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
 import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
@@ -15,14 +14,12 @@ import {
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type {
   ContainerManifestRef,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundles,
   getCurrentAccessManifestHead,
@@ -42,6 +39,7 @@ import {
   toVerifiedContainerManifest,
 } from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
+import { loadSignerPublicKey } from "../../../signerPublicKey";
 import {
   DocumentMutationError,
   documentShapeError,
@@ -54,29 +52,6 @@ import {
 } from "./records";
 
 type CurrentDocumentKekTargets = Awaited<ReturnType<typeof resolveTargets>>;
-
-export async function loadSignerPublicKey(
-  executor: DatabaseSession,
-  input: {
-    readonly fingerprint: string;
-    readonly userId: string;
-  },
-): Promise<Uint8Array> {
-  const [user] = await executor
-    .select({
-      fingerprint: users.fingerprint,
-      signingPublicKey: users.signingPublicKey,
-    })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
-
-  if (!user || user.fingerprint !== input.fingerprint) {
-    throw new DocumentMutationError("Forbidden", 403);
-  }
-
-  return base64ToBytes(user.signingPublicKey);
-}
 
 export async function verifyDocumentEvent(input: {
   readonly body: unknown;
@@ -117,7 +92,10 @@ export async function verifyDocumentEvent(input: {
   const verifiedEvent = await verifySignedAccessEvent({
     body: readKeyingCanonicalJson(input.body, "Document access event body"),
     event,
-    signerPublicKey: await loadSignerPublicKey(input.executor, input),
+    signerPublicKey: await loadSignerPublicKey(input.executor, {
+      ...input,
+      error: (message, status) => new DocumentMutationError(message, status),
+    }),
   });
 
   if (!verifiedEvent.ok) {

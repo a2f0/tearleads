@@ -18,6 +18,7 @@ import { documentAuditAccessFromManifest } from "../../../documents/documentAudi
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
+import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
@@ -31,10 +32,7 @@ import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./shared/records";
-import {
-  loadSignerPublicKey,
-  verifySyncWriteAuthorizationProof,
-} from "./shared/verification";
+import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
@@ -379,7 +377,11 @@ export async function runDocumentSyncWorkflow(
         enforceSyncEligibility: true,
         fingerprint: input.fingerprint,
         request: input.request,
-        signingPublicKey: await loadSignerPublicKey(tx, input),
+        signingPublicKey: await loadSignerPublicKey(tx, {
+          ...input,
+          error: (message, status) =>
+            new DocumentMutationError(message, status),
+        }),
         tx,
         userId: input.userId,
       }),
