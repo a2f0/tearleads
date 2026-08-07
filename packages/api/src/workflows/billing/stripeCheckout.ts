@@ -14,7 +14,7 @@ import {
   type SyncBillingTierId,
 } from "@tearleads/validators/billing";
 import { eq } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
@@ -86,9 +86,7 @@ async function lockStripeCheckoutBilling(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
-  const [billing] = isSqliteApiDatabase()
-    ? await query
-    : await query.for("update");
+  const [billing] = await lockRowForUpdate(query);
   if (!billing) {
     throw new Error("Organization billing not found during Stripe checkout");
   }

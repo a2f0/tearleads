@@ -13,7 +13,7 @@ import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
 } from "../../billing/revenuecatWebhook";
-import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { resolveRevenueCatBuyerIgnoredReason } from "./revenuecatBuyerPolicy";
 import type {
   ImmutableStripeStoreOrgResolution,
@@ -49,7 +49,7 @@ export async function lockRevenueCatBillingIdentity(
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
-  const [row] = isSqliteApiDatabase() ? await query : await query.for("update");
+  const [row] = await lockRowForUpdate(query);
   return row;
 }
 

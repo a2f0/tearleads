@@ -5,6 +5,16 @@ export function isSqliteApiDatabase(): boolean {
   return getDefaultApiDatabaseKind() === "sqlite";
 }
 
+interface RowLockQuery<TResult> extends PromiseLike<TResult> {
+  for(strength: "update"): PromiseLike<TResult>;
+}
+
+export function lockRowForUpdate<TResult>(
+  query: RowLockQuery<TResult>,
+): PromiseLike<TResult> {
+  return isSqliteApiDatabase() ? query : query.for("update");
+}
+
 export function textExpression(expression: SQL): SQL {
   return isSqliteApiDatabase() ? expression : sql`${expression}::text`;
 }

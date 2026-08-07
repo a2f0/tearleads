@@ -175,3 +175,25 @@
   decode characterization coverage added.
 - Decision notes: place the cross-domain loader at the keying workflow seam and
   inject only error construction, keeping mutation facades domain-owned.
+
+### 2026-08-07 - SQL row-update lock helper
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: every migrated query still executes unchanged on SQLite
+  and applies the same no-option `FOR UPDATE` lock before execution on
+  PostgreSQL; result rows and caller-owned missing-row handling are unchanged.
+- Risk notes: query-builder thenable behavior, database dialect selection, and
+  transaction lock timing. Table-scoped `FOR UPDATE { of: ... }` and `FOR SHARE`
+  paths remain local because their lock semantics differ.
+- Files changed: the SQL dialect helper and direct test, three document audit
+  writers, and seven Billing, Blobs, and Organizations workflow lock sites.
+- Baseline: the full API memory and SQLite matrix passed at `ef663ef9`.
+- Verification: the direct dialect test, TypeScript, architecture,
+  source-shape, and `bun run check:affected` pass; the affected API matrix
+  reports 1,003 tests passing on both memory and SQLite.
+- Delta: four production lines removed net, with one direct dialect-branch test
+  added.
+- Decision notes: accept a structurally typed thenable query so the helper
+  preserves Drizzle result inference without depending on a concrete dialect
+  query-builder class.
