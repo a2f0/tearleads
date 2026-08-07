@@ -7,32 +7,31 @@ import {
 } from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
-interface FileDocumentFields {
-  [key: string]: string;
+type FileDocumentFields = {
   byteLength: string;
   fileName: string;
   mimeType: string;
   sourceLastModified: string;
-}
+};
 
-interface ImageDocumentFields extends FileDocumentFields {
+type ImageDocumentFields = FileDocumentFields & {
   height: string;
   width: string;
-}
+};
 
-interface AudioDocumentFields extends FileDocumentFields {
+type AudioDocumentFields = FileDocumentFields & {
   durationMs: string;
-}
+};
 
-interface VideoDocumentFields extends FileDocumentFields {
+type VideoDocumentFields = FileDocumentFields & {
   durationMs: string;
   height: string;
   width: string;
-}
+};
 
-interface PdfDocumentFields extends FileDocumentFields {
+type PdfDocumentFields = FileDocumentFields & {
   pageCount: string;
-}
+};
 
 function deriveFileDocumentTitle(
   fields: FileDocumentFields,

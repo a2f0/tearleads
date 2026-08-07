@@ -61,9 +61,10 @@
 - Files changed: document app wrappers, file-backed projector definitions,
   canonical document-kind constants, the registry, and two shared factories.
 - Baseline: 297 document-type tests passed before the refactor.
-- Verification: the app TypeScript build and the same 297 document-type tests
-  passed after the refactor; broader repository checks run before shipping.
-- Delta: 258 production lines removed net before this ledger entry.
+- Verification: the app TypeScript build and 299 document-type tests passed
+  after the refactor, including direct characterization of exact optional prop
+  omission; broader repository checks run before shipping.
+- Delta: 253 production lines removed net before this ledger entry.
 - Decision notes: accepted because the factories own only the repeated provider
   and projection envelopes while each document type continues to supply its
   domain component, reader, metadata, and title fallback.

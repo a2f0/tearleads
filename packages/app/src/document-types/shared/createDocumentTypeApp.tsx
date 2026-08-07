@@ -56,5 +56,11 @@ export function createFileDocumentTypeApp(
     return <FileDocument {...config} initialEditing={initialEditing} />;
   }
 
-  return createDocumentTypeApp(initialDocumentKind, FileDocumentType);
+  const App = createDocumentTypeApp(initialDocumentKind, FileDocumentType);
+  const kindName = initialDocumentKind
+    .split("_")
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join("");
+  App.displayName = `${kindName}DocumentApp`;
+  return App;
 }
