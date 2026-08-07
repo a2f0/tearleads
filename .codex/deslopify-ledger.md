@@ -243,3 +243,24 @@
   make registered input-transform projection explicit and fail closed.
 - Decision notes: retain the query schema's plain-object requirement while
   returning Zod's parsed object, so its inferred numeric limit matches runtime.
+
+### 2026-08-07 - Window chrome-item registration
+
+- Status: accepted
+- Classification: exact and parametric duplication
+- Equivalence claim: file/view menu items, refresh items, title-bar actions,
+  and back actions retain stable registration identities, latest-callback
+  dispatch, default values, ordering, disabled behavior, and unmount cleanup.
+- Risk notes: callback freshness and registration cleanup. The refresh-only
+  disabled unregister was redundant with the prior effect cleanup and removed;
+  disabling one registration still cannot clear another registration.
+- Files changed: window menu and chrome action hooks, the item registry, and a
+  shared registration hook with direct characterization coverage.
+- Baseline: 62 window-component tests passed before the refactor.
+- Verification: the app TypeScript build and 64 window-component tests pass,
+  including direct coverage for stable identity, latest-action dispatch, and
+  field-change re-registration and disabled cleanup.
+- Delta: 57 production lines removed net before this ledger entry.
+- Decision notes: normalize each item shape at its owning boundary while the
+  shared hook owns only ref plumbing, commit-time shallow comparison, and
+  effects.

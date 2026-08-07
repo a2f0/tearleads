@@ -1,14 +1,14 @@
 import {
   createContext,
   type PropsWithChildren,
-  useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
+import { useWindowItemRegistration } from "./useWindowItemRegistration";
 import {
+  sameWindowItem,
   selectHighestPriorityItem,
   useWindowItemRegistry,
 } from "./useWindowItemRegistry";
@@ -18,8 +18,6 @@ import {
   createTitleBarActions,
   type RegisteredWindowBackAction,
   type RegisteredWindowTitleBarAction,
-  sameBackAction,
-  sameTitleBarAction,
   useRegisteredWindowBackAction,
   useRegisteredWindowTitleBarAction,
   type WindowBackAction,
@@ -34,8 +32,6 @@ import {
   REFRESH_LABEL,
   type RegisteredWindowMenuItem,
   type RegisteredWindowRefreshMenuItem,
-  sameMenuItem,
-  sameRefreshMenuItem,
 } from "./windowMenuRegistrations";
 
 interface WindowRefreshMenuItemInput {
@@ -52,6 +48,32 @@ interface WindowFileMenuItemInput {
   label: string;
   onClick: () => unknown;
   priority?: number;
+}
+
+function createRegisteredMenuItem(
+  item: WindowFileMenuItemInput,
+  onClick: () => unknown,
+): RegisteredWindowMenuItem {
+  return {
+    disabled: item.disabled ?? false,
+    id: item.id,
+    label: item.label,
+    onClick,
+    priority: item.priority ?? 0,
+  };
+}
+
+function createRegisteredRefreshMenuItem(
+  item: WindowRefreshMenuItemInput,
+  onRefresh: () => unknown,
+): RegisteredWindowRefreshMenuItem {
+  return {
+    disabled: item.disabled ?? false,
+    label: item.label ?? REFRESH_LABEL,
+    onRefresh,
+    priority: item.priority ?? 0,
+    refreshing: item.refreshing ?? false,
+  };
 }
 
 interface WindowMenuContextValue {
@@ -111,15 +133,15 @@ const WindowMenuContext = createContext<WindowMenuContextValue>({
 
 function useWindowMenuContextValue(): WindowMenuContextValue {
   const fileMenu =
-    useWindowItemRegistry<RegisteredWindowMenuItem>(sameMenuItem);
+    useWindowItemRegistry<RegisteredWindowMenuItem>(sameWindowItem);
   const viewMenu =
-    useWindowItemRegistry<RegisteredWindowMenuItem>(sameMenuItem);
+    useWindowItemRegistry<RegisteredWindowMenuItem>(sameWindowItem);
   const titleBar =
-    useWindowItemRegistry<RegisteredWindowTitleBarAction>(sameTitleBarAction);
+    useWindowItemRegistry<RegisteredWindowTitleBarAction>(sameWindowItem);
   const back =
-    useWindowItemRegistry<RegisteredWindowBackAction>(sameBackAction);
+    useWindowItemRegistry<RegisteredWindowBackAction>(sameWindowItem);
   const refresh =
-    useWindowItemRegistry<RegisteredWindowRefreshMenuItem>(sameRefreshMenuItem);
+    useWindowItemRegistry<RegisteredWindowRefreshMenuItem>(sameWindowItem);
   const toolbarReservation = useWindowToolbarReservationRegistry();
 
   const fileMenuItemList = useMemo(
@@ -241,49 +263,13 @@ function useRegisteredWindowMenuItem(
   registerMenuItem: (id: object, item: RegisteredWindowMenuItem) => void,
   unregisterMenuItem: (id: object) => void,
 ): void {
-  const registrationIdRef = useRef<object>({});
-  const onClickRef = useRef<WindowFileMenuItemInput["onClick"] | null>(null);
-  const enabled = item !== null;
-  const disabled = item?.disabled ?? false;
-  const itemId = item?.id ?? "";
-  const label = item?.label ?? "";
-  const onClick = item?.onClick ?? null;
-  const priority = item?.priority ?? 0;
-
-  useLayoutEffect(() => {
-    onClickRef.current = onClick;
-  }, [onClick]);
-
-  const handleClick = useCallback(() => {
-    return onClickRef.current?.();
-  }, []);
-
-  useEffect(() => {
-    const registrationId = registrationIdRef.current;
-
-    if (!enabled) {
-      return;
-    }
-
-    registerMenuItem(registrationId, {
-      disabled,
-      id: itemId,
-      label,
-      onClick: handleClick,
-      priority,
-    });
-
-    return () => unregisterMenuItem(registrationId);
-  }, [
-    disabled,
-    enabled,
-    handleClick,
-    itemId,
-    label,
-    priority,
-    registerMenuItem,
-    unregisterMenuItem,
-  ]);
+  useWindowItemRegistration({
+    action: item?.onClick ?? null,
+    createRegisteredItem: createRegisteredMenuItem,
+    input: item,
+    registerItem: registerMenuItem,
+    unregisterItem: unregisterMenuItem,
+  });
 }
 
 export function useWindowFileMenuItem(
@@ -373,50 +359,11 @@ export function useWindowRefreshMenuItem(
 ): void {
   const { registerRefreshMenuItem, unregisterRefreshMenuItem } =
     useContext(WindowMenuContext);
-  const idRef = useRef<object>({});
-  const onRefreshRef = useRef<WindowRefreshMenuItemInput["onRefresh"] | null>(
-    null,
-  );
-  const enabled = item !== null;
-  const disabled = item?.disabled ?? false;
-  const label = item?.label ?? REFRESH_LABEL;
-  const onRefresh = item?.onRefresh ?? null;
-  const priority = item?.priority ?? 0;
-  const refreshing = item?.refreshing ?? false;
-
-  useLayoutEffect(() => {
-    onRefreshRef.current = onRefresh;
-  }, [onRefresh]);
-
-  const handleRefresh = useCallback(() => {
-    return onRefreshRef.current?.();
-  }, []);
-
-  useEffect(() => {
-    const id = idRef.current;
-
-    if (!enabled) {
-      unregisterRefreshMenuItem(id);
-      return;
-    }
-
-    registerRefreshMenuItem(id, {
-      disabled,
-      label,
-      onRefresh: handleRefresh,
-      priority,
-      refreshing,
-    });
-
-    return () => unregisterRefreshMenuItem(id);
-  }, [
-    disabled,
-    enabled,
-    handleRefresh,
-    label,
-    priority,
-    refreshing,
-    registerRefreshMenuItem,
-    unregisterRefreshMenuItem,
-  ]);
+  useWindowItemRegistration({
+    action: item?.onRefresh ?? null,
+    createRegisteredItem: createRegisteredRefreshMenuItem,
+    input: item,
+    registerItem: registerRefreshMenuItem,
+    unregisterItem: unregisterRefreshMenuItem,
+  });
 }
