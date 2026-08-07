@@ -2,8 +2,8 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
-import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
+import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   applyAttachmentContainerRekeys,
   assertAttachmentOrganizationCanSync,
@@ -45,7 +45,10 @@ export async function runDetachBlobAttachmentWorkflow(
       // Run sequentially: both queries share the single transaction
       // connection, so issuing them concurrently only trips pg's
       // already-executing-query deprecation without any real parallelism.
-      const signingPublicKey = await loadSignerPublicKey(tx, input);
+      const signingPublicKey = await loadSignerPublicKey(tx, {
+        ...input,
+        error: (message, status) => new BlobMutationError(message, status),
+      });
       const proof = await verifyAttachmentAuthorizationProof({
         bodyDocumentId: detachBody.documentId,
         executor: tx,
