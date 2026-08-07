@@ -19,7 +19,7 @@ import {
   type CompleteMultipartUploadPart,
   MAX_UPLOAD_PART_BYTES,
 } from "./blobObjectStore";
-import { responseBodyToStream } from "./s3BlobObjectStreams";
+import { recordValue, responseBodyToStream } from "./s3BlobObjectStreams";
 
 type S3BlobObjectStoreClient = Pick<S3Client, "send">;
 
@@ -36,14 +36,6 @@ function sha256HexToBase64(value: string): string {
   }
 
   return Buffer.from(value, "hex").toString("base64");
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
-}
-
-function recordValue(value: unknown, key: string): unknown {
-  return isRecord(value) ? value[key] : undefined;
 }
 
 function errorName(error: unknown): string | undefined {

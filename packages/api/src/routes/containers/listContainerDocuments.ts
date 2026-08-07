@@ -13,7 +13,7 @@ import {
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
-import { parseOptionalWatermark } from "./queryParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface ListContainerDocumentsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -44,7 +44,11 @@ export function createListContainerDocumentsRoute({
         watermarkUpdatedAt,
       } = c.req.valid("query");
       const limit = limitValue === undefined ? undefined : Number(limitValue);
-      const watermark = parseOptionalWatermark(watermarkUpdatedAt, watermarkId);
+      // The query schema enforces both watermark params present or both absent.
+      const watermark =
+        watermarkUpdatedAt !== undefined && watermarkId !== undefined
+          ? { id: watermarkId, updatedAt: watermarkUpdatedAt }
+          : undefined;
 
       try {
         return c.json<ListContainerDocumentsResponse>(
@@ -54,11 +58,7 @@ export function createListContainerDocumentsRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof ListContainerDocumentsError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, ListContainerDocumentsError);
       }
     },
   );

@@ -202,7 +202,7 @@ function createCompleteMultipartUpload(
 
     return {
       byteLength: bytes.byteLength,
-      sha256: await sha256Hex(bytes),
+      sha256: sha256Hex(bytes),
     };
   };
 }
@@ -265,7 +265,7 @@ function createUploadPart(
         "invalid_part",
       );
     }
-    if ((await sha256Hex(bytes)) !== body.sha256) {
+    if (sha256Hex(bytes) !== body.sha256) {
       throw new BlobObjectStoreError(
         "Multipart upload part sha256 mismatch",
         "invalid_part",

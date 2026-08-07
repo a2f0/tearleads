@@ -9,11 +9,8 @@ import {
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
-import {
-  DocumentMutationError,
-  documentNotFound,
-  isUniqueViolation,
-} from "../errors";
+import { isUniqueViolation } from "../../../../utils/databaseErrors";
+import { DocumentMutationError, documentNotFound } from "../errors";
 
 export async function insertDocumentAndLinks(input: {
   readonly createdByFingerprint: string;

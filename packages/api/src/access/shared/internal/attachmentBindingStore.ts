@@ -10,7 +10,7 @@ import type {
 } from "@tearleads/crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { nowExpression } from "../../../utils/sqlDialect";
-import { storeVerifiedAccessEventInTransaction } from "../../shared/internal/accessManifestStore";
+import { storeVerifiedAccessEventInTransaction } from "./accessManifestStore";
 
 class AttachmentBindingProjectionError extends Error {
   constructor(

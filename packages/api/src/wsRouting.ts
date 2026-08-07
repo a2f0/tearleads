@@ -337,8 +337,7 @@ export class WsEventRouter {
     // the authoring socket may be connected here. Per-SESSION, never per-user:
     // the author's other devices/tabs are distinct sessions and must still
     // receive the event so they sync. Absent `origin` (e.g. attachment-bind
-    // events, or any event published before this field existed) means "exclude
-    // nobody" — every interested socket gets it, preserving old behavior.
+    // events) means "exclude nobody" — every interested socket gets it.
     const origin = readOrigin(event);
     // `rawMessage` carries `origin`, which includes a sensitive sessionId.
     // Strip it on PRESENCE of the key, not on whether it parsed into a valid

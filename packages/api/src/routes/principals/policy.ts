@@ -11,6 +11,7 @@ import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentP
 import { putPrincipalPolicy } from "../../services/principals/putPrincipalPolicy";
 import { PrincipalPolicyError } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 
@@ -43,19 +44,13 @@ async function publishMembershipShareNotifications(
   // awaiting them in series would add each socket's publish latency to the
   // response time of a large group's update.
   await Promise.all(
-    userIds.map(async (userId) => {
-      try {
-        await publish({
-          type: "shared_with_you",
-          userId,
-        });
-      } catch (error) {
-        console.error(
-          "Failed to publish membership shared_with_you notification:",
-          error,
-        );
-      }
-    }),
+    userIds.map((userId) =>
+      publishBestEffort(
+        publish,
+        { type: "shared_with_you", userId },
+        "membership shared_with_you notification",
+      ),
+    ),
   );
 }
 

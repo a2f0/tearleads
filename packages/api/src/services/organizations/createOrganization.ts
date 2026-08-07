@@ -1,10 +1,9 @@
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
-import {
-  OrganizationProvisioningError,
-  toOrganizationProvisioningResponse,
-} from "../../workflows/organizations/provisionOrganization";
+import { OrganizationProvisioningError } from "../../workflows/organizations/provisionOrganizationError";
+import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganizationResponse";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationProvisioningError };
@@ -36,24 +35,18 @@ export async function createOrganization(
   // sessions do not know to list yet. Reuse the same user-scoped discovery hint
   // as a newly shared root; the authoring session is excluded because it owns
   // the provisioning response and persists that state locally itself.
-  try {
-    await runtime.eventPublisher.publish({
+  await publishBestEffort(
+    runtime.eventPublisher.publish,
+    {
       type: "shared_with_you",
       userId: authenticatedUserId,
       origin: {
         sessionId: authenticatedSessionId,
         userId: authenticatedUserId,
       },
-    });
-  } catch (error) {
-    // Provisioning is already committed. A lossy realtime hint must not turn a
-    // successful organization create into an apparent failure for the caller;
-    // other sessions retain the normal manual/reconnect recovery path.
-    console.error(
-      "Failed to publish organization root discovery notification:",
-      error,
-    );
-  }
+    },
+    "organization root discovery notification",
+  );
 
   return toOrganizationProvisioningResponse(authenticatedUserId, provisioned);
 }

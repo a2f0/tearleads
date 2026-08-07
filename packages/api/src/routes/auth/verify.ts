@@ -4,7 +4,10 @@ import {
 } from "@tearleads/validators/operation";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
-import { readRequestIpAddress } from "../../middleware/session";
+import {
+  readRequestIpAddress,
+  type SessionEnv,
+} from "../../middleware/session";
 import {
   VerifyChallengeError,
   verifyChallenge,
@@ -13,7 +16,7 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 export function createVerifyRoute(runtime: ApiServiceRuntime) {
-  const verifyRoute = new Hono();
+  const verifyRoute = new Hono<SessionEnv>();
 
   verifyRoute.on(
     verifyOperation.method,

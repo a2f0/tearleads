@@ -5,22 +5,22 @@ import type {
 import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
-import { getCurrentPrincipalState } from "../../../access/read/principalStateStore";
-import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
-import { assertManagedPrincipalRosterMembership } from "../../principals/managedPrincipalRosterMembership";
-import { lockPrincipalMutationInTransaction } from "../../principals/principalMutationLock";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
+import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";
+import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import {
   PrincipalPolicyError,
   toPrincipalPolicyError,
-} from "../../principals/shared";
-import { storeVerifiedPrincipalPolicyInTransaction } from "../../principals/storeVerifiedPrincipalPolicy";
-import { requireDirectOrganizationAccess } from "../access";
-import { OrganizationManagerError } from "../errors";
-import { toGroupSummary } from "../groupSummary";
-import { wasOrganizationGroupDeleted } from "../groupTombstone";
-import { requireSerializedOrganizationMutationAccess } from "../mutationAccess";
-import { isCurrentOrganizationAdminAuthority } from "../principalPolicyExternalAuthority";
-import { appendOrganizationReadModelChangeInTransaction } from "../readModelChanges";
+} from "../principals/shared";
+import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
+import { requireDirectOrganizationAccess } from "./access";
+import { OrganizationManagerError } from "./errors";
+import { toGroupSummary } from "./groupSummary";
+import { wasOrganizationGroupDeleted } from "./groupTombstone";
+import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { isCurrentOrganizationAdminAuthority } from "./principalPolicyExternalAuthority";
+import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 
 function toPrincipalWriteError(
   error: unknown,

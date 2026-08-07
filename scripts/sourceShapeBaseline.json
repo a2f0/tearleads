@@ -90,76 +90,76 @@
       "bytes": 18015
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 886,
-      "bytes": 26921
+      "lines": 885,
+      "bytes": 26519
     },
     "packages/api/src/access/shared/internal/blobContentKeyStore.ts": {
-      "lines": 775,
-      "bytes": 21242
+      "lines": 582,
+      "bytes": 16045
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 606,
       "bytes": 19027
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 1109,
-      "bytes": 33302
+      "lines": 823,
+      "bytes": 24561
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
-      "lines": 914,
-      "bytes": 25752
+      "lines": 835,
+      "bytes": 24521
     },
     "packages/api/src/access/write/blobContentKeyStore.test.ts": {
       "lines": 668,
       "bytes": 19204
     },
     "packages/api/src/access/write/containerKekStore.test.ts": {
-      "lines": 632,
-      "bytes": 19360
+      "lines": 596,
+      "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1057,
-      "bytes": 32700
+      "lines": 1054,
+      "bytes": 32495
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
-      "lines": 974,
-      "bytes": 30916
+      "lines": 903,
+      "bytes": 28334
     },
     "packages/api/src/billing/stripeApi.test.ts": {
       "lines": 584,
-      "bytes": 18780
+      "bytes": 18525
     },
     "packages/api/src/billing/stripeApi.ts": {
-      "lines": 607,
-      "bytes": 23345
+      "lines": 582,
+      "bytes": 21286
     },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 634,
       "bytes": 21084
     },
     "packages/api/src/routes/containers/listContainers.test.ts": {
-      "lines": 621,
-      "bytes": 18631
+      "lines": 561,
+      "bytes": 17390
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 4110,
-      "bytes": 135883
+      "lines": 3715,
+      "bytes": 121975
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1289,
-      "bytes": 43277
+      "lines": 1275,
+      "bytes": 42660
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2418,
-      "bytes": 79146
+      "lines": 2284,
+      "bytes": 74287
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 1169,
-      "bytes": 36129
+      "lines": 825,
+      "bytes": 25795
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 905,
-      "bytes": 29720
+      "bytes": 29450
     },
     "packages/api/src/schema.test.ts": {
       "lines": 507,
@@ -167,39 +167,35 @@
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
-      "bytes": 18769
+      "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1340,
-      "bytes": 40645
+      "lines": 1289,
+      "bytes": 38836
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 658,
-      "bytes": 19247
+      "lines": 655,
+      "bytes": 19072
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 725,
-      "bytes": 22229
-    },
-    "packages/api/src/workflows/organizations/provisionOrganization.ts": {
-      "lines": 1415,
-      "bytes": 40843
+      "lines": 694,
+      "bytes": 21353
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
-      "lines": 710,
-      "bytes": 20923
+      "lines": 539,
+      "bytes": 16419
     },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,
       "bytes": 16424
     },
     "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
-      "lines": 650,
-      "bytes": 21720
+      "lines": 546,
+      "bytes": 18102
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1211,
-      "bytes": 40919
+      "lines": 1132,
+      "bytes": 39031
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,

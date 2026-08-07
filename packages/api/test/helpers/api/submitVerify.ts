@@ -1,4 +1,4 @@
-import type { RouteRequestBindings } from "../../../src/requestContext";
+import type { RouteRequestBindings } from "../../../src/middleware/session";
 import { routeApp } from "../../../src/routeApp";
 
 export async function submitVerify(

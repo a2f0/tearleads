@@ -12,16 +12,16 @@ import type {
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
+import { runCreateOrganizationGroupWorkflow } from "../../workflows/organizations/createGroup";
+import { runGetOrganizationDataUsageWorkflow } from "../../workflows/organizations/dataUsage";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import {
-  OrganizationManagerError,
-  runCreateOrganizationGroupWorkflow,
   runDeleteOrganizationGroupWorkflow,
-  runGetOrganizationDataUsageWorkflow,
-  runGetOrganizationReadModelWorkflow,
   runListOrganizationGroupMembersWorkflow,
-  runUpdateOrganizationProfileWorkflow,
-  runUpdateOrganizationRosterEntryWorkflow,
-} from "../../workflows/organizations";
+} from "../../workflows/organizations/groups";
+import { runUpdateOrganizationProfileWorkflow } from "../../workflows/organizations/profileMutation";
+import { runGetOrganizationReadModelWorkflow } from "../../workflows/organizations/readModelFeed";
+import { runUpdateOrganizationRosterEntryWorkflow } from "../../workflows/organizations/rosterMutation";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationManagerError };

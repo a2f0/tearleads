@@ -12,6 +12,7 @@ import {
 } from "../../services/documents/listDocumentAttachments";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface DocumentAttachmentsRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -44,11 +45,7 @@ export function createDocumentAttachmentsRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof ListDocumentAttachmentsError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, ListDocumentAttachmentsError);
       }
     },
   );

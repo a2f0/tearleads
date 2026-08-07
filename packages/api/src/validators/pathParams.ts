@@ -1,15 +1,8 @@
 import { validator } from "hono/validator";
-
-interface PathParamsSchema<Output> {
-  safeParse(
-    value: unknown,
-  ):
-    | { readonly data: Output; readonly success: true }
-    | { readonly success: false };
-}
+import type { SafeParseSchema } from "./schema";
 
 export function pathParamsValidator<Output>(
-  schema: PathParamsSchema<Output>,
+  schema: SafeParseSchema<Output>,
   errorMessage: string | ((value: unknown) => string) = "Invalid request",
 ) {
   return validator("param", (value, c) => {

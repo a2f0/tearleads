@@ -39,7 +39,17 @@ type SessionStoreSet = (
 type SessionStoreSetKeepTtl = (key: string, value: string) => Promise<void>;
 type SessionRevocationNotifier = (session: SessionData) => Promise<void>;
 
+/**
+ * Per-request bindings the composition root passes to `routeApp.fetch`. Tests
+ * that call `fetch` without bindings leave `c.env` undefined, so readers must
+ * tolerate its absence.
+ */
+export interface RouteRequestBindings {
+  readonly directClientIp?: string | null | undefined;
+}
+
 export interface SessionEnv {
+  Bindings: RouteRequestBindings;
   Variables: {
     session: SessionData;
     sessionToken: string;
@@ -69,9 +79,7 @@ function userSessionsKey(userId: string): string {
 }
 
 function extractToken(c: Context): string | null {
-  // Authorization is canonical way to send credentials to a server (RFC 7235).
   const header = c.req.header("Authorization");
-  // Bearer is the standard token scheme (RFC 7235).
   if (!header?.startsWith("Bearer ")) {
     return null;
   }
@@ -140,34 +148,13 @@ function forwardedHeaderIpAddress(
   return null;
 }
 
-function hasDirectClientIpBinding(
-  value: unknown,
-): value is { readonly directClientIp?: string | null | undefined } {
-  if (!value || typeof value !== "object" || !("directClientIp" in value)) {
-    return false;
-  }
-
-  const directClientIp = value.directClientIp;
-  return (
-    directClientIp === undefined ||
-    directClientIp === null ||
-    typeof directClientIp === "string"
-  );
-}
-
-function directClientIpAddress(c: Context): string | null {
-  return hasDirectClientIpBinding(c.env)
-    ? normalizeRequestIpAddress(c.env.directClientIp)
-    : null;
-}
-
-export function readRequestIpAddress(c: Context): string | null {
+export function readRequestIpAddress(c: Context<SessionEnv>): string | null {
   return (
     normalizeRequestIpAddress(c.req.header("cf-connecting-ip")) ??
     normalizeRequestIpAddress(c.req.header("x-real-ip")) ??
     firstHeaderIpAddress(c.req.header("x-forwarded-for")) ??
     forwardedHeaderIpAddress(c.req.header("forwarded")) ??
-    directClientIpAddress(c)
+    normalizeRequestIpAddress(c.env?.directClientIp)
   );
 }
 

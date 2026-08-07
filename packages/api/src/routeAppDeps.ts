@@ -11,7 +11,6 @@ import {
   getDefaultApiServiceRuntime,
 } from "./services/runtime";
 
-// Test seam
 export interface RouteAppOverrides {
   readonly destroySession?: (c: Context) => Promise<void>;
   readonly destroyUserSession?: typeof defaultDestroyUserSession;

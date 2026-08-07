@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export async function sha256Hex(value: string | Uint8Array): Promise<string> {
+export function sha256Hex(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 

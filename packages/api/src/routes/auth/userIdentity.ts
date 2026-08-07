@@ -12,6 +12,7 @@ import {
 } from "../../services/auth/getUserIdentity";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface UserIdentityRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -37,11 +38,7 @@ export function createUserIdentityRoute({
           await getUserIdentity(runtime, userId),
         );
       } catch (error) {
-        if (error instanceof GetUserIdentityError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, GetUserIdentityError);
       }
     },
   );

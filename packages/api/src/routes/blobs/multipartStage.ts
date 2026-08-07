@@ -26,6 +26,7 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { respondToStatusError } from "../errorResponse";
 
 interface MultipartBlobStageRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -52,11 +53,7 @@ function registerInitiateRoute(
           }),
         );
       } catch (error) {
-        if (error instanceof MultipartBlobStageError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, MultipartBlobStageError);
       }
     },
   );
@@ -83,11 +80,7 @@ function registerStatusRoute(
           }),
         );
       } catch (error) {
-        if (error instanceof MultipartBlobStageError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, MultipartBlobStageError);
       }
     },
   );
@@ -140,11 +133,7 @@ function registerPartBytesRoute(
           }),
         );
       } catch (error) {
-        if (error instanceof MultipartBlobStageError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, MultipartBlobStageError);
       }
     },
   );
@@ -173,11 +162,7 @@ function registerCompleteRoute(
           }),
         );
       } catch (error) {
-        if (error instanceof MultipartBlobStageError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
+        return respondToStatusError(c, error, MultipartBlobStageError);
       }
     },
   );

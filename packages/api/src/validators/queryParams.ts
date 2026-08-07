@@ -1,15 +1,5 @@
 import { validator } from "hono/validator";
-
-interface QueryParamsSchema<Output> {
-  safeParse(value: unknown):
-    | { readonly data: Output; readonly success: true }
-    | {
-        readonly error?: {
-          readonly issues?: readonly { readonly message: string }[];
-        };
-        readonly success: false;
-      };
-}
+import type { SafeParseSchema } from "./schema";
 
 type QueryParamsErrorMessage =
   | string
@@ -29,7 +19,7 @@ function firstQueryValues(value: unknown): unknown {
 }
 
 export function queryParamsValidator<Output>(
-  schema: QueryParamsSchema<Output>,
+  schema: SafeParseSchema<Output>,
   errorMessage: QueryParamsErrorMessage = "Invalid request",
 ) {
   return validator("query", (value, c) => {

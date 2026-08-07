@@ -4,6 +4,7 @@ import type {
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { publishBestEffort } from "../../utils/publishBestEffort";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
   type BindBlobAttachmentInput,
@@ -73,13 +74,11 @@ export async function publishAttachmentDocumentEvent(input: {
   readonly event: Record<string, unknown>;
   readonly publish: ApiServiceRuntime["eventPublisher"]["publish"];
 }): Promise<void> {
-  try {
-    await input.publish(input.event);
-  } catch (error) {
-    // The attachment transaction already committed. Realtime is only a lossy
-    // reconciliation hint, so a broker failure must not change its HTTP result.
-    console.error("Failed to publish attachment document event:", error);
-  }
+  await publishBestEffort(
+    input.publish,
+    input.event,
+    "attachment document event",
+  );
 }
 
 async function prevalidateMultipartBlobStage(

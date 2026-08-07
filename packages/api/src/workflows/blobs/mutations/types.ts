@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/validators/request";
 import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 
-export type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
+type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
 
 export class BlobMutationError extends Error {
   constructor(
