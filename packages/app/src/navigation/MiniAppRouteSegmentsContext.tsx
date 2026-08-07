@@ -1,7 +1,6 @@
 import {
   createContext,
   type PropsWithChildren,
-  useCallback,
   useContext,
   useMemo,
 } from "react";
@@ -18,16 +17,8 @@ interface MiniAppRouteSegmentsContextValue {
   ) => void;
 }
 
-interface MiniAppRouteSegmentsProviderProps extends PropsWithChildren {
-  appId: MiniAppId;
-  canGoBack: boolean;
-  goBack: () => void;
-  pathSegments: ReadonlyArray<string>;
-  setPathSegments: (
-    pathSegments: ReadonlyArray<string>,
-    options?: { replace?: boolean | undefined },
-  ) => void;
-}
+type MiniAppRouteSegmentsProviderProps =
+  PropsWithChildren<MiniAppRouteSegmentsContextValue>;
 
 const MiniAppRouteSegmentsContext =
   createContext<MiniAppRouteSegmentsContextValue | null>(null);
@@ -40,24 +31,15 @@ export function MiniAppRouteSegmentsProvider({
   pathSegments,
   setPathSegments,
 }: MiniAppRouteSegmentsProviderProps) {
-  const updatePathSegments = useCallback(
-    (
-      nextPathSegments: ReadonlyArray<string>,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
-      setPathSegments(nextPathSegments, options);
-    },
-    [setPathSegments],
-  );
   const value = useMemo<MiniAppRouteSegmentsContextValue>(
     () => ({
       appId,
       canGoBack,
       goBack,
       pathSegments,
-      setPathSegments: updatePathSegments,
+      setPathSegments,
     }),
-    [appId, canGoBack, goBack, pathSegments, updatePathSegments],
+    [appId, canGoBack, goBack, pathSegments, setPathSegments],
   );
 
   return (

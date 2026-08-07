@@ -81,32 +81,21 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
 
   return (
     <>
-      <PaneSideProvider side="left">
-        <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
-          <PaneSurface
-            active={active}
-            desktopLabel={
-              showPeerDesktopLabels ? selfPaneLabel("left") : undefined
-            }
-            navigationMode={navigationMode}
-            side="left"
-            split={split}
-          />
-        </PaneProvider>
-      </PaneSideProvider>
-      <PaneSideProvider side="right">
-        <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
-          <PaneSurface
-            active={active}
-            desktopLabel={
-              showPeerDesktopLabels ? selfPaneLabel("right") : undefined
-            }
-            navigationMode={navigationMode}
-            side="right"
-            split={split}
-          />
-        </PaneProvider>
-      </PaneSideProvider>
+      {(["left", "right"] as const).map((side) => (
+        <PaneSideProvider key={side} side={side}>
+          <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
+            <PaneSurface
+              active={active}
+              desktopLabel={
+                showPeerDesktopLabels ? selfPaneLabel(side) : undefined
+              }
+              navigationMode={navigationMode}
+              side={side}
+              split={split}
+            />
+          </PaneProvider>
+        </PaneSideProvider>
+      ))}
     </>
   );
 }
@@ -118,7 +107,10 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
 // just an alternate view that reuses it. That keeps both workspaces on one
 // identity/db and means switching never tears the runtime down — it only flips
 // which view is visible. Per-pane view state (open windows, route) lives in Pane.
-function SharedWorkspaceView(props: WorkspacePanesProps) {
+function SharedWorkspaceView(props: {
+  active: boolean;
+  navigationMode: AppNavigationMode;
+}) {
   const { active, navigationMode } = props;
 
   return (
@@ -145,33 +137,20 @@ export function Workspace(props: WorkspaceProps) {
       : hostConfig;
   }, [hostConfig, isolated, workspaceId]);
 
-  if (!isolated) {
-    return (
-      <DualPaneProvider
-        peerUserIdsEnabled={
-          workspaceHostConfig.profile.features.panePeerUserIds
-        }
-      >
-        <SharedWorkspaceView
+  return (
+    <DualPaneProvider
+      peerUserIdsEnabled={workspaceHostConfig.profile.features.panePeerUserIds}
+    >
+      {isolated ? (
+        <IsolatedWorkspacePanes
           active={active}
           hostConfig={workspaceHostConfig}
           navigationMode={navigationMode}
           split={split}
         />
-      </DualPaneProvider>
-    );
-  }
-
-  return (
-    <DualPaneProvider
-      peerUserIdsEnabled={workspaceHostConfig.profile.features.panePeerUserIds}
-    >
-      <IsolatedWorkspacePanes
-        active={active}
-        hostConfig={workspaceHostConfig}
-        navigationMode={navigationMode}
-        split={split}
-      />
+      ) : (
+        <SharedWorkspaceView active={active} navigationMode={navigationMode} />
+      )}
     </DualPaneProvider>
   );
 }

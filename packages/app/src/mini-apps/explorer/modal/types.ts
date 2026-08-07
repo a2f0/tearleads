@@ -13,12 +13,13 @@ export type ExplorerModalState =
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
 
-export interface ExplorerModalControllerParams {
+// Mutation actions and connectivity state shared by the modal controller and
+// the submit dispatcher (actions.ts), so the two param types cannot drift.
+export interface ExplorerModalMutationParams {
   createChild: (
     parentId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
-  documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkDocument: (
     documentId: string,
@@ -48,13 +49,18 @@ export interface ExplorerModalControllerParams {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  setSelectedId: (id: string | null) => void;
+  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+}
+
+export interface ExplorerModalControllerParams
+  extends ExplorerModalMutationParams {
+  documentSummaries: ReadonlyArray<DocumentSummary>;
   rulesContext: ExplorerContainerRulesContext;
   // Linked containers per document id, so link targets are computed for whatever
   // document a modal operates on (selection or right-clicked row) rather than a
   // single pre-selected document.
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  setSelectedId: (id: string | null) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
 export interface ExplorerModalController {

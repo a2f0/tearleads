@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -12,7 +12,6 @@ import {
   useStructuredDocumentEditAction,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import { usePendingTrackerEntry } from "../shared/usePendingTrackerEntry";
 import {
   type AddTrackerRow,
   useSavedTrackerRows,
@@ -251,17 +250,13 @@ export function BloodPressureFields(params: {
     trackerNameInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
-  const {
-    entryPending: newReadingPending,
-    onPendingChange,
-    toggleEditing,
-  } = usePendingTrackerEntry(onToggleEditing);
+  const [newReadingPending, onPendingChange] = useState(false);
   useStructuredDocumentEditAction({
     disabled: controlsDisabled || newReadingPending,
     editingLabel: "Save",
     id: "blood-pressure-toggle-edit",
     isEditing,
-    onToggleEditing: toggleEditing,
+    onToggleEditing,
   });
 
   if (!isEditing) {

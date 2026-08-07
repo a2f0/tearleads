@@ -2,7 +2,6 @@ import {
   createContext,
   type PropsWithChildren,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,16 +20,19 @@ const WindowSidebarContext = createContext<WindowSidebarContextValue>({
 });
 
 export function WindowSidebarProvider({ children }: PropsWithChildren) {
-  const [sidebar, setSidebarState] = useState<ReactNode>(null);
-  const setSidebar = useCallback((node: ReactNode) => {
-    setSidebarState(node);
-  }, []);
-  const value = useMemo(() => ({ sidebar, setSidebar }), [sidebar, setSidebar]);
+  const [sidebar, setSidebar] = useState<ReactNode>(null);
+  const value = useMemo(() => ({ sidebar, setSidebar }), [sidebar]);
   return (
     <WindowSidebarContext.Provider value={value}>
       {children}
     </WindowSidebarContext.Provider>
   );
+}
+
+// `sidebar` is a ReactNode, so `false`/`null`/`undefined` all mean "no
+// sidebar" while renderable falsy values like `0` or `""` do not.
+export function hasWindowSidebar(sidebar: ReactNode): boolean {
+  return sidebar !== null && sidebar !== undefined && sidebar !== false;
 }
 
 export function useWindowSidebar() {

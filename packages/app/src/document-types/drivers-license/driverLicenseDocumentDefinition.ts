@@ -4,41 +4,12 @@ import {
   readStringDocumentField,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
-import { addFormatIssue } from "../shared/documentFieldUtils";
+import { addDateOnlyFormatIssue } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export interface DriverLicenseDocumentFields {
   expirationDate: string;
   licenseId: string;
-}
-
-const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
-function getDaysInMonth(year: number, month: number): number {
-  if (month === 2) {
-    return isLeapYear(year) ? 29 : 28;
-  }
-
-  return [4, 6, 9, 11].includes(month) ? 30 : 31;
-}
-
-function isValidDateOnly(value: string): boolean {
-  if (!DRIVER_LICENSE_DATE_PATTERN.test(value)) {
-    return false;
-  }
-
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7));
-  const day = Number(value.slice(8, 10));
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return false;
-  }
-
-  return day <= getDaysInMonth(year, month);
 }
 
 function deriveDriverLicenseTitle(fields: DriverLicenseDocumentFields): string {
@@ -57,17 +28,7 @@ export function readDriverLicenseFieldsFromRecord(
     licenseId: readStringDocumentField(source, "licenseId", issues),
   };
 
-  if (
-    fields.expirationDate.length > 0 &&
-    !isValidDateOnly(fields.expirationDate)
-  ) {
-    addFormatIssue(
-      issues,
-      "expirationDate",
-      fields.expirationDate,
-      "Expected a calendar date in YYYY-MM-DD format.",
-    );
-  }
+  addDateOnlyFormatIssue(issues, "expirationDate", fields.expirationDate);
 
   return { fields, issues };
 }

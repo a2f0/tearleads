@@ -71,8 +71,9 @@ function openExplorerSimpleModal(params: {
   params.setDraftTargetContainerId("");
 }
 
-interface ExplorerModalOpenersParams {
-  canShareWithPeer: boolean;
+// Shared by the three target-choosing openers (move, move-document,
+// link-document); each opener destructures the subset it needs.
+interface ExplorerTargetModalOpenerParams {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -84,17 +85,13 @@ interface ExplorerModalOpenersParams {
   targetLookups: ExplorerTargetLookups;
 }
 
-function useExplorerTargetModalOpeners(params: {
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  nodes: ReadonlyArray<ContainerNode>;
-  rulesContext: ExplorerContainerRulesContext;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetLookups: ExplorerTargetLookups;
-}) {
+interface ExplorerModalOpenersParams extends ExplorerTargetModalOpenerParams {
+  canShareWithPeer: boolean;
+}
+
+function useExplorerTargetModalOpeners(
+  params: ExplorerTargetModalOpenerParams,
+) {
   const openMoveModal = useExplorerMoveModalOpener(params);
   const openMoveDocumentModal = useExplorerMoveDocumentModalOpener(params);
   const openLinkDocumentModal = useExplorerLinkDocumentModalOpener(params);
@@ -106,15 +103,7 @@ function useExplorerTargetModalOpeners(params: {
   };
 }
 
-function useExplorerMoveModalOpener(params: {
-  nodes: ReadonlyArray<ContainerNode>;
-  rulesContext: ExplorerContainerRulesContext;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetLookups: ExplorerTargetLookups;
-}) {
+function useExplorerMoveModalOpener(params: ExplorerTargetModalOpenerParams) {
   const {
     nodes,
     rulesContext,
@@ -153,17 +142,9 @@ function useExplorerMoveModalOpener(params: {
   );
 }
 
-function useExplorerMoveDocumentModalOpener(params: {
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  nodes: ReadonlyArray<ContainerNode>;
-  rulesContext: ExplorerContainerRulesContext;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetLookups: ExplorerTargetLookups;
-}) {
+function useExplorerMoveDocumentModalOpener(
+  params: ExplorerTargetModalOpenerParams,
+) {
   const {
     documentSummaries,
     linkedContainerIdsByDocumentId,
@@ -208,17 +189,9 @@ function useExplorerMoveDocumentModalOpener(params: {
   );
 }
 
-function useExplorerLinkDocumentModalOpener(params: {
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  nodes: ReadonlyArray<ContainerNode>;
-  rulesContext: ExplorerContainerRulesContext;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetLookups: ExplorerTargetLookups;
-}) {
+function useExplorerLinkDocumentModalOpener(
+  params: ExplorerTargetModalOpenerParams,
+) {
   const {
     documentSummaries,
     linkedContainerIdsByDocumentId,

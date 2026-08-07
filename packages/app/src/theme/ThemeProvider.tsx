@@ -21,9 +21,7 @@ interface ThemeContextValue {
   // The theme `toggleTheme` would switch to next — lets the toggle label itself
   // ("Switch to Dark theme") without re-deriving from the registry.
   nextTheme: ThemeDefinition;
-  // Jump straight to a specific theme; the extension point a future multi-theme
-  // picker uses. `toggleTheme` advances through the registry in order.
-  setTheme: (theme: ThemeId) => void;
+  // Advances through the registry in order.
   toggleTheme: () => void;
 }
 
@@ -57,19 +55,16 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const toggleTheme = useCallback(() => {
     // Advance from what is currently shown — the OS theme until the user has
     // chosen — so the first toggle flips away from the system default.
-    const next = nextThemeId(activeTheme);
-    setSelectedTheme(next);
-    saveTheme(next);
-  }, [activeTheme]);
+    setTheme(nextThemeId(activeTheme));
+  }, [activeTheme, setTheme]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       activeTheme,
       nextTheme: getTheme(nextThemeId(activeTheme)),
-      setTheme,
       toggleTheme,
     }),
-    [activeTheme, setTheme, toggleTheme],
+    [activeTheme, toggleTheme],
   );
 
   return (

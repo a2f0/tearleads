@@ -281,7 +281,7 @@ function useFileDocument(params: {
     setStructuredFields,
     structuredFields,
   } = useDocument();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
     ready && canWrite,
     initialEditing,
   );
@@ -346,11 +346,6 @@ function useFileDocument(params: {
         setDownloadError("Couldn't download this file.");
       });
   }, [downloadable, fileName, fileSaver, infra.blobStore, title]);
-
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [],
-  );
 
   return {
     canWrite,

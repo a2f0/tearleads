@@ -1,43 +1,14 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { getExplorerModalError, getExplorerModalLog } from "./labels";
-import type { ExplorerModalState } from "./types";
+import type { ExplorerModalMutationParams, ExplorerModalState } from "./types";
 
-export interface ExplorerModalSubmitParams {
+export interface ExplorerModalSubmitParams extends ExplorerModalMutationParams {
   clearModal: () => void;
-  createChild: (
-    parentId: string,
-    name: string,
-  ) => Promise<ContainerNode | null>;
   draftName: string;
   draftTargetContainerId: string;
-  expandNode: (nodeId: string) => void;
-  linkDocument: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
   modalState: ExplorerModalState | null;
-  moveContainer: (
-    containerId: string,
-    parentId: string,
-  ) => Promise<ContainerNode | null>;
-  moveDocument: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
-  canShareWithPeer: boolean;
-  nodes: ReadonlyArray<ContainerNode>;
-  online: boolean;
-  peerUserId: string | null;
-  startContainerPurge: (containerId: string) => void;
-  startEmptyTrash: (trashContainerId: string) => void;
-  renameContainer: (
-    containerId: string,
-    name: string,
-  ) => Promise<ContainerNode | null>;
   setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
-  setSelectedId: (id: string | null) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
 function submitExplorerPurgeModal(params: {
@@ -274,44 +245,32 @@ function submitExplorerMoveDocumentModal(params: {
   clearModal();
 }
 
-async function submitExplorerNonNameModal(params: {
-  clearModal: () => void;
-  draftTargetContainerId: string;
-  linkDocument: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
-  modalState:
-    | { mode: "empty-trash"; nodeId: string }
-    | { mode: "link-document"; documentLocalId: string }
-    | { mode: "move"; nodeId: string }
-    | { mode: "move-document"; documentLocalId: string }
-    | { mode: "purge"; nodeId: string }
-    | { mode: "share-peer"; nodeId: string };
-  moveContainer: (
-    containerId: string,
-    parentId: string,
-  ) => Promise<ContainerNode | null>;
-  moveDocument: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
-  canShareWithPeer: boolean;
-  nodes: ReadonlyArray<ContainerNode>;
-  online: boolean;
-  peerUserId: string | null;
-  startContainerPurge: (containerId: string) => void;
-  startEmptyTrash: (trashContainerId: string) => void;
-  setBackgroundActionError: (error: string | null) => void;
-  setModalError: (error: string | null) => void;
-  setSelectedId: (id: string | null) => void;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-}) {
-  switch (params.modalState.mode) {
+export async function submitExplorerModalAction(
+  params: ExplorerModalSubmitParams,
+) {
+  const { modalState } = params;
+  if (!modalState) {
+    return;
+  }
+
+  switch (modalState.mode) {
+    case "create-child":
+    case "rename":
+      await submitExplorerNameModal({
+        clearModal: params.clearModal,
+        createChild: params.createChild,
+        draftName: params.draftName,
+        expandNode: params.expandNode,
+        modalState,
+        renameContainer: params.renameContainer,
+        setModalError: params.setModalError,
+        setSelectedId: params.setSelectedId,
+      });
+      return;
     case "purge":
       submitExplorerPurgeModal({
         clearModal: params.clearModal,
-        modalState: params.modalState,
+        modalState,
         nodes: params.nodes,
         online: params.online,
         setBackgroundActionError: params.setBackgroundActionError,
@@ -322,7 +281,7 @@ async function submitExplorerNonNameModal(params: {
     case "empty-trash":
       submitExplorerEmptyTrashModal({
         clearModal: params.clearModal,
-        modalState: params.modalState,
+        modalState,
         online: params.online,
         setBackgroundActionError: params.setBackgroundActionError,
         startEmptyTrash: params.startEmptyTrash,
@@ -331,7 +290,7 @@ async function submitExplorerNonNameModal(params: {
     case "move":
       await submitExplorerMoveModal({
         clearModal: params.clearModal,
-        modalState: params.modalState,
+        modalState,
         moveContainer: params.moveContainer,
         setModalError: params.setModalError,
         setSelectedId: params.setSelectedId,
@@ -343,7 +302,7 @@ async function submitExplorerNonNameModal(params: {
       submitExplorerMoveDocumentModal({
         clearModal: params.clearModal,
         linkDocument: params.linkDocument,
-        modalState: params.modalState,
+        modalState,
         moveDocument: params.moveDocument,
         setBackgroundActionError: params.setBackgroundActionError,
         setModalError: params.setModalError,
@@ -355,55 +314,11 @@ async function submitExplorerNonNameModal(params: {
       await submitExplorerShareModal({
         canShareWithPeer: params.canShareWithPeer,
         clearModal: params.clearModal,
-        modalState: params.modalState,
+        modalState,
         peerUserId: params.peerUserId,
         setModalError: params.setModalError,
         shareWithUser: params.shareWithUser,
       });
       return;
   }
-}
-
-export async function submitExplorerModalAction(
-  params: ExplorerModalSubmitParams,
-) {
-  if (!params.modalState) {
-    return;
-  }
-
-  if (
-    params.modalState.mode === "create-child" ||
-    params.modalState.mode === "rename"
-  ) {
-    await submitExplorerNameModal({
-      clearModal: params.clearModal,
-      createChild: params.createChild,
-      draftName: params.draftName,
-      expandNode: params.expandNode,
-      modalState: params.modalState,
-      renameContainer: params.renameContainer,
-      setModalError: params.setModalError,
-      setSelectedId: params.setSelectedId,
-    });
-    return;
-  }
-
-  await submitExplorerNonNameModal({
-    clearModal: params.clearModal,
-    draftTargetContainerId: params.draftTargetContainerId,
-    linkDocument: params.linkDocument,
-    modalState: params.modalState,
-    moveContainer: params.moveContainer,
-    moveDocument: params.moveDocument,
-    canShareWithPeer: params.canShareWithPeer,
-    nodes: params.nodes,
-    online: params.online,
-    peerUserId: params.peerUserId,
-    startContainerPurge: params.startContainerPurge,
-    startEmptyTrash: params.startEmptyTrash,
-    setBackgroundActionError: params.setBackgroundActionError,
-    setModalError: params.setModalError,
-    setSelectedId: params.setSelectedId,
-    shareWithUser: params.shareWithUser,
-  });
 }

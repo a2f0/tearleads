@@ -1,19 +1,10 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-  useMemo,
-} from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
-  addMiniAppTableHeaderAction,
-  getVisibleMiniAppTableColumnIds,
-  MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
-  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -21,8 +12,6 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-  miniAppRowActionsColumn,
-  useMiniAppColumnVisibility,
   useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
@@ -33,6 +22,7 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../display";
 import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
 type GroupTableColumnId = "group" | "members" | "status" | "created";
 
@@ -163,90 +153,14 @@ function getGroupCompactField(
   }
 }
 
-function useGroupTableColumns(
-  showActions: boolean,
-  compact: boolean,
-): {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GroupTableColumnId>;
-} {
-  const columnVisibility = useMiniAppColumnVisibility<GroupTableColumnId>({
-    storageKey: "tearleads.org-manager.groups:hidden-columns",
-    toggleableColumnIds: GROUP_TOGGLEABLE_COLUMN_IDS,
-  });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        GROUP_TABLE_COLUMN_IDS,
-        columnVisibility.hiddenColumns,
-      ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(() => {
-    const columnMenu = (
-      <MiniAppColumnMenuButton
-        ariaLabel={ORG_MANAGER_LABELS.columns}
-        hiddenColumns={columnVisibility.hiddenColumns}
-        options={GROUP_COLUMN_MENU_OPTIONS}
-        stateLabels={{
-          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-        }}
-        toggleColumn={columnVisibility.toggleColumn}
-      />
-    );
-    const dataColumns = GROUP_TABLE_COLUMNS.filter(
-      (column) => !columnVisibility.hiddenColumns.has(column.id),
-    );
-    if (compact) {
-      const compactColumn = {
-        header: (
-          <MiniAppCompactTableHeader
-            primary={visibleColumnIds.slice(0, 1).map((id) => ({
-              id,
-              text: GROUP_COLUMN_LABELS[id],
-            }))}
-            secondary={visibleColumnIds.slice(1).map((id) => ({
-              id,
-              text: GROUP_COLUMN_LABELS[id],
-            }))}
-          />
-        ),
-        id: "summary",
-      } satisfies MiniAppTableColumn;
-
-      return showActions
-        ? [
-            compactColumn,
-            miniAppRowActionsColumn(
-              ORG_MANAGER_LABELS.rowActionsColumn,
-              columnMenu,
-            ),
-          ]
-        : addMiniAppTableHeaderAction([compactColumn], columnMenu);
-    }
-    // When the touch kebab column trails the table it is the trailing edge, so
-    // the column-menu trigger rides in its header to stay flush right — on the
-    // last data column it would sit one narrow column in from the edge.
-    return showActions
-      ? [
-          ...dataColumns,
-          miniAppRowActionsColumn(
-            ORG_MANAGER_LABELS.rowActionsColumn,
-            columnMenu,
-          ),
-        ]
-      : addMiniAppTableHeaderAction(dataColumns, columnMenu);
-  }, [
-    compact,
-    columnVisibility.hiddenColumns,
-    columnVisibility.toggleColumn,
-    showActions,
-    visibleColumnIds,
-  ]);
-
-  return { columns, visibleColumnIds };
-}
+const GROUP_TABLE_COLUMNS_CONFIG = {
+  allColumnIds: GROUP_TABLE_COLUMN_IDS,
+  columnLabels: GROUP_COLUMN_LABELS,
+  dataColumns: GROUP_TABLE_COLUMNS,
+  menuOptions: GROUP_COLUMN_MENU_OPTIONS,
+  storageKey: "tearleads.org-manager.groups:hidden-columns",
+  toggleableColumnIds: GROUP_TOGGLEABLE_COLUMN_IDS,
+};
 
 function GroupTable({
   groups,
@@ -266,7 +180,8 @@ function GroupTable({
   const { compact, rowHeight } = virtualGroups;
   // Touch layouts have no right-click; add the kebab as the touch stand-in.
   const showActions = useRoutedLayoutActive();
-  const { columns, visibleColumnIds } = useGroupTableColumns(
+  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+    GROUP_TABLE_COLUMNS_CONFIG,
     showActions,
     compact,
   );

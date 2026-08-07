@@ -15,6 +15,21 @@ import "./RoutedPaneNav.css";
 
 export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
 
+// Let the browser handle modified clicks (Cmd/Ctrl/Shift/Alt + click,
+// middle-click) so the href still opens in a new tab/window; only intercept
+// a plain left-click for in-app navigation.
+function isBrowserHandledNavClick(
+  event: ReactMouseEvent<HTMLAnchorElement>,
+): boolean {
+  return (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  );
+}
+
 function RoutedPaneNavLink({
   appId,
   activeAppId,
@@ -31,6 +46,9 @@ function RoutedPaneNavLink({
   const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
   const handleClick = useCallback(
     (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      if (isBrowserHandledNavClick(event)) {
+        return;
+      }
       event.preventDefault();
       openMiniApp({ appId });
       onNavigate();
@@ -133,16 +151,7 @@ function RoutedPaneMobileNavTile({
       )}
       href={href}
       onClick={(event) => {
-        // Let the browser handle modified clicks (Cmd/Ctrl/Shift/Alt + click,
-        // middle-click) so the href still opens in a new tab/window; only
-        // intercept a plain left-click for in-app navigation.
-        if (
-          event.button !== 0 ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.shiftKey ||
-          event.altKey
-        ) {
+        if (isBrowserHandledNavClick(event)) {
           return;
         }
         event.preventDefault();

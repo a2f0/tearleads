@@ -27,6 +27,7 @@ import { WindowMiniAppRouteBoundary } from "./WindowMiniAppRouteBoundary";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
 import {
+  hasWindowSidebar,
   useWindowSidebar,
   WindowSidebarProvider,
 } from "./WindowSidebarContext";
@@ -328,8 +329,7 @@ function WindowInnerContent({
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const { sidebar } = useWindowSidebar();
-  const hasSidebar =
-    sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const hasSidebar = hasWindowSidebar(sidebar);
   const actions = useWindowActions(
     entry,
     close,
@@ -418,8 +418,7 @@ function WindowBodyWithSidebar({
   showSidebar: boolean;
 }>) {
   const { sidebar } = useWindowSidebar();
-  const hasSidebar =
-    sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const hasSidebar = hasWindowSidebar(sidebar);
 
   return (
     <WindowBody

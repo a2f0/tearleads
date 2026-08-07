@@ -14,8 +14,6 @@ import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useActiveAppRoute } from "../../../navigation/useActiveAppRoute";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
-import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
 import type { MenuPosition } from "../../shared/Menu";
@@ -28,7 +26,7 @@ import { useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
 import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";
 import "./Pane.css";
-import { PaneContextMenu } from "./PaneContextMenu";
+import { PaneMenu } from "./PaneMenu";
 
 function PaneInner({
   className,
@@ -38,13 +36,9 @@ function PaneInner({
   desktopLabel?: string | undefined;
 }) {
   const { userId } = useCryptoSession();
-  const { generateKey, signingKeyPair } = useIdentity();
-  const localKeyringLock = useLocalKeyringLock();
   useRegisterUserId(userId);
   const { windows } = useWindowStateData();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
-  const hasSigningKeyPair = signingKeyPair !== null;
-  const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();
@@ -52,11 +46,6 @@ function PaneInner({
   }, []);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
-
-  const generateKeyPair = useCallback(() => {
-    generateKey();
-    setContextMenu(null);
-  }, [generateKey]);
 
   return (
     <section
@@ -87,13 +76,7 @@ function PaneInner({
           }
         />
         {contextMenu && (
-          <PaneContextMenu
-            hasSigningKeyPair={hasSigningKeyPair}
-            paneLocked={paneLocked}
-            position={contextMenu}
-            onClose={closeContextMenu}
-            onGenerateKeyPair={generateKeyPair}
-          />
+          <PaneMenu position={contextMenu} onClose={closeContextMenu} />
         )}
       </SystemMonitorProvider>
     </section>

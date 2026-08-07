@@ -20,3 +20,32 @@ export function renderRoutedPane(): RenderResult {
     </DualPaneProvider>,
   );
 }
+
+// Forces the routed layout tier by stubbing matchMedia: mobile matches no
+// query; tablet matches min-width queries. Returns a restore function.
+export function forceMobileRoutedTier(): () => void {
+  return forceRoutedTier(() => false);
+}
+
+export function forceTabletRoutedTier(): () => void {
+  return forceRoutedTier((query) => query.includes("min-width"));
+}
+
+function forceRoutedTier(matches: (query: string) => boolean): () => void {
+  const originalMatchMedia = window.matchMedia;
+
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: matches(query),
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+
+  return () => {
+    window.matchMedia = originalMatchMedia;
+  };
+}

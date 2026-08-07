@@ -22,6 +22,7 @@ import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusInd
 import type { MenuPosition } from "../../shared/Menu";
 import { WindowMenuProvider } from "../../window/WindowMenuContext";
 import {
+  hasWindowSidebar,
   useWindowSidebar,
   WindowSidebarProvider,
 } from "../../window/WindowSidebarContext";
@@ -170,8 +171,7 @@ function RoutedPaneSurface({
 }: RoutedPaneSurfaceProps) {
   const { sidebar } = useWindowSidebar();
   const { subscribeKeyboardVisibility } = useAppHostConfig();
-  const hasSidebar =
-    sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const hasSidebar = hasWindowSidebar(sidebar);
   const mobileKeyboardVisible = useMobileKeyboardVisible(
     tier === "mobile",
     subscribeKeyboardVisibility,

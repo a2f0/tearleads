@@ -43,7 +43,7 @@ function ToolbarProbe() {
 }
 
 test("contact document edits from the toolbar", async () => {
-  const editingStates: boolean[] = [];
+  let toggleCount = 0;
   const view = render(
     <AppHostConfigProvider value={hostConfig}>
       <WindowMenuProvider>
@@ -52,13 +52,9 @@ test("contact document edits from the toolbar", async () => {
           canWrite={true}
           isEditing={false}
           ready={true}
-          // The fields component toggles through the state dispatch, so resolve
-          // an updater against the rendered `isEditing` before recording it.
-          setEditing={(editing) =>
-            editingStates.push(
-              typeof editing === "function" ? editing(false) : editing,
-            )
-          }
+          toggleEditing={() => {
+            toggleCount += 1;
+          }}
           setStructuredFields={async () => undefined}
           values={values}
         />
@@ -73,5 +69,5 @@ test("contact document edits from the toolbar", async () => {
 
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
 
-  expect(editingStates).toEqual([true]);
+  expect(toggleCount).toBe(1);
 });

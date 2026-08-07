@@ -254,15 +254,9 @@ export function JsonFileDocument(params: {
   );
   const fileNameInputId = useId();
   const contentInputId = useId();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
-  );
-  // Kept reference-stable so the toolbar action it feeds does not re-register
-  // on every render.
-  const toggleEditing = useCallback(
-    () => setIsEditing((editing) => !editing),
-    [setIsEditing],
   );
   return (
     <StructuredDocument

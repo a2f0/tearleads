@@ -307,12 +307,6 @@ function ExplorerContent() {
     model.canCreateStructuredDocumentInActiveContainer,
     routeState.openNewStructuredDocumentRoute,
   ]);
-  const openBlobBrowser = useCallback(() => {
-    routeState.openBlobBrowserRoute();
-  }, [routeState.openBlobBrowserRoute]);
-  const openSyncLanes = useCallback(() => {
-    routeState.openSyncLanesRoute();
-  }, [routeState.openSyncLanesRoute]);
   const returnToDocumentFromBlobPick = useCallback(
     (localId: string, containerId: string) => {
       // The blob picker navigates away and remounts the document, discarding its
@@ -354,13 +348,13 @@ function ExplorerContent() {
     disabled: !model.explorer.ready,
     id: "explorer-blob-browser",
     label: EXPLORER_LABELS.blobBrowserAction,
-    onClick: openBlobBrowser,
+    onClick: routeState.openBlobBrowserRoute,
     priority: 110,
   });
   useWindowFileMenuItem({
     id: "explorer-sync-lanes",
     label: EXPLORER_LABELS.syncLanesAction,
-    onClick: openSyncLanes,
+    onClick: routeState.openSyncLanesRoute,
     priority: 120,
   });
   useWindowRefreshMenuItem({
