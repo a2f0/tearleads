@@ -46,42 +46,80 @@ interface OrgManagerBehavior {
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
 }
 
-type OrgManagerContextValue = Organizations & OrgManagerBehavior;
+type OrgManagerOrganizationActions = Pick<
+  Organizations,
+  | "createGroup"
+  | "deleteGroup"
+  | "importUserById"
+  | "loadDataUsage"
+  | "loadDirectoryAndGroups"
+  | "loadDirectoryAndGroupsAfterMutation"
+  | "loadGrants"
+  | "loadGroupContainers"
+  | "loadGroupMembers"
+  | "loadGroupPresentationDetails"
+  | "loadLocalDataUsage"
+  | "loadLocalDirectoryAndGroups"
+  | "loadPolicyHistory"
+  | "loadUserDetail"
+  | "revokeGrant"
+  | "updateProfile"
+  | "updateRosterEntry"
+>;
 
-const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
+interface OrgManagerMembershipActions {
+  addUserToGroup: (
+    groupId: string,
+    targetUserId: string,
+  ) => ReturnType<Organizations["addUserToGroup"]>;
+  removeUserFromGroup: (
+    groupId: string,
+    removedUserId: string,
+  ) => ReturnType<Organizations["removeUserFromGroup"]>;
+}
 
-const organizationActionKeys = defineFacadeKeys<Organizations>()([
-  "addUserToGroup",
-  "createGroup",
-  "deleteGroup",
-  "importUserById",
-  "loadBilling",
-  "loadBillingForOrganization",
-  "loadBillingHistory",
-  "loadBillingManagementUrl",
-  "loadStripeCheckoutOptions",
-  "createStripeCheckout",
-  "createStripeCheckoutSession",
-  "cancelStripeSubscription",
-  "claimNativeSubscription",
-  "loadDataUsage",
-  "loadLocalDataUsage",
-  "loadDirectoryAndGroups",
-  "loadDirectoryAndGroupsAfterMutation",
-  "loadLocalDirectoryAndGroups",
-  "loadGroupMembers",
-  "loadGroupPresentationDetails",
-  "loadGroupContainers",
-  "loadGrants",
-  "listLocalOrganizations",
-  "loadPolicyHistory",
-  "loadUserDetail",
-  "updateRosterEntry",
-  "updateProfile",
-  "removeUserFromGroup",
-  "revokeGrant",
-  "startTrial",
-]);
+type OrgManagerContextValue = OrgManagerBehavior &
+  OrgManagerMembershipActions &
+  OrgManagerOrganizationActions;
+
+export const OrgManagerContext = createContext<OrgManagerContextValue | null>(
+  null,
+);
+
+const organizationActionKeys =
+  defineFacadeKeys<OrgManagerOrganizationActions>()([
+    "createGroup",
+    "deleteGroup",
+    "importUserById",
+    "loadDataUsage",
+    "loadLocalDataUsage",
+    "loadDirectoryAndGroups",
+    "loadDirectoryAndGroupsAfterMutation",
+    "loadLocalDirectoryAndGroups",
+    "loadGroupMembers",
+    "loadGroupPresentationDetails",
+    "loadGroupContainers",
+    "loadGrants",
+    "loadPolicyHistory",
+    "loadUserDetail",
+    "updateRosterEntry",
+    "updateProfile",
+    "revokeGrant",
+  ]);
+
+export function createOrgManagerContextValue(
+  organizations: Organizations,
+  behavior: OrgManagerBehavior,
+): OrgManagerContextValue {
+  return {
+    ...projectBoundFacade(organizations, organizationActionKeys),
+    addUserToGroup: (groupId: string, targetUserId: string) =>
+      organizations.addUserToGroup({ groupId, targetUserId }),
+    ...behavior,
+    removeUserFromGroup: (groupId: string, removedUserId: string) =>
+      organizations.removeUserFromGroup({ groupId, removedUserId }),
+  };
+}
 
 function useOrgManagerOperationScope(): Pick<
   OrgManagerBehavior,
@@ -242,10 +280,6 @@ function useEnsureOrganizationProfileDocument(
 
 export function OrgManagerProvider({ children }: PropsWithChildren) {
   const { organizations } = useTearleads();
-  const organizationActions = useMemo(
-    () => projectBoundFacade(organizations, organizationActionKeys),
-    [organizations],
-  );
   const { captureOperationScope, isOperationScopeActive } =
     useOrgManagerOperationScope();
   const { containerStore: containerContentsStore } =
@@ -270,16 +304,16 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       isOperationScopeActive,
     });
 
-  const value = useMemo<OrgManagerContextValue>(
-    () => ({
-      ...organizationActions,
-      captureOperationScope,
-      ensureOrganizationMetadataContainer,
-      ensureOrganizationProfileDocument,
-      ensureRosterProfileContainer,
-      ensureRosterProfileDocument,
-      isOperationScopeActive,
-    }),
+  const value = useMemo(
+    () =>
+      createOrgManagerContextValue(organizations, {
+        captureOperationScope,
+        ensureOrganizationMetadataContainer,
+        ensureOrganizationProfileDocument,
+        ensureRosterProfileContainer,
+        ensureRosterProfileDocument,
+        isOperationScopeActive,
+      }),
     [
       captureOperationScope,
       ensureOrganizationMetadataContainer,
@@ -287,7 +321,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       isOperationScopeActive,
-      organizationActions,
+      organizations,
     ],
   );
 

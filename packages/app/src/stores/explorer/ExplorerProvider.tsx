@@ -62,7 +62,7 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
-const ExplorerContext = createContext<ExplorerContextModel | null>(null);
+export const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
 type ExplorerContextStoreFacade = Pick<
   ContainerContentsStore,

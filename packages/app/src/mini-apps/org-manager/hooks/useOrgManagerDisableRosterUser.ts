@@ -134,10 +134,10 @@ async function removeRosterDisableMembershipTargets(input: {
     if (!input.isOperationActive(input.organizationId)) {
       return false;
     }
-    await input.orgManagerActions.removeUserFromGroup({
+    await input.orgManagerActions.removeUserFromGroup(
       groupId,
-      removedUserId: input.disabledUserId,
-    });
+      input.disabledUserId,
+    );
   }
   return input.isOperationActive(input.organizationId);
 }

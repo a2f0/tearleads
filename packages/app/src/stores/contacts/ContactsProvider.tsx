@@ -46,9 +46,8 @@ interface ContactsProviderContextValue {
   store: ContactsStore;
 }
 
-const ContactsContext = createContext<ContactsProviderContextValue | null>(
-  null,
-);
+export const ContactsContext =
+  createContext<ContactsProviderContextValue | null>(null);
 
 type ContactsContextStoreFacade = Pick<
   ContactsStore,

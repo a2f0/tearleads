@@ -277,7 +277,7 @@ function fakeRosterSeedActions(overrides: {
       calls.importUserById += 1;
       return Promise.resolve(overrides.importedUser ?? null);
     },
-    addUserToGroup: ({ groupId, targetUserId }) => {
+    addUserToGroup: (groupId, targetUserId) => {
       calls.addUserToGroup += 1;
       addArgs = { groupId, targetUserId };
       return Promise.resolve({});

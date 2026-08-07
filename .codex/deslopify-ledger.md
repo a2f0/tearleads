@@ -358,19 +358,21 @@
   retain their original function references. Document read-only gates and the
   explorer's visible-node and Trash projections still override snapshot values
   explicitly.
-- Files changed: the four app store providers, canonical organization mutation
-  call sites and tests, shared facade projection with direct surface tests, and
-  the obsolete Org Manager provider source-shape suppression.
+- Files changed: the four app store providers, shared facade projection,
+  focused consumer types and fakes, direct hook-level surface tests, and the
+  obsolete Org Manager provider source-shape suppression.
 - Baseline: 581 focused Org Manager, document, explorer, and contacts tests
   passed at `d8816129`.
-- Verification: app TypeScript, the 583-test focused matrix, Biome,
+- Verification: app TypeScript, the 587-test focused matrix, Biome,
   source-shape, package assertions, Knip, architecture, protocol, OpenAPI, file,
   binary, Ruby, shell, and Markdown checks pass; `bun run check:affected`
-  reports 2,251 app tests passing with one skip and all 38 web E2E tests passing.
-- Delta: 45 production lines removed net, with 29 lines of direct surface,
-  receiver, and identity characterization coverage added.
-- Decision notes: use the SDK `Organizations` contract directly and its
-  canonical object mutation inputs. Type-exhaustive public-key lists prevent
-  context and SDK surfaces from drifting: organization class methods are bound
-  into an enumerable object, plain-store functions are copied by identity, and
-  complete snapshot contracts are spread directly.
+  reports 2,255 app tests passing with one skip and all 38 web E2E tests passing.
+- Delta: eight production lines removed net, with 407 lines of direct surface,
+  receiver, identity, write-gate, and node-projection characterization coverage
+  added.
+- Decision notes: retain Org Manager's narrow action contract and positional
+  membership adapters while projecting its remaining SDK actions. Type-exhaustive
+  public-key lists prevent provider and store surfaces from drifting:
+  organization class methods are bound into an enumerable object, plain-store
+  functions are copied by identity, and complete snapshot contracts are spread
+  directly.

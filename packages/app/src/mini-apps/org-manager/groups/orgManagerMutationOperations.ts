@@ -74,10 +74,10 @@ export async function prepareRosterImport(input: {
     (member) => member.userId === targetUser.userId,
   );
   if (!alreadyMember) {
-    await input.orgManagerActions.addUserToGroup({
-      groupId: input.memberGroupId,
-      targetUserId: targetUser.userId,
-    });
+    await input.orgManagerActions.addUserToGroup(
+      input.memberGroupId,
+      targetUser.userId,
+    );
   }
 
   return input.isOperationActive(input.operationOrganizationId)
@@ -128,10 +128,10 @@ export async function addRosterUserToGroup(input: {
       (member) => member.userId === targetUser.userId,
     );
     if (!alreadyMember) {
-      await input.orgManagerActions.addUserToGroup({
-        groupId: input.memberGroupId,
-        targetUserId: targetUser.userId,
-      });
+      await input.orgManagerActions.addUserToGroup(
+        input.memberGroupId,
+        targetUser.userId,
+      );
       if (!input.isOperationActive(input.operationOrganizationId)) {
         return null;
       }
@@ -144,10 +144,10 @@ export async function addRosterUserToGroup(input: {
   // organization member and really is billed, and silently reporting "add
   // failed" would leave that invisible.
   try {
-    const bundle = await input.orgManagerActions.addUserToGroup({
-      groupId: input.groupId,
-      targetUserId: targetUser.userId,
-    });
+    const bundle = await input.orgManagerActions.addUserToGroup(
+      input.groupId,
+      targetUser.userId,
+    );
     return input.isOperationActive(input.operationOrganizationId)
       ? bundle
       : null;

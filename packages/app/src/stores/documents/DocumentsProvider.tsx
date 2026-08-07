@@ -25,7 +25,7 @@ import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearle
 
 export { DEFAULT_DOCUMENT_ID };
 
-const DocumentContext = createContext<DocumentStore | null>(null);
+export const DocumentContext = createContext<DocumentStore | null>(null);
 
 // A host-forced read-only flag, kept out of the SDK document snapshot because it
 // is a UI concern (e.g. the document lives in the Trash) rather than an
@@ -33,7 +33,7 @@ const DocumentContext = createContext<DocumentStore | null>(null);
 // every editor goes read-only, and is exposed via useDocumentReadOnly so chrome
 // (edit buttons) can be hidden rather than merely disabled. Defaults to false,
 // so consumers that never pass `readOnly` are unaffected.
-const DocumentReadOnlyContext = createContext<boolean>(false);
+export const DocumentReadOnlyContext = createContext<boolean>(false);
 
 type DocumentContextStoreFacade = Pick<
   DocumentStore,
@@ -158,6 +158,6 @@ export function useDocument(): DocumentContextValue {
       canAttach: snapshot.canAttach && !readOnly,
       canWrite: snapshot.canWrite && !readOnly,
     }),
-    [snapshot, store, readOnly],
+    [readOnly, snapshot, store],
   );
 }

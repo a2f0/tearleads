@@ -141,10 +141,10 @@ test("roster import reports no result when the organization changes during its m
   });
 
   expect(addUserToGroup).toHaveBeenCalledTimes(1);
-  expect(addUserToGroup).toHaveBeenCalledWith({
-    groupId: MEMBERS.groupId,
-    targetUserId: TARGET_USER.userId,
-  });
+  expect(addUserToGroup).toHaveBeenCalledWith(
+    MEMBERS.groupId,
+    TARGET_USER.userId,
+  );
   expect(result).toBeNull();
 });
 
@@ -201,10 +201,10 @@ test("adding a roster user reports a stale result when the organization changes 
   });
 
   expect(addUserToGroup).toHaveBeenCalledTimes(1);
-  expect(addUserToGroup).toHaveBeenCalledWith({
-    groupId: "custom-group",
-    targetUserId: TARGET_USER.userId,
-  });
+  expect(addUserToGroup).toHaveBeenCalledWith(
+    "custom-group",
+    TARGET_USER.userId,
+  );
   expect(result).toBeNull();
 });
 
@@ -212,7 +212,7 @@ test("a failed Admins add after a Members add reports the user is now a billed m
   // The two writes cannot be one transaction. When the second fails the first
   // has already landed, so the user is an organization member and on the
   // invoice; reporting a bare failure would hide that.
-  const addUserToGroup = mock(async ({ groupId }: { groupId: string }) => {
+  const addUserToGroup = mock(async (groupId: string) => {
     if (groupId === "admins") {
       throw new Error("policy write failed");
     }

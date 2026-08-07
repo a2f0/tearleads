@@ -1,8 +1,9 @@
 import type {
+  ImportedOrganizationUser,
   OrganizationDirectory,
+  OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
   OrganizationGroupMembers,
-  Organizations,
 } from "@tearleads/client-sdk";
 import { KeyingVerificationError } from "@tearleads/crypto";
 
@@ -107,18 +108,24 @@ export function planDemoPeerRosterSeed(input: {
 // The org-manager actions the demo roster seeder drives. Declared structurally
 // (rather than importing the provider type) so the orchestration below stays
 // unit-testable with a fake and free of a store dependency.
-export interface DemoRosterSeedActions
-  extends Pick<
-    Organizations,
-    "importUserById" | "loadDirectoryAndGroups" | "loadGroupMembers"
-  > {
+export interface DemoRosterSeedActions {
   readonly addUserToGroup: (
-    input: Parameters<Organizations["addUserToGroup"]>[0],
+    groupId: string,
+    targetUserId: string,
   ) => Promise<unknown>;
   readonly ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
     nickname?: string | undefined,
   ) => Promise<OrganizationDirectoryUser | null>;
+  readonly importUserById: (
+    userId: string,
+  ) => Promise<ImportedOrganizationUser | null>;
+  readonly loadDirectoryAndGroups: () => Promise<
+    OrganizationDirectoryAndGroups | null | undefined
+  >;
+  readonly loadGroupMembers: (
+    groupId: string,
+  ) => Promise<OrganizationGroupMembers | null>;
 }
 
 export async function attemptPeerRosterSeed(
@@ -181,10 +188,7 @@ export async function seedPeerRosterEntry(
       if (!importedUser) {
         return false;
       }
-      await actions.addUserToGroup({
-        groupId: plan.memberGroupId,
-        targetUserId: importedUser.userId,
-      });
+      await actions.addUserToGroup(plan.memberGroupId, importedUser.userId);
     }
     // The membership write (or a prior one) has not surfaced in this directory
     // snapshot yet; retry so the next attempt can seed the profile nickname.
