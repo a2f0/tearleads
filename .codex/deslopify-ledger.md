@@ -291,3 +291,29 @@
 - Decision notes: normalize each item shape at its owning boundary while the
   shared hook owns only ref plumbing, commit-time shallow comparison, and
   effects.
+
+### 2026-08-07 - Realtime subsystem relocation
+
+- Status: accepted
+- Classification: cohesive subsystem scattered across the API source root
+- Equivalence claim: the realtime gateway, socket routing, interest store,
+  ticket identity and issuance, and session-revocation behavior are unchanged;
+  only module locations and the imports that name them changed.
+- Risk notes: API process composition, WebSocket upgrade authentication,
+  Redis pub/sub routing, and session revocation. Colocated tests moved with
+  their implementations, while `sessionRevocation.ts` remains assigned to the
+  Session Lifecycle subsystem despite its physical realtime location.
+- Files changed: eight API realtime production modules and ten colocated tests
+  moved under `src/realtime/`, with import consumers, subsystem documentation,
+  the subsystem registry, and the source-shape path baseline updated.
+- Baseline: 59 realtime and composition-root tests passed at `4eb574dc` before
+  the relocation.
+- Verification: 61 focused realtime, composition-root, and ticket-route tests,
+  TypeScript, Biome, architecture, source-shape, Knip, protocol models, and
+  `bun run check:affected` pass; the affected suite includes the full API
+  memory/SQLite matrix and 38 web E2E tests.
+- Delta: no production logic changed and no new runtime abstraction or export
+  was introduced.
+- Decision notes: keep the eight production modules and their tests flat in
+  `src/realtime/`; retain exact per-file subsystem mappings so physical
+  cohesion does not conflate Realtime Sync with Session Lifecycle ownership.

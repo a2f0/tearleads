@@ -1,4 +1,4 @@
-import { del, expire, sadd, srem, sscanMembers } from "./adapters/redis";
+import { del, expire, sadd, srem, sscanMembers } from "../adapters/redis";
 import type { AppliedInterest } from "./wsRouting";
 
 // Per-session mirror of a socket's interested containers, so a reconnecting

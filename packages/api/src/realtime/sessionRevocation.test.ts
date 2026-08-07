@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
+import type { SessionData } from "../validators/session";
 import { createSessionRevocationNotifier } from "./sessionRevocation";
-import type { SessionData } from "./validators/session";
 
 const session: SessionData = {
   createdAt: 1,

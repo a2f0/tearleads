@@ -12,8 +12,8 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
+import { consumeWebSocketTicket } from "../../realtime/wsTicket";
 import { routeApp } from "../../routeApp";
-import { consumeWebSocketTicket } from "../../wsTicket";
 
 async function authenticatedToken(): Promise<string> {
   const signingKeys = generateSigningSeedAndKeyPair();

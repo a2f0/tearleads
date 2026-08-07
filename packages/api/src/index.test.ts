@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createRouteRequestBindings, resolveWebSocketUpgrade } from "./index";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
+import type { WebSocketTicketIdentity } from "./realtime/wsIdentity";
 import {
   createWebSocketTicketConsumer,
   issueWebSocketTicket,
-} from "./wsTicket";
+} from "./realtime/wsTicket";
 
 const TEST_SESSION_ID =
   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

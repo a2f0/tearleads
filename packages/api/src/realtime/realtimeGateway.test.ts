@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
+import type { SessionData } from "../validators/session";
 import { createRealtimeGateway } from "./realtimeGateway";
 import { createSessionRevocationNotifier } from "./sessionRevocation";
-import type { SessionData } from "./validators/session";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import type { AppliedInterest } from "./wsRouting";
 import { MAX_CLIENT_MESSAGE_BYTES } from "./wsRouting";
