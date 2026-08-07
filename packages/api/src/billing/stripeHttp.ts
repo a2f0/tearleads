@@ -157,6 +157,25 @@ export function readString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+export function readNonnegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : null;
+}
+
+export function readPositiveInteger(value: unknown): number | null {
+  const integer = readNonnegativeInteger(value);
+  return integer !== null && integer > 0 ? integer : null;
+}
+
+export function readUnixTimestamp(value: unknown): Date | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  const date = new Date(value * 1000);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 /**
  * Reads one property from an unknown value when it is a plain object. The key
  * is a parameter, which keeps both tsc's no-index-signature-dot-access rule

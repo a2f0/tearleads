@@ -1,7 +1,10 @@
 import {
   getSyncBillingTierForStripePrice,
   prop,
+  readNonnegativeInteger,
+  readPositiveInteger,
   readString,
+  readUnixTimestamp,
   resolveDeps,
   type StripeApiDeps,
   stripeRequest,
@@ -21,26 +24,6 @@ export interface StripeSubscriptionBinding {
   readonly subscriptionItemId: string | null;
   readonly unitAmount: number | null;
   readonly userId: string | null;
-}
-
-function readPositiveInteger(value: unknown): number | null {
-  return Number.isSafeInteger(value) && Number(value) >= 1
-    ? Number(value)
-    : null;
-}
-
-function readNonnegativeInteger(value: unknown): number | null {
-  return Number.isSafeInteger(value) && Number(value) >= 0
-    ? Number(value)
-    : null;
-}
-
-function readUnixTimestamp(value: unknown): Date | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  const date = new Date(value * 1000);
-  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function resolveSyncItem(
