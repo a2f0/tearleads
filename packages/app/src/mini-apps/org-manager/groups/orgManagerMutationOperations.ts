@@ -5,7 +5,10 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-type OrgManagerActions = ReturnType<typeof useOrgManagerActions>;
+type OrgManagerActions = Pick<
+  ReturnType<typeof useOrgManagerActions>,
+  "addUserToGroup" | "importUserById" | "loadGroupMembers"
+>;
 type IsOperationActive = (organizationId: string) => boolean;
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 

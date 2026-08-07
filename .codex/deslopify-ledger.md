@@ -344,3 +344,35 @@
   represent an unavailable refresh with a null loader so an invalid identifier
   cannot reach its data action; keep domain-specific result handling inside
   each hook.
+
+### 2026-08-07 - Provider pass-through surfaces
+
+- Status: accepted
+- Classification: exact facade and snapshot projection duplication
+- Equivalence claim: Org Manager, document, explorer, and contacts consumers
+  retain the same SDK actions, snapshot fields, write gates, filtered explorer
+  nodes, behavioral helpers, enumerable public surfaces, and memoized function
+  identities without exposing store lifecycle or maintenance methods.
+- Risk notes: organization actions are prototype methods that require their SDK
+  receiver; their projection binds them once per SDK facade. Plain store actions
+  retain their original function references. Document read-only gates and the
+  explorer's visible-node and Trash projections still override snapshot values
+  explicitly.
+- Files changed: the four app store providers, shared facade projection,
+  focused consumer types and fakes, direct hook-level surface tests, and the
+  obsolete Org Manager provider source-shape suppression.
+- Baseline: 581 focused Org Manager, document, explorer, and contacts tests
+  passed at `d8816129`.
+- Verification: app TypeScript, the 587-test focused matrix, Biome,
+  source-shape, package assertions, Knip, architecture, protocol, OpenAPI, file,
+  binary, Ruby, shell, and Markdown checks pass; `bun run check:affected`
+  reports 2,255 app tests passing with one skip and all 38 web E2E tests passing.
+- Delta: eight production lines removed net, with 407 lines of direct surface,
+  receiver, identity, write-gate, and node-projection characterization coverage
+  added.
+- Decision notes: retain Org Manager's narrow action contract and positional
+  membership adapters while projecting its remaining SDK actions. Type-exhaustive
+  public-key lists prevent provider and store surfaces from drifting:
+  organization class methods are bound into an enumerable object, plain-store
+  functions are copied by identity, and complete snapshot contracts are spread
+  directly.

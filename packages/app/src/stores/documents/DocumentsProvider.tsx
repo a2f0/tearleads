@@ -14,6 +14,10 @@ import {
   useMemo,
 } from "react";
 import {
+  defineFacadeKeys,
+  projectFacade,
+} from "../../providers/sdk/projectFacade";
+import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
@@ -21,7 +25,7 @@ import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearle
 
 export { DEFAULT_DOCUMENT_ID };
 
-const DocumentContext = createContext<DocumentStore | null>(null);
+export const DocumentContext = createContext<DocumentStore | null>(null);
 
 // A host-forced read-only flag, kept out of the SDK document snapshot because it
 // is a UI concern (e.g. the document lives in the Trash) rather than an
@@ -29,7 +33,27 @@ const DocumentContext = createContext<DocumentStore | null>(null);
 // every editor goes read-only, and is exposed via useDocumentReadOnly so chrome
 // (edit buttons) can be hidden rather than merely disabled. Defaults to false,
 // so consumers that never pass `readOnly` are unaffected.
-const DocumentReadOnlyContext = createContext<boolean>(false);
+export const DocumentReadOnlyContext = createContext<boolean>(false);
+
+type DocumentContextStoreFacade = Pick<
+  DocumentStore,
+  Extract<keyof DocumentStore, keyof DocumentContextValue>
+>;
+
+const documentContextStoreKeys = defineFacadeKeys<DocumentContextStoreFacade>()(
+  [
+    "addRow",
+    "attachFiles",
+    "removeAttachment",
+    "removeRow",
+    "replaceAttachment",
+    "requestSync",
+    "relink",
+    "setStructuredFields",
+    "setText",
+    "updateRowFields",
+  ],
+);
 
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
@@ -126,36 +150,14 @@ export function useDocument(): DocumentContextValue {
 
   return useMemo(
     () => ({
-      attachments: snapshot.attachments,
-      attachmentStatusBySlotId: snapshot.attachmentStatusBySlotId,
-      attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
-      attachFiles: store.attachFiles,
-      addRow: store.addRow,
+      ...projectFacade(store, documentContextStoreKeys),
+      ...snapshot,
       // Fold the host read-only flag into both write gates so every editor and
       // attachment control (which all derive from these two booleans) goes
       // read-only for a trashed document even though the viewer still owns it.
       canAttach: snapshot.canAttach && !readOnly,
       canWrite: snapshot.canWrite && !readOnly,
-      currentAuthorId: snapshot.currentAuthorId,
-      documentId: snapshot.documentId,
-      documentKind: snapshot.documentKind,
-      effectiveAccessLevel: snapshot.effectiveAccessLevel,
-      fieldValidationIssues: snapshot.fieldValidationIssues,
-      ready: snapshot.ready,
-      removeRow: store.removeRow,
-      requestSync: store.requestSync,
-      relink: store.relink,
-      removeAttachment: store.removeAttachment,
-      rows: snapshot.rows,
-      replaceAttachment: store.replaceAttachment,
-      setStructuredFields: store.setStructuredFields,
-      structuredFields: snapshot.structuredFields,
-      text: snapshot.text,
-      title: snapshot.title,
-      syncing: snapshot.syncing,
-      setText: store.setText,
-      updateRowFields: store.updateRowFields,
     }),
-    [snapshot, store, readOnly],
+    [readOnly, snapshot, store],
   );
 }

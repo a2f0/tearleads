@@ -1,4 +1,5 @@
 import type {
+  ImportedOrganizationUser,
   OrganizationDirectory,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
@@ -118,7 +119,7 @@ export interface DemoRosterSeedActions {
   ) => Promise<OrganizationDirectoryUser | null>;
   readonly importUserById: (
     userId: string,
-  ) => Promise<{ readonly userId: string } | null>;
+  ) => Promise<ImportedOrganizationUser | null>;
   readonly loadDirectoryAndGroups: () => Promise<
     OrganizationDirectoryAndGroups | null | undefined
   >;

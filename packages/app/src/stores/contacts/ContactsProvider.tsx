@@ -13,6 +13,10 @@ import {
   useMemo,
 } from "react";
 import {
+  defineFacadeKeys,
+  projectFacade,
+} from "../../providers/sdk/projectFacade";
+import {
   type RuntimeSnapshot,
   useTearleads,
   useTearleadsRuntime,
@@ -42,8 +46,23 @@ interface ContactsProviderContextValue {
   store: ContactsStore;
 }
 
-const ContactsContext = createContext<ContactsProviderContextValue | null>(
-  null,
+export const ContactsContext =
+  createContext<ContactsProviderContextValue | null>(null);
+
+type ContactsContextStoreFacade = Pick<
+  ContactsStore,
+  Extract<keyof ContactsStore, keyof ContactsContextValue>
+>;
+
+const contactsContextStoreKeys = defineFacadeKeys<ContactsContextStoreFacade>()(
+  [
+    "createContact",
+    "importKey",
+    "removeContact",
+    "removeContactAvatar",
+    "setContactAvatar",
+    "updateContact",
+  ],
 );
 
 function resolveContactsContainer(input: {
@@ -334,15 +353,9 @@ export function useContacts(): ContactsContextValue {
 
   return useMemo(
     () => ({
+      ...projectFacade(store, contactsContextStoreKeys),
+      ...snapshot,
       canWrite,
-      createContact: store.createContact,
-      entries: snapshot.entries,
-      importKey: store.importKey,
-      ready: snapshot.ready,
-      removeContact: store.removeContact,
-      removeContactAvatar: store.removeContactAvatar,
-      setContactAvatar: store.setContactAvatar,
-      updateContact: store.updateContact,
     }),
     [canWrite, snapshot, store],
   );

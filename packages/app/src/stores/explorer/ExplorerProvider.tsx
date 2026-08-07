@@ -13,6 +13,10 @@ import {
   useContext,
   useMemo,
 } from "react";
+import {
+  defineFacadeKeys,
+  projectFacade,
+} from "../../providers/sdk/projectFacade";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
@@ -58,7 +62,30 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
-const ExplorerContext = createContext<ExplorerContextModel | null>(null);
+export const ExplorerContext = createContext<ExplorerContextModel | null>(null);
+
+type ExplorerContextStoreFacade = Pick<
+  ContainerContentsStore,
+  Extract<keyof ContainerContentsStore, keyof ContainerContentsContextValue>
+>;
+
+const explorerContextStoreKeys = defineFacadeKeys<ExplorerContextStoreFacade>()(
+  [
+    "createChild",
+    "deleteContainer",
+    "emptyTrash",
+    "ensureSystemContainer",
+    "moveContainer",
+    "purgeContainer",
+    "refresh",
+    "refreshRootLane",
+    "renameContainer",
+    "requestSync",
+    "setContainerIcon",
+    "shareWithGroup",
+    "shareWithUser",
+  ],
+);
 
 function useEnsureExplorerTrashContainer(
   context: ExplorerContextModel,
@@ -184,36 +211,24 @@ export function useExplorer(): ExplorerContextValue {
 
   return useMemo(
     () => ({
-      builtInSystemContainers,
-      canResolveTrashContainer:
-        snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
-      contactsSystemSlot,
-      createChild: store.createChild,
       // deleteContainer is part of the SDK store context contract
       // (ContainerContentsContextValue), so the context value must carry it. The
       // explorer UI no longer wires it to any menu action — folders are removed
       // by moving them to Trash and purging from there — so the narrower
       // ExplorerModelExplorer omits it.
-      deleteContainer: store.deleteContainer,
+      ...projectFacade(store, explorerContextStoreKeys),
+      ...snapshot,
+      builtInSystemContainers,
+      canResolveTrashContainer:
+        snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
+      contactsSystemSlot,
       ensureTrashContainer,
-      ensureSystemContainer: store.ensureSystemContainer,
-      moveContainer: store.moveContainer,
-      purgeContainer: store.purgeContainer,
-      emptyTrash: store.emptyTrash,
       reconciler,
-      refresh: store.refresh,
-      refreshRootLane: store.refreshRootLane,
-      renameContainer: store.renameContainer,
-      requestSync: store.requestSync,
-      setContainerIcon: store.setContainerIcon,
-      shareWithGroup: store.shareWithGroup,
-      shareWithUser: store.shareWithUser,
       nodes: getVisibleExplorerNodes(
         snapshot.nodes,
         visibleSystemSlots,
         currentOrganizationId,
       ),
-      ready: snapshot.ready,
       trashContainerId: getExplorerTrashDeleteTargetId(
         snapshot.nodes,
         trashSystemSlot,
