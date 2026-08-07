@@ -21,13 +21,10 @@ type NativeSubscriptionStore =
 // Billing clients historically encoded arbitrary organization ids and returned
 // request results for them. Keep that behavior while deriving the path template
 // and public parameter types from the canonical operation contracts.
-function organizationBillingPath(
-  operation:
-    | typeof claimNativeOrganizationSubscriptionOperation
-    | typeof getOrganizationBillingOperation
-    | typeof getOrganizationBillingHistoryOperation
-    | typeof getOrganizationBillingManagementUrlOperation
-    | typeof startOrganizationTrialOperation,
+export function organizationBillingPath(
+  operation: {
+    readonly path: `/organizations/{organizationId}${string}`;
+  },
   organizationId: OrganizationId,
 ) {
   return operation.path.replace(

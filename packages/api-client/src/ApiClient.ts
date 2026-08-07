@@ -18,27 +18,23 @@ import type {
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
-import {
-  type BlobAttachmentBindResponse,
-  type BlobAttachmentDetachResponse,
-  type ContainerCreateWithMetadataDocumentResponse,
-  type ContainerDeleteResponse,
-  type ContainerMutationResponse,
-  type ContainerWriterProjectionResponse,
-  type DocumentCreateResponse,
-  type DocumentSyncResponse,
-  type DocumentWriterProjectionResponse,
-  isStripeCancelResponse,
-  isStripeCheckoutIntentResponse,
-  isStripeCheckoutOptionsResponse,
-  isStripeCheckoutSessionResponse,
-  type ListContainerDocumentsResponse,
-  type ListContainerParentLanesResponse,
-  type ListDocumentAttachmentsResponse,
-  type OrganizationDataUsageResponse,
-  type OrganizationReadModelResponse,
-  type PrincipalPolicyBundleResponse,
-  type UserIdentityResponse,
+import type {
+  BlobAttachmentBindResponse,
+  BlobAttachmentDetachResponse,
+  ContainerCreateWithMetadataDocumentResponse,
+  ContainerDeleteResponse,
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
+  DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
+  ListContainerDocumentsResponse,
+  ListContainerParentLanesResponse,
+  ListDocumentAttachmentsResponse,
+  OrganizationDataUsageResponse,
+  OrganizationReadModelResponse,
+  PrincipalPolicyBundleResponse,
+  UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
 import {
@@ -115,7 +111,7 @@ import { listOrganizationGroupMembers as groupMembers } from "./routes/organizat
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
 import { getOrganizationReadModel as organizationReadModel } from "./routes/organizations/readModel";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
-import { pathSegment } from "./routes/path";
+import { organizationStripeCheckout } from "./routes/organizations/stripeCheckout";
 import {
   getPrincipalPolicy as principalPolicyGet,
   putPrincipalPolicy as principalPolicyPut,
@@ -903,55 +899,51 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ) {
     return this.makeRequestResult(
-      `/organizations/${pathSegment(organizationId)}/billing/stripe/options`,
-      isStripeCheckoutOptionsResponse,
-      "GET",
+      organizationStripeCheckout.options.path(organizationId),
+      organizationStripeCheckout.options.isResponse,
+      organizationStripeCheckout.options.method,
       undefined,
       options,
     );
   }
 
-  /**
-   * Starts (or resumes) a checkout for the organization and returns what the
-   * Payment Element needs to confirm it. The server refuses with 409 when the
-   * org already has a live subscription.
-   */
+  /** Starts or resumes inline checkout; an existing subscription returns 409. */
   createStripeCheckout(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
-      isStripeCheckoutIntentResponse,
-      "POST",
+      organizationStripeCheckout.checkout.path(organizationId),
+      organizationStripeCheckout.checkout.isResponse,
+      organizationStripeCheckout.checkout.method,
     );
   }
 
-  /**
-   * Opens a hosted Stripe Checkout page (the off-site alternative to the inline
-   * form). `returnUrl` is where Stripe sends the buyer back and is validated
-   * server-side against the app's origins. Resolves `{ url: null }` when the
-   * integration is unconfigured or the org is not eligible.
-   */
+  /** Opens hosted checkout; a null URL means unavailable or ineligible. */
   createStripeCheckoutSession(organizationId: string, returnUrl: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout-session`,
-      isStripeCheckoutSessionResponse,
-      "POST",
-      JSON.stringify({ returnUrl }),
+      organizationStripeCheckout.checkoutSession.path(organizationId),
+      organizationStripeCheckout.checkoutSession.isResponse,
+      organizationStripeCheckout.checkoutSession.method,
+      JSON.stringify(
+        organizationStripeCheckout.checkoutSession.body(returnUrl),
+      ),
     );
   }
 
-  /**
-   * Ends the organization's sync subscription when the paid period closes.
-   * Resolves null on ANY non-2xx (like every method here) — a 404 with no
-   * cancellable subscription, but also a transient 502/network error — so the
-   * caller cannot tell "nothing to cancel" from "try again later". The panel
-   * only renders the cancel action when a cancellable sub is expected (active,
-   * no provider-managed link), so in practice a null is the transient case.
-   */
+  /** Opens Stripe's subscription-management portal for the organization. */
+  createStripePortal(organizationId: string, returnUrl: string) {
+    return this.request(
+      organizationStripeCheckout.portal.path(organizationId),
+      organizationStripeCheckout.portal.isResponse,
+      organizationStripeCheckout.portal.method,
+      JSON.stringify(organizationStripeCheckout.portal.body(returnUrl)),
+    );
+  }
+
+  /** Schedules period-end cancellation; any non-2xx resolves null. */
   cancelStripeSubscription(organizationId: string) {
     return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/stripe/cancel`,
-      isStripeCancelResponse,
-      "POST",
+      organizationStripeCheckout.cancel.path(organizationId),
+      organizationStripeCheckout.cancel.isResponse,
+      organizationStripeCheckout.cancel.method,
     );
   }
 
