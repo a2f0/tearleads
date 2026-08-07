@@ -334,15 +334,9 @@ export function useContacts(): ContactsContextValue {
 
   return useMemo(
     () => ({
+      ...store,
+      ...snapshot,
       canWrite,
-      createContact: store.createContact,
-      entries: snapshot.entries,
-      importKey: store.importKey,
-      ready: snapshot.ready,
-      removeContact: store.removeContact,
-      removeContactAvatar: store.removeContactAvatar,
-      setContactAvatar: store.setContactAvatar,
-      updateContact: store.updateContact,
     }),
     [canWrite, snapshot, store],
   );

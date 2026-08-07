@@ -429,9 +429,6 @@
     "packages/app-web/src/index.tsx": {
       "biomeIgnore": 3
     },
-    "packages/app/src/stores/org-manager/OrgManagerProvider.tsx": {
-      "biomeIgnore": 1
-    },
     "packages/client-sdk/src/data/documents/shared/responses.ts": {
       "todo": 1
     },

@@ -184,36 +184,24 @@ export function useExplorer(): ExplorerContextValue {
 
   return useMemo(
     () => ({
-      builtInSystemContainers,
-      canResolveTrashContainer:
-        snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
-      contactsSystemSlot,
-      createChild: store.createChild,
       // deleteContainer is part of the SDK store context contract
       // (ContainerContentsContextValue), so the context value must carry it. The
       // explorer UI no longer wires it to any menu action — folders are removed
       // by moving them to Trash and purging from there — so the narrower
       // ExplorerModelExplorer omits it.
-      deleteContainer: store.deleteContainer,
+      ...store,
+      ...snapshot,
+      builtInSystemContainers,
+      canResolveTrashContainer:
+        snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
+      contactsSystemSlot,
       ensureTrashContainer,
-      ensureSystemContainer: store.ensureSystemContainer,
-      moveContainer: store.moveContainer,
-      purgeContainer: store.purgeContainer,
-      emptyTrash: store.emptyTrash,
       reconciler,
-      refresh: store.refresh,
-      refreshRootLane: store.refreshRootLane,
-      renameContainer: store.renameContainer,
-      requestSync: store.requestSync,
-      setContainerIcon: store.setContainerIcon,
-      shareWithGroup: store.shareWithGroup,
-      shareWithUser: store.shareWithUser,
       nodes: getVisibleExplorerNodes(
         snapshot.nodes,
         visibleSystemSlots,
         currentOrganizationId,
       ),
-      ready: snapshot.ready,
       trashContainerId: getExplorerTrashDeleteTargetId(
         snapshot.nodes,
         trashSystemSlot,

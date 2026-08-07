@@ -119,10 +119,10 @@ async function removeUserFromSelectedGroup(
     isOperationActive: params.isOperationActive,
     operationOrganizationId,
     run: async () => {
-      await params.orgManagerActions.removeUserFromGroup(
-        selectedGroupId,
+      await params.orgManagerActions.removeUserFromGroup({
+        groupId: selectedGroupId,
         removedUserId,
-      );
+      });
       if (!params.isOperationActive(operationOrganizationId)) {
         return;
       }

@@ -5,7 +5,10 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-type OrgManagerActions = ReturnType<typeof useOrgManagerActions>;
+type OrgManagerActions = Pick<
+  ReturnType<typeof useOrgManagerActions>,
+  "addUserToGroup" | "importUserById" | "loadGroupMembers"
+>;
 type IsOperationActive = (organizationId: string) => boolean;
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
@@ -71,10 +74,10 @@ export async function prepareRosterImport(input: {
     (member) => member.userId === targetUser.userId,
   );
   if (!alreadyMember) {
-    await input.orgManagerActions.addUserToGroup(
-      input.memberGroupId,
-      targetUser.userId,
-    );
+    await input.orgManagerActions.addUserToGroup({
+      groupId: input.memberGroupId,
+      targetUserId: targetUser.userId,
+    });
   }
 
   return input.isOperationActive(input.operationOrganizationId)
@@ -125,10 +128,10 @@ export async function addRosterUserToGroup(input: {
       (member) => member.userId === targetUser.userId,
     );
     if (!alreadyMember) {
-      await input.orgManagerActions.addUserToGroup(
-        input.memberGroupId,
-        targetUser.userId,
-      );
+      await input.orgManagerActions.addUserToGroup({
+        groupId: input.memberGroupId,
+        targetUserId: targetUser.userId,
+      });
       if (!input.isOperationActive(input.operationOrganizationId)) {
         return null;
       }
@@ -141,10 +144,10 @@ export async function addRosterUserToGroup(input: {
   // organization member and really is billed, and silently reporting "add
   // failed" would leave that invisible.
   try {
-    const bundle = await input.orgManagerActions.addUserToGroup(
-      input.groupId,
-      targetUser.userId,
-    );
+    const bundle = await input.orgManagerActions.addUserToGroup({
+      groupId: input.groupId,
+      targetUserId: targetUser.userId,
+    });
     return input.isOperationActive(input.operationOrganizationId)
       ? bundle
       : null;

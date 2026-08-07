@@ -1,22 +1,8 @@
 import type {
   ContainerNode,
-  ImportedOrganizationUser,
-  OrganizationContainerGrants,
-  OrganizationDataUsage,
-  OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
-  OrganizationGrantRef,
-  OrganizationGroupDetails,
-  OrganizationGroupSummary,
-  OrganizationPolicyHistory,
-  OrganizationProfile,
-  OrganizationUserDetail,
+  Organizations,
 } from "@tearleads/client-sdk";
-import type {
-  ContainerMutationResponse,
-  DeleteOrganizationGroupResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
 import {
   createContext,
   type PropsWithChildren,
@@ -42,16 +28,8 @@ import {
   createRosterProfileDocument,
 } from "./profileDocuments";
 
-interface OrgManagerContextValue {
-  addUserToGroup: (
-    groupId: string,
-    targetUserId: string,
-  ) => Promise<PrincipalPolicyBundleResponse>;
+interface OrgManagerBehavior {
   captureOperationScope: () => OrgManagerOperationScope | null;
-  createGroup: (name: string) => Promise<OrganizationGroupSummary>;
-  deleteGroup: (
-    groupId: string,
-  ) => Promise<DeleteOrganizationGroupResponse | null>;
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
     nickname?: string | undefined,
@@ -61,51 +39,43 @@ interface OrgManagerContextValue {
   ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   ensureOrganizationMetadataContainer: () => Promise<ContainerNode | null>;
-  importUserById: (userId: string) => Promise<ImportedOrganizationUser | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
-  loadDataUsage: () => Promise<OrganizationDataUsage | null | undefined>;
-  loadLocalDataUsage: () => Promise<OrganizationDataUsage | null>;
-  loadDirectoryAndGroups: () => Promise<
-    OrganizationDirectoryAndGroups | null | undefined
-  >;
-  loadDirectoryAndGroupsAfterMutation: () => Promise<
-    OrganizationDirectoryAndGroups | null | undefined
-  >;
-  loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
-  loadGroupContainers: (
-    groupId: string,
-  ) => Promise<OrganizationGroupDetails["containers"]>;
-  loadGroupMembers: (
-    groupId: string,
-  ) => Promise<OrganizationGroupDetails["members"]>;
-  loadGroupPresentationDetails: (
-    groupId: string,
-  ) => Promise<Pick<OrganizationGroupDetails, "members" | "policyHistory">>;
-  loadGrants: () => Promise<OrganizationContainerGrants | null>;
-  loadPolicyHistory: () => Promise<OrganizationPolicyHistory | null>;
-  loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
-  removeUserFromGroup: (
-    groupId: string,
-    removedUserId: string,
-  ) => Promise<PrincipalPolicyBundleResponse>;
-  revokeGrant: (
-    grant: OrganizationGrantRef,
-  ) => Promise<ContainerMutationResponse | PrincipalPolicyBundleResponse>;
-  updateRosterEntry: (
-    userId: string,
-    profileDocumentId: string | null,
-  ) => Promise<OrganizationDirectoryUser | null>;
-  updateProfile: (
-    profileDocumentId: string | null,
-  ) => Promise<OrganizationProfile | null>;
 }
+
+type OrgManagerContextValue = Organizations & OrgManagerBehavior;
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
-export function OrgManagerProvider({ children }: PropsWithChildren) {
+export function extendBoundFacade<
+  Facade extends object,
+  Extension extends object,
+>(facade: Facade, extension: Extension): Facade & Extension;
+export function extendBoundFacade(facade: object, extension: object): object {
+  const boundMethods = new Map<PropertyKey, unknown>();
+  return new Proxy(extension, {
+    get(target, property, receiver) {
+      if (Reflect.has(target, property)) {
+        return Reflect.get(target, property, receiver);
+      }
+      const value = Reflect.get(facade, property, facade);
+      if (typeof value !== "function") {
+        return value;
+      }
+      if (!boundMethods.has(property)) {
+        boundMethods.set(property, value.bind(facade));
+      }
+      return boundMethods.get(property);
+    },
+    has: (target, property) =>
+      Reflect.has(target, property) || Reflect.has(facade, property),
+  });
+}
+
+function useOrgManagerOperationScope(): Pick<
+  OrgManagerBehavior,
+  "captureOperationScope" | "isOperationScopeActive"
+> {
   const tearleads = useTearleads();
-  const { documents, organizations, userIdentities } = tearleads;
   const runtime = useTearleadsRuntime();
   const scopeGeneration = useMemo(
     () => ({}),
@@ -136,11 +106,6 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ),
     [scopeGeneration, tearleads],
   );
-  const { containerStore: containerContentsStore } =
-    useDeviceFirstContainerContents();
-
-  // DeviceFirstProvider owns the shared store's runtime lifecycle. This
-  // provider only invokes its mutations after the authenticated root exists.
   const isOperationScopeActive = useCallback(
     (scope: OrgManagerOperationScope) =>
       isOrgManagerOperationScopeActive(
@@ -150,127 +115,24 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ),
     [tearleads],
   );
+  return { captureOperationScope, isOperationScopeActive };
+}
 
-  const createGroup = useCallback(
-    (name: string) => organizations.createGroup(name),
-    [organizations],
-  );
-
-  const deleteGroup = useCallback(
-    (groupId: string) => organizations.deleteGroup(groupId),
-    [organizations],
-  );
-
-  const loadDirectoryAndGroups = useCallback(() => {
-    return organizations.loadDirectoryAndGroups();
-  }, [organizations]);
-
-  const loadDirectoryAndGroupsAfterMutation = useCallback(() => {
-    return organizations.loadDirectoryAndGroupsAfterMutation();
-  }, [organizations]);
-
-  const loadLocalDirectoryAndGroups = useCallback(() => {
-    return organizations.loadLocalDirectoryAndGroups();
-  }, [organizations]);
-
-  const loadGroupMembers = useCallback(
-    (groupId: string) => {
-      return organizations.loadGroupMembers(groupId);
-    },
-    [organizations],
-  );
-
-  const loadGroupContainers = useCallback(
-    (groupId: string) => organizations.loadGroupContainers(groupId),
-    [organizations],
-  );
-
-  const loadGroupPresentationDetails = useCallback(
-    (groupId: string) => {
-      return organizations.loadGroupPresentationDetails(groupId);
-    },
-    [organizations],
-  );
-
-  const loadGrants = useCallback(() => {
-    return organizations.loadGrants();
-  }, [organizations]);
-
-  const loadPolicyHistory = useCallback(() => {
-    return organizations.loadPolicyHistory();
-  }, [organizations]);
-
-  const loadDataUsage = useCallback(() => {
-    return organizations.loadDataUsage();
-  }, [organizations]);
-
-  const loadLocalDataUsage = useCallback(() => {
-    return organizations.loadLocalDataUsage();
-  }, [organizations]);
-
-  const loadUserDetail = useCallback(
-    (userId: string) => {
-      return organizations.loadUserDetail(userId);
-    },
-    [organizations],
-  );
-
-  const addUserToGroup = useCallback(
-    async (groupId: string, targetUserId: string) => {
-      return organizations.addUserToGroup({
-        groupId,
-        targetUserId,
-      });
-    },
-    [organizations],
-  );
-
-  const removeUserFromGroup = useCallback(
-    async (groupId: string, removedUserId: string) => {
-      return organizations.removeUserFromGroup({
-        groupId,
-        removedUserId,
-      });
-    },
-    [organizations],
-  );
-
-  const revokeGrant = useCallback(
-    async (grant: OrganizationGrantRef) => {
-      return organizations.revokeGrant({
-        containerId: grant.containerId,
-        subjectId: grant.subjectId,
-        subjectType: grant.subjectType,
-      });
-    },
-    [organizations],
-  );
-
-  const importUserById = useCallback(
-    (userId: string) => organizations.importUserById(userId),
-    [organizations],
-  );
-
-  const updateRosterEntry = useCallback(
-    (userId: string, profileDocumentId: string | null) =>
-      organizations.updateRosterEntry(userId, profileDocumentId),
-    [organizations],
-  );
-
-  const updateProfile = useCallback(
-    (profileDocumentId: string | null) =>
-      organizations.updateProfile(profileDocumentId),
-    [organizations],
-  );
-
-  const { ensureOrganizationMetadataContainer, ensureRosterProfileContainer } =
-    useOrganizationProfileContainers({
-      captureOperationScope,
-      containerContentsStore,
-      isOperationScopeActive,
-    });
-
-  const ensureRosterProfileDocument = useCallback(
+function useEnsureRosterProfileDocument(
+  input: Pick<
+    OrgManagerBehavior,
+    | "captureOperationScope"
+    | "ensureRosterProfileContainer"
+    | "isOperationScopeActive"
+  >,
+): OrgManagerBehavior["ensureRosterProfileDocument"] {
+  const { documents, organizations, userIdentities } = useTearleads();
+  const {
+    captureOperationScope,
+    ensureRosterProfileContainer,
+    isOperationScopeActive,
+  } = input;
+  return useCallback(
     async (user: OrganizationDirectoryUser, nickname?: string) => {
       if (user.profileDocumentId) {
         return user;
@@ -313,8 +175,23 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       userIdentities,
     ],
   );
+}
 
-  const ensureOrganizationProfileDocument = useCallback(
+function useEnsureOrganizationProfileDocument(
+  input: Pick<
+    OrgManagerBehavior,
+    | "captureOperationScope"
+    | "ensureOrganizationMetadataContainer"
+    | "isOperationScopeActive"
+  >,
+): OrgManagerBehavior["ensureOrganizationProfileDocument"] {
+  const { documents, organizations } = useTearleads();
+  const {
+    captureOperationScope,
+    ensureOrganizationMetadataContainer,
+    isOperationScopeActive,
+  } = input;
+  return useCallback(
     async (profileDocumentId: string | null) => {
       if (profileDocumentId) {
         return profileDocumentId;
@@ -349,61 +226,52 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       organizations,
     ],
   );
+}
 
-  const value = useMemo(
-    () => ({
-      addUserToGroup,
+export function OrgManagerProvider({ children }: PropsWithChildren) {
+  const { organizations } = useTearleads();
+  const { captureOperationScope, isOperationScopeActive } =
+    useOrgManagerOperationScope();
+  const { containerStore: containerContentsStore } =
+    useDeviceFirstContainerContents();
+  // DeviceFirstProvider owns the shared store's runtime lifecycle. This
+  // provider only invokes its mutations after the authenticated root exists.
+  const { ensureOrganizationMetadataContainer, ensureRosterProfileContainer } =
+    useOrganizationProfileContainers({
       captureOperationScope,
-      createGroup,
-      deleteGroup,
-      ensureOrganizationMetadataContainer,
-      ensureOrganizationProfileDocument,
-      ensureRosterProfileContainer,
-      ensureRosterProfileDocument,
-      importUserById,
+      containerContentsStore,
       isOperationScopeActive,
-      loadDataUsage,
-      loadLocalDataUsage,
-      loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation,
-      loadLocalDirectoryAndGroups,
-      loadGroupContainers,
-      loadGroupMembers,
-      loadGroupPresentationDetails,
-      loadGrants,
-      loadPolicyHistory,
-      loadUserDetail,
-      removeUserFromGroup,
-      revokeGrant,
-      updateProfile,
-      updateRosterEntry,
-    }),
+    });
+  const ensureRosterProfileDocument = useEnsureRosterProfileDocument({
+    captureOperationScope,
+    ensureRosterProfileContainer,
+    isOperationScopeActive,
+  });
+  const ensureOrganizationProfileDocument =
+    useEnsureOrganizationProfileDocument({
+      captureOperationScope,
+      ensureOrganizationMetadataContainer,
+      isOperationScopeActive,
+    });
+
+  const value = useMemo<OrgManagerContextValue>(
+    () =>
+      extendBoundFacade(organizations, {
+        captureOperationScope,
+        ensureOrganizationMetadataContainer,
+        ensureOrganizationProfileDocument,
+        ensureRosterProfileContainer,
+        ensureRosterProfileDocument,
+        isOperationScopeActive,
+      }),
     [
-      addUserToGroup,
       captureOperationScope,
-      createGroup,
-      deleteGroup,
       ensureOrganizationMetadataContainer,
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
-      importUserById,
       isOperationScopeActive,
-      loadDataUsage,
-      loadLocalDataUsage,
-      loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation,
-      loadLocalDirectoryAndGroups,
-      loadGroupContainers,
-      loadGroupMembers,
-      loadGroupPresentationDetails,
-      loadGrants,
-      loadPolicyHistory,
-      loadUserDetail,
-      removeUserFromGroup,
-      revokeGrant,
-      updateProfile,
-      updateRosterEntry,
+      organizations,
     ],
   );
 
