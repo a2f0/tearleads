@@ -44,28 +44,14 @@ export function IdentitySwitcher({
       <MiniAppSelectMenu
         ariaLabel="Identities"
         disabled={switcher.busy}
-        footer={({ close }) => (
-          <button
-            className="mini-app-select-menu-option"
-            disabled={switcher.busy}
-            onClick={() => {
-              void switcher.createIdentity();
-              close();
-            }}
-            type="button"
-          >
-            <PlusIcon
-              aria-hidden="true"
-              className="mini-app-select-menu-icon"
-              focusable="false"
-              size={16}
-              weight="regular"
-            />
-            <span className="mini-app-select-menu-label">
-              {switcher.busy ? "Creating identity..." : "New Identity"}
-            </span>
-          </button>
-        )}
+        footerAction={{
+          disabled: switcher.busy,
+          icon: PlusIcon,
+          label: switcher.busy ? "Creating identity..." : "New Identity",
+          onSelect: () => {
+            void switcher.createIdentity();
+          },
+        }}
         onChange={(signingFingerprint) => {
           void switcher.selectIdentity(signingFingerprint);
         }}

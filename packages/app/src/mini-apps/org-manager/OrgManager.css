@@ -34,23 +34,6 @@
   padding: var(--space-sm);
 }
 
-.org-manager-menu {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.org-manager-menu-icon,
-.org-manager-sidebar-icon {
-  flex: 0 0 auto;
-}
-
-.org-manager-menu-caret {
-  flex: 0 0 auto;
-  opacity: var(--opacity-muted);
-}
-
 .org-manager-groups {
   display: grid;
   grid-template-columns: minmax(14rem, 0.8fr) minmax(18rem, 1.2fr);

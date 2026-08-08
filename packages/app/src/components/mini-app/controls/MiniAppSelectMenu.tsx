@@ -1,5 +1,6 @@
+import type { Icon } from "@phosphor-icons/react";
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
-import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { classNames } from "../../shared/classNames";
 import { Menu, type MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "./MiniAppButton";
@@ -15,17 +16,48 @@ interface MiniAppSelectMenuProps {
   ariaLabel: string;
   className?: string | undefined;
   disabled?: boolean;
-  /**
-   * Rendered at the bottom of the open dropdown, below the options and outside
-   * the listbox — a spot for actions such as "New…". `close` dismisses the menu.
-   */
-  footer?: (helpers: { close: () => void }) => ReactNode;
+  footerAction?:
+    | {
+        disabled?: boolean;
+        icon: Icon;
+        label: string;
+        onSelect: () => void;
+      }
+    | undefined;
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   placeholder?: string;
   portaled?: boolean;
   selectRef?: RefObject<HTMLButtonElement | null>;
   value: string;
+}
+
+function MiniAppSelectMenuFooterAction(props: {
+  action: NonNullable<MiniAppSelectMenuProps["footerAction"]>;
+  close: () => void;
+}) {
+  const ActionIcon = props.action.icon;
+
+  return (
+    <button
+      className="mini-app-select-menu-option"
+      disabled={props.action.disabled}
+      onClick={() => {
+        props.action.onSelect();
+        props.close();
+      }}
+      type="button"
+    >
+      <ActionIcon
+        aria-hidden="true"
+        className="mini-app-select-menu-icon"
+        focusable="false"
+        size={16}
+        weight="regular"
+      />
+      <span className="mini-app-select-menu-label">{props.action.label}</span>
+    </button>
+  );
 }
 
 function MiniAppSelectMenuTrigger(props: {
@@ -132,7 +164,7 @@ function MiniAppSelectMenuOptionButton(params: {
 
 function MiniAppSelectMenuPopover(props: {
   controller: MiniAppSelectMenuController;
-  footer: MiniAppSelectMenuProps["footer"];
+  footerAction: MiniAppSelectMenuProps["footerAction"];
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   portaled: boolean;
   popoverRef: RefObject<HTMLDivElement | null>;
@@ -165,9 +197,12 @@ function MiniAppSelectMenuPopover(props: {
           />
         ))}
       </div>
-      {props.footer ? (
+      {props.footerAction ? (
         <div className="mini-app-select-menu-footer">
-          {props.footer({ close: controller.close })}
+          <MiniAppSelectMenuFooterAction
+            action={props.footerAction}
+            close={controller.close}
+          />
         </div>
       ) : null}
     </div>
@@ -177,15 +212,14 @@ function MiniAppSelectMenuPopover(props: {
 /**
  * A single-select dropdown styled as a custom combobox: a `MiniAppButton`
  * trigger opening an absolutely-positioned listbox of options, with keyboard
- * navigation. Optionally renders a `footer` action below the options. Shared by
- * Explorer's move dialog and the org-manager organization switcher.
+ * navigation. Optionally renders a footer action below the options.
  */
 export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
   const internalRef = useRef<HTMLButtonElement>(null);
   const portalRef = useRef<HTMLDivElement>(null);
   const selectRef = props.selectRef ?? internalRef;
   const disabled = props.disabled ?? false;
-  const hasFooter = Boolean(props.footer);
+  const hasFooter = Boolean(props.footerAction);
   const portaled = props.portaled ?? false;
   const controller = useMiniAppSelectMenuController({
     disabled,
@@ -207,7 +241,7 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
   const popover = controller.open ? (
     <MiniAppSelectMenuPopover
       controller={controller}
-      footer={props.footer}
+      footerAction={props.footerAction}
       options={props.options}
       portaled={portaled}
       popoverRef={portalRef}

@@ -76,6 +76,9 @@ test("org manager sidebar panel clears itself when disabled", async () => {
     expect(view.getByText(ORG_MANAGER_LABELS.organization)).toBeTruthy();
     expect(view.getByText(ORG_MANAGER_LABELS.usage)).toBeTruthy();
   });
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.directory).closest("button")?.className,
+  ).toContain("mini-app-row--selected");
 
   view.rerender(<SidebarHarness enabled={false} />);
 

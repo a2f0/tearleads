@@ -733,3 +733,39 @@
   Biome baseline entry to its new path without increasing its allowance, remove
   the switcher barrel, and keep implementation-specific refresh tests beside the
   code they characterize.
+
+### 2026-08-07 - Shared mini-app section navigation
+
+- Status: accepted
+- Classification: duplicated menu/sidebar rendering and select-footer
+  reconstruction through private styling hooks
+- Equivalence claim: organization and identity sections retain the same order,
+  labels, icons, click targets, navigation labels, selected-sidebar state, and
+  panel registration lifecycle. Organization context-menu routing remains
+  optional and target-specific. Switcher footer actions retain the same disabled
+  state, label, icon, callback-before-close order, and zero-option openability.
+- Risk notes: the shared generic must preserve feature-specific view and context
+  target types, while changing the select footer seam must not alter close order
+  or focus behavior. Focused coverage characterizes menu navigation, sidebar
+  registration and disablement, organization context menus, switcher selection,
+  zero-organization behavior, footer actions, loading, errors, and unavailable
+  identity state.
+- Files changed: the shared mini-app section-navigation component and styles;
+  `MiniAppSelectMenu`; and the organization and identity section registries,
+  menus, sidebars, switchers, and feature styles.
+- Baseline: 19 focused organization/identity menu, sidebar, and switcher tests
+  passed with 52 expectations at `c97995fd` before the refactor.
+- Verification: the same 19 focused tests pass with 54 expectations. TypeScript
+  passes, and `bun run check:affected` passes every static, architecture,
+  OpenAPI, and bounded protocol-model gate; 2,263 app tests pass with one
+  intentional skip, deployment-package tests pass, and all 38 web end-to-end
+  tests pass.
+- Delta: the four feature-specific menu/sidebar renderers now use one shared
+  renderer and registration hook; two footer render props become a typed action
+  owned by `MiniAppSelectMenu`; duplicated feature CSS is removed; and production
+  code removes 33 lines net with no new suppressions or baseline growth.
+- Decision notes: keep feature wrapper names and section registries as their
+  public ownership seams while sharing only their repeated structure. Preserve
+  organization context-menu optionality and identity availability behavior, and
+  keep the switcher footers independent of `MiniAppSelectMenu`'s private class
+  names.

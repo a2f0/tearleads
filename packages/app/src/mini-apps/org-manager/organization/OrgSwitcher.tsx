@@ -29,30 +29,14 @@ export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
     <div className="org-manager-switcher">
       <MiniAppSelectMenu
         ariaLabel={ORG_MANAGER_LABELS.organizations}
-        footer={({ close }) => (
-          <button
-            className="mini-app-select-menu-option"
-            disabled={switcher.creating || switcher.interactionDisabled}
-            onClick={() => {
-              switcher.openCreateOrganizationDialog();
-              close();
-            }}
-            type="button"
-          >
-            <PlusIcon
-              aria-hidden="true"
-              className="mini-app-select-menu-icon"
-              focusable="false"
-              size={16}
-              weight="regular"
-            />
-            <span className="mini-app-select-menu-label">
-              {switcher.creating
-                ? ORG_MANAGER_LABELS.creatingOrganization
-                : ORG_MANAGER_LABELS.newOrganizationAction}
-            </span>
-          </button>
-        )}
+        footerAction={{
+          disabled: switcher.creating || switcher.interactionDisabled,
+          icon: PlusIcon,
+          label: switcher.creating
+            ? ORG_MANAGER_LABELS.creatingOrganization
+            : ORG_MANAGER_LABELS.newOrganizationAction,
+          onSelect: switcher.openCreateOrganizationDialog,
+        }}
         onChange={switcher.selectOrganization}
         options={options}
         placeholder={ORG_MANAGER_LABELS.organizations}
