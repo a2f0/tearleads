@@ -330,7 +330,7 @@ test("quick add rejects invalid weights and cancel clears the draft", () => {
 test("entry count follows the rows", () => {
   const view = renderWeightFields({ isEditing: false });
   const rows = view.container.querySelectorAll(".tracker-read-table-row");
-  const footer = view.container.querySelector(".weight-entry-list-footer");
+  const footer = view.container.querySelector(".tracker-entry-list-footer");
   expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;

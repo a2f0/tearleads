@@ -11,8 +11,6 @@ export function TrackerQuickAdd<
   Entry extends Record<keyof Entry, string>,
 >(params: {
   addLabel: string;
-  actionsClassName?: string | undefined;
-  buttonClassName?: string | undefined;
   className: string;
   controlsDisabled: boolean;
   emptyEntry: Entry;
@@ -27,8 +25,6 @@ export function TrackerQuickAdd<
 }) {
   const {
     addLabel,
-    actionsClassName,
-    buttonClassName,
     className,
     controlsDisabled,
     emptyEntry,
@@ -63,7 +59,7 @@ export function TrackerQuickAdd<
   if (!open) {
     return (
       <MiniAppButton
-        className={classNames("tracker-add-button", buttonClassName)}
+        className="tracker-add-button"
         withIcon
         disabled={controlsDisabled}
         onClick={() => {
@@ -85,9 +81,7 @@ export function TrackerQuickAdd<
       {renderFields(entry, (field, value) =>
         setEntry((current) => ({ ...current, [field]: value })),
       )}
-      <div
-        className={classNames("tracker-quick-add-actions", actionsClassName)}
-      >
+      <div className="tracker-quick-add-actions">
         <MiniAppButton
           withIcon
           disabled={controlsDisabled || !valid}

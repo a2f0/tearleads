@@ -28,9 +28,7 @@ export function WeightQuickAdd(params: {
 
   return (
     <TrackerQuickAdd
-      actionsClassName="weight-quick-add-actions"
       addLabel="Add Entry"
-      buttonClassName="weight-add-button"
       className="weight-entry-row"
       controlsDisabled={controlsDisabled}
       emptyEntry={EMPTY_ENTRY}

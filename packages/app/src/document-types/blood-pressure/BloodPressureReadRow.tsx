@@ -26,7 +26,6 @@ export function BloodPressureReadingReadRow(params: {
         { label: "Pulse", text: formatPulse(reading) },
         { label: "Measured", text: formatMeasuredAt(reading) },
       ]}
-      className="blood-pressure-reading-read-row"
       currentAuthorId={currentAuthorId}
       detailFields={toBloodPressureReadingDetailFields(
         reading,

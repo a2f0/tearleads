@@ -1,5 +1,4 @@
 import { Fragment, type ReactNode, useState } from "react";
-import { classNames } from "../../components/shared/classNames";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import { useStructuredDocumentEditAction } from "./StructuredDocument";
 import type { TrackerRow } from "./trackerRows";
@@ -16,9 +15,7 @@ interface TrackerDocumentProps<Row extends TrackerRow, QuickEntry> {
   editingRowId?: string | null | undefined;
   editActionId: string;
   emptyLabel: string;
-  footerClassName?: string | undefined;
   isEditing?: boolean | undefined;
-  listClassName?: string | undefined;
   listLabel: string;
   onAddRow: AddTrackerRow<QuickEntry>;
   onEnterEdit?: ((id: string) => void) | undefined;
@@ -71,8 +68,6 @@ function TrackerEditFields<Row extends TrackerRow, QuickEntry>(
     editingRowId,
     emptyLabel,
     entryPending,
-    footerClassName,
-    listClassName,
     listLabel,
     onAddRow,
     onPendingChange,
@@ -91,7 +86,7 @@ function TrackerEditFields<Row extends TrackerRow, QuickEntry>(
   return (
     <div className="tracker-document-fields">
       {renderEditFields(controlsDisabled)}
-      <section className={classNames("tracker-entry-list", listClassName)}>
+      <section className="tracker-entry-list">
         <strong>{listLabel}</strong>
         {renderQuickAdd({
           controlsDisabled,
@@ -120,11 +115,7 @@ function TrackerEditFields<Row extends TrackerRow, QuickEntry>(
                 })}
           </Fragment>
         ))}
-        <div
-          className={classNames("tracker-entry-list-footer", footerClassName)}
-        >
-          {rows.length} entries
-        </div>
+        <div className="tracker-entry-list-footer">{rows.length} entries</div>
       </section>
     </div>
   );
@@ -140,9 +131,7 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
     editingRowId = null,
     editActionId,
     emptyLabel,
-    footerClassName,
     isEditing = true,
-    listClassName,
     listLabel,
     onAddRow,
     onEnterEdit,
@@ -166,7 +155,7 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
   if (!isEditing) {
     return (
       <div className="tracker-document-fields">
-        <section className={classNames("tracker-entry-list", listClassName)}>
+        <section className="tracker-entry-list">
           <strong>{listLabel}</strong>
           {onEnterEdit
             ? renderQuickAdd({
@@ -182,11 +171,7 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
                 onEnterEdit: entryPending ? undefined : onEnterEdit,
                 resolveRowWriter,
               })}
-          <div
-            className={classNames("tracker-entry-list-footer", footerClassName)}
-          >
-            {rows.length} entries
-          </div>
+          <div className="tracker-entry-list-footer">{rows.length} entries</div>
         </section>
       </div>
     );

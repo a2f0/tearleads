@@ -55,9 +55,7 @@ export function BloodPressureQuickAdd(params: {
 
   return (
     <TrackerQuickAdd
-      actionsClassName="blood-pressure-quick-add-actions"
       addLabel="Add Reading"
-      buttonClassName="blood-pressure-add-button"
       className="blood-pressure-reading-row"
       controlsDisabled={controlsDisabled}
       emptyEntry={EMPTY_READING}

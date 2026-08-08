@@ -372,9 +372,7 @@ test("quick add rejects invalid readings and cancel clears the draft", () => {
 test("reading count follows the rows", () => {
   const view = renderBloodPressureFields({ isEditing: false });
   const rows = view.container.querySelectorAll(".tracker-read-table-row");
-  const footer = view.container.querySelector(
-    ".blood-pressure-reading-list-footer",
-  );
+  const footer = view.container.querySelector(".tracker-entry-list-footer");
   expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
