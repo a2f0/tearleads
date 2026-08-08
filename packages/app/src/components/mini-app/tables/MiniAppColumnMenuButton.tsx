@@ -1,7 +1,8 @@
 import { GearSixIcon } from "@phosphor-icons/react/dist/csr/GearSix";
-import { type MouseEvent, useState } from "react";
+import type { MouseEvent } from "react";
 import { classNames } from "../../shared/classNames";
-import { Menu, type MenuPosition } from "../../shared/Menu";
+import { Menu } from "../../shared/Menu";
+import { useContextMenuPositionState } from "../../shared/useContextMenuState";
 import type { MiniAppColumnVisibility } from "./MiniAppColumnVisibility";
 import "./MiniAppColumnMenuButton.css";
 
@@ -29,18 +30,19 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
   stateLabels,
   toggleColumn,
 }: MiniAppColumnMenuButtonProps<ColumnId>) {
-  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const { closeContextMenu, contextMenu, openContextMenuAt } =
+    useContextMenuPositionState();
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
-    setMenuPosition({ x: rect.left, y: rect.bottom });
+    openContextMenuAt({ x: rect.left, y: rect.bottom });
   };
 
   return (
     <div className={classNames("mini-app-column-menu", className)}>
       <button
-        aria-expanded={menuPosition !== null}
+        aria-expanded={contextMenu !== null}
         aria-haspopup="menu"
         aria-label={ariaLabel}
         className="mini-app-column-menu-button"
@@ -50,11 +52,11 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
       >
         <GearSixIcon aria-hidden="true" size={16} />
       </button>
-      {menuPosition ? (
+      {contextMenu ? (
         <Menu
           direction="down"
-          onClose={() => setMenuPosition(null)}
-          position={menuPosition}
+          onClose={closeContextMenu}
+          position={contextMenu}
         >
           <fieldset className="mini-app-column-menu-list">
             <legend className="mini-app-column-menu-legend">{ariaLabel}</legend>

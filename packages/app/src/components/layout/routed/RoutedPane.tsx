@@ -19,7 +19,6 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
-import type { MenuPosition } from "../../shared/Menu";
 import { WindowMenuProvider } from "../../window/WindowMenuContext";
 import {
   hasWindowSidebar,
@@ -65,11 +64,6 @@ export function resolveRoutedActiveMiniAppId(
   }
 
   return ROUTED_ROOT_MINI_APP_ID;
-}
-
-export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
-  const rect = anchor.getBoundingClientRect();
-  return { x: rect.left, y: rect.bottom };
 }
 
 /**

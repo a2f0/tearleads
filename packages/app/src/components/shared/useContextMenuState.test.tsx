@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { MouseEvent } from "react";
-import { useContextMenuState } from "./useContextMenuState";
+import {
+  useContextMenuPositionState,
+  useContextMenuState,
+} from "./useContextMenuState";
 
 function createContextMenuEvent(
   position: { x: number; y: number },
@@ -33,7 +36,7 @@ function createContextMenuEvent(
 test("context menu state opens from mouse position and closes", () => {
   const openedIds: string[] = [];
   const view = renderHook(() =>
-    useContextMenuState({ onOpen: (id: string) => openedIds.push(id) }),
+    useContextMenuState<string>({ onOpen: (id) => openedIds.push(id) }),
   );
   const contextMenuEvent = createContextMenuEvent({ x: 12, y: 34 });
 
@@ -60,7 +63,7 @@ test("context menu state opens from mouse position and closes", () => {
 // a menu is normally placed at would put it in the viewport's top-left corner,
 // nowhere near the control the user activated. Fall back to the trigger's box.
 test("keyboard activation opens the menu under its trigger, not at 0,0", () => {
-  const view = renderHook(() => useContextMenuState());
+  const view = renderHook(() => useContextMenuState<string>());
   const keyboardEvent = createContextMenuEvent(
     { x: 0, y: 0 },
     { bottom: 96, left: 40 },
@@ -74,4 +77,14 @@ test("keyboard activation opens the menu under its trigger, not at 0,0", () => {
     id: "item-1",
     position: { x: 40, y: 96 },
   });
+});
+
+test("targetless context menu state opens at an explicit position", () => {
+  const view = renderHook(() => useContextMenuPositionState());
+
+  act(() => {
+    view.result.current.openContextMenuAt({ x: 8, y: 13 });
+  });
+
+  expect(view.result.current.contextMenu).toEqual({ x: 8, y: 13 });
 });

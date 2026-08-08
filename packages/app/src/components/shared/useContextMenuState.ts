@@ -61,3 +61,14 @@ export function useContextMenuState<TId = string>(params?: {
     openContextMenu,
   };
 }
+
+export function useContextMenuPositionState() {
+  const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const openContextMenuAt = useCallback(
+    (position: MenuPosition) => setContextMenu(position),
+    [],
+  );
+
+  return { closeContextMenu, contextMenu, openContextMenuAt };
+}
