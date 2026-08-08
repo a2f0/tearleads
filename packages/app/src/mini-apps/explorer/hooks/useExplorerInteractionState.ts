@@ -1,6 +1,5 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useRef, useState } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
@@ -17,7 +16,6 @@ import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
  */
 export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
-  appData: RuntimeSnapshot;
   explorer: ExplorerModelExplorer;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -26,13 +24,12 @@ export function useExplorerInteractionState(params: {
 }) {
   const {
     activeContainerId,
-    appData,
     explorer,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
   } = params;
   const { reconciler, view } = explorer;
-  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({ appData });
+  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments();
 
   useExplorerViewProjectionSync({
     activeContainerId: explorerDocumentQueryContainerId(activeContainerId),

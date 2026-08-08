@@ -17,10 +17,8 @@ import {
   defineFacadeKeys,
   projectFacade,
 } from "../../providers/sdk/projectFacade";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
 export { DEFAULT_DOCUMENT_ID };
@@ -73,14 +71,13 @@ export function DocumentsProvider({
   initialText = "",
   readOnly = false,
 }: DocumentsProviderProps) {
-  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo<DocumentsRuntime>(
+  const runtime = useRuntimeScopedMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
         ? tearleads.documents.workflowRuntime()
         : tearleads.documents.workflowRuntime(containerId),
-    [appData, containerId, tearleads],
+    [containerId, tearleads],
   );
   const store = useMemo(
     () =>

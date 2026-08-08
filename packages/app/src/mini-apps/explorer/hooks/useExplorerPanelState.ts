@@ -124,7 +124,7 @@ export function useExplorerPanelState(params: {
     setSidebar,
     treeEntries,
   } = params;
-  const explorerDocumentLinks = useExplorerDocumentLinks(appData);
+  const explorerDocumentLinks = useExplorerDocumentLinks();
   const loadContainerInfo = useExplorerContainerInfoLoader({
     appData,
     nodes: explorer.nodes,

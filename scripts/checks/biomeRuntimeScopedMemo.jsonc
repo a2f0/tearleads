@@ -1,0 +1,23 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
+  "extends": ["../../biome.jsonc"],
+  "linter": {
+    "rules": {
+      "correctness": {
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": {
+            "reportUnnecessaryDependencies": false,
+            "hooks": [
+              {
+                "name": "useRuntimeScopedMemo",
+                "closureIndex": 0,
+                "dependenciesIndex": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

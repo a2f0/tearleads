@@ -68,8 +68,9 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
 
   const documentQueries = useMemo(
     () => containerContents.documentQueries(),
-    // Rebind when the underlying scope/db changes, matching the Explorer's
-    // `useExplorerDocumentQueries` so the query reads the active domain.
+    // Keep this query handle stable across server events: rebuilding its
+    // watcher performs an immediate identity-wide scan outside the throttle.
+    // Match useExplorerDocumentQueries, which protects orphan visibility too.
     [containerContents, dbStatus, domainScope],
   );
 

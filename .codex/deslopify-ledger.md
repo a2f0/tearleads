@@ -587,3 +587,46 @@
   seam because its generic node shape already supports both full Explorer nodes
   and narrow Contacts projection nodes. Retain domain-specific policy in callers
   rather than encoding names in no-op wrappers.
+
+### 2026-08-07 - Runtime-scoped SDK handle memoization
+
+- Status: accepted
+- Classification: duplicated React memo invalidation policy
+- Equivalence claim: six SDK handles whose prior dependencies included the
+  whole runtime snapshot still rotate on the same render-consistent Runtime
+  Context value and on every explicit input change. The Explorer document-link
+  workflow now also rotates for runtime-version changes that reuse every public
+  slice, matching the SDK handle's runtime-scoped contract.
+- Risk notes: callback identity drives downstream reload effects. The three
+  document-query handles, blob loader, and container-info loader retain their
+  narrower database/scope or runtime-slice lifetimes so server events cannot
+  bypass write-queue throttles or cause loading flicker. Direct hook coverage
+  proves stable identity across unrelated renders and replacement on a
+  billing-gate-only transition, an event transition, or explicit input change;
+  Explorer projection coverage proves a rotated priming callback neither
+  re-primes unchanged summaries nor fires a destructive link refresh.
+- Files changed: shared SDK memo hook and test, a dynamically discovered Biome
+  custom-hook check; device-first, Documents, Contacts, and Explorer
+  document-link consumers; and comments pinning the intentionally narrow query
+  lifetimes.
+- Baseline: seven provider and store-context tests passed at `d47fa075` before
+  the refactor.
+- Verification: the baseline tests plus the new runtime-scoped memo lifecycle
+  test pass, and app TypeScript passes. `bun run check:affected` passes every
+  static, architecture, OpenAPI, and bounded protocol-model gate; 2,264 app
+  tests pass with one intentional skip, and all 38 web end-to-end tests pass.
+- Delta: ten production lines removed net; seven runtime-bound SDK handles now
+  share one invalidation hook, and the Explorer call chain no longer threads a
+  full runtime snapshot solely to invalidate a memoized handle.
+- Decision notes: retain explicit dependency arrays for non-runtime inputs and
+  SDK instance/facade replacement. Use the Runtime Context object that
+  `TearleadsProvider` rebuilds from `tearleads.runtime.version`, keeping the
+  memo key consistent with the runtime snapshot rendered by each consumer.
+  Preserve narrower memoization where callback identity owns an immediate or
+  user-visible reload side effect. Discover every source file referencing the
+  shared hook and run a dedicated Biome exhaustive-dependency pass, so future
+  callers are covered automatically without enabling 34 unrelated legacy-hook
+  diagnostics across the app. That pass reports missing dependencies but not
+  unnecessary ones because intentional invalidation-only keys are part of this
+  hook's contract; the wrapper injects the implicit runtime key while callers
+  declare every value captured by their factory.

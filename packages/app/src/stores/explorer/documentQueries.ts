@@ -14,6 +14,9 @@ export function useExplorerDocumentQueries(
 
   return useMemo(
     () => containerContents.documentQueries(),
+    // Deliberately narrower than useRuntimeScopedMemo: rebuilding this handle's
+    // watcher performs an immediate orphan-visibility scan outside the throttle,
+    // so unrelated runtime notifications must not rotate it.
     [appData.infra.dbStatus, appData.state.domainScope, containerContents],
   );
 }

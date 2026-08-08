@@ -3,10 +3,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import {
-  type ExplorerDocumentLinksRuntimeInput,
-  useExplorerDocumentLinks,
-} from "./documentRuntime";
+import { useExplorerDocumentLinks } from "./documentRuntime";
 
 /**
  * Open document stores for a set of discovered/reconciled summaries so their
@@ -30,10 +27,8 @@ function primeDiscoveredDocumentStores(input: {
   }
 }
 
-export function usePrimeDiscoveredDocuments(params: {
-  appData: ExplorerDocumentLinksRuntimeInput;
-}) {
-  const documentLinks = useExplorerDocumentLinks(params.appData);
+export function usePrimeDiscoveredDocuments() {
+  const documentLinks = useExplorerDocumentLinks();
 
   const primeDiscoveredDocuments = useCallback(
     (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
