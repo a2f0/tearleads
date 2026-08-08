@@ -1,15 +1,9 @@
 import type { DomainScope, SessionContext } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import type { OrgSwitcherState } from "../organization/orgSwitcherTypes";
-import { useOrganizationIndexRefreshKey } from "../organization/useOrganizationIndexRefreshKey";
-import { useOrgSwitcherController } from "../organization/useOrgSwitcherController";
-
-export type { OrgSwitcherState } from "../organization/orgSwitcherTypes";
-export {
-  resolveOrgSwitcherSessionContext,
-  useOrgSwitcherController,
-} from "../organization/useOrgSwitcherController";
+import type { OrgSwitcherState } from "./orgSwitcherTypes";
+import { useOrganizationIndexRefreshKey } from "./useOrganizationIndexRefreshKey";
+import { useOrgSwitcherController } from "./useOrgSwitcherController";
 
 /**
  * Backs the org-manager organization switcher: enumerates the organizations the

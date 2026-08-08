@@ -419,7 +419,7 @@
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerProfileDisplayNames.ts": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerRefreshers.ts": {
+    "packages/app/src/mini-apps/org-manager/refreshers/useOrgManagerRefreshers.ts": {
       "biomeIgnore": 1
     },
     "packages/app-web/src/index.tsx": {

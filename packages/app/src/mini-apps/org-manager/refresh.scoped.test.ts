@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { runScopedRefresher } from "../refresh";
+import { runScopedRefresher } from "./refresh";
 
 test("scoped refresher applies and settles only the current request", async () => {
   const events: string[] = [];

@@ -7,8 +7,8 @@ import {
   type SessionCreateOrganizationResult,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { useOrgSwitcherController } from "../hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgSwitcherController } from "./useOrgSwitcherController";
 
 afterEach(() => cleanup());
 

@@ -3,7 +3,7 @@ import type { DataUsageRefreshOptions } from "../refresh";
 import {
   createDataUsageSyncSettleController,
   refreshDataUsageOnEntry,
-} from "./useOrgManagerDataUsageRefresh";
+} from "./useOrgManagerDataUsageRefreshEffect";
 
 test("usage entry paints local data before reconciling once", async () => {
   let resolveLocal = () => {};

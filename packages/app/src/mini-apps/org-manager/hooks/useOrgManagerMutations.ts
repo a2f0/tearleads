@@ -13,10 +13,10 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
+import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
 import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
-import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 import { useOrgManagerRevokeGrant } from "./useOrgManagerRevokeGrant";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;

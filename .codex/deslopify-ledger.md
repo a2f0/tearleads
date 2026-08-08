@@ -696,3 +696,40 @@
   Stage the deletion before the architecture check because that check derives
   tracked TypeScript files from the Git index and otherwise treats a worktree-
   deleted file as uncovered.
+
+### 2026-08-07 - Org-manager refresh topology
+
+- Status: accepted
+- Classification: scattered refresh topology, ambiguous effect naming, and an
+  internal barrel
+- Equivalence claim: refresh callback bodies, arguments, dependency arrays,
+  loading/error transitions, and invocation order are unchanged. Production
+  changes are file paths, exported hook identifiers, and a shorter equivalent
+  ordering comment; direct imports replace the org-switcher barrel without
+  altering its controller or scope behavior.
+- Risk notes: hook path and identifier changes can break reachability, while
+  refresh effects are sensitive to entry, re-entry, scope, and stale-request
+  behavior. Focused coverage characterizes each of those transitions, visible-
+  data dispatch, directory settlement, and organization-switcher races.
+- Files changed: org-manager refreshers, organization, billing, grants, groups,
+  and hook modules and tests; the org-manager directory-name policy; and the
+  relocated source-shape baseline key.
+- Baseline: 51 focused org-manager refresh and organization-switcher tests
+  passed with 186 expectations at `9b26867a` before the refactor.
+- Verification: the same 51 focused tests pass with 186 expectations.
+  `bun run check:affected` passes TypeScript and every static, architecture,
+  OpenAPI, and bounded protocol-model gate; 2,263 app tests pass with one
+  intentional skip, deployment-package tests pass, and all 38 web end-to-end
+  tests pass.
+- Delta: all callback-producing `*Refresher` hooks now live in the explicit
+  root-level refreshers directory; four effect-only hooks use explicit
+  `*RefreshEffect` names; two refresh tests and the switcher-controller test are
+  adjacent to their implementations; and seven production lines are removed
+  net with no suppression growth. The scope-reset ordering invariant is retained
+  in a shorter comment that stays within the existing source-shape budget.
+- Decision notes: add `refreshers` to the bounded org-manager directory-name
+  policy rather than using `organization` as an implicit cross-feature bucket or
+  adding prohibited third-level nesting. Transfer the existing aggregator's
+  Biome baseline entry to its new path without increasing its allowance, remove
+  the switcher barrel, and keep implementation-specific refresh tests beside the
+  code they characterize.

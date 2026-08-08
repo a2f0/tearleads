@@ -90,7 +90,7 @@ export function createDataUsageSyncSettleController(input: {
 }
 
 /** Paints local usage on entry, then reconciles after entry or sync settles. */
-export function useOrgManagerDataUsageRefresh({
+export function useOrgManagerDataUsageRefreshEffect({
   enabled,
   refreshDataUsage,
   visible,

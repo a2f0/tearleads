@@ -3,8 +3,8 @@ import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
-import type { OrgSwitcherState } from "../hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { OrgSwitcherState } from "./orgSwitcherTypes";
 
 export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
   const options = useMemo(

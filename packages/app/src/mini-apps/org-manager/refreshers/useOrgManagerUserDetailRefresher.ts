@@ -2,13 +2,13 @@ import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type GroupDetailsRefreshOptions,
   runScopedRefresher,
   setUnknownError,
 } from "../refresh";
-import type { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 
 export function useOrgManagerUserDetailRefresher(input: {
   beginRequest: ReturnType<typeof useOrgManagerRequestGuard>;

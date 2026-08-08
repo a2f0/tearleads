@@ -7,8 +7,8 @@ import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
-import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import {
   addRosterUserToGroup,
   refreshAfterGroupMutation,
