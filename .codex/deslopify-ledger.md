@@ -769,3 +769,41 @@
   organization context-menu optionality and identity availability behavior, and
   keep the switcher footers independent of `MiniAppSelectMenu`'s private class
   names.
+
+### 2026-08-07 - Shared mini-app route state
+
+- Status: accepted
+- Classification: duplicated routed/local state bridge with history-option
+  drift
+- Equivalence claim: each mini-app still uses its original parser, formatter,
+  default or explicit local value, and route-specific actions. Contacts keeps
+  its transient-draft replacement policy; Org Manager keeps synchronous route
+  and selected-group refs plus invalid-group replacement; Notes keeps its
+  prop-driven windowed selection and no-op local route writer. Existing Identity
+  Manager calls behave identically, while its setter now accepts and forwards
+  the same optional `replace` flag as the other route hooks. System Monitor keeps
+  its local default and post-parse visible-tab fallback.
+- Risk notes: history push-versus-replace behavior, callback stability, and
+  immediate Org Manager refs are observable. The shared generic separately
+  types the readable route and writable route so Notes can read `null` without
+  allowing callers to navigate to it.
+- Files changed: the shared navigation route-state hook and coverage; Contacts,
+  Identity Manager, Notes, Org Manager, and System Monitor route consumers; and
+  Identity Manager route coverage for the previously dropped replacement option.
+- Baseline: 25 focused navigation and mini-app route tests passed with 107
+  expectations at `639ba2ae` before the refactor.
+- Verification: the original coverage plus the new shared/local and Identity
+  Manager option cases passes 29 focused tests with 116 expectations.
+  The 12 System Monitor component tests pass with 63 expectations after its
+  route bridge joins the shared hook.
+  `bun run check:affected` passes TypeScript and every static, architecture,
+  OpenAPI, and bounded protocol-model gate; the complete app and affected
+  deployment-package test suites pass, and all 38 web end-to-end tests pass.
+- Delta: five hand-written routed/local adapters now use one 41-line typed hook.
+  Their consumer files remove 35 production lines net; the shared seam makes the
+  complete production change six lines larger while removing the five independent
+  control-flow copies. No suppressions or source-shape baselines are added.
+- Decision notes: keep route parsing, formatting, domain transitions, and route
+  resolution in their owning mini-apps. The shared hook owns only host selection,
+  local fallback dispatch, and history-option forwarding. Keep Notes' parser
+  adapter module-scoped so the shared setter retains its prior stable identity.

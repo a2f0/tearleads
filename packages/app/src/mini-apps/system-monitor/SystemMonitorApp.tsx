@@ -13,10 +13,8 @@ import {
   useWindowTitleBarAction,
   useWindowViewMenuItem,
 } from "../../components/window/WindowMenuContext";
-import {
-  useAppNavigationState,
-  useMiniAppRouteSegments,
-} from "../../navigation/AppNavigationProvider";
+import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
+import { useMiniAppRouteState } from "../../navigation/useMiniAppRouteState";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import "./SystemMonitor.css";
 import { SystemMonitorEnvironment } from "./environment/SystemMonitorEnvironment";
@@ -140,31 +138,23 @@ function useSystemMonitorChromeActions() {
 }
 
 function SystemMonitorContent() {
-  const { isRouted, pathSegments, setPathSegments } =
-    useMiniAppRouteSegments("system-monitor");
   const { isDeveloperMode } = useSystemMonitor();
   const visibleTabs = getSystemMonitorTabs(isDeveloperMode);
   const [localActiveTab, setLocalActiveTab] = useState<SystemMonitorTabId>(
     DEFAULT_SYSTEM_MONITOR_TAB,
   );
-  const requestedActiveTab = isRouted
-    ? parseSystemMonitorRouteSegments(pathSegments)
-    : localActiveTab;
+  const { route: requestedActiveTab, setRoute: setActiveTab } =
+    useMiniAppRouteState({
+      appId: "system-monitor",
+      formatRouteSegments: formatSystemMonitorRouteSegments,
+      localRoute: localActiveTab,
+      parseRouteSegments: parseSystemMonitorRouteSegments,
+      setLocalRoute: setLocalActiveTab,
+    });
   const activeTab = isVisibleSystemMonitorTab(requestedActiveTab, visibleTabs)
     ? requestedActiveTab
     : DEFAULT_SYSTEM_MONITOR_TAB;
   const idPrefix = useId();
-  const setActiveTab = useCallback(
-    (nextTab: SystemMonitorTabId) => {
-      if (isRouted) {
-        setPathSegments(formatSystemMonitorRouteSegments(nextTab));
-        return;
-      }
-
-      setLocalActiveTab(nextTab);
-    },
-    [isRouted, setPathSegments],
-  );
   const networkContextMenu = useNetworkModeContextMenu();
   // Feature flags reach the report only when developer mode surfaces their tab,
   // so a report covers exactly the tabs the user could see.

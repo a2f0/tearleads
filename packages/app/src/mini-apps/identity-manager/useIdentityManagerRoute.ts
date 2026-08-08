@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
+import { useState } from "react";
+import { useMiniAppRouteState } from "../../navigation/useMiniAppRouteState";
 import {
   formatIdentityManagerRouteSegments,
   type IdentityManagerView,
@@ -7,23 +7,18 @@ import {
 } from "./routes";
 
 export function useIdentityManagerRoute() {
-  const { isRouted, pathSegments, setPathSegments } =
-    useMiniAppRouteSegments("identity-manager");
   const [localView, setLocalView] = useState<IdentityManagerView>("menu");
-  const view = isRouted
-    ? parseIdentityManagerRouteSegments(pathSegments)
-    : localView;
-  const setView = useCallback(
-    (nextView: IdentityManagerView) => {
-      if (isRouted) {
-        setPathSegments(formatIdentityManagerRouteSegments(nextView));
-        return;
-      }
-
-      setLocalView(nextView);
-    },
-    [isRouted, setPathSegments],
-  );
+  const {
+    isRouted,
+    route: view,
+    setRoute: setView,
+  } = useMiniAppRouteState({
+    appId: "identity-manager",
+    formatRouteSegments: formatIdentityManagerRouteSegments,
+    localRoute: localView,
+    parseRouteSegments: parseIdentityManagerRouteSegments,
+    setLocalRoute: setLocalView,
+  });
 
   return { isRouted, setView, view };
 }
