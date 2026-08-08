@@ -666,3 +666,34 @@
   desktop menu and sync-status popover local because they are not among the four
   duplicated component triples in this candidate and have different surface
   behavior.
+
+### 2026-08-07 - Split window-state test consumers
+
+- Status: accepted
+- Classification: test-only production facade over deliberately split contexts
+- Equivalence claim: each former consumer calls `useWindowStateData` before
+  `useWindowActions`, matching the deleted hook's underlying hook order, and
+  reads or invokes the same context values. Production consumers and provider
+  nesting are unchanged.
+- Risk notes: the merged hook subscribed callers to state updates while exposing
+  stable actions. Tests that need both still subscribe to both contexts; tests
+  that only need one side now state that dependency directly. The provider's
+  action-only no-rerender characterization remains intact.
+- Files changed: WindowStateProvider exports, context documentation, test
+  utilities and provider coverage, plus three window integration harnesses.
+- Baseline: 28 focused window provider, menu, context-menu, and window tests
+  passed at `51eb7e93` before the refactor.
+- Verification: the same 28 focused tests pass with 100 expectations.
+  `bun run check:affected` passes TypeScript and every static, architecture,
+  OpenAPI, and bounded protocol-model gate; 2,263 app tests pass with one
+  intentional skip, deployment-package tests pass, and all 38 web end-to-end
+  tests pass.
+- Delta: the 16-line merged production hook and its export are deleted. Test
+  harnesses name state and actions separately, so the package no longer carries
+  a production API solely for test convenience.
+- Decision notes: retain the split contexts and their separate hooks as the
+  canonical seam. Keep a small labeled `{ state, actions }` harness only inside
+  provider tests rather than rebuilding a flattened combined context value.
+  Stage the deletion before the architecture check because that check derives
+  tracked TypeScript files from the Git index and otherwise treats a worktree-
+  deleted file as uncovered.

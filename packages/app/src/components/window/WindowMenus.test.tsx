@@ -9,19 +9,23 @@ import {
   useWindowTitleBarAction,
 } from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
-import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
+import {
+  useWindowActions,
+  useWindowStateData,
+  WindowStateProvider,
+} from "./WindowStateProvider";
 
 afterEach(cleanup);
 
 function RenderedWindows() {
-  const { windows } = useWindowState();
+  const { windows } = useWindowStateData();
   return windows.map((window) => (
     <Window key={window.id} windowId={window.id} />
   ));
 }
 
 function WindowRefreshHarness({ onRefresh }: { onRefresh: () => void }) {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function RefreshableWindow() {
@@ -36,7 +40,7 @@ function WindowRefreshHarness({ onRefresh }: { onRefresh: () => void }) {
 }
 
 function WindowFileMenuHarness({ onCreate }: { onCreate: () => void }) {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function FileMenuWindow() {
@@ -61,7 +65,7 @@ function WindowToolBarHarness({
   onAction: () => void;
   onBack: () => void;
 }) {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function ToolBarWindow() {
@@ -96,7 +100,7 @@ function WindowMultiRefreshHarness({
   onFirstRefresh: () => void;
   onSecondRefresh: () => void;
 }) {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function MultiRefreshableWindow() {
@@ -133,7 +137,7 @@ function NoSidebarContent() {
 }
 
 function WindowNoSidebarHarness() {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     create("No Sidebar", 0, 0, NoSidebarContent);
@@ -147,7 +151,7 @@ function WindowSidebarDefaultHarness({
 }: {
   initialShowSidebar: boolean;
 }) {
-  const { create } = useWindowState();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     create("Sidebar Defaults", 0, 0, RegisteredSidebarContent, {
