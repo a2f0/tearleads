@@ -671,10 +671,9 @@
 
 - Status: accepted
 - Classification: test-only production facade over deliberately split contexts
-- Equivalence claim: each former consumer calls `useWindowStateData` before
-  `useWindowActions`, matching the deleted hook's underlying hook order, and
-  reads or invokes the same context values. Production consumers and provider
-  nesting are unchanged.
+- Equivalence claim: each former consumer reads or invokes the same state and
+  action context values as before. Tests that need both retain both subscriptions;
+  production consumers and provider nesting are unchanged.
 - Risk notes: the merged hook subscribed callers to state updates while exposing
   stable actions. Tests that need both still subscribe to both contexts; tests
   that only need one side now state that dependency directly. The provider's

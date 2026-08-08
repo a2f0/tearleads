@@ -1,18 +1,28 @@
 import type { PropsWithChildren } from "react";
-import type { WindowStateData } from "./index";
-import { WindowStateProvider } from "./index";
+import {
+  useWindowActions,
+  useWindowStateData,
+  WindowStateProvider,
+} from "./index";
 
 export function wrapper({ children }: PropsWithChildren) {
   return <WindowStateProvider>{children}</WindowStateProvider>;
 }
 
+export function useWindowStateTestHarness() {
+  return {
+    actions: useWindowActions(),
+    state: useWindowStateData(),
+  };
+}
+
 interface HookResult {
-  current: { state: WindowStateData };
+  current: ReturnType<typeof useWindowStateTestHarness>;
 }
 
 export function byTitle(result: HookResult, title: string) {
   const windowEntry = result.current.state.windows.find(
-    (entry: { title: string }) => entry.title === title,
+    (entry) => entry.title === title,
   );
   if (!windowEntry) {
     throw new Error(`window "${title}" not found`);

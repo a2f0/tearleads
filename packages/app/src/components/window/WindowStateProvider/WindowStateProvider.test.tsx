@@ -5,14 +5,7 @@ import {
   useWindowStateData,
   WindowStateProvider,
 } from "./index";
-import { at, byTitle, wrapper } from "./testUtils";
-
-function useWindowStateTestHarness() {
-  return {
-    actions: useWindowActions(),
-    state: useWindowStateData(),
-  };
-}
+import { at, byTitle, useWindowStateTestHarness, wrapper } from "./testUtils";
 
 test("create assigns incrementing zIndex values", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
