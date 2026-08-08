@@ -38,6 +38,9 @@ test("identity manager sidebar registers every section and navigates", async () 
   expect(view.getByText("Recovery Key")).toBeTruthy();
   expect(view.getByText("PIN Lock")).toBeTruthy();
   expect(view.getByText("Active Sessions")).toBeTruthy();
+  expect(view.getByText("General").closest("button")?.className).toContain(
+    "mini-app-row--selected",
+  );
 
   fireEvent.click(view.getByText("PIN Lock"));
   expect(navigated).toEqual(["pin-lock"]);

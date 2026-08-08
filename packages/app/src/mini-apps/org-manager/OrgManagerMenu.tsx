@@ -1,8 +1,4 @@
-import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
-import {
-  MiniAppRowButton,
-  MiniAppRowText,
-} from "../../components/mini-app/rows/MiniAppRow";
+import { MiniAppSectionNavigation } from "../../components/mini-app/MiniAppSectionNavigation";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 import { ORG_MANAGER_SECTIONS } from "./sections";
@@ -19,29 +15,11 @@ export function OrgManagerMenu({
   setView: (view: OrgManagerView) => void;
 }) {
   return (
-    <nav
-      aria-label={ORG_MANAGER_LABELS.menuNavLabel}
-      className="org-manager-menu"
-    >
-      {ORG_MANAGER_SECTIONS.map(({ icon: SectionIcon, label, view }) => (
-        <MiniAppRowButton
-          className="org-manager-menu-row"
-          key={view}
-          onClick={() => setView(view)}
-        >
-          <SectionIcon
-            aria-hidden
-            className="org-manager-menu-icon"
-            size={20}
-          />
-          <MiniAppRowText>{label}</MiniAppRowText>
-          <CaretRightIcon
-            aria-hidden
-            className="org-manager-menu-caret"
-            size={16}
-          />
-        </MiniAppRowButton>
-      ))}
-    </nav>
+    <MiniAppSectionNavigation
+      ariaLabel={ORG_MANAGER_LABELS.menuNavLabel}
+      sections={ORG_MANAGER_SECTIONS}
+      setView={setView}
+      variant="menu"
+    />
   );
 }
