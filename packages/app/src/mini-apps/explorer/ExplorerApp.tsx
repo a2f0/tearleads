@@ -6,11 +6,11 @@ import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { Explorer } from "./Explorer";
 
 function ExplorerFeatureFlagProvider({ children }: PropsWithChildren) {
-  const { builtInSystemContainersVisible } = useAppFeatureFlags();
+  const { isEnabled } = useAppFeatureFlags();
 
   return (
     <ExplorerProvider
-      showBuiltInSystemContainers={builtInSystemContainersVisible}
+      showBuiltInSystemContainers={isEnabled("built-in-system-containers")}
     >
       {children}
     </ExplorerProvider>

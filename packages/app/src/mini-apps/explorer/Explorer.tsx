@@ -199,20 +199,17 @@ function renderExplorerDetailPanelWithBlobPick(
 // rendered inside the panel reads the same context to request a pick.
 function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
   const blobPick = useBlobPick();
-  const {
-    documentEditRangesVisible,
-    explorerHeaderSyncIndicatorVisible,
-    linkedDocumentActivationControlsEnabled,
-  } = useAppFeatureFlags();
+  const { isEnabled } = useAppFeatureFlags();
 
   return renderExplorerDetailPanelWithBlobPick({
     ...params,
     blobPick,
     featureFlags: {
-      showDocumentEditRanges: documentEditRangesVisible,
-      showHeaderSyncIndicator: explorerHeaderSyncIndicatorVisible,
-      showLinkedDocumentActivationControls:
-        linkedDocumentActivationControlsEnabled,
+      showDocumentEditRanges: isEnabled("document-edit-ranges"),
+      showHeaderSyncIndicator: isEnabled("explorer-header-sync-indicator"),
+      showLinkedDocumentActivationControls: isEnabled(
+        "linked-document-activation-controls",
+      ),
     },
   });
 }

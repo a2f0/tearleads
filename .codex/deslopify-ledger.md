@@ -841,3 +841,39 @@
   their styles are domain-specific. Retain `TrackerReadCard.className` because
   Env File uses that supported seam for its two-cell read-row layout; remove only
   the unexercised shared tracker props whose sole callers supplied dead tokens.
+
+### 2026-08-07 - Union-driven app feature flags
+
+- Status: accepted
+- Classification: duplicated flag-specific provider state, context fallbacks,
+  and System Monitor rendering
+- Equivalence claim: every feature retains its storage key, disabled default,
+  enabled/disabled persistence modes, consumer gate, System Monitor label,
+  switch label, and display order. Consumers outside a provider still observe
+  every flag as disabled and mutations remain no-ops; nested providers still
+  reuse the outer persistent value.
+- Risk notes: collapsing five React state cells into one set can affect context
+  identity and nested-provider detection. The generic setter preserves the prior
+  synchronous persistence and no-op repeated-state behavior, while focused tests
+  directly characterize the unprovided fallback, nested identity, persisted
+  initialization, updates, and every consumer-facing toggle.
+- Files changed: the app feature-flag ID registry, persistence tests, provider
+  and new provider coverage; Layout and Explorer consumers; and the System
+  Monitor toggle/report adapters.
+- Baseline: 19 focused persistence, layout, System Monitor, and Explorer tests
+  passed with 105 expectations at `96288d95` before the refactor.
+- Verification: the original coverage plus explicit provider-fallback and
+  nested-provider cases passes 21 focused tests with 120 expectations.
+  `bun run check:affected` passes TypeScript and every static, architecture,
+  OpenAPI, and bounded protocol-model gate; the complete app and affected
+  deployment-package test suites pass, and all 38 web end-to-end tests pass.
+- Delta: the provider now derives one persistent state set from the canonical
+  `APP_FEATURE_FLAG_IDS` tuple and exposes one typed query/setter pair. System
+  Monitor rows and toggles iterate the same registry with an exhaustive metadata
+  record. Production code removes 75 lines net with no suppressions or
+  source-shape baseline growth.
+- Decision notes: keep the disabled no-provider behavior used by isolated
+  consumers, but use that single value as the nested-provider sentinel instead
+  of maintaining a separate nullable context fallback. Keep display metadata in
+  System Monitor because it is presentation policy, while making its record
+  exhaustive over `AppFeatureFlagId`.

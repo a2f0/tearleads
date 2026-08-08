@@ -1,9 +1,12 @@
-export type AppFeatureFlagId =
-  | "built-in-system-containers"
-  | "document-edit-ranges"
-  | "explorer-header-sync-indicator"
-  | "linked-document-activation-controls"
-  | "workspace-switcher";
+export const APP_FEATURE_FLAG_IDS = [
+  "built-in-system-containers",
+  "document-edit-ranges",
+  "explorer-header-sync-indicator",
+  "linked-document-activation-controls",
+  "workspace-switcher",
+] as const;
+
+export type AppFeatureFlagId = (typeof APP_FEATURE_FLAG_IDS)[number];
 export type AppFeatureFlagMode = "disabled" | "enabled";
 
 export const DEFAULT_APP_FEATURE_FLAG_MODE: AppFeatureFlagMode = "disabled";

@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  APP_FEATURE_FLAG_IDS,
   type AppFeatureFlagId,
   type AppFeatureFlagMode,
   appFeatureFlagStorageKey,
@@ -15,99 +16,58 @@ import {
 } from "./appFeatureFlags";
 
 interface AppFeatureFlagsValue {
-  builtInSystemContainersVisible: boolean;
-  documentEditRangesVisible: boolean;
-  explorerHeaderSyncIndicatorVisible: boolean;
-  linkedDocumentActivationControlsEnabled: boolean;
-  workspaceSwitcherVisible: boolean;
-  setBuiltInSystemContainersVisible: (enabled: boolean) => void;
-  setDocumentEditRangesVisible: (enabled: boolean) => void;
-  setExplorerHeaderSyncIndicatorVisible: (enabled: boolean) => void;
-  setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
-  setWorkspaceSwitcherVisible: (enabled: boolean) => void;
+  isEnabled: (flag: AppFeatureFlagId) => boolean;
+  setEnabled: (flag: AppFeatureFlagId, enabled: boolean) => void;
 }
 
-const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
-  builtInSystemContainersVisible: false,
-  documentEditRangesVisible: false,
-  explorerHeaderSyncIndicatorVisible: false,
-  linkedDocumentActivationControlsEnabled: false,
-  workspaceSwitcherVisible: false,
-  setBuiltInSystemContainersVisible: () => {},
-  setDocumentEditRangesVisible: () => {},
-  setExplorerHeaderSyncIndicatorVisible: () => {},
-  setLinkedDocumentActivationControlsEnabled: () => {},
-  setWorkspaceSwitcherVisible: () => {},
+const NO_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
+  isEnabled: () => false,
+  setEnabled: () => {},
 };
 
-const AppFeatureFlagsContext = createContext<AppFeatureFlagsValue | null>(null);
+const AppFeatureFlagsContext =
+  createContext<AppFeatureFlagsValue>(NO_APP_FEATURE_FLAGS);
 
 function featureFlagModeFromEnabled(enabled: boolean): AppFeatureFlagMode {
   return enabled ? "enabled" : "disabled";
 }
 
-function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
-  const storageKey = appFeatureFlagStorageKey(flag);
-  const [mode, setMode] = useState(() => loadAppFeatureFlag(storageKey));
-  const setEnabled = useCallback(
-    (enabled: boolean) => {
-      const nextMode = featureFlagModeFromEnabled(enabled);
-      setMode(nextMode);
-      saveAppFeatureFlag(storageKey, nextMode);
-    },
-    [storageKey],
+function loadEnabledAppFeatureFlags(): ReadonlySet<AppFeatureFlagId> {
+  return new Set(
+    APP_FEATURE_FLAG_IDS.filter(
+      (flag) =>
+        loadAppFeatureFlag(appFeatureFlagStorageKey(flag)) === "enabled",
+    ),
   );
-
-  return {
-    enabled: mode === "enabled",
-    setEnabled,
-  };
 }
 
 function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
-  const builtInSystemContainers = usePersistentAppFeatureFlag(
-    "built-in-system-containers",
+  const [enabledFlags, setEnabledFlags] = useState(loadEnabledAppFeatureFlags);
+  const isEnabled = useCallback(
+    (flag: AppFeatureFlagId) => enabledFlags.has(flag),
+    [enabledFlags],
   );
-  const documentEditRanges = usePersistentAppFeatureFlag(
-    "document-edit-ranges",
-  );
-  const explorerHeaderSyncIndicator = usePersistentAppFeatureFlag(
-    "explorer-header-sync-indicator",
-  );
-  const linkedDocumentActivationControls = usePersistentAppFeatureFlag(
-    "linked-document-activation-controls",
-  );
-  const workspaceSwitcher = usePersistentAppFeatureFlag("workspace-switcher");
+  const setEnabled = useCallback((flag: AppFeatureFlagId, enabled: boolean) => {
+    setEnabledFlags((current) => {
+      if (current.has(flag) === enabled) {
+        return current;
+      }
 
-  return useMemo(
-    () => ({
-      builtInSystemContainersVisible: builtInSystemContainers.enabled,
-      documentEditRangesVisible: documentEditRanges.enabled,
-      explorerHeaderSyncIndicatorVisible: explorerHeaderSyncIndicator.enabled,
-      linkedDocumentActivationControlsEnabled:
-        linkedDocumentActivationControls.enabled,
-      workspaceSwitcherVisible: workspaceSwitcher.enabled,
-      setBuiltInSystemContainersVisible: builtInSystemContainers.setEnabled,
-      setDocumentEditRangesVisible: documentEditRanges.setEnabled,
-      setExplorerHeaderSyncIndicatorVisible:
-        explorerHeaderSyncIndicator.setEnabled,
-      setLinkedDocumentActivationControlsEnabled:
-        linkedDocumentActivationControls.setEnabled,
-      setWorkspaceSwitcherVisible: workspaceSwitcher.setEnabled,
-    }),
-    [
-      builtInSystemContainers.enabled,
-      builtInSystemContainers.setEnabled,
-      documentEditRanges.enabled,
-      documentEditRanges.setEnabled,
-      explorerHeaderSyncIndicator.enabled,
-      explorerHeaderSyncIndicator.setEnabled,
-      linkedDocumentActivationControls.enabled,
-      linkedDocumentActivationControls.setEnabled,
-      workspaceSwitcher.enabled,
-      workspaceSwitcher.setEnabled,
-    ],
-  );
+      const next = new Set(current);
+      if (enabled) {
+        next.add(flag);
+      } else {
+        next.delete(flag);
+      }
+      return next;
+    });
+    saveAppFeatureFlag(
+      appFeatureFlagStorageKey(flag),
+      featureFlagModeFromEnabled(enabled),
+    );
+  }, []);
+
+  return useMemo(() => ({ isEnabled, setEnabled }), [isEnabled, setEnabled]);
 }
 
 function AppFeatureFlagsProviderInner({ children }: PropsWithChildren) {
@@ -122,7 +82,7 @@ function AppFeatureFlagsProviderInner({ children }: PropsWithChildren) {
 
 export function AppFeatureFlagsProvider({ children }: PropsWithChildren) {
   const existingContext = useContext(AppFeatureFlagsContext);
-  if (existingContext) {
+  if (existingContext !== NO_APP_FEATURE_FLAGS) {
     return <>{children}</>;
   }
 
@@ -132,5 +92,5 @@ export function AppFeatureFlagsProvider({ children }: PropsWithChildren) {
 }
 
 export function useAppFeatureFlags(): AppFeatureFlagsValue {
-  return useContext(AppFeatureFlagsContext) ?? DEFAULT_APP_FEATURE_FLAGS;
+  return useContext(AppFeatureFlagsContext);
 }
