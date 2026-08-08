@@ -36,7 +36,6 @@ export function WeightEntryReadRow(params: {
         },
         { label: "Measured", text: formatMeasuredAt(entry) },
       ]}
-      className="weight-entry-read-row"
       currentAuthorId={currentAuthorId}
       detailFields={toWeightEntryDetailFields(entry, resolveRowWriter)}
       detailLabel="Attribution"

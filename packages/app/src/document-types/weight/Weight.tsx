@@ -118,9 +118,7 @@ export function WeightFields(params: WeightFieldsProps) {
       editingRowId={params.editingEntryId ?? null}
       editActionId="weight-toggle-edit"
       emptyLabel="No entries"
-      footerClassName="weight-entry-list-footer"
       isEditing={params.isEditing ?? true}
-      listClassName="weight-entry-list"
       listLabel="Entries"
       onAddRow={params.onAddEntry}
       onEnterEdit={params.onEnterEdit}

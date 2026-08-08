@@ -89,9 +89,7 @@ export function BloodPressureFields(params: BloodPressureFieldsProps) {
       editingRowId={params.editingReadingId ?? null}
       editActionId="blood-pressure-toggle-edit"
       emptyLabel="No readings"
-      footerClassName="blood-pressure-reading-list-footer"
       isEditing={params.isEditing ?? true}
-      listClassName="blood-pressure-reading-list"
       listLabel="Readings"
       onAddRow={params.onAddReading}
       onEnterEdit={params.onEnterEdit}

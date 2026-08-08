@@ -807,3 +807,37 @@
   resolution in their owning mini-apps. The shared hook owns only host selection,
   local fallback dispatch, and history-option forwarding. Keep Notes' parser
   adapter module-scoped so the shared setter retains its prior stable identity.
+
+### 2026-08-07 - Tracker type-class cleanup
+
+- Status: accepted
+- Classification: vestigial per-type CSS hooks and dead shared customization
+  props
+- Equivalence claim: Weight and Blood Pressure retain the same shared tracker
+  chrome, domain grid classes, responsive layouts, controls, validation,
+  accessibility labels, row ordering, and count placement. Only class tokens
+  with no stylesheet rules or production selectors are removed; the two tests
+  that used type-specific footer classes now select the existing shared footer.
+- Risk notes: class removal can alter styling or external selectors. Repository-
+  wide searches establish that the ten removed type-specific tokens had no CSS
+  rules and no production consumers, while focused tests characterize edit/read
+  modes, quick-add flows, responsive row structure, and footer placement.
+- Files changed: Weight and Blood Pressure tracker shells, quick-adds, read rows,
+  count tests, and browser layout coverage; plus the shared tracker document and
+  quick-add components.
+- Baseline: 41 focused Weight and Blood Pressure tests passed with 164
+  expectations at `bae60403` before the cleanup.
+- Verification: the same 41 focused tests pass with 164 expectations. The three
+  tracker-layout browser scenarios pass after moving their vestigial read-row
+  locators to the shared tracker class. `bun run check:affected` passes
+  TypeScript and every static, architecture, OpenAPI, and bounded protocol-model
+  gate; 2,267 app tests pass with one intentional skip, all affected deployment-
+  package tests pass, and all 38 web end-to-end tests pass.
+- Delta: ten unused type-specific class tokens and four customization props are
+  removed. Production code removes 27 lines net, including the now-unused
+  `classNames` import in the shared document shell, with no behavior branches,
+  suppressions, or source-shape baseline growth.
+- Decision notes: retain the Weight and Blood Pressure grid-area classes because
+  their styles are domain-specific. Retain `TrackerReadCard.className` because
+  Env File uses that supported seam for its two-cell read-row layout; remove only
+  the unexercised shared tracker props whose sole callers supplied dead tokens.

@@ -96,9 +96,7 @@ async function checkWindowedBloodPressure(
   await explorerWindow.getByLabel("Quick add systolic").fill("120");
   await explorerWindow.getByLabel("Quick add diastolic").fill("80");
   await explorerWindow.getByRole("button", { name: "Save Reading" }).click();
-  await expect(
-    explorerWindow.locator(".blood-pressure-reading-read-row"),
-  ).toBeVisible();
+  await expect(explorerWindow.locator(".tracker-read-row")).toBeVisible();
   await explorerWindow
     .getByRole("button", { name: "Reading 1 actions" })
     .click();
@@ -118,9 +116,7 @@ async function checkWindowedBloodPressure(
     "Remove reading 1",
   );
   await readingActions.getByRole("button", { name: "Save reading 1" }).click();
-  await expect(
-    explorerWindow.locator(".blood-pressure-reading-read-row"),
-  ).toBeVisible();
+  await expect(explorerWindow.locator(".tracker-read-row")).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
   await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
@@ -139,7 +135,7 @@ async function checkWindowedWeight(explorerWindow: Locator, toolbar: Locator) {
   ]);
   await explorerWindow.getByLabel("Quick add weight").fill("180");
   await explorerWindow.getByRole("button", { name: "Save Entry" }).click();
-  await expect(explorerWindow.locator(".weight-entry-read-row")).toBeVisible();
+  await expect(explorerWindow.locator(".tracker-read-row")).toBeVisible();
   await explorerWindow.getByRole("button", { name: "Entry 1 actions" }).click();
   await explorerWindow.page().getByRole("button", { name: "Edit" }).click();
   await expectActionBelowField(
@@ -152,7 +148,7 @@ async function checkWindowedWeight(explorerWindow: Locator, toolbar: Locator) {
     .locator(".tracker-row-actions");
   await expectActionsShareRow(entryActions, "Save entry 1", "Remove entry 1");
   await entryActions.getByRole("button", { name: "Save entry 1" }).click();
-  await expect(explorerWindow.locator(".weight-entry-read-row")).toBeVisible();
+  await expect(explorerWindow.locator(".tracker-read-row")).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "Save" })).toBeVisible();
   await toolbar.getByRole("button", { name: "Save" }).click();
   await expect(toolbar.getByRole("button", { name: "Edit" })).toBeVisible();
