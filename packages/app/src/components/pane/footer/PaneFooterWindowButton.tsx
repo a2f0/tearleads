@@ -2,11 +2,11 @@ import { ArrowsOutSimpleIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutSim
 import { CornersOutIcon } from "@phosphor-icons/react/dist/csr/CornersOut";
 import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
-import type { MenuPosition } from "../../shared/Menu";
 import { Menu } from "../../shared/Menu";
 import { MenuItem } from "../../shared/MenuItem";
+import { useContextMenuPositionState } from "../../shared/useContextMenuState";
 import {
   useWindowActions,
   type WindowEntry,
@@ -18,23 +18,19 @@ import {
 // title bar.
 export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
   const { close, maximize, minimize, restore } = useWindowActions();
-  const [menu, setMenu] = useState<MenuPosition | null>(null);
+  const {
+    closeContextMenu: closeMenu,
+    contextMenu,
+    openContextMenuAt,
+  } = useContextMenuPositionState();
   const AppIcon = entry.appId ? MINI_APP_ICONS[entry.appId] : undefined;
-
-  const closeMenu = useCallback(() => setMenu(null), []);
-
-  const handleContextMenu = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setMenu({ x: event.clientX, y: event.clientY });
-  }, []);
 
   const runAndCloseMenu = useCallback(
     (action: (id: string) => void) => () => {
       action(entry.id);
-      setMenu(null);
+      closeMenu();
     },
-    [entry.id],
+    [closeMenu, entry.id],
   );
 
   return (
@@ -45,7 +41,11 @@ export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
         aria-label={`Activate ${entry.title} window`}
         title={entry.title}
         onClick={() => restore(entry.id)}
-        onContextMenu={handleContextMenu}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openContextMenuAt({ x: event.clientX, y: event.clientY });
+        }}
       >
         {AppIcon && (
           <AppIcon
@@ -58,8 +58,8 @@ export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
         )}
         <span className="pane-footer-window-label">{entry.title}</span>
       </button>
-      {menu && (
-        <Menu position={menu} onClose={closeMenu}>
+      {contextMenu && (
+        <Menu position={contextMenu} onClose={closeMenu}>
           {entry.minimized ? (
             <>
               <MenuItem

@@ -630,3 +630,39 @@
   unnecessary ones because intentional invalidation-only keys are part of this
   hook's contract; the wrapper injects the implicit runtime key while callers
   declare every value captured by their factory.
+
+### 2026-08-07 - Shared component context-menu state
+
+- Status: accepted
+- Classification: parametric React state duplication and dead internal export
+- Equivalence claim: the pane launcher, taskbar window menu, window title-bar
+  menu, and table column menu retain their prior pointer or anchor coordinates,
+  event cancellation and propagation behavior, action-before-close ordering,
+  rendered items, and close behavior. Target-bearing consumers of
+  `useContextMenuState` retain their required id argument and `onOpen` timing.
+- Risk notes: the four triggers deliberately use three different event
+  contracts, and the column menu anchors below its button rather than at the
+  pointer. The shared hook therefore accepts an already-derived position; each
+  component keeps its original event handler and derives the same coordinates.
+  A dedicated position-state hook keeps target-bearing consumers' required id
+  argument unchanged.
+- Files changed: shared context-menu state hook and coverage; pane footer,
+  taskbar window button, window title bar, and table column-menu consumers; and
+  the routed pane module/test that solely exposed and exercised the dead
+  `menuPositionBelow` helper.
+- Baseline: 30 focused shared-menu, footer, title-bar, column-menu, and routed-
+  pane tests passed at `78f3afe2` before the refactor.
+- Verification: the corresponding focused suite passes 29 tests with 73
+  expectations after the refactor. `bun run check:affected` passes every
+  static, architecture, OpenAPI, and bounded protocol-model gate; 2,263 app
+  tests pass with one intentional skip, and all 38 web end-to-end tests pass.
+- Delta: four independent context-menu state/open/close lifecycles now use one
+  hook, and the six-line test-only production export plus 33 lines of tests and
+  fixture code are deleted. The production diff adds three lines net to make the
+  shared hook support targetless menus and caller-derived positions explicitly.
+- Decision notes: preserve local event handling instead of forcing every menu
+  through the hook's right-click policy; that avoids changing click bubbling or
+  moving the column dropdown from its button edge to the pointer. Keep the pane
+  desktop menu and sync-status popover local because they are not among the four
+  duplicated component triples in this candidate and have different surface
+  behavior.

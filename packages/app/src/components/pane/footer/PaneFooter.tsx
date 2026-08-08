@@ -1,8 +1,7 @@
 import { TearleadsLogo } from "@tearleads/ui";
 import type { ReactNode } from "react";
-import { useCallback, useState } from "react";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
-import type { MenuPosition } from "../../shared/Menu";
+import { useContextMenuPositionState } from "../../shared/useContextMenuState";
 import { useWindowStateData } from "../../window/WindowStateProvider";
 import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
@@ -13,14 +12,12 @@ import { PaneFooterWindowButton } from "./PaneFooterWindowButton";
 // affordances will dock here over time). It sits in the right-aligned cluster
 // alongside the workspace switcher.
 export function PaneFooter({ tray }: { tray?: ReactNode }) {
-  const [menu, setMenu] = useState<MenuPosition | null>(null);
+  const {
+    closeContextMenu: closeMenu,
+    contextMenu,
+    openContextMenuAt,
+  } = useContextMenuPositionState();
   const { windows } = useWindowStateData();
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    setMenu({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  const closeMenu = useCallback(() => setMenu(null), []);
 
   return (
     <>
@@ -30,8 +27,10 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
           className="tearleads-action-button pane-footer-menu-button"
           aria-label="Menu"
           aria-haspopup="menu"
-          aria-expanded={menu !== null}
-          onClick={handleClick}
+          aria-expanded={contextMenu !== null}
+          onClick={(event) =>
+            openContextMenuAt({ x: event.clientX, y: event.clientY })
+          }
         >
           <TearleadsLogo className="pane-footer-menu-logo" />
         </button>
@@ -43,7 +42,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
           {tray && <div className="pane-footer-tray">{tray}</div>}
         </div>
       </div>
-      {menu && <PaneMenu position={menu} onClose={closeMenu} />}
+      {contextMenu && <PaneMenu position={contextMenu} onClose={closeMenu} />}
     </>
   );
 }

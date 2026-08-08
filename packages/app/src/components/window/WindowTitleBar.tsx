@@ -1,9 +1,9 @@
 import { ArrowDownIcon } from "@phosphor-icons/react/dist/csr/ArrowDown";
 import { ArrowUpIcon } from "@phosphor-icons/react/dist/csr/ArrowUp";
-import { type ReactNode, useCallback, useState } from "react";
-import type { MenuPosition } from "../shared/Menu";
+import { type ReactNode, useCallback } from "react";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
+import { useContextMenuPositionState } from "../shared/useContextMenuState";
 import "./WindowTitleBar.css";
 import { WindowCloseButton } from "./WindowCloseButton";
 import { WindowMaximizeButton } from "./WindowMaximizeButton";
@@ -34,7 +34,8 @@ export function WindowTitleBar({
   onMoveForward: () => void;
   onMoveBackward: () => void;
 }) {
-  const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
+  const { closeContextMenu, contextMenu, openContextMenuAt } =
+    useContextMenuPositionState();
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -46,21 +47,17 @@ export function WindowTitleBar({
     [onMouseDown],
   );
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
-
   return (
     <div
       role="toolbar"
       aria-label="Window controls"
       className="window-titlebar"
       onMouseDown={handleMouseDown}
-      onContextMenu={handleContextMenu}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openContextMenuAt({ x: event.clientX, y: event.clientY });
+      }}
     >
       <span>{title}</span>
       <div className="window-titlebar-buttons">
