@@ -8,7 +8,7 @@ interface OrgManagerGrantsRefreshInput {
   readonly visible: boolean;
 }
 
-export function useOrgManagerGrantsRefresh(
+export function useOrgManagerGrantsRefreshEffect(
   input: OrgManagerGrantsRefreshInput,
 ): void {
   const grantsVisible = input.enabled && input.visible;

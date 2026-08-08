@@ -1,11 +1,13 @@
 import { expect, mock, test } from "bun:test";
 import { render, waitFor } from "@testing-library/react";
-import { useOrgManagerGrantsRefresh } from "./useOrgManagerGrantsRefresh";
+import { useOrgManagerGrantsRefreshEffect } from "./useOrgManagerGrantsRefreshEffect";
 
-type GrantsRefreshInput = Parameters<typeof useOrgManagerGrantsRefresh>[0];
+type GrantsRefreshInput = Parameters<
+  typeof useOrgManagerGrantsRefreshEffect
+>[0];
 
 function GrantsRefreshProbe({ input }: { input: GrantsRefreshInput }) {
-  useOrgManagerGrantsRefresh(input);
+  useOrgManagerGrantsRefreshEffect(input);
   return null;
 }
 

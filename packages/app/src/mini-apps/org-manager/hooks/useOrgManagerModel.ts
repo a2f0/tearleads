@@ -21,11 +21,13 @@ import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu"
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
-import { useOrgManagerDetailRefreshes } from "../organization/useOrgManagerDetailRefreshes";
+import { useOrgManagerDetailRefreshEffects } from "../organization/useOrgManagerDetailRefreshEffects";
 import { useOrgManagerDirectorySync } from "../organization/useOrgManagerDirectorySync";
 import { useOrgManagerScopeReset } from "../organization/useOrgManagerScopeReset";
-import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRefreshes";
+import { useOrgManagerViewRefreshEffects } from "../organization/useOrgManagerViewRefreshEffects";
+import { useOrgSwitcher } from "../organization/useOrgSwitcher";
 import type { GroupDetailsEffectKey } from "../refresh";
+import { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
 import {
   getOrgManagerDataUsageScopeKey,
@@ -37,12 +39,10 @@ import { useEnsureRosterProfileDocument } from "./useEnsureRosterProfileDocument
 import { useOrgManagerMutations } from "./useOrgManagerMutations";
 import { useOrgManagerPendingState } from "./useOrgManagerPendingState";
 import { useOrgManagerProfileDisplayNames } from "./useOrgManagerProfileDisplayNames";
-import { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 import { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 import { useOrgManagerRosterActions } from "./useOrgManagerRosterActions";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
 import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
-import { useOrgSwitcher } from "./useOrgSwitcher";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
@@ -318,8 +318,7 @@ export function useOrgManagerModel() {
     setUserDetail,
     view,
   });
-  // The scope reset must register before the view refreshers so its effect
-  // clears abandoned-scope state before the new scope's refreshes begin.
+  // Scope reset must register before refresh effects so stale state clears first.
   useOrgManagerScopeReset({
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
@@ -331,7 +330,7 @@ export function useOrgManagerModel() {
     setMutating,
     setOrganizationPolicyHistory,
   });
-  useOrgManagerViewRefreshes({
+  useOrgManagerViewRefreshEffects({
     enabled: canLoadAuthenticatedOrgData,
     readModelCursor,
     refreshDataUsage,
@@ -349,7 +348,7 @@ export function useOrgManagerModel() {
     scopeKey: orgManagerScopeKey,
     tearleads,
   });
-  useOrgManagerDetailRefreshes({
+  useOrgManagerDetailRefreshEffects({
     readModelCursor,
     refreshSelectedGroupContainers,
     refreshSelectedGroupDetails,

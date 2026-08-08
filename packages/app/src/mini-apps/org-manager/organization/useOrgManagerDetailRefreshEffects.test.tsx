@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
 import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
-import { useOrgManagerDetailRefreshes } from "./useOrgManagerDetailRefreshes";
+import { useOrgManagerDetailRefreshEffects } from "./useOrgManagerDetailRefreshEffects";
 
 afterEach(() => cleanup());
 
@@ -26,7 +26,7 @@ interface DetailRefreshProbeProps {
 }
 
 function DetailRefreshProbe(props: DetailRefreshProbeProps) {
-  useOrgManagerDetailRefreshes(props);
+  useOrgManagerDetailRefreshEffects(props);
   return null;
 }
 

@@ -1,11 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import {
-  type OrgSwitcherState,
-  resolveOrgSwitcherSessionContext,
-} from "../hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { OrgSwitcher } from "./OrgSwitcher";
+import type { OrgSwitcherState } from "./orgSwitcherTypes";
+import { resolveOrgSwitcherSessionContext } from "./useOrgSwitcherController";
 
 afterEach(() => cleanup());
 

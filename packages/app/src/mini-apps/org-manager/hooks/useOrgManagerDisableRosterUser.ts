@@ -9,8 +9,8 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
-import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 

@@ -6,8 +6,8 @@ import {
   type GroupDetailsRefreshOptions,
   type RefreshBehaviorOptions,
   refreshOrgManagerVisibleData,
-} from "../refresh";
-import type { OrgManagerView } from "../routes";
+} from "./refresh";
+import type { OrgManagerView } from "./routes";
 
 function createRefreshHarness(view: OrgManagerView) {
   const calls: string[] = [];

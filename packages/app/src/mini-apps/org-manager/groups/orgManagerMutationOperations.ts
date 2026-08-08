@@ -2,8 +2,8 @@ import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 
 type OrgManagerActions = Pick<
   ReturnType<typeof useOrgManagerActions>,

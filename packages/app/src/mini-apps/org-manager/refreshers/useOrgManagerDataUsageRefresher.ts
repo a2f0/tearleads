@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { resolveDataUsageRefresh } from "../billing/dataUsageRefreshState";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
@@ -10,7 +11,6 @@ import {
   runScopedRefresher,
   setUnknownError,
 } from "../refresh";
-import { resolveDataUsageRefresh } from "./dataUsageRefreshState";
 
 interface OrgManagerDataUsageRefresherInput {
   readonly appData: ReturnType<typeof useTearleadsRuntime>;

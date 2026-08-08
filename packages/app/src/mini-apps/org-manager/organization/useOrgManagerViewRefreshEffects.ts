@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { useOrgManagerDataUsageRefresh } from "../billing/useOrgManagerDataUsageRefresh";
-import { useOrgManagerGrantsRefresh } from "../grants/useOrgManagerGrantsRefresh";
+import { useOrgManagerDataUsageRefreshEffect } from "../billing/useOrgManagerDataUsageRefreshEffect";
+import { useOrgManagerGrantsRefreshEffect } from "../grants/useOrgManagerGrantsRefreshEffect";
 import type { OrgManagerView } from "../routes";
 
-interface OrgManagerViewRefreshesInput {
+interface OrgManagerViewRefreshEffectsInput {
   readonly enabled: boolean;
   readonly readModelCursor: string | null;
   readonly scopeKey: string;
@@ -13,16 +13,16 @@ interface OrgManagerViewRefreshesInput {
   readonly view: OrgManagerView;
 }
 
-export function useOrgManagerViewRefreshes(
-  input: OrgManagerViewRefreshesInput,
+export function useOrgManagerViewRefreshEffects(
+  input: OrgManagerViewRefreshEffectsInput,
 ): void {
-  useOrgManagerDataUsageRefresh({
+  useOrgManagerDataUsageRefreshEffect({
     enabled: input.enabled,
     refreshDataUsage: input.refreshDataUsage,
     visible: input.view === "usage",
   });
 
-  useOrgManagerGrantsRefresh({
+  useOrgManagerGrantsRefreshEffect({
     enabled: input.enabled,
     readModelCursor: input.readModelCursor,
     refreshGrants: input.refreshGrants,

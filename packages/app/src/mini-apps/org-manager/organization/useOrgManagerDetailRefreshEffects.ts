@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 
-interface OrgManagerDetailRefreshesInput {
+interface OrgManagerDetailRefreshEffectsInput {
   readonly readModelCursor: string | null;
   readonly refreshSelectedGroupContainers: (
     groupId: string | null,
@@ -22,8 +22,8 @@ interface OrgManagerDetailRefreshesInput {
 }
 
 /** Loads selection details only while their owning view is visible. */
-export function useOrgManagerDetailRefreshes(
-  input: OrgManagerDetailRefreshesInput,
+export function useOrgManagerDetailRefreshEffects(
+  input: OrgManagerDetailRefreshEffectsInput,
 ): void {
   useEffect(() => {
     if (
