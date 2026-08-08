@@ -2,7 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { Window } from "./Window";
-import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
+import {
+  useWindowActions,
+  useWindowStateData,
+  WindowStateProvider,
+} from "./WindowStateProvider";
 
 afterEach(() => {
   cleanup();
@@ -27,7 +31,8 @@ function WindowContextMenuHarness({
   onDesktopContextMenu: () => void;
   onWindowContextMenu?: (() => void) | undefined;
 }) {
-  const { windows, create } = useWindowState();
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function ContextMenuWindow() {

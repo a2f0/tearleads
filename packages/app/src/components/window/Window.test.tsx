@@ -8,7 +8,11 @@ import {
 import { Window } from "./Window";
 import { useWindowTitleBarAction } from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
-import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
+import {
+  useWindowActions,
+  useWindowStateData,
+  WindowStateProvider,
+} from "./WindowStateProvider";
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   Navigator.prototype,
@@ -36,7 +40,8 @@ function installClipboard(writeText: Clipboard["writeText"]): void {
 }
 
 function WindowHarness() {
-  const { windows, create } = useWindowState();
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     create("A", 0, 0);
@@ -53,7 +58,8 @@ function WindowHarness() {
 }
 
 function WindowClipboardHarness() {
-  const { windows, create } = useWindowState();
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
 
   useEffect(() => {
     function ClipboardWindow() {
@@ -120,7 +126,8 @@ function WindowViewerHarness({
 }: {
   withSidebar?: boolean;
 }) {
-  const { windows, create, restore } = useWindowState();
+  const { windows } = useWindowStateData();
+  const { create, restore } = useWindowActions();
 
   useEffect(() => {
     create(
