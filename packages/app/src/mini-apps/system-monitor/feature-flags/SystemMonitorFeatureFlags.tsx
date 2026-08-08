@@ -4,8 +4,9 @@ import {
   MiniAppSectionHeading,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
+import { APP_FEATURE_FLAG_IDS } from "../../../providers/feature-flags/appFeatureFlags";
 import {
-  FEATURE_FLAG_LABELS,
+  FEATURE_FLAG_DETAILS,
   formatFeatureFlagState,
 } from "./useSystemMonitorFeatureFlagRows";
 
@@ -53,54 +54,24 @@ function SystemMonitorFeatureFlagToggle({
 }
 
 export function SystemMonitorFeatureFlags() {
-  const {
-    builtInSystemContainersVisible,
-    documentEditRangesVisible,
-    explorerHeaderSyncIndicatorVisible,
-    linkedDocumentActivationControlsEnabled,
-    setBuiltInSystemContainersVisible,
-    setDocumentEditRangesVisible,
-    setExplorerHeaderSyncIndicatorVisible,
-    setLinkedDocumentActivationControlsEnabled,
-    setWorkspaceSwitcherVisible,
-    workspaceSwitcherVisible,
-  } = useAppFeatureFlags();
+  const { isEnabled, setEnabled } = useAppFeatureFlags();
 
   return (
     <MiniAppSection className="system-monitor-feature-flags">
       <MiniAppSectionHeading>
         <h2>Feature Flags</h2>
       </MiniAppSectionHeading>
-      <SystemMonitorFeatureFlagToggle
-        enabled={builtInSystemContainersVisible}
-        label={FEATURE_FLAG_LABELS.builtInSystemContainers}
-        onChange={setBuiltInSystemContainersVisible}
-        switchLabel="Show built-in system containers"
-      />
-      <SystemMonitorFeatureFlagToggle
-        enabled={documentEditRangesVisible}
-        label={FEATURE_FLAG_LABELS.documentEditRanges}
-        onChange={setDocumentEditRangesVisible}
-        switchLabel="Show document edit ranges"
-      />
-      <SystemMonitorFeatureFlagToggle
-        enabled={explorerHeaderSyncIndicatorVisible}
-        label={FEATURE_FLAG_LABELS.explorerHeaderSyncIndicator}
-        onChange={setExplorerHeaderSyncIndicatorVisible}
-        switchLabel="Show Explorer header sync indicator"
-      />
-      <SystemMonitorFeatureFlagToggle
-        enabled={linkedDocumentActivationControlsEnabled}
-        label={FEATURE_FLAG_LABELS.linkedDocumentActivationControls}
-        onChange={setLinkedDocumentActivationControlsEnabled}
-        switchLabel="Enable linked document activation controls"
-      />
-      <SystemMonitorFeatureFlagToggle
-        enabled={workspaceSwitcherVisible}
-        label={FEATURE_FLAG_LABELS.workspaceSwitcher}
-        onChange={setWorkspaceSwitcherVisible}
-        switchLabel="Show workspace switcher"
-      />
+      {APP_FEATURE_FLAG_IDS.map((flag) => (
+        <SystemMonitorFeatureFlagToggle
+          key={flag}
+          enabled={isEnabled(flag)}
+          label={FEATURE_FLAG_DETAILS[flag].label}
+          onChange={(enabled) => {
+            setEnabled(flag, enabled);
+          }}
+          switchLabel={FEATURE_FLAG_DETAILS[flag].switchLabel}
+        />
+      ))}
     </MiniAppSection>
   );
 }

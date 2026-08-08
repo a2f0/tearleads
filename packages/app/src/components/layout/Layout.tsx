@@ -134,9 +134,10 @@ function LayoutInner({ hostConfig }: LayoutProps) {
 }
 
 function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
-  const { workspaceSwitcherVisible } = useAppFeatureFlags();
+  const { isEnabled } = useAppFeatureFlags();
   const workspaceIds =
-    hostConfig.profile.features.panePeerUserIds || !workspaceSwitcherVisible
+    hostConfig.profile.features.panePeerUserIds ||
+    !isEnabled("workspace-switcher")
       ? SINGLE_WORKSPACE_IDS
       : WORKSPACE_IDS;
 
