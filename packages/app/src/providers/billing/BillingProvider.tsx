@@ -271,8 +271,8 @@ export function useOrganizationBillingState(
 
   useLayoutEffect(() => {
     activeOrganizationIdRef.current = organizationId;
-    // This generation invalidates every request type across scope changes;
-    // their dedicated counters only order work within one organization scope.
+    // Setup and cleanup both invalidate every request type across scope changes;
+    // dedicated counters only order work within one organization scope.
     scopeGenerationRef.current++;
     return () => {
       scopeGenerationRef.current++;

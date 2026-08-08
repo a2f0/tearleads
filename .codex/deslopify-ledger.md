@@ -889,14 +889,15 @@
   latest-read wins and trial-versus-read settlement precedence.
 - Risk notes: removing invalidation from the operation-specific counters could
   admit an old organization's result if any completion path omitted the shared
-  scope guard. Existing stale-read coverage and a new in-flight-trial switch
-  case exercise both request types after the active organization changes.
+  scope guard. Existing stale-read coverage exercises the read path; a new
+  A-to-B-to-A case leaves a trial from the first A scope in flight so only the
+  generation guard can reject it after that organization becomes active again.
 - Files changed: the BillingProvider scope effect and its focused request-order
   coverage.
 - Baseline: 12 focused BillingProvider tests passed with 55 expectations at
   `a63d89eb` before the cleanup.
 - Verification: the original coverage plus the in-flight trial scope case
-  passes 13 focused tests with 61 expectations. `bun run check:affected` passes
+  passes 13 focused tests with 63 expectations. `bun run check:affected` passes
   TypeScript and every static, architecture, OpenAPI, and bounded protocol-model
   gate; the complete app and affected deployment-package test suites pass, and
   all 38 web end-to-end tests pass.
