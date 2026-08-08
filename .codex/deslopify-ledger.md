@@ -877,3 +877,34 @@
   of maintaining a separate nullable context fallback. Keep display metadata in
   System Monitor because it is presentation policy, while making its record
   exhaustive over `AppFeatureFlagId`.
+
+### 2026-08-08 - Billing scope invalidation
+
+- Status: accepted
+- Classification: redundant cross-scope request-counter invalidation
+- Equivalence claim: changing or disposing the active organization still
+  invalidates every in-flight billing read and trial request through
+  `scopeGenerationRef`. Read request IDs, billing mutation versions, and trial
+  request IDs retain their original within-scope ordering behavior, including
+  latest-read wins and trial-versus-read settlement precedence.
+- Risk notes: removing invalidation from the operation-specific counters could
+  admit an old organization's result if any completion path omitted the shared
+  scope guard. Existing stale-read coverage and a new in-flight-trial switch
+  case exercise both request types after the active organization changes.
+- Files changed: the BillingProvider scope effect and its focused request-order
+  coverage.
+- Baseline: 12 focused BillingProvider tests passed with 55 expectations at
+  `a63d89eb` before the cleanup.
+- Verification: the original coverage plus the in-flight trial scope case
+  passes 13 focused tests with 61 expectations. `bun run check:affected` passes
+  TypeScript and every static, architecture, OpenAPI, and bounded protocol-model
+  gate; the complete app and affected deployment-package test suites pass, and
+  all 38 web end-to-end tests pass.
+- Delta: organization scope transitions now advance only the generation read by
+  every request completion path instead of also bumping three counters whose
+  values are relevant only within that scope. Production code removes four
+  lines net with no suppressions or source-shape baseline growth.
+- Decision notes: retain the three operation-specific counters because they
+  encode observable same-scope ordering. Consolidate only the redundant
+  organization-transition invalidation, and document the boundary between the
+  shared scope generation and those counters.

@@ -271,15 +271,11 @@ export function useOrganizationBillingState(
 
   useLayoutEffect(() => {
     activeOrganizationIdRef.current = organizationId;
-    billingMutationVersionRef.current++;
-    readRequestIdRef.current++;
+    // This generation invalidates every request type across scope changes;
+    // their dedicated counters only order work within one organization scope.
     scopeGenerationRef.current++;
-    trialRequestIdRef.current++;
     return () => {
-      billingMutationVersionRef.current++;
-      readRequestIdRef.current++;
       scopeGenerationRef.current++;
-      trialRequestIdRef.current++;
     };
   }, [organizationId]);
 

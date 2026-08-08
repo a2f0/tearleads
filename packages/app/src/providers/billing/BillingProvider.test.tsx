@@ -365,6 +365,47 @@ test("does not run an old organization's startTrial callback after a switch", as
   expect(startTrial).not.toHaveBeenCalled();
 });
 
+test("scope generation rejects an in-flight trial after an organization switch", async () => {
+  const orgA = billing({
+    organizationId: "org-a",
+    status: "local",
+    trialEndsAt: null,
+  });
+  const orgB = billing({
+    organizationId: "org-b",
+    status: "active",
+    trialEndsAt: null,
+  });
+  const startedA = billing({ organizationId: "org-a", status: "trialing" });
+  let loadCount = 0;
+  let resolveTrial: ((value: OrganizationBilling) => void) | null = null;
+  const client = makeClient(
+    () => Promise.resolve(loadCount++ === 0 ? orgA : orgB),
+    () =>
+      new Promise<OrganizationBilling>((resolve) => {
+        resolveTrial = resolve;
+      }),
+  );
+  const { result, rerender } = renderHook(
+    ({ orgId }: { orgId: string }) =>
+      useOrganizationBillingState(client, orgId),
+    { initialProps: { orgId: "org-a" } },
+  );
+  await waitFor(() => expect(result.current.billing).toEqual(orgA));
+
+  let trialResult!: Promise<boolean>;
+  act(() => {
+    trialResult = result.current.startTrial();
+  });
+  rerender({ orgId: "org-b" });
+  await waitFor(() => expect(result.current.billing).toEqual(orgB));
+
+  await act(async () => resolveTrial?.(startedA));
+
+  expect(await trialResult).toBe(false);
+  expect(result.current.billing).toEqual(orgB);
+});
+
 test("startTrial reports failure and sets an error when it returns null", async () => {
   const local = billing({ status: "local", trialEndsAt: null });
   const client = makeClient(
