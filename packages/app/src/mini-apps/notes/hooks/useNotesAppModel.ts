@@ -1,7 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback } from "react";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
+import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
 import {
   type NotesContextMenuModel,
   useNotesContextMenu,
@@ -29,24 +28,21 @@ interface NotesAppModel {
   showCompactListHome: boolean;
 }
 
+function parseNotesSelectionRouteSegments(
+  segments: ReadonlyArray<string>,
+): ActiveNoteSelection | null {
+  return parseNotesRouteSegments(segments).selection;
+}
+
 function useNotesRouteState(props: NotesAppProps) {
-  const appRoute = useMiniAppRouteSegments("notes");
-  const { isRouted, pathSegments, setPathSegments } = appRoute;
   const propSelection = useExplicitNoteSelection(props);
-  const routeSelection = isRouted
-    ? parseNotesRouteSegments(pathSegments).selection
-    : propSelection;
-  const selectNoteRoute = useCallback(
-    (
-      selection: ActiveNoteSelection,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
-      if (isRouted) {
-        setPathSegments(formatNotesRouteSegments(selection), options);
-      }
-    },
-    [isRouted, setPathSegments],
-  );
+  const { route: routeSelection, setRoute: selectNoteRoute } =
+    useMiniAppRouteState<ActiveNoteSelection | null, ActiveNoteSelection>({
+      appId: "notes",
+      formatRouteSegments: formatNotesRouteSegments,
+      localRoute: propSelection,
+      parseRouteSegments: parseNotesSelectionRouteSegments,
+    });
 
   return { explicitSelection: routeSelection, selectNoteRoute };
 }

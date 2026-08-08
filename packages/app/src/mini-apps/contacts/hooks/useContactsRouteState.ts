@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
 import {
   type ContactsRouteSnapshot,
   createContactsSelectionRouteSnapshot,
@@ -9,27 +9,17 @@ import {
 } from "../routes";
 
 export function useContactsRouteState(compactRoutedMode: boolean) {
-  const { isRouted, pathSegments, setPathSegments } =
-    useMiniAppRouteSegments("contacts");
   const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
     DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
   );
-  const routeSnapshot = isRouted
-    ? parseContactsRouteSegments(pathSegments)
-    : localRoute;
-  const setRouteSnapshot = useCallback(
-    (
-      nextRoute: ContactsRouteSnapshot,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
-      if (isRouted) {
-        setPathSegments(formatContactsRouteSegments(nextRoute), options);
-        return;
-      }
-      setLocalRoute(nextRoute);
-    },
-    [isRouted, setPathSegments],
-  );
+  const { route: routeSnapshot, setRoute: setRouteSnapshot } =
+    useMiniAppRouteState({
+      appId: "contacts",
+      formatRouteSegments: formatContactsRouteSegments,
+      localRoute,
+      parseRouteSegments: parseContactsRouteSegments,
+      setLocalRoute,
+    });
   const showSelectionRoute = useCallback(
     (options: { replace?: boolean | undefined } = {}) =>
       setRouteSnapshot(

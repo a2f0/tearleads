@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import {
+  type MiniAppRouteSetOptions,
+  useMiniAppRouteState,
+} from "../../../navigation/useMiniAppRouteState";
 import {
   areOrgManagerRoutesEqual,
   DEFAULT_ORG_MANAGER_ROUTE,
@@ -24,18 +27,18 @@ interface OrgManagerRouteState {
   selectedGroupIdRef: { current: string | null };
   setSelectedGrantRef: (
     grantRef: OrgManagerGrantRouteRef | null,
-    options?: { replace?: boolean | undefined },
+    options?: MiniAppRouteSetOptions,
   ) => void;
   setSelectedGroupId: (
     groupId: string | null,
-    options?: { replace?: boolean | undefined },
+    options?: MiniAppRouteSetOptions,
   ) => void;
   setView: (view: OrgManagerView) => void;
 }
 
 type SetOrgManagerRoute = (
   nextRoute: OrgManagerRoute,
-  options?: { replace?: boolean | undefined },
+  options?: MiniAppRouteSetOptions,
 ) => void;
 
 function useOrgManagerRouteActions(
@@ -50,10 +53,7 @@ function useOrgManagerRouteActions(
   );
 
   const setSelectedGroupId = useCallback(
-    (
-      groupId: string | null,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
+    (groupId: string | null, options: MiniAppRouteSetOptions = {}) => {
       setRoute(
         {
           ...routeRef.current,
@@ -69,7 +69,7 @@ function useOrgManagerRouteActions(
   const setSelectedGrantRef = useCallback(
     (
       grantRef: OrgManagerGrantRouteRef | null,
-      options: { replace?: boolean | undefined } = {},
+      options: MiniAppRouteSetOptions = {},
     ) => {
       setRoute(
         {
@@ -119,32 +119,26 @@ export function useOrgManagerRoute(params: {
   groups: ReadonlyArray<OrgManagerGroupRouteTarget>;
 }): OrgManagerRouteState {
   const { groups } = params;
-  const appRoute = useMiniAppRouteSegments("org-manager");
-  const { isRouted, pathSegments, setPathSegments } = appRoute;
   const [localRoute, setLocalRoute] = useState<OrgManagerRoute>(
     DEFAULT_ORG_MANAGER_ROUTE,
   );
-  const route = isRouted
-    ? parseOrgManagerRouteSegments(pathSegments)
-    : localRoute;
+  const { route, setRoute: setBaseRoute } = useMiniAppRouteState({
+    appId: "org-manager",
+    formatRouteSegments: formatOrgManagerRouteSegments,
+    localRoute,
+    parseRouteSegments: parseOrgManagerRouteSegments,
+    setLocalRoute,
+  });
   const routeRef = useRef(route);
   const selectedGroupIdRef = useRef(route.selectedGroupId);
 
   const setRoute: SetOrgManagerRoute = useCallback(
-    (
-      nextRoute: OrgManagerRoute,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
+    (nextRoute: OrgManagerRoute, options: MiniAppRouteSetOptions = {}) => {
       routeRef.current = nextRoute;
       selectedGroupIdRef.current = nextRoute.selectedGroupId;
-      if (isRouted) {
-        setPathSegments(formatOrgManagerRouteSegments(nextRoute), options);
-        return;
-      }
-
-      setLocalRoute(nextRoute);
+      setBaseRoute(nextRoute, options);
     },
-    [isRouted, setPathSegments],
+    [setBaseRoute],
   );
 
   useEffect(() => {
