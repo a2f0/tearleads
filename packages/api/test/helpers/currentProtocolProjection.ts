@@ -14,12 +14,14 @@ import {
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
   type KeyingCanonicalJson,
+  makeVerifiedAccessEvent,
+  makeVerifiedDocumentLinkSetManifest,
   signAccessEvent,
   type UnsignedAccessEvent,
-  type VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
+import { accessManifestCheckpoint } from "../../src/keyingProjectionRecords";
 
 export async function createCurrentDocumentProjection(input: {
   readonly containerIds: readonly string[];
@@ -91,18 +93,20 @@ export async function createCurrentDocumentProjection(input: {
     };
     const manifest = await deriveDocumentLinkSetManifest(state);
     const manifestHash = await computeAccessManifestHash(manifest);
+    const verifiedEvent = makeVerifiedAccessEvent({
+      body: body as unknown as KeyingCanonicalJson,
+      event,
+      eventHash,
+    });
     await storeVerifiedAccessManifest(
       {
-        verifiedManifest: {
-          event: {
-            body: body as unknown as KeyingCanonicalJson,
-            event,
-            eventHash,
-          },
+        verifiedManifest: makeVerifiedDocumentLinkSetManifest({
+          checkpoint: accessManifestCheckpoint({ manifest, manifestHash }),
+          event: verifiedEvent,
           manifest,
           manifestHash,
           state,
-        } as VerifiedDocumentLinkSetManifest,
+        }),
       },
       db,
     );

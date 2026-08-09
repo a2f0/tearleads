@@ -51,6 +51,7 @@ import {
   documentSyncStateStale,
 } from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
+import { assertDocumentAccessEventDependenciesMatchRequest as assertDependencies } from "./eventDependencies";
 import {
   readVerifiedDocumentManifest,
   verifiedDocumentKekTargetsFromResolved,
@@ -278,6 +279,7 @@ export async function verifyDocumentManifestFromRequest(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
+  assertDependencies(input.request, input.event.event);
   // Run sequentially: this verification runs inside a transaction, so both
   // reads share one pinned connection. Concurrent issue only trips pg's
   // already-executing-query deprecation without buying any parallelism.
@@ -340,6 +342,7 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetMutationAuthorization> {
+  assertDependencies(input.request, input.event.event);
   // Run sequentially: this verification runs inside a transaction, so both
   // reads share one pinned connection. Concurrent issue only trips pg's
   // already-executing-query deprecation without buying any parallelism.

@@ -5,6 +5,7 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import {
+  KeyingVerificationError,
   makeVerifiedDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
@@ -20,11 +21,21 @@ import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { loadContainerManifestBundleByHash } from "../containers/writerProjection/accessPaths";
 import { toManifestBundleResponse } from "../containers/writerProjection/records";
 import { verifyStoredContainerManifest } from "../containers/writerProjection/storedManifestVerification";
-import type { ContainerWriterProjectionContext } from "../containers/writerProjection/types";
-import { loadPrincipalPoliciesForContainerPaths } from "../principals/principalPolicyProjection";
+import { StoredVerificationCache } from "../containers/writerProjection/storedVerificationCache";
+import {
+  type ContainerWriterProjectionContext,
+  ContainerWriterProjectionError,
+} from "../containers/writerProjection/types";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../signerPublicKey";
 
 const MAX_CONTAINER_PATH_DEPTH = 100;
+const MAX_DOCUMENT_HISTORY_DEPTH = 4_096;
+const verifiedStoredDocumentManifests =
+  new StoredVerificationCache<VerifiedDocumentLinkSetManifest>(2_048);
 
 export class StoredDocumentManifestError extends Error {
   readonly status = 409;
@@ -212,66 +223,85 @@ async function verifyBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly containerContext: ContainerWriterProjectionContext;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
-  readonly visiting: ReadonlySet<string>;
+  readonly visiting: Set<string>;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
     return cached;
   }
+  const processCached = verifiedStoredDocumentManifests.get(
+    input.bundle.manifestHash,
+    input.bundle,
+  );
+  if (processCached) {
+    input.verifiedByHash.set(input.bundle.manifestHash, processCached);
+    return processCached;
+  }
   if (input.visiting.has(input.bundle.manifestHash)) {
     throw integrityError("manifest history contains a cycle");
   }
-
-  const visiting = new Set(input.visiting).add(input.bundle.manifestHash);
-  const parsed = readStoredDocumentManifest(input.bundle);
-  const event = await verifyStoredEvent({
-    executor: input.containerContext.executor,
-    manifest: parsed,
-  });
-  const previousManifest = parsed.state.previousManifestHash
-    ? await verifyBundle({
-        bundle: await loadStoredDocumentBundle(
-          input.containerContext.executor,
-          parsed.state.previousManifestHash,
-        ),
-        containerContext: input.containerContext,
-        verifiedByHash: input.verifiedByHash,
-        visiting,
-      })
-    : null;
-  const containerPaths = await loadContainerPaths({
-    context: input.containerContext,
-    event,
-  });
-  const targetHash = targetContainerManifestHash(parsed);
-  const targetContainerPath = containerPaths.find(
-    (path) => path.at(-1)?.manifestHash === targetHash,
-  );
-  if (!targetContainerPath) {
-    throw integrityError("signed target container path is missing");
-  }
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-    input.containerContext.executor,
-    containerPaths,
-  );
-  const result = await verifyDocumentLinkSetManifest({
-    authorizingContainerPaths: containerPaths,
-    event,
-    expectedManifestHash: input.bundle.manifestHash,
-    manifest: parsed.manifest,
-    previousManifest,
-    principalPolicies,
-    targetContainerPath,
-  });
-  if (!result.ok) {
-    throw integrityError(result.error.message);
-  }
-  if (!canonicalJsonEquals(result.value.state, parsed.state)) {
-    throw integrityError("stored state does not match the signed transition");
+  if (input.visiting.size >= MAX_DOCUMENT_HISTORY_DEPTH) {
+    throw integrityError("manifest history exceeds maximum depth");
   }
 
-  input.verifiedByHash.set(input.bundle.manifestHash, result.value);
-  return result.value;
+  input.visiting.add(input.bundle.manifestHash);
+  try {
+    const parsed = readStoredDocumentManifest(input.bundle);
+    const event = await verifyStoredEvent({
+      executor: input.containerContext.executor,
+      manifest: parsed,
+    });
+    const previousManifest = parsed.state.previousManifestHash
+      ? await verifyBundle({
+          bundle: await loadStoredDocumentBundle(
+            input.containerContext.executor,
+            parsed.state.previousManifestHash,
+          ),
+          containerContext: input.containerContext,
+          verifiedByHash: input.verifiedByHash,
+          visiting: input.visiting,
+        })
+      : null;
+    const containerPaths = await loadContainerPaths({
+      context: input.containerContext,
+      event,
+    });
+    const targetHash = targetContainerManifestHash(parsed);
+    const targetContainerPath = containerPaths.find(
+      (path) => path.at(-1)?.manifestHash === targetHash,
+    );
+    if (!targetContainerPath) {
+      throw integrityError("signed target container path is missing");
+    }
+    const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+      input.containerContext.executor,
+      containerPaths,
+    );
+    const result = await verifyDocumentLinkSetManifest({
+      authorizingContainerPaths: containerPaths,
+      event,
+      expectedManifestHash: input.bundle.manifestHash,
+      manifest: parsed.manifest,
+      previousManifest,
+      principalPolicies,
+      targetContainerPath,
+    });
+    if (!result.ok) {
+      throw integrityError(result.error.message);
+    }
+    if (!canonicalJsonEquals(result.value.state, parsed.state)) {
+      throw integrityError("stored state does not match the signed transition");
+    }
+    input.verifiedByHash.set(input.bundle.manifestHash, result.value);
+    verifiedStoredDocumentManifests.set(
+      input.bundle.manifestHash,
+      input.bundle,
+      result.value,
+    );
+    return result.value;
+  } finally {
+    input.visiting.delete(input.bundle.manifestHash);
+  }
 }
 
 export async function verifyStoredDocumentManifest(
@@ -288,8 +318,13 @@ export async function verifyStoredDocumentManifest(
     if (error instanceof StoredDocumentManifestError) {
       throw error;
     }
-    throw integrityError(
-      error instanceof Error ? error.message : "stored bundle is invalid",
-    );
+    if (
+      error instanceof ContainerWriterProjectionError ||
+      error instanceof KeyingVerificationError ||
+      error instanceof PrincipalPolicyProjectionError
+    ) {
+      throw integrityError(error.message);
+    }
+    throw error;
   }
 }

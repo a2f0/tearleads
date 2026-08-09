@@ -79,12 +79,21 @@ historical authorization path. The API verifies the event signature and signer
 identity, derives the transition from the signed event body, recomputes the
 manifest hash, checks dependency paths and referenced principal policies, and
 binds current manifests back to the container hierarchy rows. A database edit
-to a direct user grant, manifest head, parent edge, or transition artifact
-therefore produces an integrity conflict instead of server-side access.
+that forges a direct user grant, parent edge, or transition artifact therefore
+produces an integrity conflict instead of server-side access. Verified
+content-addressed manifests are retained in a bounded process cache keyed by
+both the claimed hash and stored source fingerprint, amortizing signature-chain
+verification without accepting an in-place edit under an existing hash.
 Stored document link-set manifests receive the same treatment before document
 or blob authorization: the API reconstructs the signed link/unlink history and
 its verified container paths rather than trusting mutable `linkedContainerIds`
 or document-link projection rows.
+
+Repointing a database head to a genuine older signed manifest is a replay, not
+a forgery, and the API has no independent checkpoint outside that database from
+which to detect it. A client that has persisted a newer checkpoint rejects the
+rollback. Cold-client rollback and truncation require an external transparency
+source, witness, or gossip peer to detect reliably.
 
 Organization grants remain valid cross-organization sharing subjects. Group
 grants stay within their owning organization so the reserved `Admins` actor can
