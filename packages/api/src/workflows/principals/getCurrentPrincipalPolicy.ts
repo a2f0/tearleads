@@ -8,14 +8,19 @@ import {
   getCurrentPrincipalState,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { StoredVerificationCache } from "../../utils/storedVerificationCache";
 import { buildPrincipalPolicyForStateWithExecutor } from "./principalPolicyBundleRecords";
 import { PrincipalPolicyError } from "./shared";
+import { loadStoredPrincipalPolicyVerificationSource } from "./storedPrincipalPolicySource";
 import { verifyStoredPrincipalPolicyBundle } from "./storedPrincipalPolicyVerification";
 
 interface VerifiedPrincipalPolicyBundle {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly policy: VerifiedPrincipalPolicy;
 }
+
+const verifiedStoredPrincipalPolicies =
+  new StoredVerificationCache<VerifiedPrincipalPolicy>(2_048);
 
 export async function getVerifiedPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
@@ -25,9 +30,22 @@ export async function getVerifiedPrincipalPolicyForStateWithExecutor(
     executor,
     currentState,
   );
+  const source = await loadStoredPrincipalPolicyVerificationSource({
+    bundle,
+    executor,
+  });
+  const cached = verifiedStoredPrincipalPolicies.get(
+    currentState.stateHash,
+    source,
+  );
+  if (cached) {
+    return { bundle, policy: cached };
+  }
+  const policy = await verifyStoredPrincipalPolicyBundle({ source });
+  verifiedStoredPrincipalPolicies.set(currentState.stateHash, source, policy);
   return {
     bundle,
-    policy: await verifyStoredPrincipalPolicyBundle({ bundle, executor }),
+    policy,
   };
 }
 

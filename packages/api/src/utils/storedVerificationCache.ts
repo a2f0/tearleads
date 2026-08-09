@@ -1,4 +1,4 @@
-import { sha256Hex } from "../../../utils/sha256";
+import { sha256Hex } from "./sha256";
 
 interface StoredVerificationCacheEntry<T> {
   readonly fingerprint: string;

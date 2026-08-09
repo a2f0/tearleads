@@ -10,10 +10,10 @@ import {
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
 import { loadPrincipalPoliciesForReferences } from "../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { toVerifiedContainerManifest } from "./records";
-import { StoredVerificationCache } from "./storedVerificationCache";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,

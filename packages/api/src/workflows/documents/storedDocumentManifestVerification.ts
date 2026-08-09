@@ -18,10 +18,10 @@ import {
   documentLinkSetStateRecord,
 } from "../../keyingProjectionRecords";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
+import { StoredVerificationCache } from "../../utils/storedVerificationCache";
 import { loadContainerManifestBundleByHash } from "../containers/writerProjection/accessPaths";
 import { toManifestBundleResponse } from "../containers/writerProjection/records";
 import { verifyStoredContainerManifest } from "../containers/writerProjection/storedManifestVerification";
-import { StoredVerificationCache } from "../containers/writerProjection/storedVerificationCache";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
