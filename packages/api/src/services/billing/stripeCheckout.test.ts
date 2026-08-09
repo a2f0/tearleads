@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
+import { addSyntheticMember } from "../../../test/helpers/revenuecatWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   cancelStripeSubscription,
@@ -155,7 +155,7 @@ test("options stay empty until the WHOLE flow is configured", async () => {
 test("options select Team 5 for a two-member effective roster", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
+  await addSyntheticMember(admin, organizationId);
   const urls: string[] = [];
 
   const result = await getStripeCheckoutOptions(

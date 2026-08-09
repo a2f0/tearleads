@@ -3,6 +3,7 @@ import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import type {
   ContainerAccessLevel,
+  VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
@@ -16,10 +17,8 @@ import {
   loadPrincipalPoliciesForAccessPaths,
   principalPolicyReferenceCacheKey,
 } from "./principalPolicies";
-import {
-  toManifestBundleResponse,
-  toVerifiedContainerManifest,
-} from "./records";
+import { toManifestBundleResponse } from "./records";
+import { verifyStoredContainerManifest } from "./storedManifestVerification";
 import {
   type ContainerAccessPath,
   type ContainerAccessProjection,
@@ -169,10 +168,46 @@ export async function loadContainerAccessPath(
     loadCurrentContainerManifestBundle(context, row.id),
   );
 
-  return {
-    path,
-    verifiedPath: path.map(toVerifiedContainerManifest),
-  };
+  const verifiedPath: VerifiedContainerAccessManifest[] = [];
+  for (const [index, bundle] of path.entries()) {
+    const row = pathRows[index];
+    if (!row) {
+      throw new ContainerWriterProjectionError(
+        "Container path row missing",
+        409,
+      );
+    }
+    const verified = await verifyStoredContainerManifest({
+      bundle,
+      context,
+      loadBundle: (manifestHash) =>
+        loadContainerManifestBundleByHash(context, manifestHash),
+    });
+    if (
+      verified.state.containerId !== row.id ||
+      verified.state.organizationId !== row.organizationId ||
+      verified.state.parentContainerId !== row.parentId
+    ) {
+      throw new ContainerWriterProjectionError(
+        "Container row does not match signed manifest state",
+        409,
+      );
+    }
+    const parent = verifiedPath.at(-1);
+    if (
+      parent &&
+      (verified.state.parentContainerId !== parent.state.containerId ||
+        verified.state.parentManifestHash !== parent.manifestHash)
+    ) {
+      throw new ContainerWriterProjectionError(
+        "Container path does not match signed manifest edges",
+        409,
+      );
+    }
+    verifiedPath.push(verified);
+  }
+
+  return { path, verifiedPath };
 }
 
 export function buildContainerAccessProjection(input: {

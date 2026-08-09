@@ -18,7 +18,7 @@ import {
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";
-import { toVerifiedContainerManifest } from "./records";
+import { verifyStoredContainerManifest } from "./storedManifestVerification";
 import {
   type ContainerKekManifestHistory,
   type ContainerKekProjection,
@@ -97,7 +97,12 @@ export async function loadContainerKekManifestHistory(input: {
       input.context,
       manifestHash,
     );
-    const verifiedManifest = toVerifiedContainerManifest(bundle);
+    const verifiedManifest = await verifyStoredContainerManifest({
+      bundle,
+      context: input.context,
+      loadBundle: (hash) =>
+        loadContainerManifestBundleByHash(input.context, hash),
+    });
     const isCurrentContainer =
       verifiedManifest.state.containerId === currentContainerId;
     bundles.push(bundle);

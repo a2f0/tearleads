@@ -13,11 +13,15 @@ async function createReadableDocument(input: {
   containerId: string;
   createdByFingerprint: string;
   organizationId: string;
+  signerPrivateKey: Uint8Array;
+  signerUserId: string;
 }) {
   return createCurrentDocumentProjection({
     containerIds: [input.containerId],
     createdByFingerprint: input.createdByFingerprint,
     organizationId: input.organizationId,
+    signerPrivateKey: input.signerPrivateKey,
+    signerUserId: input.signerUserId,
   });
 }
 
@@ -66,6 +70,8 @@ test("getBlobBytes streams object-store blobs for readable users", async () => {
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
+    signerPrivateKey: user.signing.signingPrivateKey,
+    signerUserId: registration.userId,
   });
   const encryptedBytes = "streamed-service-blob-bytes";
   const storageKey = `blob-stages/${crypto.randomUUID()}`;
@@ -122,6 +128,8 @@ test("getBlobBytes returns object streams without buffering them", async () => {
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
+    signerPrivateKey: user.signing.signingPrivateKey,
+    signerUserId: registration.userId,
   });
   const encryptedBytes = "lazy-streamed-service-blob";
   const storageKey = `blob-stages/${crypto.randomUUID()}`;
@@ -190,6 +198,8 @@ test("getBlobBytes reports not-found and forbidden cases", async () => {
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
+    signerPrivateKey: user.signing.signingPrivateKey,
+    signerUserId: registration.userId,
   });
   const blob = await createCommittedBlob({
     documentId: document.id,

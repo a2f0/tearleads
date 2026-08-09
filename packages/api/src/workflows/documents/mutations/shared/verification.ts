@@ -34,12 +34,17 @@ import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,
 } from "../../../../utils/canonicalJson";
-import {
-  toManifestBundleResponse,
-  toVerifiedContainerManifest,
-} from "../../../containers/writerProjection/records";
+import { loadContainerManifestBundleByHash } from "../../../containers/writerProjection/accessPaths";
+import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
+import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
+import { verifyStoredContainerManifest } from "../../../containers/writerProjection/storedManifestVerification";
+import { ContainerWriterProjectionError } from "../../../containers/writerProjection/types";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../../signerPublicKey";
+import {
+  StoredDocumentManifestError,
+  verifyStoredDocumentManifest,
+} from "../../storedDocumentManifestVerification";
 import {
   DocumentMutationError,
   documentShapeError,
@@ -132,10 +137,10 @@ async function assertDocumentManifestBundleConsistent(
 
 /**
  * Resolve a flat list of {containerId, manifestHash} references to verified
- * container access manifests using the server's OWN stored bundles (never
- * client-supplied bytes), with the SAME current-head pin the full-bundle path
- * enforces. Each stored bundle was verified when it was committed, and the head
- * pin proves the referenced manifest is the container's current access state.
+ * container access manifests using the server's own stored bundles (never
+ * client-supplied bytes), with the same current-head pin the full-bundle path
+ * enforces. Stored bytes are re-verified here because database contents are not
+ * a trust boundary.
  *
  * Resolution is batched into one bundle fetch and one head fetch for the whole
  * request rather than two roundtrips per reference. Order is preserved.
@@ -147,38 +152,50 @@ async function resolveCurrentContainerManifestRefs(
     readonly refLabel: string;
   }[],
 ): Promise<VerifiedContainerAccessManifest[]> {
-  // Resolve every referenced manifest from the trusted store in one batch.
+  // Resolve every referenced manifest from storage in one batch.
   const storedBundles = await getAccessManifestBundles(
     flatRefs.map(({ ref }) => ref.manifestHash),
     executor,
   );
 
-  const resolved = flatRefs.map(({ ref, refLabel }) => {
-    const stored = storedBundles.get(ref.manifestHash);
-    if (!stored || stored.manifest.objectKind !== "container") {
-      // 409, not 404 — a document-route 404 is the client's wipe signal.
-      throw new DocumentMutationError(`${refLabel} head missing`, 409);
-    }
+  const context = createContainerWriterProjectionContext(executor);
+  const resolved = await Promise.all(
+    flatRefs.map(async ({ ref, refLabel }) => {
+      const stored = storedBundles.get(ref.manifestHash);
+      if (!stored || stored.manifest.objectKind !== "container") {
+        // 409, not 404 — a document-route 404 is the client's wipe signal.
+        throw new DocumentMutationError(`${refLabel} head missing`, 409);
+      }
 
-    // Build the verified manifest from the trusted store via the same
-    // conversion the writer projection uses for stored bundles.
-    const manifest = toVerifiedContainerManifest(
-      toManifestBundleResponse(stored),
-    );
+      let manifest: VerifiedContainerAccessManifest;
+      try {
+        manifest = await verifyStoredContainerManifest({
+          bundle: toManifestBundleResponse(stored),
+          context,
+          loadBundle: (manifestHash) =>
+            loadContainerManifestBundleByHash(context, manifestHash),
+        });
+      } catch (error) {
+        if (error instanceof ContainerWriterProjectionError) {
+          throw new DocumentMutationError(error.message, 409);
+        }
+        throw error;
+      }
 
-    // The client-supplied containerId is advisory; the head lookup below is
-    // keyed off the resolved bundle's authoritative containerId. Reject a
-    // mismatch first so a confused reference cannot authorize against a
-    // different container.
-    if (ref.containerId !== manifest.state.containerId) {
-      throw new DocumentMutationError(
-        `${refLabel} container id does not match the referenced manifest`,
-        400,
-      );
-    }
+      // The client-supplied containerId is advisory; the head lookup below is
+      // keyed off the resolved bundle's authoritative containerId. Reject a
+      // mismatch first so a confused reference cannot authorize against a
+      // different container.
+      if (ref.containerId !== manifest.state.containerId) {
+        throw new DocumentMutationError(
+          `${refLabel} container id does not match the referenced manifest`,
+          400,
+        );
+      }
 
-    return { manifest, refLabel };
-  });
+      return { manifest, refLabel };
+    }),
+  );
 
   // Freshness pin — identical in strength to the full-bundle path
   // (assertCurrentContainerPath). Without it a writer could replay a
@@ -370,12 +387,7 @@ export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(inpu
   };
 }
 
-/**
- * Resolve a document link-set manifest from the server's OWN store by hash and
- * rebuild the verified manifest. The stored bundle was verified at commit time;
- * a miss is store corruption (the hash always comes from a current head or an
- * already-pinned client token), not a client error.
- */
+/** Resolve and re-verify a stored link-set; a miss is store corruption. */
 async function resolveStoredDocumentManifest(
   manifestHash: string,
   executor: DatabaseSession,
@@ -388,10 +400,17 @@ async function resolveStoredDocumentManifest(
       `Document link-set manifest ${manifestHash} is missing from the access manifest store`,
     );
   }
-  return readVerifiedDocumentManifest(
-    toManifestBundleResponse(stored),
-    "documentManifest",
-  );
+  try {
+    return await verifyStoredDocumentManifest({
+      bundle: toManifestBundleResponse(stored),
+      containerContext: createContainerWriterProjectionContext(executor),
+    });
+  } catch (error) {
+    if (error instanceof StoredDocumentManifestError) {
+      throw new DocumentMutationError(error.message, 409);
+    }
+    throw error;
+  }
 }
 
 /**

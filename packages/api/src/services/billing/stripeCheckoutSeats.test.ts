@@ -12,6 +12,7 @@ import { and, desc, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   createStripeCheckout,
@@ -70,21 +71,6 @@ async function loadCurrentMemberGroupState(organizationId: string): Promise<{
   };
 }
 
-async function addEffectiveMember(
-  organizationId: string,
-  userId: string,
-): Promise<void> {
-  const { memberGroupId, stateHash } =
-    await loadCurrentMemberGroupState(organizationId);
-  await db.insert(principalMembershipProjection).values({
-    principalType: "group",
-    principalId: memberGroupId,
-    stateHash,
-    userId: userId,
-    role: "member",
-  });
-}
-
 async function removeAllEffectiveMembers(
   organizationId: string,
 ): Promise<void> {
@@ -106,7 +92,11 @@ test("inline checkout selects the current membership tier at quantity one", asyn
   const organizationId = await registerAndAuthenticate(admin);
   const member = createTestUser();
   await registerUser(member);
-  await addEffectiveMember(organizationId, member.userId);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
 
   // The pre-subscription ledger can be stale or uninitialized. Checkout must
   // derive quantity from the signed Members group instead of trusting it.
@@ -175,7 +165,11 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
   const organizationId = await registerAndAuthenticate(admin);
   const member = createTestUser();
   await registerUser(member);
-  await addEffectiveMember(organizationId, member.userId);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
 
   let checkoutBody: string | null = null;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -225,7 +219,7 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
   );
 });
 
-test("checkout rejects a malformed organization with no effective members", async () => {
+test("checkout rejects a tampered Members policy before contacting Stripe", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   await removeAllEffectiveMembers(organizationId);
@@ -246,8 +240,7 @@ test("checkout rejects a malformed organization with no effective members", asyn
       },
     ),
   ).rejects.toMatchObject({
-    code: "billing_checkout_no_active_members",
-    message: "The organization has no active members",
+    message: "Organization access policy failed integrity verification",
     status: 409,
   });
   expect(requestCount).toBe(0);

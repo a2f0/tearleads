@@ -43,7 +43,7 @@ function predecessorBundle(
   };
 }
 
-test("principal policy sync rejects rollback after the mutable bundle cache is cleared", async () => {
+test("principal policy sync hard-fails rollback after the mutable bundle cache is cleared", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-durable-checkpoint",
   );
@@ -65,18 +65,17 @@ test("principal policy sync rejects rollback after the mutable bundle cache is c
     await execSql("DELETE FROM principal_policies");
 
     const olderBundle = predecessorBundle(bundle);
-    const logs: string[] = [];
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => olderBundle,
-      getUserIdentity: async () => signerKeyResponse,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(olderBundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => olderBundle,
+        getUserIdentity: async () => signerKeyResponse,
+        references: [referencedPrincipalStateFromBundle(olderBundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "rollback",
+      name: "KeyingVerificationError",
     });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: principal policy state is older than the local checkpoint",
-    );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();

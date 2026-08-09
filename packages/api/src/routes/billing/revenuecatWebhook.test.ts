@@ -13,7 +13,7 @@ import {
 } from "../../../test/helpers/api";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import {
-  addEffectiveOrganizationMember,
+  addSyntheticMember,
   postRevenueCatWebhook as postWebhook,
   readOrganizationBilling as readBilling,
   registerAndAuthenticate,
@@ -131,8 +131,8 @@ test("a native team purchase grants the fixed tier capacity", async () => {
 test("a paid native tier activates but freezes an oversized roster", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
+  await addSyntheticMember(admin, organizationId);
   await setTestOrganizationBillingLocal(organizationId);
-  await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
   await db
     .delete(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));

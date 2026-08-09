@@ -6,6 +6,20 @@ import {
   accessManifests,
   documents,
 } from "@tearleads/api-shared/schema";
+import {
+  computeAccessEventBodyHash,
+  computeAccessEventHash,
+  computeAccessManifestHash,
+  type DocumentLinkAccessEventBody,
+  type DocumentLinkSetManifestState,
+  deriveDocumentLinkSetManifest,
+  type KeyingCanonicalJson,
+  signAccessEvent,
+  type UnsignedAccessEvent,
+  type VerifiedDocumentLinkSetManifest,
+} from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
+import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 
 export async function createCurrentDocumentProjection(input: {
   readonly containerIds: readonly string[];
@@ -14,6 +28,7 @@ export async function createCurrentDocumentProjection(input: {
   readonly epoch?: number;
   readonly manifestHash?: string;
   readonly organizationId: string;
+  readonly signerPrivateKey?: Uint8Array;
   readonly signerUserId?: string;
 }) {
   const [document] = await db
@@ -26,6 +41,78 @@ export async function createCurrentDocumentProjection(input: {
 
   if (!document) {
     throw new Error("Failed to create current document projection fixture");
+  }
+
+  if (input.signerPrivateKey && input.signerUserId) {
+    const containerId = input.containerIds[0];
+    if (!containerId || input.containerIds.length !== 1) {
+      throw new Error("Signed document fixture requires one container");
+    }
+    const [containerHead] = await db
+      .select({ manifestHash: accessManifestHeads.manifestHash })
+      .from(accessManifestHeads)
+      .where(eq(accessManifestHeads.objectId, containerId))
+      .limit(1);
+    if (!containerHead) {
+      throw new Error("Signed document fixture container head is missing");
+    }
+    const body: DocumentLinkAccessEventBody = {
+      eventType: "document.link",
+      containerId,
+      containerManifestHash: containerHead.manifestHash,
+    };
+    const unsigned: UnsignedAccessEvent = {
+      version: 1,
+      eventId: crypto.randomUUID(),
+      eventType: "document.link",
+      objectKind: "document",
+      objectId: document.id,
+      organizationId: input.organizationId,
+      previousManifestHash: null,
+      dependencyManifestHashes: [containerHead.manifestHash],
+      bodyHash: await computeAccessEventBodyHash(
+        body as unknown as KeyingCanonicalJson,
+      ),
+      signerUserId: input.signerUserId,
+      signerDeviceId: `signing-key:${input.createdByFingerprint}`,
+      signerKeyFingerprint: input.createdByFingerprint,
+      signedAt: "2026-05-05T00:00:00.000Z",
+    };
+    const event = await signAccessEvent(unsigned, input.signerPrivateKey);
+    const eventHash = await computeAccessEventHash(event);
+    const state: DocumentLinkSetManifestState = {
+      version: 1,
+      documentId: document.id,
+      organizationId: input.organizationId,
+      epoch: 1,
+      previousManifestHash: null,
+      eventHash,
+      linkedContainerIds: [containerId],
+    };
+    const manifest = await deriveDocumentLinkSetManifest(state);
+    const manifestHash = await computeAccessManifestHash(manifest);
+    await storeVerifiedAccessManifest(
+      {
+        verifiedManifest: {
+          event: {
+            body: body as unknown as KeyingCanonicalJson,
+            event,
+            eventHash,
+          },
+          manifest,
+          manifestHash,
+          state,
+        } as VerifiedDocumentLinkSetManifest,
+      },
+      db,
+    );
+    return {
+      createdAt: document.createdAt,
+      id: document.id,
+      linkedContainerIds: [containerId],
+      manifestHash,
+      epoch: 1,
+    };
   }
 
   const manifestHash =

@@ -11,15 +11,6 @@ import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../access/read/accessManifestStore";
-import {
-  readProjectionNullableString,
-  readProjectionPlainRecord,
-  readProjectionPositiveInteger,
-  readProjectionString,
-  readProjectionStringArray,
-  readProjectionValue,
-  readProjectionVersion,
-} from "../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../utils/array";
 import {
   type ContainerAccessProjection,
@@ -30,6 +21,11 @@ import {
   resolveContainerAccessProjection,
   resolveContainerAccessProjectionBatch,
 } from "./containers/writerProjection";
+import { toManifestBundleResponse } from "./containers/writerProjection/records";
+import {
+  StoredDocumentManifestError,
+  verifyStoredDocumentManifest,
+} from "./documents/storedDocumentManifestVerification";
 
 export class KeyingReadAccessError extends Error {
   constructor(
@@ -58,10 +54,6 @@ type ReadableContainerAccessResult =
       readonly reason: KeyingReadAccessError;
       readonly status: "rejected";
     };
-
-function readAccessError(message: string): KeyingReadAccessError {
-  return new KeyingReadAccessError(message, 409);
-}
 
 function toKeyingReadAccessError(
   error: ContainerWriterProjectionError,
@@ -146,57 +138,8 @@ export function collectReferencedPrincipalsFromContainerAccess(
   );
 }
 
-function readDocumentLinkSetState(
-  state: unknown,
-): DocumentLinkSetManifestState {
-  const record = readProjectionPlainRecord(
-    state,
-    "Document manifest state",
-    readAccessError,
-  );
-  readProjectionVersion(record, "Document manifest state", readAccessError);
-
-  return {
-    version: 1,
-    documentId: readProjectionString(
-      record,
-      "documentId",
-      "Document manifest state",
-      readAccessError,
-    ),
-    organizationId: readProjectionString(
-      record,
-      "organizationId",
-      "Document manifest state",
-      readAccessError,
-    ),
-    epoch: readProjectionPositiveInteger(
-      record,
-      "epoch",
-      "Document manifest state",
-      readAccessError,
-    ),
-    previousManifestHash: readProjectionNullableString(
-      record,
-      "previousManifestHash",
-      "Document manifest state",
-      readAccessError,
-    ),
-    eventHash: readProjectionString(
-      record,
-      "eventHash",
-      "Document manifest state",
-      readAccessError,
-    ),
-    linkedContainerIds: readProjectionStringArray(
-      readProjectionValue(record, "linkedContainerIds"),
-      "Document manifest state.linkedContainerIds",
-      readAccessError,
-    ),
-  };
-}
-
 async function loadCurrentDocumentLinkSet(input: {
+  readonly context: ContainerWriterProjectionContext;
   readonly documentId: string;
   readonly executor: DatabaseSession;
 }): Promise<{
@@ -220,10 +163,18 @@ async function loadCurrentDocumentLinkSet(input: {
     throw new KeyingReadAccessError("Document manifest bundle missing", 409);
   }
 
-  return {
-    manifestHash: head.manifestHash,
-    state: readDocumentLinkSetState(bundle.state),
-  };
+  try {
+    const verified = await verifyStoredDocumentManifest({
+      bundle: toManifestBundleResponse(bundle),
+      containerContext: input.context,
+    });
+    return { manifestHash: verified.manifestHash, state: verified.state };
+  } catch (error) {
+    if (error instanceof StoredDocumentManifestError) {
+      throw new KeyingReadAccessError(error.message, 409);
+    }
+    throw error;
+  }
 }
 
 export async function resolveReadableContainerAccess(input: {
@@ -289,13 +240,13 @@ export async function resolveReadableDocumentAccess(input: {
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentReadAccess> {
-  const linkSet = await loadCurrentDocumentLinkSet(input);
+  const context =
+    input.context ?? createContainerWriterProjectionContext(input.executor);
+  const linkSet = await loadCurrentDocumentLinkSet({ ...input, context });
   if (linkSet.state.documentId !== input.documentId) {
     throw new KeyingReadAccessError("Document manifest mismatch", 409);
   }
 
-  const context =
-    input.context ?? createContainerWriterProjectionContext(input.executor);
   const accessPaths: ContainerAccessProjection[] = [];
 
   for (const containerId of linkSet.state.linkedContainerIds) {

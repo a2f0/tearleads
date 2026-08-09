@@ -62,6 +62,30 @@ Group and organization grants require referenced signed principal heads.
 Managed-principal access fails closed when the referenced policy state or member
 envelopes are missing or stale.
 
+The API re-verifies stored policy bundles before returning them or using their
+projections for container and direct organization authorization. This includes
+the signed history, signer identity fingerprints, projection and membership
+roots, current payload and member-envelope commitments, transition rules, and
+any exact reserved-`Admins` authority citations. Direct edits to permission
+projection rows therefore fail with an integrity conflict even when the API
+process itself is honest but its database contents were altered.
+Direct organization authorization also verifies the signed organization
+authority descriptor before trusting the database's reserved `Admins` and
+`Members` identifiers, so repointing either identifier to another valid group
+fails closed.
+
+Container authorization likewise re-verifies every stored manifest on the
+historical authorization path. The API verifies the event signature and signer
+identity, derives the transition from the signed event body, recomputes the
+manifest hash, checks dependency paths and referenced principal policies, and
+binds current manifests back to the container hierarchy rows. A database edit
+to a direct user grant, manifest head, parent edge, or transition artifact
+therefore produces an integrity conflict instead of server-side access.
+Stored document link-set manifests receive the same treatment before document
+or blob authorization: the API reconstructs the signed link/unlink history and
+its verified container paths rather than trusting mutable `linkedContainerIds`
+or document-link projection rows.
+
 Organization grants remain valid cross-organization sharing subjects. Group
 grants stay within their owning organization so the reserved `Admins` actor can
 always materialize every required rekey during a group rotation. The grant's

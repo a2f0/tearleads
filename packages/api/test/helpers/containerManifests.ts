@@ -22,6 +22,7 @@ const SIGNED_AT = "2026-05-05T00:00:00.000Z";
 async function signContainerEvent(input: {
   body: ContainerCreateAccessEventBody;
   containerId: string;
+  dependencyManifestHashes: readonly string[];
   organizationId: string;
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
@@ -35,7 +36,7 @@ async function signContainerEvent(input: {
     objectId: input.containerId,
     organizationId: input.organizationId,
     previousManifestHash: null,
-    dependencyManifestHashes: [],
+    dependencyManifestHashes: [...input.dependencyManifestHashes],
     bodyHash: await computeAccessEventBodyHash(
       input.body as unknown as KeyingCanonicalJson,
     ),
@@ -54,6 +55,7 @@ async function signContainerEvent(input: {
 
 export async function storeChildContainerAccessManifest(input: {
   childContainerId: string;
+  dependencyManifestHashes: readonly string[];
   directGrants?: ContainerCreateAccessEventBody["directGrants"];
   metadataDocumentId: string;
   organizationId: string;
@@ -75,6 +77,7 @@ export async function storeChildContainerAccessManifest(input: {
   const { event, eventHash } = await signContainerEvent({
     body,
     containerId: input.childContainerId,
+    dependencyManifestHashes: input.dependencyManifestHashes,
     organizationId: input.organizationId,
     signerKeyFingerprint: input.owner.fingerprint,
     signerPrivateKey: input.owner.signing.signingPrivateKey,

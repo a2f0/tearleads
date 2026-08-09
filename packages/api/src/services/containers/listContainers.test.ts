@@ -24,11 +24,13 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
   storePrincipalState,
 } from "../../../test/helpers/principalState";
+import { replacePrincipalMemberEnvelopesInTestTransaction } from "../../../test/helpers/principalStateTransactions";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
@@ -65,7 +67,9 @@ async function signContainerEvent(input: {
     objectId: input.containerId,
     organizationId: input.organizationId,
     previousManifestHash: null,
-    dependencyManifestHashes: [],
+    dependencyManifestHashes: [input.body.parentManifestHash].filter(
+      (hash): hash is string => hash !== null,
+    ),
     bodyHash: await computeAccessEventBodyHash(
       input.body as unknown as KeyingCanonicalJson,
     ),
@@ -97,6 +101,11 @@ async function storeGroupPolicy(input: {
     input.signerUserId,
     input.members,
   );
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: groupKem.secretKey,
+      projection,
+    });
   const payloadCiphertext = JSON.stringify({ members: projection });
   const bundle = await signPrincipalStateBundle({
     principalType: "group",
@@ -107,11 +116,9 @@ async function storeGroupPolicy(input: {
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     // The signer may also appear in input.members; members must be unique.
-    members: [
-      { userId: input.signerUserId },
-      ...input.members.filter((m) => m.userId !== input.signerUserId),
-    ],
+    members: stateMembers,
     projection,
+    memberEnvelopes,
     payloadCiphertext,
     signedAt: SIGNED_AT,
     signerUserId: input.signerUserId,
@@ -119,7 +126,34 @@ async function storeGroupPolicy(input: {
     signingPrivateKey: input.signerPrivateKey,
   });
 
-  return storePrincipalState(bundle, db);
+  const storedState = await storePrincipalState(bundle, db);
+  await replacePrincipalMemberEnvelopesInTestTransaction(
+    {
+      principalType: "group",
+      principalId: input.groupId,
+      stateHash: storedState.stateHash,
+      envelopes: memberEnvelopes,
+    },
+    db,
+  );
+  return storedState;
+}
+
+async function storeTestUser(input: {
+  readonly organizationId: string;
+  readonly user: ReturnType<typeof createTestUser>;
+}): Promise<void> {
+  input.user.fingerprint = await toFingerprint(
+    input.user.signing.signingPublicKey,
+  );
+  await db.insert(users).values({
+    id: input.user.userId,
+    fingerprint: input.user.fingerprint,
+    signingPublicKey: bytesToBase64(input.user.signing.signingPublicKey),
+    encapsulationPublicKey: bytesToBase64(input.user.kem.publicKey),
+    encapsulationKeyFingerprint: await toFingerprint(input.user.kem.publicKey),
+    defaultOrganizationId: input.organizationId,
+  });
 }
 
 async function storeContainerManifest(input: {
@@ -135,13 +169,24 @@ async function storeContainerManifest(input: {
   signerUserId: string;
 }) {
   const containerKeyEpochId = crypto.randomUUID();
+  const directGrants =
+    input.parentContainerId === undefined || input.parentContainerId === null
+      ? [
+          ...input.directGrants,
+          {
+            accessLevel: "admin" as const,
+            subjectType: "user" as const,
+            subjectId: input.signerUserId,
+          },
+        ]
+      : input.directGrants;
   const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
     parentManifestHash: input.parentManifestHash ?? null,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId,
-    directGrants: input.directGrants,
+    directGrants,
     referencedPrincipalHeads: input.referencedPrincipalHeads,
   };
   const { event, eventHash } = await signContainerEvent({
@@ -234,7 +279,6 @@ test("listContainers admits users added by current managed grants when they exte
   const member = createTestUser();
   owner.userId = crypto.randomUUID();
   member.userId = crypto.randomUUID();
-  owner.fingerprint = await toFingerprint(owner.signing.signingPublicKey);
 
   const organizationId = crypto.randomUUID();
   const containerId = crypto.randomUUID();
@@ -251,14 +295,8 @@ test("listContainers admits users added by current managed grants when they exte
   await db
     .insert(organizationBilling)
     .values({ organizationId, status: "active" });
-  await db.insert(users).values({
-    id: owner.userId,
-    fingerprint: owner.fingerprint,
-    signingPublicKey: bytesToBase64(owner.signing.signingPublicKey),
-    encapsulationPublicKey: bytesToBase64(owner.kem.publicKey),
-    encapsulationKeyFingerprint: await toFingerprint(owner.kem.publicKey),
-    defaultOrganizationId: organizationId,
-  });
+  await storeTestUser({ organizationId, user: owner });
+  await storeTestUser({ organizationId, user: member });
   await db.insert(containers).values({
     id: containerId,
     organizationId,
@@ -312,7 +350,6 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
   const member = createTestUser();
   owner.userId = crypto.randomUUID();
   member.userId = crypto.randomUUID();
-  owner.fingerprint = await toFingerprint(owner.signing.signingPublicKey);
 
   const organizationId = crypto.randomUUID();
   const staleContainerId = crypto.randomUUID();
@@ -329,14 +366,8 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
   await db
     .insert(organizationBilling)
     .values({ organizationId, status: "active" });
-  await db.insert(users).values({
-    id: owner.userId,
-    fingerprint: owner.fingerprint,
-    signingPublicKey: bytesToBase64(owner.signing.signingPublicKey),
-    encapsulationPublicKey: bytesToBase64(owner.kem.publicKey),
-    encapsulationKeyFingerprint: await toFingerprint(owner.kem.publicKey),
-    defaultOrganizationId: organizationId,
-  });
+  await storeTestUser({ organizationId, user: owner });
+  await storeTestUser({ organizationId, user: member });
   await db.insert(containers).values([
     {
       id: staleContainerId,

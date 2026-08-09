@@ -57,6 +57,7 @@ export interface ContainerWriterProjectionContext {
     string,
     Promise<AccessManifestBundleWireResponse>
   >;
+  readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
 }
 
 export interface ContainerKekManifestHistory {

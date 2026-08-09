@@ -54,6 +54,8 @@ async function createAliceDocumentFixture() {
     containerIds: [alice.rootContainerId],
     createdByFingerprint: alice.fingerprint,
     organizationId: container.organizationId,
+    signerPrivateKey: alice.signing.signingPrivateKey,
+    signerUserId: alice.userId,
   });
 }
 
