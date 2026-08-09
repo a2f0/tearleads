@@ -11,7 +11,10 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
-import { loadPrincipalPoliciesForReferences } from "../../principals/principalPolicyProjection";
+import {
+  loadPrincipalPoliciesForReferences,
+  PrincipalPolicyProjectionError,
+} from "../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { toVerifiedContainerManifest } from "./records";
 import {
@@ -281,5 +284,15 @@ async function verifyBundle(
 export async function verifyStoredContainerManifest(
   input: StoredManifestVerificationInput,
 ): Promise<VerifiedContainerAccessManifest> {
-  return verifyBundle(input, input.bundle, new Set());
+  try {
+    return await verifyBundle(input, input.bundle, new Set());
+  } catch (error) {
+    if (error instanceof ContainerWriterProjectionError) {
+      throw error;
+    }
+    if (error instanceof PrincipalPolicyProjectionError) {
+      throw integrityError(error.message);
+    }
+    throw error;
+  }
 }

@@ -3,6 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifests,
+  principalMembershipProjection,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
@@ -21,6 +22,15 @@ import {
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
 import { routeApp } from "../routeApp";
+
+async function expectIntegrityConflict(response: Response): Promise<void> {
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual(
+    expect.objectContaining({
+      error: expect.stringContaining("failed integrity verification"),
+    }),
+  );
+}
 
 test("container projection rejects a database-injected user grant", async () => {
   const owner = createTestUser();
@@ -53,7 +63,7 @@ test("container projection rejects a database-injected user grant", async () => 
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
 
-  expect(response.status).toBe(409);
+  await expectIntegrityConflict(response);
 });
 
 test("document projection rejects a database-injected link", async () => {
@@ -80,7 +90,38 @@ test("document projection rejects a database-injected link", async () => {
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
 
-  expect(response.status).toBe(409);
+  await expectIntegrityConflict(response);
+});
+
+test("container projection maps a tampered principal policy to 409", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const state = root.bundle.state as unknown as ContainerAccessManifestState;
+  const referencedGroup = state.referencedPrincipalHeads.find(
+    (reference) => reference.principalType === "group",
+  );
+  if (!referencedGroup) {
+    throw new Error("expected a referenced group policy");
+  }
+
+  await db
+    .update(principalMembershipProjection)
+    .set({ role: "member" })
+    .where(
+      eq(
+        principalMembershipProjection.principalId,
+        referencedGroup.principalId,
+      ),
+    );
+
+  const response = await routeApp.request(
+    `/containers/${root.kekState.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+
+  await expectIntegrityConflict(response);
 });
 
 test("container projection rejects a signer key edit after caching", async () => {
@@ -108,7 +149,7 @@ test("container projection rejects a signer key edit after caching", async () =>
   const response = await routeApp.request(projectionPath, {
     headers: { Authorization: `Bearer ${owner.token}` },
   });
-  expect(response.status).toBe(409);
+  await expectIntegrityConflict(response);
 });
 
 test("document projection rejects a stored event signature edit", async () => {
@@ -132,7 +173,7 @@ test("document projection rejects a stored event signature edit", async () => {
   const response = await routeApp.request(projectionPath, {
     headers: { Authorization: `Bearer ${owner.token}` },
   });
-  expect(response.status).toBe(409);
+  await expectIntegrityConflict(response);
 });
 
 test("child projection accepts a historical parent pin after parent share", async () => {
