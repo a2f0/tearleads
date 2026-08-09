@@ -8,7 +8,7 @@ import {
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import {
-  addEffectiveOrganizationMember,
+  addSyntheticEffectiveOrganizationMembers,
   registerAndAuthenticate,
 } from "../../../test/helpers/revenuecatWebhook";
 import { loadOrganizationBillingSeatUsage } from "./organizationSeatUsage";
@@ -290,9 +290,11 @@ test("an si_-only event with metadata no longer binds an organization", async ()
 test("a Stripe renewal applies while its asynchronous tier update lags the roster", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  for (let index = 0; index < 5; index += 1) {
-    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
-  }
+  await addSyntheticEffectiveOrganizationMembers({
+    actor: admin,
+    count: 5,
+    organizationId,
+  });
   await db
     .update(organizationBilling)
     .set({
@@ -392,9 +394,11 @@ test("a new unknown Stripe price retries with an operator alert", async () => {
 test("an oversized Stripe grant renews while bounding assignments", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  for (let index = 0; index < 10; index += 1) {
-    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
-  }
+  await addSyntheticEffectiveOrganizationMembers({
+    actor: admin,
+    count: 10,
+    organizationId,
+  });
   await db
     .update(organizationBilling)
     .set({

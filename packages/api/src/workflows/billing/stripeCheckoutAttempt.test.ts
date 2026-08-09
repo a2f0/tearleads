@@ -1,16 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizations,
-  principalMembershipProjection,
-  principalStates,
-  users,
-} from "@tearleads/api-shared/schema";
+import { users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  addEffectiveOrganizationMember,
+  addSyntheticEffectiveOrganizationMembers,
+} from "../../../test/helpers/revenuecatWebhook";
 import { runAcquireStripeCheckoutAttemptWorkflow } from "./stripeCheckout";
 
 const START = new Date("2030-01-01T00:00:00.000Z");
@@ -24,36 +23,6 @@ async function registerAdmin(user: TestUser): Promise<string> {
     .where(eq(users.id, user.userId));
   invariant(row, "expected registered user row");
   return row.organizationId;
-}
-
-async function addEffectiveMember(
-  organizationId: string,
-  userId: string,
-): Promise<void> {
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  invariant(organization, "expected organization row");
-  const [state] = await db
-    .select({ stateHash: principalStates.stateHash })
-    .from(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, "group"),
-        eq(principalStates.principalId, organization.memberGroupId),
-      ),
-    )
-    .orderBy(desc(principalStates.version))
-    .limit(1);
-  invariant(state, "expected current Members-group state");
-  await db.insert(principalMembershipProjection).values({
-    userId: userId,
-    principalId: organization.memberGroupId,
-    principalType: "group",
-    role: "member",
-    stateHash: state.stateHash,
-  });
 }
 
 test("inline and hosted checkout have exactly one concurrent winner", async () => {
@@ -123,7 +92,11 @@ test("changed seat terms cannot replace an active attempt snapshot", async () =>
   );
   const member = createTestUser();
   await registerUser(member);
-  await addEffectiveMember(organizationId, member.userId);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
 
   expect(first.seatQuantity).toBe(1);
   await expect(
@@ -141,9 +114,11 @@ test("changed seat terms cannot replace an active attempt snapshot", async () =>
 test("checkout rejects an effective roster above the largest tier", async () => {
   const admin = createTestUser();
   const organizationId = await registerAdmin(admin);
-  for (let index = 0; index < 10; index += 1) {
-    await addEffectiveMember(organizationId, crypto.randomUUID());
-  }
+  await addSyntheticEffectiveOrganizationMembers({
+    actor: admin,
+    count: 10,
+    organizationId,
+  });
 
   await expect(
     runAcquireStripeCheckoutAttemptWorkflow(

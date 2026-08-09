@@ -1,16 +1,13 @@
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizationBilling,
-  organizations,
-  principalMembershipProjection,
-  principalStates,
-  users,
-} from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
-import { and, desc, eq } from "drizzle-orm";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { toFingerprint } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
+import { addMemberGroupUser, addMemberGroupUsers } from "./organizationMember";
 import { registerUser } from "./registerUser";
 
 export const REVENUECAT_WEBHOOK_SECRET = "Bearer test-revenuecat-secret";
@@ -46,33 +43,58 @@ export async function registerAndAuthenticate(user: TestUser): Promise<string> {
   return row.organizationId;
 }
 
-export async function addEffectiveOrganizationMember(
+export async function addEffectiveOrganizationMember(input: {
+  readonly actor: TestUser;
+  readonly organizationId: string;
+  readonly userId: string;
+}): Promise<void> {
+  await addMemberGroupUser({
+    actor: input.actor,
+    memberUserId: input.userId,
+    organizationId: input.organizationId,
+  });
+}
+
+export async function addSyntheticEffectiveOrganizationMembers(input: {
+  readonly actor: TestUser;
+  readonly count: number;
+  readonly organizationId: string;
+}): Promise<void> {
+  const members = await Promise.all(
+    Array.from({ length: input.count }, async () => {
+      const member = createTestUser();
+      member.userId = crypto.randomUUID();
+      member.fingerprint = await toFingerprint(member.signing.signingPublicKey);
+      return member;
+    }),
+  );
+  await db.insert(users).values(
+    await Promise.all(
+      members.map(async (member) => ({
+        id: member.userId,
+        fingerprint: member.fingerprint,
+        signingPublicKey: bytesToBase64(member.signing.signingPublicKey),
+        encapsulationPublicKey: bytesToBase64(member.kem.publicKey),
+        encapsulationKeyFingerprint: await toFingerprint(member.kem.publicKey),
+        defaultOrganizationId: input.organizationId,
+      })),
+    ),
+  );
+  await addMemberGroupUsers({
+    actor: input.actor,
+    memberUserIds: members.map((member) => member.userId),
+    organizationId: input.organizationId,
+  });
+}
+
+export function addSyntheticMember(
+  actor: TestUser,
   organizationId: string,
-  userId: string,
 ): Promise<void> {
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  invariant(organization, "expected organization row");
-  const [state] = await db
-    .select({ stateHash: principalStates.stateHash })
-    .from(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, "group"),
-        eq(principalStates.principalId, organization.memberGroupId),
-      ),
-    )
-    .orderBy(desc(principalStates.version))
-    .limit(1);
-  invariant(state, "expected current Members-group state");
-  await db.insert(principalMembershipProjection).values({
-    userId: userId,
-    principalId: organization.memberGroupId,
-    principalType: "group",
-    role: "member",
-    stateHash: state.stateHash,
+  return addSyntheticEffectiveOrganizationMembers({
+    actor,
+    count: 1,
+    organizationId,
   });
 }
 

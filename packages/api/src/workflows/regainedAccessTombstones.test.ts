@@ -177,6 +177,7 @@ test("policy access gain prunes tombstones through the route", async () => {
   });
   const childManifestHash = await storeChildContainerAccessManifest({
     childContainerId,
+    dependencyManifestHashes: [parentManifestHash],
     metadataDocumentId: crypto.randomUUID(),
     organizationId,
     owner: actor,
@@ -196,6 +197,7 @@ test("policy access gain prunes tombstones through the route", async () => {
   });
   await storeChildContainerAccessManifest({
     childContainerId: grandchildContainerId,
+    dependencyManifestHashes: [parentManifestHash, childManifestHash],
     metadataDocumentId: crypto.randomUUID(),
     organizationId,
     owner: actor,

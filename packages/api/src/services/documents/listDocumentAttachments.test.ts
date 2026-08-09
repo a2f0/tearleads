@@ -23,12 +23,16 @@ async function createReadableDocument(input: {
   containerId: string;
   createdByFingerprint: string;
   organizationId: string;
+  signerPrivateKey: Uint8Array;
+  signerUserId: string;
 }) {
   return createCurrentDocumentProjection({
     containerIds: [input.containerId],
     createdByFingerprint: input.createdByFingerprint,
     manifestHash: randomHash(),
     organizationId: input.organizationId,
+    signerPrivateKey: input.signerPrivateKey,
+    signerUserId: input.signerUserId,
   });
 }
 
@@ -108,6 +112,8 @@ test("listDocumentAttachments returns active attachment bindings for readable do
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
+    signerPrivateKey: user.signing.signingPrivateKey,
+    signerUserId: registration.userId,
   });
   const activeBlob = await createBlob();
   const detachedBlob = await createBlob();
@@ -164,6 +170,8 @@ test("listDocumentAttachments reports not-found and forbidden cases", async () =
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
+    signerPrivateKey: user.signing.signingPrivateKey,
+    signerUserId: registration.userId,
   });
 
   const missing = await expectListDocumentAttachmentsError(

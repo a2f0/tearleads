@@ -188,7 +188,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
   }
 });
 
-test("referenced policy warming leaves stale local state unchanged when the canonical bundle is invalid", async () => {
+test("referenced policy warming hard-fails and leaves stale local state unchanged when the canonical bundle is invalid", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-warmer-behind-checkpoint-invalid",
   );
@@ -229,14 +229,19 @@ test("referenced policy warming leaves stale local state unchanged when the cano
     );
     let policyGetCount = 0;
 
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => {
-        policyGetCount += 1;
-        return invalidBundle;
-      },
-      getUserIdentity: async () => signerKeyResponse,
-      references: [referencedPrincipalStateFromBundle(cachedBundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => {
+          policyGetCount += 1;
+          return invalidBundle;
+        },
+        getUserIdentity: async () => signerKeyResponse,
+        references: [referencedPrincipalStateFromBundle(cachedBundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "hash_mismatch",
+      name: "KeyingVerificationError",
     });
 
     expect(policyGetCount).toBe(1);

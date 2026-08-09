@@ -352,7 +352,7 @@ test("principal policy sync reuses and re-verifies a cached successor for a hist
   }
 });
 
-test("principal policy sync skips shrinking successors that reuse the key epoch", async () => {
+test("principal policy sync rejects shrinking successors that reuse the key epoch", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -362,19 +362,17 @@ test("principal policy sync skips shrinking successors that reuse the key epoch"
       await createSuccessorPrincipalPolicyBundle({
         shrinkWithoutRotation: true,
       });
-    const logs: string[] = [];
-
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => signerKeyResponse,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(bundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => bundle,
+        getUserIdentity: async () => signerKeyResponse,
+        references: [referencedPrincipalStateFromBundle(bundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "key_epoch_reuse",
+      name: "KeyingVerificationError",
     });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: Principal policy shrink requires a new key epoch and key material",
-    );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();
@@ -383,7 +381,7 @@ test("principal policy sync skips shrinking successors that reuse the key epoch"
   }
 });
 
-test("principal policy sync skips bundles whose projection does not match the signed root", async () => {
+test("principal policy sync rejects bundles whose projection does not match the signed root", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -391,7 +389,6 @@ test("principal policy sync skips bundles whose projection does not match the si
   try {
     const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
-    const logs: string[] = [];
     const [firstProjectionMember, ...remainingProjection] =
       bundle.currentProjection;
     if (!firstProjectionMember) {
@@ -408,17 +405,17 @@ test("principal policy sync skips bundles whose projection does not match the si
       ],
     };
 
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => tamperedBundle,
-      getUserIdentity: async () => signerKeyResponse,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(bundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => tamperedBundle,
+        getUserIdentity: async () => signerKeyResponse,
+        references: [referencedPrincipalStateFromBundle(bundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "hash_mismatch",
+      name: "KeyingVerificationError",
     });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: principal policy projection root does not match projection",
-    );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();
@@ -427,7 +424,7 @@ test("principal policy sync skips bundles whose projection does not match the si
   }
 });
 
-test("principal policy sync skips successor bundles signed by non-admins", async () => {
+test("principal policy sync rejects successor bundles signed by non-admins", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -436,19 +433,18 @@ test("principal policy sync skips successor bundles signed by non-admins", async
     const { bundle, signerKeyResponses } =
       await createUnauthorizedSuccessorPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
-    const logs: string[] = [];
-
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async (userId) => signerKeyResponses.get(userId) ?? null,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(bundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => bundle,
+        getUserIdentity: async (userId) =>
+          signerKeyResponses.get(userId) ?? null,
+        references: [referencedPrincipalStateFromBundle(bundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "unauthorized",
+      name: "KeyingVerificationError",
     });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: principal policy state signer is not an admin in previous projection",
-    );
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();
@@ -457,7 +453,7 @@ test("principal policy sync skips successor bundles signed by non-admins", async
   }
 });
 
-test("principal policy sync skips bundles when the signer key does not match", async () => {
+test("principal policy sync rejects bundles when the signer key does not match", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -466,14 +462,19 @@ test("principal policy sync skips bundles when the signer key does not match", a
     const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
 
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => bundle,
-      getUserIdentity: async () => ({
-        ...signerKeyResponse,
-        signingKeyFingerprint: "mismatched-fingerprint",
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => bundle,
+        getUserIdentity: async () => ({
+          ...signerKeyResponse,
+          signingKeyFingerprint: "mismatched-fingerprint",
+        }),
+        references: [referencedPrincipalStateFromBundle(bundle)],
       }),
-      references: [referencedPrincipalStateFromBundle(bundle)],
+    ).rejects.toMatchObject({
+      code: "signer_mismatch",
+      name: "KeyingVerificationError",
     });
 
     await expect(

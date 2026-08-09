@@ -17,7 +17,7 @@ import {
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
+import { addSyntheticEffectiveOrganizationMembers } from "../../../test/helpers/revenuecatWebhook";
 import type { SessionEnv } from "../../middleware/session";
 import { routeApp } from "../../routeApp";
 import { getOrganizationBillingManagementUrl } from "../../services/billing/organizationBilling";
@@ -140,10 +140,12 @@ test("an org admin reads local billing and starts a trial", async () => {
 test("a free trial bounds an oversized roster to ten sync seats", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
+  await addSyntheticEffectiveOrganizationMembers({
+    actor: admin,
+    count: 10,
+    organizationId,
+  });
   await setTestOrganizationBillingLocal(organizationId);
-  for (let index = 0; index < 10; index += 1) {
-    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
-  }
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/trial`,

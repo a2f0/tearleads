@@ -30,9 +30,8 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import { routeApp } from "../../routeApp";
 
-const SIGNED_AT = "2026-05-05T00:00:00.000Z";
-const TEST_CONTACTS_SYSTEM_SLOT =
-  "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const AT = "2026-05-05T00:00:00.000Z";
+const CONTACTS_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 async function signContainerEvent(input: {
   body: ContainerCreateAccessEventBody;
@@ -50,14 +49,14 @@ async function signContainerEvent(input: {
     objectId: input.containerId,
     organizationId: input.organizationId,
     previousManifestHash: null,
-    dependencyManifestHashes: [],
+    dependencyManifestHashes: [input.body.parentManifestHash as string],
     bodyHash: await computeAccessEventBodyHash(
       input.body as unknown as KeyingCanonicalJson,
     ),
     signerUserId: input.signerUserId,
     signerDeviceId: `signing-key:${input.signerKeyFingerprint}`,
     signerKeyFingerprint: input.signerKeyFingerprint,
-    signedAt: SIGNED_AT,
+    signedAt: AT,
   };
   const event = await signAccessEvent(unsigned, input.signerPrivateKey);
 
@@ -213,7 +212,7 @@ test("parent-lanes/query keeps root and child lane pages independent", async () 
   const childContainerId = crypto.randomUUID();
   const childMetadataDocumentId = crypto.randomUUID();
   await db.insert(containers).values({
-    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
+    systemSlot: CONTACTS_SLOT,
     depth: 1,
     id: childContainerId,
     organizationId: rootContainer.organizationId,
@@ -247,7 +246,7 @@ test("parent-lanes/query keeps root and child lane pages independent", async () 
       items: [
         expect.objectContaining({
           depth: 1,
-          systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
+          systemSlot: CONTACTS_SLOT,
           id: childContainerId,
           metadataDocumentId: childMetadataDocumentId,
           parentId: owner.rootContainerId,
