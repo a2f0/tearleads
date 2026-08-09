@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { accessManifests } from "@tearleads/api-shared/schema";
+import {
+  accessEvents,
+  accessManifests,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessManifestState,
   KeyingCanonicalJson,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";
 import { createChildContainer } from "../../test/helpers/keyingWriterProjectionChild";
@@ -75,6 +80,58 @@ test("document projection rejects a database-injected link", async () => {
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
 
+  expect(response.status).toBe(409);
+});
+
+test("container projection rejects a signer key edit after caching", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const projectionPath = `/containers/${root.kekState.containerId}/writer-projection`;
+
+  const verifiedResponse = await routeApp.request(projectionPath, {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  expect(verifiedResponse.status).toBe(200);
+
+  const replacementSigner = createTestUser();
+  await db
+    .update(users)
+    .set({
+      signingPublicKey: bytesToBase64(
+        replacementSigner.signing.signingPublicKey,
+      ),
+    })
+    .where(eq(users.id, owner.userId));
+
+  const response = await routeApp.request(projectionPath, {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  expect(response.status).toBe(409);
+});
+
+test("document projection rejects a stored event signature edit", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const projectionPath = `/documents/${created.id}/writer-projection`;
+
+  const verifiedResponse = await routeApp.request(projectionPath, {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  expect(verifiedResponse.status).toBe(200);
+
+  await db
+    .update(accessEvents)
+    .set({ signature: "tampered-signature" })
+    .where(eq(accessEvents.eventHash, created.accessManifest.event.eventHash));
+
+  const response = await routeApp.request(projectionPath, {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
   expect(response.status).toBe(409);
 });
 

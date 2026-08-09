@@ -105,17 +105,13 @@ function collectPrincipalReferences(
 }
 
 async function verifyStoredEvent(
-  input: StoredManifestVerificationInput,
   parsed: VerifiedContainerAccessManifest,
+  signerPublicKey: Uint8Array,
 ): Promise<VerifiedAccessEvent> {
   const result = await verifySignedAccessEvent({
     body: parsed.event.body,
     event: parsed.event.event,
-    signerPublicKey: await loadSignerPublicKey(input.context.executor, {
-      error: () => integrityError("access event signer is inconsistent"),
-      fingerprint: parsed.event.event.signerKeyFingerprint,
-      userId: parsed.event.event.signerUserId,
-    }),
+    signerPublicKey,
   });
   if (!result.ok) {
     throw integrityError(result.error.message);
@@ -124,6 +120,27 @@ async function verifyStoredEvent(
     throw integrityError("access event hash is inconsistent");
   }
   return result.value;
+}
+
+async function loadStoredEventSigner(
+  input: StoredManifestVerificationInput,
+  parsed: VerifiedContainerAccessManifest,
+): Promise<Uint8Array> {
+  return loadSignerPublicKey(input.context.executor, {
+    error: () => integrityError("access event signer is inconsistent"),
+    fingerprint: parsed.event.event.signerKeyFingerprint,
+    userId: parsed.event.event.signerUserId,
+  });
+}
+
+function storedVerificationSource(
+  bundle: AccessManifestBundleWireResponse,
+  signerPublicKey: Uint8Array,
+) {
+  return {
+    bundle,
+    signerPublicKey,
+  };
 }
 
 async function loadStoredManifestArtifacts(input: {
@@ -179,9 +196,12 @@ async function verifyBundle(
   if (cached) {
     return cached;
   }
+  const parsed = toVerifiedContainerManifest(bundle);
+  const signerPublicKey = await loadStoredEventSigner(input, parsed);
+  const source = storedVerificationSource(bundle, signerPublicKey);
   const processCached = verifiedStoredManifests.get(
     bundle.manifestHash,
-    bundle,
+    source,
   );
   if (processCached) {
     input.context.verifiedManifestByHash.set(
@@ -198,8 +218,7 @@ async function verifyBundle(
   }
   visiting.add(bundle.manifestHash);
   try {
-    const parsed = toVerifiedContainerManifest(bundle);
-    const signedEvent = await verifyStoredEvent(input, parsed);
+    const signedEvent = await verifyStoredEvent(parsed, signerPublicKey);
     const verifyHash = async (
       manifestHash: string,
     ): Promise<VerifiedContainerAccessManifest> =>
@@ -250,7 +269,7 @@ async function verifyBundle(
     );
     verifiedStoredManifests.set(
       bundle.manifestHash,
-      bundle,
+      source,
       verification.value,
     );
     return verification.value;

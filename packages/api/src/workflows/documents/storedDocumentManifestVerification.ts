@@ -141,18 +141,14 @@ async function loadStoredDocumentBundle(
 }
 
 async function verifyStoredEvent(input: {
-  readonly executor: DatabaseSession;
   readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly signerPublicKey: Uint8Array;
 }): Promise<VerifiedAccessEvent> {
   const event = input.manifest.event;
   const result = await verifySignedAccessEvent({
     body: event.body,
     event: event.event,
-    signerPublicKey: await loadSignerPublicKey(input.executor, {
-      error: () => integrityError("access event signer is inconsistent"),
-      fingerprint: event.event.signerKeyFingerprint,
-      userId: event.event.signerUserId,
-    }),
+    signerPublicKey: input.signerPublicKey,
   });
   if (!result.ok) {
     throw integrityError(result.error.message);
@@ -161,6 +157,28 @@ async function verifyStoredEvent(input: {
     throw integrityError("access event hash is inconsistent");
   }
   return result.value;
+}
+
+async function loadStoredEventSigner(input: {
+  readonly executor: DatabaseSession;
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+}): Promise<Uint8Array> {
+  const event = input.manifest.event;
+  return loadSignerPublicKey(input.executor, {
+    error: () => integrityError("access event signer is inconsistent"),
+    fingerprint: event.event.signerKeyFingerprint,
+    userId: event.event.signerUserId,
+  });
+}
+
+function storedVerificationSource(
+  bundle: AccessManifestBundleWireResponse,
+  signerPublicKey: Uint8Array,
+) {
+  return {
+    bundle,
+    signerPublicKey,
+  };
 }
 
 function targetContainerManifestHash(
@@ -229,9 +247,15 @@ async function verifyBundle(input: {
   if (cached) {
     return cached;
   }
+  const parsed = readStoredDocumentManifest(input.bundle);
+  const signerPublicKey = await loadStoredEventSigner({
+    executor: input.containerContext.executor,
+    manifest: parsed,
+  });
+  const source = storedVerificationSource(input.bundle, signerPublicKey);
   const processCached = verifiedStoredDocumentManifests.get(
     input.bundle.manifestHash,
-    input.bundle,
+    source,
   );
   if (processCached) {
     input.verifiedByHash.set(input.bundle.manifestHash, processCached);
@@ -246,10 +270,9 @@ async function verifyBundle(input: {
 
   input.visiting.add(input.bundle.manifestHash);
   try {
-    const parsed = readStoredDocumentManifest(input.bundle);
     const event = await verifyStoredEvent({
-      executor: input.containerContext.executor,
       manifest: parsed,
+      signerPublicKey,
     });
     const previousManifest = parsed.state.previousManifestHash
       ? await verifyBundle({
@@ -295,7 +318,7 @@ async function verifyBundle(input: {
     input.verifiedByHash.set(input.bundle.manifestHash, result.value);
     verifiedStoredDocumentManifests.set(
       input.bundle.manifestHash,
-      input.bundle,
+      source,
       result.value,
     );
     return result.value;
