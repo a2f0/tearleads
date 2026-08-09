@@ -160,43 +160,42 @@ async function resolveCurrentContainerManifestRefs(
   );
 
   const context = createContainerWriterProjectionContext(executor);
-  const resolved = await Promise.all(
-    flatRefs.map(async ({ ref, refLabel }) => {
-      const stored = storedBundles.get(ref.manifestHash);
-      if (!stored || stored.manifest.objectKind !== "container") {
-        // 409, not 404 — a document-route 404 is the client's wipe signal.
-        throw new DocumentMutationError(`${refLabel} head missing`, 409);
-      }
+  const resolved: {
+    readonly manifest: VerifiedContainerAccessManifest;
+    readonly refLabel: string;
+  }[] = [];
+  for (const { ref, refLabel } of flatRefs) {
+    const stored = storedBundles.get(ref.manifestHash);
+    if (!stored || stored.manifest.objectKind !== "container") {
+      // 409, not 404 — a document-route 404 is the client's wipe signal.
+      throw new DocumentMutationError(`${refLabel} head missing`, 409);
+    }
 
-      let manifest: VerifiedContainerAccessManifest;
-      try {
-        manifest = await verifyStoredContainerManifest({
-          bundle: toManifestBundleResponse(stored),
-          context,
-          loadBundle: (manifestHash) =>
-            loadContainerManifestBundleByHash(context, manifestHash),
-        });
-      } catch (error) {
-        if (error instanceof ContainerWriterProjectionError) {
-          throw new DocumentMutationError(error.message, 409);
-        }
-        throw error;
+    let manifest: VerifiedContainerAccessManifest;
+    try {
+      manifest = await verifyStoredContainerManifest({
+        bundle: toManifestBundleResponse(stored),
+        context,
+        loadBundle: (manifestHash) =>
+          loadContainerManifestBundleByHash(context, manifestHash),
+      });
+    } catch (error) {
+      if (error instanceof ContainerWriterProjectionError) {
+        throw new DocumentMutationError(error.message, 409);
       }
+      throw error;
+    }
 
-      // The client-supplied containerId is advisory; the head lookup below is
-      // keyed off the resolved bundle's authoritative containerId. Reject a
-      // mismatch first so a confused reference cannot authorize against a
-      // different container.
-      if (ref.containerId !== manifest.state.containerId) {
-        throw new DocumentMutationError(
-          `${refLabel} container id does not match the referenced manifest`,
-          400,
-        );
-      }
-
-      return { manifest, refLabel };
-    }),
-  );
+    // The client-supplied containerId is advisory; reject a confused reference
+    // before the current-head lookup authorizes against another container.
+    if (ref.containerId !== manifest.state.containerId) {
+      throw new DocumentMutationError(
+        `${refLabel} container id does not match the referenced manifest`,
+        400,
+      );
+    }
+    resolved.push({ manifest, refLabel });
+  }
 
   // Freshness pin — identical in strength to the full-bundle path
   // (assertCurrentContainerPath). Without it a writer could replay a

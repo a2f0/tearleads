@@ -196,8 +196,7 @@ export async function loadContainerAccessPath(
     const parent = verifiedPath.at(-1);
     if (
       parent &&
-      (verified.state.parentContainerId !== parent.state.containerId ||
-        verified.state.parentManifestHash !== parent.manifestHash)
+      verified.state.parentContainerId !== parent.state.containerId
     ) {
       throw new ContainerWriterProjectionError(
         "Container path does not match signed manifest edges",
