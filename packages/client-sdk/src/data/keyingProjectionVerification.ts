@@ -1,6 +1,5 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ProjectionUserKeyResolver } from "./keyingProjectionVerification/types";
-import { isTrustedUserIdentity } from "./trustedUserIdentity/types";
+import { requireTrustedUserIdentityResolver } from "./trustedUserIdentity/requiredResolver";
 
 export type {
   PrincipalPolicyCache,
@@ -17,25 +16,9 @@ export function requireProjectionUserKeyResolver(
     throw new Error(`${label} requires projection key verification`);
   }
 
-  return async (userId) => {
-    const userKey = await resolveProjectionUserKey(userId);
-    if (!userKey) {
-      return null;
-    }
-    if (!isTrustedUserIdentity(userKey)) {
-      throw new KeyingVerificationError(
-        "invalid_shape",
-        `${label} received an untrusted projection identity`,
-      );
-    }
-    if (userKey.userId !== userId) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        `${label} received a projection identity for another user`,
-      );
-    }
-    return userKey;
-  };
+  // A ProjectionUserKey is a TrustedUserIdentity, so the shared adapter
+  // provides the untrusted-shape and wrong-user guards (with identity caching).
+  return requireTrustedUserIdentityResolver(resolveProjectionUserKey);
 }
 
 export {

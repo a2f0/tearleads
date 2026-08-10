@@ -47,6 +47,7 @@ async function listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds
   input: {
     containerIds: ReadonlyArray<string>;
     documentIds: ReadonlyArray<string>;
+    sortDocumentSummaries: boolean;
   },
 ): Promise<DocumentSummary[]> {
   const documentSummariesById = new Map<string, DocumentSummary>();
@@ -81,14 +82,21 @@ async function listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds
     );
   }
 
-  return Array.from(documentSummariesById.values()).sort(
-    compareContainerContentsDocumentSummaries,
-  );
+  const documentSummaries = Array.from(documentSummariesById.values());
+  return input.sortDocumentSummaries
+    ? documentSummaries.sort(compareContainerContentsDocumentSummaries)
+    : documentSummaries;
 }
 
-async function listContainerContentsDocumentsForContainerSubtree(
+/**
+ * Shared batched read pipeline for a flat set of container ids: linked
+ * document ids → document summaries → linked container ids per document.
+ * Sorting is optional so device-first projection reads can skip it.
+ */
+export async function listContainerContentsDocumentsForContainers(
   execSql: ExecSql,
   containerIds: ReadonlyArray<string>,
+  options: { sortDocumentSummaries: boolean },
 ): Promise<ContainerContentsSharedDocumentSummaries> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
   const linkedDocumentIds =
@@ -99,6 +107,7 @@ async function listContainerContentsDocumentsForContainerSubtree(
       {
         containerIds,
         documentIds: linkedDocumentIds,
+        sortDocumentSummaries: options.sortDocumentSummaries,
       },
     );
   const documentIds = Array.from(
@@ -201,9 +210,10 @@ async function listDocumentRuntimeTargetsForContainerSubtree(input: {
   }
 
   const { documentSummaries, linkedContainerIdsByDocumentId } =
-    await listContainerContentsDocumentsForContainerSubtree(
+    await listContainerContentsDocumentsForContainers(
       execSql,
       Array.from(sharedContainerIds),
+      { sortDocumentSummaries: true },
     );
 
   return documentSummaries.flatMap((documentSummary) => {

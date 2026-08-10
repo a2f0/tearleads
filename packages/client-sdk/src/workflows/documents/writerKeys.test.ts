@@ -34,14 +34,6 @@ function createWriteHeader(input: {
   };
 }
 
-function trustedIdentity(input: {
-  signingKeyFingerprint: string;
-  signingPublicKey: Uint8Array;
-  userId: string;
-}) {
-  return createTestTrustedUserIdentity(input);
-}
-
 test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", async () => {
   const signingPublicKey = Uint8Array.from([1, 2, 3, 4]);
   const signingFingerprint = await toFingerprint(signingPublicKey);
@@ -49,7 +41,7 @@ test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", as
     logPrefix: "Documents",
     runtime: {
       resolveTrustedUserIdentity: async (userId) =>
-        trustedIdentity({
+        createTestTrustedUserIdentity({
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey,
           userId,
@@ -80,7 +72,7 @@ test("createDocumentWriterPublicKeyResolver caches trusted writer keys", async (
     runtime: {
       resolveTrustedUserIdentity: async (userId) => {
         resolveCount += 1;
-        return trustedIdentity({
+        return createTestTrustedUserIdentity({
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey,
           userId,
@@ -122,7 +114,7 @@ test("createDocumentWriterPublicKeyResolver logs a writer fingerprint mismatch",
     logPrefix: "Documents",
     runtime: {
       resolveTrustedUserIdentity: async (userId) =>
-        trustedIdentity({
+        createTestTrustedUserIdentity({
           signingKeyFingerprint: responseFingerprint,
           signingPublicKey: responsePublicKey,
           userId,

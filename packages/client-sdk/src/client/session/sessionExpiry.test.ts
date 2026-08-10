@@ -1,24 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  quietLogger,
+  setGeneratedIdentity,
+} from "../../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import type { Logger } from "../logger";
 import { Tearleads } from "../Tearleads";
-
-const quietLogger: Required<Logger> = {
-  log: () => undefined,
-  logError: () => undefined,
-};
-
-async function setGeneratedIdentity(sdk: Tearleads) {
-  return sdk.identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
-}
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -87,7 +74,7 @@ describe("session expiry", () => {
         database: { execSql, id: "session-expiry-identity-trust" },
         logger: quietLogger,
       });
-      await setGeneratedIdentity(sdk);
+      await setGeneratedIdentity(sdk.identity);
       sdk.session.setContext({
         authToken: "stale-token",
         defaultOrganizationId: "org-1",

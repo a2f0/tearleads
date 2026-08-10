@@ -5,22 +5,16 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
-
-function emptyListContainersResponse(): ListContainersResponse {
-  return {
-    hasMore: false,
-    items: [],
-    nextWatermark: null,
-    tombstones: [],
-  };
-}
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 
 function activeRootChildSummary(): ListContainersResponse {
   return {
@@ -100,22 +94,6 @@ function serverTrashChildSummary(): ListContainersResponse {
   };
 }
 
-async function saveServerRootContainer(execSql: ExecSql): Promise<void> {
-  await defaultContainerContentsPersistence.saveContainer(
-    execSql,
-    {
-      icon: null,
-      id: "server-root",
-      effectiveAccessLevel: "admin",
-      metadataDocumentId: "server-root-metadata-document",
-      name: "/",
-      organizationId: "org-1",
-      parentId: null,
-    },
-    null,
-  );
-}
-
 async function saveNestedChildContainer(execSql: ExecSql): Promise<void> {
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
@@ -152,59 +130,6 @@ function nestedChildDeletionTombstonePage(): ListContainersResponse {
   };
 }
 
-async function waitForCondition(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-
-  throw new Error(message);
-}
-
-function createSqlTestRuntime(input: {
-  apiClient: ReturnType<typeof createMockApiClient>;
-  domainScope: DomainScope;
-  execSql: ExecSql;
-  rootContainerId: string;
-}) {
-  return createContainerContentsStoreTestRuntime({
-    apiClient: input.apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: input.rootContainerId,
-      domainScope: input.domainScope,
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-    },
-  });
-}
-
 test("root-lane refresh hydrates the active root's system children", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-store-active-root-child-refresh-test",
@@ -228,7 +153,7 @@ test("root-lane refresh hydrates the active root's system children", async () =>
       null,
     );
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           parentIds.push(parentId);
@@ -237,15 +162,15 @@ test("root-lane refresh hydrates the active root's system children", async () =>
             : emptyListContainersResponse();
         }),
       }),
+      containerId: "active-root",
       domainScope,
       execSql,
-      rootContainerId: "active-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -281,9 +206,9 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     // Post-reconcile state: only the SERVER root is in the tree, but the session's
     // active root id was never re-pointed off the deleted local root.
-    await saveServerRootContainer(execSql);
+    await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
@@ -292,15 +217,15 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
             : emptyListContainersResponse();
         }),
       }),
+      containerId: "stale-local-root",
       domainScope,
       execSql,
-      rootContainerId: "stale-local-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -347,22 +272,22 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
       null,
     );
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async () => {
           parentLaneCalls += 1;
           return emptyListContainersResponse();
         }),
       }),
+      containerId: "active-root",
       domainScope,
       execSql,
-      rootContainerId: "active-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -427,10 +352,10 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
 
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await saveServerRootContainer(execSql);
+    await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
@@ -443,15 +368,15 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
           return emptyListContainersResponse();
         }),
       }),
+      containerId: "server-root",
       domainScope,
       execSql,
-      rootContainerId: "server-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -485,10 +410,10 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
 
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await saveServerRootContainer(execSql);
+    await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
     await saveNestedChildContainer(execSql);
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
@@ -501,15 +426,15 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
           return emptyListContainersResponse();
         }),
       }),
+      containerId: "server-root",
       domainScope,
       execSql,
-      rootContainerId: "server-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -546,9 +471,9 @@ test("repeated provisioned root-lane refreshes do not re-list the root lane unwa
 
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await saveServerRootContainer(execSql);
+    await seedLocalRootContainer(execSql, { rootContainerId: "server-root" });
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
@@ -562,15 +487,15 @@ test("repeated provisioned root-lane refreshes do not re-list the root lane unwa
           },
         ),
       }),
+      containerId: "server-root",
       domainScope,
       execSql,
-      rootContainerId: "server-root",
     });
     const store = createContainerContentsStore(runtime);
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );

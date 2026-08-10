@@ -1,4 +1,9 @@
-import type { BlobByteSource, BlobBytes } from "../blobContracts";
+import {
+  assertReadRange,
+  type BlobByteSource,
+  type BlobBytes,
+  readExactBlobBytes,
+} from "../blobContracts";
 import {
   AES_GCM_TAG_BYTES,
   chunkAdditionalData,
@@ -28,22 +33,6 @@ interface CreateDecryptedBlobByteSourceInput extends BlobEncryptionContext {
   readonly parsed: ParsedEncryptedBlobEnvelope;
 }
 
-function assertReadRange(
-  sourceByteLength: number,
-  offset: number,
-  byteLength: number,
-): void {
-  if (!Number.isSafeInteger(offset) || offset < 0) {
-    throw new Error("Blob byte source read offset is invalid.");
-  }
-  if (!Number.isSafeInteger(byteLength) || byteLength < 0) {
-    throw new Error("Blob byte source read length is invalid.");
-  }
-  if (offset + byteLength > sourceByteLength) {
-    throw new Error("Blob byte source read exceeds the source length.");
-  }
-}
-
 function ciphertextOffset(
   prefixByteLength: number,
   chunkIndex: number,
@@ -62,18 +51,6 @@ function chunkCiphertextByteLength(
     getChunkPlaintextByteLength(plaintextByteLength, chunkIndex) +
     AES_GCM_TAG_BYTES
   );
-}
-
-async function readExact(
-  source: BlobByteSource,
-  offset: number,
-  byteLength: number,
-): Promise<BlobBytes> {
-  const bytes = await source.read(offset, byteLength);
-  if (bytes.byteLength !== byteLength) {
-    throw new Error("Blob byte source returned an incomplete read.");
-  }
-  return bytes;
 }
 
 function encryptionAlgorithm(
@@ -100,7 +77,7 @@ async function encryptChunk(
     input.envelope.plaintextByteLength,
     chunkIndex,
   );
-  const plaintext = await readExact(
+  const plaintext = await readExactBlobBytes(
     input.plaintextSource,
     chunkIndex * ENCRYPTED_BLOB_CHUNK_SIZE,
     plaintextByteLength,
@@ -119,7 +96,7 @@ async function decryptChunk(
   chunkIndex: number,
 ): Promise<BlobBytes> {
   const { envelope, prefixByteLength } = input.parsed;
-  const ciphertext = await readExact(
+  const ciphertext = await readExactBlobBytes(
     input.encryptedSource,
     ciphertextOffset(prefixByteLength, chunkIndex),
     chunkCiphertextByteLength(envelope.plaintextByteLength, chunkIndex),

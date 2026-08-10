@@ -10,9 +10,10 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../test/helpers/documentFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
-import { buildDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import { syncRemoteDocument } from "./sync";
+import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 
 test("createRemoteDocument gates writes by the resolved container organization", async () => {
   const { author, signingPublicKey } = await createAuthor();
@@ -49,15 +50,12 @@ test("createRemoteDocument gates writes by the resolved container organization",
       checkedOrganizationIds.push(organizationId);
       return organizationId === customOrganizationId;
     },
-    resolveProjectionUserKey: async (userId) =>
-      userId === author.signerUserId
-        ? createTestTrustedUserIdentity({
-            encapsulationPublicKey: keyPair.publicKey,
-            signingKeyFingerprint: author.signerKeyFingerprint,
-            signingPublicKey,
-            userId,
-          })
-        : null,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: keyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    }),
     targetSecretKey: keyPair.secretKey,
   });
 

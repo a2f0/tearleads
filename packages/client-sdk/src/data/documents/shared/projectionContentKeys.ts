@@ -77,20 +77,24 @@ export async function wrapDocumentContentKeyForCreate(
   ];
 }
 
-export async function unwrapDocumentContentKeyTarget(input: {
+export async function unwrapContentKeyTargetForSuite(input: {
   containerKek: Uint8Array;
-  envelope: DocumentContentKeyTargetEnvelope;
+  /** Wraps a decrypt failure with this message; validation errors pass through. */
+  decryptErrorMessage?: string | undefined;
+  envelope: { wrappedKey: string; wrappingMetadata?: unknown };
+  label: "Blob" | "Document";
+  suite: string;
 }): Promise<Uint8Array> {
   const metadata = input.envelope.wrappingMetadata;
   const suite = isPlainRecord(metadata)
     ? Reflect.get(metadata, "suite")
     : undefined;
   const iv = isPlainRecord(metadata) ? Reflect.get(metadata, "iv") : undefined;
-  if (suite !== DOCUMENT_CONTENT_KEY_WRAP_SUITE) {
-    throw new Error("Document content-key target uses an unknown suite");
+  if (suite !== input.suite) {
+    throw new Error(`${input.label} content-key target uses an unknown suite`);
   }
   if (typeof iv !== "string" || iv.length === 0) {
-    throw new Error("Document content-key target is missing an IV");
+    throw new Error(`${input.label} content-key target is missing an IV`);
   }
 
   try {
@@ -102,11 +106,24 @@ export async function unwrapDocumentContentKeyTarget(input: {
       input.containerKek,
     );
   } catch (error) {
-    throw new Error(
-      `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
-      { cause: error },
-    );
+    if (input.decryptErrorMessage) {
+      throw new Error(input.decryptErrorMessage, { cause: error });
+    }
+    throw error;
   }
+}
+
+export async function unwrapDocumentContentKeyTarget(input: {
+  containerKek: Uint8Array;
+  envelope: DocumentContentKeyTargetEnvelope;
+}): Promise<Uint8Array> {
+  return unwrapContentKeyTargetForSuite({
+    containerKek: input.containerKek,
+    decryptErrorMessage: `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
+    envelope: input.envelope,
+    label: "Document",
+    suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  });
 }
 
 interface CollectedContainerKeks {

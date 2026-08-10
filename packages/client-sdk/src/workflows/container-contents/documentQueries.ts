@@ -41,10 +41,10 @@ import {
 import type {
   ContainerDocumentLinkInput,
   ContainerDocumentQueriesRuntime,
-  ContainerDocumentSidebarWindow as ContainerDocumentSidebarWindowContract,
+  ContainerDocumentSidebarWindow,
   ContainerDocumentTombstone,
   ContainerItemSort,
-  ContainerItemWindow as ContainerItemWindowContract,
+  ContainerItemWindow,
 } from "./documentQueries/types";
 import {
   getOrphanedDocumentQueryBind,
@@ -60,16 +60,14 @@ import type { ContainerDocumentObjectSyncState } from "./syncState";
 export type {
   ContainerDocumentLinkInput,
   ContainerDocumentSidebarRow,
+  ContainerDocumentSidebarWindow,
   ContainerDocumentTombstone,
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortDirection,
   ContainerItemSortKey,
+  ContainerItemWindow,
 } from "./documentQueries/types";
-
-export type ContainerDocumentSidebarWindow =
-  ContainerDocumentSidebarWindowContract;
-export type ContainerItemWindow = ContainerItemWindowContract;
 
 interface ListContainerItemWindowInput {
   /** Null selects the virtual orphaned-documents recovery collection. */
@@ -369,28 +367,6 @@ async function listContainerContentsLinkedContainerIdsByDocumentIds(
   return linkedContainerIdsByDocumentId;
 }
 
-function loadContainerContentsContainerDocumentWatermark(
-  execSql: ExecSql,
-  containerId: string,
-): Promise<SyncWatermark | null> {
-  return sqlContainerSyncWatermarkPersistence.loadWatermark(
-    execSql,
-    containerContentsSyncLane(containerId),
-  );
-}
-
-function saveContainerDocumentWatermark(
-  execSql: ExecSql,
-  containerId: string,
-  watermark: SyncWatermark,
-): Promise<void> {
-  return sqlContainerSyncWatermarkPersistence.saveWatermark(
-    execSql,
-    containerContentsSyncLane(containerId),
-    watermark,
-  );
-}
-
 export function createContainerDocumentQueriesFromRuntime(
   runtime: ContainerDocumentQueriesRuntime,
 ): ContainerDocumentQueries {
@@ -422,9 +398,9 @@ export function createContainerDocumentQueriesFromRuntime(
       );
     },
     loadContainerDocumentWatermark(containerId) {
-      return loadContainerContentsContainerDocumentWatermark(
+      return sqlContainerSyncWatermarkPersistence.loadWatermark(
         execSql,
-        containerId,
+        containerContentsSyncLane(containerId),
       );
     },
     listLinkedContainerIdsByDocumentIds(documentIds) {
@@ -446,7 +422,11 @@ export function createContainerDocumentQueriesFromRuntime(
       );
     },
     saveContainerDocumentWatermark(containerId, watermark) {
-      return saveContainerDocumentWatermark(execSql, containerId, watermark);
+      return sqlContainerSyncWatermarkPersistence.saveWatermark(
+        execSql,
+        containerContentsSyncLane(containerId),
+        watermark,
+      );
     },
     upsertDiscoveredDocuments(inputs) {
       return upsertDiscoveredDocuments(execSql, inputs);

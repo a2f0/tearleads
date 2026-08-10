@@ -30,7 +30,7 @@ function assertByteLength(value: number, label: string): void {
   }
 }
 
-function assertReadRange(
+export function assertReadRange(
   sourceByteLength: number,
   offset: number,
   byteLength: number,
@@ -40,6 +40,18 @@ function assertReadRange(
   if (offset + byteLength > sourceByteLength) {
     throw new Error("Blob byte source read exceeds the source length.");
   }
+}
+
+export async function readExactBlobBytes(
+  source: BlobByteSource,
+  offset: number,
+  byteLength: number,
+): Promise<BlobBytes> {
+  const bytes = await source.read(offset, byteLength);
+  if (bytes.byteLength !== byteLength) {
+    throw new Error("Blob byte source returned an incomplete read.");
+  }
+  return bytes;
 }
 
 function copyBlobBytes(bytes: Uint8Array): BlobBytes {

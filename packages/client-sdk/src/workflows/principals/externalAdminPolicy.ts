@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -65,11 +65,11 @@ async function verifyOrganizationPolicy(input: {
   readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedPrincipalPolicy | null> {
-  const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    execSql: input.execSql,
-    principalId: input.organizationId,
-    principalType: "organization",
-  });
+  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    "organization",
+    input.organizationId,
+  );
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle: input.bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -132,11 +132,11 @@ async function loadVerifiedAdminsPolicy(input: {
   if (!bundle) {
     return null;
   }
-  const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    execSql: input.execSql,
-    principalId: input.adminGroupId,
-    principalType: "group",
-  });
+  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    "group",
+    input.adminGroupId,
+  );
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

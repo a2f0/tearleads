@@ -6,12 +6,28 @@ import type {
   LocalProjectionStore,
 } from "../../stores/local-projection/localProjectionStore";
 import { markOriginatedDocuments } from "./originatedDocuments";
+import type { ReconciliationService } from "./serviceTypes";
 import {
   connectReconciliationTriggers,
   enqueueReconciliationForEvents,
 } from "./triggers";
 
-test("prerequisites-regained trigger resets the discovered set first", () => {
+/** Build a reconciliation service stub from just the methods a test observes. */
+function stubService(
+  overrides: Partial<ReconciliationService>,
+): ReconciliationService {
+  return {
+    enqueueContainer: () => {},
+    enqueueIdleBackfill: () => {},
+    setActiveContainer: () => {},
+    ...overrides,
+  } as ReconciliationService;
+}
+
+/** Connect the triggers to a stub store and return the captured listener. */
+function connectListener(
+  service: ReconciliationService,
+): LocalProjectionReconcileListener {
   const reconcileListeners: LocalProjectionReconcileListener[] = [];
   const store = {
     onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
@@ -21,22 +37,6 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
       };
     },
   } as LocalProjectionStore;
-  const calls: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
-      calls.push(`enqueue:${containerId}`);
-    },
-    enqueueIdleBackfill: () => {
-      calls.push("backfill");
-    },
-    resetDiscovered: () => {
-      calls.push("reset");
-    },
-    setActiveContainer: () => {},
-  } as unknown as Parameters<
-    typeof connectReconciliationTriggers
-  >[0]["service"];
-
   connectReconciliationTriggers({ service, store });
   const reconcileListener = reconcileListeners[0];
   if (!reconcileListener) {
@@ -44,6 +44,24 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
       "Expected reconciliation trigger listener to be connected.",
     );
   }
+  return reconcileListener;
+}
+
+test("prerequisites-regained trigger resets the discovered set first", () => {
+  const calls: string[] = [];
+  const reconcileListener = connectListener(
+    stubService({
+      enqueueContainer: (containerId) => {
+        calls.push(`enqueue:${containerId}`);
+      },
+      enqueueIdleBackfill: () => {
+        calls.push("backfill");
+      },
+      resetDiscovered: () => {
+        calls.push("reset");
+      },
+    }),
+  );
   reconcileListener({
     activeContainerId: "c-1",
     reason: "prerequisites-regained",
@@ -55,36 +73,18 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
 });
 
 test("hydrated trigger reconciles only the active container", () => {
-  const reconcileListeners: LocalProjectionReconcileListener[] = [];
-  const store = {
-    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
-      reconcileListeners.push(listener);
-      return () => {
-        reconcileListeners.splice(reconcileListeners.indexOf(listener), 1);
-      };
-    },
-  } as LocalProjectionStore;
   const calls: Array<{ containerId: string; priority: string }> = [];
   let idleBackfills = 0;
-  const service = {
-    enqueueContainer: (containerId: string, priority: string) => {
-      calls.push({ containerId, priority });
-    },
-    enqueueIdleBackfill: () => {
-      idleBackfills += 1;
-    },
-    setActiveContainer: () => {},
-  } as unknown as Parameters<
-    typeof connectReconciliationTriggers
-  >[0]["service"];
-
-  connectReconciliationTriggers({ service, store });
-  const reconcileListener = reconcileListeners[0];
-  if (!reconcileListener) {
-    throw new Error(
-      "Expected reconciliation trigger listener to be connected.",
-    );
-  }
+  const reconcileListener = connectListener(
+    stubService({
+      enqueueContainer: (containerId, priority) => {
+        calls.push({ containerId, priority });
+      },
+      enqueueIdleBackfill: () => {
+        idleBackfills += 1;
+      },
+    }),
+  );
   const signal: LocalProjectionReconcileSignal = {
     activeContainerId: "c-1",
     reason: "hydrated",
@@ -96,30 +96,14 @@ test("hydrated trigger reconciles only the active container", () => {
 });
 
 test("remote container growth queues one idle backfill", () => {
-  const reconcileListeners: LocalProjectionReconcileListener[] = [];
-  const store = {
-    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
-      reconcileListeners.push(listener);
-      return () => {};
-    },
-  } as LocalProjectionStore;
   let idleBackfills = 0;
-  const service = {
-    enqueueIdleBackfill: () => {
-      idleBackfills += 1;
-    },
-    setActiveContainer: () => {},
-  } as unknown as Parameters<
-    typeof connectReconciliationTriggers
-  >[0]["service"];
-
-  connectReconciliationTriggers({ service, store });
-  const reconcileListener = reconcileListeners[0];
-  if (!reconcileListener) {
-    throw new Error(
-      "Expected reconciliation trigger listener to be connected.",
-    );
-  }
+  const reconcileListener = connectListener(
+    stubService({
+      enqueueIdleBackfill: () => {
+        idleBackfills += 1;
+      },
+    }),
+  );
   reconcileListener({
     activeContainerId: null,
     reason: "remote-containers-added",
@@ -134,20 +118,14 @@ test("event triggers enqueue the named container at active priority", () => {
     force: boolean | undefined;
     priority: string;
   }> = [];
-  const service = {
-    enqueueContainer: (
-      containerId: string,
-      priority: string,
-      force: boolean | undefined,
-    ) => {
+  const service = stubService({
+    enqueueContainer: (containerId, priority, force) => {
       enqueued.push({ containerId, force, priority });
     },
     enqueueIdleBackfill: () => {
       enqueued.push({ containerId: "*", force: undefined, priority: "idle" });
     },
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
 
   enqueueReconciliationForEvents({
     events: [
@@ -177,18 +155,11 @@ test("document mutation events force both prior and current containers", () => {
     force: boolean | undefined;
     priority: string;
   }> = [];
-  const service = {
-    enqueueContainer: (
-      containerId: string,
-      priority: string,
-      force: boolean | undefined,
-    ) => {
+  const service = stubService({
+    enqueueContainer: (containerId, priority, force) => {
       enqueued.push({ containerId, force, priority });
     },
-    enqueueIdleBackfill: () => {},
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
 
   enqueueReconciliationForEvents({
     events: [
@@ -211,14 +182,11 @@ test("document mutation events force both prior and current containers", () => {
 
 test("document purge events force every prior container", () => {
   const enqueued: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
+  const service = stubService({
+    enqueueContainer: (containerId) => {
       enqueued.push(containerId);
     },
-    enqueueIdleBackfill: () => {},
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
 
   enqueueReconciliationForEvents({
     events: [
@@ -238,14 +206,11 @@ test("document purge events force every prior container", () => {
 
 test("document mutation events do not consume content self-echo suppression", () => {
   const enqueued: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
+  const service = stubService({
+    enqueueContainer: (containerId) => {
       enqueued.push(containerId);
     },
-    enqueueIdleBackfill: () => {},
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
   const domainScope = createDomainScope();
   markOriginatedDocuments(domainScope, ["d-1"]);
 
@@ -282,16 +247,14 @@ test("document mutation events do not consume content self-echo suppression", ()
 
 test("event triggers skip self-echoes of originated documents", () => {
   const enqueued: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
+  const service = stubService({
+    enqueueContainer: (containerId) => {
       enqueued.push(containerId);
     },
     enqueueIdleBackfill: () => {
       enqueued.push("*");
     },
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
   const domainScope = createDomainScope();
   markOriginatedDocuments(domainScope, ["d-self"]);
 
@@ -319,14 +282,11 @@ test("event triggers skip self-echoes of originated documents", () => {
 
 test("self-echo suppression is single-use", () => {
   const enqueued: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
+  const service = stubService({
+    enqueueContainer: (containerId) => {
       enqueued.push(containerId);
     },
-    enqueueIdleBackfill: () => {},
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
   const domainScope = createDomainScope();
   markOriginatedDocuments(domainScope, ["d-1"]);
   const event = {
@@ -355,14 +315,11 @@ test("self-echo suppression is single-use", () => {
 
 test("event triggers backfill when an update has no container scope", () => {
   let idleBackfills = 0;
-  const service = {
-    enqueueContainer: () => {},
+  const service = stubService({
     enqueueIdleBackfill: () => {
       idleBackfills += 1;
     },
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
+  });
 
   enqueueReconciliationForEvents({
     events: [{ type: "document_update_created", documentId: "d-1" }],

@@ -5,14 +5,14 @@ import {
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
-import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
+import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetMutationOperation,
   MaterializedDocumentLinkSetMutationPlan,
 } from "../../data/documents/shared/types";
-import { signDocumentOutgoingUpdate } from "./sync";
+import { signDocumentOutgoingUpdate } from "./syncPlanIdentity";
 
 // A zero-span snapshot (empty document) yields no baseline; the unlink is
 // sent without one and the server verifies the committed frontier is empty.
@@ -81,9 +81,7 @@ export async function buildDocumentRotationBaseline(input: {
     ...pendingFields,
   };
   const encrypted = await encryptDocumentPendingUpdate({
-    contentKeyMaterial: await importDocumentContentKeyMaterial(
-      input.contentKey,
-    ),
+    contentKeyMaterial: await importContentKeyMaterial(input.contentKey),
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,
     organizationId: input.organizationId,

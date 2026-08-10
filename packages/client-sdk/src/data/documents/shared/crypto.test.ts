@@ -19,11 +19,11 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
 import {
   deriveDocumentContentRecordKey,
   documentContentRecordDerivationPayload,
-  importDocumentContentKeyMaterial,
+  importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "./crypto";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
@@ -95,9 +95,7 @@ async function replaceEncryptedPlaintext(input: {
     metadataHash: string;
     nonceDomainHash: string;
   };
-  const contentKeyMaterial = await importDocumentContentKeyMaterial(
-    input.contentKey,
-  );
+  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
   const recordKey = await deriveDocumentContentRecordKey({
     contentKeyMaterial,
     contentKeyEpoch: encrypted.contentKeyEpoch,

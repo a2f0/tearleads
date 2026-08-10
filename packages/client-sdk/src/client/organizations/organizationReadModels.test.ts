@@ -7,6 +7,10 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
+import {
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
@@ -14,14 +18,8 @@ import {
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
 import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 function projectedPolicyMember(
@@ -58,46 +56,15 @@ test("concurrent read-model reconciliation is single-flight", async () => {
       return pendingRequest;
     },
   });
-  let workflowInput: InternalWorkflowRuntimeInput = {
+  let workflowInput: InternalWorkflowRuntimeInput = createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
     auth: {
-      isAuthenticated: true,
       organizationId: organizationReadModelOrganizationId,
       userId: organizationReadModelUserId,
     },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  };
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
+    execSql,
+  });
+  const runtime = createInternalRuntimeFixture(() => workflowInput);
   const coordinator = createOrganizationReadModelCoordinator(runtime);
 
   expect(createOrganizationReadModelCoordinator(runtime)).toBe(coordinator);
@@ -182,51 +149,20 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
       return scopeRequest;
     },
   });
-  const workflowInput = {
+  const workflowInput = createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
     auth: {
-      isAuthenticated: true,
       organizationId: organizationReadModelOrganizationId,
       userId: organizationReadModelUserId,
     },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } satisfies InternalWorkflowRuntimeInput;
+    execSql,
+  });
   let currentOrganizationId: string | null =
     organizationReadModelOrganizationId;
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => ({
-      ...workflowInput,
-      auth: { ...workflowInput.auth, organizationId: currentOrganizationId },
-    }),
-  } satisfies InternalRuntime;
+  const runtime = createInternalRuntimeFixture(() => ({
+    ...workflowInput,
+    auth: { ...workflowInput.auth, organizationId: currentOrganizationId },
+  }));
   const coordinator = createOrganizationReadModelCoordinator(runtime);
 
   try {
@@ -342,49 +278,16 @@ test("policy history cold misses single-flight through verified persistence", as
       return policyRequest;
     },
   });
-  const workflowInput = {
+  const workflowInput = createWorkflowInputFixture({
     apiClient,
+    auth: { organizationId, userId: organizationReadModelUserId },
+    execSql,
     resolveTrustedUserIdentity: async (userId: string) =>
       userId === signerKeyResponse.userId
         ? trustedUserIdentityFromResponse(signerKeyResponse)
         : null,
-    auth: {
-      isAuthenticated: true,
-      organizationId,
-      userId: organizationReadModelUserId,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } satisfies InternalWorkflowRuntimeInput;
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
+  });
+  const runtime = createInternalRuntimeFixture(() => workflowInput);
 
   try {
     await applyOrganizationReadModelResponse({

@@ -7,7 +7,10 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { defaultContainerContentsPersistence } from "./containerPersistence";
+import {
+  insertTestPendingUpdate,
+  saveTestSyncedContainer,
+} from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 
 const UPDATED_AT = "2026-01-01T00:00:00.000Z";
@@ -18,30 +21,13 @@ test("listPendingWrites unions the marker and queued vector before reporting a d
   );
   try {
     await listPendingWrites(execSql);
-    await defaultContainerContentsPersistence.saveContainer(
+    await saveTestSyncedContainer({
       execSql,
-      {
-        effectiveAccessLevel: "admin",
-        icon: null,
-        id: "root",
-        metadataDocumentId: "metadata-root",
-        name: "/",
-        organizationId: "organization-a",
-        parentId: null,
-      },
-      {
-        accessEpoch: 1,
-        accessStateHash: "access-root",
-        documentId: "metadata-root",
-        id: "root",
-        metadataUpdates: "",
-        snapshotEndVersion: "",
-      },
-      {
-        localUpdatedAt: UPDATED_AT,
-        serverTimestamps: { createdAt: UPDATED_AT, updatedAt: UPDATED_AT },
-      },
-    );
+      id: "root",
+      name: "/",
+      organizationId: "organization-a",
+      timestamp: UPDATED_AT,
+    });
 
     const firstPeer = await createDocument("pending-write-first-peer");
     firstPeer.getText("text").update("first peer");
@@ -69,20 +55,15 @@ test("listPendingWrites unions the marker and queued vector before reporting a d
       },
       { updatedAt: UPDATED_AT },
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, 'documents', ?, ?, '{}', ?, NULL, ?)`,
-      [
-        "union-covered-update",
-        "union-covered-document",
-        "opaque-update",
-        secondPeerVersion,
-        UPDATED_AT,
-      ],
-    );
+    await insertTestPendingUpdate({
+      appKind: "documents",
+      createdAt: UPDATED_AT,
+      execSql,
+      id: "union-covered-update",
+      localId: "union-covered-document",
+      partialEndVersionVector: secondPeerVersion,
+      updateData: "opaque-update",
+    });
 
     const item = (await listPendingWrites(execSql)).find(
       (candidate) => candidate.localId === "union-covered-document",

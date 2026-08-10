@@ -1,4 +1,8 @@
 import { LoroMap } from "@tearleads/loro";
+import type {
+  StructuredDocumentShape as FullStructuredDocumentShape,
+  StructuredDocumentMap,
+} from "./documentKinds";
 
 export interface DocumentAttachment {
   slotId: string;
@@ -7,20 +11,9 @@ export interface DocumentAttachment {
   mimeType: string | null;
 }
 
-interface StructuredDocumentMap {
-  entries: () => Array<[string, unknown]>;
-  getOrCreateContainer: (
-    key: string,
-    container: LoroMap<Record<string, unknown>>,
-  ) => StructuredDocumentMap;
-  get: (key: string) => unknown;
-  set: (key: string, value: string | number) => void;
-  delete: (key: string) => void;
-}
-
-interface StructuredDocumentShape {
-  getMap: (key: string) => StructuredDocumentMap;
-}
+// Attachment helpers only read/write maps, so callers may pass any shape that
+// provides `getMap` (a full structured document included).
+type StructuredDocumentShape = Pick<FullStructuredDocumentShape, "getMap">;
 
 const DOCUMENT_CONTENT_MAP_KEY = "content";
 const ATTACHMENT_KEY_PREFIX = "attachment:";

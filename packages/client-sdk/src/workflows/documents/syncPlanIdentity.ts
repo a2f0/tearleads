@@ -10,6 +10,7 @@ import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   assertDocumentManifestBundleConsistent,
   normalizeDocumentKekTargetResponse,
@@ -24,7 +25,13 @@ import type {
   DocumentSyncPreparedUpdate,
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
-import { contentKeyBundleForSyncRequest } from "./syncContentKeys";
+
+function contentKeyBundleForSyncRequest(
+  input: DocumentCreateResponse["contentKeyBundle"],
+): NonNullable<DocumentSyncRequest["contentKeyBundle"]> {
+  const { documentId: _omit, ...bundle } = input;
+  return bundle;
+}
 
 async function resolveDocumentSyncIdentity(
   input: BuildDocumentSyncPlanInput,

@@ -11,15 +11,10 @@ import {
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
-import { organizationReadModelTables } from "../../sqlite/schema";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
-import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
+import { loadWithOrganizationReadModelIntegrityPurge } from "./organizationReadModelPurge";
 
 interface SelectedGroupMember {
   readonly encapsulationKeyFingerprint: string | null;
@@ -90,7 +85,6 @@ async function loadMembershipRows(input: {
     .orderBy(
       asc(organizationReadModelGroupMembers.sortOrder),
       asc(organizationReadModelGroupMembers.userId),
-      asc(organizationReadModelGroupMembers.userId),
     );
 }
 
@@ -151,10 +145,10 @@ export async function loadOrganizationReadModelGroupMembers(
   groupId: string,
   currentUserId: string,
 ): Promise<OrganizationGroupMembersResponse | null> {
-  await ensureSqlTables(execSql, organizationReadModelTables);
-  let purgedInvalidRows = false;
-  const members = await getClientSQLitePersistenceRuntime(execSql).transaction(
-    async (tx) => {
+  return loadWithOrganizationReadModelIntegrityPurge({
+    execSql,
+    organizationId,
+    load: async (tx) => {
       const [state] = await tx
         .select({ organizationId: organizationReadModelState.organizationId })
         .from(organizationReadModelState)
@@ -176,31 +170,11 @@ export async function loadOrganizationReadModelGroupMembers(
       if (!requester) {
         return null;
       }
-      try {
-        return await loadOrganizationReadModelGroupMembersInTransaction({
-          groupId,
-          organizationId,
-          tx,
-        });
-      } catch (error) {
-        if (!(error instanceof OrganizationReadModelIntegrityError)) {
-          throw error;
-        }
-        // Invalid stored rows self-heal: purge so the next reconcile refetches
-        // a snapshot instead of failing every read.
-        await purgeOrganizationReadModelProjectionInTransaction({
-          organizationId,
-          tx,
-        });
-        purgedInvalidRows = true;
-        return null;
-      }
+      return loadOrganizationReadModelGroupMembersInTransaction({
+        groupId,
+        organizationId,
+        tx,
+      });
     },
-  );
-  if (purgedInvalidRows) {
-    // Realtime consumers may hold a caught-up lease over rows that no longer
-    // exist; the notification lets them drop it and refetch authoritatively.
-    notifyOrganizationReadModelInvalidated(execSql, organizationId);
-  }
-  return members;
+  });
 }

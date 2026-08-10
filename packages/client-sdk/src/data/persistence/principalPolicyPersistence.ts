@@ -37,7 +37,7 @@ interface PrincipalPolicyRow {
   updatedAt: string;
 }
 
-interface SelectedPrincipalPolicyRow {
+export interface SelectedPrincipalPolicyRow {
   principalType: string;
   principalId: string;
   stateHash: string;
@@ -116,30 +116,29 @@ export async function ensurePrincipalPolicyTables(
   await ensureSqlTables(execSql, principalPolicyTables);
 }
 
-const principalPolicyBundleSelection = {
-  principalType: principalPolicies.principalType,
-  principalId: principalPolicies.principalId,
-  stateHash: principalPolicies.stateHash,
-  currentStateJson: principalPolicies.currentStateJson,
-  currentPayloadJson: principalPolicies.currentPayloadJson,
-  currentProjectionJson: principalPolicies.currentProjectionJson,
-  currentMemberEnvelopesJson: principalPolicies.currentMemberEnvelopesJson,
-  previousStatesJson: principalPolicies.previousStatesJson,
-  updatedAt: principalPolicies.updatedAt,
-};
+type PrincipalPolicyBundleTable =
+  | typeof principalPolicies
+  | typeof principalPolicyBundleHistory;
 
-const principalPolicyBundleHistorySelection = {
-  principalType: principalPolicyBundleHistory.principalType,
-  principalId: principalPolicyBundleHistory.principalId,
-  stateHash: principalPolicyBundleHistory.stateHash,
-  currentStateJson: principalPolicyBundleHistory.currentStateJson,
-  currentPayloadJson: principalPolicyBundleHistory.currentPayloadJson,
-  currentProjectionJson: principalPolicyBundleHistory.currentProjectionJson,
-  currentMemberEnvelopesJson:
-    principalPolicyBundleHistory.currentMemberEnvelopesJson,
-  previousStatesJson: principalPolicyBundleHistory.previousStatesJson,
-  updatedAt: principalPolicyBundleHistory.updatedAt,
-};
+/**
+ * The ONE select shape for a stored principal-policy bundle row, over either
+ * the mutable-head table or the retained-history table.
+ */
+export function principalPolicyBundleSelection(
+  table: PrincipalPolicyBundleTable,
+) {
+  return {
+    principalType: table.principalType,
+    principalId: table.principalId,
+    stateHash: table.stateHash,
+    currentStateJson: table.currentStateJson,
+    currentPayloadJson: table.currentPayloadJson,
+    currentProjectionJson: table.currentProjectionJson,
+    currentMemberEnvelopesJson: table.currentMemberEnvelopesJson,
+    previousStatesJson: table.previousStatesJson,
+    updatedAt: table.updatedAt,
+  };
+}
 
 export async function loadPrincipalPolicyBundle(
   execSql: ExecSql,
@@ -149,7 +148,7 @@ export async function loadPrincipalPolicyBundle(
   await ensurePrincipalPolicyTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select(principalPolicyBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .where(
       and(
@@ -169,14 +168,14 @@ export async function loadAllPrincipalPolicyBundles(
   await ensurePrincipalPolicyTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select(principalPolicyBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .orderBy(
       asc(principalPolicies.principalType),
       asc(principalPolicies.principalId),
     );
   const historyRows = await db
-    .select(principalPolicyBundleHistorySelection)
+    .select(principalPolicyBundleSelection(principalPolicyBundleHistory))
     .from(principalPolicyBundleHistory)
     .orderBy(
       asc(principalPolicyBundleHistory.principalType),
@@ -293,7 +292,7 @@ async function writePrincipalPolicyBundle(
     eq(principalPolicies.principalId, nextRow.principalId),
   );
   const [storedPolicy] = await tx
-    .select(principalPolicyBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .where(wherePrincipal)
     .limit(1);
@@ -323,7 +322,7 @@ async function writePrincipalPolicyBundle(
     return;
   }
   const [retainedPolicy] = await tx
-    .select(principalPolicyBundleHistorySelection)
+    .select(principalPolicyBundleSelection(principalPolicyBundleHistory))
     .from(principalPolicyBundleHistory)
     .where(
       and(
@@ -389,7 +388,7 @@ export async function assertPrincipalPolicyBundleStoredInTransaction(
 ): Promise<void> {
   const expected = policyBundleRow(bundle, bundle.currentState.createdAt);
   const [stored] = await tx
-    .select(principalPolicyBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .where(
       and(
@@ -411,7 +410,7 @@ export async function retainPrincipalPolicyBundleInTransaction(
 ): Promise<void> {
   const row = policyBundleRow(bundle, updatedAt);
   const [current] = await tx
-    .select(principalPolicyBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .where(
       and(
@@ -426,7 +425,7 @@ export async function retainPrincipalPolicyBundleInTransaction(
     return;
   }
   const [retained] = await tx
-    .select(principalPolicyBundleHistorySelection)
+    .select(principalPolicyBundleSelection(principalPolicyBundleHistory))
     .from(principalPolicyBundleHistory)
     .where(
       and(

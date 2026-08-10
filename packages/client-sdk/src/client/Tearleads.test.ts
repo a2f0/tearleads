@@ -5,6 +5,10 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  quietLogger,
+  setGeneratedIdentity,
+} from "../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { loadContainers } from "../data/persistence/containers/containerPersistence";
 import type { DocumentProjectorDefinition } from "../documents";
@@ -20,12 +24,7 @@ import {
   defaultDocumentsPersistence,
   resolveDocumentCreateAuthor,
 } from "../workflows/documents";
-import { Database, type Logger, type SessionSnapshot, Tearleads } from ".";
-
-const quietLogger: Required<Logger> = {
-  log: () => undefined,
-  logError: () => undefined,
-};
+import { Database, type SessionSnapshot, Tearleads } from ".";
 
 const EMPTY_IDENTITY_SNAPSHOT = {
   encapsulationKeyPair: null,
@@ -56,13 +55,6 @@ function createObservedExecSql(
   }
 
   return observedExecSql as ExecSql;
-}
-
-async function setGeneratedIdentity(sdk: Tearleads) {
-  return sdk.identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
 }
 
 describe("Tearleads", () => {
@@ -423,7 +415,7 @@ describe("Tearleads", () => {
     });
     const ephemeralStore = sdk.blobs.store;
 
-    const snapshot = await setGeneratedIdentity(sdk);
+    const snapshot = await setGeneratedIdentity(sdk.identity);
     if (!snapshot.signingFingerprint) {
       throw new Error("Expected generated signing fingerprint.");
     }
@@ -460,7 +452,7 @@ describe("Tearleads", () => {
       });
     });
 
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     sdk.identity.destroy();
     unsubscribe();
     sdk.identity.destroy();
@@ -484,7 +476,7 @@ describe("Tearleads", () => {
       blobStoreFactory: () => createMemoryBlobStore(),
       logger: quietLogger,
     });
-    await setGeneratedIdentity(source);
+    await setGeneratedIdentity(source.identity);
 
     const keyPackage = await source.identity.exportKeyPackage();
     source.identity.destroy();
@@ -507,7 +499,7 @@ describe("Tearleads", () => {
       blobStoreFactory: () => createMemoryBlobStore(),
       logger: quietLogger,
     });
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     const keyPackage = await sdk.identity.exportKeyPackage();
 
     await expect(
@@ -523,7 +515,7 @@ describe("Tearleads", () => {
       blobStoreFactory: () => createMemoryBlobStore(),
       logger: quietLogger,
     });
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherSigningKeyPair = generateSigningSeedAndKeyPair();
 
@@ -545,7 +537,7 @@ describe("Tearleads", () => {
       blobStoreFactory: () => createMemoryBlobStore(),
       logger: quietLogger,
     });
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherEncapsulationKeyPair = generateKemSeedAndKeyPair();
 
@@ -567,7 +559,7 @@ describe("Tearleads", () => {
       database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
     });
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     sdk.session.setContext({
       containerId: "container-1",
       isAuthenticated: true,
@@ -927,7 +919,7 @@ describe("Tearleads", () => {
     expect(databaseScope).not.toBe(initialScope);
     expect(sdk.runtime.input().state.domainScope).toBe(databaseScope);
 
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
@@ -955,7 +947,7 @@ describe("Tearleads", () => {
     });
     await expect(sdk.session.registerIdentity()).resolves.toBeNull();
 
-    await setGeneratedIdentity(sdk);
+    await setGeneratedIdentity(sdk.identity);
     await expect(sdk.session.registerIdentity()).resolves.toBeNull();
 
     expect(messages).toEqual([

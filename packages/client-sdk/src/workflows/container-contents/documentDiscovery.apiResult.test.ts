@@ -3,12 +3,7 @@ import {
   discoverContainerDocumentsFromApi,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
-
-const nullContainerDocumentWatermarks = {
-  applyContainerDocumentTombstones: async () => [],
-  loadContainerDocumentWatermark: async () => null,
-  saveContainerDocumentWatermark: async () => {},
-};
+import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
 
 test("container document discovery quietly treats missing containers as unavailable lanes", async () => {
   const reported: string[] = [];

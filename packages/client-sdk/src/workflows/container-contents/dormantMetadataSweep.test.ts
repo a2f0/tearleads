@@ -6,6 +6,10 @@ import {
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import {
+  insertTestPendingUpdate,
+  saveTestSyncedContainer,
+} from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 
 const T0 = "2026-01-01T00:00:00.000Z";
@@ -16,30 +20,16 @@ async function saveContainer(
   containerId: string,
   organizationId = "peer-organization",
 ): Promise<void> {
-  await defaultContainerContentsPersistence.saveContainer(
+  await saveTestSyncedContainer({
+    accessLevel: "write",
     execSql,
-    {
-      effectiveAccessLevel: "write",
-      icon: null,
-      id: containerId,
-      metadataDocumentId: `metadata-${containerId}`,
-      name: "Shared",
-      organizationId,
-      parentId: null,
-    },
-    {
-      accessEpoch: 1,
-      accessStateHash: `access-${containerId}`,
-      documentId: `metadata-${containerId}`,
-      id: containerId,
-      metadataUpdates: "c2VlZA==",
-      snapshotEndVersion: "seed-end",
-    },
-    {
-      localUpdatedAt: T0,
-      serverTimestamps: { createdAt: T0, updatedAt: T0 },
-    },
-  );
+    id: containerId,
+    metadataUpdates: "c2VlZA==",
+    name: "Shared",
+    organizationId,
+    snapshotEndVersion: "seed-end",
+    timestamp: T0,
+  });
 }
 
 async function seedDormantCandidate(
@@ -49,14 +39,13 @@ async function seedDormantCandidate(
 ): Promise<void> {
   await listPendingWrites(execSql);
   await saveContainer(execSql, containerId, organizationId);
-  await execSql(
-    `INSERT INTO document_pending_updates (
-      id, app_kind, local_id, update_data,
-      partial_start_version_vector, partial_end_version_vector,
-      source_version_vector, created_at
-    ) VALUES (?, 'container-metadata', ?, 'payload', '{}', '{}', NULL, ?)`,
-    [`rename-${containerId}`, containerId, T1],
-  );
+  await insertTestPendingUpdate({
+    appKind: "container-metadata",
+    createdAt: T1,
+    execSql,
+    id: `rename-${containerId}`,
+    localId: containerId,
+  });
 }
 
 async function countRows(

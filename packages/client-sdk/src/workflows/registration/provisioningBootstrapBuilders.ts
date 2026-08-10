@@ -1,7 +1,4 @@
-import {
-  computePrincipalStateHash,
-  type ReferencedPrincipalHead,
-} from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
@@ -21,6 +18,7 @@ import {
 import type { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
+import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
@@ -303,14 +301,7 @@ export async function buildInitialSystemContainerBootstrap(input: {
 async function referencedPrincipalHeadFromInitialGroupRequest(
   input: CreateOrganizationGroupRequest,
 ): Promise<ReferencedPrincipalHead> {
-  return {
-    principalType: "group",
-    principalId: input.groupId,
-    version: input.initialGroupPolicy.state.version,
-    keyEpoch: input.initialGroupPolicy.state.keyEpoch,
-    stateHash: await computePrincipalStateHash(input.initialGroupPolicy.state),
-    keyFingerprint: input.initialGroupPolicy.state.keyFingerprint,
-  };
+  return groupPolicyMutationHead(input.initialGroupPolicy);
 }
 
 function stableOrganizationProfileId(organizationId: string): Promise<string> {

@@ -43,22 +43,11 @@ import type { RekeyPendingUpdate } from "./syncRecoveryRekey";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { type DocumentSyncTraceEmitter, traceSubmitFailed } from "./syncTrace";
 
-async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
-  author: DocumentCreateAuthor;
-  documentId: string;
-  execSql: ExecSql;
-  localVersionVector: string | null;
-  minLsn?: string | undefined;
-  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-  response: DocumentSyncResponse;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-  writerProjection: DocumentWriterProjectionResponse;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-}): Promise<SyncRemoteDocumentResult> {
+async function completeReadOnlyRemoteDocumentSyncWithProjection(
+  input: Omit<ReadOnlyDocumentSyncCompletionInput, "writerProjection"> & {
+    writerProjection: DocumentWriterProjectionResponse;
+  },
+): Promise<SyncRemoteDocumentResult> {
   const materializedPlan = await buildMaterializedDocumentSyncPlan({
     author: input.author,
     execSql: input.execSql,
@@ -286,25 +275,11 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     : { kind: "not_completed" };
 }
 
-async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
-  apiClient: DocumentSyncApi;
-  author: DocumentCreateAuthor;
-  documentId: string;
-  execSql: ExecSql;
-  localVersionVector: string | null;
-  minLsn?: string | undefined;
-  onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
-  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
-  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
-  persistedState?: PersistedDocumentSyncState | null | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-  writerProjection?: DocumentWriterProjectionResponse | undefined;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-}): Promise<PersistedReadOnlyDocumentSyncResult> {
+async function syncReadOnlyRemoteDocumentFromPersistedState(
+  input: Omit<ReadOnlyDocumentSyncCompletionInput, "response"> & {
+    persistedState?: PersistedDocumentSyncState | null | undefined;
+  },
+): Promise<PersistedReadOnlyDocumentSyncResult> {
   let plan: DocumentSyncPlan | null;
   try {
     plan = await buildReadOnlyDocumentSyncPlanFromPersistedState(input);
@@ -434,22 +409,7 @@ export async function tryPersistedReadOnlyDocumentSync(
   }
 
   return syncReadOnlyRemoteDocumentFromPersistedState({
-    apiClient: input.apiClient,
-    author: input.author,
-    documentId: input.documentId,
-    execSql: input.execSql,
-    localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
-    onReadOnlyProjectionFailure: input.onReadOnlyProjectionFailure,
-    onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
-    onSyncTrace: input.onSyncTrace,
-    persistedState: input.persistedState,
+    ...input,
     resolveProjectionUserKey,
-    resolveWriterPublicKey: input.resolveWriterPublicKey,
-    signedAt: input.signedAt,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    writerProjection: input.writerProjection,
-    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
 }

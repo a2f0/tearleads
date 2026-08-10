@@ -11,7 +11,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
 } from "../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "./sync";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 async function createFullHistoryPendingUpdate(text: string) {
   const doc = await createDocument(`sync-checkpoint-fixture:${text}`);

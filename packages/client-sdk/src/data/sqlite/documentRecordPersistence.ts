@@ -9,6 +9,25 @@ import { documents } from "./schema";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
+/**
+ * The ONE select shape for a full documents-row record: every reader that
+ * feeds mapSelectedDocumentRecord spreads this, so a new record column cannot
+ * silently miss one of them.
+ */
+export const documentRecordSelection = {
+  id: documents.localId,
+  documentId: documents.documentId,
+  snapshotEndVersion: documents.snapshotEndVersion,
+  accessEpoch: documents.accessEpoch,
+  accessStateHash: documents.accessStateHash,
+  effectiveAccessLevel: documents.effectiveAccessLevel,
+  lastCommitLsn: documents.lastCommitLsn,
+  documentManifestBundle: documents.documentManifestBundle,
+  contentKeyBundle: documents.contentKeyBundle,
+  documentKekTargets: documents.documentKekTargets,
+  pendingBaseVersion: documents.pendingBaseVersion,
+};
+
 export function mapSelectedDocumentRecord(
   row: SelectedDocumentRecordRow,
 ): DocumentRecord {
@@ -45,19 +64,7 @@ export async function loadDocumentRecord(
 ): Promise<DocumentRecord | null> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
-    .select({
-      id: documents.localId,
-      documentId: documents.documentId,
-      snapshotEndVersion: documents.snapshotEndVersion,
-      accessEpoch: documents.accessEpoch,
-      accessStateHash: documents.accessStateHash,
-      effectiveAccessLevel: documents.effectiveAccessLevel,
-      lastCommitLsn: documents.lastCommitLsn,
-      documentManifestBundle: documents.documentManifestBundle,
-      contentKeyBundle: documents.contentKeyBundle,
-      documentKekTargets: documents.documentKekTargets,
-      pendingBaseVersion: documents.pendingBaseVersion,
-    })
+    .select(documentRecordSelection)
     .from(documents)
     .where(
       and(

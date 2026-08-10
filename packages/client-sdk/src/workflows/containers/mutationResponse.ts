@@ -1,4 +1,7 @@
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import {
+  isReferencedPrincipalStateResponse,
+  type ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
 
 export function readContainerMutationMetadataDocumentId(input: {
   response: {
@@ -23,38 +26,22 @@ export function referencedPrincipalHeadsFromContainerMutationResponse(input: {
   response: { referencedPrincipalHeads: readonly unknown[] };
 }): ReferencedPrincipalStateResponse[] {
   return input.response.referencedPrincipalHeads.flatMap((head) => {
-    if (typeof head !== "object" || head === null) {
-      return [];
-    }
-
-    const principalType = Reflect.get(head, "principalType");
-    const principalId = Reflect.get(head, "principalId");
-    const version = Reflect.get(head, "version");
-    const keyEpoch = Reflect.get(head, "keyEpoch");
-    const stateHash = Reflect.get(head, "stateHash");
-    const keyFingerprint = Reflect.get(head, "keyFingerprint");
-
     if (
-      (principalType !== "group" && principalType !== "organization") ||
-      typeof principalId !== "string" ||
-      typeof version !== "number" ||
-      !Number.isInteger(version) ||
-      typeof keyEpoch !== "number" ||
-      !Number.isInteger(keyEpoch) ||
-      typeof stateHash !== "string" ||
-      typeof keyFingerprint !== "string"
+      !isReferencedPrincipalStateResponse(head) ||
+      !Number.isInteger(head.version) ||
+      !Number.isInteger(head.keyEpoch)
     ) {
       return [];
     }
 
     return [
       {
-        principalType,
-        principalId,
-        version,
-        keyEpoch,
-        stateHash,
-        keyFingerprint,
+        principalType: head.principalType,
+        principalId: head.principalId,
+        version: head.version,
+        keyEpoch: head.keyEpoch,
+        stateHash: head.stateHash,
+        keyFingerprint: head.keyFingerprint,
       },
     ];
   });

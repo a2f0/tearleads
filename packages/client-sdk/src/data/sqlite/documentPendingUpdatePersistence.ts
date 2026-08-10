@@ -49,6 +49,23 @@ export async function listDocumentPendingUpdates(
   return rows.map(mapSelectedPendingUpdate);
 }
 
+function pendingUpdateRow(
+  scope: DocumentScope,
+  pendingUpdate: PendingUpdateFields,
+  createdAt: string,
+) {
+  return {
+    id: crypto.randomUUID(),
+    appKind: scope.appKind,
+    localId: scope.localId,
+    updateData: pendingUpdate.updateData,
+    partialStartVersionVector: pendingUpdate.partialStartVersionVector,
+    partialEndVersionVector: pendingUpdate.partialEndVersionVector,
+    sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
+    createdAt,
+  };
+}
+
 export async function enqueueDocumentPendingUpdate(
   execSql: ExecSql,
   scope: DocumentScope,
@@ -57,16 +74,7 @@ export async function enqueueDocumentPendingUpdate(
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(documentPendingUpdates)
-      .values({
-        id: crypto.randomUUID(),
-        appKind: scope.appKind,
-        localId: scope.localId,
-        updateData: pendingUpdate.updateData,
-        partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-        partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-        sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-        createdAt: new Date().toISOString(),
-      })
+      .values(pendingUpdateRow(scope, pendingUpdate, new Date().toISOString()))
       .run();
   });
 }
@@ -98,16 +106,7 @@ export async function enqueueDocumentPendingUpdateWithHistory(
       .run();
     await tx
       .insert(documentPendingUpdates)
-      .values({
-        id: crypto.randomUUID(),
-        appKind: scope.appKind,
-        localId: scope.localId,
-        updateData: pendingUpdate.updateData,
-        partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-        partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-        sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-        createdAt,
-      })
+      .values(pendingUpdateRow(scope, pendingUpdate, createdAt))
       .run();
   });
 }

@@ -1,12 +1,10 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
-import type {
-  ContainerContentsPersistence,
-  ContainerMetadataRecord,
-} from "../../data/persistence/container-contents/containerContentsPersistence";
+import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { createContainerContentsPersistence } from "./metadata.testFixtures";
 import { persistContainerMetadataStateFromRuntime } from "./metadataPersistence";
 import type {
   ContainerMetadataPatch,
@@ -49,70 +47,6 @@ function createMetadataWriterProjection(
     },
     documentManifestContainerPaths: [],
     documentManifestHistory: [],
-  };
-}
-
-function createPersistence(): ContainerContentsPersistence {
-  return {
-    async claimDormantMetadataSweepAttempt() {
-      return false;
-    },
-    async completeDormantMetadataSweepRequest() {},
-    async containerExists() {
-      return false;
-    },
-    async deleteContainer() {},
-    async deleteContainers() {},
-    async deletePendingUpdates() {},
-    async ensureSchema() {},
-    async enqueuePendingUpdate() {},
-    async listContainerIdsWithPendingUpdates() {
-      return [];
-    },
-    async loadContainerMetadataRecord() {
-      return null;
-    },
-    async purgeDormantContainerMetadata() {},
-    async listDormantMetadataSweepCandidates() {
-      return [];
-    },
-    async purgeDormantContainerMetadataCandidates() {
-      return 0;
-    },
-    async listPendingCreateIntents() {
-      return [];
-    },
-    async listPendingMoveIntents() {
-      return [];
-    },
-    async rekeyPendingUpdate() {
-      return null;
-    },
-    async listPendingUpdates() {
-      return [];
-    },
-    async listDormantMetadataSweepRequests() {
-      return [];
-    },
-    async listUnsyncedMoveIntents() {
-      return [];
-    },
-    async loadContainers() {
-      return [];
-    },
-    async markCreateIntentSynced() {},
-    async markMoveIntentSynced() {},
-    async reassignContainerDocuments() {},
-    async reconcileLocalRootContainer() {},
-    async reconcileLocalSystemContainer() {},
-    async recordCreateIntentError() {},
-    async recordMoveIntentError() {},
-    async saveContainer(_execSql, container) {
-      return container;
-    },
-    async saveContainerAndDeletePendingUpdates(_execSql, container) {
-      return container;
-    },
   };
 }
 
@@ -173,7 +107,7 @@ test.each([
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState,
     patch,
-    persistence: createPersistence(),
+    persistence: createContainerContentsPersistence({}),
     runtime,
   });
 
@@ -193,7 +127,7 @@ test("preserves the cached metadata writer projection for metadata-only changes"
   await persistContainerMetadataStateFromRuntime({
     metadataState,
     patch: { name: "Renamed container" },
-    persistence: createPersistence(),
+    persistence: createContainerContentsPersistence({}),
     runtime,
   });
 

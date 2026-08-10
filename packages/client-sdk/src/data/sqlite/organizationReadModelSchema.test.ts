@@ -1,50 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  readTableColumns,
+  requireColumn,
+} from "../../../test/helpers/sqlitePragma";
 import { organizationReadModelTables } from "./schema";
-import type { ExecSql, SqlRow } from "./sqlSchema";
 import { ensureSqlTables } from "./sqlTableSchema";
-
-interface ColumnInfo {
-  notNull: number;
-  pk: number;
-  type: string;
-}
-
-function readString(row: SqlRow, key: string): string {
-  return String(row[key] ?? "");
-}
-
-function readNumber(row: SqlRow, key: string): number {
-  return Number(row[key] ?? 0);
-}
-
-async function readTableColumns(
-  execSql: ExecSql,
-  tableName: string,
-): Promise<Record<string, ColumnInfo>> {
-  const rows = await execSql(`PRAGMA table_info("${tableName}")`);
-  return Object.fromEntries(
-    rows.map((row) => [
-      readString(row, "name"),
-      {
-        notNull: readNumber(row, "notnull"),
-        pk: readNumber(row, "pk"),
-        type: readString(row, "type"),
-      },
-    ]),
-  );
-}
-
-function requireColumn(
-  columns: Record<string, ColumnInfo>,
-  name: string,
-): ColumnInfo {
-  const column = columns[name];
-  if (!column) {
-    throw new Error(`Missing column ${name}`);
-  }
-  return column;
-}
 
 test("organization read model schema stores exact policy heads and access lanes", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -94,6 +55,7 @@ test("organization read model schema stores exact policy heads and access lanes"
       pk: 2,
     });
     expect(requireColumn(memberships, "state_hash")).toEqual({
+      defaultValue: null,
       notNull: 1,
       pk: 0,
       type: "TEXT",
@@ -131,11 +93,13 @@ test("organization read model schema stores exact policy heads and access lanes"
       pk: 4,
     });
     expect(requireColumn(grants, "metadata_access_epoch")).toEqual({
+      defaultValue: null,
       notNull: 1,
       pk: 0,
       type: "INTEGER",
     });
     expect(requireColumn(grants, "organization_name")).toEqual({
+      defaultValue: null,
       notNull: 0,
       pk: 0,
       type: "TEXT",

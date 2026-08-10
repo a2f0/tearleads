@@ -58,19 +58,51 @@ function stateWithoutCreatedAt(state: PrincipalStateResponse) {
   return signedState;
 }
 
+function historyWithCurrent(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse["previousStates"] {
+  return [
+    ...bundle.previousStates,
+    {
+      state: bundle.currentState,
+      projection: bundle.currentProjection,
+    },
+  ];
+}
+
+function isAuthoredSuccessorConsistent(
+  state: Pick<
+    PrincipalStateResponse,
+    | "keyEpoch"
+    | "keyFingerprint"
+    | "prevStateHash"
+    | "principalId"
+    | "principalType"
+    | "version"
+  >,
+  expectedHead: ReferencedPrincipalHead,
+  previous: PrincipalStateResponse,
+): boolean {
+  return (
+    state.principalType === expectedHead.principalType &&
+    state.principalId === expectedHead.principalId &&
+    state.version === expectedHead.version &&
+    state.keyEpoch === expectedHead.keyEpoch &&
+    state.keyFingerprint === expectedHead.keyFingerprint &&
+    state.principalType === previous.principalType &&
+    state.principalId === previous.principalId &&
+    state.version === previous.version + 1 &&
+    state.prevStateHash === previous.stateHash
+  );
+}
+
 export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyBundleResponse;
 }): void {
-  const expectedPreviousStates = [
-    ...input.currentPolicy.previousStates,
-    {
-      state: input.currentPolicy.currentState,
-      projection: input.currentPolicy.currentProjection,
-    },
-  ];
+  const expectedPreviousStates = historyWithCurrent(input.currentPolicy);
   const normalizedHistory = (
     history: PrincipalPolicyBundleResponse["previousStates"],
   ) =>
@@ -164,13 +196,7 @@ function verifiedPolicy(input: {
   state: PrincipalStateResponse;
 }): VerifiedPrincipalPolicy {
   const previousStates = input.currentPolicy
-    ? [
-        ...input.currentPolicy.previousStates,
-        {
-          state: input.currentPolicy.currentState,
-          projection: input.currentPolicy.currentProjection,
-        },
-      ]
+    ? historyWithCurrent(input.currentPolicy)
     : [];
   return makeVerifiedPrincipalPolicy({
     checkpoint: {
@@ -204,15 +230,11 @@ export async function acknowledgeGroupPolicyState(input: {
   const previous = input.currentPolicy.currentState;
   if (
     stateHash !== input.expectedHead.stateHash ||
-    input.response.principalType !== input.expectedHead.principalType ||
-    input.response.principalId !== input.expectedHead.principalId ||
-    input.response.version !== input.expectedHead.version ||
-    input.response.keyEpoch !== input.expectedHead.keyEpoch ||
-    input.response.keyFingerprint !== input.expectedHead.keyFingerprint ||
-    input.response.principalType !== previous.principalType ||
-    input.response.principalId !== previous.principalId ||
-    input.response.version !== previous.version + 1 ||
-    input.response.prevStateHash !== previous.stateHash ||
+    !isAuthoredSuccessorConsistent(
+      input.response,
+      input.expectedHead,
+      previous,
+    ) ||
     canonicalKeyingJsonString(responseState, "stored group policy state") !==
       canonicalKeyingJsonString(
         input.request.state,
@@ -242,17 +264,7 @@ export async function prepareAuthoredGroupPolicy(input: {
   await assertPolicyRequestCommitments(input.request);
   const previous = input.currentPolicy.currentState;
   const state = input.request.state;
-  if (
-    state.principalType !== input.expectedHead.principalType ||
-    state.principalId !== input.expectedHead.principalId ||
-    state.version !== input.expectedHead.version ||
-    state.keyEpoch !== input.expectedHead.keyEpoch ||
-    state.keyFingerprint !== input.expectedHead.keyFingerprint ||
-    state.principalType !== previous.principalType ||
-    state.principalId !== previous.principalId ||
-    state.version !== previous.version + 1 ||
-    state.prevStateHash !== previous.stateHash
-  ) {
+  if (!isAuthoredSuccessorConsistent(state, input.expectedHead, previous)) {
     throw new Error("Authored group policy successor is inconsistent");
   }
   return verifiedPolicy({

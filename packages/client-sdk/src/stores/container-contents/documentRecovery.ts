@@ -16,6 +16,7 @@ import type { StaleRootRecoveryStatus } from "../../workflows/container-contents
 import { recoverStaleSessionRoot } from "../../workflows/container-contents/staleRootRecovery";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore } from "../documents";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
 
 type PrimeDocumentRuntime = ReturnType<
   typeof createContainerContentsDocumentsRuntime
@@ -64,10 +65,6 @@ function createPrimeHost(
   };
 }
 
-function logLabel(state: DocumentRecoveryStoreState): string {
-  return state.logLabel ?? "Container contents";
-}
-
 export async function primeStoreDocumentSubtree(
   state: DocumentRecoveryStoreState,
   rootContainerId: string,
@@ -95,7 +92,7 @@ export async function primeStoreDocuments(
       runtime: state.runtime,
     });
     state.runtime.util.log(
-      `${logLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
+      `${getContainerContentsStoreLogLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
     );
   } catch (error) {
     state.documentStoresNeedPriming = true;
@@ -118,7 +115,7 @@ export async function recoverStoreStaleRoot(
     if (isDatabaseUnavailableError(error)) {
       throw error;
     }
-    const message = `${logLabel(state)}: stale root recovery failed`;
+    const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery failed`;
     if (state.runtime.util.logError) {
       state.runtime.util.logError(message, error);
     } else {
@@ -126,7 +123,7 @@ export async function recoverStoreStaleRoot(
     }
     return "not-needed";
   }
-  const message = `${logLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
+  const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
   const previousLogState = staleRootRecoveryLogState.get(state);
   const occurrenceCount =
     previousLogState?.message === message

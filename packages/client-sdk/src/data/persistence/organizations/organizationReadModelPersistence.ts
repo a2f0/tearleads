@@ -19,7 +19,6 @@ import {
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
 import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGrantPersistence";
-import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
 import {
   applyGroupMembershipsLane,
   assertStoredGroupMembershipBindings,
@@ -32,8 +31,8 @@ import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
-import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 import {
+  loadWithOrganizationReadModelIntegrityPurge,
   pruneInactiveOrganizationRequestersInTransaction,
   purgeOrganizationReadModelProjectionInTransaction,
 } from "./organizationReadModelPurge";
@@ -306,38 +305,16 @@ export async function loadOrganizationReadModelProjection(
   organizationId: string,
   currentUserId: string,
 ): Promise<OrganizationReadModelProjection | null> {
-  await ensureSqlTables(execSql, organizationReadModelTables);
-  let purgedInvalidRows = false;
-  const projection = await getClientSQLitePersistenceRuntime(
+  return loadWithOrganizationReadModelIntegrityPurge({
     execSql,
-  ).transaction(async (tx) => {
-    try {
-      return await loadOrganizationReadModelProjectionInTransaction({
+    organizationId,
+    load: (tx) =>
+      loadOrganizationReadModelProjectionInTransaction({
         currentUserId,
         organizationId,
         tx,
-      });
-    } catch (error) {
-      if (!(error instanceof OrganizationReadModelIntegrityError)) {
-        throw error;
-      }
-      // The projection is a server-refetchable cache: purge the invalid rows
-      // so the next reconcile requests a cursorless snapshot instead of every
-      // read and repair pass failing on the same row.
-      await purgeOrganizationReadModelProjectionInTransaction({
-        organizationId,
-        tx,
-      });
-      purgedInvalidRows = true;
-      return null;
-    }
+      }),
   });
-  if (purgedInvalidRows) {
-    // Realtime consumers may hold a caught-up lease over rows that no longer
-    // exist; the notification lets them drop it and refetch authoritatively.
-    notifyOrganizationReadModelInvalidated(execSql, organizationId);
-  }
-  return projection;
 }
 
 export async function applyOrganizationReadModelResponse(input: {

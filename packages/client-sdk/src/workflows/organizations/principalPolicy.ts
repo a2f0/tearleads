@@ -1,10 +1,14 @@
 import type {
   EncapsulationKeyPair,
+  PrincipalPolicyExternalAuthority,
   ReferencedPrincipalHead,
   SigningKeyPair,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type {
+  ContainerMutationRequest,
+  PutPrincipalPolicyRequest,
+} from "@tearleads/validators/request";
 import type {
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
@@ -39,6 +43,61 @@ import {
 } from "./trustedOrganizationUsers";
 
 export { buildInitialGroupPolicyRequest, buildInitialMemberGroupPolicyRequest };
+
+async function commitAndCacheGroupPolicyMutation(input: {
+  readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
+  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly beforePolicyCommit?:
+    | ((head: ReferencedPrincipalHead) => void)
+    | undefined;
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly execSql: ExecSql;
+  readonly externalAuthority: PrincipalPolicyExternalAuthority | undefined;
+  readonly groupId: string;
+  readonly prepareContainerMutations?:
+    | ((input: {
+        readonly nextPolicy: VerifiedPrincipalPolicy;
+      }) => Promise<ContainerMutationRequest[]>)
+    | undefined;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const expectedHead = await groupPolicyMutationHead(input.request);
+  input.beforePolicyCommit?.(expectedHead);
+  if (input.prepareContainerMutations) {
+    input.request.containerMutations = await input.prepareContainerMutations({
+      nextPolicy: await prepareAuthoredGroupPolicy({
+        currentPolicy: input.currentPolicy,
+        expectedHead,
+        request: input.request,
+      }),
+    });
+  }
+  const acknowledgedBundle = await commitGroupPolicyMutation({
+    apiClient: input.apiClient,
+    currentPolicy: input.currentPolicy,
+    execSql: input.execSql,
+    expectedHead,
+    groupId: input.groupId,
+    request: input.request,
+  });
+  await input.afterPolicyCommitBeforeCache?.();
+  return cacheGroupPolicy({
+    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    expectedCurrentHead: expectedHead,
+    externalAuthority: input.externalAuthority,
+    groupId: input.groupId,
+    localPolicyCheckpoint: {
+      principalId: expectedHead.principalId,
+      principalType: expectedHead.principalType,
+      stateHash: expectedHead.stateHash,
+      version: expectedHead.version,
+    },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+}
 
 export async function createOrganizationGroup(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
@@ -169,42 +228,20 @@ export async function addOrganizationGroupUser(input: {
     ),
     targetUser,
   });
-  const expectedHead = await groupPolicyMutationHead(request);
-  input.beforePolicyCommit(expectedHead, {
-    adminGroupId: policyContext.adminGroupId,
-    memberGroupId: policyContext.memberGroupId,
-  });
-  if (input.prepareContainerMutations) {
-    request.containerMutations = await input.prepareContainerMutations({
-      nextPolicy: await prepareAuthoredGroupPolicy({
-        currentPolicy: policyContext.currentPolicy,
-        expectedHead,
-        request,
-      }),
-    });
-  }
-  const acknowledgedBundle = await commitGroupPolicyMutation({
+  return commitAndCacheGroupPolicyMutation({
+    afterPolicyCommitBeforeCache: input.afterPolicyCommitBeforeCache,
     apiClient: input.apiClient,
+    beforePolicyCommit: (head) =>
+      input.beforePolicyCommit(head, {
+        adminGroupId: policyContext.adminGroupId,
+        memberGroupId: policyContext.memberGroupId,
+      }),
     currentPolicy: policyContext.currentPolicy,
     execSql: input.execSql,
-    expectedHead,
-    groupId: input.groupId,
-    request,
-  });
-  await input.afterPolicyCommitBeforeCache?.();
-  return cacheGroupPolicy({
-    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    expectedCurrentHead: expectedHead,
     externalAuthority: policyContext.externalAuthority,
     groupId: input.groupId,
-    localPolicyCheckpoint: {
-      principalId: expectedHead.principalId,
-      principalType: expectedHead.principalType,
-      stateHash: expectedHead.stateHash,
-      version: expectedHead.version,
-    },
+    prepareContainerMutations: input.prepareContainerMutations,
+    request,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }
@@ -261,42 +298,20 @@ export async function removeOrganizationGroupUser(input: {
     remainingUsers,
     removedUserId: input.removedUserId,
   });
-  const expectedHead = await groupPolicyMutationHead(request);
-  input.beforePolicyCommit(expectedHead, {
-    adminGroupId: policyContext.adminGroupId,
-    memberGroupId: policyContext.memberGroupId,
-  });
-  if (input.prepareContainerMutations) {
-    request.containerMutations = await input.prepareContainerMutations({
-      nextPolicy: await prepareAuthoredGroupPolicy({
-        currentPolicy: policyContext.currentPolicy,
-        expectedHead,
-        request,
-      }),
-    });
-  }
-  const acknowledgedBundle = await commitGroupPolicyMutation({
+  return commitAndCacheGroupPolicyMutation({
+    afterPolicyCommitBeforeCache: input.afterPolicyCommitBeforeCache,
     apiClient: input.apiClient,
+    beforePolicyCommit: (head) =>
+      input.beforePolicyCommit(head, {
+        adminGroupId: policyContext.adminGroupId,
+        memberGroupId: policyContext.memberGroupId,
+      }),
     currentPolicy: policyContext.currentPolicy,
     execSql: input.execSql,
-    expectedHead,
-    groupId: input.groupId,
-    request,
-  });
-  await input.afterPolicyCommitBeforeCache?.();
-  return cacheGroupPolicy({
-    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    expectedCurrentHead: expectedHead,
     externalAuthority: policyContext.externalAuthority,
     groupId: input.groupId,
-    localPolicyCheckpoint: {
-      principalId: expectedHead.principalId,
-      principalType: expectedHead.principalType,
-      stateHash: expectedHead.stateHash,
-      version: expectedHead.version,
-    },
+    prepareContainerMutations: input.prepareContainerMutations,
+    request,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }
@@ -338,35 +353,14 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
     ...policyContext,
     currentUsers,
   });
-  const expectedHead = await groupPolicyMutationHead(request);
-  request.containerMutations = await input.prepareContainerMutations({
-    nextPolicy: await prepareAuthoredGroupPolicy({
-      currentPolicy: policyContext.currentPolicy,
-      expectedHead,
-      request,
-    }),
-  });
-  const acknowledgedBundle = await commitGroupPolicyMutation({
+  return commitAndCacheGroupPolicyMutation({
     apiClient: input.apiClient,
     currentPolicy: policyContext.currentPolicy,
     execSql: input.execSql,
-    expectedHead,
-    groupId: input.groupId,
-    request,
-  });
-  return cacheGroupPolicy({
-    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    expectedCurrentHead: expectedHead,
     externalAuthority: policyContext.externalAuthority,
     groupId: input.groupId,
-    localPolicyCheckpoint: {
-      principalId: expectedHead.principalId,
-      principalType: expectedHead.principalType,
-      stateHash: expectedHead.stateHash,
-      version: expectedHead.version,
-    },
+    prepareContainerMutations: input.prepareContainerMutations,
+    request,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }

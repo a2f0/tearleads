@@ -8,6 +8,7 @@ import {
   type DocumentsPersistence,
   type DocumentsWorkflowRuntimeInput,
 } from "../../../workflows/documents";
+import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import {
   createDocumentStoreState,
   setDocumentSnapshot,
@@ -61,10 +62,7 @@ test("setDocumentSnapshot treats missing keys differently from undefined values"
     "undefined-record-key-test",
     createTestRuntime(),
     {} as DocumentsPersistence,
-    {
-      emitPersistedDocument: () => undefined,
-      registerDocumentIdentity: () => undefined,
-    },
+    noopDocumentStorePersistenceEffects,
     null,
   );
 

@@ -12,6 +12,10 @@ import {
   type SqlRowMode,
 } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import {
+  insertTestPendingUpdate,
+  saveTestSyncedContainer,
+} from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 
 const T0 = "2026-01-01T00:00:00.000Z";
@@ -23,46 +27,21 @@ async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
     ...containerCreateIntentTables,
     ...documentContainerProjectionTables,
   ]);
-  await defaultContainerContentsPersistence.saveContainer(
+  await saveTestSyncedContainer({
+    accessLevel: "write",
     execSql,
-    {
-      effectiveAccessLevel: "write",
-      icon: null,
-      id: "doomed",
-      metadataDocumentId: "metadata-doomed",
-      name: "Doomed",
-      organizationId: "org-a",
-      parentId: null,
-    },
-    {
-      accessEpoch: 1,
-      accessStateHash: "access-doomed",
-      documentId: "metadata-doomed",
-      id: "doomed",
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-    {
-      localUpdatedAt: T0,
-      serverTimestamps: { createdAt: T0, updatedAt: T0 },
-    },
-  );
-  await execSql(
-    `INSERT INTO document_pending_updates (
-      id, app_kind, local_id, update_data,
-      partial_start_version_vector, partial_end_version_vector,
-      source_version_vector, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [
-      "rename-doomed",
-      "container-metadata",
-      "doomed",
-      "payload",
-      "{}",
-      "{}",
-      T1,
-    ],
-  );
+    id: "doomed",
+    name: "Doomed",
+    organizationId: "org-a",
+    timestamp: T0,
+  });
+  await insertTestPendingUpdate({
+    appKind: "container-metadata",
+    createdAt: T1,
+    execSql,
+    id: "rename-doomed",
+    localId: "doomed",
+  });
   await execSql(
     `INSERT INTO container_create_intents (
       id, container_id, parent_container_id, intent_type, sync_status,

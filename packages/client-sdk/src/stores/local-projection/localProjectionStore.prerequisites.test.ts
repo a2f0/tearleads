@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createContainerContentsStoreTestRuntime } from "../container-contents/runtime.testFixtures";
+import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type {
   ContainerContentsStore,
@@ -16,35 +14,12 @@ function createRuntime(input: {
   domainScope: DomainScope;
   encapsulationKeyPair?: ContainerContentsStoreRuntime["crypto"]["encapsulationKeyPair"];
   execSql: ExecSql;
-}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
-  return createContainerContentsStoreTestRuntime({
+}): ReturnType<typeof createContainerContentsTestRuntime> {
+  return createContainerContentsTestRuntime({
     apiClient: createMockApiClient(),
-    auth: {
-      isAuthenticated: true,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: input.encapsulationKeyPair ?? null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: input.domainScope,
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-    },
+    domainScope: input.domainScope,
+    encapsulationKeyPair: input.encapsulationKeyPair ?? null,
+    execSql: input.execSql,
   });
 }
 

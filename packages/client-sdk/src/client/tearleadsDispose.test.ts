@@ -1,16 +1,11 @@
 import { expect, test } from "bun:test";
 import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
+  quietLogger,
+  setGeneratedIdentity,
+} from "../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { getOrCreateDomainSyncCoordinator } from "../data/sync/syncCoordinator";
-import { type Logger, Tearleads } from ".";
-
-const quietLogger: Required<Logger> = {
-  log: () => undefined,
-  logError: () => undefined,
-};
+import { Tearleads } from ".";
 
 test("dispose() force-stops the active scope's coordinator and drops it", async () => {
   const sdk = new Tearleads({ logger: quietLogger, online: false });
@@ -51,10 +46,7 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
 
   // Rotate the domain scope (anonymous -> authenticated) and create a second
   // reconciler so dispose() must tear down more than the current scope.
-  await sdk.identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
+  await setGeneratedIdentity(sdk.identity);
   sdk.deviceFirst.reconciler();
   const scopeB = sdk.domainScope;
   expect(scopeB).not.toBe(scopeA);

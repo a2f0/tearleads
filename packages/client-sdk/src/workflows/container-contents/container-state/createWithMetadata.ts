@@ -10,10 +10,12 @@ import {
   isStaleParentContainerPathFailure,
 } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
-import { locallyAcknowledgedDocumentMutationHead } from "../../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import {
+  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
+  locallyAuthoredAccessManifestHead,
+} from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMaterializedContainerCreatePlan,
@@ -155,7 +157,7 @@ async function acknowledgeContainerWithMetadata(input: {
     execSql: input.execSql,
     heads: [
       containerHead,
-      locallyAcknowledgedDocumentMutationHead(input.metadataDocumentPlan),
+      locallyAuthoredAccessManifestHead(input.metadataDocumentPlan),
     ],
   });
   return persistedState;

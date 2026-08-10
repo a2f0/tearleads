@@ -97,16 +97,6 @@ export function hasContainerMetadataDocumentUpdateEvent(
 }
 
 /**
- * Metadata document ids that a `document_update_created` event batch requires a
- * forced read-sync for. Mirrors the document store's self-echo suppression
- * (`hasRemoteDocumentUpdateEvent`): an event whose updateIds were all sent by
- * this client's own metadata sync — pre-registered in
- * `locallyAcceptedUpdateIds` before the network call — is the author's own echo
- * and is consumed without re-queuing the doc. An event with unknown updateIds,
- * or with no updateIds at all, still forces the sync: events stay lossy hints
- * and only provably-own bytes are elided.
- */
-/**
  * Consume this client's own metadata update ids from a `document_update_created`
  * event and report whether any UNKNOWN (peer-authored) update id remains.
  * Mirrors the document store's self-echo suppression: a fully self-authored echo

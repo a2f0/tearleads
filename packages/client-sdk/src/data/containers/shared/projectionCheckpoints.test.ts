@@ -150,30 +150,14 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
     await unwrapContainerKekPath({
       execSql,
       projection: first.projection,
-      resolveProjectionUserKey: async (userId) =>
-        userId === first.userId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: first.encapsulationPublicKey,
-              signingKeyFingerprint: first.author.signerKeyFingerprint,
-              signingPublicKey: first.signingPublicKey,
-              userId,
-            })
-          : null,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(first),
       secretKey: first.secretKey,
     });
     await expect(
       unwrapContainerKekPath({
         execSql,
         projection: fork.projection,
-        resolveProjectionUserKey: async (userId) =>
-          userId === fork.userId
-            ? createTestTrustedUserIdentity({
-                encapsulationPublicKey: fork.encapsulationPublicKey,
-                signingKeyFingerprint: fork.author.signerKeyFingerprint,
-                signingPublicKey: fork.signingPublicKey,
-                userId,
-              })
-            : null,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(fork),
         secretKey: fork.secretKey,
       }),
     ).rejects.toMatchObject({ code: "equivocation" });

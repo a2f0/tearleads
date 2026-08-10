@@ -251,102 +251,72 @@ export async function persistContainerMetadataStateFromRuntime({
   });
 }
 
-async function renameContainerMetadataState(input: {
+/**
+ * Shared metadata-document write path: apply the patch to the doc, queue the
+ * incremental update it produced, and persist the patched container state.
+ */
+async function writeContainerMetadataPatch(input: {
   execSql: ExecSql;
+  metadataState: ContainerMetadataState;
+  patch: Partial<Pick<ContainerMetadataPatch, "icon" | "name">>;
+  persistence: ContainerContentsPersistence;
+}): Promise<PersistedContainerMetadataState> {
+  const { execSql, metadataState, patch, persistence } = input;
+  const metadata = readContainerMetadataValue(
+    metadataState.doc,
+    getDefaultContainerName(metadataState.container.parentId),
+  );
+  const previousVersion = encodeVersionVector(metadataState.doc);
+  writeContainerMetadataValue(metadataState.doc, { ...metadata, ...patch });
+  const update = exportUpdatesSince(metadataState.doc, previousVersion);
+
+  await enqueuePendingContainerUpdate(execSql, persistence, {
+    containerId: metadataState.container.id,
+    update,
+  });
+
+  return persistContainerMetadataState({
+    execSql,
+    metadataState,
+    patch,
+    persistence,
+  });
+}
+
+export async function renameContainerMetadataStateFromRuntime(input: {
   metadataState: ContainerMetadataState;
   name: string;
   persistence: ContainerContentsPersistence;
+  runtime: ContainerMetadataPersistenceRuntime;
 }): Promise<PersistedContainerMetadataState | null> {
-  const { execSql, metadataState, persistence } = input;
   const trimmedName = input.name.trim();
   if (!trimmedName) {
     return null;
   }
 
-  const metadata = readContainerMetadataValue(
-    metadataState.doc,
-    getDefaultContainerName(metadataState.container.parentId),
-  );
-  const previousVersion = encodeVersionVector(metadataState.doc);
-  writeContainerMetadataValue(metadataState.doc, {
-    ...metadata,
-    name: trimmedName,
-  });
-  const update = exportUpdatesSince(metadataState.doc, previousVersion);
-
-  await enqueuePendingContainerUpdate(execSql, persistence, {
-    containerId: metadataState.container.id,
-    update,
-  });
-
-  return persistContainerMetadataState({
-    execSql,
-    metadataState,
+  return writeContainerMetadataPatch({
+    execSql: input.runtime.infra.execSql,
+    metadataState: input.metadataState,
     patch: { name: trimmedName },
-    persistence,
+    persistence: input.persistence,
   });
 }
 
-export async function renameContainerMetadataStateFromRuntime({
-  runtime,
-  ...input
-}: Omit<Parameters<typeof renameContainerMetadataState>[0], "execSql"> & {
-  persistence: ContainerContentsPersistence;
-  runtime: ContainerMetadataPersistenceRuntime;
-}): ReturnType<typeof renameContainerMetadataState> {
-  const execSql = runtime.infra.execSql;
-  return renameContainerMetadataState({
-    ...input,
-    execSql,
-  });
-}
-
-async function setContainerIconMetadataState(input: {
-  execSql: ExecSql;
+export async function setContainerIconMetadataStateFromRuntime(input: {
   icon: string | null;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
+  runtime: ContainerMetadataPersistenceRuntime;
 }): Promise<PersistedContainerMetadataState> {
-  const { execSql, icon, metadataState, persistence } = input;
   // Normalize to the same shape the metadata document stores: a trimmed,
   // non-empty slug or null (the default folder). writeContainerMetadataValue
   // deletes the icon key when null so it matches an icon-less container.
-  const normalizedIcon = icon?.trim() || null;
+  const normalizedIcon = input.icon?.trim() || null;
 
-  const metadata = readContainerMetadataValue(
-    metadataState.doc,
-    getDefaultContainerName(metadataState.container.parentId),
-  );
-  const previousVersion = encodeVersionVector(metadataState.doc);
-  writeContainerMetadataValue(metadataState.doc, {
-    ...metadata,
-    icon: normalizedIcon,
-  });
-  const update = exportUpdatesSince(metadataState.doc, previousVersion);
-
-  await enqueuePendingContainerUpdate(execSql, persistence, {
-    containerId: metadataState.container.id,
-    update,
-  });
-
-  return persistContainerMetadataState({
-    execSql,
-    metadataState,
+  return writeContainerMetadataPatch({
+    execSql: input.runtime.infra.execSql,
+    metadataState: input.metadataState,
     patch: { icon: normalizedIcon },
-    persistence,
-  });
-}
-
-export async function setContainerIconMetadataStateFromRuntime({
-  runtime,
-  ...input
-}: Omit<Parameters<typeof setContainerIconMetadataState>[0], "execSql"> & {
-  persistence: ContainerContentsPersistence;
-  runtime: ContainerMetadataPersistenceRuntime;
-}): ReturnType<typeof setContainerIconMetadataState> {
-  const execSql = runtime.infra.execSql;
-  return setContainerIconMetadataState({
-    ...input,
-    execSql,
+    persistence: input.persistence,
   });
 }

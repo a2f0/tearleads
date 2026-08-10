@@ -20,8 +20,8 @@ import {
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {
   accessManifestObjectKey,
-  loadAccessManifestCheckpointRow,
-  loadPrincipalPolicyCheckpointRow,
+  loadStoredAccessManifestCheckpoint,
+  loadStoredPrincipalPolicyCheckpoint,
   principalPolicyKey,
   upsertAccessManifestCheckpointInTransaction,
   upsertPrincipalPolicyCheckpointInTransaction,
@@ -48,16 +48,6 @@ export function locallyAuthoredAccessManifestHead(plan: {
     }),
     previousManifestHash: plan.manifest.previousManifestHash,
   };
-}
-
-const objectKey = accessManifestObjectKey;
-
-async function loadCheckpoint(
-  tx: ClientSQLiteTransactionScope,
-  checkpoint: AccessManifestCheckpoint,
-): Promise<AccessManifestCheckpoint | null> {
-  const row = await loadAccessManifestCheckpointRow(tx, checkpoint);
-  return row ? { ...checkpoint, ...row } : null;
 }
 
 function validateAcknowledgedHead(
@@ -90,14 +80,17 @@ async function validateAcknowledgedHeads(
 ): Promise<Map<string, AccessManifestCheckpoint>> {
   const pending = new Map<string, AccessManifestCheckpoint>();
   for (const head of heads) {
-    const key = objectKey(head.checkpoint);
+    const key = accessManifestObjectKey(head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(
         "equivocation",
         `locally acknowledged batch contains multiple heads for ${key}`,
       );
     }
-    validateAcknowledgedHead(head, await loadCheckpoint(tx, head.checkpoint));
+    validateAcknowledgedHead(
+      head,
+      await loadStoredAccessManifestCheckpoint(tx, head.checkpoint),
+    );
     pending.set(key, head.checkpoint);
   }
   return pending;
@@ -136,14 +129,6 @@ export async function advanceLocallyAcknowledgedAccessManifestHeadsAtomically(in
     },
     { behavior: "immediate" },
   );
-}
-
-async function loadAcknowledgedPolicyCheckpoint(
-  tx: ClientSQLiteTransactionScope,
-  policy: VerifiedPrincipalPolicy,
-): Promise<PrincipalPolicyCheckpoint | null> {
-  const row = await loadPrincipalPolicyCheckpointRow(tx, policy);
-  return row ? { ...policy.checkpoint, ...row } : null;
 }
 
 function validateAcknowledgedPolicy(
@@ -209,7 +194,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
       for (const { policy } of input.entries) {
         validateAcknowledgedPolicy(
           policy,
-          await loadAcknowledgedPolicyCheckpoint(tx, policy),
+          await loadStoredPrincipalPolicyCheckpoint(tx, policy),
         );
       }
       for (const entry of input.entries) {

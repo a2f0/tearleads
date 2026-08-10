@@ -5,7 +5,7 @@ import {
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import { consumeOriginatedDocument } from "./originatedDocuments";
-import type { ReconciliationService } from "./service";
+import type { ReconciliationService } from "./serviceTypes";
 
 function enqueueKnownEventContainers(input: {
   readonly containerIds: ReadonlyArray<string>;

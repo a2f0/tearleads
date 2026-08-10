@@ -46,8 +46,12 @@ import {
   deriveMoveManifestArtifacts,
 } from "./moveArtifacts";
 import { buildContainerMoveWraps } from "./moveWraps";
-import { containerMutationRequestCore } from "./mutationRequestCore";
+import {
+  containerMutationRequestCore,
+  previousPathRequestFields,
+} from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import { requireUnwrappedKek } from "./rotationContext";
 
 function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
@@ -67,9 +71,9 @@ function buildContainerMoveRequest(input: {
 }): ContainerMutationRequest {
   return {
     ...containerMutationRequestCore("move", input),
-    previousManifest: input.previousManifest,
-    previousContainerPath: input.previousProjection.path.map(
-      asContainerManifestBundle,
+    ...previousPathRequestFields(
+      input.previousManifest,
+      input.previousProjection,
     ),
     destinationParentContainerPath: input.destinationParentProjection.path.map(
       asContainerManifestBundle,
@@ -106,10 +110,11 @@ async function unwrapMoveContainerKeys(input: {
     ...projectionVerificationOptions(input),
   });
   const source = getTargetContainerContext(input.previousProjection);
-  const containerKey = keksByEpochId.get(source.kek.containerKeyEpochId);
-  if (!containerKey) {
-    throw new Error("Container move source KEK could not be unwrapped");
-  }
+  const containerKey = requireUnwrappedKek(
+    keksByEpochId,
+    source.kek,
+    "Container move source",
+  );
 
   const destinationKeksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
@@ -120,14 +125,11 @@ async function unwrapMoveContainerKeys(input: {
   const destinationParent = getTargetContainerContext(
     input.destinationParentProjection,
   );
-  const destinationParentKey = destinationKeksByEpochId.get(
-    destinationParent.kek.containerKeyEpochId,
+  const destinationParentKey = requireUnwrappedKek(
+    destinationKeksByEpochId,
+    destinationParent.kek,
+    "Container move destination parent",
   );
-  if (!destinationParentKey) {
-    throw new Error(
-      "Container move destination parent KEK could not be unwrapped",
-    );
-  }
 
   return { containerKey, destinationParentKey, destinationParent, source };
 }

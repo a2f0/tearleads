@@ -1,13 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { requireTrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsStoreRuntime,
@@ -18,37 +16,14 @@ function createRuntime(input: {
   domainScope: DomainScope;
   online: boolean;
   resolveTrustedUserIdentity: ContainerContentsWorkflowRuntime["resolveTrustedUserIdentity"];
-}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
-  return createContainerContentsStoreTestRuntime({
-    apiClient: {} as Parameters<
-      typeof createContainerContentsStoreTestRuntime
-    >[0]["apiClient"],
-    auth: {
-      isAuthenticated: true,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: "signing-fingerprint-1",
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "idle",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: (async () => []) as ExecSql,
-    },
+}): ReturnType<typeof createContainerContentsTestRuntime> {
+  return createContainerContentsTestRuntime({
+    dbStatus: "idle",
+    domainScope: input.domainScope,
+    execSql: (async () => []) as ExecSql,
+    online: input.online,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    state: {
-      containerId: null,
-      domainScope: input.domainScope,
-      events: [],
-      online: input.online,
-    },
-    util: {
-      log: () => {},
-    },
+    signingFingerprint: "signing-fingerprint-1",
   });
 }
 

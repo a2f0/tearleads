@@ -1,6 +1,6 @@
-import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { ContainerNode } from "../../stores/container-contents";
 import { isSystemContainerNode } from "../../stores/container-contents";
+import type { ReconciliationHost } from "./serviceTypes";
 
 interface ReconciledDocumentContentPullHost {
   readonly getContainer: (containerId: string) => ContainerNode | null;
@@ -12,7 +12,7 @@ interface ReconciledDocumentContentPullHost {
   readonly requestRegisteredDocumentRemoteSync: (
     localId: string,
     documentId: string,
-  ) => boolean;
+  ) => void;
 }
 
 /**
@@ -25,11 +25,7 @@ interface ReconciledDocumentContentPullHost {
  */
 export function createReconciledDocumentContentPuller(
   host: ReconciledDocumentContentPullHost,
-): (
-  containerId: string,
-  documents: ReadonlyArray<DocumentSummary>,
-  force: boolean,
-) => void {
+): ReconciliationHost["requestDocumentContentPull"] {
   // Retain only the last observed version for each system-container document.
   // Keeping the version in the key would grow this cache for every historical
   // updatedAt value over the reconciler's lifetime.

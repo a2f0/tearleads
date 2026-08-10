@@ -1,14 +1,6 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
-import { purgeContainerTree } from "../../workflows/container-contents/container-state/purgeTree";
-import { prepareContainerDocumentRotationSnapshot } from "./documentRotation";
-import { updateContainerContentsSnapshot } from "./state";
+import { runContainerPurge } from "./containerPurgeCore";
 import type { ContainerContentsStoreState } from "./types";
-
-function getContainerContentsStoreLogLabel(
-  state: ContainerContentsStoreState,
-): string {
-  return state.logLabel ?? "Container contents";
-}
 
 // Permanently destroy EVERYTHING under the Trash bin — every trashed folder's
 // whole subtree and every document deleted straight into Trash — while leaving
@@ -24,47 +16,12 @@ export async function emptyTrash(
   trashContainerId: string,
   options?: PurgeOptions,
 ): Promise<boolean> {
-  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
-    return false;
-  }
-
-  const trashState = state.containersById.get(trashContainerId);
-  if (!trashState || (trashState.container.systemSlot ?? null) === null) {
-    return false;
-  }
-  const isRemoteContainer = Boolean(trashState.record.documentId);
-  if (
-    isRemoteContainer &&
-    (!state.runtime.auth.isAuthenticated || !state.runtime.state.online)
-  ) {
-    return false;
-  }
-
-  const result = await purgeContainerTree({
-    containersById: state.containersById,
+  return runContainerPurge(state, trashContainerId, options, {
+    describeResult: (_target, result) =>
+      `emptied trash (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
+    // A clean empty: nothing failed and it ran to completion.
+    didSucceed: (result) => !result.aborted && result.failedCount === 0,
     keepRootContainer: true,
-    onProgress: options?.onProgress,
-    persistence: state.persistence,
-    prepareDocumentRotationSnapshot: (document) =>
-      prepareContainerDocumentRotationSnapshot(state.runtime, document),
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    rootContainerId: trashContainerId,
-    runtime: state.runtime,
-    signal: options?.signal,
+    validateTarget: (target) => (target.container.systemSlot ?? null) !== null,
   });
-  if (!result) {
-    return false;
-  }
-
-  for (const purgedContainerId of result.purgedContainerIds) {
-    state.containersById.delete(purgedContainerId);
-  }
-  if (result.purgedContainerIds.length > 0) {
-    updateContainerContentsSnapshot(state);
-  }
-  state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: emptied trash (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
-  );
-  // A clean empty: nothing failed and it ran to completion.
-  return !result.aborted && result.failedCount === 0;
 }

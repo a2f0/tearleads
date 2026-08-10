@@ -5,7 +5,6 @@ import {
 import {
   createInitialDocumentProbe,
   type InitialDocumentProbe,
-  scheduleInitialDocumentProbeContinuation,
 } from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import {
@@ -13,14 +12,7 @@ import {
   type ReconcilePriority,
   type ReconcileQueue,
 } from "./queue";
-import { listFullRefreshContainerIds } from "./refreshContainerIds";
 import type {
-  ReconciliationHost,
-  ReconciliationRuntimeStatus,
-  ReconciliationService,
-} from "./serviceTypes";
-
-export type {
   ReconciliationHost,
   ReconciliationRuntimeStatus,
   ReconciliationService,
@@ -78,7 +70,7 @@ async function reconcileOneContainer(
     // revalidates registered ordinary documents and retries system documents;
     // an unforced pass only opens system documents, whose local projections may
     // have no document window that would otherwise materialize them.
-    host.requestDocumentContentPull?.(
+    host.requestDocumentContentPull(
       containerId,
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
@@ -116,24 +108,43 @@ async function sweepKnownContainers(
   let firstError: unknown;
   for (const containerId of containerIds) {
     try {
-      const forceDocumentContentPull =
+      await reconcileMarkedContainer(
+        host,
+        state,
+        containerId,
         forceAllDocumentContentPulls ||
-        state.forcedContainerIds.delete(containerId);
-      const reconciled = await reconcileOneContainer(host, containerId, {
-        forceDocumentContentPull,
-      });
-      if (!reconciled) {
-        state.discoveredContainerIds.delete(containerId);
-      }
+          state.forcedContainerIds.delete(containerId),
+      );
     } catch (error) {
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
       }
-      state.discoveredContainerIds.delete(containerId);
     }
   }
   if (firstError !== undefined) {
     throw firstError;
+  }
+}
+
+// Reconcile a container whose discovered mark is already set, rolling the mark
+// back when the container is skipped or fails so a transient error (or a
+// container that later becomes eligible) can be retried.
+async function reconcileMarkedContainer(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  containerId: string,
+  forceDocumentContentPull: boolean,
+): Promise<void> {
+  try {
+    const reconciled = await reconcileOneContainer(host, containerId, {
+      forceDocumentContentPull,
+    });
+    if (!reconciled) {
+      state.discoveredContainerIds.delete(containerId);
+    }
+  } catch (error) {
+    state.discoveredContainerIds.delete(containerId);
+    throw error;
   }
 }
 
@@ -159,17 +170,7 @@ async function runReconcileLane(
   const shouldForce = state.forcedContainerIds.delete(containerId);
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
-    try {
-      const reconciled = await reconcileOneContainer(host, containerId, {
-        forceDocumentContentPull: shouldForce,
-      });
-      if (!reconciled) {
-        state.discoveredContainerIds.delete(containerId);
-      }
-    } catch (error) {
-      state.discoveredContainerIds.delete(containerId);
-      throw error;
-    }
+    await reconcileMarkedContainer(host, state, containerId, shouldForce);
   }
 
   // Keep draining: schedule another pass while the queue holds work.
@@ -185,18 +186,22 @@ function scheduleProbeContinuation(
   state: ReconciliationState,
 ): void {
   state.probeContinuationCancel?.();
-  state.probeContinuationCancel = scheduleInitialDocumentProbeContinuation({
-    canContinue: () =>
-      state.active &&
-      state.queue.size === 0 &&
-      canReconcile(host.getRuntimeStatus()) &&
-      state.initialDocumentProbe.hasPendingWork(),
-    delayMs: state.initialDocumentProbe.continuationDelayMs(),
-    requestRun: () => {
+  const canContinue = () =>
+    state.active &&
+    state.queue.size === 0 &&
+    canReconcile(host.getRuntimeStatus()) &&
+    state.initialDocumentProbe.hasPendingWork();
+  if (!canContinue()) {
+    state.probeContinuationCancel = null;
+    return;
+  }
+  const timeout = setTimeout(() => {
+    if (canContinue()) {
       state.probeContinuationCancel = null;
       state.lane?.requestSync();
-    },
-  });
+    }
+  }, state.initialDocumentProbe.continuationDelayMs());
+  state.probeContinuationCancel = () => clearTimeout(timeout);
 }
 
 function forgetIneligibleDiscoveredContainers(
@@ -457,7 +462,21 @@ export function createReconciliationService(
         host,
         state,
         host.refreshTree,
-        () => listFullRefreshContainerIds(host, state.activeContainerId),
+        () => {
+          const knownIds = host.listKnownContainerIds();
+          const activeContainerId = state.activeContainerId;
+          if (
+            !activeContainerId ||
+            knownIds.includes(activeContainerId) ||
+            !host.canDiscoverContainerDocuments(activeContainerId)
+          ) {
+            return knownIds;
+          }
+          // The generic set excludes write-only foreign system containers.
+          // Refresh still retries an explicitly opened one while sweeps remain
+          // filtered.
+          return [...knownIds, activeContainerId];
+        },
         "full",
       ),
     stop: () => stopReconciliationService(host, state),

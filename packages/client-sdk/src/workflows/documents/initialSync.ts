@@ -1,7 +1,7 @@
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
-import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
+import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import { containerPathRefs } from "../../data/documents/shared/projection";
 import type {
@@ -9,7 +9,7 @@ import type {
   MaterializedDocumentCreatePlan,
 } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
-import { signDocumentOutgoingUpdate } from "./sync";
+import { signDocumentOutgoingUpdate } from "./syncPlanIdentity";
 
 /**
  * Builds the single encrypted initial write for a provisioned document. The
@@ -34,7 +34,7 @@ export async function buildInitialDocumentSyncRequest(input: {
     ...pendingFields,
   };
   const encrypted = await encryptDocumentPendingUpdate({
-    contentKeyMaterial: await importDocumentContentKeyMaterial(
+    contentKeyMaterial: await importContentKeyMaterial(
       input.materializedDocument.contentKey,
     ),
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,

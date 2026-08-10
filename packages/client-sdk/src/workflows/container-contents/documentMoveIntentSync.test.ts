@@ -22,37 +22,10 @@ import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/contain
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { defaultDocumentsPersistence } from "../documents";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
+import { createTestContainerState } from "./container-state/containerState.testFixtures";
 import { syncPendingDocumentMoveIntents } from "./documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "./documentStructure";
-import type { ContainerState } from "./remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
-
-function remoteContainerState(input: {
-  id: string;
-  parentId: string | null;
-}): ContainerState {
-  return {
-    container: {
-      id: input.id,
-      effectiveAccessLevel: "admin",
-      icon: null,
-      metadataDocumentId: `metadata-${input.id}`,
-      name: input.id,
-      organizationId: "organization",
-      parentId: input.parentId,
-      systemSlot: null,
-    },
-    doc: {} as ContainerState["doc"],
-    record: {
-      accessEpoch: 1,
-      accessStateHash: `access-${input.id}`,
-      documentId: `metadata-${input.id}`,
-      id: `record-${input.id}`,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  };
-}
 
 async function runQueuedDocumentMoveFixture(input: {
   containerProjectionFailure?:
@@ -319,7 +292,7 @@ async function runQueuedDocumentMoveFixture(input: {
         containersById: new Map([
           [
             trashProjection.containerId,
-            remoteContainerState({
+            createTestContainerState({
               id: trashProjection.containerId,
               parentId: rootProjection.containerId,
             }),
@@ -458,7 +431,7 @@ test("document move sync propagates identity failures without recording a retry"
           containersById: new Map([
             [
               "target",
-              remoteContainerState({ id: "target", parentId: "root" }),
+              createTestContainerState({ id: "target", parentId: "root" }),
             ],
           ]),
           resolveProjectionUserKey: async () => null,

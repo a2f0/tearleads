@@ -3,28 +3,14 @@ import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { shareRemoteContainer } from "./share";
-
-async function withTestExecSql(
-  name: string,
-  operation: (
-    execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
-  ) => Promise<void>,
-): Promise<void> {
-  const { close, execSql } = await createTestExecSql(name);
-  try {
-    await operation(execSql);
-  } finally {
-    close();
-  }
-}
 
 test("shareRemoteContainer stops before network I/O on trusted identity failure", async () => {
   const parent = await createParentProjection();

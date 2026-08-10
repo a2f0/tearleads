@@ -39,7 +39,7 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
    * background pass can materialize projection-owned content without eagerly
    * opening every ordinary document.
    */
-  requestDocumentContentPull?: (
+  requestDocumentContentPull: (
     containerId: string,
     documents: ReadonlyArray<DocumentSummary>,
     force: boolean,

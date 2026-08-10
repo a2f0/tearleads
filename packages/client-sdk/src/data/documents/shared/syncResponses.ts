@@ -18,7 +18,7 @@ import {
   readRecordString,
   readWriteHeader,
   serializeCanonical,
-  serializeState,
+  serializedPersistedDocumentState,
 } from "./readers";
 import type {
   DocumentSyncApi,
@@ -397,12 +397,12 @@ export async function persistedDocumentSyncStateFromResponse(
     ),
   );
 
-  return {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: response.contentKeyBundle,
     documentId: plan.documentId,
-    contentKeyBundle: serializeState(response.contentKeyBundle),
-    documentKekTargets: serializeState(response.documentKekTargets),
-    documentManifestBundle: serializeState(plan.documentManifest),
-  };
+    documentKekTargets: response.documentKekTargets,
+    documentManifestBundle: plan.documentManifest,
+  });
 }
 
 export function isRetryableDocumentSyncConflict(

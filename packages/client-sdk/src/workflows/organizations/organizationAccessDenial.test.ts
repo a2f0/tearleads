@@ -8,12 +8,9 @@ import {
   organizationReadModelOrganizationId,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../test/helpers/rejectingExecSql";
 import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
-import {
-  createExecSql,
-  type ExecSql,
-  type ExecSqlClientLike,
-} from "../../data/sqlite/sqlSchema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,
   reconcileOrganizationDataUsage,
@@ -34,25 +31,6 @@ function usageFailure(status: 403 | 404): RequestFailure {
     status,
     statusText: "denied",
   };
-}
-
-function createRejectingExecSql(
-  execSql: ExecSql,
-  rejectSql: (sql: string) => boolean,
-): ExecSql {
-  const client: ExecSqlClientLike = {
-    async exec({ bind, rowMode, sql }) {
-      if (rejectSql(sql)) {
-        throw new Error("forced projection purge failure");
-      }
-      const rows =
-        rowMode === "array"
-          ? await execSql(sql, bind, { rowMode: "array" })
-          : await execSql(sql, bind, { rowMode: "object" });
-      return { rows };
-    },
-  };
-  return createExecSql(client);
 }
 
 async function reconcileUsageSuccessfully(execSql: ExecSql) {

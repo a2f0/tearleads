@@ -28,7 +28,7 @@ export function createContainerContentsProjectionUserKeyResolver(
 export function createContainerContentsDocumentProjectionUserKeyResolver(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionUserKeyResolver {
-  return createProjectionUserKeyResolver(runtime);
+  return createContainerContentsProjectionUserKeyResolver(runtime);
 }
 
 export function didContainerContentsProjectionKeyRuntimeChange(

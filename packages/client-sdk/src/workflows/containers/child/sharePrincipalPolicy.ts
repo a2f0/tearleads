@@ -8,7 +8,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyVerificationCheckpoint } from "../../../data/persistence/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import {
   retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
@@ -78,27 +78,25 @@ async function retainVerifiedSharePolicies(input: {
   ];
 }
 
-async function advanceAndSaveVerifiedSharePolicies(input: {
-  checkpointPolicies: readonly VerifiedPrincipalPolicy[];
-  execSql: ExecSql;
-  organizationPolicy: VerifiedExternalAdminPolicy | null;
-}): Promise<void> {
+/**
+ * Commits the verification a loadVerifiedGroupSharePrincipalPolicy call
+ * deferred: advances the keying checkpoints for the verified policies and
+ * caches the dependency bundles they were verified against.
+ */
+export async function advanceVerifiedSharePolicies(
+  execSql: ExecSql,
+  verified: Pick<
+    VerifiedSharePrincipalPolicy,
+    "checkpointPolicies" | "dependencyBundles"
+  >,
+): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: [],
-    execSql: input.execSql,
-    policies: input.checkpointPolicies,
+    execSql,
+    policies: verified.checkpointPolicies,
   });
-  if (!input.organizationPolicy) {
-    return;
-  }
-  for (const dependency of externalAdminPolicyPersistenceEntries(
-    input.organizationPolicy,
-  )) {
-    await savePrincipalPolicyBundle(
-      input.execSql,
-      dependency.bundle,
-      new Date().toISOString(),
-    );
+  for (const bundle of verified.dependencyBundles) {
+    await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
   }
 }
 
@@ -160,18 +158,17 @@ async function loadGroupSharePolicyBundle(input: {
 
 export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
-  deferCheckpointAdvance?: true | undefined;
   execSql: ExecSql;
   expectedGroupHead?: ReferencedPrincipalHead | undefined;
   groupId: string;
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedSharePrincipalPolicy> {
-  const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    execSql: input.execSql,
-    principalId: input.groupId,
-    principalType: "group",
-  });
+  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    "group",
+    input.groupId,
+  );
   const bundle = await loadGroupSharePolicyBundle({
     ...input,
     localCheckpoint,
@@ -232,13 +229,6 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     organizationPolicy: verifiedOrganizationPolicy,
     policy: verified.value,
   });
-  if (!input.deferCheckpointAdvance) {
-    await advanceAndSaveVerifiedSharePolicies({
-      checkpointPolicies,
-      execSql: input.execSql,
-      organizationPolicy: verifiedOrganizationPolicy,
-    });
-  }
   return {
     bundle,
     checkpointPolicies,

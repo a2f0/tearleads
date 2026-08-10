@@ -16,6 +16,7 @@ import {
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
   createUnauthorizedSuccessorPrincipalPolicyBundle,
+  predecessorBundleFromSuccessor,
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
@@ -26,37 +27,6 @@ import {
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
-
-function predecessorBundleFromSuccessor(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse {
-  const previous = bundle.previousStates[0];
-  if (!previous) {
-    throw new Error("Expected successor bundle to include previous state.");
-  }
-
-  return {
-    currentMemberEnvelopes: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      epoch: previous.state.keyEpoch,
-      envelopes: [],
-    },
-    currentPayload: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: "cached-previous-ciphertext",
-      ciphertextHash: previous.state.payloadCiphertextHash,
-      createdAt: previous.state.createdAt,
-    },
-    currentProjection: previous.projection,
-    currentState: previous.state,
-    previousStates: [],
-  };
-}
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(

@@ -7,16 +7,12 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../test/helpers/rejectingExecSql";
 import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
 } from "../../data/persistence/organizations/organizationReadModelPersistence";
-import {
-  createExecSql,
-  type ExecSql,
-  type ExecSqlClientLike,
-} from "../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,
   reconcileOrganizationDataUsage,
@@ -29,31 +25,12 @@ import {
 const organizationId = organizationReadModelOrganizationId;
 const requesterUserId = organizationReadModelUserId;
 
-function createFilteringExecSql(
-  execSql: ExecSql,
-  rejectSql: (sql: string) => boolean,
-): ExecSql {
-  const client: ExecSqlClientLike = {
-    async exec({ bind, rowMode, sql }) {
-      if (rejectSql(sql)) {
-        throw new Error("forced projection purge failure");
-      }
-      const rows =
-        rowMode === "array"
-          ? await execSql(sql, bind, { rowMode: "array" })
-          : await execSql(sql, bind, { rowMode: "object" });
-      return { rows };
-    },
-  };
-  return createExecSql(client);
-}
-
 test("a failed purge cannot serve the revoked projection after a restart", async () => {
   const testDb = await createTestExecSql(
     "organization-presentation-denial-restart-test",
   );
   let rejectPurgeDeletes = false;
-  const execSql = createFilteringExecSql(
+  const execSql = createRejectingExecSql(
     testDb.execSql,
     (sql) =>
       rejectPurgeDeletes &&
@@ -96,7 +73,7 @@ test("a failed purge cannot serve the revoked projection after a restart", async
 
     // A restart loses the in-memory denial: a fresh executor over the same
     // database models the next app launch, offline.
-    const restarted = createFilteringExecSql(testDb.execSql, () => false);
+    const restarted = createRejectingExecSql(testDb.execSql, () => false);
     await expect(
       loadLocalOrganizationDirectoryAndGroups({
         currentUserId: requesterUserId,
@@ -184,7 +161,7 @@ test("a denied requester's purge keeps shared rows for another local identity", 
   const testDb = await createTestExecSql(
     "organization-presentation-shared-identity-purge-test",
   );
-  const execSql = createFilteringExecSql(testDb.execSql, () => false);
+  const execSql = createRejectingExecSql(testDb.execSql, () => false);
   const otherUserId = "user-2";
 
   try {

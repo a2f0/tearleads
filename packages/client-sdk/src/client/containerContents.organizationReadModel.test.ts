@@ -4,18 +4,17 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import { createParentProjection } from "../../test/helpers/containerFixtures";
 import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../test/helpers/internalRuntimeFixtures";
+import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../test/helpers/organizationReadModelProjectionFixtures";
-import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
 import { createContainerContents } from "./containerContents";
 import { createOrganizations } from "./organizations";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
 
 async function waitForRequest(requestCount: () => number): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -49,46 +48,12 @@ test("container info reads groups strictly from the durable local projection", a
       return pendingRequest;
     },
   });
-  const workflowInput = {
+  const workflowInput = createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
-    auth: {
-      isAuthenticated: true,
-      organizationId,
-      userId: organizationReadModelUserId,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } satisfies InternalWorkflowRuntimeInput;
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
+    auth: { organizationId, userId: organizationReadModelUserId },
+    execSql,
+  });
+  const runtime = createInternalRuntimeFixture(() => workflowInput);
   const containerContents = createContainerContents(runtime);
   const organizations = createOrganizations(runtime, containerContents);
 
@@ -162,31 +127,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       } as const;
     },
   });
-  const baseWorkflowInput = {
-    apiClient,
-    resolveTrustedUserIdentity: async () => null,
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } as const;
+  const baseWorkflowInput = createWorkflowInputFixture({ apiClient, execSql });
   let workflowInput: InternalWorkflowRuntimeInput = {
     ...baseWorkflowInput,
     auth: {
@@ -195,16 +136,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
       userId: null,
     },
   };
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
+  const runtime = createInternalRuntimeFixture(() => workflowInput);
   const containerContents = createContainerContents(runtime);
   const organizations = createOrganizations(runtime, containerContents);
 

@@ -1,15 +1,13 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { OrganizationGroupMembersResponse } from "@tearleads/validators/response";
+import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   containers,
   groupId,
   organizationId,
   principalPolicy,
 } from "../../../test/helpers/organizationReadModelFixtures";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildOrganizationGroupPolicyHistory,
@@ -43,36 +41,13 @@ function runtimeWith(
   apiClient: InternalWorkflowRuntimeInput["apiClient"],
   logError: InternalWorkflowRuntimeInput["util"]["logError"] = () => {},
 ): InternalWorkflowRuntimeInput {
-  return {
+  return createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
-    auth: {
-      isAuthenticated: true,
-      organizationId,
-      userId: "current-user",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "idle",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: unavailableExecSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError,
-    },
-  };
+    auth: { organizationId, userId: "current-user" },
+    dbStatus: "idle",
+    execSql: unavailableExecSql,
+    logError,
+  });
 }
 
 function coordinatorWithMembers(

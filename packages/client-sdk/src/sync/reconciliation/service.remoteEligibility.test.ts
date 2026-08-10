@@ -1,56 +1,18 @@
 import { expect, test } from "bun:test";
-import type { DomainScope } from "../../data/domainScope";
-import {
-  createReconciliationService,
-  type ReconciliationHost,
-} from "./service";
-
-async function waitFor(
-  predicate: () => boolean,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(message);
-}
+import { waitFor } from "../../../test/helpers/waitFor";
+import { createReconciliationService } from "./service";
+import { createReconciliationTestHost } from "./service.testFixtures";
 
 test("service drops a stale local active id and re-arms it after remote backing", async () => {
   const discovered: string[] = [];
   let remoteBacked = false;
-  const host: ReconciliationHost = {
-    applyReconciled: () => {},
+  const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
     },
-    domainScope: {} as DomainScope,
-    getRuntimeStatus: () => ({
-      dbStatus: "ready",
-      isAuthenticated: true,
-      online: true,
-    }),
-    isIgnorableError: () => false,
-    listAutomaticRootCatchupContainerIds: () => [],
-    listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => (remoteBacked ? ["active"] : []),
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [],
-    }),
-    refreshRootTree: async () => {},
-    refreshTree: async () => {},
-    probeUndiscoveredDocumentsBatch: async () => ({
-      done: true,
-      nextCursor: null,
-      requestedCount: 0,
-    }),
-    reportInitialDocumentProbeComplete: () => undefined,
-  };
+  });
   const service = createReconciliationService(host);
   service.start();
   service.setActiveContainer("active");
@@ -69,35 +31,13 @@ test("service drops a stale local active id and re-arms it after remote backing"
 
 test("explicit refresh excludes an ineligible active container", async () => {
   const discovered: string[] = [];
-  const host: ReconciliationHost = {
-    applyReconciled: () => {},
+  const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
     },
-    domainScope: {} as DomainScope,
-    getRuntimeStatus: () => ({
-      dbStatus: "ready",
-      isAuthenticated: true,
-      online: true,
-    }),
-    isIgnorableError: () => false,
-    listAutomaticRootCatchupContainerIds: () => [],
-    listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => ["remote"],
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [],
-    }),
-    refreshRootTree: async () => {},
-    refreshTree: async () => {},
-    probeUndiscoveredDocumentsBatch: async () => ({
-      done: true,
-      nextCursor: null,
-      requestedCount: 0,
-    }),
-    reportInitialDocumentProbeComplete: () => undefined,
-  };
+  });
   const service = createReconciliationService(host);
   service.start();
   service.setActiveContainer("local-active");
@@ -111,35 +51,18 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
   const discovered: string[] = [];
   let online = false;
   let remoteBacked = false;
-  const host: ReconciliationHost = {
-    applyReconciled: () => {},
+  const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
     },
-    domainScope: {} as DomainScope,
     getRuntimeStatus: () => ({
       dbStatus: "ready",
       isAuthenticated: true,
       online,
     }),
-    isIgnorableError: () => false,
-    listAutomaticRootCatchupContainerIds: () => [],
-    listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => ["candidate"],
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [],
-    }),
-    refreshRootTree: async () => {},
-    refreshTree: async () => {},
-    probeUndiscoveredDocumentsBatch: async () => ({
-      done: true,
-      nextCursor: null,
-      requestedCount: 0,
-    }),
-    reportInitialDocumentProbeComplete: () => undefined,
-  };
+  });
   const service = createReconciliationService(host);
   service.start();
   service.enqueueIdleBackfill();

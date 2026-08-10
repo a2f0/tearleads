@@ -73,14 +73,20 @@ export function projectionIntegrityErrorCode(
     : null;
 }
 
-export function shouldRetrySyncWithFreshWriterProjection(
+/**
+ * Shared shell for the stale-projection retry classifiers. A cached
+ * projection older than a checkpoint we already recorded ("rollback") —
+ * typical right after a peer shared/rotated a linked container — is resolved
+ * by refetching the current projection. The refetch is safe: it cannot
+ * bypass the anti-rollback check, because a genuinely rolled-back server
+ * response re-throws on the rebuilt plan. Any other keying-verification
+ * failure is terminal; anything else defers to the caller's message
+ * predicate for its unwrap-failure shape.
+ */
+export function shouldRetryWithFreshProjection(
   error: unknown,
+  messageMatches: (message: string) => boolean,
 ): boolean {
-  // A cached writer projection older than a checkpoint we already recorded
-  // ("rollback") — typical right after a peer shared/rotated a linked
-  // container — is resolved by refetching the current projection. The refetch
-  // is safe: it cannot bypass the anti-rollback check, because a genuinely
-  // rolled-back server response re-throws on the rebuilt plan.
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";
@@ -89,12 +95,18 @@ export function shouldRetrySyncWithFreshWriterProjection(
     return false;
   }
 
-  return (
-    error instanceof Error &&
-    error.message.startsWith(
-      "Document authorizing container KEK path could not be unwrapped",
-    ) &&
-    error.message.includes("Container writer projection KEK")
+  return error instanceof Error && messageMatches(error.message);
+}
+
+export function shouldRetrySyncWithFreshWriterProjection(
+  error: unknown,
+): boolean {
+  return shouldRetryWithFreshProjection(
+    error,
+    (message) =>
+      message.startsWith(
+        "Document authorizing container KEK path could not be unwrapped",
+      ) && message.includes("Container writer projection KEK"),
   );
 }
 

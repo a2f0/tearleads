@@ -5,10 +5,9 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 
-export { sequenceUnchanged } from "../../data/sync/sequence";
-// Facade re-exports: document stores must reach these shared sync helpers
+// Facade re-export: document stores must reach this shared sync helper
 // through this workflow boundary, not by importing data/sync directly.
-export { isDatabaseUnavailableError } from "../../data/sync/syncCoordinator";
+export { sequenceUnchanged } from "../../data/sync/sequence";
 
 export type DocumentSyncLane = SyncLane;
 

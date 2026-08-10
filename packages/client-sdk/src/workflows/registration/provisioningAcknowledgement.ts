@@ -4,7 +4,6 @@ import type {
   OrganizationProvisioningResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
-import { locallyAcknowledgedDocumentMutationHead } from "../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentCreateResponseMatchesPlan } from "../../data/documents/shared/responses";
 import {
   type LocallyAcknowledgedAccessManifestHead,
@@ -73,9 +72,7 @@ async function containerArtifactHeads(input: {
       plan: input.artifact.containerPlan,
       response: input.response.container,
     }),
-    locallyAcknowledgedDocumentMutationHead(
-      input.artifact.metadataDocumentPlan,
-    ),
+    locallyAuthoredAccessManifestHead(input.artifact.metadataDocumentPlan),
   ];
 }
 
@@ -84,7 +81,7 @@ function documentHead(input: {
   response: DocumentCreateResponse;
 }): LocallyAcknowledgedAccessManifestHead {
   assertDocumentCreateResponseMatchesPlan(input.plan, input.response);
-  return locallyAcknowledgedDocumentMutationHead(input.plan);
+  return locallyAuthoredAccessManifestHead(input.plan);
 }
 
 export async function provisioningAcknowledgedAccessHeads(input: {
@@ -150,7 +147,7 @@ export async function provisioningAcknowledgedAccessHeads(input: {
   }
   const heads: LocallyAcknowledgedAccessManifestHead[] = [
     locallyAuthoredAccessManifestHead(input.rootContainerPlan),
-    locallyAcknowledgedDocumentMutationHead(input.rootMetadataDocumentPlan),
+    locallyAuthoredAccessManifestHead(input.rootMetadataDocumentPlan),
     ...(await containerArtifactHeads({
       artifact: input.rosterProfile,
       response: rosterContainer,

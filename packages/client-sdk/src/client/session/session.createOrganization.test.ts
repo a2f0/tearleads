@@ -1,36 +1,15 @@
 import { expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createSqlClient,
+  setGeneratedIdentity,
+} from "../../../test/helpers/clientTestSupport";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
-import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
+import type { ExecSql } from "../../sqlite";
 import { Database } from "../database";
-import { createIdentity, type Identity } from "../identity";
+import { createIdentity } from "../identity";
 import { createSession } from "./index";
-
-function createSqlClient(
-  execSql: ExecSql,
-  onExec?: () => void,
-): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      onExec?.();
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
-
-async function setGeneratedIdentity(identity: Identity) {
-  await identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
-}
 
 function createHarness(input: {
   execSql: ExecSql;

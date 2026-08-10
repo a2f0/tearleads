@@ -1,13 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { loadContainers } from "../data/persistence/containers/containerPersistence";
-import type { Logger } from "./logger";
 import { Tearleads } from "./Tearleads";
-
-const quietLogger: Required<Logger> = {
-  log: () => undefined,
-  logError: () => undefined,
-};
 
 async function waitForProvisionedIdentity(sdk: Tearleads): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {

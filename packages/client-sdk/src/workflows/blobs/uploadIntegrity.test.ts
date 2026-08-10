@@ -17,14 +17,9 @@ import { uploadDocumentAttachment } from "./upload";
 type UploadApi = Parameters<typeof uploadDocumentAttachment>[0]["apiClient"];
 
 function createUploadApi(input: {
-  readonly bindingId: string;
-  readonly blobId: string;
-  readonly documentId: string;
   readonly mapBindResponse?:
     | ((response: BlobAttachmentBindResponse) => BlobAttachmentBindResponse)
     | undefined;
-  readonly organizationId: string;
-  readonly slotId: string;
   readonly writerProjection: DocumentWriterProjectionResponse;
 }): {
   readonly apiClient: UploadApi;
@@ -69,9 +64,6 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
     await expect(
       uploadDocumentAttachment({
         apiClient: createUploadApi({
-          bindingId,
-          blobId,
-          documentId: writerProjection.documentId,
           mapBindResponse: (response) => ({
             ...response,
             contentKeyBundle: {
@@ -83,8 +75,6 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
               ),
             },
           }),
-          organizationId: author.organizationId,
-          slotId,
           writerProjection,
         }).apiClient,
         author,
@@ -114,22 +104,8 @@ test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", asyn
   const contentKey = new Uint8Array(32).fill(7);
   const nonceSeed = new Uint8Array(12).fill(9);
   const { close, execSql } = await createTestExecSql("blob-upload-fresh-iv");
-  const firstApi = createUploadApi({
-    bindingId,
-    blobId,
-    documentId: writerProjection.documentId,
-    organizationId: author.organizationId,
-    slotId,
-    writerProjection,
-  });
-  const secondApi = createUploadApi({
-    bindingId,
-    blobId,
-    documentId: writerProjection.documentId,
-    organizationId: author.organizationId,
-    slotId,
-    writerProjection,
-  });
+  const firstApi = createUploadApi({ writerProjection });
+  const secondApi = createUploadApi({ writerProjection });
 
   try {
     const commonInput = {

@@ -1,6 +1,4 @@
 import {
-  type AccessEvent,
-  type AccessManifest,
   computeAccessEventHash,
   computeAccessManifestHash,
   type DocumentLinkSetManifestState,
@@ -13,6 +11,10 @@ import {
   readCanonicalRecord,
 } from "../../keyingCanonicalJson";
 import {
+  readAccessEvent,
+  readAccessManifest,
+} from "../../keyingProjectionVerification/readers";
+import {
   readRecordInteger,
   readRecordNullableString,
   readRecordPositiveInteger,
@@ -20,144 +22,6 @@ import {
   readRecordValue,
   readStringArray,
 } from "../../recordReaders";
-
-function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
-  return (
-    value === "attachment.bind" ||
-    value === "attachment.detach" ||
-    value === "container.create" ||
-    value === "container.grant" ||
-    value === "container.move" ||
-    value === "container.rekey" ||
-    value === "container.revoke" ||
-    value === "document.link" ||
-    value === "document.unlink"
-  );
-}
-
-function isAccessObjectKind(
-  value: unknown,
-): value is AccessEvent["objectKind"] {
-  return value === "blob" || value === "container" || value === "document";
-}
-
-function readAccessEvent(value: unknown, label: string): AccessEvent {
-  const record = readCanonicalRecord(value, label);
-  const eventType = readRecordValue(record, "eventType");
-  const objectKind = readRecordValue(record, "objectKind");
-  if (!isAccessEventType(eventType)) {
-    throw new Error(`${label}.eventType is invalid`);
-  }
-  if (!isAccessObjectKind(objectKind)) {
-    throw new Error(`${label}.objectKind is invalid`);
-  }
-  if (readRecordInteger(record, "version", label) !== 1) {
-    throw new Error(`${label}.version must be 1`);
-  }
-
-  return {
-    version: 1,
-    eventId: readRecordString(record, "eventId", label),
-    eventType,
-    objectKind,
-    objectId: readRecordString(record, "objectId", label),
-    organizationId: readRecordString(record, "organizationId", label),
-    previousManifestHash: readRecordNullableString(
-      record,
-      "previousManifestHash",
-      label,
-    ),
-    dependencyManifestHashes: readStringArray(
-      readRecordValue(record, "dependencyManifestHashes"),
-      `${label}.dependencyManifestHashes`,
-    ),
-    bodyHash: readRecordString(record, "bodyHash", label),
-    signerUserId: readRecordString(record, "signerUserId", label),
-    signerDeviceId: readRecordString(record, "signerDeviceId", label),
-    signerKeyFingerprint: readRecordString(
-      record,
-      "signerKeyFingerprint",
-      label,
-    ),
-    signedAt: readRecordString(record, "signedAt", label),
-    signature: readRecordString(record, "signature", label),
-  };
-}
-
-function readAccessManifest(value: unknown, label: string): AccessManifest {
-  const record = readCanonicalRecord(value, label);
-  const objectKind = readRecordValue(record, "objectKind");
-  if (!isAccessObjectKind(objectKind)) {
-    throw new Error(`${label}.objectKind is invalid`);
-  }
-  if (readRecordInteger(record, "version", label) !== 1) {
-    throw new Error(`${label}.version must be 1`);
-  }
-  const referencedPrincipalHeads = readRecordValue(
-    record,
-    "referencedPrincipalHeads",
-  );
-  if (!Array.isArray(referencedPrincipalHeads)) {
-    throw new Error(`${label}.referencedPrincipalHeads must be an array`);
-  }
-
-  return {
-    version: 1,
-    objectKind,
-    objectId: readRecordString(record, "objectId", label),
-    organizationId: readRecordString(record, "organizationId", label),
-    epoch: readRecordPositiveInteger(record, "epoch", label),
-    previousManifestHash: readRecordNullableString(
-      record,
-      "previousManifestHash",
-      label,
-    ),
-    eventHash: readRecordString(record, "eventHash", label),
-    structuralHash: readRecordString(record, "structuralHash", label),
-    grantRoot: readRecordString(record, "grantRoot", label),
-    referencedPrincipalHeads: referencedPrincipalHeads.map((head, index) => {
-      const headRecord = readCanonicalRecord(
-        head,
-        `${label}.referencedPrincipalHeads[${index}]`,
-      );
-      const principalType = readRecordValue(headRecord, "principalType");
-      if (principalType !== "group" && principalType !== "organization") {
-        throw new Error(
-          `${label}.referencedPrincipalHeads[${index}].principalType is invalid`,
-        );
-      }
-      return {
-        principalType,
-        principalId: readRecordString(
-          headRecord,
-          "principalId",
-          `${label}.referencedPrincipalHeads[${index}]`,
-        ),
-        version: readRecordPositiveInteger(
-          headRecord,
-          "version",
-          `${label}.referencedPrincipalHeads[${index}]`,
-        ),
-        keyEpoch: readRecordPositiveInteger(
-          headRecord,
-          "keyEpoch",
-          `${label}.referencedPrincipalHeads[${index}]`,
-        ),
-        stateHash: readRecordString(
-          headRecord,
-          "stateHash",
-          `${label}.referencedPrincipalHeads[${index}]`,
-        ),
-        keyFingerprint: readRecordString(
-          headRecord,
-          "keyFingerprint",
-          `${label}.referencedPrincipalHeads[${index}]`,
-        ),
-      };
-    }),
-    keyTargetHash: readRecordString(record, "keyTargetHash", label),
-  };
-}
 
 function readDocumentLinkSetManifestState(
   value: unknown,

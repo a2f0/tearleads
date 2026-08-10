@@ -5,9 +5,7 @@ import {
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import type { ListContainersResponse } from "@tearleads/validators/response";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import {
   listDormantMetadataSweepRequests,
@@ -20,19 +18,13 @@ import {
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+} from "./runtime.testFixtures";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";
-
-function emptyContainerPage(): ListContainersResponse {
-  return {
-    hasMore: false,
-    items: [],
-    nextWatermark: null,
-    tombstones: [],
-  };
-}
 
 async function countMetadataDocuments(
   execSql: Parameters<
@@ -89,20 +81,6 @@ async function makeRestorationSweepRetryDue(
     `UPDATE dormant_metadata_sweep_requests
      SET last_attempted_at = '2000-01-01T00:00:00.000Z'`,
   );
-}
-
-async function waitFor(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(message);
 }
 
 test("restoration failures do not reject the structural sync pass", async () => {
@@ -179,35 +157,15 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
       },
       listContainerParentLanes: batchParentLanes(async () => {
         hydrationRequests += 1;
-        return failHydration ? null : emptyContainerPage();
+        return failHydration ? null : emptyListContainersResponse();
       }),
     });
-    const runtime = createContainerContentsStoreTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient,
-      auth: {
-        isAuthenticated: true,
-        organizationId: ORGANIZATION_ID,
-        userId: "user-1",
-      },
-      crypto: {
-        encapsulationKeyPair: generateKemSeedAndKeyPair(),
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: {} as BlobStore,
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope,
-        events: [],
-        online: true,
-      },
-      util: { log: () => {} },
+      domainScope,
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      execSql,
+      organizationId: ORGANIZATION_ID,
     });
     const store = createContainerContentsStore(runtime);
     store.updateRuntime(runtime);
@@ -215,6 +173,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await waitFor(
       () => hydrationRequests > 0,
       "Restoration did not request a recursive hydration.",
+      2_000,
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     const hydrationRequestsAfterFailure = hydrationRequests;
@@ -238,6 +197,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await waitFor(
       () => hydrationRequests > hydrationRequestsAfterFailure,
       "Restoration hydration was not retryable.",
+      2_000,
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(hydrationRequests).toBeGreaterThan(hydrationRequestsAfterFailure);
@@ -263,6 +223,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await waitFor(
       () => hydrationRequests > hydrationRequestsAfterAmbiguousProbe,
       "Final bounded restoration probe was not attempted.",
+      2_000,
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
@@ -279,6 +240,7 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     await waitFor(
       () => hydrationRequests > hydrationRequestsAfterExhaustion,
       "A new restoration edge did not reset the bounded probe budget.",
+      2_000,
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(0);

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createDeferred } from "../../../test/helpers/revenueCatFakes";
 import {
   createRevenueCatPurchases,
   PurchaseCancelledError,
@@ -74,14 +75,6 @@ function createFakeBackend(options?: {
       return currentInfo;
     },
   };
-}
-
-function createDeferred() {
-  let resolve = () => {};
-  const promise = new Promise<void>((next) => {
-    resolve = next;
-  });
-  return { promise, resolve };
 }
 
 const CONFIG = {

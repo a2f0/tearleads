@@ -72,7 +72,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     let shareCallCount = 0;
     const requestedPrincipalPolicies: string[] = [];
     const logs: string[] = [];
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createShareTestRuntime({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => remoteProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -84,32 +84,9 @@ test("shareContainerState treats an existing matching user grant as an idempoten
           return null;
         },
       }),
-      auth: {
-        isAuthenticated: true,
-        organizationId: author.organizationId,
-        userId: author.signerUserId,
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: createMemoryBlobStore(),
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope: createDomainScope(),
-        events: [],
-        online: true,
-      },
-      util: {
-        log: (message) => logs.push(message),
-      },
+      author,
+      execSql,
+      logs,
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =
@@ -202,7 +179,7 @@ test("shareContainerState reuses the idempotency projection for a new user share
       userId: author.signerUserId,
     });
     let projectionCallCount = 0;
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createShareTestRuntime({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionCallCount += 1;
@@ -210,32 +187,9 @@ test("shareContainerState reuses the idempotency projection for a new user share
         },
         getUserIdentity: async () => null,
       }),
-      auth: {
-        isAuthenticated: true,
-        organizationId: author.organizationId,
-        userId: author.signerUserId,
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: createMemoryBlobStore(),
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope: createDomainScope(),
-        events: [],
-        online: true,
-      },
-      util: {
-        log: () => undefined,
-      },
+      author,
+      execSql,
+      logs: [],
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =

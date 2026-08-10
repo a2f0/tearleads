@@ -55,12 +55,9 @@ import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
 } from "./index";
-import {
-  buildDocumentSyncPlan,
-  buildMaterializedDocumentSyncPlan,
-  hasDocumentUpdateEvent,
-  syncRemoteDocument,
-} from "./sync";
+import { hasDocumentUpdateEvent, syncRemoteDocument } from "./sync";
+import { buildDocumentSyncPlan } from "./syncPlanIdentity";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 let execSql: ExecSql;
 let closeExecSql: () => void;

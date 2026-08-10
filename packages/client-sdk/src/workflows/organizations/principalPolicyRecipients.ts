@@ -12,7 +12,7 @@ type PrincipalRekeyRecipient = {
   readonly userId: string;
 };
 
-export function toPrincipalMemberEnvelopeRequest(input: {
+function toPrincipalMemberEnvelopeRequest(input: {
   readonly envelope: {
     readonly keyFingerprint: string;
     readonly kemCipherText: Uint8Array;

@@ -3,10 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 
 // Regression guard: a blocked move intent (its destination parent has not synced
-// yet — the common boot-time case) is still an unsynced local move. The
-// 'pending'-only list omits it, but hydration's parent-preserve logic must still
-// see it via listUnsyncedMoveIntents, or it would revert the local move.
-test("listUnsyncedMoveIntents returns blocked moves that listPendingMoveIntents omits", async () => {
+// yet — the common boot-time case) is still an unsynced local move.
+// listUnsyncedMoveIntents must keep returning it, or hydration's
+// parent-preserve logic would revert the local move.
+test("listUnsyncedMoveIntents returns blocked moves until they sync", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-unsynced-move-intents-test",
   );
@@ -33,12 +33,6 @@ test("listUnsyncedMoveIntents returns blocked moves that listPendingMoveIntents 
       },
     );
 
-    // While pending, both lists surface the move.
-    expect(
-      (await persistence.listPendingMoveIntents(execSql)).map(
-        (intent) => intent.containerId,
-      ),
-    ).toEqual(["child-1"]);
     expect(
       (await persistence.listUnsyncedMoveIntents(execSql)).map(
         (intent) => intent.containerId,
@@ -52,20 +46,15 @@ test("listUnsyncedMoveIntents returns blocked moves that listPendingMoveIntents 
       message: "Container move destination parent is not synced yet",
     });
 
-    // Blocked rows keep replaying: both lists still return the move, with
-    // the blocked status preserved for the queue UI.
+    // Blocked rows keep replaying: the list still returns the move, with the
+    // blocked status preserved for the queue UI.
     expect(
-      (await persistence.listPendingMoveIntents(execSql)).map(
+      (await persistence.listUnsyncedMoveIntents(execSql)).map(
         (intent) => intent.syncStatus,
       ),
     ).toEqual(["blocked"]);
-    expect(
-      (await persistence.listUnsyncedMoveIntents(execSql)).map(
-        (intent) => intent.containerId,
-      ),
-    ).toEqual(["child-1"]);
 
-    // Syncing the move deletes the row, so neither list returns it afterwards.
+    // Syncing the move deletes the row, so the list no longer returns it.
     const [blockedIntent] = await persistence.listUnsyncedMoveIntents(execSql);
     await persistence.markMoveIntentSynced(execSql, {
       containerId: "child-1",

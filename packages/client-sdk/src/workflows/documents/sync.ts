@@ -23,17 +23,9 @@ import {
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { traceHealed } from "./syncTrace";
-
-export {
-  buildDocumentSyncPlan,
-  signDocumentOutgoingUpdate,
-} from "./syncPlanIdentity";
-
-import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
-
-export { buildMaterializedDocumentSyncPlan };
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,

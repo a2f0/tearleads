@@ -5,42 +5,13 @@ import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
+  predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
-
-function predecessorBundle(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse {
-  const previous = bundle.previousStates[0];
-  if (!previous) {
-    throw new Error("Expected a predecessor state");
-  }
-  return {
-    currentMemberEnvelopes: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      epoch: previous.state.keyEpoch,
-      envelopes: [],
-    },
-    currentPayload: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: "cached-previous-ciphertext",
-      ciphertextHash: previous.state.payloadCiphertextHash,
-      createdAt: previous.state.createdAt,
-    },
-    currentProjection: previous.projection,
-    currentState: previous.state,
-    previousStates: [],
-  };
-}
 
 test("referenced policy warming re-verifies an exact local bundle without a policy GET", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -105,7 +76,7 @@ test("referenced policy warming fetches once when the exact local chain is behin
   try {
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
-    const cachedBundle = predecessorBundle(bundle);
+    const cachedBundle = predecessorBundleFromSuccessor(bundle);
     const reference = referencedPrincipalStateFromBundle(cachedBundle);
     await savePrincipalPolicyBundle(
       execSql,
@@ -149,7 +120,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
   try {
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
-    const cachedBundle = predecessorBundle(bundle);
+    const cachedBundle = predecessorBundleFromSuccessor(bundle);
     await savePrincipalPolicyBundle(
       execSql,
       cachedBundle,
@@ -195,7 +166,7 @@ test("referenced policy warming leaves stale local state unchanged when the cano
   try {
     const { bundle, signerKeyResponse } =
       await createSuccessorPrincipalPolicyBundle();
-    const cachedBundle = predecessorBundle(bundle);
+    const cachedBundle = predecessorBundleFromSuccessor(bundle);
     const firstMember = bundle.currentProjection[0];
     if (!firstMember) {
       throw new Error("Expected a current projection member");

@@ -74,7 +74,6 @@ async function unwrapPrincipalSecretKey(
   bundle: PrincipalPolicyBundleResponse,
   secretKey: Uint8Array,
   context: PrincipalPolicyResolutionContext,
-  visitingPrincipalKeys: Set<string>,
 ): Promise<Uint8Array> {
   const principalKey = principalBundleKey(bundle.currentState);
   const policyEpochKey = `${principalKey}:${bundle.currentState.stateHash}`;
@@ -85,12 +84,6 @@ async function unwrapPrincipalSecretKey(
     return cachedSecretKey;
   }
 
-  if (visitingPrincipalKeys.has(policyEpochKey)) {
-    throw new Error(`Principal policy cycle detected for ${principalKey}`);
-  }
-
-  const nextVisitingPrincipalKeys = new Set(visitingPrincipalKeys);
-  nextVisitingPrincipalKeys.add(policyEpochKey);
   const memberEnvelopeEntries = toMemberEnvelopeEntries(
     bundle.currentMemberEnvelopes.envelopes,
   );
@@ -146,7 +139,6 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
           bundle,
           input.secretKey,
           context,
-          new Set(),
         );
 
         return await unwrapDek(keyEntries, principalSecretKey);

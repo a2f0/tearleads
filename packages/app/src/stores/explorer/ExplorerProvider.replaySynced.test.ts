@@ -222,7 +222,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
     expect(movedNode.parentId).toBe("parent-b");
 
     const pendingMoveIntentsBeforeRestart =
-      await defaultExplorerPersistence.listPendingMoveIntents(
+      await defaultExplorerPersistence.listUnsyncedMoveIntents(
         runtime.infra.execSql,
       );
     expect(pendingMoveIntentsBeforeRestart).toEqual([
@@ -286,7 +286,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
 
     await waitForCondition(async () => {
       const pendingMoveIntents =
-        await defaultExplorerPersistence.listPendingMoveIntents(
+        await defaultExplorerPersistence.listUnsyncedMoveIntents(
           runtime.infra.execSql,
         );
       return (

@@ -1,6 +1,5 @@
 import {
   readExactString,
-  readLocalKeyPurpose,
   readNullableString,
   readObject,
   readOptionalString,
@@ -68,7 +67,7 @@ function readLocalSecretContext(value: unknown): LocalSecretContext {
   const context = readObject(value, "context");
   return localSecretContext(
     readLocalKeyringScope(context.get("scope")),
-    readLocalKeyPurpose(context, "purpose"),
+    readString(context, "purpose"),
   );
 }
 

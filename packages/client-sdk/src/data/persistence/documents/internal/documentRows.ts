@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
+import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
+  documentRecordSelection,
   mapSelectedDocumentRecord,
 } from "../../../sqlite/documentPersistence";
 import {
@@ -19,7 +21,6 @@ import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 import {
-  deriveDocumentTitle,
   getProjectionDocumentKind,
   getProjectionText,
   getProjectionTitle,
@@ -57,19 +58,7 @@ async function loadDocumentRecordInTransaction(input: {
 }): Promise<BaseDocumentRecord | null> {
   const { localId, tx } = input;
   const rows = await tx
-    .select({
-      id: documents.localId,
-      documentId: documents.documentId,
-      snapshotEndVersion: documents.snapshotEndVersion,
-      accessEpoch: documents.accessEpoch,
-      accessStateHash: documents.accessStateHash,
-      effectiveAccessLevel: documents.effectiveAccessLevel,
-      lastCommitLsn: documents.lastCommitLsn,
-      documentManifestBundle: documents.documentManifestBundle,
-      contentKeyBundle: documents.contentKeyBundle,
-      documentKekTargets: documents.documentKekTargets,
-      pendingBaseVersion: documents.pendingBaseVersion,
-    })
+    .select(documentRecordSelection)
     .from(documents)
     .where(
       and(
@@ -132,7 +121,7 @@ export async function saveDocumentRows(input: {
     documentId: document.documentId,
     containerId: document.containerId,
     documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    title: document.title ?? deriveDocumentTitle(document.text),
+    title: document.title ?? deriveStoredDocumentTitle(document.text),
     updatedAt,
   };
   await tx
@@ -173,7 +162,7 @@ function didStoredDocumentContentChange(
     existing.documentKind !== (next.documentKind ?? DEFAULT_DOCUMENT_KIND) ||
     existing.snapshotEndVersion !== next.snapshotEndVersion ||
     existing.text !== next.text ||
-    existing.title !== (next.title ?? deriveDocumentTitle(next.text))
+    existing.title !== (next.title ?? deriveStoredDocumentTitle(next.text))
   );
 }
 

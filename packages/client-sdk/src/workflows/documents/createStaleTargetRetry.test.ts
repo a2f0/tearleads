@@ -10,7 +10,7 @@ import {
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
 
 test("createRemoteDocument replans once when the target container head advances", async () => {
@@ -72,15 +72,12 @@ test("createRemoteDocument replans once when the target container head advances"
       documentId: "stale-target-document",
       eventId: "stale-target-event",
       execSql,
-      resolveProjectionUserKey: async (userId) =>
-        userId === author.signerUserId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: keyPair.publicKey,
-              signingKeyFingerprint: author.signerKeyFingerprint,
-              signingPublicKey,
-              userId,
-            })
-          : null,
+      resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+        encapsulationPublicKey: keyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey,
+        userId: author.signerUserId,
+      }),
       signedAt: "2026-07-14T00:00:00.000Z",
       targetSecretKey: keyPair.secretKey,
     });
@@ -121,6 +118,12 @@ test("createRemoteDocument refetches after a container projection rollback", asy
   let projectionReads = 0;
   let evictions = 0;
   let injectRollback = true;
+  const resolveTrustedIdentity = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
   const { close, execSql } = await createTestExecSql(
     "document-create-projection-rollback",
   );
@@ -154,14 +157,7 @@ test("createRemoteDocument refetches after a container projection rollback", asy
             "container projection lost a local checkpoint race",
           );
         }
-        return userId === author.signerUserId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: keyPair.publicKey,
-              signingKeyFingerprint: author.signerKeyFingerprint,
-              signingPublicKey,
-              userId,
-            })
-          : null;
+        return resolveTrustedIdentity(userId);
       },
       signedAt: "2026-07-14T00:00:00.000Z",
       targetSecretKey: keyPair.secretKey,

@@ -96,11 +96,7 @@ export function createRuntime(
     remoteSource: createApiUserIdentitySource(dependencies.api),
   });
   const runtimeSubscription = createRuntimeSubscription(dependencies);
-  const publicRuntimeInput = createRuntimeInputFactory(
-    dependencies,
-    trustedUserIdentityService.resolve,
-  );
-  const internalRuntimeInput = createRuntimeInputFactory(
+  const runtimeInput = createRuntimeInputFactory(
     dependencies,
     trustedUserIdentityService.resolve,
   );
@@ -115,10 +111,10 @@ export function createRuntime(
       get version() {
         return runtimeSubscription.version;
       },
-      input: publicRuntimeInput.hostInput,
+      input: runtimeInput.hostInput,
       subscribe: runtimeSubscription.subscribe,
     },
-    workflowInput: internalRuntimeInput.workflowInput,
+    workflowInput: runtimeInput.workflowInput,
   };
 }
 
@@ -177,18 +173,18 @@ function createRuntimeInputFactory(
         ? dependencies.session.containerId
         : containerId) ?? null;
 
-    auth = reuseWorkflowRuntimeAuth(auth, {
+    auth = reuseIfShallowEqual(auth, {
       defaultOrganizationId: dependencies.session.defaultOrganizationId,
       isAuthenticated: dependencies.session.isAuthenticated,
       organizationId: dependencies.session.organizationId,
       userId: dependencies.session.userId,
     });
-    crypto = reuseWorkflowRuntimeCrypto(crypto, {
+    crypto = reuseIfShallowEqual(crypto, {
       encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
       signingFingerprint: dependencies.identity.signingFingerprint,
       signingKeyPair: dependencies.identity.signingKeyPair,
     });
-    infra = reuseWorkflowRuntimeInfra(infra, {
+    infra = reuseIfShallowEqual(infra, {
       blobStore: dependencies.blobs.store,
       dbStatus,
       documentProjectors: dependencies.documentProjectors,
@@ -196,7 +192,7 @@ function createRuntimeInputFactory(
       // fallback preserves the runtime shape and catches lifecycle bugs.
       execSql,
     });
-    state = reuseWorkflowRuntimeState(state, {
+    state = reuseIfShallowEqual(state, {
       containerId: nextContainerId,
       domainScope: dependencies.getDomainScope(),
       events: dependencies.events.events,
@@ -223,15 +219,15 @@ function createRuntimeInputFactory(
       };
     }
 
-    return createInternalWorkflowRuntimeInput(
-      dependencies.api,
+    return {
+      apiClient: dependencies.api,
       auth,
       crypto,
       infra,
       state,
       util,
       resolveTrustedUserIdentity,
-    );
+    };
   };
 
   return {
@@ -247,76 +243,22 @@ function createRuntimeInputFactory(
   };
 }
 
-function createInternalWorkflowRuntimeInput(
-  apiClient: ApiClient,
-  auth: WorkflowRuntimeAuthInput,
-  crypto: WorkflowRuntimeCryptoInput,
-  infra: WorkflowRuntimeInfraInput,
-  state: WorkflowRuntimeStateInput,
-  util: WorkflowRuntimeUtilInput,
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
-): InternalWorkflowRuntimeInput {
-  return {
-    apiClient,
-    auth,
-    crypto,
-    infra,
-    state,
-    util,
-    resolveTrustedUserIdentity,
-  };
-}
-
-function reuseWorkflowRuntimeAuth(
-  current: WorkflowRuntimeAuthInput | undefined,
-  next: WorkflowRuntimeAuthInput,
-): WorkflowRuntimeAuthInput {
-  return current &&
-    current.defaultOrganizationId === next.defaultOrganizationId &&
-    current.isAuthenticated === next.isAuthenticated &&
-    current.organizationId === next.organizationId &&
-    current.userId === next.userId
-    ? current
-    : next;
-}
-
-function reuseWorkflowRuntimeCrypto(
-  current: WorkflowRuntimeCryptoInput | undefined,
-  next: WorkflowRuntimeCryptoInput,
-): WorkflowRuntimeCryptoInput {
-  return current &&
-    current.encapsulationKeyPair === next.encapsulationKeyPair &&
-    current.signingFingerprint === next.signingFingerprint &&
-    current.signingKeyPair === next.signingKeyPair
-    ? current
-    : next;
-}
-
-function reuseWorkflowRuntimeInfra(
-  current: WorkflowRuntimeInfraInput | undefined,
-  next: WorkflowRuntimeInfraInput,
-): WorkflowRuntimeInfraInput {
-  return current &&
-    current.blobStore === next.blobStore &&
-    current.dbStatus === next.dbStatus &&
-    current.documentProjectors === next.documentProjectors &&
-    current.execSql === next.execSql
-    ? current
-    : next;
-}
-
-function reuseWorkflowRuntimeState(
-  current: WorkflowRuntimeStateInput | undefined,
-  next: WorkflowRuntimeStateInput,
-): WorkflowRuntimeStateInput {
-  return current &&
-    current.containerId === next.containerId &&
-    current.domainScope === next.domainScope &&
-    current.events === next.events &&
-    current.online === next.online &&
-    current.peerScope === next.peerScope &&
-    current.serverEventsConnectionGeneration ===
-      next.serverEventsConnectionGeneration
-    ? current
-    : next;
+/**
+ * Reuses the current runtime-input group when every field of the freshly
+ * constructed `next` literal is reference-equal, so unchanged groups keep a
+ * stable identity across runtime reads.
+ */
+function reuseIfShallowEqual<T extends object>(
+  current: T | undefined,
+  next: T,
+): T {
+  if (!current) {
+    return next;
+  }
+  for (const key of Object.keys(next)) {
+    if (Reflect.get(current, key) !== Reflect.get(next, key)) {
+      return next;
+    }
+  }
+  return current;
 }

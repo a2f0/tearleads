@@ -4,6 +4,7 @@ import { loadLocalContainerStates } from "../../workflows/container-contents/loc
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlyRootContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import { isRemoteBackedContainerState } from "./remoteBackedContainerState";
 
 interface LocalContainerRefreshHost {
   updateSnapshot: () => void;
@@ -56,12 +57,7 @@ function mergeLocalContainerStates(input: {
 function isRemoteBackedRootState(containerState: ContainerState): boolean {
   return (
     containerState.container.parentId === null &&
-    typeof containerState.container.metadataDocumentId === "string" &&
-    containerState.container.metadataDocumentId.length > 0 &&
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0
+    isRemoteBackedContainerState(containerState)
   );
 }
 

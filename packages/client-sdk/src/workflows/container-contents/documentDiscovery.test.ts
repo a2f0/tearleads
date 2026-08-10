@@ -16,7 +16,10 @@ import {
   listAllRemoteContainerIdsFromApi,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
-import { createDiscoveryParentLaneBatchMock } from "./documentDiscovery.testUtils";
+import {
+  createDiscoveryParentLaneBatchMock,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 
 type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
@@ -56,12 +59,6 @@ function listContainerDocumentsResponse(
     ...overrides,
   };
 }
-
-const nullContainerDocumentWatermarks = {
-  applyContainerDocumentTombstones: async () => [],
-  loadContainerDocumentWatermark: async () => null,
-  saveContainerDocumentWatermark: async () => {},
-};
 
 function captureInputs(
   inputs: ReadonlyArray<DiscoveredDocumentInput>,

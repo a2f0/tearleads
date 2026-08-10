@@ -47,7 +47,7 @@ export function principalPolicyKey(
   return JSON.stringify([identity.principalType, identity.principalId]);
 }
 
-export async function loadAccessManifestCheckpointRow(
+async function loadAccessManifestCheckpointRow(
   handle: CheckpointHandle,
   identity: AccessManifestCheckpointIdentity,
 ): Promise<Pick<AccessManifestCheckpoint, "epoch" | "manifestHash"> | null> {
@@ -68,7 +68,7 @@ export async function loadAccessManifestCheckpointRow(
   return rows[0] ?? null;
 }
 
-export async function loadPrincipalPolicyCheckpointRow(
+async function loadPrincipalPolicyCheckpointRow(
   handle: CheckpointHandle,
   identity: PrincipalPolicyCheckpointIdentity,
 ): Promise<Pick<PrincipalPolicyCheckpoint, "version" | "stateHash"> | null> {
@@ -86,6 +86,32 @@ export async function loadPrincipalPolicyCheckpointRow(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * A loaded checkpoint row merged back with the identity it was looked up by —
+ * the full checkpoint shape every comparison consumes.
+ */
+export async function loadStoredAccessManifestCheckpoint(
+  handle: CheckpointHandle,
+  checkpoint: AccessManifestCheckpoint,
+): Promise<AccessManifestCheckpoint | null> {
+  const row = await loadAccessManifestCheckpointRow(handle, checkpoint);
+  return row ? { ...checkpoint, ...row } : null;
+}
+
+export async function loadStoredPrincipalPolicyCheckpoint(
+  handle: CheckpointHandle,
+  identity: PrincipalPolicyCheckpointIdentity,
+): Promise<PrincipalPolicyCheckpoint | null> {
+  const row = await loadPrincipalPolicyCheckpointRow(handle, identity);
+  return row
+    ? {
+        principalType: identity.principalType,
+        principalId: identity.principalId,
+        ...row,
+      }
+    : null;
 }
 
 export async function upsertAccessManifestCheckpointInTransaction(
@@ -127,14 +153,6 @@ export async function upsertPrincipalPolicyCheckpointInTransaction(
     .run();
 }
 
-function isAccessObjectKind(value: string): value is AccessObjectKind {
-  return value === "blob" || value === "container" || value === "document";
-}
-
-function isManagedPrincipalKind(value: string): value is ManagedPrincipalKind {
-  return value === "group" || value === "organization";
-}
-
 // Lazily create the checkpoint tables on first access. Every load/save below
 // calls this, so the tables exist on demand; it is intentionally module-private
 // (no caller outside this file needs it, and exporting it tripped knip).
@@ -150,9 +168,6 @@ export async function loadAccessManifestCheckpoint(
 ): Promise<AccessManifestCheckpoint | null> {
   await ensureKeyingCheckpointTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  if (!isAccessObjectKind(objectKind)) {
-    return null;
-  }
   const row = await loadAccessManifestCheckpointRow(db, {
     objectKind,
     organizationId,
@@ -169,9 +184,6 @@ export async function loadPrincipalPolicyCheckpoint(
 ): Promise<PrincipalPolicyCheckpoint | null> {
   await ensureKeyingCheckpointTables(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  if (!isManagedPrincipalKind(principalType)) {
-    return null;
-  }
   const row = await loadPrincipalPolicyCheckpointRow(db, {
     principalType,
     principalId,

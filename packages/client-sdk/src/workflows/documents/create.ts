@@ -32,13 +32,12 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
 import {
   isDocumentManifestAlreadyExistsConflict,
-  projectionIntegrityErrorCode,
+  shouldRetryWithFreshProjection,
 } from "./syncFailureClassification";
 
 export async function buildMaterializedDocumentCreatePlan(
@@ -116,20 +115,6 @@ export function documentWriterProjectionFromCreateResponse(input: {
   };
 }
 
-function shouldRetryWithFreshContainerProjection(error: unknown): boolean {
-  const integrityErrorCode = projectionIntegrityErrorCode(error);
-  if (integrityErrorCode) {
-    return integrityErrorCode === "rollback";
-  }
-  if (isKeyingVerificationError(error)) {
-    return false;
-  }
-
-  return (
-    error instanceof Error && error.message.includes("could not be unwrapped")
-  );
-}
-
 interface MaterializedDocumentCreatePlanWithProjection {
   readonly containerProjection: ContainerWriterProjectionResponse;
   readonly materializedPlan: MaterializedDocumentCreatePlan;
@@ -183,7 +168,9 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   } catch (error) {
     if (
       !input.apiClient.evictContainerWriterProjection ||
-      !shouldRetryWithFreshContainerProjection(error)
+      !shouldRetryWithFreshProjection(error, (message) =>
+        message.includes("could not be unwrapped"),
+      )
     ) {
       throw error;
     }
@@ -215,12 +202,7 @@ interface RemoteDocumentCreateInput {
    * adopt/stale-target conflict) — e.g. the server denies the write. Callers
    * persist the failure so the write queue can surface it.
    */
-  onTerminalSubmitFailure?:
-    | ((failure: {
-        readonly message: string;
-        readonly status: number | null;
-      }) => Promise<void> | void)
-    | undefined;
+  onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;

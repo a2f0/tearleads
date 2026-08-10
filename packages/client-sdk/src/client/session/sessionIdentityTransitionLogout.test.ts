@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
+import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
 import { Database } from "../database";
 import { createIdentity } from "../identity";
 import { createSession } from "./index";
@@ -41,18 +38,13 @@ test("remote logout does not clear a session for a changed identity", async () =
     organizationId: "identity-b-organization",
     userId: "identity-b-user",
   };
-  const setGeneratedIdentity = () =>
-    identity.setKeyPairs({
-      encapsulationKeyPair: generateKemSeedAndKeyPair(),
-      signingKeyPair: generateSigningSeedAndKeyPair(),
-    });
-  await setGeneratedIdentity();
+  await setGeneratedIdentity(identity);
   session.setContext({
     authToken: "identity-a-token",
     isAuthenticated: true,
   });
   switchIdentity = async () => {
-    await setGeneratedIdentity();
+    await setGeneratedIdentity(identity);
     session.setContext(identityBContext);
   };
 

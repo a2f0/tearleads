@@ -15,21 +15,20 @@ import { RevenueCatProviderPhaseCoordinator } from "./revenueCatProviderPhase";
 import { settleRevenueCatProviderOperation } from "./revenueCatProviderSettlement";
 import { RevenueCatTimeoutCoordinator } from "./revenueCatTimeoutCoordinator";
 
-export {
-  RevenueCatCheckoutAbandonedError,
-  RevenueCatCheckoutIdentityPendingError,
-  RevenueCatOperationTimeoutError,
-  revenueCatCheckoutSettlementTimeoutMs,
-  revenueCatOperationTimeoutMs,
-} from "./revenueCatErrors";
-export type { RevenueCatIdentityCoordinator } from "./revenueCatIdentityTypes";
-
 interface ProviderEnqueueReservation {
   readonly release: () => void;
 }
 
-function usesLongTimeout<T>(input: RevenueCatProviderOperation<T>): boolean {
-  return input.usesCheckoutSettlementTimeout === true;
+/** Pre-consumed deferred marking the moment provider preflight settles. */
+function createPreflightGate() {
+  let resolve = () => {};
+  let reject = (_error: unknown) => {};
+  const promise = new Promise<void>((next, fail) => {
+    resolve = next;
+    reject = fail;
+  });
+  void promise.catch(() => undefined);
+  return { promise, reject, resolve };
 }
 
 class RevenueCatIdentityCoordinatorState
@@ -112,86 +111,66 @@ class RevenueCatIdentityCoordinatorState
   }
 
   identify(appUserId: string): Promise<void> {
+    return this.transitionIdentity(appUserId, "identification");
+  }
+
+  reset(): Promise<void> {
+    return this.transitionIdentity(null, "reset");
+  }
+
+  /** `null` targets the known anonymous buyer via logOut. */
+  private transitionIdentity(
+    target: string | null,
+    operationName: string,
+  ): Promise<void> {
     const timedOut = this.timeouts.rejectIfIdentityTimedOut<void>();
     if (timedOut) return timedOut;
-    const ready = this.startConfiguration(appUserId);
+    const ready = this.startConfiguration(target ?? undefined);
     if (
       this.pendingIdentityChanges.size === 0 &&
-      !this.retryIdentity &&
-      this.currentAppUserId === appUserId
+      this.identityIsCurrent(target)
     ) {
       this.blockedIdentityError = undefined;
-      return this.timeouts.withOperationTimeout(ready, "identification");
+      return this.timeouts.withOperationTimeout(ready, operationName);
     }
     return this.runIdentityChange(async () => {
       await ready;
       // configure({ appUserId }) already establishes this exact identity.
-      if (!this.retryIdentity && this.currentAppUserId === appUserId) {
+      if (this.identityIsCurrent(target)) {
         this.blockedIdentityError = undefined;
         return;
       }
-      await this.logIn(appUserId);
-    }, "identification");
+      await this.applyIdentityTarget(target);
+    }, operationName);
   }
 
-  private async logIn(appUserId: string): Promise<void> {
+  private identityIsCurrent(target: string | null): boolean {
+    return !this.retryIdentity && this.currentAppUserId === target;
+  }
+
+  private applyIdentityTarget(target: string | null): Promise<void> {
+    const mutation =
+      target === null
+        ? () => this.input.backend.logOut()
+        : () => this.input.backend.logIn({ appUserId: target });
+    return this.applyIdentityMutation(mutation, target);
+  }
+
+  private async applyIdentityMutation(
+    mutation: () => Promise<void>,
+    resultingAppUserId: string | null,
+  ): Promise<void> {
     this.blockedIdentityError = undefined;
+    const apply = async () => {
+      await this.timeouts.runIdentityMutation(mutation);
+      this.currentAppUserId = resultingAppUserId;
+    };
     try {
-      await this.timeouts.runIdentityMutation(() =>
-        this.input.backend.logIn({ appUserId }),
-      );
-      this.currentAppUserId = appUserId;
+      await apply();
       this.retryIdentity = undefined;
       this.blockedIdentityError = undefined;
     } catch (error) {
-      this.retryIdentity = async () => {
-        await this.timeouts.runIdentityMutation(() =>
-          this.input.backend.logIn({ appUserId }),
-        );
-        this.currentAppUserId = appUserId;
-      };
-      throw error;
-    }
-  }
-
-  reset(): Promise<void> {
-    const timedOut = this.timeouts.rejectIfIdentityTimedOut<void>();
-    if (timedOut) return timedOut;
-    const ready = this.startConfiguration();
-    if (
-      this.pendingIdentityChanges.size === 0 &&
-      !this.retryIdentity &&
-      this.currentAppUserId === null
-    ) {
-      this.blockedIdentityError = undefined;
-      return this.timeouts.withOperationTimeout(ready, "reset");
-    }
-    return this.runIdentityChange(async () => {
-      await ready;
-      if (!this.retryIdentity && this.currentAppUserId === null) {
-        this.blockedIdentityError = undefined;
-        return;
-      }
-      await this.logOut();
-    }, "reset");
-  }
-
-  private async logOut(): Promise<void> {
-    this.blockedIdentityError = undefined;
-    try {
-      await this.timeouts.runIdentityMutation(() =>
-        this.input.backend.logOut(),
-      );
-      this.currentAppUserId = null;
-      this.retryIdentity = undefined;
-      this.blockedIdentityError = undefined;
-    } catch (error) {
-      this.retryIdentity = async () => {
-        await this.timeouts.runIdentityMutation(() =>
-          this.input.backend.logOut(),
-        );
-        this.currentAppUserId = null;
-      };
+      this.retryIdentity = apply;
       throw error;
     }
   }
@@ -350,13 +329,7 @@ class RevenueCatIdentityCoordinatorState
     const ready = this.startConfiguration(providerInput.expectedAppUserId);
     let providerStarted = false;
     let abandoned = false;
-    let resolvePreflight = () => {};
-    let rejectPreflight = (_error: unknown) => {};
-    const preflight = new Promise<void>((resolve, reject) => {
-      resolvePreflight = resolve;
-      rejectPreflight = reject;
-    });
-    void preflight.catch(() => undefined);
+    const preflight = createPreflightGate();
     const schedule = () =>
       this.scheduleProviderOperation({
         enqueueReservation,
@@ -367,9 +340,9 @@ class RevenueCatIdentityCoordinatorState
         providerInput,
         providerPhase,
         ready,
-        rejectPreflight,
+        rejectPreflight: preflight.reject,
         requiresKnownIdentity,
-        resolvePreflight,
+        resolvePreflight: preflight.resolve,
       });
     const scheduleAfterIdentity = () => {
       const dependencies: Promise<void>[] = [];
@@ -402,12 +375,13 @@ class RevenueCatIdentityCoordinatorState
         }
       : undefined;
     return settleRevenueCatProviderOperation({
-      usesCheckoutSettlementTimeout: usesLongTimeout(providerInput),
+      usesCheckoutSettlementTimeout:
+        providerInput.usesCheckoutSettlementTimeout === true,
       onPreparationTimeout: abandonPreparation,
       ...(abandonProvider ? { onProviderTimeout: abandonProvider } : {}),
       operation,
       operationName: providerInput.operationName,
-      preflight,
+      preflight: preflight.promise,
       providerPhase,
       providerStarted: () => providerStarted,
       timeouts: this.timeouts,
@@ -415,11 +389,11 @@ class RevenueCatIdentityCoordinatorState
   }
 
   private async ensureExpectedIdentity(appUserId: string): Promise<void> {
-    if (!this.retryIdentity && this.currentAppUserId === appUserId) {
+    if (this.identityIsCurrent(appUserId)) {
       this.blockedIdentityError = undefined;
       return;
     }
-    await this.logIn(appUserId);
+    await this.applyIdentityTarget(appUserId);
   }
 
   runCheckout<T>(checkoutInput: {

@@ -8,10 +8,13 @@ import {
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import { principalPolicyBundleContainsReference } from "../../../data/principalPolicyStates";
-import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
+import {
+  advanceVerifiedSharePolicies,
+  loadVerifiedGroupSharePrincipalPolicy,
+  referencedPrincipalHeadFromPolicy,
+} from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
@@ -53,15 +56,6 @@ function projectionHasCurrentGroupGrant(input: {
   );
 }
 
-async function saveDependencyBundles(
-  execSql: ContainerWorkflowRuntime["infra"]["execSql"],
-  bundles: readonly Parameters<typeof savePrincipalPolicyBundle>[1][],
-): Promise<void> {
-  for (const bundle of bundles) {
-    await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
-  }
-}
-
 export async function containerStateHasCurrentGroupGrant(input: {
   accessLevel: GroupGrantAccessLevel;
   containerState: ContainerState;
@@ -92,7 +86,6 @@ export async function containerStateHasCurrentGroupGrant(input: {
   const { bundle, checkpointPolicies, dependencyBundles, policy } =
     await loadVerifiedGroupSharePrincipalPolicy({
       apiClient: input.runtime.apiClient,
-      deferCheckpointAdvance: true,
       execSql: input.runtime.infra.execSql,
       expectedGroupHead: input.expectedGroupHead,
       groupId: input.groupId,
@@ -104,20 +97,11 @@ export async function containerStateHasCurrentGroupGrant(input: {
   ) {
     return false;
   }
-  const currentHead = {
-    principalType: policy.principalType,
-    principalId: policy.principalId,
-    version: policy.version,
-    keyEpoch: policy.keyEpoch,
-    stateHash: policy.stateHash,
-    keyFingerprint: policy.state.keyFingerprint,
-  } satisfies ReferencedPrincipalHead;
-  await advanceKeyingCheckpointsAtomically({
-    access: [],
-    execSql: input.runtime.infra.execSql,
-    policies: checkpointPolicies,
+  const currentHead = referencedPrincipalHeadFromPolicy(policy);
+  await advanceVerifiedSharePolicies(input.runtime.infra.execSql, {
+    checkpointPolicies,
+    dependencyBundles,
   });
-  await saveDependencyBundles(input.runtime.infra.execSql, dependencyBundles);
   await verifyContainerWriterProjection({
     execSql: input.runtime.infra.execSql,
     principalPolicyCache:

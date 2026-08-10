@@ -30,7 +30,9 @@ export {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "./child/share";
+export { referencedPrincipalHeadFromPolicy } from "./child/sharePlanCore";
 export {
+  advanceVerifiedSharePolicies,
   loadVerifiedGroupSharePrincipalPolicy,
   type VerifiedSharePrincipalPolicy,
 } from "./child/sharePrincipalPolicy";

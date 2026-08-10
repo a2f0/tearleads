@@ -11,14 +11,13 @@ import {
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
   createExecSql,
-  type ExecSql,
-  type ExecSqlClientLike,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { listPendingWrites } from "../container-contents/pendingWrites";
@@ -28,16 +27,6 @@ import {
   deriveOrganizationMetadataContainerSystemSlot,
   getRosterProfileDocumentLocalId,
 } from "./rosterProfileContainer";
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 function expectCapturedRequest(
   request: CreateOrganizationRequest | null,
@@ -67,7 +56,7 @@ test("createOrganization provisions a new org for the existing user and persists
           return respondToOrganizationProvisioning(request);
         },
       },
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair,
       log: (message) => logs.push(message),
       signingKeyPair,
@@ -280,7 +269,7 @@ test("createOrganization provisions configured system containers (Trash) atomica
           return respondToOrganizationProvisioning(request);
         },
       },
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair,
       provisionedSystemContainers: [trashSpec],
       signingKeyPair,
@@ -388,7 +377,7 @@ test("createOrganization submits nothing once the identity is stale", async () =
           return respondToOrganizationProvisioning(request);
         },
       },
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair,
       isIdentityCurrent: () => false,
       signingKeyPair,
@@ -413,7 +402,7 @@ test("createOrganization persists nothing when the identity goes stale in-flight
   let releaseHold = () => {};
 
   try {
-    const client = createClient(execSql);
+    const client = execSqlClientFromExecSql(execSql);
     // Genuinely hold the mutation queue the bootstrap persist serializes on:
     // the pre-create and pre-persist checks (probes 1 and 2) pass while the
     // queue is busy, the identity is replaced while the persist waits, and

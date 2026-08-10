@@ -26,6 +26,7 @@ import {
 } from "./documentRecovery";
 import { runContainerDocumentWork } from "./documentWork";
 import { refreshLocalContainerStates } from "./localRefresh";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
 import {
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
@@ -77,16 +78,9 @@ export interface RefreshRootLaneOptions {
   readonly parentIds?: ReadonlyArray<string | null> | undefined;
 }
 
-type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
 type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
   typeof createContainerContentsDocumentsRuntime
 >;
-
-function getContainerContentsStoreLogLabel(
-  state: ContainerContentsStoreSyncState,
-): string {
-  return state.logLabel ?? "Container contents";
-}
 
 function requestContainerContentsStoreSync(
   state: ContainerContentsStoreSyncState,
@@ -118,7 +112,7 @@ function createContainerContentsStoreDocumentMoveHost(
 }
 
 function createSchedulingRemoteContainerIngestor(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }): ContainerContentsStoreSyncAgent["ingestRemoteContainer"] {
@@ -133,7 +127,7 @@ function createSchedulingRemoteContainerIngestor(input: {
 }
 
 async function initializeContainerContentsStore(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
@@ -196,7 +190,7 @@ async function initializeContainerContentsStore(input: {
 }
 
 function ensureContainerContentsStoreInitialized(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
@@ -225,7 +219,7 @@ function ensureContainerContentsStoreInitialized(input: {
 }
 
 async function syncSingleContainerMetadata(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   state: ContainerContentsStoreSyncState;
   containerState: ContainerState;
   encapsulationKeyPair: NonNullable<
@@ -280,7 +274,7 @@ async function syncSingleContainerMetadata(input: {
 }
 
 async function runContainerContentsStoreSyncIteration(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   reconcileRestoredAccess: () => Promise<void>;
   state: ContainerContentsStoreSyncState;
 }) {
@@ -356,7 +350,7 @@ async function runContainerContentsStoreSyncIteration(input: {
 }
 
 export function createContainerContentsStoreSyncAgent(input: {
-  host: ContainerContentsStoreSyncHost;
+  host: RemoteContainerHydrationHost;
   state: ContainerContentsStoreSyncState;
 }): ContainerContentsStoreSyncAgent {
   const { host, state } = input;

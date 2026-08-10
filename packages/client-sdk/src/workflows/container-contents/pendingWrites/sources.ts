@@ -1,9 +1,22 @@
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  getContainerDisplayNameSql,
+  getContainerOrganizationAttributionSql,
+} from "../documentQueries/sql";
 import type {
   PendingWriteCandidate,
   PendingWriteCandidateInclusion,
 } from "./aggregation";
 import { readNumber, readString } from "./rowReaders";
+
+const CONTAINER_DISPLAY_NAME_SQL = getContainerDisplayNameSql({
+  containerAlias: "container",
+  projectionAlias: "container_projection",
+});
+const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
+  containerAlias: "container",
+  projectionAlias: "projection",
+});
 
 const PENDING_WRITE_SOURCE_SQL = `
   WITH pending_update_groups AS (
@@ -23,10 +36,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    COALESCE(
-      NULLIF(container.organization_id, ''),
-      NULLIF(projection.organization_id, '')
-    ) AS organization_id,
+    ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
     'update' AS operation_kind,
     updates.operation_count AS operation_count,
     0 AS byte_length,
@@ -65,10 +75,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    COALESCE(
-      NULLIF(container.organization_id, ''),
-      NULLIF(projection.organization_id, '')
-    ) AS organization_id,
+    ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
     'revalidation' AS operation_kind,
     0 AS operation_count,
     0 AS byte_length,
@@ -96,7 +103,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS namespace,
     updates.local_id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
-    COALESCE(container_projection.display_name, CASE WHEN container.parent_id IS NULL THEN '/' ELSE 'Untitled' END) AS name,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     container.id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'update' AS operation_kind,
@@ -160,10 +167,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    COALESCE(
-      NULLIF(container.organization_id, ''),
-      NULLIF(projection.organization_id, '')
-    ) AS organization_id,
+    ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
     'attachment' AS operation_kind,
     COUNT(*) AS operation_count,
     COALESCE(SUM(attachment.byte_length), 0) AS byte_length,
@@ -194,7 +198,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS namespace,
     intent.container_id AS local_id,
     COALESCE(intent.remote_container_id, CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END) AS remote_id,
-    COALESCE(container_projection.display_name, CASE WHEN container.parent_id IS NULL THEN '/' ELSE 'Untitled' END) AS name,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     intent.container_id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'create' AS operation_kind,
@@ -221,7 +225,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS namespace,
     intent.container_id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
-    COALESCE(container_projection.display_name, CASE WHEN container.parent_id IS NULL THEN '/' ELSE 'Untitled' END) AS name,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     intent.container_id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'move' AS operation_kind,
@@ -249,10 +253,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.document_id AS remote_id,
     projection.title AS name,
     COALESCE(projection.container_id, intent.target_container_id) AS container_id,
-    COALESCE(
-      NULLIF(container.organization_id, ''),
-      NULLIF(projection.organization_id, '')
-    ) AS organization_id,
+    ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
     'move' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
@@ -282,10 +283,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    COALESCE(
-      NULLIF(container.organization_id, ''),
-      NULLIF(projection.organization_id, '')
-    ) AS organization_id,
+    ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
     'create' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
@@ -314,7 +312,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS namespace,
     container.id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
-    COALESCE(container_projection.display_name, CASE WHEN container.parent_id IS NULL THEN '/' ELSE 'Untitled' END) AS name,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     container.id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'create' AS operation_kind,
@@ -344,7 +342,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS namespace,
     container.id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
-    COALESCE(container_projection.display_name, CASE WHEN container.parent_id IS NULL THEN '/' ELSE 'Untitled' END) AS name,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     container.id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'update' AS operation_kind,

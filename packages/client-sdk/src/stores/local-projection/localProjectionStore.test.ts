@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
@@ -12,7 +11,7 @@ import {
   markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "../container-contents/runtime.testFixtures";
+import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";
 import type {
   ContainerContentsStore,
   ContainerNode,
@@ -38,50 +37,15 @@ function createRuntime(input: {
   isAuthenticated: boolean;
   online: boolean;
   dbStatus?: string;
-}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
-  return createContainerContentsStoreTestRuntime({
+}): ReturnType<typeof createContainerContentsTestRuntime> {
+  return createContainerContentsTestRuntime({
     apiClient: input.apiClient,
-    auth: {
-      isAuthenticated: input.isAuthenticated,
-      organizationId: input.isAuthenticated ? "org-1" : null,
-      userId: input.isAuthenticated ? "user-1" : null,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: input.dbStatus ?? "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: input.domainScope,
-      events: [],
-      online: input.online,
-    },
-    util: {
-      log: () => {},
-    },
+    dbStatus: input.dbStatus ?? "ready",
+    domainScope: input.domainScope,
+    execSql: input.execSql,
+    isAuthenticated: input.isAuthenticated,
+    online: input.online,
   });
-}
-
-async function waitFor(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(message);
 }
 
 function remoteContainerNode(id: string): ContainerNode {

@@ -28,6 +28,36 @@ import type {
   SharedRemoteContainerState,
 } from "./types";
 
+/**
+ * Resolve the author, api client, executor, and encapsulation secret a remote
+ * container mutation needs, logging a skip for the given operation when the
+ * writer context is unavailable.
+ */
+function resolveContainerWriterContext(
+  runtime: ContainerWorkflowRuntime,
+  operation:
+    | "container create"
+    | "container group share"
+    | "container move"
+    | "container share",
+) {
+  const author = resolveDocumentCreateAuthor(runtime);
+  const secretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
+  if (!author || !secretKey) {
+    runtime.util.log(
+      `Container contents: skipped ${operation} because the writer context is unavailable.`,
+    );
+    return null;
+  }
+
+  return {
+    apiClient: runtime.apiClient,
+    author,
+    execSql: runtime.infra.execSql,
+    secretKey,
+  };
+}
+
 async function createRemoteContainerWithSeparateMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
@@ -36,16 +66,14 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<CreatedRemoteContainerState | null> {
-  const author = resolveDocumentCreateAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const execSql = input.runtime.infra.execSql;
-  const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
-  if (!author || !parentSecretKey) {
-    input.runtime.util.log(
-      "Container contents: skipped container create because the writer context is unavailable.",
-    );
+  const writer = resolveContainerWriterContext(
+    input.runtime,
+    "container create",
+  );
+  if (!writer) {
     return null;
   }
+  const { apiClient, author, execSql, secretKey: parentSecretKey } = writer;
 
   const createdContainer = await createRemoteContainerMutation({
     apiClient,
@@ -135,6 +163,25 @@ function containerWriterProjectionFromMutationResponse(input: {
   };
 }
 
+function sharedRemoteContainerStateFromMutation(
+  previousProjection: ContainerWriterProjectionResponse,
+  response: ContainerMutationResponse,
+): SharedRemoteContainerState {
+  return {
+    accessManifestHash: response.manifestHead.manifestHash,
+    accessEpoch: response.manifestHead.epoch,
+    createdAt: response.createdAt,
+    metadataDocumentId: readContainerMutationMetadataDocumentId({ response }),
+    referencedPrincipalHeads:
+      referencedPrincipalHeadsFromContainerMutationResponse({ response }),
+    updatedAt: response.updatedAt,
+    writerProjection: containerWriterProjectionFromMutationResponse({
+      previousProjection,
+      response,
+    }),
+  };
+}
+
 export async function shareRemoteContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
@@ -143,16 +190,14 @@ export async function shareRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedRemoteContainerState | null> {
-  const author = resolveDocumentCreateAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const execSql = input.runtime.infra.execSql;
-  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
-  if (!author || !targetSecretKey) {
-    input.runtime.util.log(
-      "Container contents: skipped container share because the writer context is unavailable.",
-    );
+  const writer = resolveContainerWriterContext(
+    input.runtime,
+    "container share",
+  );
+  if (!writer) {
     return null;
   }
+  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const shared = await shareRemoteContainerMutation({
     accessLevel: input.accessLevel,
@@ -173,23 +218,10 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
-  return {
-    accessManifestHash: shared.response.manifestHead.manifestHash,
-    accessEpoch: shared.response.manifestHead.epoch,
-    createdAt: shared.response.createdAt,
-    metadataDocumentId: readContainerMutationMetadataDocumentId({
-      response: shared.response,
-    }),
-    referencedPrincipalHeads:
-      referencedPrincipalHeadsFromContainerMutationResponse({
-        response: shared.response,
-      }),
-    updatedAt: shared.response.updatedAt,
-    writerProjection: containerWriterProjectionFromMutationResponse({
-      previousProjection: input.previousProjection,
-      response: shared.response,
-    }),
-  };
+  return sharedRemoteContainerStateFromMutation(
+    input.previousProjection,
+    shared.response,
+  );
 }
 
 export async function shareRemoteContainerWithGroup(input: {
@@ -201,16 +233,14 @@ export async function shareRemoteContainerWithGroup(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedRemoteContainerState | null> {
-  const author = resolveDocumentCreateAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const execSql = input.runtime.infra.execSql;
-  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
-  if (!author || !targetSecretKey) {
-    input.runtime.util.log(
-      "Container contents: skipped container group share because the writer context is unavailable.",
-    );
+  const writer = resolveContainerWriterContext(
+    input.runtime,
+    "container group share",
+  );
+  if (!writer) {
     return null;
   }
+  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const shared = await shareRemoteContainerWithGroupMutation({
     accessLevel: input.accessLevel,
@@ -232,23 +262,10 @@ export async function shareRemoteContainerWithGroup(input: {
     return null;
   }
 
-  return {
-    accessManifestHash: shared.response.manifestHead.manifestHash,
-    accessEpoch: shared.response.manifestHead.epoch,
-    createdAt: shared.response.createdAt,
-    metadataDocumentId: readContainerMutationMetadataDocumentId({
-      response: shared.response,
-    }),
-    referencedPrincipalHeads:
-      referencedPrincipalHeadsFromContainerMutationResponse({
-        response: shared.response,
-      }),
-    updatedAt: shared.response.updatedAt,
-    writerProjection: containerWriterProjectionFromMutationResponse({
-      previousProjection: input.previousProjection,
-      response: shared.response,
-    }),
-  };
+  return sharedRemoteContainerStateFromMutation(
+    input.previousProjection,
+    shared.response,
+  );
 }
 
 export async function moveRemoteContainer(input: {
@@ -257,16 +274,11 @@ export async function moveRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<RemoteContainer | null> {
-  const author = resolveDocumentCreateAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const execSql = input.runtime.infra.execSql;
-  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
-  if (!author || !targetSecretKey) {
-    input.runtime.util.log(
-      "Container contents: skipped container move because the writer context is unavailable.",
-    );
+  const writer = resolveContainerWriterContext(input.runtime, "container move");
+  if (!writer) {
     return null;
   }
+  const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
   const moved = await moveRemoteContainerMutation({
     apiClient,

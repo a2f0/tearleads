@@ -17,15 +17,47 @@ const documentStoreRegistriesByScope = new WeakMap<
   DomainScope,
   DocumentStoreRegistry
 >();
-const persistedDocumentListenersByScope = new WeakMap<
-  DomainScope,
-  Set<PersistedDocumentListener>
->();
 type PersistedDocumentDeletionListener = (localId: string) => void;
-const persistedDocumentDeletionListenersByScope = new WeakMap<
-  DomainScope,
-  Set<PersistedDocumentDeletionListener>
->();
+
+// Per-scope listener plumbing shared by the persisted-document and
+// persisted-document-deletion channels: emit fans out to the scope's
+// listeners, and unsubscribing the last listener drops the scope entry.
+function createScopedListenerRegistry<
+  Listener extends (...args: never[]) => void,
+>() {
+  const listenersByScope = new WeakMap<DomainScope, Set<Listener>>();
+
+  return {
+    emit: (domainScope: DomainScope, ...args: Parameters<Listener>): void => {
+      const listeners = listenersByScope.get(domainScope);
+      if (!listeners) {
+        return;
+      }
+
+      for (const listener of listeners) {
+        listener(...args);
+      }
+    },
+    subscribe: (domainScope: DomainScope, listener: Listener): (() => void) => {
+      const listeners =
+        listenersByScope.get(domainScope) ?? new Set<Listener>();
+      listeners.add(listener);
+      listenersByScope.set(domainScope, listeners);
+
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          listenersByScope.delete(domainScope);
+        }
+      };
+    },
+  };
+}
+
+const persistedDocumentListeners =
+  createScopedListenerRegistry<PersistedDocumentListener>();
+const persistedDocumentDeletionListeners =
+  createScopedListenerRegistry<PersistedDocumentDeletionListener>();
 
 export function getOrCreateDocumentStoreRegistry(
   domainScope: DomainScope,
@@ -239,64 +271,28 @@ export function emitPersistedDocument(
   domainScope: DomainScope,
   persistedDocument: Parameters<PersistedDocumentListener>[0],
 ): void {
-  const listeners = persistedDocumentListenersByScope.get(domainScope);
-  if (!listeners) {
-    return;
-  }
-
-  for (const listener of listeners) {
-    listener(persistedDocument);
-  }
+  persistedDocumentListeners.emit(domainScope, persistedDocument);
 }
 
 export function subscribeToPersistedDocuments(
   domainScope: DomainScope,
   listener: PersistedDocumentListener,
 ): () => void {
-  const listeners =
-    persistedDocumentListenersByScope.get(domainScope) ??
-    new Set<PersistedDocumentListener>();
-  listeners.add(listener);
-  persistedDocumentListenersByScope.set(domainScope, listeners);
-
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0) {
-      persistedDocumentListenersByScope.delete(domainScope);
-    }
-  };
+  return persistedDocumentListeners.subscribe(domainScope, listener);
 }
 
 export function emitPersistedDocumentDeletion(
   domainScope: DomainScope,
   localId: string,
 ): void {
-  const listeners = persistedDocumentDeletionListenersByScope.get(domainScope);
-  if (!listeners) {
-    return;
-  }
-
-  for (const listener of listeners) {
-    listener(localId);
-  }
+  persistedDocumentDeletionListeners.emit(domainScope, localId);
 }
 
 export function subscribeToPersistedDocumentDeletions(
   domainScope: DomainScope,
   listener: PersistedDocumentDeletionListener,
 ): () => void {
-  const listeners =
-    persistedDocumentDeletionListenersByScope.get(domainScope) ??
-    new Set<PersistedDocumentDeletionListener>();
-  listeners.add(listener);
-  persistedDocumentDeletionListenersByScope.set(domainScope, listeners);
-
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0) {
-      persistedDocumentDeletionListenersByScope.delete(domainScope);
-    }
-  };
+  return persistedDocumentDeletionListeners.subscribe(domainScope, listener);
 }
 
 export function requestDomainDocumentSync(domainScope: DomainScope): void {

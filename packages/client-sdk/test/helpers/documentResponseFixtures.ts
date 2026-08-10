@@ -29,13 +29,13 @@ import type {
   DocumentCreatePlan,
 } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
-import type { buildDocumentSyncPlan } from "../../src/workflows/documents/sync";
+import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlanIdentity";
 import {
   createAuthor,
   createProjection,
   fixtureHash,
 } from "./documentFixturePrimitives";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export function createResponse(
   plan: DocumentCreatePlan,
@@ -252,15 +252,12 @@ export async function createMaterializedSyncFixture() {
     signerPrivateKey: author.signerPrivateKey,
     userId: author.signerUserId,
   });
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === author.signerUserId
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: keyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId,
-        })
-      : null;
+  const resolveProjectionUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
   const materializedCreate = await buildMaterializedDocumentCreatePlan({
     author,

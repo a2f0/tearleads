@@ -199,7 +199,7 @@ function createBackingDocumentStore(
   };
 }
 
-function createRegisteredDocumentStore(
+export function createDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
@@ -216,24 +216,6 @@ function createRegisteredDocumentStore(
       initialText,
       initialDocumentKind,
     ),
-  );
-}
-
-export function createDocumentStore(
-  localId: string,
-  initialRuntime: DocumentsRuntime,
-  persistence: DocumentsPersistence = defaultDocumentsPersistence,
-  initialDocumentId: string | null = null,
-  initialText = "",
-  initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
-): DocumentStore {
-  return createRegisteredDocumentStore(
-    localId,
-    initialRuntime,
-    persistence,
-    initialDocumentId,
-    initialText,
-    initialDocumentKind,
   );
 }
 
@@ -259,7 +241,7 @@ export function getOrCreateDocumentStore(
     return existingStore;
   }
 
-  const nextStore = createRegisteredDocumentStore(
+  const nextStore = createDocumentStore(
     localId,
     runtime,
     defaultDocumentsPersistence,

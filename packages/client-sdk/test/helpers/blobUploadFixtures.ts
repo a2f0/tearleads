@@ -1,4 +1,5 @@
 import {
+  bytesToHex,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
 } from "@tearleads/crypto";
@@ -8,7 +9,10 @@ import type {
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import type { BlobAttachmentApi } from "../../src/data/documents/blob/shared/types";
-import { readWriteHeader } from "../../src/data/documents/shared/readers";
+import {
+  readWriteHeader,
+  uniqueSortedStrings,
+} from "../../src/data/documents/shared/readers";
 
 const DEFAULT_MULTIPART_EXPIRES_AT = "2099-01-01T00:00:00.000Z";
 const DEFAULT_MULTIPART_STAGE_ID = "35069150-b8c1-4052-8003-9780f080aa08";
@@ -43,19 +47,8 @@ interface MultipartBlobStageFixture {
 }
 
 interface MultipartBlobStageFixtureOptions {
-  readonly expiresAt?: string | undefined;
   readonly stageId?: string | undefined;
   readonly uploadId?: string | undefined;
-}
-
-function uniqueSortedStrings(values: readonly string[]): string[] {
-  return [...new Set(values)].sort();
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
 }
 
 async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -96,7 +89,6 @@ function concatenateParts(
 export function createMultipartBlobStageFixture(
   options: MultipartBlobStageFixtureOptions = {},
 ): MultipartBlobStageFixture {
-  const expiresAt = options.expiresAt ?? DEFAULT_MULTIPART_EXPIRES_AT;
   const stageId = options.stageId ?? DEFAULT_MULTIPART_STAGE_ID;
   const uploadId = options.uploadId ?? DEFAULT_MULTIPART_UPLOAD_ID;
   const parts = new Map<number, StoredMultipartPart>();
@@ -117,7 +109,7 @@ export function createMultipartBlobStageFixture(
 
     return {
       ...request,
-      expiresAt,
+      expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
       stageId,
       uploadId,
       uploadedParts: [],
@@ -134,7 +126,7 @@ export function createMultipartBlobStageFixture(
     return {
       ...initiatedRequest,
       completed,
-      expiresAt,
+      expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
       stageId,
       uploadId,
       uploadedParts: completed
@@ -228,7 +220,7 @@ export function createMultipartBlobStageFixture(
     completed = true;
     return {
       byteLength: initiatedRequest.byteLength,
-      expiresAt,
+      expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
       sha256: initiatedRequest.sha256,
       stageId,
     };

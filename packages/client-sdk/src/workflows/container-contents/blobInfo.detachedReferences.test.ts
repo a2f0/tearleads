@@ -2,26 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { listBlobInfo } from "./blobInfo";
-
-async function saveBlobInfoTestDocument(input: {
-  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
-  id: string;
-  title: string;
-  documentId: string | null;
-}) {
-  await sqlDocumentsPersistence.saveDocument(input.execSql, {
-    accessEpoch: 1,
-    accessStateHash: null,
-    containerId: "container-1",
-    documentId: input.documentId,
-    documentKind: "note",
-    id: input.id,
-    lastCommitLsn: null,
-    snapshotEndVersion: "",
-    text: input.title,
-    title: input.title,
-  });
-}
+import { saveBlobInfoTestDocument } from "./blobInfo.testFixtures";
 
 test("listBlobInfo drops references unlinked before the detach flushes", async () => {
   const { close, execSql } = await createTestExecSql(

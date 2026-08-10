@@ -2,23 +2,10 @@ import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 async function listOutputFiles(dirPath: string): Promise<string[]> {
-  const entries = await readdir(dirPath, { withFileTypes: true });
-  const nestedFiles = await Promise.all(
-    entries.map((entry) => {
-      const entryPath = join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        return listOutputFiles(entryPath);
-      }
-
-      return entry.isFile() &&
-        (entry.name.endsWith(".js") || entry.name.endsWith(".d.ts"))
-        ? [entryPath]
-        : [];
-    }),
-  );
-
-  return nestedFiles.flat();
+  const entries = await readdir(dirPath, { recursive: true });
+  return entries
+    .filter((entry) => entry.endsWith(".js") || entry.endsWith(".d.ts"))
+    .map((entry) => join(dirPath, entry));
 }
 
 async function pathExists(filePath: string): Promise<boolean> {

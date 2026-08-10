@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  readTableColumns,
+  requireColumn,
+} from "../../../test/helpers/sqlitePragma";
 import { containerTables } from "./schema";
 import { ensureSqlTables } from "./sqlSchema";
 
@@ -9,24 +13,19 @@ test("dormant sweep schema persists bounded retry state", async () => {
   );
   try {
     await ensureSqlTables(execSql, containerTables);
-    const rows = await execSql(
-      "PRAGMA table_info(dormant_metadata_sweep_requests)",
-    );
-    const attemptCount = rows.find(
-      (row) => Reflect.get(row, "name") === "attempt_count",
-    );
-    const lastAttemptedAt = rows.find(
-      (row) => Reflect.get(row, "name") === "last_attempted_at",
+    const columns = await readTableColumns(
+      execSql,
+      "dormant_metadata_sweep_requests",
     );
 
-    expect(attemptCount).toMatchObject({
-      dflt_value: "0",
-      notnull: 1,
+    expect(requireColumn(columns, "attempt_count")).toMatchObject({
+      defaultValue: "0",
+      notNull: 1,
       type: "INTEGER",
     });
-    expect(lastAttemptedAt).toMatchObject({
-      dflt_value: null,
-      notnull: 0,
+    expect(requireColumn(columns, "last_attempted_at")).toMatchObject({
+      defaultValue: null,
+      notNull: 0,
       type: "TEXT",
     });
   } finally {

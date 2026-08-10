@@ -6,9 +6,9 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
+  createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { shareRemoteContainer } from "./share";
 
 test("shareRemoteContainer rejects a response that drops the unchanged keyring", async () => {
@@ -57,13 +57,11 @@ test("shareRemoteContainer rejects a response that drops the unchanged keyring",
       execSql: database.execSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: async (userId) =>
-        createTestTrustedUserIdentity({
-          encapsulationPublicKey: recipientKeyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        }),
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
       signedAt: SIGNED_AT,
       targetSecretKey: parent.secretKey,
     }),
@@ -110,13 +108,11 @@ test("shareRemoteContainer rejects a keyring injected into an epoch that had non
       execSql: database.execSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: async (userId) =>
-        createTestTrustedUserIdentity({
-          encapsulationPublicKey: recipientKeyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        }),
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
       signedAt: SIGNED_AT,
       targetSecretKey: parent.secretKey,
     }),

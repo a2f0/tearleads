@@ -5,7 +5,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
 
 test("createRemoteDocument records a terminal failure when the container projection fetch fails", async () => {
@@ -174,15 +174,12 @@ test("createRemoteDocument records a terminal failure when the stale-target refe
           status: failure.status,
         });
       },
-      resolveProjectionUserKey: async (userId) =>
-        userId === author.signerUserId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: keyPair.publicKey,
-              signingKeyFingerprint: author.signerKeyFingerprint,
-              signingPublicKey,
-              userId,
-            })
-          : null,
+      resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+        encapsulationPublicKey: keyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey,
+        userId: author.signerUserId,
+      }),
       targetSecretKey: keyPair.secretKey,
     });
 

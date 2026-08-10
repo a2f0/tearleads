@@ -3,14 +3,15 @@ import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
+import {
   organizationReadModelFailure,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import {
   completeDormantMetadataSweepRequest,
@@ -52,47 +53,18 @@ function createRuntime(
         return { data: organizationReadModelSnapshot(), ok: true };
       }),
   });
-  const workflowInput = {
+  const workflowInput = createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
     auth: {
-      isAuthenticated: true,
       organizationId: organizationReadModelOrganizationId,
       userId: organizationReadModelUserId,
     },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } satisfies InternalWorkflowRuntimeInput;
-  const runtime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
-  return { runtime, workflowInput };
+    execSql,
+  });
+  return {
+    runtime: createInternalRuntimeFixture(() => workflowInput),
+    workflowInput,
+  };
 }
 
 test("a reconcile that restores denied org access re-requests all sync lanes", async () => {

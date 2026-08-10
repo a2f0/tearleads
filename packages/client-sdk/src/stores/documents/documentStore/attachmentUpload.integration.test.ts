@@ -18,6 +18,7 @@ import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
+import { waitFor } from "../../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
@@ -28,19 +29,6 @@ import {
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
 import { createDocumentStore } from "../documentStore";
-
-async function waitForCondition(
-  condition: () => boolean,
-  message: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    if (condition()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(message);
-}
 
 function createDocumentSyncResponse(input: {
   readonly commitLsn: string;
@@ -267,9 +255,10 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         name: "remote.png",
       },
     ]);
-    await waitForCondition(
+    await waitFor(
       () => attachmentBinds.length === 1 && !store.getSnapshot().syncing,
       "Pending attachment was not uploaded and synced.",
+      2_000,
     );
 
     const bind = attachmentBinds[0];

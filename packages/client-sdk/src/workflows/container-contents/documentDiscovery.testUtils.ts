@@ -3,6 +3,12 @@ import type {
   ListContainersResponse,
 } from "./documentDiscoveryTypes";
 
+export const nullContainerDocumentWatermarks = {
+  applyContainerDocumentTombstones: async () => [],
+  loadContainerDocumentWatermark: async () => null,
+  saveContainerDocumentWatermark: async () => {},
+};
+
 type DiscoveryParentLaneRequest = Parameters<
   ContainerDocumentDiscoveryApi["listContainerParentLanes"]
 >[0]["lanes"][number];

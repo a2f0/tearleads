@@ -6,12 +6,45 @@ import type {
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type {
+  AccessManifestBundleWire,
+  ContainerMutationRequest,
+} from "@tearleads/validators/request";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import { asContainerManifestBundle } from "../../../data/containers/shared/projection";
 import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
+
+export function readCanonicalRecordOrNull(
+  value: unknown,
+  label: string,
+): Record<string, unknown> | null {
+  return value === null || value === undefined
+    ? null
+    : readCanonicalRecord(value, label);
+}
+
+/**
+ * The previous-manifest identity every non-create mutation
+ * (share/rekey/revoke/move) sends alongside the core request fields.
+ */
+export function previousPathRequestFields(
+  previousManifest: AccessManifestBundleWire,
+  previousProjection: ContainerWriterProjectionResponse,
+): Pick<
+  ContainerMutationRequest,
+  "previousManifest" | "previousContainerPath"
+> {
+  return {
+    previousManifest,
+    previousContainerPath: previousProjection.path.map(
+      asContainerManifestBundle,
+    ),
+  };
+}
 
 /**
  * The eight ContainerMutationRequest fields every child-container mutation

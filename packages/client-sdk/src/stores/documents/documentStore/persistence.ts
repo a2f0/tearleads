@@ -42,7 +42,7 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
 
-function documentSummaryFromRecord(
+export function documentSummaryFromRecord(
   record: DocumentRecord,
   updatedAt: string,
   documentProjectors: DocumentProjectorRegistry,

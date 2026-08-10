@@ -5,7 +5,6 @@ import type {
 import {
   type CreateModuleDatabaseRuntimeOptions,
   createDatabaseRuntime,
-  createModuleDatabaseRuntime,
   type DatabaseRuntime,
   type ModuleWorkerConstructor,
   type ModuleWorkerLike,
@@ -20,11 +19,7 @@ export interface SQLiteRuntimeWorker extends WorkerLike {
   terminate(): void;
 }
 
-export function createSQLiteRuntime(
-  options?: CreateSQLiteRuntimeOptions,
-): SQLiteRuntime {
-  return createModuleDatabaseRuntime(options);
-}
+export { createModuleDatabaseRuntime as createSQLiteRuntime } from "@tearleads/sqlite-worker/runtime";
 
 export function createSQLiteRuntimeFromWorker(
   worker: SQLiteRuntimeWorker,

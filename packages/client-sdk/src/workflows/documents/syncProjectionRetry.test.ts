@@ -8,8 +8,9 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import { syncRemoteDocument } from "./sync";
 import { retrySyncPlan } from "./syncFailures";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 test("syncRemoteDocument refetches writer projection after a stale container KEK unwrap", async () => {
   const {

@@ -140,19 +140,17 @@ export async function deleteContainerWatermarksInTransaction(
 }
 
 function mapSelectedWatermarkRecord(
-  row: SelectedContainerSyncWatermark | undefined,
-): ContainerSyncWatermarkRecord | null {
-  return row
-    ? {
-        laneId: row.laneId,
-        laneKind: row.laneKind,
-        updatedAt: row.updatedAt,
-        watermark: {
-          id: row.watermarkId,
-          updatedAt: row.watermarkUpdatedAt,
-        },
-      }
-    : null;
+  row: SelectedContainerSyncWatermark,
+): ContainerSyncWatermarkRecord {
+  return {
+    laneId: row.laneId,
+    laneKind: row.laneKind,
+    updatedAt: row.updatedAt,
+    watermark: {
+      id: row.watermarkId,
+      updatedAt: row.watermarkUpdatedAt,
+    },
+  };
 }
 
 function laneKeyString(input: { laneId: string; laneKind: string }): string {
@@ -283,20 +281,6 @@ export const sqlContainerSyncWatermarkPersistence = {
     return record?.watermark ?? null;
   },
 
-  async loadWatermarkRecord(
-    execSql: ExecSql,
-    lane: ContainerSyncWatermarkLane,
-  ): Promise<ContainerSyncWatermarkRecord | null> {
-    return (
-      (
-        await sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(
-          execSql,
-          [lane],
-        )
-      )[0] ?? null
-    );
-  },
-
   async loadWatermarkRecords(
     execSql: ExecSql,
     lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
@@ -306,28 +290,13 @@ export const sqlContainerSyncWatermarkPersistence = {
 
     for (const row of rows) {
       const record = mapSelectedWatermarkRecord(row);
-      if (record) {
-        recordsByKey.set(laneKeyString(record), record);
-      }
+      recordsByKey.set(laneKeyString(record), record);
     }
 
     return lanes.map((lane) => {
       const laneKey = containerSyncWatermarkLaneKey(lane);
       return recordsByKey.get(laneKeyString(laneKey)) ?? null;
     });
-  },
-
-  async loadCheckRecord(
-    execSql: ExecSql,
-    lane: ContainerSyncWatermarkLane,
-  ): Promise<ContainerSyncLaneCheckRecord | null> {
-    return (
-      (
-        await sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
-          lane,
-        ])
-      )[0] ?? null
-    );
   },
 
   async loadCheckRecords(

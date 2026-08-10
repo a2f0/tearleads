@@ -292,12 +292,7 @@ export function createLocalProjectionStore(input: {
     },
     getActiveContainerId: () => state.activeContainerId,
     applyReconciled: (delta) => {
-      const changed = applyContainerSummaries(state.cache, {
-        containerId: delta.containerId,
-        documentSummaries: delta.documentSummaries,
-        linkedContainerIdsByDocumentId: delta.linkedContainerIdsByDocumentId,
-      });
-      if (changed) {
+      if (applyContainerSummaries(state.cache, delta)) {
         emit(state);
       }
     },

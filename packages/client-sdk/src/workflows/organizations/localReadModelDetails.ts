@@ -106,6 +106,7 @@ export async function loadLocalOrganizationContainerGrants(
 ): Promise<OrganizationContainerGrants | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,
@@ -128,6 +129,7 @@ export async function loadLocalOrganizationGroupContainers(
 ): Promise<OrganizationGroupContainers | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,
@@ -165,6 +167,7 @@ export async function loadLocalOrganizationGroupPolicyHistory(
 ): Promise<OrganizationGroupPolicyHistory | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,
@@ -225,6 +228,7 @@ export async function loadLocalOrganizationPolicyHistory(
 ): Promise<OrganizationPolicyHistory | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,
@@ -262,6 +266,7 @@ export async function loadLocalOrganizationPolicyReference(
 ): Promise<ReferencedPrincipalStateResponse | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,
@@ -295,6 +300,7 @@ export async function loadLocalOrganizationUserDetail(
 ): Promise<OrganizationUserDetail | null> {
   return runOrganizationPresentationRead(
     { ...input, requesterUserId: input.currentUserId },
+    "readModel",
     async () => {
       const projection = await loadOrganizationReadModelProjection(
         input.execSql,

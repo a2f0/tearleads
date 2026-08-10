@@ -1,12 +1,17 @@
+export { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
+
 import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerKekRecipientTarget,
-  ContainerKeyEpoch,
   ContainerKeyWrap,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import {
+  readContainerKekRecipientTarget,
+  readContainerKeyWrap,
+} from "../../keyingProjectionVerification/readers";
 import {
   readRecordNullableString,
   readRecordPositiveInteger,
@@ -61,17 +66,6 @@ function isManagedPrincipalKind(
   value: unknown,
 ): value is ContainerAccessManifestState["referencedPrincipalHeads"][number]["principalType"] {
   return value === "group" || value === "organization";
-}
-
-function isKekRecipientKind(
-  value: unknown,
-): value is ContainerKeyWrap["recipientKind"] {
-  return (
-    value === "container" ||
-    value === "group" ||
-    value === "organization" ||
-    value === "user"
-  );
 }
 
 function readContainerDirectGrant(
@@ -184,53 +178,6 @@ export function readContainerAccessManifestState(
   };
 }
 
-export function readContainerKeyEpoch(
-  value: unknown,
-  label: string,
-): ContainerKeyEpoch {
-  const record = readCanonicalRecord(value, label);
-  return {
-    id: readRecordString(record, "id", label),
-    containerId: readRecordString(record, "containerId", label),
-    keyEpoch: readRecordPositiveInteger(record, "keyEpoch", label),
-    accessManifestHash: readRecordString(record, "accessManifestHash", label),
-    parentContainerKeyEpochId: readRecordNullableString(
-      record,
-      "parentContainerKeyEpochId",
-      label,
-    ),
-    createdByEventHash: readRecordString(record, "createdByEventHash", label),
-    createdByManifestHash: readRecordString(
-      record,
-      "createdByManifestHash",
-      label,
-    ),
-  };
-}
-
-function readContainerKeyWrap(value: unknown, label: string): ContainerKeyWrap {
-  const record = readCanonicalRecord(value, label);
-  const recipientKind = readRecordValue(record, "recipientKind");
-  if (!isKekRecipientKind(recipientKind)) {
-    throw new Error(`${label}.recipientKind is invalid`);
-  }
-
-  return {
-    containerKeyEpochId: readRecordString(record, "containerKeyEpochId", label),
-    recipientKind,
-    recipientId: readRecordString(record, "recipientId", label),
-    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
-    recipientKeyFingerprint: readRecordString(
-      record,
-      "recipientKeyFingerprint",
-      label,
-    ),
-    kemCipherText: readRecordString(record, "kemCipherText", label),
-    wrappedKey: readRecordString(record, "wrappedKey", label),
-    wrapManifestHash: readRecordString(record, "wrapManifestHash", label),
-  };
-}
-
 export function readContainerKeyWraps(
   value: unknown,
   label: string,
@@ -241,28 +188,6 @@ export function readContainerKeyWraps(
   return value.map((wrap, index) =>
     readContainerKeyWrap(wrap, `${label}[${index}]`),
   );
-}
-
-function readContainerKekRecipientTarget(
-  value: unknown,
-  label: string,
-): ContainerKekRecipientTarget {
-  const record = readCanonicalRecord(value, label);
-  const recipientKind = readRecordValue(record, "recipientKind");
-  if (!isKekRecipientKind(recipientKind)) {
-    throw new Error(`${label}.recipientKind is invalid`);
-  }
-
-  return {
-    recipientKind,
-    recipientId: readRecordString(record, "recipientId", label),
-    recipientKeyEpochId: readRecordString(record, "recipientKeyEpochId", label),
-    recipientKeyFingerprint: readRecordString(
-      record,
-      "recipientKeyFingerprint",
-      label,
-    ),
-  };
 }
 
 export function readContainerKekRecipientTargets(

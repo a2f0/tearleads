@@ -1,14 +1,9 @@
 import type {
-  ManagedPrincipalKind,
   PrincipalPolicyCheckpoint,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyPrincipalPolicyCheckpoint } from "@tearleads/crypto";
-import type { ExecSql } from "../sqlite/sqlSchema";
-import {
-  assertPrincipalPolicyCheckpointShape,
-  loadPrincipalPolicyCheckpoint,
-} from "./keyingCheckpointPersistence";
+import { assertPrincipalPolicyCheckpointShape } from "./keyingCheckpointPersistence";
 
 export function principalPolicyHeadMeetsCheckpoint(
   head: { readonly stateHash: string; readonly version: number },
@@ -39,16 +34,4 @@ export function verifiedPrincipalPolicyMeetsCheckpoint(
     localCheckpoint: checkpoint,
   });
   return true;
-}
-
-export async function loadPrincipalPolicyVerificationCheckpoint(input: {
-  readonly execSql: ExecSql;
-  readonly principalId: string;
-  readonly principalType: ManagedPrincipalKind;
-}): Promise<PrincipalPolicyCheckpoint | null> {
-  return loadPrincipalPolicyCheckpoint(
-    input.execSql,
-    input.principalType,
-    input.principalId,
-  );
 }

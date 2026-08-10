@@ -10,7 +10,7 @@ import {
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
 import { buildDocumentCreatePlan } from "./events";
 import {
   persistedDocumentCreateStateFromResponse,

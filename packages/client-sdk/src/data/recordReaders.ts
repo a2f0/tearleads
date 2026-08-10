@@ -75,6 +75,30 @@ export function readRecordPositiveInteger(
   return value;
 }
 
+export function readRecordSafePositiveInteger(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${label}.${key} must be a positive safe integer`);
+  }
+  return value;
+}
+
+export function readRecordSafeByteLength(
+  record: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${label}.${key} must be a non-negative safe integer`);
+  }
+  return value;
+}
+
 export function readStringArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be a string array`);

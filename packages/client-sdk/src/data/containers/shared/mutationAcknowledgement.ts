@@ -48,28 +48,25 @@ function assertCanonicalMatch(input: {
   }
 }
 
-function expectedRecipientTargets(
-  wraps: readonly ContainerKeyWrap[],
-): ContainerKekRecipientTarget[] {
-  return wraps
-    .map((wrap) => ({
-      recipientId: wrap.recipientId,
-      recipientKeyEpochId: wrap.recipientKeyEpochId,
-      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
-      recipientKind: wrap.recipientKind,
-    }))
-    .sort((left, right) =>
-      canonicalKeyingJsonString(left, "recipient target").localeCompare(
-        canonicalKeyingJsonString(right, "recipient target"),
-      ),
-    );
-}
-
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
     canonicalKeyingJsonString(left, label).localeCompare(
       canonicalKeyingJsonString(right, label),
     ),
+  );
+}
+
+function expectedRecipientTargets(
+  wraps: readonly ContainerKeyWrap[],
+): ContainerKekRecipientTarget[] {
+  return sortedCanonicalValues(
+    wraps.map((wrap) => ({
+      recipientId: wrap.recipientId,
+      recipientKeyEpochId: wrap.recipientKeyEpochId,
+      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+      recipientKind: wrap.recipientKind,
+    })),
+    "recipient target",
   );
 }
 
@@ -199,14 +196,9 @@ async function assertResponseContent(
     label: "wraps",
   });
   const recipientTargets = expectedRecipientTargets(plan.wraps);
-  const responseTargets = [...response.containerKek.recipientTargets].sort(
-    (left, right) =>
-      canonicalKeyingJsonString(
-        left,
-        "response recipient target",
-      ).localeCompare(
-        canonicalKeyingJsonString(right, "response recipient target"),
-      ),
+  const responseTargets = sortedCanonicalValues(
+    response.containerKek.recipientTargets,
+    "response recipient target",
   );
   assertCanonicalMatch({
     actual: responseTargets,

@@ -2,15 +2,19 @@ import {
   computeContainerKekMaterialId,
   encryptWithDek,
   generateKemSeedAndKeyPair,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { fixtureHash } from "./documentFixturePrimitives";
+import {
+  createUserContainerWrap,
+  fixtureHash,
+} from "./documentFixturePrimitives";
 
 export {
   createAuthor,
+  createDeepNonCanonicalRecord,
   createProjection,
+  createUserContainerWrap,
   fixtureHash,
 } from "./documentFixturePrimitives";
 export {
@@ -27,53 +31,6 @@ export {
   projectionPathRefs,
 } from "./documentResponseFixtures";
 export { writerProjectionEvidence } from "./documentWriterProjectionFixtures";
-
-interface DeepNonCanonicalRecord {
-  next?: DeepNonCanonicalRecord;
-  notJson?: undefined;
-}
-
-export function createDeepNonCanonicalRecord(
-  depth: number,
-): DeepNonCanonicalRecord {
-  const root: DeepNonCanonicalRecord = {};
-  let cursor = root;
-
-  for (let index = 0; index < depth; index += 1) {
-    const next: DeepNonCanonicalRecord = {};
-    cursor.next = next;
-    cursor = next;
-  }
-
-  cursor.notJson = undefined;
-  return root;
-}
-
-export async function createUserContainerWrap(input: {
-  containerKeyEpochId: string;
-  containerKek: Uint8Array;
-  publicKey: Uint8Array;
-  userId: string;
-  wrapManifestHash: string;
-}) {
-  const [recipient] = await wrapDekForRecipients(input.containerKek, [
-    input.publicKey,
-  ]);
-  if (!recipient) {
-    throw new Error("Expected recipient wrap");
-  }
-
-  return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "user" as const,
-    recipientId: input.userId,
-    recipientKeyEpochId: `user:${input.userId}:epoch-1`,
-    recipientKeyFingerprint: recipient.keyFingerprint,
-    kemCipherText: bytesToBase64(recipient.kemCipherText),
-    wrappedKey: bytesToBase64(recipient.wrappedKey),
-    wrapManifestHash: input.wrapManifestHash,
-  };
-}
 
 async function createContainerWrap(input: {
   childContainerKeyEpochId: string;

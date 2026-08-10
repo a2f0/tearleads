@@ -1,6 +1,7 @@
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord as ContainerDocumentRecord,
+  StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -10,6 +11,16 @@ export const metadataTestExecSql: ExecSql = async () => [];
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
 >[1];
+type SaveContainerOptions = Parameters<
+  ContainerContentsPersistence["saveContainer"]
+>[3];
+
+export interface SaveContainerCall {
+  container: ContainerRecord;
+  execSql: ExecSql;
+  options?: SaveContainerOptions;
+  record: ContainerDocumentRecord | null;
+}
 
 export function createContainerRecord(
   input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
@@ -46,11 +57,8 @@ export function createContainerContentsPersistence(input: {
     execSql: ExecSql;
     input: PendingUpdateInput;
   }>;
-  savedContainers?: Array<{
-    container: ContainerRecord;
-    execSql: ExecSql;
-    record: ContainerDocumentRecord | null;
-  }>;
+  savedContainers?: SaveContainerCall[];
+  storedContainers?: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
     async claimDormantMetadataSweepAttempt() {
@@ -71,9 +79,6 @@ export function createContainerContentsPersistence(input: {
       });
     },
     async listPendingCreateIntents() {
-      return [];
-    },
-    async listPendingMoveIntents() {
       return [];
     },
     async listUnsyncedMoveIntents() {
@@ -102,7 +107,7 @@ export function createContainerContentsPersistence(input: {
       return [];
     },
     async loadContainers() {
-      return [];
+      return input.storedContainers ?? [];
     },
     async markCreateIntentSynced() {},
     async markMoveIntentSynced() {},
@@ -111,12 +116,16 @@ export function createContainerContentsPersistence(input: {
     async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
-    async saveContainer(receivedExecSql, container, record) {
-      input.savedContainers?.push({
+    async saveContainer(receivedExecSql, container, record, options) {
+      const call: SaveContainerCall = {
         container,
         execSql: receivedExecSql,
         record,
-      });
+      };
+      if (options) {
+        call.options = options;
+      }
+      input.savedContainers?.push(call);
       return container;
     },
     async saveContainerAndDeletePendingUpdates(_execSql, container) {

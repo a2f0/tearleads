@@ -17,7 +17,7 @@ import {
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
-import { buildMaterializedDocumentSyncPlan } from "./sync";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
   const { author } = await createAuthor();

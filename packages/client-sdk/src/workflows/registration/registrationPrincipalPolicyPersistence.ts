@@ -5,65 +5,60 @@ import {
 } from "@tearleads/crypto";
 import type {
   CreateOrganizationGroupRequest,
+  PutPrincipalPolicyRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
-export async function principalPolicyBundleFromInitialGroupRequest(
-  input: CreateOrganizationGroupRequest,
+async function principalPolicyBundleFromInitialRequest(
+  principalType: "group" | "organization",
+  principalId: string,
+  policy: PutPrincipalPolicyRequest,
 ): Promise<PrincipalPolicyBundleResponse> {
   const createdAt = new Date().toISOString();
-  const stateHash = await computePrincipalStateHash(
-    input.initialGroupPolicy.state,
-  );
+  const stateHash = await computePrincipalStateHash(policy.state);
 
   return {
-    currentState: { ...input.initialGroupPolicy.state, stateHash, createdAt },
+    currentState: { ...policy.state, stateHash, createdAt },
     currentPayload: {
-      principalType: "group",
-      principalId: input.groupId,
+      principalType,
+      principalId,
       stateHash,
-      ...input.initialGroupPolicy.encryptedPayload,
+      ...policy.encryptedPayload,
       createdAt,
     },
-    currentProjection: input.initialGroupPolicy.projection,
+    currentProjection: policy.projection,
     currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: input.groupId,
+      principalType,
+      principalId,
       stateHash,
-      epoch: input.initialGroupPolicy.state.keyEpoch,
-      envelopes: input.initialGroupPolicy.memberEnvelopes,
+      epoch: policy.state.keyEpoch,
+      envelopes: policy.memberEnvelopes,
     },
     previousStates: [],
   };
 }
 
+export async function principalPolicyBundleFromInitialGroupRequest(
+  input: CreateOrganizationGroupRequest,
+): Promise<PrincipalPolicyBundleResponse> {
+  return principalPolicyBundleFromInitialRequest(
+    "group",
+    input.groupId,
+    input.initialGroupPolicy,
+  );
+}
+
 export async function principalPolicyBundleFromInitialOrganizationRequest(
   input: RegistrationRequest["initialOrganizationPolicy"],
 ): Promise<PrincipalPolicyBundleResponse> {
-  const createdAt = new Date().toISOString();
-  const stateHash = await computePrincipalStateHash(input.state);
-  return {
-    currentState: { ...input.state, stateHash, createdAt },
-    currentPayload: {
-      principalType: "organization",
-      principalId: input.state.principalId,
-      stateHash,
-      ...input.encryptedPayload,
-      createdAt,
-    },
-    currentProjection: input.projection,
-    currentMemberEnvelopes: {
-      principalType: "organization",
-      principalId: input.state.principalId,
-      stateHash,
-      epoch: input.state.keyEpoch,
-      envelopes: input.memberEnvelopes,
-    },
-    previousStates: [],
-  };
+  return principalPolicyBundleFromInitialRequest(
+    "organization",
+    input.state.principalId,
+    input,
+  );
 }
 
 export async function verifiedPrincipalPolicyFromInitialGroupRequest(

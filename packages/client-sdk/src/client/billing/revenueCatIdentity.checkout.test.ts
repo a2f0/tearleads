@@ -1,67 +1,14 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatBackend } from "./purchases";
 import {
-  createRevenueCatIdentityCoordinator,
+  createCoordinator as coordinator,
+  createRecordingBackend as createBackend,
+  createDeferred,
+} from "../../../test/helpers/revenueCatFakes";
+import {
   RevenueCatCheckoutAbandonedError,
   RevenueCatCheckoutIdentityPendingError,
   RevenueCatOperationTimeoutError,
-} from "./revenueCatIdentity";
-
-interface RecordingBackend extends RevenueCatBackend {
-  readonly calls: string[];
-}
-
-function createBackend(): RecordingBackend {
-  const calls: string[] = [];
-  return {
-    calls,
-    async configure(input) {
-      calls.push(`configure:${input.appUserId ?? "anonymous"}`);
-    },
-    async logIn(input) {
-      calls.push(`login:${input.appUserId}`);
-    },
-    async logOut() {
-      calls.push("logout");
-    },
-    async setAttributes() {},
-    async getCurrentPackages() {
-      return [];
-    },
-    async purchasePackage() {
-      return { activeEntitlementIds: [] };
-    },
-    async getCustomerInfo() {
-      return { activeEntitlementIds: [] };
-    },
-    async restorePurchases() {
-      return { activeEntitlementIds: [] };
-    },
-  };
-}
-
-function createDeferred() {
-  let resolve = () => {};
-  let reject = (_error: unknown) => {};
-  const promise = new Promise<void>((next, fail) => {
-    resolve = next;
-    reject = fail;
-  });
-  return { promise, reject, resolve };
-}
-
-function coordinator(
-  backend: RevenueCatBackend,
-  timeoutMs = 1_000,
-  checkoutSettlementTimeoutMs = 1_000,
-) {
-  return createRevenueCatIdentityCoordinator({
-    apiKey: "key",
-    backend,
-    checkoutSettlementTimeoutMs,
-    timeoutMs,
-  });
-}
+} from "./revenueCatErrors";
 
 test("checkout blocks identity changes but not provider reads", async () => {
   const backend = createBackend();

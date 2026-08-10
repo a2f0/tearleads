@@ -1,24 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { loadContainers } from "../../data/persistence/containers/containerPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";
-
-function createBootstrapClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 test("bootstrapRootContainer creates one local root container and reuses it", async () => {
   const { close, execSql } = await createTestExecSql(
     "registration-root-container-test",
   );
-  const client = createBootstrapClient(execSql);
+  const client = execSqlClientFromExecSql(execSql);
 
   try {
     const created = await bootstrapRootContainer(client);
@@ -53,7 +43,7 @@ test("bootstrapRootContainer serializes concurrent root creation attempts", asyn
   const { close, execSql } = await createTestExecSql(
     "registration-root-container-concurrent-test",
   );
-  const client = createBootstrapClient(execSql);
+  const client = execSqlClientFromExecSql(execSql);
 
   try {
     const results = await Promise.all(

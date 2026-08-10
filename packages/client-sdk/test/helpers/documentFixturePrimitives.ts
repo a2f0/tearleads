@@ -1,12 +1,63 @@
 import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
 
 export async function fixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`document:${label}`));
+}
+
+interface DeepNonCanonicalRecord {
+  next?: DeepNonCanonicalRecord;
+  notJson?: undefined;
+}
+
+export function createDeepNonCanonicalRecord(
+  depth: number,
+): DeepNonCanonicalRecord {
+  const root: DeepNonCanonicalRecord = {};
+  let cursor = root;
+
+  for (let index = 0; index < depth; index += 1) {
+    const next: DeepNonCanonicalRecord = {};
+    cursor.next = next;
+    cursor = next;
+  }
+
+  cursor.notJson = undefined;
+  return root;
+}
+
+export async function createUserContainerWrap(input: {
+  containerKeyEpochId: string;
+  containerKek: Uint8Array;
+  publicKey: Uint8Array;
+  recipientKeyEpochId?: string | undefined;
+  userId: string;
+  wrapManifestHash: string;
+}) {
+  const [recipient] = await wrapDekForRecipients(input.containerKek, [
+    input.publicKey,
+  ]);
+  if (!recipient) {
+    throw new Error("Expected recipient wrap");
+  }
+
+  return {
+    containerKeyEpochId: input.containerKeyEpochId,
+    recipientKind: "user" as const,
+    recipientId: input.userId,
+    recipientKeyEpochId:
+      input.recipientKeyEpochId ?? `user:${input.userId}:epoch-1`,
+    recipientKeyFingerprint: recipient.keyFingerprint,
+    kemCipherText: bytesToBase64(recipient.kemCipherText),
+    wrappedKey: bytesToBase64(recipient.wrappedKey),
+    wrapManifestHash: input.wrapManifestHash,
+  };
 }
 
 export async function createProjection(): Promise<ContainerWriterProjectionResponse> {
@@ -53,7 +104,10 @@ export async function createProjection(): Promise<ContainerWriterProjectionRespo
   };
 }
 
-export async function createAuthor(): Promise<{
+export async function createAuthor(input?: {
+  organizationId?: string;
+  userId?: string;
+}): Promise<{
   author: DocumentCreateAuthor;
   signingPublicKey: Uint8Array;
 }> {
@@ -64,11 +118,11 @@ export async function createAuthor(): Promise<{
 
   return {
     author: {
-      organizationId: "organization-1",
+      organizationId: input?.organizationId ?? "organization-1",
       signerDeviceId: "test-device-1",
       signerKeyFingerprint,
       signerPrivateKey: signingKeyPair.signingPrivateKey,
-      signerUserId: "user-1",
+      signerUserId: input?.userId ?? "user-1",
     },
     signingPublicKey: signingKeyPair.signingPublicKey,
   };

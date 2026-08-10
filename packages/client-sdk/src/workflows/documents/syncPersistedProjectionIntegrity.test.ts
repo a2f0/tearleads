@@ -7,11 +7,9 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../test/helpers/documentFixtures";
-import {
-  buildDocumentSyncPlan,
-  buildMaterializedDocumentSyncPlan,
-  syncRemoteDocument,
-} from "./sync";
+import { syncRemoteDocument } from "./sync";
+import { buildDocumentSyncPlan } from "./syncPlanIdentity";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 function persistedStateFromProjection(
   projection: DocumentWriterProjectionResponse,

@@ -5,7 +5,11 @@ import {
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
 } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteDatabase,
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ensureContainerTables } from "../containers/containerPersistence";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
@@ -45,6 +49,42 @@ export interface DormantMetadataSweepPersistence {
     sweep: DormantMetadataSweepRequest,
     containerIds: ReadonlyArray<string>,
   ) => Promise<number>;
+}
+
+type SweepQueryHandle = ClientSQLiteDatabase | ClientSQLiteTransactionScope;
+
+// The sweep request row must still exist at this generation: a concurrent
+// newer sweep (or a completed one) revokes the candidate set it authorized.
+function sweepGenerationExists(
+  handle: SweepQueryHandle,
+  sweep: DormantMetadataSweepRequest,
+) {
+  return exists(
+    handle
+      .select({ generation: dormantMetadataSweepRequests.generation })
+      .from(dormantMetadataSweepRequests)
+      .where(
+        and(
+          eq(dormantMetadataSweepRequests.organizationId, sweep.organizationId),
+          eq(
+            dormantMetadataSweepRequests.requesterUserId,
+            sweep.requesterUserId,
+          ),
+          eq(dormantMetadataSweepRequests.generation, sweep.generation),
+        ),
+      ),
+  );
+}
+
+// A dormant-metadata row is only reclaimable while its container stays gone;
+// a re-granted container re-attaches the metadata instead.
+function containerRowMissing(handle: SweepQueryHandle) {
+  return notExists(
+    handle
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.id, dormantContainerMetadata.containerId)),
+  );
 }
 
 export async function requestDormantMetadataRestorationSweeps(
@@ -197,30 +237,8 @@ export async function listDormantMetadataSweepCandidates(
         afterContainerId
           ? gt(dormantContainerMetadata.containerId, afterContainerId)
           : undefined,
-        exists(
-          db
-            .select({ generation: dormantMetadataSweepRequests.generation })
-            .from(dormantMetadataSweepRequests)
-            .where(
-              and(
-                eq(
-                  dormantMetadataSweepRequests.organizationId,
-                  sweep.organizationId,
-                ),
-                eq(
-                  dormantMetadataSweepRequests.requesterUserId,
-                  sweep.requesterUserId,
-                ),
-                eq(dormantMetadataSweepRequests.generation, sweep.generation),
-              ),
-            ),
-        ),
-        notExists(
-          db
-            .select({ id: containers.id })
-            .from(containers)
-            .where(eq(containers.id, dormantContainerMetadata.containerId)),
-        ),
+        sweepGenerationExists(db, sweep),
+        containerRowMissing(db),
       ),
     )
     .orderBy(dormantContainerMetadata.containerId)
@@ -248,30 +266,8 @@ async function purgeDormantContainerMetadataCandidateBatch(
           inArray(dormantContainerMetadata.containerId, [...containerIds]),
           eq(dormantContainerMetadata.organizationId, sweep.organizationId),
           lte(dormantContainerMetadata.retainedAt, sweep.requestedAt),
-          exists(
-            tx
-              .select({ generation: dormantMetadataSweepRequests.generation })
-              .from(dormantMetadataSweepRequests)
-              .where(
-                and(
-                  eq(
-                    dormantMetadataSweepRequests.organizationId,
-                    sweep.organizationId,
-                  ),
-                  eq(
-                    dormantMetadataSweepRequests.requesterUserId,
-                    sweep.requesterUserId,
-                  ),
-                  eq(dormantMetadataSweepRequests.generation, sweep.generation),
-                ),
-              ),
-          ),
-          notExists(
-            tx
-              .select({ id: containers.id })
-              .from(containers)
-              .where(eq(containers.id, dormantContainerMetadata.containerId)),
-          ),
+          sweepGenerationExists(tx, sweep),
+          containerRowMissing(tx),
         ),
       );
     const confirmedContainerIds = candidates.map(

@@ -23,9 +23,9 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
+  createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { revokeRemoteContainer } from "./revoke";
 
 test("revokeRemoteContainer removes a direct user grant and rotates the KEK", async () => {
@@ -47,6 +47,11 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   const submittedRequests: ContainerMutationRequest[] = [];
   const mutationResponses: ContainerMutationResponse[] = [];
   const database = await createTestExecSql("remote-container-revoke");
+  const resolveRevokedUserKey = createRecipientIdentityResolver({
+    encapsulationPublicKey: revokedUserKeyPair.publicKey,
+    signingKeyFingerprint: parent.author.signerKeyFingerprint,
+    signingPublicKey: parent.signingPublicKey,
+  });
 
   const revoked = await revokeRemoteContainer({
     apiClient: {
@@ -68,18 +73,10 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
       subjectId: revokedUserId,
       subjectType: "user",
     },
-    resolveProjectionUserKey: async (userId) => {
-      if (userId === revokedUserId) {
-        return createTestTrustedUserIdentity({
-          encapsulationPublicKey: revokedUserKeyPair.publicKey,
-          signingKeyFingerprint: parent.author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        });
-      }
-
-      return createParentProjectionUserKeyResolver(parent)(userId);
-    },
+    resolveProjectionUserKey: async (userId) =>
+      userId === revokedUserId
+        ? resolveRevokedUserKey(userId)
+        : createParentProjectionUserKeyResolver(parent)(userId),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });

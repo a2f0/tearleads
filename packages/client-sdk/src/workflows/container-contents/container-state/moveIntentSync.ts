@@ -157,9 +157,9 @@ async function trySyncPendingContainerMoveIntent(
     // below: the source's own create intent syncs first (createIntentSync runs
     // before moveIntentSync in a pass), but if that create fails on this pass
     // the source still lacks remote metadata here. Keep the intent 'pending'
-    // (not 'blocked') so it retries once the create lands — marking it 'blocked'
-    // dropped it from listPendingMoveIntents permanently, so the move never
-    // propagated even after the source finished syncing.
+    // (not 'blocked') so the queue reports a retryable failure rather than a
+    // missing-dependency block; either way listUnsyncedMoveIntents replays it
+    // once the create lands.
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
       message: "Container move source is not synced yet",
@@ -222,7 +222,7 @@ export async function syncPendingContainerMoveIntents(input: {
   const { host, state } = input;
   const execSql = state.runtime.infra.execSql;
   const pendingIntents =
-    await state.persistence.listPendingMoveIntents(execSql);
+    await state.persistence.listUnsyncedMoveIntents(execSql);
   let movedCount = 0;
 
   for (const intent of pendingIntents) {

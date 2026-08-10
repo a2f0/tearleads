@@ -44,7 +44,6 @@ import {
 import { createContainerContentsDocumentProjectionUserKeyResolver } from "../workflows/container-contents/projectionKeys";
 import {
   type ContainerContentsStoreWorkflowRuntime,
-  type ContainerContentsWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
@@ -132,15 +131,6 @@ export type {
   UnlinkDocumentFromContainerInput,
 } from "./containerContentsTypes";
 
-type ContainerDocumentDiscoveryPersistence = Pick<
-  ContainerDocumentQueries,
-  | "applyContainerDocumentTombstones"
-  | "loadContainerDocumentWatermark"
-  | "replaceDocumentLinksBatch"
-  | "saveContainerDocumentWatermark"
-  | "upsertDiscoveredDocuments"
->;
-
 export { createContainerDocumentObjectSyncState };
 
 export function createContainerContents(
@@ -183,6 +173,12 @@ interface ContainerInfoOrganizationScope {
   readonly domainScope: InternalWorkflowRuntimeInput["state"]["domainScope"];
   readonly organizationId: string;
   readonly userId: string;
+}
+
+function readyExecSql(
+  runtime: InternalWorkflowRuntimeInput,
+): InternalWorkflowRuntimeInput["infra"]["execSql"] | null {
+  return runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null;
 }
 
 function isActiveContainerInfoOrganizationScope(
@@ -316,12 +312,11 @@ class ContainerContentsService implements ContainerContents {
   discoverContainerDocuments(
     containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
-    const runtime = createContainerContentsDiscoveryRuntime(
-      this.runtimeService.workflowInput(),
-    );
-    if (!runtime) {
+    const input = this.runtimeService.workflowInput();
+    if (input.infra.dbStatus !== "ready") {
       return Promise.resolve(null);
     }
+    const runtime = createContainerContentsWorkflowRuntime(input);
     const containerOrganizationId = this.openTree()
       .getSnapshot()
       .nodes.find((node) => node.id === containerId)?.organizationId;
@@ -329,7 +324,10 @@ class ContainerContentsService implements ContainerContents {
       createRuntimePrincipalPolicyWarmer(runtime);
 
     return discoverContainerDocumentsFromApi({
-      ...createContainerDocumentDiscoveryPersistence(runtime),
+      // The queries object is a plain record of closures and the discovery
+      // persistence contract is a structural subset of it; no per-method
+      // forwarding needed.
+      ...createContainerDocumentQueriesFromRuntime(runtime),
       apiClient: runtime.apiClient,
       cacheReferencedPrincipalPolicies: (references) =>
         containerOrganizationId
@@ -375,8 +373,7 @@ class ContainerContentsService implements ContainerContents {
       ...input,
       apiClient: runtime.apiClient,
       containerProjection: cachedContainerProjection,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+      execSql: readyExecSql(runtime),
       loadOrganizationGroups: async () => {
         if (
           !organizationScope ||
@@ -408,8 +405,7 @@ class ContainerContentsService implements ContainerContents {
     return loadDocumentInfo({
       ...input,
       apiClient: runtime.apiClient,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+      execSql: readyExecSql(runtime),
     });
   }
 
@@ -434,8 +430,7 @@ class ContainerContentsService implements ContainerContents {
     const runtime = this.runtimeService.workflowInput();
     return listBlobInfo({
       ...input,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+      execSql: readyExecSql(runtime),
     });
   }
 
@@ -445,22 +440,4 @@ class ContainerContentsService implements ContainerContents {
       this.runtimeService.adoptRootContainer,
     );
   }
-}
-
-function createContainerContentsDiscoveryRuntime(
-  input: InternalWorkflowRuntimeInput,
-): ContainerContentsWorkflowRuntime | null {
-  if (input.infra.dbStatus !== "ready") {
-    return null;
-  }
-
-  return createContainerContentsWorkflowRuntime(input);
-}
-
-function createContainerDocumentDiscoveryPersistence(
-  runtime: ContainerContentsWorkflowRuntime,
-): ContainerDocumentDiscoveryPersistence {
-  // The queries object is a plain record of closures and the persistence
-  // contract is a structural Pick of it; no per-method forwarding needed.
-  return createContainerDocumentQueriesFromRuntime(runtime);
 }

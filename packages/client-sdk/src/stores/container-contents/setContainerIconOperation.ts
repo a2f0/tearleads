@@ -1,14 +1,9 @@
 import { setContainerIconMetadataStateFromRuntime } from "../../workflows/container-contents/metadata";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 import { toContainerNode } from "./utils";
-
-function getContainerContentsStoreLogLabel(
-  state: ContainerContentsStoreState,
-): string {
-  return state.logLabel ?? "Container contents";
-}
 
 // Set the icon shown for a container. Mirrors renameContainer's write path: it
 // writes the icon into the container metadata document (CRDT), enqueues the

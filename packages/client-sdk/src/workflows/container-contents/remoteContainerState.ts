@@ -78,9 +78,9 @@ function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
 // owned by its structural-intent lane until that lane reconciles, so inbound
 // hydration must not revert parentId to the server value nor collapse
 // localUpdatedAt — doing so silently undoes a queued move and falsely reads
-// "synced". Move intents are read via listUnsyncedMoveIntents (not the
-// 'pending'-only list) so a blocked move — one whose destination parent has not
-// synced yet, the common boot-time case — is protected too. Pending *metadata*
+// "synced". Move intents are read via listUnsyncedMoveIntents so a blocked
+// move — one whose destination parent has not synced yet, the common boot-time
+// case — is protected too. Pending *metadata*
 // updates are handled separately (listRemoteContainerIdsWithPendingMetadataUpdates);
 // these live in dedicated create/move intent tables that that query does not cover.
 export async function listRemoteContainerIdsWithPendingStructuralIntents(input: {

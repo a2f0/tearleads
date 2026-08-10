@@ -1,9 +1,10 @@
 import {
-  buildPrincipalStateSigningInput,
-  computePrincipalStateHash,
+  AES_GCM_TAG_BYTES,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-  signPrincipalState,
+  ML_KEM1024_CIPHERTEXT_BYTES,
+  ML_KEM1024_SECRET_KEY_BYTES,
+  type PrincipalProjectionMember,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -18,8 +19,11 @@ import {
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
-import { memberEnvelopesForProjection } from "./principalPolicyMemberEnvelopeFixtures";
-import { trustedUserIdentityFromResponse } from "./trustedUserIdentity";
+import {
+  principalPolicyBundleFromState,
+  signedPrincipalPolicyBundle,
+} from "./principalPolicyFixtures";
+import { createMockApiTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
@@ -36,11 +40,30 @@ export function cacheReferencedPolicies(
   const { getUserIdentity, ...cacheOptions } = options;
   return cacheReferencedPrincipalPolicies({
     ...cacheOptions,
-    resolveTrustedUserIdentity: async (userId) => {
-      const response = await getUserIdentity(userId);
-      return response ? trustedUserIdentityFromResponse(response) : null;
-    },
+    resolveTrustedUserIdentity:
+      createMockApiTrustedUserIdentityResolver(getUserIdentity),
   });
+}
+
+async function memberEnvelopesForProjection(
+  projection: readonly PrincipalProjectionMember[],
+) {
+  return Promise.all(
+    projection.map(async (member, index) => ({
+      userId: member.userId,
+      memberKeyFingerprint: await toFingerprint(
+        new TextEncoder().encode(member.userId),
+      ),
+      kemCipherText: bytesToBase64(
+        new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),
+      ),
+      wrappedKey: bytesToBase64(
+        new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES).fill(
+          index + 1,
+        ),
+      ),
+    })),
+  );
 }
 
 type InitialPrincipalPolicy =
@@ -53,44 +76,59 @@ export async function principalPolicyBundleFromInitialPolicy(input: {
   readonly principalId: string;
   readonly policy: InitialPrincipalPolicy;
 }): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(input.policy.state);
+  return principalPolicyBundleFromState({
+    createdAt: "2026-04-08T00:00:00.000Z",
+    encryptedPayload: input.policy.encryptedPayload,
+    memberEnvelopes: input.policy.memberEnvelopes,
+    principalId: input.principalId,
+    projection: input.policy.projection,
+    state: input.policy.state,
+  });
+}
+
+/** Rebuilds the head bundle a successor's previous state was served from. */
+export function predecessorBundleFromSuccessor(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse {
+  const previous = bundle.previousStates[0];
+  if (!previous) {
+    throw new Error("Expected successor bundle to include previous state.");
+  }
 
   return {
-    currentState: {
-      ...input.policy.state,
-      createdAt: "2026-04-08T00:00:00.000Z",
-      stateHash,
+    currentMemberEnvelopes: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      epoch: previous.state.keyEpoch,
+      envelopes: [],
     },
     currentPayload: {
-      principalType: input.policy.state.principalType,
-      principalId: input.principalId,
-      stateHash,
-      cipherSuite: input.policy.encryptedPayload.cipherSuite,
-      ciphertext: input.policy.encryptedPayload.ciphertext,
-      ciphertextHash: input.policy.encryptedPayload.ciphertextHash,
-      createdAt: "2026-04-08T00:00:00.000Z",
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "cached-previous-ciphertext",
+      ciphertextHash: previous.state.payloadCiphertextHash,
+      createdAt: previous.state.createdAt,
     },
-    currentProjection: input.policy.projection,
-    currentMemberEnvelopes: {
-      principalType: input.policy.state.principalType,
-      principalId: input.principalId,
-      stateHash,
-      epoch: input.policy.state.keyEpoch,
-      envelopes: input.policy.memberEnvelopes,
-    },
+    currentProjection: previous.projection,
+    currentState: previous.state,
     previousStates: [],
   };
 }
 
+interface PolicySignerKeyResponse {
+  userId: string;
+  signingPublicKey: string;
+  signingKeyFingerprint: string;
+  encapsulationPublicKey: string;
+  encapsulationKeyFingerprint: string;
+}
+
 export async function createPrincipalPolicyBundle(): Promise<{
   bundle: PrincipalPolicyBundleResponse;
-  signerKeyResponse: {
-    userId: string;
-    signingPublicKey: string;
-    signingKeyFingerprint: string;
-    encapsulationPublicKey: string;
-    encapsulationKeyFingerprint: string;
-  };
+  signerKeyResponse: PolicySignerKeyResponse;
 }> {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
@@ -108,10 +146,11 @@ export async function createPrincipalPolicyBundle(): Promise<{
       role: "member" as const,
     },
   ];
-  const payloadCiphertext = "ciphertext-1";
-  const memberEnvelopes = await memberEnvelopesForProjection(currentProjection);
-  const signedState = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
+  const bundle = await signedPrincipalPolicyBundle({
+    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    payloadCiphertext: "ciphertext-1",
+    projection: currentProjection,
+    signing: {
       principalType: "group",
       principalId: "group-1",
       version: 1,
@@ -119,45 +158,13 @@ export async function createPrincipalPolicyBundle(): Promise<{
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: currentProjection.map((member) => ({
-        userId: member.userId,
-      })),
-      memberEnvelopes,
-      projection: currentProjection,
-      payloadCiphertext,
       externalAuthority: null,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,
-    }),
+    },
     signingPrivateKey,
-  );
-  const stateHash = await computePrincipalStateHash(signedState);
-  const bundle: PrincipalPolicyBundleResponse = {
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: "group-1",
-      stateHash,
-      epoch: 1,
-      envelopes: memberEnvelopes,
-    },
-    currentState: {
-      ...signedState,
-      createdAt: "2026-04-08T00:00:00.000Z",
-      stateHash,
-    },
-    currentProjection,
-    currentPayload: {
-      principalType: "group",
-      principalId: "group-1",
-      stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: payloadCiphertext,
-      ciphertextHash: signedState.payloadCiphertextHash,
-      createdAt: "2026-04-08T00:00:00.000Z",
-    },
-    previousStates: [],
-  };
+  });
 
   return {
     bundle,
@@ -175,13 +182,7 @@ export async function createSuccessorPrincipalPolicyBundle(
   options: { shrinkWithoutRotation?: boolean } = {},
 ): Promise<{
   bundle: PrincipalPolicyBundleResponse;
-  signerKeyResponse: {
-    userId: string;
-    signingPublicKey: string;
-    signingKeyFingerprint: string;
-    encapsulationPublicKey: string;
-    encapsulationKeyFingerprint: string;
-  };
+  signerKeyResponse: PolicySignerKeyResponse;
 }> {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);
@@ -189,6 +190,16 @@ export async function createSuccessorPrincipalPolicyBundle(
   const { signingPublicKey: signerPublicKey, signingPrivateKey } =
     generateSigningSeedAndKeyPair();
   const signerUserKeyFingerprint = await toFingerprint(signerPublicKey);
+  const signing = {
+    principalType: "group" as const,
+    principalId: "group-1",
+    keyEpoch: 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: principalKeyFingerprint,
+    externalAuthority: null,
+    signerUserId,
+    signerUserKeyFingerprint,
+  };
   const previousProjection = [
     {
       userId: signerUserId,
@@ -199,33 +210,18 @@ export async function createSuccessorPrincipalPolicyBundle(
       role: "member" as const,
     },
   ];
-  const previousPayloadCiphertext = "ciphertext-1";
-  const previousMemberEnvelopes =
-    await memberEnvelopesForProjection(previousProjection);
-  const previousSignedState = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: "group-1",
+  const previousBundle = await signedPrincipalPolicyBundle({
+    memberEnvelopes: await memberEnvelopesForProjection(previousProjection),
+    payloadCiphertext: "ciphertext-1",
+    projection: previousProjection,
+    signing: {
+      ...signing,
       version: 1,
       prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      keyFingerprint: principalKeyFingerprint,
-      members: previousProjection.map((member) => ({
-        userId: member.userId,
-      })),
-      memberEnvelopes: previousMemberEnvelopes,
-      projection: previousProjection,
-      payloadCiphertext: previousPayloadCiphertext,
-      externalAuthority: null,
       signedAt: "2026-04-08T00:00:00.000Z",
-      signerUserId,
-      signerUserKeyFingerprint,
-    }),
+    },
     signingPrivateKey,
-  );
-  const previousStateHash =
-    await computePrincipalStateHash(previousSignedState);
+  });
   const currentProjection = [
     {
       userId: signerUserId,
@@ -244,68 +240,24 @@ export async function createSuccessorPrincipalPolicyBundle(
       role: "member" as const,
     },
   ];
-  const currentPayloadCiphertext = "ciphertext-2";
-  const currentMemberEnvelopes =
-    await memberEnvelopesForProjection(currentProjection);
-  const currentSignedState = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: "group-1",
+  const bundle = await signedPrincipalPolicyBundle({
+    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    payloadCiphertext: "ciphertext-2",
+    previousStates: [
+      { state: previousBundle.currentState, projection: previousProjection },
+    ],
+    projection: currentProjection,
+    signing: {
+      ...signing,
       version: 2,
-      prevStateHash: previousStateHash,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      keyFingerprint: principalKeyFingerprint,
-      members: currentProjection.map((member) => ({
-        userId: member.userId,
-      })),
-      memberEnvelopes: currentMemberEnvelopes,
-      projection: currentProjection,
-      payloadCiphertext: currentPayloadCiphertext,
-      externalAuthority: null,
+      prevStateHash: previousBundle.currentState.stateHash,
       signedAt: "2026-04-08T00:01:00.000Z",
-      signerUserId,
-      signerUserKeyFingerprint,
-    }),
+    },
     signingPrivateKey,
-  );
-  const currentStateHash = await computePrincipalStateHash(currentSignedState);
+  });
 
   return {
-    bundle: {
-      currentMemberEnvelopes: {
-        principalType: "group",
-        principalId: "group-1",
-        stateHash: currentStateHash,
-        epoch: 1,
-        envelopes: currentMemberEnvelopes,
-      },
-      currentState: {
-        ...currentSignedState,
-        createdAt: "2026-04-08T00:01:00.000Z",
-        stateHash: currentStateHash,
-      },
-      currentProjection,
-      currentPayload: {
-        principalType: "group",
-        principalId: "group-1",
-        stateHash: currentStateHash,
-        cipherSuite: "aes-256-gcm",
-        ciphertext: currentPayloadCiphertext,
-        ciphertextHash: currentSignedState.payloadCiphertextHash,
-        createdAt: "2026-04-08T00:01:00.000Z",
-      },
-      previousStates: [
-        {
-          state: {
-            ...previousSignedState,
-            createdAt: "2026-04-08T00:00:00.000Z",
-            stateHash: previousStateHash,
-          },
-          projection: previousProjection,
-        },
-      ],
-    },
+    bundle,
     signerKeyResponse: {
       userId: signerUserId,
       signingPublicKey: bytesToBase64(signerPublicKey),
@@ -336,6 +288,14 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
   const outsiderSigningKeyFingerprint = await toFingerprint(
     outsiderSigningPublicKey,
   );
+  const signing = {
+    principalType: "group" as const,
+    principalId: "group-1",
+    keyEpoch: 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: principalKeyFingerprint,
+    externalAuthority: null,
+  };
   const previousProjection = [
     {
       userId: adminUserId,
@@ -346,99 +306,46 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       role: "member" as const,
     },
   ];
-  const previousPayloadCiphertext = "ciphertext-1";
-  const previousMemberEnvelopes =
-    await memberEnvelopesForProjection(previousProjection);
-  const previousSignedState = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: "group-1",
+  const previousBundle = await signedPrincipalPolicyBundle({
+    memberEnvelopes: await memberEnvelopesForProjection(previousProjection),
+    payloadCiphertext: "ciphertext-1",
+    projection: previousProjection,
+    signing: {
+      ...signing,
       version: 1,
       prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      keyFingerprint: principalKeyFingerprint,
-      members: previousProjection.map((member) => ({
-        userId: member.userId,
-      })),
-      memberEnvelopes: previousMemberEnvelopes,
-      projection: previousProjection,
-      payloadCiphertext: previousPayloadCiphertext,
-      externalAuthority: null,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId: adminUserId,
       signerUserKeyFingerprint: adminSigningKeyFingerprint,
-    }),
-    adminSigningPrivateKey,
-  );
-  const previousStateHash =
-    await computePrincipalStateHash(previousSignedState);
+    },
+    signingPrivateKey: adminSigningPrivateKey,
+  });
   const currentProjection = [
     {
       userId: outsiderUserId,
       role: "admin" as const,
     },
   ];
-  const currentPayloadCiphertext = "ciphertext-2";
-  const currentMemberEnvelopes =
-    await memberEnvelopesForProjection(currentProjection);
-  const currentSignedState = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: "group-1",
+  const bundle = await signedPrincipalPolicyBundle({
+    memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
+    payloadCiphertext: "ciphertext-2",
+    previousStates: [
+      { state: previousBundle.currentState, projection: previousProjection },
+    ],
+    projection: currentProjection,
+    signing: {
+      ...signing,
       version: 2,
-      prevStateHash: previousStateHash,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-      keyFingerprint: principalKeyFingerprint,
-      members: [{ userId: outsiderUserId }],
-      memberEnvelopes: currentMemberEnvelopes,
-      projection: currentProjection,
-      payloadCiphertext: currentPayloadCiphertext,
-      externalAuthority: null,
+      prevStateHash: previousBundle.currentState.stateHash,
       signedAt: "2026-04-08T00:01:00.000Z",
       signerUserId: outsiderUserId,
       signerUserKeyFingerprint: outsiderSigningKeyFingerprint,
-    }),
-    outsiderSigningPrivateKey,
-  );
-  const currentStateHash = await computePrincipalStateHash(currentSignedState);
+    },
+    signingPrivateKey: outsiderSigningPrivateKey,
+  });
 
   return {
-    bundle: {
-      currentMemberEnvelopes: {
-        principalType: "group",
-        principalId: "group-1",
-        stateHash: currentStateHash,
-        epoch: 1,
-        envelopes: currentMemberEnvelopes,
-      },
-      currentState: {
-        ...currentSignedState,
-        createdAt: "2026-04-08T00:01:00.000Z",
-        stateHash: currentStateHash,
-      },
-      currentProjection,
-      currentPayload: {
-        principalType: "group",
-        principalId: "group-1",
-        stateHash: currentStateHash,
-        cipherSuite: "aes-256-gcm",
-        ciphertext: currentPayloadCiphertext,
-        ciphertextHash: currentSignedState.payloadCiphertextHash,
-        createdAt: "2026-04-08T00:01:00.000Z",
-      },
-      previousStates: [
-        {
-          state: {
-            ...previousSignedState,
-            createdAt: "2026-04-08T00:00:00.000Z",
-            stateHash: previousStateHash,
-          },
-          projection: previousProjection,
-        },
-      ],
-    },
+    bundle,
     signerKeyResponses: new Map([
       [
         adminUserId,

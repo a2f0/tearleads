@@ -2,35 +2,21 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import {
+  createContainerContentsTestRuntime,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 
 // A non-built-in system slot is enough to exercise the device-first create path;
 // the slot string only needs to be stable for `findSystemContainerState`.
 const TEST_SYSTEM_SLOT =
   "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
 const ROOT_CONTAINER_ID = "device-first-root";
-
-async function waitForCondition(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 2_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-
-  throw new Error(message);
-}
 
 function createAuthenticatedRuntime(input: {
   apiClient: ReturnType<typeof createMockApiClient>;
@@ -41,62 +27,17 @@ function createAuthenticatedRuntime(input: {
   rootContainerId?: string | undefined;
   writerReady?: boolean | undefined;
 }) {
-  const rootContainerId = input.rootContainerId ?? ROOT_CONTAINER_ID;
-  return createContainerContentsStoreTestRuntime({
+  return createContainerContentsTestRuntime({
     apiClient: input.apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId: input.organizationId ?? "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: input.writerReady
-        ? generateKemSeedAndKeyPair()
-        : null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: rootContainerId,
-      domainScope: input.domainScope,
-      events: [],
-      online: input.online,
-    },
-    util: {
-      log: () => {},
-    },
+    containerId: input.rootContainerId ?? ROOT_CONTAINER_ID,
+    domainScope: input.domainScope,
+    encapsulationKeyPair: input.writerReady
+      ? generateKemSeedAndKeyPair()
+      : null,
+    execSql: input.execSql,
+    online: input.online,
+    organizationId: input.organizationId ?? "org-1",
   });
-}
-
-async function seedLocalRootContainer(
-  execSql: ExecSql,
-  input: {
-    organizationId?: string | undefined;
-    rootContainerId?: string | undefined;
-  } = {},
-): Promise<void> {
-  const rootContainerId = input.rootContainerId ?? ROOT_CONTAINER_ID;
-  await defaultContainerContentsPersistence.ensureSchema(execSql);
-  await defaultContainerContentsPersistence.saveContainer(
-    execSql,
-    {
-      icon: null,
-      id: rootContainerId,
-      effectiveAccessLevel: "admin",
-      metadataDocumentId: `${rootContainerId}-metadata-document`,
-      name: "/",
-      organizationId: input.organizationId ?? "org-1",
-      parentId: null,
-    },
-    null,
-  );
 }
 
 async function withReadyStore(
@@ -117,7 +58,9 @@ async function withReadyStore(
     "ensure-system-container-device-first-test",
   );
   try {
-    await seedLocalRootContainer(execSql);
+    await seedLocalRootContainer(execSql, {
+      rootContainerId: ROOT_CONTAINER_ID,
+    });
     const runtime = createAuthenticatedRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes,
@@ -131,9 +74,10 @@ async function withReadyStore(
     const store = createContainerContentsStore(runtime);
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready from the local root.",
+      2_000,
     );
     expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
       ROOT_CONTAINER_ID,
@@ -357,9 +301,10 @@ test("ensureSystemContainer cannot provision a slot when no local root exists an
     const store = createContainerContentsStore(runtime);
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
+      2_000,
     );
 
     const node = await store.ensureSystemContainer(
@@ -447,9 +392,10 @@ test("ensureSystemContainer creates distinct local system containers for the sam
       }),
     );
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
+      2_000,
     );
 
     const first = await store.ensureSystemContainer(
@@ -469,12 +415,13 @@ test("ensureSystemContainer creates distinct local system containers for the sam
         rootContainerId: secondRootContainerId,
       }),
     );
-    await waitForCondition(
+    await waitFor(
       () =>
         store
           .getSnapshot()
           .nodes.some((node) => node.id === secondRootContainerId),
       "Second root did not load into the container store.",
+      2_000,
     );
 
     const second = await store.ensureSystemContainer(

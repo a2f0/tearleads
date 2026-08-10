@@ -15,17 +15,10 @@ import type {
   WorkflowRuntimeUtilInput,
 } from "../runtimeInput";
 
-type DocumentsWorkflowApi = Pick<ApiClient, keyof ApiClient>;
 type DocumentsWorkflowRuntimeUtilInput = Omit<
   WorkflowRuntimeUtilInput,
   "logError"
 >;
-
-export interface DocumentsWorkflowRuntimeAuth
-  extends WorkflowRuntimeAuthInput {}
-
-export interface DocumentsWorkflowRuntimeCrypto
-  extends WorkflowRuntimeCryptoInput {}
 
 export interface DocumentsWorkflowRuntimeInfra
   extends Omit<WorkflowRuntimeInfraInput, "dbStatus"> {
@@ -37,37 +30,31 @@ interface DocumentsWorkflowRuntimeInputInfra
   readonly documentProjectors: DocumentProjectorRegistryInput;
 }
 
-export interface DocumentsWorkflowRuntimeState
-  extends WorkflowRuntimeStateInput {}
-
-export interface DocumentsWorkflowRuntimeUtil
-  extends DocumentsWorkflowRuntimeUtilInput {}
-
 export interface DocumentsWorkflowRuntimeGroups {
-  readonly auth: DocumentsWorkflowRuntimeAuth;
-  readonly crypto: DocumentsWorkflowRuntimeCrypto;
+  readonly auth: WorkflowRuntimeAuthInput;
+  readonly crypto: WorkflowRuntimeCryptoInput;
   readonly infra: DocumentsWorkflowRuntimeInfra;
-  readonly state: DocumentsWorkflowRuntimeState;
-  readonly util: DocumentsWorkflowRuntimeUtil;
+  readonly state: WorkflowRuntimeStateInput;
+  readonly util: DocumentsWorkflowRuntimeUtilInput;
 }
 
 export interface DocumentsWorkflowRuntimeInputGroups {
-  readonly auth: DocumentsWorkflowRuntimeAuth;
-  readonly crypto: DocumentsWorkflowRuntimeCrypto;
+  readonly auth: WorkflowRuntimeAuthInput;
+  readonly crypto: WorkflowRuntimeCryptoInput;
   readonly infra: DocumentsWorkflowRuntimeInputInfra;
-  readonly state: DocumentsWorkflowRuntimeState;
-  readonly util: DocumentsWorkflowRuntimeUtil;
+  readonly state: WorkflowRuntimeStateInput;
+  readonly util: DocumentsWorkflowRuntimeUtilInput;
 }
 
 export interface DocumentsWorkflowRuntimeInput
   extends DocumentsWorkflowRuntimeInputGroups {
-  readonly apiClient: DocumentsWorkflowApi;
+  readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface DocumentsWorkflowRuntime
   extends DocumentsWorkflowRuntimeGroups {
-  readonly apiClient: DocumentsWorkflowApi;
+  readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
