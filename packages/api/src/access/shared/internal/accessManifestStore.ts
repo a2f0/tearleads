@@ -21,7 +21,6 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
-import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import {
@@ -29,6 +28,7 @@ import {
   readKeyingCanonicalJson,
 } from "../../../utils/canonicalJson";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
+import { toStoredAccessEvent } from "./accessEventLookup";
 import {
   accessEventDependencyHashes,
   accessManifestReferencedHeads,
@@ -259,35 +259,6 @@ async function ensureStoredAccessManifestMatches(
   ) {
     throw new Error("Access manifest conflict");
   }
-}
-
-function toStoredAccessEvent(
-  row: typeof accessEvents.$inferSelect,
-): VerifiedAccessEvent {
-  return makeVerifiedAccessEvent({
-    event: {
-      version: readAccessVersion(row.version, "stored access event"),
-      eventId: row.eventId,
-      eventType: row.eventType,
-      objectKind: row.objectKind,
-      objectId: row.objectId,
-      organizationId: row.organizationId,
-      previousManifestHash: row.previousManifestHash,
-      dependencyManifestHashes: readJsonArray<string>(
-        row.dependencyManifestHashes,
-        "access event dependency hashes",
-        isString,
-      ),
-      bodyHash: row.bodyHash,
-      signerUserId: row.signerUserId,
-      signerDeviceId: row.signerDeviceId,
-      signerKeyFingerprint: row.signerKeyFingerprint,
-      signedAt: row.signedAt.toISOString(),
-      signature: row.signature,
-    },
-    body: readKeyingCanonicalJson(row.body, "stored access event body"),
-    eventHash: row.eventHash,
-  });
 }
 
 function toStoredAccessManifest(

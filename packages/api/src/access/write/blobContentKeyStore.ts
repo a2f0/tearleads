@@ -2,5 +2,5 @@ export {
   BlobContentKeyBundleError,
   storeBlobContentKeyBundle,
   storeBlobContentKeyBundleInTransaction,
-  storeBlobContentWriteHeader,
 } from "../shared/internal/blobContentKeyStore";
+export { storeBlobContentWriteHeader } from "../shared/internal/blobContentWriteHeaderStore";

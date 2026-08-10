@@ -67,10 +67,16 @@ export async function settleUploadedAttachment(input: {
     input.attachmentGeneration,
   );
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
+    bindingEvent: uploaded.response.bindingEvent,
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,
+    blobKekTargets: uploaded.response.blobKekTargets,
     contentKeyBundle: uploaded.response.contentKeyBundle,
+    documentManifestHash: uploaded.response.documentManifestHash,
+    previousBindingId: uploaded.response.previousBindingId,
     slotId: pendingAttachment.slotId,
+    writeAuthorization: uploaded.response.writeAuthorization,
+    writeHeader: uploaded.response.writeHeader,
   });
   state.writerProjection = uploaded.writerProjection;
   input.uploadLane.complete();

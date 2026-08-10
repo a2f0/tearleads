@@ -1,4 +1,6 @@
 import {
+  type AccessEvent,
+  computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
 } from "@tearleads/crypto";
@@ -282,11 +284,34 @@ export async function createBlobAttachmentBindResponse(input: {
   const stagedWriteHeader = input.request.stagedBlob?.writeHeader;
 
   return {
+    bindingEvent: {
+      body: input.request.body,
+      event: input.request.event,
+      eventHash: await computeAccessEventHash(
+        input.request.event as unknown as AccessEvent,
+      ),
+    },
     bindingId,
     blobId: input.blobId,
     documentId,
+    documentManifestHash: input.documentManifest.manifestHash,
+    previousBindingId:
+      typeof Reflect.get(body, "expectedBindingId") === "string"
+        ? String(Reflect.get(body, "expectedBindingId"))
+        : null,
     slotId,
     blobKekTargets: {
+      activeBindingIds: [bindingId],
+      blobAccessManifestHash,
+      blobId: input.blobId,
+      blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
+      documentManifestHashes: [input.documentManifest.manifestHash],
+      linkedContainerKeyEpochIds,
+      linkedContainerManifestHashes,
+      organizationId,
+      targets,
+    },
+    writeAuthorization: {
       activeBindingIds: [bindingId],
       blobAccessManifestHash,
       blobId: input.blobId,
@@ -303,6 +328,7 @@ export async function createBlobAttachmentBindResponse(input: {
     },
     ...(stagedWriteHeader
       ? {
+          writeHeader: stagedWriteHeader,
           writeHeaderHash: await computeWriteHeaderHash(
             readWriteHeader(stagedWriteHeader, "Staged blob write header"),
           ),

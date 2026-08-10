@@ -15,6 +15,9 @@ import type {
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
+import { loadContainerManifestBundleByHash } from "../../writerProjection/accessPaths";
+import { verifyStoredContainerManifest } from "../../writerProjection/storedManifestVerification";
+import { ContainerWriterProjectionError } from "../../writerProjection/types";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
 import { readVerifiedContainerManifest } from "./accessManifestRecords";
@@ -160,6 +163,7 @@ export async function assertCurrentContainerPath(
 }
 
 export async function assertHistoricalContainerManifestsConsistent(
+  context: ContainerMutationContext,
   bundles: readonly AccessManifestBundleWire[] | undefined,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
@@ -168,12 +172,42 @@ export async function assertHistoricalContainerManifestsConsistent(
 
   const manifests: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of bundles.entries()) {
-    manifests.push(
-      await assertContainerManifestBundleConsistent(
-        bundle,
-        `containerManifestHistory[${index}]`,
-      ),
+    await assertContainerManifestBundleConsistent(
+      bundle,
+      `containerManifestHistory[${index}]`,
     );
+    try {
+      const storedBundle = await loadContainerManifestBundleByHash(
+        context.writerProjectionContext,
+        bundle.manifestHash,
+      );
+      // The request bundle was already verified against its manifest hash.
+      // Resolve that hash from storage and verify the authoritative stored
+      // artifact; wrapper-level optional field presence is not cryptographic
+      // evidence and must not make an equivalent wire bundle conflict.
+      manifests.push(
+        await verifyStoredContainerManifest({
+          bundle: storedBundle,
+          context: context.writerProjectionContext,
+          loadBundle: (manifestHash) =>
+            loadContainerManifestBundleByHash(
+              context.writerProjectionContext,
+              manifestHash,
+            ),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof ContainerMutationError) {
+        throw error;
+      }
+      if (!(error instanceof ContainerWriterProjectionError)) {
+        throw error;
+      }
+      throw new ContainerMutationError(
+        `containerManifestHistory[${index}] is not a verified stored manifest: ${error.message}`,
+        409,
+      );
+    }
   }
   return manifests;
 }

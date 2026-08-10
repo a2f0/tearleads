@@ -12,7 +12,10 @@ import {
   readContainerState,
 } from "../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../data/containers/shared/types";
-import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
+import {
+  type ReferencedPrincipalPolicyWarmer,
+  verifyContainerWriterProjection,
+} from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -34,6 +37,7 @@ interface PrincipalContainerRematerializationInput {
   readonly execSql: ExecSql;
   readonly grants: readonly OrganizationGroupContainerResponse[];
   readonly groupId: string;
+  readonly locallyKnownContainerIds?: readonly string[] | undefined;
   readonly nextPolicy: VerifiedPrincipalPolicy;
   readonly revokedContainerId?: string | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -81,6 +85,14 @@ async function loadGrantedContainerContext(
       `Container ${grantRow.containerId} could not be prepared for principal rotation`,
     );
   }
+  await verifyContainerWriterProjection({
+    execSql: input.execSql,
+    projection,
+    resolveUserKey: createProjectionUserKeyResolver({
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    }),
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
   const state = readContainerState(
     getTargetContainerContext(projection).manifest,
   );
@@ -105,6 +117,55 @@ async function loadGrantedContainerContext(
   return { grant, projection, referencedKeyEpoch };
 }
 
+async function assertLocalGrantSetIsComplete(input: {
+  readonly principalInput: PrincipalContainerRematerializationInput;
+  readonly resolveProjectionUserKey: ReturnType<
+    typeof createProjectionUserKeyResolver
+  >;
+}): Promise<void> {
+  const remoteGrantIds = new Set(
+    input.principalInput.grants.map((grant) => grant.containerId),
+  );
+  for (const containerId of input.principalInput.locallyKnownContainerIds ??
+    []) {
+    if (remoteGrantIds.has(containerId)) {
+      continue;
+    }
+    const projection =
+      await input.principalInput.apiClient.getContainerWriterProjection(
+        containerId,
+      );
+    if (!projection) {
+      // Do not silently treat a missing projection as deletion: a dishonest
+      // server could use the same response to hide an extant group grant. A
+      // later read-model reconciliation can remove a legitimately deleted
+      // container from the locally-known set before this mutation is retried.
+      throw new Error(
+        `Locally known container ${containerId} could not be checked for group grants`,
+      );
+    }
+    const verifiedPath = await verifyContainerWriterProjection({
+      execSql: input.principalInput.execSql,
+      projection,
+      resolveUserKey: input.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies:
+        input.principalInput.warmReferencedPrincipalPolicies,
+    });
+    const state = verifiedPath.at(-1)?.state;
+    if (
+      state?.directGrants.some(
+        (grant) =>
+          grant.subjectType === "group" &&
+          grant.subjectId === input.principalInput.groupId,
+      )
+    ) {
+      throw new Error(
+        `Server group grant set omits locally known container ${containerId}`,
+      );
+    }
+  }
+}
+
 export async function buildPrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<ContainerMutationRequest[]> {
@@ -118,6 +179,10 @@ export async function buildPrincipalContainerRematerializationBatch(
   }
   const resolveProjectionUserKey = createProjectionUserKeyResolver({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+  await assertLocalGrantSetIsComplete({
+    principalInput: input,
+    resolveProjectionUserKey,
   });
   const requests: ContainerMutationRequest[] = [];
   for (const grantRow of [...input.grants].sort((left, right) =>

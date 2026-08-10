@@ -8,7 +8,7 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
 } from "@tearleads/api-shared/schema";
-import type { WriteHeader } from "@tearleads/crypto";
+import type { DocumentContentKeyTarget, WriteHeader } from "@tearleads/crypto";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
@@ -653,62 +653,74 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
 }
 
 interface StoreDocumentContentWriteHeaderInput {
+  readonly authorizationTargets: readonly DocumentContentKeyTarget[];
   readonly documentId: string;
   readonly header: WriteHeader;
   readonly headerHash: string;
   readonly updateId: string;
 }
 
-const documentContentWriteHeaderStore =
-  createContentWriteHeaderStore<StoreDocumentContentWriteHeaderInput>({
-    createConflictError: () =>
-      new DocumentContentKeyBundleError("Document write header conflict", 409),
-    createObjectMismatchError: () =>
-      new DocumentContentKeyBundleError(
-        "Document write header does not match document",
-        409,
-      ),
-    expectedObjectKind: "document",
-    getObjectId: (input) => input.documentId,
-    getRecordId: (input) => input.updateId,
-    insert: async (input, executor) => {
-      const [inserted] = await executor
-        .insert(documentContentWriteHeaders)
-        .values({
-          updateId: input.updateId,
-          documentId: input.documentId,
-          organizationId: input.header.organizationId,
-          contentKeyEpoch: input.header.contentKeyEpoch,
-          accessManifestHash: input.header.accessManifestHash,
-          targetHash: input.header.targetHash,
-          encryptionSuite: input.header.encryptionSuite,
-          contentRecordId: input.header.contentRecordId,
-          nonceDomainHash: input.header.nonceDomainHash,
-          headerHash: input.headerHash,
-          header: input.header,
-        })
-        .onConflictDoNothing()
-        .returning({ headerHash: documentContentWriteHeaders.headerHash });
-      return inserted !== undefined;
-    },
-    list: (updateIds, executor) =>
-      executor
-        .select({
-          recordId: documentContentWriteHeaders.updateId,
-          header: documentContentWriteHeaders.header,
-          headerHash: documentContentWriteHeaders.headerHash,
-        })
-        .from(documentContentWriteHeaders)
-        .where(inArray(documentContentWriteHeaders.updateId, updateIds)),
-    loadHeaderHash: async (updateId, executor) => {
-      const [existing] = await executor
-        .select({ headerHash: documentContentWriteHeaders.headerHash })
-        .from(documentContentWriteHeaders)
-        .where(eq(documentContentWriteHeaders.updateId, updateId))
-        .limit(1);
-      return existing?.headerHash ?? null;
-    },
-  });
+interface DocumentContentWriteHeaderRow {
+  readonly authorizationTargets: DocumentContentKeyTarget[] | null;
+  readonly header: WriteHeader;
+  readonly headerHash: string;
+  readonly recordId: string;
+}
+
+const documentContentWriteHeaderStore = createContentWriteHeaderStore<
+  StoreDocumentContentWriteHeaderInput,
+  DocumentContentWriteHeaderRow
+>({
+  createConflictError: () =>
+    new DocumentContentKeyBundleError("Document write header conflict", 409),
+  createObjectMismatchError: () =>
+    new DocumentContentKeyBundleError(
+      "Document write header does not match document",
+      409,
+    ),
+  expectedObjectKind: "document",
+  getObjectId: (input) => input.documentId,
+  getRecordId: (input) => input.updateId,
+  insert: async (input, executor) => {
+    const [inserted] = await executor
+      .insert(documentContentWriteHeaders)
+      .values({
+        updateId: input.updateId,
+        documentId: input.documentId,
+        organizationId: input.header.organizationId,
+        contentKeyEpoch: input.header.contentKeyEpoch,
+        accessManifestHash: input.header.accessManifestHash,
+        targetHash: input.header.targetHash,
+        encryptionSuite: input.header.encryptionSuite,
+        contentRecordId: input.header.contentRecordId,
+        nonceDomainHash: input.header.nonceDomainHash,
+        headerHash: input.headerHash,
+        header: input.header,
+        authorizationTargets: [...input.authorizationTargets],
+      })
+      .onConflictDoNothing()
+      .returning({ headerHash: documentContentWriteHeaders.headerHash });
+    return inserted !== undefined;
+  },
+  list: (updateIds, executor) =>
+    executor
+      .select({
+        recordId: documentContentWriteHeaders.updateId,
+        authorizationTargets: documentContentWriteHeaders.authorizationTargets,
+        header: documentContentWriteHeaders.header,
+        headerHash: documentContentWriteHeaders.headerHash,
+      })
+      .from(documentContentWriteHeaders)
+      .where(inArray(documentContentWriteHeaders.updateId, updateIds)),
+  loadHeaderHash: async (updateId, executor) => {
+    const [existing] = await executor
+      .select({ headerHash: documentContentWriteHeaders.headerHash })
+      .from(documentContentWriteHeaders)
+      .where(eq(documentContentWriteHeaders.updateId, updateId))
+      .limit(1);
+    return existing?.headerHash ?? null;
+  },
+});
 
 export async function storeDocumentContentWriteHeader(
   input: StoreDocumentContentWriteHeaderInput,
@@ -720,6 +732,15 @@ export async function storeDocumentContentWriteHeader(
 export async function listDocumentContentWriteHeaders(
   updateIds: readonly string[],
   executor: DatabaseSession,
-): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
+): Promise<
+  Map<
+    string,
+    {
+      authorizationTargets: DocumentContentKeyTarget[] | null;
+      header: WriteHeader;
+      headerHash: string;
+    }
+  >
+> {
   return documentContentWriteHeaderStore.list(updateIds, executor);
 }

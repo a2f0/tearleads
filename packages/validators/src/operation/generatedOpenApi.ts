@@ -5532,6 +5532,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        bindingEvent?: {
+                            body: unknown;
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            eventHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
                         bindingId: string;
                         blobId: string;
                         blobKekTargets: {
@@ -5571,7 +5580,27 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         documentId: string;
+                        documentManifestHash?: string;
+                        previousBindingId?: string | null;
                         slotId: string;
+                        writeAuthorization?: {
+                            activeBindingIds: string[];
+                            blobAccessManifestHash: string;
+                            blobId: string;
+                            blobKeyTargetHash: string;
+                            documentManifestHashes: string[];
+                            linkedContainerKeyEpochIds: string[];
+                            linkedContainerManifestHashes: string[];
+                            organizationId: string;
+                            targets: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        writeHeader?: {
+                            [key: string]: unknown;
+                        };
                         writeHeaderHash?: string;
                     } & {
                         [key: string]: unknown;
@@ -9936,8 +9965,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
+                        bindingEvent?: {
+                            body: unknown;
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            eventHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
                         bindingId: string;
                         blobId: string;
+                        blobKekTargets?: {
+                            activeBindingIds: string[];
+                            blobAccessManifestHash: string;
+                            blobId: string;
+                            blobKeyTargetHash: string;
+                            documentManifestHashes: string[];
+                            linkedContainerKeyEpochIds: string[];
+                            linkedContainerManifestHashes: string[];
+                            organizationId: string;
+                            targets: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
                         contentKeyBundle: {
                             blobId: string;
                             contentKeyEpoch: number;
@@ -9959,7 +10012,27 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        documentManifestHash?: string;
+                        previousBindingId?: string | null;
                         slotId: string;
+                        writeAuthorization?: {
+                            activeBindingIds: string[];
+                            blobAccessManifestHash: string;
+                            blobId: string;
+                            blobKeyTargetHash: string;
+                            documentManifestHashes: string[];
+                            linkedContainerKeyEpochIds: string[];
+                            linkedContainerManifestHashes: string[];
+                            organizationId: string;
+                            targets: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        writeHeader?: {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -10922,6 +10995,14 @@ export interface operations {
                         updates: ({
                             accessEpoch: number;
                             authorFingerprint: string;
+                            authorizationTargets?: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             /** @constant */
                             checkpointKind?: "rotate_baseline";
                             /** @constant */

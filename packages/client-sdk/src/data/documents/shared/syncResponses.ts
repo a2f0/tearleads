@@ -3,6 +3,7 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
+  KeyingVerificationError,
   verifyWriteHeader,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -13,6 +14,7 @@ import {
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
+import { rethrowDatabaseUnavailableError } from "../../keyingProjectionVerification/error";
 import {
   readRecordPositiveInteger,
   readRecordString,
@@ -20,6 +22,7 @@ import {
   serializeCanonical,
   serializeState,
 } from "./readers";
+import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 import type {
   DocumentSyncApi,
   DocumentSyncPlan,
@@ -63,7 +66,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     "Document sync response write header",
   );
   await assertDocumentSyncResponseUpdateHashes({ update });
-  assertDocumentSyncResponseUpdateContentKeyBundle({
+  const contentKeyBundle = assertDocumentSyncResponseUpdateContentKeyBundle({
     contentKeyBundlesByEpoch: input.contentKeyBundlesByEpoch,
     header,
     plan,
@@ -72,6 +75,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
   await assertDocumentSyncResponseNonceDomain({ header, plan });
   await assertDocumentSyncResponseWriteHeaderSignature({
     header,
+    contentKeyBundle,
     plan,
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     update,
@@ -86,7 +90,7 @@ function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
   >;
   header: WriteHeader;
   plan: DocumentSyncPlan;
-}): void {
+}): DocumentSyncResponse["contentKeyBundle"] {
   const { header, plan } = input;
   if (header.contentKeyEpoch > plan.contentKeyEpoch) {
     throw new Error(
@@ -104,6 +108,7 @@ function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
   ) {
     throw new Error("Document sync response content-key bundle mismatch");
   }
+  return bundle;
 }
 
 async function assertDocumentSyncResponseUpdateHashes(input: {
@@ -176,25 +181,6 @@ function isAcceptedOutgoingSyncUpdate(
   );
 }
 
-function responseWriteHeaderSignatureBoundary(input: {
-  plan: DocumentSyncPlan;
-  update: DocumentSyncResponse["updates"][number];
-}):
-  | {
-      expectedAccessManifestHash: string;
-      expectedTargetHash: string;
-    }
-  | Record<string, never> {
-  if (!isAcceptedOutgoingSyncUpdate(input.plan, input.update)) {
-    return {};
-  }
-
-  return {
-    expectedAccessManifestHash: input.plan.expectedLinkSetManifestHash,
-    expectedTargetHash: input.plan.expectedTargetHash,
-  };
-}
-
 async function assertDocumentSyncResponseNonceDomain(input: {
   header: WriteHeader;
   plan: DocumentSyncPlan;
@@ -215,6 +201,7 @@ async function assertDocumentSyncResponseNonceDomain(input: {
 }
 
 async function assertDocumentSyncResponseWriteHeaderSignature(input: {
+  contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
   header: WriteHeader;
   plan: DocumentSyncPlan;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -227,32 +214,48 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
       "Document sync response writer public key verification is required",
     );
   }
-
+  // The identity-aware resolver owns TOFU pinning and user-id binding, so it
+  // must outrank the legacy fingerprint-only map when both are supplied.
   const writerPublicKey =
-    input.writerPublicKeysByFingerprint?.get(update.authorFingerprint) ??
     (input.resolveWriterPublicKey
       ? await input.resolveWriterPublicKey({
           authorFingerprint: update.authorFingerprint,
           header,
           update,
         })
-      : null);
+      : null) ??
+    input.writerPublicKeysByFingerprint?.get(update.authorFingerprint) ??
+    null;
   if (!writerPublicKey) {
     throw new Error("Document sync response writer public key missing");
   }
 
+  const documentAuthorization = await documentWriteAuthorizationForHeader({
+    allowMissingAuthorization: isAcceptedOutgoingSyncUpdate(plan, update),
+    authorizationTargets: update.authorizationTargets,
+    contentKeyBundle: input.contentKeyBundle,
+    manifestHash: header.accessManifestHash,
+    plan,
+    targetHash: header.targetHash,
+  });
   const verified = await verifyWriteHeader({
-    ...responseWriteHeaderSignatureBoundary({ plan, update }),
+    expectedAccessManifestHash: documentAuthorization
+      ? header.accessManifestHash
+      : plan.expectedLinkSetManifestHash,
     expectedObject: {
       objectKind: "document",
       objectId: plan.documentId,
       organizationId: plan.organizationId,
     },
     header,
+    ...(documentAuthorization ? { documentAuthorization } : {}),
+    expectedTargetHash: documentAuthorization
+      ? header.targetHash
+      : plan.expectedTargetHash,
     writerPublicKey,
   });
   if (!verified.ok) {
-    throw new Error("Document sync response write header signature mismatch");
+    throw verified.error;
   }
 }
 
@@ -360,7 +363,7 @@ function documentSyncContentKeyBundlesByEpoch(
   return bundleByEpoch;
 }
 
-export async function persistedDocumentSyncStateFromResponse(
+async function persistedDocumentSyncStateFromResponseInternal(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
   options: {
@@ -403,6 +406,32 @@ export async function persistedDocumentSyncStateFromResponse(
     documentKekTargets: serializeState(response.documentKekTargets),
     documentManifestBundle: serializeState(plan.documentManifest),
   };
+}
+
+export async function persistedDocumentSyncStateFromResponse(
+  plan: DocumentSyncPlan,
+  response: DocumentSyncResponse,
+  options: {
+    resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+  } = {},
+): Promise<PersistedDocumentSyncState> {
+  try {
+    return await persistedDocumentSyncStateFromResponseInternal(
+      plan,
+      response,
+      options,
+    );
+  } catch (error) {
+    rethrowDatabaseUnavailableError(error);
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 export function isRetryableDocumentSyncConflict(

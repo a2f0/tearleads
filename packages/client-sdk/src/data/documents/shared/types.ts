@@ -25,6 +25,7 @@ import type {
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
+  DocumentWriterProjectionAuthorization as WriterAuthorization,
 } from "../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
@@ -429,6 +430,7 @@ export interface DocumentSyncPlan {
   documentId: string;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   documentManifest: DocumentCreateResponse["accessManifest"];
+  documentWriterAuthorization?: WriterAuthorization | undefined;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
   minLsn?: string | undefined;

@@ -18,6 +18,7 @@ export {
   documentUpdateAuditEvents,
 } from "./audit";
 export {
+  type BlobWriteAuthorization,
   blobContentKeyEpochs,
   blobContentKeyTargets,
   blobContentWriteHeaders,

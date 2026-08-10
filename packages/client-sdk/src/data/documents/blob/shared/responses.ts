@@ -1,4 +1,10 @@
-import { computeBlobContentKeyTargetHash } from "@tearleads/crypto";
+import {
+  type AccessEvent,
+  type AttachmentBindAccessEventBody,
+  computeAccessEventHash,
+  computeBlobContentKeyTargetHash,
+  type WriteHeader,
+} from "@tearleads/crypto";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
@@ -135,25 +141,62 @@ async function assertBlobAttachmentBindResponseTargets(input: {
 }
 
 export async function assertBlobAttachmentBindResponse(input: {
+  body: AttachmentBindAccessEventBody;
   bindingId: string;
   blobAccessManifestHash: string;
   blobId: string;
   contentKeyBundle: BlobContentKeyBundleRequest;
   documentId: string;
+  event: AccessEvent;
   manifestIdentity: DocumentManifestIdentity;
   response: BlobAttachmentBindResponse;
   slotId: string;
   targetHash: string;
   targets: readonly BlobContentKeyTarget[];
+  writeHeader: WriteHeader;
   writeHeaderHash: string;
 }): Promise<void> {
+  // This boundary is used only by the staged upload workflow: those bytes were
+  // written under the same target set the bind response acknowledges. A future
+  // SDK re-bind workflow must instead accept the blob's historical write
+  // authorization, which can legitimately differ from the new binding set.
   if (
+    !input.response.bindingEvent ||
+    input.response.documentManifestHash !==
+      input.manifestIdentity.manifestHash ||
+    input.response.previousBindingId !== input.body.expectedBindingId ||
+    serializeCanonical(
+      input.response.bindingEvent.body,
+      "Blob attachment bind response event body",
+    ) !== serializeCanonical(input.body, "Blob attachment bind request body") ||
+    serializeCanonical(
+      input.response.bindingEvent.event,
+      "Blob attachment bind response event",
+    ) !==
+      serializeCanonical(input.event, "Blob attachment bind request event") ||
+    input.response.bindingEvent.eventHash !==
+      (await computeAccessEventHash(input.event)) ||
+    !input.response.writeHeader ||
+    serializeCanonical(
+      input.response.writeHeader,
+      "Blob attachment bind response write header",
+    ) !==
+      serializeCanonical(input.writeHeader, "Blob attachment write header") ||
     input.response.blobId !== input.blobId ||
     input.response.bindingId !== input.bindingId ||
     input.response.documentId !== input.documentId ||
     input.response.slotId !== input.slotId ||
     input.response.blobKekTargets.blobAccessManifestHash !==
       input.blobAccessManifestHash ||
+    !input.response.writeAuthorization ||
+    serializeCanonical(
+      input.response.writeAuthorization,
+      "Blob attachment bind response write authorization",
+    ) !==
+      serializeCanonical(
+        input.response.blobKekTargets,
+        "Blob attachment bind response KEK targets",
+      ) ||
     input.response.writeHeaderHash !== input.writeHeaderHash
   ) {
     throw new Error("Blob attachment bind response did not match request");

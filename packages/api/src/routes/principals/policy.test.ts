@@ -20,6 +20,7 @@ import {
   getCurrentOrganizationAdminAuthority,
 } from "../../../test/helpers/organizationAdmin";
 import {
+  createPolicyTestGroup,
   createSignedPrincipalState,
   getDefaultOrganizationId,
 } from "../../../test/helpers/principalPolicy";
@@ -103,6 +104,7 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -457,6 +459,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const members = [{ userId: actor.userId }];
   const principalKem = generateKemSeedAndKeyPair();
   const projection = createProjectionWithAdminSigner(actor.userId, members);
@@ -568,6 +571,7 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -644,6 +648,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
   await authenticate(outsider);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(owner.userId, principalId);
   const principalKem = generateKemSeedAndKeyPair();
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -748,8 +753,9 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const signedState = await createSignedPrincipalState({
-    principalType: "organization",
+    principalType: "group",
     principalId,
     members: [{ userId: actor.userId }],
     signerUserId: actor.userId,
@@ -764,7 +770,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
   });
 
   const response = await routeApp.request(
-    `/principals/organization/${principalId}/policy`,
+    `/principals/group/${principalId}/policy`,
     {
       method: "PUT",
       headers: {

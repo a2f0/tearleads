@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { errorMessage } from "../errorMessage";
+import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
 
 /**
  * Preserve identity and projection verification failures across workflow
@@ -16,6 +17,12 @@ export function isKeyingVerificationError(error: unknown): boolean {
 
 export function rethrowKeyingVerificationError(error: unknown): void {
   if (isKeyingVerificationError(error)) {
+    throw error;
+  }
+}
+
+export function rethrowDatabaseUnavailableError(error: unknown): void {
+  if (isDatabaseUnavailableError(error)) {
     throw error;
   }
 }

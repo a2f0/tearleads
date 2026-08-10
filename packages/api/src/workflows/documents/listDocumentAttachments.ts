@@ -1,18 +1,28 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
-import { attachmentBindings } from "@tearleads/api-shared/schema";
+import {
+  attachmentBindings,
+  type BlobWriteAuthorization,
+} from "@tearleads/api-shared/schema";
+import type { WriteHeader } from "@tearleads/crypto";
 import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
+import { getStoredAccessEvents } from "../../access/read/accessManifestStore";
 import {
   BlobContentKeyBundleError,
   getLatestCurrentBlobContentKeyBundle,
+  listBlobContentWriteHeaders,
 } from "../../access/read/blobContentKeyStore";
 import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
 } from "../../access/read/blobKekTargets";
+import { projectionVerifiedAccessEventRecord } from "../../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../../utils/array";
-import { toContentKeyBundleResponse } from "../blobs/mutations/records";
+import {
+  toBlobKekTargetsResponse,
+  toContentKeyBundleResponse,
+} from "../blobs/mutations/records";
 import {
   KeyingReadAccessError,
   resolveReadableDocumentAccess,
@@ -23,13 +33,21 @@ interface ListDocumentAttachmentsWorkflowInput {
   userId: string;
 }
 
-type CurrentBlobContentKeyBundle = Awaited<
-  ReturnType<typeof getLatestCurrentBlobContentKeyBundle>
+type CurrentBlobContentKeyBundle = NonNullable<
+  Awaited<ReturnType<typeof getLatestCurrentBlobContentKeyBundle>>
 >;
 
 interface BlobContentKeyBundleEntry {
   readonly blobId: string;
   readonly contentKeyBundle: CurrentBlobContentKeyBundle;
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentBlobKekTargets>
+  >;
+  readonly writeHeader: {
+    readonly authorization: BlobWriteAuthorization | null;
+    readonly header: WriteHeader;
+    readonly headerHash: string;
+  };
 }
 
 export class ListDocumentAttachmentsError extends Error {
@@ -43,6 +61,7 @@ export class ListDocumentAttachmentsError extends Error {
 
 async function loadCurrentBlobContentKeyBundleEntry(
   blobId: string,
+  writeHeader: BlobContentKeyBundleEntry["writeHeader"] | undefined,
   executor: DatabaseSession,
 ): Promise<BlobContentKeyBundleEntry> {
   try {
@@ -51,7 +70,16 @@ async function loadCurrentBlobContentKeyBundleEntry(
       { blobId, currentTargets },
       executor,
     );
-    return { blobId, contentKeyBundle };
+    if (!contentKeyBundle) {
+      throw new ListDocumentAttachmentsError(
+        "Blob content-key bundle missing",
+        409,
+      );
+    }
+    if (!writeHeader) {
+      throw new ListDocumentAttachmentsError("Blob write header missing", 409);
+    }
+    return { blobId, contentKeyBundle, currentTargets, writeHeader };
   } catch (error) {
     if (
       error instanceof BlobKekTargetError ||
@@ -61,6 +89,28 @@ async function loadCurrentBlobContentKeyBundleEntry(
     }
     throw error;
   }
+}
+
+function loadActiveAttachmentRows(
+  documentId: string,
+  executor: DatabaseSession,
+) {
+  return executor
+    .select({
+      bindingId: attachmentBindings.id,
+      attachmentEventHash: attachmentBindings.attachmentEventHash,
+      blobId: attachmentBindings.blobId,
+      documentManifestHash: attachmentBindings.documentManifestHash,
+      previousBindingId: attachmentBindings.previousBindingId,
+      slotId: attachmentBindings.slotId,
+    })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.documentId, documentId),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    );
 }
 
 export async function runListDocumentAttachmentsWorkflow(
@@ -80,47 +130,76 @@ export async function runListDocumentAttachmentsWorkflow(
     throw error;
   }
 
-  const rows = await executor
-    .select({
-      bindingId: attachmentBindings.id,
-      blobId: attachmentBindings.blobId,
-      slotId: attachmentBindings.slotId,
-    })
-    .from(attachmentBindings)
-    .where(
-      and(
-        eq(attachmentBindings.documentId, input.documentId),
-        isNull(attachmentBindings.detachedAt),
-      ),
-    );
+  const rows = await loadActiveAttachmentRows(input.documentId, executor);
 
+  const blobIds = uniqueSortedStrings(rows.map((row) => row.blobId));
+  const writeHeadersByBlobId = await listBlobContentWriteHeaders(
+    blobIds,
+    executor,
+  );
+  const bindingEventsByHash = await getStoredAccessEvents(
+    rows.flatMap((row) =>
+      row.attachmentEventHash ? [row.attachmentEventHash] : [],
+    ),
+    executor,
+  );
   const contentKeyBundleEntries = await gatherWithExecutor(
     executor,
-    uniqueSortedStrings(rows.map((row) => row.blobId)),
-    (blobId) => loadCurrentBlobContentKeyBundleEntry(blobId, executor),
+    blobIds,
+    (blobId) =>
+      loadCurrentBlobContentKeyBundleEntry(
+        blobId,
+        writeHeadersByBlobId.get(blobId),
+        executor,
+      ),
   );
-  const contentKeyBundleByBlobId = new Map<
-    string,
-    CurrentBlobContentKeyBundle
-  >();
+  const contentKeyBundleByBlobId = new Map<string, BlobContentKeyBundleEntry>();
   for (const entry of contentKeyBundleEntries) {
-    contentKeyBundleByBlobId.set(entry.blobId, entry.contentKeyBundle);
+    contentKeyBundleByBlobId.set(entry.blobId, entry);
   }
 
   return rows.map((row) => {
-    const contentKeyBundle = contentKeyBundleByBlobId.get(row.blobId);
-    if (!contentKeyBundle) {
+    const blobKeying = contentKeyBundleByBlobId.get(row.blobId);
+    if (!blobKeying) {
       throw new ListDocumentAttachmentsError(
         "Blob content-key bundle missing",
         409,
       );
     }
+    if (!row.attachmentEventHash || !row.documentManifestHash) {
+      // This is an intentional verification flag day for legacy bindings. A
+      // partial listing would let the server hide an attachment without the
+      // client detecting that its binding evidence was omitted.
+      throw new ListDocumentAttachmentsError(
+        "Attachment binding verification material missing",
+        409,
+      );
+    }
+    const bindingEvent = bindingEventsByHash.get(row.attachmentEventHash);
+    if (!bindingEvent) {
+      throw new ListDocumentAttachmentsError(
+        "Attachment binding event missing",
+        409,
+      );
+    }
 
     return {
+      bindingEvent: projectionVerifiedAccessEventRecord(bindingEvent),
       bindingId: row.bindingId,
       blobId: row.blobId,
-      contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
+      blobKekTargets: toBlobKekTargetsResponse(blobKeying.currentTargets),
+      contentKeyBundle: toContentKeyBundleResponse(blobKeying.contentKeyBundle),
+      documentManifestHash: row.documentManifestHash,
+      previousBindingId: row.previousBindingId,
       slotId: row.slotId,
+      writeHeader: { ...blobKeying.writeHeader.header },
+      ...(blobKeying.writeHeader.authorization
+        ? {
+            writeAuthorization: toBlobKekTargetsResponse(
+              blobKeying.writeHeader.authorization,
+            ),
+          }
+        : {}),
     };
   });
 }

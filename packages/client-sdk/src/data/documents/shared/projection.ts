@@ -2,13 +2,18 @@ import type {
   DocumentContentKeyTarget,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import {
+  computeDocumentContentKeyTargetHash,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { errorMessage } from "../../errorMessage";
 import {
+  type DocumentWriterProjectionAuthorization,
   type PrincipalPolicyCache,
-  verifyDocumentWriterProjection,
+  verifyDocumentWriterProjectionAuthorization,
 } from "../../keyingProjectionVerification";
+import { rethrowDatabaseUnavailableError } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   currentDocumentTargets,
@@ -139,7 +144,7 @@ async function assertProjectionContentKeyBundleConsistent(
   }
 }
 
-export async function assertDocumentWriterProjectionConsistent(
+async function assertDocumentWriterProjectionConsistentInternal(
   writerProjection: DocumentWriterProjectionResponse,
   input: ProjectionVerificationOptions & {
     /**
@@ -151,6 +156,9 @@ export async function assertDocumentWriterProjectionConsistent(
      */
     allowStaleContentKeyBundle?: boolean | undefined;
     execSql?: ExecSql | undefined;
+    onVerifiedAuthorization?:
+      | ((authorization: DocumentWriterProjectionAuthorization) => void)
+      | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
   },
@@ -163,7 +171,7 @@ export async function assertDocumentWriterProjectionConsistent(
     input.trustedLocalProjection !== true &&
     resolveProjectionUserKey !== null
   ) {
-    await verifyDocumentWriterProjection({
+    const authorization = await verifyDocumentWriterProjectionAuthorization({
       execSql: input.execSql,
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
@@ -171,6 +179,7 @@ export async function assertDocumentWriterProjectionConsistent(
       verifiedByHash: input.verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
+    input.onVerifiedAuthorization?.(authorization);
   }
 
   const staleContentKeyBundle = writerProjection.contentKeyBundleStale === true;
@@ -238,4 +247,18 @@ export async function assertDocumentWriterProjectionConsistent(
   });
 
   return targets;
+}
+
+export async function assertDocumentWriterProjectionConsistent(
+  ...input: Parameters<typeof assertDocumentWriterProjectionConsistentInternal>
+): ReturnType<typeof assertDocumentWriterProjectionConsistentInternal> {
+  try {
+    return await assertDocumentWriterProjectionConsistentInternal(...input);
+  } catch (error) {
+    rethrowDatabaseUnavailableError(error);
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    throw new KeyingVerificationError("invalid_shape", errorMessage(error));
+  }
 }
