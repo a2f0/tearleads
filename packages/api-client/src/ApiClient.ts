@@ -588,18 +588,17 @@ export class ApiClient {
   private cacheBlobAttachmentBindResponse(
     response: BlobAttachmentBindResponse,
   ): void {
-    this.updateCachedDocumentAttachmentList(
-      response.documentId,
-      (attachments) => [
-        ...attachments.filter((binding) => binding.slotId !== response.slotId),
-        {
-          bindingId: response.bindingId,
-          blobId: response.blobId,
-          contentKeyBundle: response.contentKeyBundle,
-          slotId: response.slotId,
-        },
-      ],
-    );
+    const {
+      documentId,
+      writeHeaderHash: _writeHeaderHash,
+      ...binding
+    } = response;
+    this.updateCachedDocumentAttachmentList(documentId, (attachments) => [
+      ...attachments.filter(
+        (cachedBinding) => cachedBinding.slotId !== response.slotId,
+      ),
+      binding,
+    ]);
   }
 
   private cacheBlobAttachmentDetachResponse(

@@ -334,6 +334,10 @@ export async function createDocumentAttachmentBindResponse(input: {
     input.request.stagedBlob?.writeHeader,
     "staged blob write header",
   );
+  const event = assertAccessEvent(
+    input.request.event,
+    "blob attachment bind event",
+  );
   const targets = input.request.contentKeyBundle.targets.map((target) => ({
     bindingId: target.bindingId,
     documentId: target.documentId,
@@ -342,11 +346,50 @@ export async function createDocumentAttachmentBindResponse(input: {
     containerKeyEpochId: target.containerKeyEpochId,
     containerKeyEpoch: target.containerKeyEpoch,
   }));
+  const organizationId = String(
+    Reflect.get(input.documentManifest.state, "organizationId"),
+  );
+  const linkedContainerManifestHashes = uniqueSortedStrings(
+    targets.map((target) => target.containerManifestHash),
+  );
+  const linkedContainerKeyEpochIds = uniqueSortedStrings(
+    targets.map((target) => target.containerKeyEpochId),
+  );
+  const blobKekTargets = {
+    blobId: input.blobId,
+    organizationId,
+    activeBindingIds: [bindingId],
+    documentManifestHashes: [input.documentManifest.manifestHash],
+    linkedContainerManifestHashes,
+    linkedContainerKeyEpochIds,
+    targets,
+    blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
+    blobAccessManifestHash: await computeBlobAccessManifestHash({
+      version: 1,
+      blobId: input.blobId,
+      organizationId,
+      activeBindingIds: [bindingId],
+      documentManifestHashes: [input.documentManifest.manifestHash],
+      linkedContainerManifestHashes,
+      linkedContainerKeyEpochIds,
+      blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
+    }),
+  };
 
   return {
+    bindingEvent: {
+      body: input.request.body,
+      event: input.request.event,
+      eventHash: await computeAccessEventHash(event),
+    },
     bindingId,
     blobId: input.blobId,
     documentId,
+    documentManifestHash: input.documentManifest.manifestHash,
+    previousBindingId:
+      typeof Reflect.get(body, "expectedBindingId") === "string"
+        ? String(Reflect.get(body, "expectedBindingId"))
+        : null,
     slotId,
     contentKeyBundle: {
       blobId: input.blobId,
@@ -354,40 +397,13 @@ export async function createDocumentAttachmentBindResponse(input: {
       targetHash: input.request.contentKeyBundle.targetHash,
       targets: input.request.contentKeyBundle.targets,
     },
-    blobKekTargets: {
-      blobId: input.blobId,
-      organizationId: String(
-        Reflect.get(input.documentManifest.state, "organizationId"),
-      ),
-      activeBindingIds: [bindingId],
-      documentManifestHashes: [input.documentManifest.manifestHash],
-      linkedContainerManifestHashes: uniqueSortedStrings(
-        targets.map((target) => target.containerManifestHash),
-      ),
-      linkedContainerKeyEpochIds: uniqueSortedStrings(
-        targets.map((target) => target.containerKeyEpochId),
-      ),
-      targets,
-      blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
-      blobAccessManifestHash: await computeBlobAccessManifestHash({
-        version: 1,
-        blobId: input.blobId,
-        organizationId: String(
-          Reflect.get(input.documentManifest.state, "organizationId"),
-        ),
-        activeBindingIds: [bindingId],
-        documentManifestHashes: [input.documentManifest.manifestHash],
-        linkedContainerManifestHashes: uniqueSortedStrings(
-          targets.map((target) => target.containerManifestHash),
-        ),
-        linkedContainerKeyEpochIds: uniqueSortedStrings(
-          targets.map((target) => target.containerKeyEpochId),
-        ),
-        blobKeyTargetHash: input.request.contentKeyBundle.targetHash,
-      }),
-    },
+    blobKekTargets,
     ...(writeHeader
-      ? { writeHeaderHash: await computeWriteHeaderHash(writeHeader) }
+      ? {
+          writeAuthorization: blobKekTargets,
+          writeHeader: { ...writeHeader },
+          writeHeaderHash: await computeWriteHeaderHash(writeHeader),
+        }
       : {}),
   };
 }

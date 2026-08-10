@@ -24,6 +24,7 @@ import type {
 } from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../src/data/documents/shared/events";
 import { deriveDocumentCreateTargets } from "../../src/data/documents/shared/projection";
+import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";
 import type {
   DocumentCreateAuthor,
   DocumentCreatePlan,
@@ -87,12 +88,7 @@ export async function createResponseFromRequest(
     request.event as unknown as AccessEvent,
   );
   const linkedContainerId = String(Reflect.get(body, "containerId"));
-  const targets = request.contentKeyBundle.targets.map((target) => ({
-    containerId: target.containerId,
-    containerManifestHash: target.containerManifestHash,
-    containerKeyEpochId: target.containerKeyEpochId,
-    containerKeyEpoch: target.containerKeyEpoch,
-  }));
+  const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
 
   return {
     id: documentId,
@@ -131,7 +127,7 @@ export async function createResponseFromRequest(
       linkedContainerKeyEpochIds: targets.map(
         (target) => target.containerKeyEpochId,
       ),
-      targets,
+      targets: targets.map((target) => ({ ...target })),
       documentKeyTargetHash: request.contentKeyBundle.targetHash,
     },
   };
@@ -153,12 +149,7 @@ export async function createLinkSetResponseFromRequest(
       request.contentKeyBundle.targets.map((target) => target.containerId),
     ),
   ].sort();
-  const targets = request.contentKeyBundle.targets.map((target) => ({
-    containerId: target.containerId,
-    containerManifestHash: target.containerManifestHash,
-    containerKeyEpochId: target.containerKeyEpochId,
-    containerKeyEpoch: target.containerKeyEpoch,
-  }));
+  const targets = request.contentKeyBundle.targets.map(targetEnvelopeReference);
 
   return {
     id: documentId,
@@ -198,7 +189,7 @@ export async function createLinkSetResponseFromRequest(
       linkedContainerKeyEpochIds: targets.map(
         (target) => target.containerKeyEpochId,
       ),
-      targets,
+      targets: targets.map((target) => ({ ...target })),
       documentKeyTargetHash: request.contentKeyBundle.targetHash,
     },
   };
@@ -402,6 +393,9 @@ export async function createSyncResponse(
       const writeHeader = update.writeHeader as unknown as WriteHeader;
       return {
         accessEpoch: 1,
+        authorizationTargets: plan.sourceContentKeyBundle.targets.map(
+          targetEnvelopeReference,
+        ),
         ...(update.checkpointKind === undefined
           ? {}
           : { checkpointKind: update.checkpointKind }),

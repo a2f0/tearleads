@@ -11,6 +11,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { createPolicyTestGroup } from "../../../test/helpers/principalPolicy";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
@@ -92,6 +93,7 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
   });
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const signedState = await signSoloGroupState(actor, principalId);
 
   const putPolicyResponse = await app.request(

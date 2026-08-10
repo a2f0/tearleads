@@ -270,6 +270,7 @@ testApiClient(
         {
           bindingId: "binding-1",
           blobId: "blob-1",
+          blobKekTargets: attachmentBinding.blobKekTargets,
           contentKeyBundle: attachmentBinding.contentKeyBundle,
           slotId: "slot-a",
         },

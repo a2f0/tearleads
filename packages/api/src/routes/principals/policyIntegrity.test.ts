@@ -10,7 +10,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
-import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
+import {
+  createPolicyTestGroup,
+  createSignedPrincipalState,
+} from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -20,6 +23,7 @@ test("GET principal policy rejects a database-tampered projection", async () => 
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
@@ -81,6 +85,7 @@ test("GET principal policy rejects a signer key edited after verification", asyn
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,

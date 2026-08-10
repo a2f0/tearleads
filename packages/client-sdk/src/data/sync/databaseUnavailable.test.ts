@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { rethrowDatabaseUnavailableError } from "../keyingProjectionVerification/error";
 import {
   DatabaseUnavailableError,
   isDatabaseUnavailableError,
@@ -53,4 +54,16 @@ test("isDatabaseUnavailableError does not swallow keying failures", () => {
       ),
     ),
   ).toBe(false);
+});
+
+test("projection boundaries preserve database teardown errors", () => {
+  const unavailable = new DatabaseUnavailableError("trust store gone");
+  expect(() => rethrowDatabaseUnavailableError(unavailable)).toThrow(
+    unavailable,
+  );
+  expect(() =>
+    rethrowDatabaseUnavailableError(
+      new KeyingVerificationError("invalid_shape", "bad projection"),
+    ),
+  ).not.toThrow();
 });

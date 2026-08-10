@@ -11,6 +11,7 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
+import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -51,13 +52,17 @@ function readOptionalProjectionString(
 
 async function resolveCurrentGroupKeyEpoch(input: {
   groupId: string;
+  organizationId: string;
   runtime: ContainerWorkflowRuntime;
-}): Promise<number | null> {
-  const bundle = await input.runtime.apiClient.getCurrentPrincipalPolicy(
-    "group",
-    input.groupId,
-  );
-  return bundle?.currentState.keyEpoch ?? null;
+}): Promise<number> {
+  const verified = await loadVerifiedGroupSharePrincipalPolicy({
+    apiClient: input.runtime.apiClient,
+    execSql: input.runtime.infra.execSql,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+  });
+  return verified.policy.keyEpoch;
 }
 
 // A container's KEK is wrapped to a group's encapsulation key at a specific key
@@ -66,17 +71,13 @@ async function resolveCurrentGroupKeyEpoch(input: {
 // keypair), that wrap goes stale: members holding only the new epoch secret can
 // no longer unwrap it. A re-share to the same group at the same access level is
 // therefore NOT redundant when the pinned epoch trails the group's current head,
-// so it must not be deduped away. A null currentKeyEpoch preserves the ordinary
-// best-effort idempotent behavior. Prepared mandatory re-wraps bypass this probe
-// entirely because the raw response has not been cryptographically verified.
+// so it must not be deduped away. The current epoch comes from a network-fresh,
+// fully verified policy bundle guarded by any durable local checkpoint.
 function groupGrantIsStale(input: {
-  currentKeyEpoch: number | null;
+  currentKeyEpoch: number;
   referencedPrincipalHeads: ReadonlyArray<ReferencedPrincipalStateResponse>;
   subjectId: string;
 }): boolean {
-  if (input.currentKeyEpoch === null) {
-    return false;
-  }
   const pinnedHead = (input.referencedPrincipalHeads ?? []).find(
     (head) =>
       head.principalType === "group" && head.principalId === input.subjectId,
@@ -139,21 +140,28 @@ async function loadRemoteContainerShareContext(input: {
     return { matchingGrant: null, projection };
   }
 
-  if (
-    input.subjectType === "group" &&
-    groupGrantIsStale({
-      currentKeyEpoch: await resolveCurrentGroupKeyEpoch({
-        groupId: input.subjectId,
-        runtime: input.runtime,
-      }),
-      referencedPrincipalHeads: remoteState.referencedPrincipalHeads,
-      subjectId: input.subjectId,
-    })
-  ) {
-    input.runtime.util.log(
-      `Container contents: re-sharing container ${input.containerState.container.id} with group ${input.subjectId} because its key epoch advanced past the pinned grant`,
+  if (input.subjectType === "group") {
+    const pinnedHead = remoteState.referencedPrincipalHeads.find(
+      (head) =>
+        head.principalType === "group" && head.principalId === input.subjectId,
     );
-    return { matchingGrant: null, projection };
+    if (
+      !pinnedHead ||
+      groupGrantIsStale({
+        currentKeyEpoch: await resolveCurrentGroupKeyEpoch({
+          groupId: input.subjectId,
+          organizationId: remoteState.organizationId,
+          runtime: input.runtime,
+        }),
+        referencedPrincipalHeads: remoteState.referencedPrincipalHeads,
+        subjectId: input.subjectId,
+      })
+    ) {
+      input.runtime.util.log(
+        `Container contents: re-sharing container ${input.containerState.container.id} with group ${input.subjectId} because its key epoch advanced past the pinned grant`,
+      );
+      return { matchingGrant: null, projection };
+    }
   }
 
   return {

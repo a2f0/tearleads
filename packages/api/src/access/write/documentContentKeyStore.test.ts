@@ -871,6 +871,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
 
   await storeDocumentContentWriteHeader(
     {
+      authorizationTargets: [],
       documentId,
       header,
       headerHash,
@@ -880,6 +881,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   );
   await storeDocumentContentWriteHeader(
     {
+      authorizationTargets: [],
       documentId,
       header,
       headerHash,
@@ -891,6 +893,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   await expect(
     storeDocumentContentWriteHeader(
       {
+        authorizationTargets: [],
         documentId,
         header,
         headerHash: await hashOf("write-header-conflict"),
@@ -904,6 +907,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   await expect(
     storeDocumentContentWriteHeader(
       {
+        authorizationTargets: [],
         documentId,
         header,
         headerHash,
@@ -917,6 +921,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   await expect(
     storeDocumentContentWriteHeader(
       {
+        authorizationTargets: [],
         documentId,
         header: { ...header, objectKind: "blob" },
         headerHash: await hashOf("write-header-wrong-object"),
@@ -952,6 +957,7 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
   const secondHeaderHash = await hashOf("write-header-second");
   await storeDocumentContentWriteHeader(
     {
+      authorizationTargets: [],
       documentId,
       header: secondHeader,
       headerHash: secondHeaderHash,
@@ -964,8 +970,15 @@ test("storeDocumentContentWriteHeader stores canonical headers by update id", as
     await listDocumentContentWriteHeaders([updateId, secondUpdateId], db),
   ).toEqual(
     new Map([
-      [updateId, { header, headerHash }],
-      [secondUpdateId, { header: secondHeader, headerHash: secondHeaderHash }],
+      [updateId, { authorizationTargets: [], header, headerHash }],
+      [
+        secondUpdateId,
+        {
+          authorizationTargets: [],
+          header: secondHeader,
+          headerHash: secondHeaderHash,
+        },
+      ],
     ]),
   );
 });
@@ -1005,6 +1018,7 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
 
   await storeDocumentContentWriteHeader(
     {
+      authorizationTargets: [],
       documentId,
       header,
       headerHash: await hashOf("record-domain-header"),
@@ -1016,6 +1030,7 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
   await expect(
     storeDocumentContentWriteHeader(
       {
+        authorizationTargets: [],
         documentId,
         header: {
           ...header,
@@ -1035,6 +1050,7 @@ test("storeDocumentContentWriteHeader rejects reused content record domains", as
   await expect(
     storeDocumentContentWriteHeader(
       {
+        authorizationTargets: [],
         documentId,
         header: {
           ...header,

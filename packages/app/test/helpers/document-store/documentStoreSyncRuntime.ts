@@ -17,7 +17,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
-  BlobContentKeyBundleResponse,
+  BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
@@ -83,12 +83,7 @@ export async function documentWorkflowRuntimePatch(input: {
     null;
   let storedDocument: DocumentCreateResponse | null = null;
   let syncCount = 0;
-  const attachments: Array<{
-    bindingId: string;
-    blobId: string;
-    contentKeyBundle: BlobContentKeyBundleResponse;
-    slotId: string;
-  }> = [];
+  const attachments: BlobAttachmentSummary[] = [];
   const multipart = createDocumentStoreMultipartApi();
   const blobs = new Map<
     string,
@@ -137,12 +132,7 @@ export async function documentWorkflowRuntimePatch(input: {
           input.mapBindBlobAttachmentResponse?.(responseFixture) ??
           responseFixture;
         input.attachmentBinds?.push({ blobId, request });
-        attachments.push({
-          bindingId: response.bindingId,
-          blobId: response.blobId,
-          contentKeyBundle: response.contentKeyBundle,
-          slotId: response.slotId,
-        });
+        attachments.push(response);
         if (stagedBlob) {
           blobs.set(blobId, {
             encryptedBytes: stagedBlob.bytes,

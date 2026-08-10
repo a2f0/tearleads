@@ -6,6 +6,7 @@ import {
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { AccessEventBundleWireResponseSchema } from "../util";
 
 export const MultipartBlobStagePartSchema = loosePlainObject({
   byteLength: positiveIntegerSchema,
@@ -91,23 +92,6 @@ export type BlobContentKeyBundleResponse = z.infer<
   typeof BlobContentKeyBundleResponseSchema
 >;
 
-export const BlobAttachmentSummarySchema = loosePlainObject({
-  bindingId: z.string(),
-  blobId: z.string(),
-  contentKeyBundle: BlobContentKeyBundleResponseSchema,
-  slotId: z.string(),
-});
-
-export type BlobAttachmentSummary = z.infer<typeof BlobAttachmentSummarySchema>;
-
-export const ListDocumentAttachmentsResponseSchema = arraySchema(
-  BlobAttachmentSummarySchema,
-);
-
-export type ListDocumentAttachmentsResponse = z.infer<
-  typeof ListDocumentAttachmentsResponseSchema
->;
-
 export const BlobKekTargetsResponseSchema = loosePlainObject({
   activeBindingIds: arraySchema(z.string()),
   blobAccessManifestHash: z.string(),
@@ -124,13 +108,41 @@ export type BlobKekTargetsResponse = z.infer<
   typeof BlobKekTargetsResponseSchema
 >;
 
+export const BlobAttachmentSummarySchema = loosePlainObject({
+  bindingEvent: AccessEventBundleWireResponseSchema.optional(),
+  bindingId: z.string(),
+  blobId: z.string(),
+  blobKekTargets: BlobKekTargetsResponseSchema.optional(),
+  contentKeyBundle: BlobContentKeyBundleResponseSchema,
+  documentManifestHash: z.string().optional(),
+  previousBindingId: z.string().nullable().optional(),
+  slotId: z.string(),
+  writeAuthorization: BlobKekTargetsResponseSchema.optional(),
+  writeHeader: plainObjectSchema.optional(),
+});
+
+export type BlobAttachmentSummary = z.infer<typeof BlobAttachmentSummarySchema>;
+
+export const ListDocumentAttachmentsResponseSchema = arraySchema(
+  BlobAttachmentSummarySchema,
+);
+
+export type ListDocumentAttachmentsResponse = z.infer<
+  typeof ListDocumentAttachmentsResponseSchema
+>;
+
 export const BlobAttachmentBindResponseSchema = loosePlainObject({
+  bindingEvent: AccessEventBundleWireResponseSchema.optional(),
   bindingId: z.string(),
   blobId: z.string(),
   blobKekTargets: BlobKekTargetsResponseSchema,
   contentKeyBundle: BlobContentKeyBundleResponseSchema,
   documentId: z.string(),
+  documentManifestHash: z.string().optional(),
+  previousBindingId: z.string().nullable().optional(),
   slotId: z.string(),
+  writeAuthorization: BlobKekTargetsResponseSchema.optional(),
+  writeHeader: plainObjectSchema.optional(),
   writeHeaderHash: z.string().optional(),
 });
 

@@ -1,5 +1,5 @@
 import { type ApiDatabase, db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { groups, users } from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   type ManagedPrincipalKind,
@@ -116,4 +116,15 @@ export async function getDefaultOrganizationId(
 
   invariant(user, "expected registered user");
   return user.organizationId;
+}
+
+export async function createPolicyTestGroup(
+  ownerUserId: string,
+  groupId: string,
+): Promise<void> {
+  await db.insert(groups).values({
+    id: groupId,
+    name: `Policy test ${groupId}`,
+    organizationId: await getDefaultOrganizationId(ownerUserId),
+  });
 }

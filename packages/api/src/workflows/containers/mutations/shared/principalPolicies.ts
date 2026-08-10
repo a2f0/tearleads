@@ -5,15 +5,17 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
-  listPrincipalStateHistory,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
-import { getCurrentPrincipalPolicyWithExecutor } from "../../../principals/getCurrentPrincipalPolicy";
+import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
+import {
+  getCurrentPrincipalPolicyWithExecutor,
+  getVerifiedPrincipalPolicyForStateWithExecutor,
+} from "../../../principals/getCurrentPrincipalPolicy";
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(
@@ -202,47 +204,6 @@ async function stalePrincipalPolicyError(input: {
   });
 }
 
-async function loadPrincipalPolicyWithStoredHistory(
-  executor: DatabaseTransaction,
-  policy: VerifiedPrincipalPolicy,
-): Promise<VerifiedPrincipalPolicy> {
-  // Current policy bundles may authorize manifests that reference older group
-  // heads. Load stored history server-side so verification can match those
-  // signed references without trusting client-supplied history.
-  const history = (
-    await listPrincipalStateHistory(
-      policy.principalType,
-      policy.principalId,
-      executor,
-    )
-  ).map((entry) => ({
-    state: entry.state,
-    projection: entry.projection.map(projectionMemberFromStored),
-  }));
-  const currentEntry = history.at(-1);
-
-  if (!currentEntry) {
-    throw new ContainerMutationError("Principal policy is stale", 409);
-  }
-
-  return makeVerifiedPrincipalPolicy({
-    principalType: currentEntry.state.principalType,
-    principalId: currentEntry.state.principalId,
-    version: currentEntry.state.version,
-    keyEpoch: currentEntry.state.keyEpoch,
-    stateHash: currentEntry.state.stateHash,
-    state: currentEntry.state,
-    projection: currentEntry.projection,
-    history,
-    checkpoint: {
-      principalType: currentEntry.state.principalType,
-      principalId: currentEntry.state.principalId,
-      version: currentEntry.state.version,
-      stateHash: currentEntry.state.stateHash,
-    },
-  });
-}
-
 export async function assertPrincipalPoliciesCurrent(
   executor: DatabaseTransaction,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
@@ -286,9 +247,35 @@ export async function assertPrincipalPoliciesCurrent(
   }
 
   const referencedPrincipalHeads = options.referencedPrincipalHeads ?? [];
-  return gatherWithExecutor(executor, principalPolicies, async (policy) =>
-    principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads)
-      ? loadPrincipalPolicyWithStoredHistory(executor, policy)
-      : policy,
-  );
+  return gatherWithExecutor(executor, principalPolicies, async (policy) => {
+    const currentState = artifacts.currentStateByPolicyKey.get(
+      principalPolicyKey(policy),
+    );
+    if (!currentState) {
+      throw new ContainerMutationError("Principal policy is stale", 409);
+    }
+
+    const stored = await getVerifiedPrincipalPolicyForStateWithExecutor(
+      executor,
+      currentState,
+    );
+    const { createdAt: _createdAt, ...storedSignedState } =
+      stored.bundle.currentState;
+    if (!canonicalJsonEquals(policy.state, storedSignedState)) {
+      throw new ContainerMutationError(
+        "Principal policy payload does not match stored policy",
+        409,
+      );
+    }
+    if (
+      principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads) &&
+      !stored.policy.history
+    ) {
+      throw new ContainerMutationError(
+        "Stored principal policy history is missing",
+        409,
+      );
+    }
+    return stored.policy;
+  });
 }

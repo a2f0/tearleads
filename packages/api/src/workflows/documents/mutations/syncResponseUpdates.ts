@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { documentAuditCheckpoints } from "@tearleads/api-shared/schema";
 import {
   computeDocumentContentRecordMetadataHash,
+  type DocumentContentKeyTarget,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { inArray } from "drizzle-orm";
@@ -107,7 +108,11 @@ async function listSyncCheckpointMetadata(
 
 function toSyncUpdate(
   update: Awaited<ReturnType<typeof listMissingDocumentUpdates>>[number],
-  writeHeader: { readonly header: WriteHeader; readonly headerHash: string },
+  writeHeader: {
+    readonly authorizationTargets: readonly DocumentContentKeyTarget[] | null;
+    readonly header: WriteHeader;
+    readonly headerHash: string;
+  },
   checkpoint: SyncCheckpointMetadata | undefined,
 ) {
   return {
@@ -130,6 +135,10 @@ function toSyncUpdate(
       : { sourceVersionVector: checkpoint.sourceVersionVector }),
     createdAt: update.createdAt.toISOString(),
     writeHeader: writeHeaderRecord(writeHeader.header),
+    ...(writeHeader.authorizationTargets &&
+    writeHeader.authorizationTargets.length > 0
+      ? { authorizationTargets: [...writeHeader.authorizationTargets] }
+      : {}),
   };
 }
 

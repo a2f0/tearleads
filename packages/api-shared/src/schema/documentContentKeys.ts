@@ -1,5 +1,6 @@
 import type {
   ContentRecordEncryptionSuite,
+  DocumentContentKeyTarget,
   KeyingCanonicalJson,
   WriteHeader,
 } from "@tearleads/crypto";
@@ -172,6 +173,9 @@ export const documentContentKeyTargets = pgTable(
  *   nonce domain within the same document content-key epoch.
  * - `headerHash`: Hash of the canonical write header.
  * - `header`: Full canonical write header JSON returned with sync results.
+ * - `authorizationTargets`: Exact verified KEK target references committed by
+ *   `targetHash` when the write was accepted. Nullable only for rows created
+ *   before this evidence was persisted.
  * - `createdAt`: Server-side insertion timestamp.
  *
  * Indexes:
@@ -199,6 +203,9 @@ export const documentContentWriteHeaders = pgTable(
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
     header: jsonb("header").$type<WriteHeader>().notNull(),
+    authorizationTargets: jsonb("authorization_targets").$type<
+      DocumentContentKeyTarget[]
+    >(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

@@ -6,10 +6,8 @@ import type {
 import {
   blobContentKeyEpochs,
   blobContentKeyTargets,
-  blobContentWriteHeaders,
 } from "@tearleads/api-shared/schema";
-import type { WriteHeader } from "@tearleads/crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   assertTargetHashMatches,
   assertTargetsMatchCurrent,
@@ -32,7 +30,6 @@ import {
 import {
   carryForwardContentKeyTargets,
   createContentKeyStore,
-  createContentWriteHeaderStore,
   projectLatestContentKeyBundle,
 } from "./contentKeyStore";
 
@@ -416,77 +413,4 @@ export async function storeBlobContentKeyBundleInTransaction(
   executor: DatabaseTransaction,
 ): Promise<StoredBlobContentKeyBundleWithTargets> {
   return blobContentKeyStore.storeInTransaction(input, executor);
-}
-
-interface StoreBlobContentWriteHeaderInput {
-  readonly blobId: string;
-  readonly header: WriteHeader;
-  readonly headerHash: string;
-  readonly recordId: string;
-}
-
-const blobContentWriteHeaderStore =
-  createContentWriteHeaderStore<StoreBlobContentWriteHeaderInput>({
-    createConflictError: () =>
-      new BlobContentKeyBundleError("Blob write header conflict", 409),
-    createObjectMismatchError: () =>
-      new BlobContentKeyBundleError(
-        "Blob write header does not match blob",
-        409,
-      ),
-    ensureContentKeyEpoch: ensurePositiveContentKeyEpoch,
-    expectedObjectKind: "blob",
-    getObjectId: (input) => input.blobId,
-    getRecordId: (input) => input.recordId,
-    insert: async (input, executor) => {
-      const [inserted] = await executor
-        .insert(blobContentWriteHeaders)
-        .values({
-          recordId: input.recordId,
-          blobId: input.blobId,
-          organizationId: input.header.organizationId,
-          contentKeyEpoch: input.header.contentKeyEpoch,
-          accessManifestHash: input.header.accessManifestHash,
-          targetHash: input.header.targetHash,
-          encryptionSuite: input.header.encryptionSuite,
-          contentRecordId: input.header.contentRecordId,
-          nonceDomainHash: input.header.nonceDomainHash,
-          headerHash: input.headerHash,
-          header: input.header,
-        })
-        .onConflictDoNothing()
-        .returning({ headerHash: blobContentWriteHeaders.headerHash });
-      return inserted !== undefined;
-    },
-    list: (recordIds, executor) =>
-      executor
-        .select({
-          recordId: blobContentWriteHeaders.recordId,
-          header: blobContentWriteHeaders.header,
-          headerHash: blobContentWriteHeaders.headerHash,
-        })
-        .from(blobContentWriteHeaders)
-        .where(inArray(blobContentWriteHeaders.recordId, recordIds)),
-    loadHeaderHash: async (recordId, executor) => {
-      const [existing] = await executor
-        .select({ headerHash: blobContentWriteHeaders.headerHash })
-        .from(blobContentWriteHeaders)
-        .where(eq(blobContentWriteHeaders.recordId, recordId))
-        .limit(1);
-      return existing?.headerHash ?? null;
-    },
-  });
-
-export async function storeBlobContentWriteHeader(
-  input: StoreBlobContentWriteHeaderInput,
-  executor: DatabaseSession,
-): Promise<void> {
-  return blobContentWriteHeaderStore.store(input, executor);
-}
-
-export async function listBlobContentWriteHeaders(
-  recordIds: readonly string[],
-  executor: DatabaseSession,
-): Promise<Map<string, { header: WriteHeader; headerHash: string }>> {
-  return blobContentWriteHeaderStore.list(recordIds, executor);
 }

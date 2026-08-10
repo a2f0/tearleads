@@ -982,6 +982,9 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
   const synced = await syncResponse.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
   expect(synced.acceptedOutgoingUpdateIds).toEqual([updateId]);
+  expect(synced.updates[0]?.authorizationTargets).toEqual(
+    created.documentKekTargets.targets,
+  );
   const [[syncedDocumentRow], [syncedContainerRow]] = await Promise.all([
     db
       .select({ updatedAt: documents.updatedAt })
@@ -1037,6 +1040,35 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
     checkpointCount: 1,
     isValid: true,
     updateEventCount: 1,
+  });
+});
+
+test("POST /documents/:documentId/sync rejects a write without authorization paths", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const { authorizingContainerPathRefs: _omitted, ...missingProofRequest } =
+    request;
+
+  const response = await routeApp.request(`/documents/${created.id}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(missingProofRequest),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Invalid request",
   });
 });
 

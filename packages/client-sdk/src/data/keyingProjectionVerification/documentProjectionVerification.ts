@@ -29,6 +29,7 @@ import {
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import { rethrowDatabaseUnavailableError } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -49,6 +50,78 @@ function readDocumentProjectionContainerPaths(
   ];
 }
 
+function reconstructVerifiedContainerPath(input: {
+  readonly cache: Map<
+    string,
+    readonly VerifiedContainerAccessManifest[] | null
+  >;
+  readonly manifestHash: string;
+  readonly manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+  readonly visiting: Set<string>;
+}): readonly VerifiedContainerAccessManifest[] | null {
+  const cached = input.cache.get(input.manifestHash);
+  if (cached !== undefined) {
+    return cached;
+  }
+  if (input.visiting.has(input.manifestHash)) {
+    throw new Error("Verified container history contains a hierarchy cycle");
+  }
+  const manifest = input.manifests.get(input.manifestHash);
+  if (!manifest) {
+    input.cache.set(input.manifestHash, null);
+    return null;
+  }
+  const parentManifestHash = manifest.state.parentManifestHash;
+  if (parentManifestHash === null) {
+    const path = [manifest];
+    input.cache.set(input.manifestHash, path);
+    return path;
+  }
+
+  input.visiting.add(input.manifestHash);
+  const parentPath = reconstructVerifiedContainerPath({
+    ...input,
+    manifestHash: parentManifestHash,
+  });
+  input.visiting.delete(input.manifestHash);
+  const parent = parentPath?.at(-1);
+  if (
+    !parentPath ||
+    !parent ||
+    parent.state.containerId !== manifest.state.parentContainerId
+  ) {
+    input.cache.set(input.manifestHash, null);
+    return null;
+  }
+  const path = [...parentPath, manifest];
+  input.cache.set(input.manifestHash, path);
+  return path;
+}
+
+function addReconstructedVerifiedContainerPaths(input: {
+  readonly containerPathByManifestHash: Map<
+    string,
+    readonly VerifiedContainerAccessManifest[]
+  >;
+  readonly manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  const cache = new Map<
+    string,
+    readonly VerifiedContainerAccessManifest[] | null
+  >();
+  for (const manifestHash of input.manifests.keys()) {
+    const path = reconstructVerifiedContainerPath({
+      cache,
+      manifestHash,
+      manifests: input.manifests,
+      visiting: new Set(),
+    });
+    if (path && !input.containerPathByManifestHash.has(manifestHash)) {
+      input.containerPathByManifestHash.set(manifestHash, path);
+    }
+  }
+}
+
 async function verifyProjectionContainerPaths(input: {
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -60,7 +133,7 @@ async function verifyProjectionContainerPaths(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<Map<string, VerifiedContainerAccessManifest[]>> {
+}): Promise<Map<string, readonly VerifiedContainerAccessManifest[]>> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
     index,
@@ -96,7 +169,7 @@ async function verifyProjectionContainerPaths(input: {
 
   const containerPathByManifestHash = new Map<
     string,
-    VerifiedContainerAccessManifest[]
+    readonly VerifiedContainerAccessManifest[]
   >();
   // Reuse a caller-supplied cache when provided so a later unwrap pass over the
   // same authorizing container paths does not re-verify identical manifests.
@@ -124,6 +197,12 @@ async function verifyProjectionContainerPaths(input: {
   for (const [index, path] of readDocumentProjectionContainerPaths(
     input.projection,
   ).entries()) {
+    // These are signed historical dependencies of document-manifest events,
+    // not claims about a container's current head. Enforcing the current local
+    // checkpoint here would reject legitimate document history after that
+    // container advances. Current authorizingContainerPaths were verified
+    // above with checkpoints enabled; this pass contributes only verified
+    // predecessor evidence and never advances a head.
     const verifiedPath = await verifyContainerManifestPath({
       bundlesByHash,
       checkpointContext: input.checkpointContext,
@@ -141,6 +220,11 @@ async function verifyProjectionContainerPaths(input: {
     }
   }
 
+  addReconstructedVerifiedContainerPaths({
+    containerPathByManifestHash,
+    manifests: verifiedByHash,
+  });
+
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [],
     verifiedManifests: verifiedContainerManifestsForBundles(
@@ -151,7 +235,6 @@ async function verifyProjectionContainerPaths(input: {
 
   return containerPathByManifestHash;
 }
-
 function previousDocumentManifestFromCache(input: {
   readonly event: Awaited<ReturnType<typeof verifyAccessEventBundle>>;
   readonly label: string;
@@ -281,10 +364,27 @@ interface DocumentWriterProjectionVerificationInput {
     | undefined;
 }
 
+export interface DocumentWriterProjectionAuthorization {
+  readonly containerPathByManifestHash: ReadonlyMap<
+    string,
+    readonly VerifiedContainerAccessManifest[]
+  >;
+  readonly documentManifestByHash: ReadonlyMap<
+    string,
+    VerifiedDocumentLinkSetManifest
+  >;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
+
+interface VerifiedDocumentWriterProjectionResult {
+  readonly authorization: DocumentWriterProjectionAuthorization;
+  readonly headManifest: VerifiedDocumentLinkSetManifest;
+}
+
 async function verifyDocumentWriterProjectionWithContext(
   input: Omit<DocumentWriterProjectionVerificationInput, "execSql">,
   checkpointContext: ProjectionCheckpointContext,
-): Promise<VerifiedDocumentLinkSetManifest> {
+): Promise<VerifiedDocumentWriterProjectionResult> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const containerPathByManifestHash = await verifyProjectionContainerPaths({
@@ -350,7 +450,14 @@ async function verifyDocumentWriterProjectionWithContext(
     verifiedManifests: [...verifiedByHash.values()],
   });
 
-  return headManifest;
+  return {
+    authorization: {
+      containerPathByManifestHash,
+      documentManifestByHash: verifiedByHash,
+      principalPolicies: [...principalPolicyCache.values()],
+    },
+    headManifest,
+  };
 }
 
 export async function verifyDocumentWriterProjection(
@@ -364,5 +471,30 @@ export async function verifyDocumentWriterProjection(
     checkpointContext,
   );
   await commitProjectionCheckpoints(checkpointContext);
-  return verified;
+  return verified.headManifest;
+}
+
+export async function verifyDocumentWriterProjectionAuthorization(
+  input: DocumentWriterProjectionVerificationInput,
+): Promise<DocumentWriterProjectionAuthorization> {
+  try {
+    const checkpointContext = createProjectionCheckpointContext({
+      execSql: input.execSql,
+    });
+    const verified = await verifyDocumentWriterProjectionWithContext(
+      input,
+      checkpointContext,
+    );
+    await commitProjectionCheckpoints(checkpointContext);
+    return verified.authorization;
+  } catch (error) {
+    rethrowDatabaseUnavailableError(error);
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }

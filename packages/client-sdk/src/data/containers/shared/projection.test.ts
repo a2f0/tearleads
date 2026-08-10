@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,
   buildPrincipalStateSigningInput,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
+  computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
@@ -614,7 +616,6 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         envelope: targetEnvelope,
       }),
     ).rejects.toThrow();
-
     const documentWriterProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [revokedProjection],
       contentKeyBundle: {
@@ -698,27 +699,38 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
           const writeHeaderHash = await computeWriteHeaderHash(
             request.stagedBlob.writeHeader as unknown as WriteHeader,
           );
-
+          const blobKekTargets = {
+            blobId,
+            organizationId: parent.projection.organizationId,
+            activeBindingIds: [bindingId],
+            documentManifestHashes: [createdDocument.plan.manifestHash],
+            linkedContainerManifestHashes,
+            linkedContainerKeyEpochIds,
+            targets: targets.map((target) => ({ ...target })),
+            blobKeyTargetHash: request.contentKeyBundle.targetHash,
+            blobAccessManifestHash,
+          };
           return {
             bindingId,
+            bindingEvent: {
+              body: request.body,
+              event: request.event,
+              eventHash: await computeAccessEventHash(
+                request.event as unknown as AccessEvent,
+              ),
+            },
             blobId,
             documentId: createdDocument.plan.documentId,
+            documentManifestHash: createdDocument.plan.manifestHash,
+            previousBindingId: null,
             slotId,
             contentKeyBundle: {
               blobId,
               ...request.contentKeyBundle,
             },
-            blobKekTargets: {
-              blobId,
-              organizationId: parent.projection.organizationId,
-              activeBindingIds: [bindingId],
-              documentManifestHashes: [createdDocument.plan.manifestHash],
-              linkedContainerManifestHashes,
-              linkedContainerKeyEpochIds,
-              targets: targets.map((target) => ({ ...target })),
-              blobKeyTargetHash: request.contentKeyBundle.targetHash,
-              blobAccessManifestHash,
-            },
+            blobKekTargets,
+            writeAuthorization: blobKekTargets,
+            writeHeader: request.stagedBlob.writeHeader,
             writeHeaderHash,
           };
         },

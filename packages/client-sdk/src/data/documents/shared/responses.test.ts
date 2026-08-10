@@ -11,6 +11,7 @@ import {
   getOnlyTarget,
 } from "../../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
+import { DatabaseUnavailableError } from "../../sync/databaseUnavailable";
 import { buildDocumentCreatePlan } from "./events";
 import {
   persistedDocumentCreateStateFromResponse,
@@ -93,6 +94,17 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
 
+  const databaseUnavailable = new DatabaseUnavailableError(
+    "Writer trust store was released",
+  );
+  await expect(
+    persistedDocumentSyncStateFromResponse(plan, response, {
+      resolveWriterPublicKey: async () => {
+        throw databaseUnavailable;
+      },
+    }),
+  ).rejects.toBe(databaseUnavailable);
+
   const acceptedUpdate = plan.request.outgoingUpdates[0];
   if (!acceptedUpdate) {
     throw new Error("Expected outgoing update fixture.");
@@ -145,14 +157,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         writerPublicKeysByFingerprint,
       },
     ),
-  ).resolves.toEqual({
-    documentId: readOnlyMaterialized.plan.documentId,
-    contentKeyBundle: JSON.stringify(historicalResponse.contentKeyBundle),
-    documentKekTargets: JSON.stringify(historicalResponse.documentKekTargets),
-    documentManifestBundle: JSON.stringify(
-      readOnlyMaterialized.plan.documentManifest,
-    ),
-  });
+  ).rejects.toThrow("lacks verified writer-authorization material");
 
   const rotatedProjection = {
     ...writerProjection,
@@ -195,9 +200,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         writerPublicKeysByFingerprint,
       },
     ),
-  ).resolves.toMatchObject({
-    documentId: rotatedMaterialized.plan.documentId,
-  });
+  ).rejects.toThrow("lacks verified writer-authorization material");
 
   await expect(
     persistedDocumentSyncStateFromResponse(

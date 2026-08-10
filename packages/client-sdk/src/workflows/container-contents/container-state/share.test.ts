@@ -10,16 +10,19 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
+import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import { shareContainerState, shareContainerStateWithGroup } from "./share";
 import {
-  groupPolicyBundleWithKeyEpoch,
   withDirectGroupGrant,
   withDirectUserGrant,
 } from "./share.testFixtures";
@@ -289,6 +292,11 @@ function createShareTestRuntime(input: {
   author: Awaited<ReturnType<typeof createAuthor>>["author"];
   execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
   logs: string[];
+  resolveTrustedUserIdentity?:
+    | ReturnType<
+        typeof createContainerContentsWorkflowRuntime
+      >["resolveTrustedUserIdentity"]
+    | undefined;
 }): ReturnType<typeof createContainerContentsWorkflowRuntime> {
   return createContainerContentsWorkflowRuntime({
     apiClient: input.apiClient,
@@ -308,7 +316,8 @@ function createShareTestRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
-    resolveTrustedUserIdentity: async () => null,
+    resolveTrustedUserIdentity:
+      input.resolveTrustedUserIdentity ?? (async () => null),
     state: {
       containerId: null,
       domainScope: createDomainScope(),
@@ -376,13 +385,34 @@ async function runGroupShareScenario(input: {
   const { close, execSql } = await createTestExecSql(input.testLabel);
 
   try {
-    const { author } = await createAuthor({
+    const { author, signingPublicKey } = await createAuthor({
       organizationId: "organization-1",
       userId: "owner-user",
     });
     const keyPair = generateKemSeedAndKeyPair();
     const containerId = `${input.testLabel}-container`;
     const groupId = "members-group";
+    const initialGroupPolicy = await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+      groupId,
+      name: "Members",
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair: {
+        signingPrivateKey: author.signerPrivateKey,
+        signingPublicKey,
+      },
+    });
+    const currentGroupPolicy = await createSuccessorGroupPolicyBundle({
+      author,
+      groupId,
+      groupKem: generateKemSeedAndKeyPair(),
+      keyEpoch: input.currentGroupKeyEpoch,
+      memberPublicKey: keyPair.publicKey,
+      previousBundle: await policyBundleFromInitialRequest(initialGroupPolicy),
+      signedAt: "2026-05-22T12:15:00.000Z",
+      userId: author.signerUserId,
+    });
     const projection = await createContainerWriterProjectionFixture({
       containerId,
       encapsulationPublicKey: keyPair.publicKey,
@@ -418,10 +448,7 @@ async function runGroupShareScenario(input: {
             }
             throw new Error("current principal policy unavailable");
           }
-          return groupPolicyBundleWithKeyEpoch({
-            groupId,
-            keyEpoch: input.currentGroupKeyEpoch,
-          });
+          return currentGroupPolicy;
         },
         shareContainer: async () => {
           shareCallCount += 1;
@@ -432,6 +459,15 @@ async function runGroupShareScenario(input: {
       author,
       execSql,
       logs,
+      resolveTrustedUserIdentity: async (userId) =>
+        userId === author.signerUserId
+          ? createTestTrustedUserIdentity({
+              encapsulationPublicKey: keyPair.publicKey,
+              signingKeyFingerprint: author.signerKeyFingerprint,
+              signingPublicKey,
+              userId,
+            })
+          : null,
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =

@@ -14397,6 +14397,27 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "bindingEvent": {
+                      "type": "object",
+                      "properties": {
+                        "body": {},
+                        "event": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "eventHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "body",
+                        "event",
+                        "eventHash"
+                      ],
+                      "additionalProperties": {}
+                    },
                     "bindingId": {
                       "type": "string"
                     },
@@ -14537,8 +14558,87 @@
                     "documentId": {
                       "type": "string"
                     },
+                    "documentManifestHash": {
+                      "type": "string"
+                    },
+                    "previousBindingId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "slotId": {
                       "type": "string"
+                    },
+                    "writeAuthorization": {
+                      "type": "object",
+                      "properties": {
+                        "activeBindingIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "blobAccessManifestHash": {
+                          "type": "string"
+                        },
+                        "blobId": {
+                          "type": "string"
+                        },
+                        "blobKeyTargetHash": {
+                          "type": "string"
+                        },
+                        "documentManifestHashes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "linkedContainerKeyEpochIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "linkedContainerManifestHashes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        },
+                        "targets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "activeBindingIds",
+                        "blobAccessManifestHash",
+                        "blobId",
+                        "blobKeyTargetHash",
+                        "documentManifestHashes",
+                        "linkedContainerKeyEpochIds",
+                        "linkedContainerManifestHashes",
+                        "organizationId",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "writeHeader": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     },
                     "writeHeaderHash": {
                       "type": "string"
@@ -22177,11 +22277,93 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "bindingEvent": {
+                        "type": "object",
+                        "properties": {
+                          "body": {},
+                          "event": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "eventHash": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "body",
+                          "event",
+                          "eventHash"
+                        ],
+                        "additionalProperties": {}
+                      },
                       "bindingId": {
                         "type": "string"
                       },
                       "blobId": {
                         "type": "string"
+                      },
+                      "blobKekTargets": {
+                        "type": "object",
+                        "properties": {
+                          "activeBindingIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "blobAccessManifestHash": {
+                            "type": "string"
+                          },
+                          "blobId": {
+                            "type": "string"
+                          },
+                          "blobKeyTargetHash": {
+                            "type": "string"
+                          },
+                          "documentManifestHashes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "linkedContainerKeyEpochIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "linkedContainerManifestHashes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "activeBindingIds",
+                          "blobAccessManifestHash",
+                          "blobId",
+                          "blobKeyTargetHash",
+                          "documentManifestHashes",
+                          "linkedContainerKeyEpochIds",
+                          "linkedContainerManifestHashes",
+                          "organizationId",
+                          "targets"
+                        ],
+                        "additionalProperties": {}
                       },
                       "contentKeyBundle": {
                         "type": "object",
@@ -22253,8 +22435,87 @@
                         ],
                         "additionalProperties": {}
                       },
+                      "documentManifestHash": {
+                        "type": "string"
+                      },
+                      "previousBindingId": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "slotId": {
                         "type": "string"
+                      },
+                      "writeAuthorization": {
+                        "type": "object",
+                        "properties": {
+                          "activeBindingIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "blobAccessManifestHash": {
+                            "type": "string"
+                          },
+                          "blobId": {
+                            "type": "string"
+                          },
+                          "blobKeyTargetHash": {
+                            "type": "string"
+                          },
+                          "documentManifestHashes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "linkedContainerKeyEpochIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "linkedContainerManifestHashes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "targets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "activeBindingIds",
+                          "blobAccessManifestHash",
+                          "blobId",
+                          "blobKeyTargetHash",
+                          "documentManifestHashes",
+                          "linkedContainerKeyEpochIds",
+                          "linkedContainerManifestHashes",
+                          "organizationId",
+                          "targets"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "writeHeader": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": {}
                       }
                     },
                     "required": [
@@ -24697,6 +24958,39 @@
                             "exclusiveMinimum": 0,
                             "maximum": 1.7976931348623157e+308,
                             "type": "integer"
+                          },
+                          "authorizationTargets": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerManifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpoch",
+                                "containerKeyEpochId",
+                                "containerManifestHash"
+                              ],
+                              "additionalProperties": {}
+                            }
                           },
                           "authorFingerprint": {
                             "type": "string"

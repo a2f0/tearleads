@@ -1,7 +1,4 @@
-import type {
-  ContainerWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 
 function withDirectGrant(input: {
   accessLevel: "read" | "write" | "admin";
@@ -106,19 +103,4 @@ export function withDirectGroupGrant(input: {
     subjectType: "group",
     updatedAt: input.updatedAt,
   });
-}
-
-// The dedup only reads bundle.currentState.keyEpoch; the rest of the bundle is
-// irrelevant to the staleness decision, so this keeps the fixture minimal.
-export function groupPolicyBundleWithKeyEpoch(input: {
-  groupId: string;
-  keyEpoch: number;
-}): PrincipalPolicyBundleResponse {
-  return {
-    currentState: {
-      keyEpoch: input.keyEpoch,
-      principalId: input.groupId,
-      principalType: "group",
-    },
-  } as unknown as PrincipalPolicyBundleResponse;
 }

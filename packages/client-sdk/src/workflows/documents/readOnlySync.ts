@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -201,6 +202,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
 }
 
 async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
+  allowCachedProjectionRefresh: boolean;
   completion: ReadOnlyDocumentSyncCompletionInput;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult | null> {
@@ -210,6 +212,13 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
+    if (
+      input.allowCachedProjectionRefresh &&
+      error instanceof KeyingVerificationError &&
+      error.code === "invalid_shape"
+    ) {
+      return null;
+    }
     rethrowKeyingVerificationError(error);
     if (projectionIntegrityErrorCode(error)) {
       throw error;
@@ -245,6 +254,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   let retryAfterRollback = false;
   try {
     result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
+      allowCachedProjectionRefresh: Boolean(reusableWriterProjection),
       completion: input,
       writerProjection,
     });
@@ -277,6 +287,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
 
   const freshResult = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection(
     {
+      allowCachedProjectionRefresh: false,
       completion: input,
       writerProjection: freshWriterProjection,
     },

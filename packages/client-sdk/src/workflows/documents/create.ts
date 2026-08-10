@@ -336,6 +336,11 @@ export async function createRemoteDocument(
       containerProjection: createPlan.containerProjection,
       response,
     });
+    await assertDocumentWriterProjectionConsistent(writerProjection, {
+      execSql: input.execSql,
+      resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
     // Seed the projection the create response already gave us so the first read
     // after create (sync, blob attach, container-contents hydration) resolves
     // locally instead of a cold GET writer-projection.
