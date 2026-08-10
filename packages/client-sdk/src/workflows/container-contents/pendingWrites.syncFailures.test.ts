@@ -8,6 +8,11 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import {
+  ensurePendingWriteSchema,
+  insertTestPendingUpdate,
+  saveTestSyncedContainer,
+} from "./documentQueries.testFixtures";
+import {
   listPendingWrites,
   resetPendingWriteRetryState,
 } from "./pendingWrites";
@@ -18,38 +23,17 @@ const T2 = "2026-01-01T00:00:02.000Z";
 
 const DOCUMENT_SCOPE = { appKind: "documents", localId: "local-document" };
 
-async function ensurePendingWriteSchema(execSql: ExecSql): Promise<void> {
-  await listPendingWrites(execSql);
-}
-
 async function saveSharedOrgContainerWithPendingDocument(
   execSql: ExecSql,
 ): Promise<void> {
-  const metadataDocumentId = "metadata-shared-container";
-  await defaultContainerContentsPersistence.saveContainer(
+  await saveTestSyncedContainer({
+    accessLevel: "write",
     execSql,
-    {
-      effectiveAccessLevel: "write",
-      icon: null,
-      id: "shared-container",
-      metadataDocumentId,
-      name: "Shared",
-      organizationId: "peer-organization",
-      parentId: null,
-    },
-    {
-      accessEpoch: 1,
-      accessStateHash: "access-shared-container",
-      documentId: metadataDocumentId,
-      id: "shared-container",
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-    {
-      localUpdatedAt: T0,
-      serverTimestamps: { createdAt: T0, updatedAt: T0 },
-    },
-  );
+    id: "shared-container",
+    name: "Shared",
+    organizationId: "peer-organization",
+    timestamp: T0,
+  });
   await sqlDocumentsPersistence.saveDocument(
     execSql,
     {
@@ -65,14 +49,13 @@ async function saveSharedOrgContainerWithPendingDocument(
     },
     { updatedAt: T0 },
   );
-  await execSql(
-    `INSERT INTO document_pending_updates (
-      id, app_kind, local_id, update_data,
-      partial_start_version_vector, partial_end_version_vector,
-      source_version_vector, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    ["denied-update", "documents", "local-document", "payload", "{}", "{}", T1],
-  );
+  await insertTestPendingUpdate({
+    appKind: "documents",
+    createdAt: T1,
+    execSql,
+    id: "denied-update",
+    localId: "local-document",
+  });
 }
 
 test("a recorded terminal failure surfaces as an errored queue item", async () => {
@@ -160,14 +143,13 @@ test("a failure with no pending work surfaces as its own queue item", async () =
     ]);
 
     // Real pending work absorbs the failure instead of duplicating the item.
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      ["queued-edit", "documents", "local-document", "payload", "{}", "{}", T1],
-    );
+    await insertTestPendingUpdate({
+      appKind: "documents",
+      createdAt: T1,
+      execSql,
+      id: "queued-edit",
+      localId: "local-document",
+    });
     const withPending = await listPendingWrites(execSql);
     const combined = withPending.filter(
       (item) => item.localId === "local-document",
@@ -246,14 +228,13 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
       kept.find((item) => item.localId === "local-document"),
     ).toMatchObject({ status: "error" });
 
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      ["retry-edit", "documents", "local-document", "payload", "{}", "{}", T1],
-    );
+    await insertTestPendingUpdate({
+      appKind: "documents",
+      createdAt: T1,
+      execSql,
+      id: "retry-edit",
+      localId: "local-document",
+    });
     await resetPendingWriteRetryState(execSql, {
       localId: "local-document",
       namespace: null,

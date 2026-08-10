@@ -3,16 +3,15 @@ import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
+import {
   dataUsage,
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,
@@ -33,43 +32,16 @@ function createDataUsageTestRuntime(input: {
   const domainScope = createDomainScope();
   let dbStatus: InternalWorkflowRuntimeInput["infra"]["dbStatus"] = "ready";
   let online = true;
-  const workflowInput = (): InternalWorkflowRuntimeInput => ({
-    apiClient: input.apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId,
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
+  const workflowInput = (): InternalWorkflowRuntimeInput =>
+    createWorkflowInputFixture({
+      apiClient: input.apiClient,
+      auth: { organizationId, userId: "user-1" },
       dbStatus,
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
       domainScope,
-      events: [],
+      execSql: input.execSql,
       online,
-    },
-    util: { log: () => {}, logError: () => {} },
-  });
-  const runtime: InternalRuntime = {
-    adoptRootContainer: () => false,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput,
-  };
+    });
+  const runtime = createInternalRuntimeFixture(workflowInput);
 
   return {
     coordinator: createOrganizationDataUsageCoordinator(runtime),

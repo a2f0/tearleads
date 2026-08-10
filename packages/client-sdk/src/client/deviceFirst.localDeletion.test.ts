@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../test/helpers/internalRuntimeFixtures";
+import { waitFor } from "../../test/helpers/waitFor";
 import type { BlobStore } from "../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
@@ -17,26 +21,8 @@ import {
   createDeviceFirstWorkflowRuntime,
 } from "./deviceFirst";
 import { createDocuments } from "./documents";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
 
 const CONTAINER_ID = "cached-root";
-
-async function waitFor(
-  predicate: () => boolean,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(message);
-}
 
 async function seedCachedDocuments(execSql: ExecSql): Promise<void> {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -97,51 +83,23 @@ test("local deletion evicts a cached device-first summary until disposal", async
     writeByteSource: async () => undefined,
     writeBytes: async () => undefined,
   } satisfies BlobStore;
-  const workflowInput = {
+  const workflowInput = createWorkflowInputFixture({
     apiClient,
-    resolveTrustedUserIdentity: async () => null,
-    auth: {
-      isAuthenticated: false,
-      organizationId: null,
-      userId: null,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    state: {
-      containerId: CONTAINER_ID,
-      domainScope,
-      events: [],
-      online: false,
-    },
-    util: {
-      log: () => {},
-      logError: () => {},
-    },
-  } satisfies InternalWorkflowRuntimeInput;
+    auth: { isAuthenticated: false },
+    blobStore,
+    containerId: CONTAINER_ID,
+    domainScope,
+    execSql,
+    online: false,
+  });
   const adoptRootContainer = () => false;
   const runtime = createContainerContentsStoreWorkflowRuntime(
     workflowInput,
     adoptRootContainer,
   );
-  const runtimeService = {
+  const runtimeService = createInternalRuntimeFixture(() => workflowInput, {
     adoptRootContainer,
-    pinLocalUserIdentity: async () => {},
-    publicRuntime: {
-      version: 0,
-      input: () => workflowInput,
-      subscribe: () => () => {},
-    },
-    workflowInput: () => workflowInput,
-  } satisfies InternalRuntime;
+  });
   expect(
     createDeviceFirstWorkflowRuntime(runtimeService).adoptRootContainer,
   ).toBe(adoptRootContainer);

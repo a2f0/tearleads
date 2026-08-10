@@ -42,43 +42,22 @@ export type UpdateDocumentRowFields = (
 ) => Promise<void>;
 export type RemoveDocumentRow = (id: string) => Promise<void>;
 
-export interface DocumentContextValue {
-  attachments: ReadonlyArray<DocumentAttachment>;
-  attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
-  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
-  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
-  addRow: AddDocumentRow;
-  canAttach: boolean;
-  canWrite: boolean;
-  // The signing user id of the local writer, or null when unauthenticated —
-  // lets row attribution render "you" for the current user.
-  currentAuthorId: string | null;
-  documentId: string | null;
-  documentKind: StoredDocumentKind;
-  effectiveAccessLevel: ContainerAccessLevel;
-  fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
-  ready: boolean;
-  removeRow: RemoveDocumentRow;
-  requestSync: () => void;
-  relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
-  removeAttachment: (slotId: string) => void;
-  rows: ReadonlyArray<DocumentRow>;
-  replaceAttachment: (
-    slotId: string,
-    file: DocumentAttachmentUpload,
-  ) => Promise<void>;
-  setStructuredFields: (
-    kind: Exclude<StoredDocumentKind, "note">,
-    patch: DocumentStructuredFieldPatch,
-    options?: DocumentMutationOptions | undefined,
-  ) => Promise<void>;
-  structuredFields: Readonly<Record<string, string>>;
-  text: string;
-  title: string;
-  syncing: boolean;
-  setText: (value: string) => Promise<void>;
-  updateRowFields: UpdateDocumentRowFields;
-}
+// The store surface exposed through context: the snapshot fields plus the
+// store's mutation methods, spelled as a Pick so the two can't drift.
+export type DocumentContextValue = DocumentSnapshot &
+  Pick<
+    DocumentStore,
+    | "addRow"
+    | "attachFiles"
+    | "relink"
+    | "removeAttachment"
+    | "removeRow"
+    | "replaceAttachment"
+    | "requestSync"
+    | "setStructuredFields"
+    | "setText"
+    | "updateRowFields"
+  >;
 
 export interface DocumentSnapshot {
   attachments: ReadonlyArray<DocumentAttachment>;

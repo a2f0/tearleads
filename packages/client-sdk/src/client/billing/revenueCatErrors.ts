@@ -111,29 +111,38 @@ export function copyRevenueCatError(source: Error): Error {
   return copy;
 }
 
-export function revenueCatOperationTimeoutMs(
+function validatedTimeoutMs(
   configuredTimeoutMs: number | undefined,
+  defaultTimeoutMs: number,
+  label: string,
 ): number {
-  const timeoutMs = configuredTimeoutMs ?? DEFAULT_OPERATION_TIMEOUT_MS;
+  const timeoutMs = configuredTimeoutMs ?? defaultTimeoutMs;
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new RangeError(
-      "RevenueCat operation timeout must be a positive finite number",
+      `RevenueCat ${label} must be a positive finite number`,
     );
   }
   return timeoutMs;
 }
 
+export function revenueCatOperationTimeoutMs(
+  configuredTimeoutMs: number | undefined,
+): number {
+  return validatedTimeoutMs(
+    configuredTimeoutMs,
+    DEFAULT_OPERATION_TIMEOUT_MS,
+    "operation timeout",
+  );
+}
+
 export function revenueCatCheckoutSettlementTimeoutMs(
   configuredTimeoutMs: number | undefined,
 ): number {
-  const timeoutMs =
-    configuredTimeoutMs ?? DEFAULT_CHECKOUT_SETTLEMENT_TIMEOUT_MS;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    throw new RangeError(
-      "RevenueCat checkout settlement timeout must be a positive finite number",
-    );
-  }
-  return timeoutMs;
+  return validatedTimeoutMs(
+    configuredTimeoutMs,
+    DEFAULT_CHECKOUT_SETTLEMENT_TIMEOUT_MS,
+    "checkout settlement timeout",
+  );
 }
 
 export function withRevenueCatOperationTimeout<T>(input: {

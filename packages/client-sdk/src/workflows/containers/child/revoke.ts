@@ -13,7 +13,6 @@ import type {
 import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
-  createContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -26,15 +25,11 @@ import type {
 } from "@tearleads/validators/response";
 import {
   buildContainerCreateKeyEpoch,
-  resolveContainerKekEpochId,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
-  getParentKekForTarget,
-  getTargetContainerContext,
-  readContainerState,
   uniqueSortedManifestHashes,
 } from "../../../data/containers/shared/projection";
 import type {
@@ -43,8 +38,6 @@ import type {
   ContainerRevokePlan,
   MaterializedContainerRevokePlan,
 } from "../../../data/containers/shared/types";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
@@ -53,13 +46,18 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { sealRotationKeyring } from "./moveRotation";
-import { containerMutationRequestCore } from "./mutationRequestCore";
+import { buildContainerRotationArtifacts } from "./moveRotation";
+import {
+  containerMutationRequestCore,
+  previousPathRequestFields,
+  readCanonicalRecordOrNull,
+} from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
 } from "./revokeManifest";
+import { resolveRotationContext } from "./rotationContext";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
 function buildContainerRevokeRequest(input: {
@@ -79,52 +77,20 @@ function buildContainerRevokeRequest(input: {
 }): ContainerMutationRequest {
   return {
     ...containerMutationRequestCore("revoke", input),
-    previousManifest: input.previousManifest,
-    previousContainerPath: input.previousProjection.path.map(
-      asContainerManifestBundle,
+    ...previousPathRequestFields(
+      input.previousManifest,
+      input.previousProjection,
     ),
     predecessorBridge: readCanonicalRecord(
       input.predecessorBridge,
       "Container revoke predecessor bridge",
     ),
     keyring: readCanonicalRecord(input.keyring, "Container revoke keyring"),
-    parentKekState:
-      input.parentKek === null
-        ? null
-        : readCanonicalRecord(
-            input.parentKek,
-            "Container revoke parent KEK state",
-          ),
+    parentKekState: readCanonicalRecordOrNull(
+      input.parentKek,
+      "Container revoke parent KEK state",
+    ),
   };
-}
-
-async function buildContainerRevokeRotation(input: {
-  containerKey: Uint8Array;
-  containerKeyEpochId: string;
-  nextContainerKeyEpoch: number;
-  predecessorContainerKey: Uint8Array;
-  previousContainerId: string;
-  targetKek: ContainerKekResponse;
-}): Promise<{
-  keyring: ContainerKekKeyring;
-  predecessorBridge: ContainerKekPredecessorBridge;
-}> {
-  const predecessorBridge = await createContainerKekPredecessorBridge({
-    containerId: input.previousContainerId,
-    predecessorContainerKey: input.predecessorContainerKey,
-    predecessorContainerKeyEpochId: input.targetKek.containerKeyEpochId,
-    successorContainerKey: input.containerKey,
-    successorContainerKeyEpochId: input.containerKeyEpochId,
-  });
-  const keyring = await sealRotationKeyring({
-    containerId: input.previousContainerId,
-    currentKek: input.targetKek,
-    currentKeyMaterial: input.predecessorContainerKey,
-    keyEpoch: input.nextContainerKeyEpoch,
-    successorContainerKey: input.containerKey,
-    successorContainerKeyEpochId: input.containerKeyEpochId,
-  });
-  return { keyring, predecessorBridge };
 }
 
 export async function collectContainerRevokePrincipalPolicies(input: {
@@ -199,8 +165,6 @@ function buildContainerRevokePlanResult(input: {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Revoke planning has to keep the manifest, KEK, wraps, and signed event in one auditable transition.
 export async function buildMaterializedContainerRevokePlan(input: {
   author: ContainerMutationAuthor;
-  containerKey?: Uint8Array | undefined;
-  containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
@@ -215,49 +179,21 @@ export async function buildMaterializedContainerRevokePlan(input: {
     input.resolveProjectionUserKey,
     "Remote container revoke",
   );
-  const containerKey =
-    input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));
-  if (containerKey.byteLength !== 32) {
-    throw new Error("Container KEK material must be 32 bytes");
-  }
-
-  const keksByEpochId = await unwrapContainerKekPath({
-    execSql: input.execSql,
-    projection: input.previousProjection,
-    secretKey: input.targetSecretKey,
-    ...projectionVerificationOptions(input),
-  });
-  const target = getTargetContainerContext(input.previousProjection);
-  const predecessorContainerKey = keksByEpochId.get(
-    target.kek.containerKeyEpochId,
-  );
-  if (!predecessorContainerKey) {
-    throw new Error("Container revoke predecessor KEK could not be unwrapped");
-  }
-  const previousState = readContainerState(target.manifest);
-  if (previousState.organizationId !== input.author.organizationId) {
-    throw new Error("Container revoke author organization mismatch");
-  }
-
-  const parentKek = getParentKekForTarget(input.previousProjection);
-  const parentKekMaterial = parentKek
-    ? (keksByEpochId.get(parentKek.containerKeyEpochId) ?? null)
-    : null;
-  const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
-  const containerKeyEpochId = await resolveContainerKekEpochId({
-    containerId: previousState.containerId,
-    keyEpoch: nextContainerKeyEpoch,
-    keyMaterial: containerKey,
-    override: input.containerKeyEpochId,
-  });
-  const { keyring, predecessorBridge } = await buildContainerRevokeRotation({
-    containerKey,
-    containerKeyEpochId,
-    nextContainerKeyEpoch,
+  const {
+    parentKek,
+    parentKekMaterial,
     predecessorContainerKey,
-    previousContainerId: previousState.containerId,
-    targetKek: target.kek,
-  });
+    previousState,
+    target,
+  } = await resolveRotationContext(input, "revoke");
+  const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
+  const { containerKey, containerKeyEpochId, keyring, predecessorBridge } =
+    await buildContainerRotationArtifacts({
+      containerId: previousState.containerId,
+      currentKek: target.kek,
+      currentKeyMaterial: predecessorContainerKey,
+      keyEpoch: nextContainerKeyEpoch,
+    });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
@@ -366,10 +302,6 @@ export async function revokeRemoteContainer(input: {
   plan: ContainerRevokePlan;
   response: ContainerMutationResponse;
 } | null> {
-  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
-    input.resolveProjectionUserKey,
-    "Remote container revoke",
-  );
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );
@@ -383,7 +315,7 @@ export async function revokeRemoteContainer(input: {
     execSql: input.execSql,
     previousProjection,
     revokedSubject: input.revokedSubject,
-    resolveProjectionUserKey,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,

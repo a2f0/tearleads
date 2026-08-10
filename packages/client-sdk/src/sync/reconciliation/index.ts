@@ -1,8 +1,5 @@
-export {
-  createReconciliationService,
-  type ReconciliationHost,
-  type ReconciliationService,
-} from "./service";
+export { createReconciliationService } from "./service";
+export type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
 export {
   connectReconciliationTriggers,
   enqueueReconciliationForEvents,

@@ -19,6 +19,7 @@ import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
+  createRecipientIdentityResolver,
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
@@ -27,23 +28,10 @@ import {
   policyBundleFromInitialRequest,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./share";
-
-async function withTestExecSql<T>(
-  name: string,
-  operation: (
-    execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
-  ) => Promise<T>,
-): Promise<T> {
-  const { close, execSql } = await createTestExecSql(name);
-  try {
-    return await operation(execSql);
-  } finally {
-    close();
-  }
-}
 
 test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();
@@ -79,13 +67,11 @@ test("shareRemoteContainer rejects tampered projected container state before sen
       execSql: database.execSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: async (userId) =>
-        createTestTrustedUserIdentity({
-          encapsulationPublicKey: recipientKeyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        }),
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("Container writer projection path[0] state mismatch");
@@ -123,13 +109,11 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
       execSql: database.execSql,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-      resolveTrustedUserIdentity: async (userId) =>
-        createTestTrustedUserIdentity({
-          encapsulationPublicKey: recipientKeyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        }),
+      resolveTrustedUserIdentity: createRecipientIdentityResolver({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+      }),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow(
@@ -172,13 +156,11 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     execSql: database.execSql,
     recipientUserId: "user-2",
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    resolveTrustedUserIdentity: async (userId) =>
-      createTestTrustedUserIdentity({
-        encapsulationPublicKey: recipientKeyPair.publicKey,
-        signingKeyFingerprint: author.signerKeyFingerprint,
-        signingPublicKey: parent.signingPublicKey,
-        userId,
-      }),
+    resolveTrustedUserIdentity: createRecipientIdentityResolver({
+      encapsulationPublicKey: recipientKeyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey: parent.signingPublicKey,
+    }),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });

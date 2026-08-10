@@ -441,24 +441,7 @@ export function setDocumentSyncing(
   state: DocumentStoreState,
   syncing: boolean,
 ) {
-  setDocumentSnapshot(state, {
-    attachments: state.snapshot.attachments,
-    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
-    canAttach: state.snapshot.canAttach,
-    canWrite: state.snapshot.canWrite,
-    currentAuthorId: state.snapshot.currentAuthorId,
-    documentId: state.snapshot.documentId,
-    documentKind: state.snapshot.documentKind,
-    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
-    fieldValidationIssues: state.snapshot.fieldValidationIssues,
-    ready: state.snapshot.ready,
-    rows: state.snapshot.rows,
-    structuredFields: state.snapshot.structuredFields,
-    text: state.snapshot.text,
-    title: state.snapshot.title,
-    syncing,
-  });
+  setDocumentSnapshot(state, { ...state.snapshot, syncing });
 }
 
 export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
@@ -467,24 +450,12 @@ export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
   }
 
   setDocumentSnapshot(state, {
-    attachments: state.snapshot.attachments,
-    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
+    ...state.snapshot,
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
-    currentAuthorId: state.snapshot.currentAuthorId,
-    documentId: state.snapshot.documentId,
-    documentKind: state.snapshot.documentKind,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
       state.record?.effectiveAccessLevel,
     ),
-    fieldValidationIssues: state.snapshot.fieldValidationIssues,
-    ready: state.snapshot.ready,
-    rows: state.snapshot.rows,
-    structuredFields: state.snapshot.structuredFields,
-    text: state.snapshot.text,
-    title: state.snapshot.title,
-    syncing: state.snapshot.syncing,
   });
 }
 

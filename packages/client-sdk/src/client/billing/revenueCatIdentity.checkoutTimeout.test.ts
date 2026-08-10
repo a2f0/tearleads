@@ -1,56 +1,15 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatBackend } from "./purchases";
-import { createRevenueCatIdentityCoordinator } from "./revenueCatIdentity";
-
-interface RecordingBackend extends RevenueCatBackend {
-  readonly calls: string[];
-}
-
-function createBackend(): RecordingBackend {
-  const calls: string[] = [];
-  return {
-    calls,
-    async configure(input) {
-      calls.push(`configure:${input.appUserId ?? "anonymous"}`);
-    },
-    async getCurrentPackages() {
-      return [];
-    },
-    async getCustomerInfo() {
-      return { activeEntitlementIds: [] };
-    },
-    async logIn(input) {
-      calls.push(`login:${input.appUserId}`);
-    },
-    async logOut() {},
-    async purchasePackage() {
-      return { activeEntitlementIds: [] };
-    },
-    async restorePurchases() {
-      return { activeEntitlementIds: [] };
-    },
-    async setAttributes() {},
-  };
-}
-
-function createDeferred() {
-  let resolve = () => {};
-  const promise = new Promise<void>((next) => {
-    resolve = next;
-  });
-  return { promise, resolve };
-}
+import {
+  createCoordinator as coordinator,
+  createRecordingBackend as createBackend,
+  createDeferred,
+} from "../../../test/helpers/revenueCatFakes";
 
 test("a checkout timeout rejects an already-queued identity change", async () => {
   const backend = createBackend();
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
-  const identity = createRevenueCatIdentityCoordinator({
-    apiKey: "key",
-    backend,
-    checkoutSettlementTimeoutMs: 5,
-    timeoutMs: 1_000,
-  });
+  const identity = coordinator(backend, 1_000, 5);
   await identity.identify("user-1");
   const purchasing = identity.runCheckout({
     operation: async () => {
@@ -84,12 +43,7 @@ test("a checkout timeout rejects an already-queued restore", async () => {
   const backend = createBackend();
   const checkout = createDeferred();
   const checkoutStarted = createDeferred();
-  const identity = createRevenueCatIdentityCoordinator({
-    apiKey: "key",
-    backend,
-    checkoutSettlementTimeoutMs: 5,
-    timeoutMs: 1_000,
-  });
+  const identity = coordinator(backend, 1_000, 5);
   await identity.identify("user-1");
   const purchasing = identity.runCheckout({
     operation: async () => {
@@ -145,12 +99,7 @@ test("a customer read keeps its FIFO position between identities", async () => {
       await login.promise;
     }
   };
-  const identity = createRevenueCatIdentityCoordinator({
-    apiKey: "key",
-    backend,
-    checkoutSettlementTimeoutMs: 1_000,
-    timeoutMs: 1_000,
-  });
+  const identity = coordinator(backend);
   await identity.identify("user-1");
   const firstIdentity = identity.identify("user-2");
   await loginStarted.promise;

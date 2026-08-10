@@ -9,31 +9,18 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { organizationReadModelState } from "../../data/sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import {
-  type ExecSql,
-  type ExecSqlClientLike,
-  ensureSqlTables,
-} from "../../data/sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { createOrganization } from "./createOrganization";
 import { listLocalOrganizations } from "./listLocalOrganizations";
 import { getOrganizationProfileDocumentLocalId } from "./organizationProfile";
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 // Re-key the provisioner-written organization profile document under its
 // server documentId, the way the sync ingest stores it on a device that only
@@ -88,7 +75,7 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-test",
   );
-  const dbClient = createClient(execSql);
+  const dbClient = execSqlClientFromExecSql(execSql);
 
   try {
     const apiClient = {
@@ -180,7 +167,7 @@ test("listLocalOrganizations resolves a foreign org name from its metadata conta
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-foreign-test",
   );
-  const dbClient = createClient(execSql);
+  const dbClient = execSqlClientFromExecSql(execSql);
 
   try {
     // Provision an org the normal way; this seeds the Members-granted metadata
@@ -233,7 +220,7 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-read-model-pointer-test",
   );
-  const dbClient = createClient(execSql);
+  const dbClient = execSqlClientFromExecSql(execSql);
 
   try {
     const org = await createOrganization({
@@ -284,7 +271,7 @@ test("listLocalOrganizations returns a null name for a foreign org whose profile
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-foreign-pending-test",
   );
-  const dbClient = createClient(execSql);
+  const dbClient = execSqlClientFromExecSql(execSql);
 
   try {
     const org = await createOrganization({
@@ -327,7 +314,7 @@ test("listLocalOrganizations tolerates a corrupt organization profile", async ()
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-corrupt-test",
   );
-  const dbClient = createClient(execSql);
+  const dbClient = execSqlClientFromExecSql(execSql);
 
   try {
     const created = await createOrganization({

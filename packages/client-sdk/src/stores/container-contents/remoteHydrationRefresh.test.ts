@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { refreshRootRemoteHydration } from "./remoteHydrationRefresh";
+import {
+  type RefreshRootContainerLike,
+  refreshRootRemoteHydration,
+} from "./remoteHydrationRefresh";
 
 type RefreshOptions = Parameters<
   Parameters<typeof refreshRootRemoteHydration>[0]["requestHydration"]
@@ -33,13 +36,15 @@ function localOnlyRootContainer(id: string) {
 function readyRefreshState(
   containerId: string | null = "root-container",
   options: {
-    containers?: ReadonlyArray<[string, unknown]>;
+    containers?: ReadonlyArray<[string, RefreshRootContainerLike]>;
     organizationId?: string | null;
   } = {},
 ) {
   return {
     containerParentIdsNeedingHydration: new Set<string | null>(),
-    containersById: new Map<string, unknown>(options.containers ?? []),
+    containersById: new Map<string, RefreshRootContainerLike>(
+      options.containers ?? [],
+    ),
     initialized: true,
     remoteHydrationPromise: null,
     runtime: {

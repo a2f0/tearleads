@@ -49,6 +49,13 @@ export function ensureContainerTables(execSql: ExecSql): Promise<void> {
   return ensureSqlTables(execSql, containerTables);
 }
 
+// The ONE display-name fallback: a projection row names the container; without
+// one the root reads '/' and everything else 'Untitled'.
+const containerDisplayName = sql<string>`COALESCE(
+    ${containerProjection.displayName},
+    CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
+  )`;
+
 interface SelectedContainerRecord {
   effectiveAccessLevel: string | null;
   id: string | null;
@@ -188,10 +195,6 @@ export async function loadContainers(
   execSql: ExecSql,
 ): Promise<ContainerRecord[]> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const name = sql<string>`COALESCE(
-    ${containerProjection.displayName},
-    CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
-  )`;
   const rows = await db
     .select({
       effectiveAccessLevel: containers.effectiveAccessLevel,
@@ -200,7 +203,7 @@ export async function loadContainers(
       parentId: containers.parentId,
       metadataDocumentId: containers.metadataDocumentId,
       systemSlot: containers.systemSlot,
-      name,
+      name: containerDisplayName,
       icon: containerProjection.icon,
       localCreatedAt: containers.localCreatedAt,
       localUpdatedAt: containers.localUpdatedAt,
@@ -212,7 +215,7 @@ export async function loadContainers(
       containerProjection,
       eq(containerProjection.containerId, containers.id),
     )
-    .orderBy(asc(sql`${name} COLLATE NOCASE`));
+    .orderBy(asc(sql`${containerDisplayName} COLLATE NOCASE`));
 
   return rows.map((row) => mapSelectedContainerRecord(row));
 }
@@ -227,14 +230,10 @@ export async function loadContainerDisplayNamesByIds(
   }
 
   const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const name = sql<string>`COALESCE(
-    ${containerProjection.displayName},
-    CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
-  )`;
   const rows = await db
     .select({
       id: containers.id,
-      name,
+      name: containerDisplayName,
     })
     .from(containers)
     .leftJoin(

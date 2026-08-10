@@ -7,55 +7,13 @@ import {
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
+import { createTestContainerState } from "./containerState.testFixtures";
 import { syncPendingContainerMoveIntents } from "./moveIntentSync";
 import type { ContainerMoveIntentSyncState } from "./types";
 
 type MoveIntentError = Parameters<
   ContainerMoveIntentSyncState["persistence"]["recordMoveIntentError"]
 >[1];
-
-function remoteContainerState(input: {
-  id: string;
-  organizationId?: string;
-  parentId: string | null;
-}): ContainerState {
-  return {
-    container: {
-      id: input.id,
-      effectiveAccessLevel: "admin",
-      icon: null,
-      metadataDocumentId: `metadata-${input.id}`,
-      name: input.id,
-      organizationId: input.organizationId ?? "organization",
-      parentId: input.parentId,
-      systemSlot: null,
-    },
-    doc: {} as ContainerState["doc"],
-    record: {
-      accessStateHash: `access-${input.id}`,
-      accessEpoch: 1,
-      documentId: `metadata-${input.id}`,
-      id: `record-${input.id}`,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  };
-}
-
-// A container that exists locally but has not synced remotely yet: no remote
-// metadata (documentId / accessStateHash / metadataDocumentId), so
-// hasRemoteContainerMetadataState is false for it.
-function localOnlyContainerState(input: {
-  id: string;
-  parentId: string | null;
-}): ContainerState {
-  const synced = remoteContainerState(input);
-  return {
-    ...synced,
-    container: { ...synced.container, metadataDocumentId: "" },
-    record: { ...synced.record, accessStateHash: "", documentId: "" },
-  };
-}
 
 function createMoveIntentSyncState(input: {
   containersById: Map<string, ContainerState>;
@@ -131,21 +89,21 @@ function moveIntentRecord(
 
 test("pending container move sync records per-intent failures and continues", async () => {
   const errors: MoveIntentError[] = [];
-  const parentState = remoteContainerState({
+  const parentState = createTestContainerState({
     id: "parent",
     parentId: "root",
   });
   const containersById = new Map([
     [
       "child-a",
-      remoteContainerState({
+      createTestContainerState({
         id: "child-a",
         parentId: "root",
       }),
     ],
     [
       "child-b",
-      remoteContainerState({
+      createTestContainerState({
         id: "child-b",
         parentId: "root",
       }),
@@ -158,7 +116,7 @@ test("pending container move sync records per-intent failures and continues", as
   ];
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    listPendingMoveIntents: async () => pendingIntents,
+    listUnsyncedMoveIntents: async () => pendingIntents,
     recordMoveIntentError: async (_execSql, error) => {
       errors.push(error);
     },
@@ -193,12 +151,12 @@ test("container move sync propagates identity failures without recording a retry
   );
   const errors: MoveIntentError[] = [];
   const containersById = new Map([
-    ["child", remoteContainerState({ id: "child", parentId: "root" })],
-    ["parent", remoteContainerState({ id: "parent", parentId: "root" })],
+    ["child", createTestContainerState({ id: "child", parentId: "root" })],
+    ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
   ]);
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    listPendingMoveIntents: async () => [
+    listUnsyncedMoveIntents: async () => [
       moveIntentRecord({ containerId: "child" }),
     ],
     recordMoveIntentError: async (_execSql, error) => {
@@ -230,7 +188,7 @@ test("a blocked organization does not prevent another organization's move from s
   const containersById = new Map([
     [
       "custom-child",
-      remoteContainerState({
+      createTestContainerState({
         id: "custom-child",
         organizationId: "custom-organization",
         parentId: "custom-root",
@@ -238,7 +196,7 @@ test("a blocked organization does not prevent another organization's move from s
     ],
     [
       "custom-parent",
-      remoteContainerState({
+      createTestContainerState({
         id: "custom-parent",
         organizationId: "custom-organization",
         parentId: "custom-root",
@@ -246,7 +204,7 @@ test("a blocked organization does not prevent another organization's move from s
     ],
     [
       "personal-child",
-      remoteContainerState({
+      createTestContainerState({
         id: "personal-child",
         organizationId: "personal-organization",
         parentId: "personal-root",
@@ -254,7 +212,7 @@ test("a blocked organization does not prevent another organization's move from s
     ],
     [
       "personal-parent",
-      remoteContainerState({
+      createTestContainerState({
         id: "personal-parent",
         organizationId: "personal-organization",
         parentId: "personal-root",
@@ -263,7 +221,7 @@ test("a blocked organization does not prevent another organization's move from s
   ]);
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    listPendingMoveIntents: async () => [
+    listUnsyncedMoveIntents: async () => [
       moveIntentRecord({
         containerId: "custom-child",
         parentContainerId: "custom-parent",
@@ -305,20 +263,28 @@ test("a blocked organization does not prevent another organization's move from s
 });
 
 test("a move whose source is not synced yet stays pending and retryable", async () => {
-  // Regression: source-not-synced used to record blocked:true, which dropped the
-  // intent from listPendingMoveIntents permanently — so a move attempted before
-  // its source's create landed (e.g. a transient create failure on the same
-  // pass) never propagated, even after the source finished syncing. It must stay
-  // 'pending' (not 'blocked') and retry, like the destination-not-synced case.
+  // Regression: source-not-synced used to record blocked:true, which the
+  // then-'pending'-only sync list dropped permanently — so a move attempted
+  // before its source's create landed (e.g. a transient create failure on the
+  // same pass) never propagated, even after the source finished syncing. It
+  // must stay 'pending' (not 'blocked') and retry, like the
+  // destination-not-synced case.
   const errors: MoveIntentError[] = [];
   const containersById = new Map([
     // Source exists locally but has no remote metadata yet.
-    ["child-a", localOnlyContainerState({ id: "child-a", parentId: "root" })],
-    ["parent", remoteContainerState({ id: "parent", parentId: "root" })],
+    [
+      "child-a",
+      createTestContainerState({
+        id: "child-a",
+        parentId: "root",
+        synced: false,
+      }),
+    ],
+    ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
   ]);
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
-    listPendingMoveIntents: async () => [
+    listUnsyncedMoveIntents: async () => [
       moveIntentRecord({ containerId: "child-a", id: "intent-a" }),
     ],
     recordMoveIntentError: async (_execSql, error) => {
@@ -341,7 +307,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   expect(errors).toHaveLength(1);
   expect(errors[0]?.containerId).toBe("child-a");
   expect(errors[0]?.message).toBe("Container move source is not synced yet");
-  // Must NOT be blocked: a blocked intent is excluded from listPendingMoveIntents
-  // and can never flip back, so the move would never retry.
+  // Must NOT be blocked: the failure is transient, so the queue must report a
+  // retryable 'pending' intent, not a missing-dependency block.
   expect(errors[0]?.blocked).toBeFalsy();
 });

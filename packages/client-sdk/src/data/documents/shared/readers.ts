@@ -85,7 +85,7 @@ export function readManifestContainerId(
     ? Reflect.get(bundle.state, "containerId")
     : undefined;
 
-  return isPlainRecord(bundle.state) && typeof containerId === "string"
+  return typeof containerId === "string" && containerId.length > 0
     ? containerId
     : null;
 }
@@ -260,6 +260,25 @@ export function targetEnvelopeReference(
   };
 }
 
-export function serializeState(value: unknown): string {
+function serializeState(value: unknown): string {
   return JSON.stringify(value);
+}
+
+export function serializedPersistedDocumentState(input: {
+  contentKeyBundle: unknown;
+  documentId: string;
+  documentKekTargets: unknown;
+  documentManifestBundle: unknown;
+}): {
+  contentKeyBundle: string;
+  documentId: string;
+  documentKekTargets: string;
+  documentManifestBundle: string;
+} {
+  return {
+    documentId: input.documentId,
+    contentKeyBundle: serializeState(input.contentKeyBundle),
+    documentKekTargets: serializeState(input.documentKekTargets),
+    documentManifestBundle: serializeState(input.documentManifestBundle),
+  };
 }

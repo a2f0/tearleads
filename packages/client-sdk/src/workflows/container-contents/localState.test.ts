@@ -11,13 +11,16 @@ import {
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord,
-  StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
-import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { loadLocalContainerStates } from "./localState";
+import {
+  createContainerContentsPersistence,
+  createContainerRecord,
+  type SaveContainerCall,
+} from "./metadata.testFixtures";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
 const execSql: ExecSql = async () => [];
@@ -26,113 +29,6 @@ const runtime = { infra: { execSql } };
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
 >[1];
-type SaveContainerOptions = Parameters<
-  ContainerContentsPersistence["saveContainer"]
->[3];
-interface SaveContainerCall {
-  container: ContainerRecord;
-  execSql: ExecSql;
-  options?: SaveContainerOptions;
-  record: ContainerMetadataRecord | null;
-}
-
-function createContainerRecord(
-  input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
-): ContainerRecord {
-  return {
-    effectiveAccessLevel: "admin",
-    icon: null,
-    metadataDocumentId: null,
-    name: "Stored container",
-    organizationId: "org-1",
-    ...input,
-  };
-}
-
-function createContainerContentsPersistence(input: {
-  savedContainers?: SaveContainerCall[];
-  pendingUpdates?: Array<{
-    execSql: ExecSql;
-    input: PendingUpdateInput;
-  }>;
-  storedContainers: ReadonlyArray<StoredContainerState>;
-}): ContainerContentsPersistence {
-  return {
-    async claimDormantMetadataSweepAttempt() {
-      return false;
-    },
-    async completeDormantMetadataSweepRequest() {},
-    async containerExists() {
-      return false;
-    },
-    async deleteContainer() {},
-    async deleteContainers() {},
-    async loadContainerMetadataRecord() {
-      return null;
-    },
-    async purgeDormantContainerMetadata() {},
-    async listDormantMetadataSweepCandidates() {
-      return [];
-    },
-    async purgeDormantContainerMetadataCandidates() {
-      return 0;
-    },
-    async deletePendingUpdates() {},
-    async ensureSchema() {},
-    async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {
-      input.pendingUpdates?.push({
-        execSql: receivedExecSql,
-        input: pendingUpdate,
-      });
-    },
-    async listPendingCreateIntents() {
-      return [];
-    },
-    async listPendingMoveIntents() {
-      return [];
-    },
-    async listUnsyncedMoveIntents() {
-      return [];
-    },
-    async listContainerIdsWithPendingUpdates() {
-      return [];
-    },
-    async rekeyPendingUpdate() {
-      return null;
-    },
-    async listPendingUpdates() {
-      return [];
-    },
-    async listDormantMetadataSweepRequests() {
-      return [];
-    },
-    async recordCreateIntentError() {},
-    async recordMoveIntentError() {},
-    async reassignContainerDocuments() {},
-    async reconcileLocalRootContainer() {},
-    async reconcileLocalSystemContainer() {},
-    async loadContainers() {
-      return input.storedContainers;
-    },
-    async saveContainer(receivedExecSql, container, record, options) {
-      const call: SaveContainerCall = {
-        container,
-        execSql: receivedExecSql,
-        record,
-      };
-      if (options) {
-        call.options = options;
-      }
-      input.savedContainers?.push(call);
-      return container;
-    },
-    async saveContainerAndDeletePendingUpdates(_execSql, container) {
-      return container;
-    },
-    async markCreateIntentSynced() {},
-    async markMoveIntentSynced() {},
-  };
-}
 
 async function saveSyncedStoredContainer(input: {
   execSql: ExecSql;

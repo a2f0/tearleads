@@ -33,6 +33,7 @@ import type {
   BlobInfo,
   BlobInfoAttachmentKind,
   BlobInfoDocumentReference,
+  BlobInfoInput,
   BlobInfoList,
   BlobInfoSort,
 } from "./blobInfoTypes";
@@ -438,13 +439,9 @@ async function listBlobInfoReferencesForKeys(input: {
   return rows.map(mapBlobInfoReferenceRow);
 }
 
-export async function listBlobInfo(input: {
-  readonly execSql?: ExecSql | null | undefined;
-  readonly limit?: number | undefined;
-  readonly offset?: number | undefined;
-  readonly query?: string | undefined;
-  readonly sort?: BlobInfoSort | undefined;
-}): Promise<BlobInfoList> {
+export async function listBlobInfo(
+  input: BlobInfoInput & { readonly execSql?: ExecSql | null | undefined },
+): Promise<BlobInfoList> {
   if (!input.execSql) {
     return { rows: [], totalCount: 0 };
   }

@@ -19,6 +19,7 @@ import {
   savePendingAttachmentUpload,
 } from "./attachmentPersistence";
 import { discardDocumentStoreLocalState } from "./discard";
+import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { enqueuePendingUpdate } from "./persistence";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -96,10 +97,7 @@ function createStoreState(
     localId,
     createRuntime(execSql, deletedBlobStorageKeys, projectionDeletes),
     sqlDocumentsPersistence,
-    {
-      emitPersistedDocument: () => undefined,
-      registerDocumentIdentity: () => undefined,
-    },
+    noopDocumentStorePersistenceEffects,
     null,
   );
   state.initialized = true;

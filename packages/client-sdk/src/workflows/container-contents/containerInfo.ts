@@ -364,11 +364,7 @@ export async function loadContainerInfo(input: {
     remoteInfo: {
       grantRows: getContainerInfoGrantRows(projection),
       grants: sortContainerInfoGrants(
-        state.directGrants.map((grant) => ({
-          accessLevel: grant.accessLevel,
-          subjectId: grant.subjectId,
-          subjectType: grant.subjectType,
-        })),
+        state.directGrants.map(toContainerInfoGrant),
       ),
       groups: [...groups],
       security: getContainerInfoSecurityDetails(projection),

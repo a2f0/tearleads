@@ -1,18 +1,11 @@
 import { expect, test } from "bun:test";
+import { createDeferred } from "../../../test/helpers/revenueCatFakes";
 import {
   createRevenueCatPurchases,
   PurchaseIdentityPendingError,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
 } from "./purchases";
-
-function createDeferred() {
-  let resolve = () => {};
-  const promise = new Promise<void>((next) => {
-    resolve = next;
-  });
-  return { promise, resolve };
-}
 
 function createFixture() {
   const attributes: Record<string, string | null> = {};

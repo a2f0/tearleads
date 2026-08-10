@@ -29,6 +29,7 @@ export type {
 } from "./documentPersistenceTypes";
 export {
   deleteDocumentRecord,
+  documentRecordSelection,
   findLocalIdByDocumentId,
   loadDocumentRecord,
   mapSelectedDocumentRecord,

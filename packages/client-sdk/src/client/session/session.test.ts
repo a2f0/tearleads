@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createSqlClient,
+  quietLogger,
+  setGeneratedIdentity,
+} from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
 import { Database } from "../database";
 import { createIdentity, type Identity } from "../identity";
 import type { Logger } from "../logger";
@@ -17,11 +17,6 @@ import { createSession } from "./index";
 type TestLogger = {
   log: NonNullable<Logger["log"]>;
   logError: NonNullable<Logger["logError"]>;
-};
-
-const quietLogger: TestLogger = {
-  log: () => undefined,
-  logError: () => undefined,
 };
 
 type FakeSessionApi = Pick<
@@ -36,16 +31,6 @@ type FakeSessionApi = Pick<
   | "registerUser"
   | "setAuthToken"
 >;
-
-function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 function createApi(
   overrides: Partial<FakeSessionApi> = {},
@@ -95,13 +80,6 @@ function createSessionHarness(
       onUserIdentityAvailable: async () => undefined,
     }),
   };
-}
-
-async function setGeneratedIdentity(identity: Identity) {
-  await identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
 }
 
 describe("session", () => {

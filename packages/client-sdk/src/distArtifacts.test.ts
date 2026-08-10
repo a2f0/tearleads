@@ -12,21 +12,18 @@ const distPath = join(packageRoot, "dist");
 // "./testing" subpath export.
 const publicTestingEntry = "data/trustedUserIdentity/testFixtures";
 
-async function listDistFiles(dirPath: string): Promise<string[]> {
-  const entries = await readdir(dirPath, { withFileTypes: true });
-  const nested = await Promise.all(
-    entries.map((entry) => {
-      const entryPath = join(dirPath, entry.name);
-      return entry.isDirectory()
-        ? listDistFiles(entryPath)
-        : [relative(distPath, entryPath)];
-    }),
-  );
-  return nested.flat();
+async function listDistFiles(): Promise<string[]> {
+  const entries = await readdir(distPath, {
+    recursive: true,
+    withFileTypes: true,
+  });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(distPath, join(entry.parentPath, entry.name)));
 }
 
 test("dist ships no test modules besides the ./testing entry", async () => {
-  const files = await listDistFiles(distPath);
+  const files = await listDistFiles();
 
   const testArtifacts = files.filter((file) =>
     /\.(test|testFixtures|testUtils)\.(js|d\.ts)(\.map)?$/.test(file),
@@ -39,7 +36,7 @@ test("dist ships no test modules besides the ./testing entry", async () => {
 });
 
 test("dist relative import specifiers all carry a .js extension", async () => {
-  const files = await listDistFiles(distPath);
+  const files = await listDistFiles();
   const offenders: string[] = [];
 
   for (const file of files) {

@@ -17,6 +17,7 @@ import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
@@ -75,7 +76,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     let shareCallCount = 0;
     const requestedPrincipalPolicies: string[] = [];
     const logs: string[] = [];
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createShareTestRuntime({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => remoteProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -87,32 +88,9 @@ test("shareContainerState treats an existing matching user grant as an idempoten
           return null;
         },
       }),
-      auth: {
-        isAuthenticated: true,
-        organizationId: author.organizationId,
-        userId: author.signerUserId,
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: createMemoryBlobStore(),
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope: createDomainScope(),
-        events: [],
-        online: true,
-      },
-      util: {
-        log: (message) => logs.push(message),
-      },
+      author,
+      execSql,
+      logs,
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =
@@ -205,7 +183,7 @@ test("shareContainerState reuses the idempotency projection for a new user share
       userId: author.signerUserId,
     });
     let projectionCallCount = 0;
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createShareTestRuntime({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => {
           projectionCallCount += 1;
@@ -213,32 +191,9 @@ test("shareContainerState reuses the idempotency projection for a new user share
         },
         getUserIdentity: async () => null,
       }),
-      auth: {
-        isAuthenticated: true,
-        organizationId: author.organizationId,
-        userId: author.signerUserId,
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: createMemoryBlobStore(),
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: null,
-        domainScope: createDomainScope(),
-        events: [],
-        online: true,
-      },
-      util: {
-        log: () => undefined,
-      },
+      author,
+      execSql,
+      logs: [],
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =
@@ -376,7 +331,9 @@ async function runGroupShareScenario(input: {
   testLabel: string;
 }): Promise<{
   containerId: string;
+  currentGroupPolicyStateHash: string;
   currentPolicyCalls: Array<{ principalId: string; principalType: string }>;
+  groupCheckpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>;
   groupId: string;
   logs: string[];
   shareCallCount: number;
@@ -496,7 +453,13 @@ async function runGroupShareScenario(input: {
 
     return {
       containerId,
+      currentGroupPolicyStateHash: currentGroupPolicy.currentState.stateHash,
       currentPolicyCalls,
+      groupCheckpoint: await loadPrincipalPolicyCheckpoint(
+        execSql,
+        "group",
+        groupId,
+      ),
       groupId,
       logs,
       shareCallCount,
@@ -510,7 +473,9 @@ async function runGroupShareScenario(input: {
 test("shareContainerStateWithGroup re-shares when the group key epoch advanced past the pinned grant", async () => {
   const {
     containerId,
+    currentGroupPolicyStateHash,
     currentPolicyCalls,
+    groupCheckpoint,
     groupId,
     logs,
     shareCallCount,
@@ -538,6 +503,12 @@ test("shareContainerStateWithGroup re-shares when the group key epoch advanced p
   );
   expect(shared).toBeNull();
   expect(shareCallCount).toBe(0);
+  // The standalone key-epoch read has no enclosing mutation to advance its
+  // verification, so it must commit the checkpoint itself — otherwise a newer
+  // same-epoch policy could be rolled back on the next fetch.
+  expect(groupCheckpoint).toMatchObject({
+    stateHash: currentGroupPolicyStateHash,
+  });
 });
 
 test("a prepared existing-grant re-wrap always attempts a real mutation", async () => {

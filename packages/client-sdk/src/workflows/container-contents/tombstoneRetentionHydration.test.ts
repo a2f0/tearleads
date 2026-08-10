@@ -11,6 +11,7 @@ import {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { insertTestPendingUpdate } from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 import { hydrateRemoteContainers } from "./remoteHydration";
 import type {
@@ -136,22 +137,14 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
       },
       { localUpdatedAt: T1 },
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      [
-        "rename-hydration",
-        "container-metadata",
-        "revoked",
-        authoredSnapshot,
-        "{}",
-        "{}",
-        T1,
-      ],
-    );
+    await insertTestPendingUpdate({
+      appKind: "container-metadata",
+      createdAt: T1,
+      execSql,
+      id: "rename-hydration",
+      localId: "revoked",
+      updateData: authoredSnapshot,
+    });
 
     // Pass 2: the access_revoked tombstone cascades through the real
     // applyContainerTombstones path — container gone, metadata dormant.
@@ -254,22 +247,14 @@ test("a replaced metadata document purges the dormant scope", async () => {
     const authoredDoc = await createContainerMetadataDocument("revoked");
     writeContainerMetadataValue(authoredDoc, { icon: null, name: "Renamed" });
     const authoredSnapshot = bytesToBase64(exportAllUpdates(authoredDoc));
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      [
-        "rename-replaced",
-        "container-metadata",
-        "revoked",
-        authoredSnapshot,
-        "{}",
-        "{}",
-        T1,
-      ],
-    );
+    await insertTestPendingUpdate({
+      appKind: "container-metadata",
+      createdAt: T1,
+      execSql,
+      id: "rename-replaced",
+      localId: "revoked",
+      updateData: authoredSnapshot,
+    });
 
     rootLanePages.push(
       lanePage({
@@ -387,22 +372,14 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
       },
       { localUpdatedAt: T1 },
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      [
-        "rename-lost",
-        "container-metadata",
-        "revoked",
-        authoredSnapshot,
-        "{}",
-        "{}",
-        T1,
-      ],
-    );
+    await insertTestPendingUpdate({
+      appKind: "container-metadata",
+      createdAt: T1,
+      execSql,
+      id: "rename-lost",
+      localId: "revoked",
+      updateData: authoredSnapshot,
+    });
     // The lost-response shape: the metadata document was never adopted, so
     // the record has no remote binding.
     await execSql(

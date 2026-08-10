@@ -418,7 +418,7 @@ test("explorer sync skips pending metadata updates for containers without docume
         listPendingCreateIntentCalls += 1;
         return [];
       },
-      listPendingMoveIntents: async () => [],
+      listUnsyncedMoveIntents: async () => [],
       listPendingUpdates: async () => {
         listPendingUpdateCalls += 1;
         return [];

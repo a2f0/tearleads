@@ -7,14 +7,12 @@ import {
   importSnapshot,
   mergeVersionVectors,
 } from "@tearleads/loro";
-import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../../data/documents/documentConstants";
 import {
   initializeStoredDocumentKind,
-  projectStoredDocumentState,
   readStoredDocumentState,
 } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
@@ -34,6 +32,7 @@ import {
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
+  documentSummaryFromRecord,
   enqueuePendingUpdate,
   persistDocument,
   saveDocumentRecord,
@@ -420,26 +419,9 @@ export async function relinkDocumentStore(
   if (!persisted) {
     return null;
   }
-  const { record: nextRecord, updatedAt } = persisted;
-  return {
-    accessStateHash: nextRecord.accessStateHash ?? null,
-    effectiveAccessLevel: normalizeEffectiveAccessLevel(
-      nextRecord.effectiveAccessLevel,
-    ),
-    id: nextRecord.id,
-    containerId: nextRecord.containerId,
-    documentKind: nextRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    documentId: nextRecord.documentId,
-    title:
-      nextRecord.title ??
-      projectStoredDocumentState(
-        {
-          documentKind: nextRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
-          structuredFields: {},
-          text: nextRecord.text,
-        },
-        state.runtime.infra.documentProjectors,
-      ).title,
-    updatedAt,
-  };
+  return documentSummaryFromRecord(
+    persisted.record,
+    persisted.updatedAt,
+    state.runtime.infra.documentProjectors,
+  );
 }

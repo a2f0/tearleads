@@ -236,25 +236,11 @@ function collectContainerProjectionBundles(
   projection: ContainerWriterProjectionResponse,
 ): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
-  for (const [index, bundle] of projection.path.entries()) {
-    addBundleByHash(
-      bundlesByHash,
-      bundle,
-      `Container writer projection path[${index}]`,
-    );
-  }
-  for (const [kekIndex, kek] of projection.containerKeks.entries()) {
-    for (const [
-      historyIndex,
-      bundle,
-    ] of kek.containerManifestHistory.entries()) {
-      addBundleByHash(
-        bundlesByHash,
-        bundle,
-        `Container writer projection KEK[${kekIndex}] history[${historyIndex}]`,
-      );
-    }
-  }
+  addContainerWriterProjectionBundles(
+    bundlesByHash,
+    projection,
+    "Container writer projection",
+  );
   return bundlesByHash;
 }
 

@@ -38,52 +38,25 @@ export interface ContainerNode {
   updatedAt?: string | null;
 }
 
-export interface ContainerContentsContextValue {
-  createChild: (
-    parentId: string,
-    name: string,
-  ) => Promise<ContainerNode | null>;
-  deleteContainer: (containerId: string) => Promise<boolean>;
-  ensureSystemContainer: (
-    systemSlot: ContainerSystemSlot,
-    name: string,
-    options?: EnsureSystemContainerOptions | undefined,
-  ) => Promise<ContainerNode | null>;
-  moveContainer: (
-    containerId: string,
-    parentId: string,
-  ) => Promise<ContainerNode | null>;
-  purgeContainer: (
-    containerId: string,
-    options?: PurgeOptions,
-  ) => Promise<boolean>;
-  // Permanently destroy everything under the Trash bin while leaving the bin
-  // itself in place. Reports progress and honors cancellation via options.
-  emptyTrash: (
-    trashContainerId: string,
-    options?: PurgeOptions,
-  ) => Promise<boolean>;
-  refresh: () => Promise<boolean>;
-  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
-  requestSync: () => void;
-  renameContainer: (
-    containerId: string,
-    name: string,
-  ) => Promise<ContainerNode | null>;
-  setContainerIcon: (
-    containerId: string,
-    icon: string | null,
-  ) => Promise<ContainerNode | null>;
-  shareWithGroup: (
-    containerId: string,
-    groupId: string,
-    accessLevel: ContainerContentsShareAccessLevel,
-    options?: { requireExistingGrant?: boolean } | undefined,
-  ) => Promise<boolean>;
-  shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
-  nodes: ReadonlyArray<ContainerNode>;
-  ready: boolean;
-}
+// The store surface exposed through context: the snapshot fields plus the
+// store's mutation/refresh methods, spelled as a Pick so the two can't drift.
+export type ContainerContentsContextValue = ContainerContentsSnapshot &
+  Pick<
+    ContainerContentsStore,
+    | "createChild"
+    | "deleteContainer"
+    | "emptyTrash"
+    | "ensureSystemContainer"
+    | "moveContainer"
+    | "purgeContainer"
+    | "refresh"
+    | "refreshRootLane"
+    | "renameContainer"
+    | "requestSync"
+    | "setContainerIcon"
+    | "shareWithGroup"
+    | "shareWithUser"
+  >;
 
 export interface ContainerContentsSnapshot {
   nodes: ReadonlyArray<ContainerNode>;

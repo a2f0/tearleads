@@ -65,19 +65,7 @@ function publishDocumentTextSnapshot(
   value: string,
 ): void {
   setDocumentSnapshot(state, {
-    attachments: state.snapshot.attachments,
-    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
-    canAttach: state.snapshot.canAttach,
-    canWrite: state.snapshot.canWrite,
-    currentAuthorId: state.snapshot.currentAuthorId,
-    documentId: state.snapshot.documentId,
-    documentKind: state.snapshot.documentKind,
-    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
-    fieldValidationIssues: state.snapshot.fieldValidationIssues,
-    ready: state.snapshot.ready,
-    rows: state.snapshot.rows,
-    structuredFields: state.snapshot.structuredFields,
+    ...state.snapshot,
     text: value,
     title: projectStoredDocumentState(
       {
@@ -91,7 +79,6 @@ function publishDocumentTextSnapshot(
       },
       state.runtime.infra.documentProjectors,
     ).title,
-    syncing: state.snapshot.syncing,
   });
 }
 
@@ -199,22 +186,11 @@ function publishDocumentStructuredFieldSnapshot(
   );
 
   setDocumentSnapshot(state, {
-    attachments: state.snapshot.attachments,
-    attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
-    canAttach: state.snapshot.canAttach,
-    canWrite: state.snapshot.canWrite,
-    currentAuthorId: state.snapshot.currentAuthorId,
-    documentId: state.snapshot.documentId,
+    ...state.snapshot,
     documentKind: projectedState.documentKind,
-    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
     fieldValidationIssues: projectedState.fieldValidationIssues,
-    ready: state.snapshot.ready,
-    rows: state.snapshot.rows,
     structuredFields: projectedState.structuredFields,
-    text: state.snapshot.text,
     title: projectedState.title,
-    syncing: state.snapshot.syncing,
   });
 }
 

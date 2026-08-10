@@ -20,7 +20,7 @@ import {
   readRecordString,
   readWriteHeader,
   serializeCanonical,
-  serializeState,
+  serializedPersistedDocumentState,
 } from "./readers";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 import type {
@@ -400,12 +400,12 @@ async function persistedDocumentSyncStateFromResponseInternal(
     ),
   );
 
-  return {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: response.contentKeyBundle,
     documentId: plan.documentId,
-    contentKeyBundle: serializeState(response.contentKeyBundle),
-    documentKekTargets: serializeState(response.documentKekTargets),
-    documentManifestBundle: serializeState(plan.documentManifest),
-  };
+    documentKekTargets: response.documentKekTargets,
+    documentManifestBundle: plan.documentManifest,
+  });
 }
 
 export async function persistedDocumentSyncStateFromResponse(

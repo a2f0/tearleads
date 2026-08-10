@@ -7,7 +7,6 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { asWebCryptoBytes } from "../../shared/readers";
 import {
   BLOB_CONTENT_RECORD_AAD_DOMAIN,
   BLOB_CONTENT_RECORD_HKDF_SALT,
@@ -142,18 +141,6 @@ export function contentRecordAdditionalDataBytes(input: {
         plaintextByteLength: input.plaintextByteLength,
       },
     }),
-  );
-}
-
-export async function importBlobContentKeyMaterial(
-  contentKey: Uint8Array,
-): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    asWebCryptoBytes(contentKey),
-    "HKDF",
-    false,
-    ["deriveKey"],
   );
 }
 

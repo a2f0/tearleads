@@ -1,32 +1,17 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { readTableColumns } from "../../../test/helpers/sqlitePragma";
 import { clientSqlTables } from "./schema";
-import type { ExecSql, SqlRow, SqlRowValue, SqlTableSchema } from "./sqlSchema";
+import type { ExecSql, SqlRow, SqlTableSchema } from "./sqlSchema";
 import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
-
-interface ColumnInfo {
-  defaultValue: string | null;
-  notNull: number;
-  pk: number;
-  type: string;
-}
 
 function readString(row: SqlRow, key: string): string {
   return String(row[key] ?? "");
 }
 
-function readNullableString(row: SqlRow, key: string): string | null {
-  const value: SqlRowValue | undefined = row[key];
-  return value === null || value === undefined ? null : String(value);
-}
-
 function readNumber(row: SqlRow, key: string): number {
   return Number(row[key] ?? 0);
-}
-
-function renderPragmaIdentifier(name: string): string {
-  return `"${name.replaceAll('"', '""')}"`;
 }
 
 function readRecordValue<T>(record: Record<string, T>, key: string): T {
@@ -36,27 +21,6 @@ function readRecordValue<T>(record: Record<string, T>, key: string): T {
   }
 
   return value;
-}
-
-async function readTableColumns(
-  execSql: ExecSql,
-  tableName: string,
-): Promise<Record<string, ColumnInfo>> {
-  const rows = await execSql(
-    `PRAGMA table_info(${renderPragmaIdentifier(tableName)})`,
-  );
-
-  return Object.fromEntries(
-    rows.map((row) => [
-      readString(row, "name"),
-      {
-        defaultValue: readNullableString(row, "dflt_value"),
-        notNull: readNumber(row, "notnull"),
-        pk: readNumber(row, "pk"),
-        type: readString(row, "type"),
-      },
-    ]),
-  );
 }
 
 async function readIndexList(

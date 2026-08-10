@@ -8,6 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { saveTestSyncedContainer } from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 
 const UPDATED_AT = "2026-01-01T00:00:00.000Z";
@@ -23,30 +24,13 @@ async function saveDeferredTailDocument(execSql: ExecSql): Promise<string> {
   doc.getText("text").update("deferred tail");
   doc.commit();
 
-  await defaultContainerContentsPersistence.saveContainer(
+  await saveTestSyncedContainer({
     execSql,
-    {
-      effectiveAccessLevel: "admin",
-      icon: null,
-      id: "root",
-      metadataDocumentId: "metadata-root",
-      name: "/",
-      organizationId: "organization-a",
-      parentId: null,
-    },
-    {
-      accessEpoch: 1,
-      accessStateHash: "access-root",
-      documentId: "metadata-root",
-      id: "root",
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-    {
-      localUpdatedAt: UPDATED_AT,
-      serverTimestamps: { createdAt: UPDATED_AT, updatedAt: UPDATED_AT },
-    },
-  );
+    id: "root",
+    name: "/",
+    organizationId: "organization-a",
+    timestamp: UPDATED_AT,
+  });
   await sqlDocumentsPersistence.saveDocument(
     execSql,
     {

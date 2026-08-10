@@ -15,7 +15,6 @@ import {
   blobContentMetadataHash,
   contentRecordAdditionalDataBytes,
   deriveBlobContentRecordKey,
-  importBlobContentKeyMaterial,
 } from "../../data/documents/blob/shared/crypto";
 import { unwrapBlobContentKey } from "../../data/documents/blob/shared/projection";
 import {
@@ -30,6 +29,7 @@ import type {
   BlobEncryptedBytesRecord,
   DecryptDocumentAttachmentBlobInput,
 } from "../../data/documents/blob/shared/types";
+import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import {
   asWebCryptoBytes,
@@ -196,7 +196,7 @@ export async function decryptDocumentAttachmentBlob({
     ...verificationOptions,
     writerProjection,
   });
-  const contentKeyMaterial = await importBlobContentKeyMaterial(contentKey);
+  const contentKeyMaterial = await importContentKeyMaterial(contentKey);
   const recordKey = await deriveBlobContentRecordKey({
     blobId: binding.blobId,
     contentKeyEpoch: encrypted.contentKeyEpoch,

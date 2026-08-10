@@ -1,59 +1,10 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatBackend } from "./purchases";
 import {
-  createRevenueCatIdentityCoordinator,
-  revenueCatOperationTimeoutMs,
-} from "./revenueCatIdentity";
-
-interface RecordingBackend extends RevenueCatBackend {
-  readonly calls: string[];
-}
-
-function createBackend(): RecordingBackend {
-  const calls: string[] = [];
-  return {
-    calls,
-    async configure(input) {
-      calls.push(`configure:${input.appUserId ?? "anonymous"}`);
-    },
-    async logIn(input) {
-      calls.push(`login:${input.appUserId}`);
-    },
-    async logOut() {
-      calls.push("logout");
-    },
-    async setAttributes() {},
-    async getCurrentPackages() {
-      return [];
-    },
-    async purchasePackage() {
-      return { activeEntitlementIds: [] };
-    },
-    async getCustomerInfo() {
-      return { activeEntitlementIds: [] };
-    },
-    async restorePurchases() {
-      return { activeEntitlementIds: [] };
-    },
-  };
-}
-
-function createDeferred() {
-  let resolve = () => {};
-  const promise = new Promise<void>((next) => {
-    resolve = next;
-  });
-  return { promise, resolve };
-}
-
-function coordinator(backend: RevenueCatBackend, timeoutMs = 1_000) {
-  return createRevenueCatIdentityCoordinator({
-    apiKey: "key",
-    backend,
-    checkoutSettlementTimeoutMs: 1_000,
-    timeoutMs,
-  });
-}
+  createCoordinator as coordinator,
+  createRecordingBackend as createBackend,
+  createDeferred,
+} from "../../../test/helpers/revenueCatFakes";
+import { revenueCatOperationTimeoutMs } from "./revenueCatErrors";
 
 function configureAnonymously(identity: ReturnType<typeof coordinator>) {
   return identity.runProviderOperation({

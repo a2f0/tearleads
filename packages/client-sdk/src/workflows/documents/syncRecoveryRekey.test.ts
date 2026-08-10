@@ -19,7 +19,8 @@ import {
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import { syncRemoteDocument } from "./sync";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import {
   rekeyLimitSubmitFailure,
   rekeyUnsettledRecoveryPendingUpdates,

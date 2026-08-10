@@ -57,10 +57,18 @@ function coreMetadataInitialUpdateCommitted(
   );
 }
 
-function buildRosterProfileContainerBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
+function buildCoreContainerBootstrapInput(
+  response: OrganizationProvisioningResponse,
+  container: OrganizationProvisioningResponse["rosterProfileContainer"],
+  bootstrap: Pick<
+    OrganizationProvisioningArtifacts["rosterProfileBootstrap"],
+    | "containerId"
+    | "containerMetadataDocument"
+    | "containerMetadataInitialUpdate"
+    | "containerRequest"
+    | "systemSlot"
+  >,
 ): PersistBootstrapInput["rosterProfileContainer"] {
-  const container = input.response.rosterProfileContainer;
   if (!container) {
     return;
   }
@@ -68,57 +76,20 @@ function buildRosterProfileContainerBootstrapInput(
   return {
     accessEpoch: container.container.manifestHead.epoch,
     accessStateHash: container.container.manifestHead.manifestHash,
-    containerId: input.rosterProfileBootstrap.containerId,
+    containerId: bootstrap.containerId,
     createdAt: container.container.createdAt,
     metadataDocumentId: container.metadataDocument.id,
-    metadataInitialUpdate:
-      input.rosterProfileBootstrap.containerMetadataInitialUpdate,
+    metadataInitialUpdate: bootstrap.containerMetadataInitialUpdate,
     metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-      input.response,
-      input.rosterProfileBootstrap.containerRequest.initialMetadataSync
-        .outgoingUpdates[0]?.id,
+      response,
+      bootstrap.containerRequest.initialMetadataSync.outgoingUpdates[0]?.id,
     ),
-    metadataSnapshot: bytesToBase64(
-      input.rosterProfileBootstrap.containerMetadataInitialUpdate,
-    ),
+    metadataSnapshot: bytesToBase64(bootstrap.containerMetadataInitialUpdate),
     metadataState: persistedDocumentCreateStateFromResponse(
-      input.rosterProfileBootstrap.containerMetadataDocument.plan,
+      bootstrap.containerMetadataDocument.plan,
       container.metadataDocument,
     ),
-    systemSlot: input.rosterProfileBootstrap.systemSlot,
-    updatedAt: container.container.updatedAt,
-  };
-}
-
-function buildOrganizationMetadataContainerBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-): PersistBootstrapInput["organizationMetadataContainer"] {
-  const container = input.response.organizationMetadataContainer;
-  if (!container) {
-    return;
-  }
-
-  return {
-    accessEpoch: container.container.manifestHead.epoch,
-    accessStateHash: container.container.manifestHead.manifestHash,
-    containerId: input.organizationMetadataBootstrap.containerId,
-    createdAt: container.container.createdAt,
-    metadataDocumentId: container.metadataDocument.id,
-    metadataInitialUpdate:
-      input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
-    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-      input.response,
-      input.organizationMetadataBootstrap.containerRequest.initialMetadataSync
-        .outgoingUpdates[0]?.id,
-    ),
-    metadataSnapshot: bytesToBase64(
-      input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
-    ),
-    metadataState: persistedDocumentCreateStateFromResponse(
-      input.organizationMetadataBootstrap.containerMetadataDocument.plan,
-      container.metadataDocument,
-    ),
-    systemSlot: input.organizationMetadataBootstrap.systemSlot,
+    systemSlot: bootstrap.systemSlot,
     updatedAt: container.container.updatedAt,
   };
 }
@@ -203,8 +174,11 @@ async function buildProvisioningPersistenceArtifacts(
     initialAdminGroupPolicy,
     initialMemberGroupPolicy,
     initialOrganizationPolicy,
-    organizationMetadataContainer:
-      buildOrganizationMetadataContainerBootstrapInput(input),
+    organizationMetadataContainer: buildCoreContainerBootstrapInput(
+      input.response,
+      input.response.organizationMetadataContainer,
+      input.organizationMetadataBootstrap,
+    ),
     organizationProfileDocument: buildOrganizationProfileBootstrapInput({
       containerId: input.organizationMetadataBootstrap.containerId,
       materializedDocument:
@@ -214,7 +188,11 @@ async function buildProvisioningPersistenceArtifacts(
       response: input.response,
       snapshot: input.organizationMetadataBootstrap.organizationProfileSnapshot,
     }),
-    rosterProfileContainer: buildRosterProfileContainerBootstrapInput(input),
+    rosterProfileContainer: buildCoreContainerBootstrapInput(
+      input.response,
+      input.response.rosterProfileContainer,
+      input.rosterProfileBootstrap,
+    ),
     rosterProfileDocument: buildRosterProfileBootstrapInput({
       containerId: input.rosterProfileBootstrap.containerId,
       initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,

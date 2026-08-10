@@ -17,10 +17,8 @@ import {
 } from "./groupMutationAuthorization";
 import type { BuildGroupMembershipMutationInput } from "./groupPolicyMutationContext";
 import { verifyGroupPolicy } from "./groupPolicyVerification";
-import { hasAdmin } from "./principalPolicyProjection";
 import {
   rewrapProjectionMemberEnvelopes,
-  toPrincipalMemberEnvelopeRequest,
   toRecipientEntries,
 } from "./principalPolicyRecipients";
 import {
@@ -34,6 +32,12 @@ type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
   readonly targetUser: TrustedUserIdentity;
 };
 
+function hasAdmin(
+  projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
+): boolean {
+  return projection.some((member) => member.role === "admin");
+}
+
 function requireExternalAuthority(
   authority: PrincipalPolicyExternalAuthority | undefined,
 ): PrincipalPolicyExternalAuthority {
@@ -43,38 +47,44 @@ function requireExternalAuthority(
   return authority;
 }
 
-async function buildOrgAdminAddGroupUserPolicyRequest(
-  input: BuildAddGroupUserPolicyInput,
+async function verifyAndAuthorizeGroupMutation(
+  input: BuildGroupMembershipMutationInput,
+): Promise<void> {
+  await verifyGroupPolicy({
+    currentPolicy: input.currentPolicy,
+    ...(input.externalAuthority
+      ? { externalAuthority: input.externalAuthority }
+      : {}),
+    localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
+    signerPublicKeys: input.currentPolicySignerPublicKeys,
+  });
+  requireSignerCanManageGroup(
+    input.currentPolicy,
+    input.currentOrgAdminUserIds ?? [],
+    input.signerUserId,
+  );
+}
+
+async function buildRotatedKeyGroupPolicyRequest(
+  input: BuildGroupMembershipMutationInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
+  users: ReadonlyArray<TrustedUserIdentity>,
 ): Promise<PutPrincipalPolicyRequest> {
   const groupKem = generateKemSeedAndKeyPair();
-  const usersById = new Map([
-    ...input.currentUsers.map((user) => [user.userId, user] as const),
-    [input.targetUser.userId, input.targetUser] as const,
-  ]);
-  const recipientUsers = projection.map((member) => {
-    const user = usersById.get(member.userId);
-    if (!user) {
-      throw new Error(`Missing recipient key for user ${member.userId}`);
-    }
-
-    return user;
+  const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
+    projection,
+    secretKey: groupKem.secretKey,
+    users,
   });
-  const wrappedRecipients = await wrapDekForRecipients(
-    groupKem.secretKey,
-    recipientUsers.map((user) => user.encapsulationPublicKey),
-  );
-  const memberEnvelopes = wrappedRecipients.map((envelope, index) =>
-    toPrincipalMemberEnvelopeRequest({
-      envelope,
-      userId: recipientUsers[index]?.userId ?? "",
-    }),
-  );
   return signedGroupPolicyRequest({
     currentPolicy: input.currentPolicy,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    externalAuthority: requireExternalAuthority(input.externalAuthority)
-      .currentHead,
+    externalAuthority: isDirectGroupAdmin(
+      input.currentPolicy,
+      input.signerUserId,
+    )
+      ? null
+      : requireExternalAuthority(input.externalAuthority).currentHead,
     keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     memberEnvelopes,
@@ -135,19 +145,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
 export async function buildAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
 ): Promise<PutPrincipalPolicyRequest> {
-  await verifyGroupPolicy({
-    currentPolicy: input.currentPolicy,
-    ...(input.externalAuthority
-      ? { externalAuthority: input.externalAuthority }
-      : {}),
-    localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
-    signerPublicKeys: input.currentPolicySignerPublicKeys,
-  });
-  requireSignerCanManageGroup(
-    input.currentPolicy,
-    input.currentOrgAdminUserIds ?? [],
-    input.signerUserId,
-  );
+  await verifyAndAuthorizeGroupMutation(input);
 
   const targetKey = input.targetUser.userId;
   const currentProjection = input.currentPolicy.currentProjection;
@@ -165,7 +163,10 @@ export async function buildAddGroupUserPolicyRequest(
 
   return isDirectGroupAdmin(input.currentPolicy, input.signerUserId)
     ? buildDirectAdminAddGroupUserPolicyRequest(input, projection, targetKey)
-    : buildOrgAdminAddGroupUserPolicyRequest(input, projection);
+    : buildRotatedKeyGroupPolicyRequest(input, projection, [
+        ...input.currentUsers,
+        input.targetUser,
+      ]);
 }
 
 export async function buildRemoveGroupUserPolicyRequest(
@@ -174,19 +175,7 @@ export async function buildRemoveGroupUserPolicyRequest(
     readonly removedUserId: string;
   },
 ): Promise<PutPrincipalPolicyRequest> {
-  await verifyGroupPolicy({
-    currentPolicy: input.currentPolicy,
-    ...(input.externalAuthority
-      ? { externalAuthority: input.externalAuthority }
-      : {}),
-    localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
-    signerPublicKeys: input.currentPolicySignerPublicKeys,
-  });
-  requireSignerCanManageGroup(
-    input.currentPolicy,
-    input.currentOrgAdminUserIds ?? [],
-    input.signerUserId,
-  );
+  await verifyAndAuthorizeGroupMutation(input);
 
   const key = input.removedUserId;
   const projection = input.currentPolicy.currentProjection.filter(
@@ -204,31 +193,11 @@ export async function buildRemoveGroupUserPolicyRequest(
     throw new Error("Cannot remove the last group admin");
   }
 
-  const groupKem = generateKemSeedAndKeyPair();
-  const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
+  return buildRotatedKeyGroupPolicyRequest(
+    input,
     projection,
-    secretKey: groupKem.secretKey,
-    users: input.remainingUsers,
-  });
-  return signedGroupPolicyRequest({
-    currentPolicy: input.currentPolicy,
-    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    externalAuthority: isDirectGroupAdmin(
-      input.currentPolicy,
-      input.signerUserId,
-    )
-      ? null
-      : requireExternalAuthority(input.externalAuthority).currentHead,
-    keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
-    keyFingerprint: await toFingerprint(groupKem.publicKey),
-    memberEnvelopes,
-    principalId: input.currentPolicy.currentState.principalId,
-    projection,
-    signedAt: new Date().toISOString(),
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
+    input.remainingUsers,
+  );
 }
 
 export async function buildGroupAccessSetShrinkPolicyRequest(
@@ -236,44 +205,11 @@ export async function buildGroupAccessSetShrinkPolicyRequest(
     readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
   },
 ): Promise<PutPrincipalPolicyRequest> {
-  await verifyGroupPolicy({
-    currentPolicy: input.currentPolicy,
-    ...(input.externalAuthority
-      ? { externalAuthority: input.externalAuthority }
-      : {}),
-    localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
-    signerPublicKeys: input.currentPolicySignerPublicKeys,
-  });
-  requireSignerCanManageGroup(
-    input.currentPolicy,
-    input.currentOrgAdminUserIds ?? [],
-    input.signerUserId,
-  );
+  await verifyAndAuthorizeGroupMutation(input);
 
-  const groupKem = generateKemSeedAndKeyPair();
-  const projection = [...input.currentPolicy.currentProjection];
-  const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
-    projection,
-    secretKey: groupKem.secretKey,
-    users: input.currentUsers,
-  });
-  return signedGroupPolicyRequest({
-    currentPolicy: input.currentPolicy,
-    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    externalAuthority: isDirectGroupAdmin(
-      input.currentPolicy,
-      input.signerUserId,
-    )
-      ? null
-      : requireExternalAuthority(input.externalAuthority).currentHead,
-    keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
-    keyFingerprint: await toFingerprint(groupKem.publicKey),
-    memberEnvelopes,
-    principalId: input.currentPolicy.currentState.principalId,
-    projection,
-    signedAt: new Date().toISOString(),
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
+  return buildRotatedKeyGroupPolicyRequest(
+    input,
+    [...input.currentPolicy.currentProjection],
+    input.currentUsers,
+  );
 }

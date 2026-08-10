@@ -5,8 +5,7 @@ import {
   documentProjection,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-
-const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+import { DOCUMENT_MOVE_INTENT_TYPE } from "./documentMoveIntentPersistence";
 
 interface ContainerDocumentReassignmentInput {
   readonly fromContainerId: string;

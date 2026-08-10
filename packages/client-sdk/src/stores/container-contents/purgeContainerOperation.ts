@@ -1,14 +1,6 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
-import { purgeContainerTree } from "../../workflows/container-contents/container-state/purgeTree";
-import { prepareContainerDocumentRotationSnapshot } from "./documentRotation";
-import { updateContainerContentsSnapshot } from "./state";
+import { runContainerPurge } from "./containerPurgeCore";
 import type { ContainerContentsStoreState } from "./types";
-
-function getContainerContentsStoreLogLabel(
-  state: ContainerContentsStoreState,
-): string {
-  return state.logLabel ?? "Container contents";
-}
 
 // Permanently destroy a container and everything beneath it. Unlike
 // deleteContainer (a leaf-only hard delete), this cascades: documents whose last
@@ -22,55 +14,12 @@ export async function purgeContainer(
   containerId: string,
   options?: PurgeOptions,
 ): Promise<boolean> {
-  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
-    return false;
-  }
-
-  const existingState = state.containersById.get(containerId);
-  if (
-    !existingState ||
-    existingState.container.parentId === null ||
-    (existingState.container.systemSlot ?? null) !== null
-  ) {
-    return false;
-  }
-
-  // Any remote container or document in the subtree needs the server, so require
-  // auth + online when the target itself is remote (a local-only subtree can be
-  // torn down offline, matching deleteContainer's gate).
-  const isRemoteContainer = Boolean(existingState.record.documentId);
-  if (
-    isRemoteContainer &&
-    (!state.runtime.auth.isAuthenticated || !state.runtime.state.online)
-  ) {
-    return false;
-  }
-
-  const result = await purgeContainerTree({
-    containersById: state.containersById,
-    onProgress: options?.onProgress,
-    persistence: state.persistence,
-    prepareDocumentRotationSnapshot: (document) =>
-      prepareContainerDocumentRotationSnapshot(state.runtime, document),
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    rootContainerId: containerId,
-    runtime: state.runtime,
-    signal: options?.signal,
+  return runContainerPurge(state, containerId, options, {
+    describeResult: (target, result) =>
+      `purged container "${target.container.name}" (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
+    didSucceed: (result) => result.purgedContainerIds.includes(containerId),
+    validateTarget: (target) =>
+      target.container.parentId !== null &&
+      (target.container.systemSlot ?? null) === null,
   });
-  if (!result) {
-    return false;
-  }
-
-  for (const purgedContainerId of result.purgedContainerIds) {
-    state.containersById.delete(purgedContainerId);
-  }
-  // Only re-render when something actually left the tree; a fully-failed or
-  // immediately-cancelled run changed nothing.
-  if (result.purgedContainerIds.length > 0) {
-    updateContainerContentsSnapshot(state);
-  }
-  state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: purged container "${existingState.container.name}" (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
-  );
-  return result.purgedContainerIds.includes(containerId);
 }

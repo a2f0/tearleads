@@ -21,48 +21,18 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
-import { ensurePrincipalPolicyTables } from "./principalPolicyPersistence";
+import {
+  ensurePrincipalPolicyTables,
+  principalPolicyBundleSelection,
+  type SelectedPrincipalPolicyRow,
+} from "./principalPolicyPersistence";
 import { applyPrincipalPolicyReferenceCheckpoint } from "./principalPolicyReferenceCheckpoint";
 import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
-
-interface SelectedPrincipalPolicyRow {
-  readonly currentMemberEnvelopesJson: string;
-  readonly currentPayloadJson: string;
-  readonly currentProjectionJson: string;
-  readonly currentStateJson: string;
-  readonly previousStatesJson: string;
-  readonly principalId: string;
-  readonly principalType: string;
-  readonly stateHash: string;
-}
 
 interface IndexedBundleHead {
   readonly bundleStateHash: string;
   readonly bundleVersion: number;
 }
-
-const currentBundleSelection = {
-  currentMemberEnvelopesJson: principalPolicies.currentMemberEnvelopesJson,
-  currentPayloadJson: principalPolicies.currentPayloadJson,
-  currentProjectionJson: principalPolicies.currentProjectionJson,
-  currentStateJson: principalPolicies.currentStateJson,
-  previousStatesJson: principalPolicies.previousStatesJson,
-  principalId: principalPolicies.principalId,
-  principalType: principalPolicies.principalType,
-  stateHash: principalPolicies.stateHash,
-};
-
-const retainedBundleSelection = {
-  currentMemberEnvelopesJson:
-    principalPolicyBundleHistory.currentMemberEnvelopesJson,
-  currentPayloadJson: principalPolicyBundleHistory.currentPayloadJson,
-  currentProjectionJson: principalPolicyBundleHistory.currentProjectionJson,
-  currentStateJson: principalPolicyBundleHistory.currentStateJson,
-  previousStatesJson: principalPolicyBundleHistory.previousStatesJson,
-  principalId: principalPolicyBundleHistory.principalId,
-  principalType: principalPolicyBundleHistory.principalType,
-  stateHash: principalPolicyBundleHistory.stateHash,
-};
 
 function assertUnambiguousBundleChain(
   bundle: PrincipalPolicyBundleResponse,
@@ -275,7 +245,7 @@ async function loadCurrentRow(
 ): Promise<SelectedPrincipalPolicyRow | undefined> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [row] = await db
-    .select(currentBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
     .where(
       and(
@@ -361,7 +331,7 @@ async function loadRetainedRows(
   // is only a selection hint; rows that still exist remain authoritative.
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   return db
-    .select(retainedBundleSelection)
+    .select(principalPolicyBundleSelection(principalPolicyBundleHistory))
     .from(principalPolicyBundleHistory)
     .where(
       and(

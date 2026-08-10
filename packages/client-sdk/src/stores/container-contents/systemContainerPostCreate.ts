@@ -1,5 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreatedChildContainerState } from "../../workflows/container-contents/container-state/types";
+import { isRemoteBackedContainerState } from "./remoteBackedContainerState";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -10,21 +11,6 @@ import {
   findSystemContainerStateForRoot,
 } from "./systemContainerLookup";
 import type { ContainerContentsStoreState } from "./types";
-
-function isRemoteBackedContainerState(state: ContainerState): boolean {
-  if (!state.record) {
-    return false;
-  }
-
-  return (
-    typeof state.container.metadataDocumentId === "string" &&
-    state.container.metadataDocumentId.length > 0 &&
-    typeof state.record.documentId === "string" &&
-    state.record.documentId.length > 0 &&
-    typeof state.record.accessStateHash === "string" &&
-    state.record.accessStateHash.length > 0
-  );
-}
 
 function findSystemContainerCreatedAfterRemoteHydrationTarget(
   state: ContainerContentsStoreState,

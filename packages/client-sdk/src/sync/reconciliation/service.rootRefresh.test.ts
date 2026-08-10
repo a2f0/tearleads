@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
-import { createDomainScope } from "../../data/domainScope";
-import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import { waitFor } from "../../../test/helpers/waitFor";
+import { createReconciliationService } from "./service";
 import {
-  createReconciliationService,
-  type ReconciliationHost,
-} from "./service";
+  createGate,
+  createReconciliationTestHost,
+} from "./service.testFixtures";
+import type { ReconciliationHost } from "./serviceTypes";
 
 interface RootRefreshHarness {
   readonly calls: string[];
@@ -22,67 +23,23 @@ function createRootRefreshHarness(input: {
   return {
     calls,
     pulls,
-    host: {
-      applyReconciled: () => undefined,
+    host: createReconciliationTestHost({
       canDiscoverContainerDocuments:
         input.canDiscoverContainerDocuments ?? (() => true),
       discoverContainerDocuments: async (containerId) => {
         calls.push(`discover:${containerId}`);
       },
-      domainScope: createDomainScope(),
-      getRuntimeStatus: () => ({
-        dbStatus: "ready",
-        isAuthenticated: true,
-        online: true,
-      }),
-      isIgnorableError: () => false,
       listAutomaticRootCatchupContainerIds: input.automaticContainerIds,
-      listContainerDocumentIds: async () => [],
       listKnownContainerIds: input.automaticContainerIds,
-      loadContainerDelta: async (
-        containerId,
-      ): Promise<LocalProjectionReconciledDelta> => ({
-        containerId,
-        documentSummaries: [],
-      }),
       refreshRootTree: async () => {
         calls.push("refresh-root");
         await input.onRefreshRoot?.();
       },
-      refreshTree: async () => undefined,
-      probeUndiscoveredDocumentsBatch: async () => ({
-        done: true,
-        nextCursor: null,
-        requestedCount: 0,
-      }),
-      reportInitialDocumentProbeComplete: () => undefined,
       requestDocumentContentPull: (containerId, _documents, force) => {
         pulls.push({ containerId, force });
       },
-    },
+    }),
   };
-}
-
-function createGate(): { open: () => void; wait: Promise<void> } {
-  let open!: () => void;
-  const wait = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  return { open, wait };
-}
-
-async function waitFor(
-  predicate: () => boolean,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(message);
 }
 
 test("automatic root refresh skips settled containers but retains targeted force", async () => {

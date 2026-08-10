@@ -25,9 +25,9 @@ import {
 } from "../../../data/containers/shared/events";
 import {
   asContainerManifestBundle,
-  getParentKekForTarget,
-  getTargetContainerContext,
-  readContainerState,
+  type getParentKekForTarget,
+  type getTargetContainerContext,
+  type readContainerState,
   uniqueSortedManifestHashes,
 } from "../../../data/containers/shared/projection";
 import type {
@@ -36,8 +36,6 @@ import type {
   ContainerRekeyPlan,
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
@@ -49,20 +47,24 @@ import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
 } from "./moveRotation";
-import { containerMutationRequestCore } from "./mutationRequestCore";
+import {
+  containerMutationRequestCore,
+  previousPathRequestFields,
+  readCanonicalRecordOrNull,
+} from "./mutationRequestCore";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import { collectContainerRevokePrincipalPolicies } from "./revoke";
+import { resolveRotationContext } from "./rotationContext";
+import { buildContainerRotationWraps } from "./rotationWraps";
 import {
   refreshedPrincipalPolicies,
   refreshedPrincipalReferences,
-} from "./rekeyPrincipalRefresh";
-import { collectContainerRevokePrincipalPolicies } from "./revoke";
-import { buildContainerRotationWraps } from "./rotationWraps";
+} from "./sharePlanCore";
 
 async function buildRekeyRotationArtifacts(input: {
   containerKey: Uint8Array;
   keyringEntriesOverride: readonly ContainerKekKeyringEntry[] | undefined;
   nextContainerKeyEpoch: number;
-  override: string | undefined;
   predecessorContainerKey: Uint8Array;
   previousContainerId: string;
   targetKek: ContainerKekResponse;
@@ -77,7 +79,6 @@ async function buildRekeyRotationArtifacts(input: {
     containerId: input.previousContainerId,
     keyEpoch: input.nextContainerKeyEpoch,
     keyMaterial: input.containerKey,
-    override: input.override,
   });
   const predecessorBridge = await createContainerKekPredecessorBridge({
     containerId: input.previousContainerId,
@@ -184,7 +185,6 @@ async function deriveRekeyManifestArtifacts(input: {
  */
 interface RekeyPlanInput {
   author: ContainerMutationAuthor;
-  containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
@@ -194,44 +194,6 @@ interface RekeyPlanInput {
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}
-
-async function resolveRekeyContext(input: RekeyPlanInput): Promise<{
-  parentKek: ReturnType<typeof getParentKekForTarget>;
-  parentKekMaterial: Uint8Array | null;
-  predecessorContainerKey: Uint8Array;
-  previousState: ReturnType<typeof readContainerState>;
-  target: ReturnType<typeof getTargetContainerContext>;
-}> {
-  const keksByEpochId = await unwrapContainerKekPath({
-    execSql: input.execSql,
-    projection: input.previousProjection,
-    secretKey: input.targetSecretKey,
-    ...projectionVerificationOptions(input),
-  });
-  const target = getTargetContainerContext(input.previousProjection);
-  const predecessorContainerKey = keksByEpochId.get(
-    target.kek.containerKeyEpochId,
-  );
-  if (!predecessorContainerKey) {
-    throw new Error("Container rekey predecessor KEK could not be unwrapped");
-  }
-  const previousState = readContainerState(target.manifest);
-  if (previousState.organizationId !== input.author.organizationId) {
-    throw new Error("Container rekey author organization mismatch");
-  }
-
-  const parentKek = getParentKekForTarget(input.previousProjection);
-  const parentKekMaterial = parentKek
-    ? (keksByEpochId.get(parentKek.containerKeyEpochId) ?? null)
-    : null;
-  return {
-    parentKek,
-    parentKekMaterial,
-    predecessorContainerKey,
-    previousState,
-    target,
-  };
 }
 
 async function collectRekeyPrincipalPolicies(
@@ -264,14 +226,13 @@ export async function buildMaterializedContainerRekeyPlan(
     predecessorContainerKey,
     previousState,
     target,
-  } = await resolveRekeyContext(input);
+  } = await resolveRotationContext(input, "rekey");
   const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
   const { containerKeyEpochId, keyring, predecessorBridge } =
     await buildRekeyRotationArtifacts({
       containerKey,
       keyringEntriesOverride: input.keyringEntriesOverride,
       nextContainerKeyEpoch,
-      override: input.containerKeyEpochId,
       predecessorContainerKey,
       previousContainerId: previousState.containerId,
       targetKek: target.kek,
@@ -367,22 +328,19 @@ function buildContainerRekeyPlan(input: {
     previousManifest: input.previousManifest,
     request: {
       ...containerMutationRequestCore("rekey", input),
-      previousManifest: input.previousManifest,
-      previousContainerPath: input.previousProjection.path.map(
-        asContainerManifestBundle,
+      ...previousPathRequestFields(
+        input.previousManifest,
+        input.previousProjection,
       ),
       predecessorBridge: readCanonicalRecord(
         input.predecessorBridge,
         "Container rekey predecessor bridge",
       ),
       keyring: readCanonicalRecord(input.keyring, "Container rekey keyring"),
-      parentKekState:
-        input.parentKek === null
-          ? null
-          : readCanonicalRecord(
-              input.parentKek,
-              "Container rekey parent KEK state",
-            ),
+      parentKekState: readCanonicalRecordOrNull(
+        input.parentKek,
+        "Container rekey parent KEK state",
+      ),
     },
     state: input.state,
     userRecipientKeys: input.userRecipientKeys,

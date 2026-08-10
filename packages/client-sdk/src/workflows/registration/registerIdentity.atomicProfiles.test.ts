@@ -16,12 +16,13 @@ import {
   type ProvisionedDocumentRequest,
   type RegistrationRequest,
 } from "@tearleads/validators/request";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
@@ -30,16 +31,6 @@ import {
   type RegistrationApi,
   registerIdentity,
 } from "./registerIdentity";
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 function requireCapturedRequest(
   request: RegistrationRequest | null,
@@ -227,7 +218,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
       ) {
         throw new Error("Expected provisioned profile requests");
       }
-      const request: RegistrationRequest = {
+      captured = {
         encapsulationPublicKey: Array.from(encapsulationPublicKey),
         initialAdminGroup,
         initialMemberGroup,
@@ -244,12 +235,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
         signingPublicKey: Array.from(signingPublicKey),
         userId,
       };
-      captured = request;
-      const response = {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
-      return response;
+      return respondToRegistration(args);
     },
   };
 
@@ -257,7 +243,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
     const response = await registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair,
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,

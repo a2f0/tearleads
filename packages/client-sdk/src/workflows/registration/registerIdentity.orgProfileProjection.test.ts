@@ -6,7 +6,8 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createDocumentProjectorRegistry,
@@ -18,23 +19,12 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { persistDocumentState } from "../documents";
 import {
   getOrganizationProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "../organizations/organizationProfile";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 test("registration bootstrap projects the organization profile document", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -44,27 +34,7 @@ test("registration bootstrap projects the organization profile document", async 
   );
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
-      const request = {
-        userId: args[0],
-        organizationId: args[1],
-        rootContainerId: args[2],
-        signingPublicKey: Array.from(args[3]),
-        encapsulationPublicKey: Array.from(args[4]),
-        initialAdminGroup: args[5],
-        initialMemberGroup: args[6],
-        initialOrganizationPolicy: args[7],
-        initialRootContainer: args[8],
-        initialRootMetadataDocument: args[9],
-        initialRosterProfileContainer: args[10],
-        initialRosterProfileDocument: args[11],
-        initialOrganizationMetadataContainer: args[12],
-        initialOrganizationProfileDocument: args[13],
-        initialSystemContainers: args[14],
-      };
-      return {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
+      return respondToRegistration(args);
     },
   };
 
@@ -94,7 +64,7 @@ test("registration bootstrap projects the organization profile document", async 
     const response = await registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       documentProjectors: [organizationProfileProjector],
       encapsulationKeyPair,
       organizationProfileName: "Acme Corp",
@@ -136,27 +106,7 @@ test("no-projector hosts keep the stable org profile title", async () => {
   );
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
-      const request = {
-        userId: args[0],
-        organizationId: args[1],
-        rootContainerId: args[2],
-        signingPublicKey: Array.from(args[3]),
-        encapsulationPublicKey: Array.from(args[4]),
-        initialAdminGroup: args[5],
-        initialMemberGroup: args[6],
-        initialOrganizationPolicy: args[7],
-        initialRootContainer: args[8],
-        initialRootMetadataDocument: args[9],
-        initialRosterProfileContainer: args[10],
-        initialRosterProfileDocument: args[11],
-        initialOrganizationMetadataContainer: args[12],
-        initialOrganizationProfileDocument: args[13],
-        initialSystemContainers: args[14],
-      };
-      return {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
+      return respondToRegistration(args);
     },
   };
 
@@ -164,7 +114,7 @@ test("no-projector hosts keep the stable org profile title", async () => {
     const response = await registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       // No org-profile projector registered: the host relies on the SDK's
       // stable fallback rather than the registry's generic untitled form.
       documentProjectors: [],
@@ -197,27 +147,7 @@ test("a later save cannot overwrite the fallback title", async () => {
   );
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
-      const request = {
-        userId: args[0],
-        organizationId: args[1],
-        rootContainerId: args[2],
-        signingPublicKey: Array.from(args[3]),
-        encapsulationPublicKey: Array.from(args[4]),
-        initialAdminGroup: args[5],
-        initialMemberGroup: args[6],
-        initialOrganizationPolicy: args[7],
-        initialRootContainer: args[8],
-        initialRootMetadataDocument: args[9],
-        initialRosterProfileContainer: args[10],
-        initialRosterProfileDocument: args[11],
-        initialOrganizationMetadataContainer: args[12],
-        initialOrganizationProfileDocument: args[13],
-        initialSystemContainers: args[14],
-      };
-      return {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
+      return respondToRegistration(args);
     },
   };
 
@@ -225,7 +155,7 @@ test("a later save cannot overwrite the fallback title", async () => {
     const response = await registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       documentProjectors: [],
       encapsulationKeyPair,
       organizationProfileName: "Acme Corp",

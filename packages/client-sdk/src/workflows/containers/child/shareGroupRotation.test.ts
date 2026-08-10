@@ -14,7 +14,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
@@ -34,7 +34,7 @@ const ORGANIZATION_ID = "organization-1";
 const ROOT_CONTAINER_ID = "root-container";
 const USER_ID = "remaining-admin";
 
-test("same-level Admins re-wrap survives a group rotation and cold root unwrap", async () => {
+async function setUpAdminGroupRoot() {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: ORGANIZATION_ID,
     userId: USER_ID,
@@ -53,11 +53,10 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
   });
   const epochOnePolicy =
     await policyBundleFromInitialRequest(initialAdminGroup);
-  const epochTwoGroupKem = generateKemSeedAndKeyPair();
   const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
     author,
     groupId: ADMIN_GROUP_ID,
-    groupKem: epochTwoGroupKem,
+    groupKem: generateKemSeedAndKeyPair(),
     memberPublicKey: memberKem.publicKey,
     previousBundle: epochOnePolicy,
     signedAt: new Date(
@@ -78,15 +77,34 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
   const initialProjection = rootContainerWriterProjectionFromCreatePlan(
     root.plan,
   );
-  const resolveUserIdentity = async (userId: string) =>
-    userId === USER_ID
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: memberKem.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId,
-        })
-      : null;
+  const resolveUserIdentity = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: memberKem.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: USER_ID,
+  });
+
+  return {
+    author,
+    containerKey,
+    epochOnePolicy,
+    epochTwoPolicy,
+    initialProjection,
+    memberKem,
+    resolveUserIdentity,
+  };
+}
+
+test("same-level Admins re-wrap survives a group rotation and cold root unwrap", async () => {
+  const {
+    author,
+    containerKey,
+    epochOnePolicy,
+    epochTwoPolicy,
+    initialProjection,
+    memberKem,
+    resolveUserIdentity,
+  } = await setUpAdminGroupRoot();
   const submittedRequests: ContainerMutationRequest[] = [];
   const { close, execSql } = await createTestExecSql(
     "container-share-admin-group-rotation",
@@ -213,35 +231,15 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
 });
 
 test("Admins rotation rekeys the root and a fresh current member opens all epochs", async () => {
-  const { author, signingPublicKey } = await createAuthor({
-    organizationId: ORGANIZATION_ID,
-    userId: USER_ID,
-  });
-  const memberKem = generateKemSeedAndKeyPair();
-  const initialAdminGroup = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: memberKem,
-    groupId: ADMIN_GROUP_ID,
-    name: "Admins",
-    signerUserId: USER_ID,
-    signingFingerprint: author.signerKeyFingerprint,
-    signingKeyPair: {
-      signingPrivateKey: author.signerPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const epochOnePolicy =
-    await policyBundleFromInitialRequest(initialAdminGroup);
-  const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
+  const {
     author,
-    groupId: ADMIN_GROUP_ID,
-    groupKem: generateKemSeedAndKeyPair(),
-    memberPublicKey: memberKem.publicKey,
-    previousBundle: epochOnePolicy,
-    signedAt: new Date(
-      Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
-    ).toISOString(),
-    userId: USER_ID,
-  });
+    containerKey: originalContainerKey,
+    epochOnePolicy,
+    epochTwoPolicy,
+    initialProjection,
+    memberKem,
+    resolveUserIdentity,
+  } = await setUpAdminGroupRoot();
   const nextState = epochTwoPolicy.currentState;
   const nextPolicy = makeVerifiedPrincipalPolicy({
     principalType: nextState.principalType,
@@ -265,33 +263,11 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       stateHash: nextState.stateHash,
     },
   });
-  const originalContainerKey = crypto.getRandomValues(new Uint8Array(32));
-  const root = await buildRootContainerCreatePlan({
-    adminGroup: initialAdminGroup,
-    author,
-    containerId: ROOT_CONTAINER_ID,
-    containerKey: originalContainerKey,
-    metadataDocumentId: "root-metadata-document",
-    recipientEncapsulationPublicKey: memberKem.publicKey,
-    signedAt: SIGNED_AT,
-  });
-  const initialProjection = rootContainerWriterProjectionFromCreatePlan(
-    root.plan,
-  );
   const initialManifest = initialProjection.path[0];
   const initialKek = initialProjection.containerKeks[0];
   if (!initialManifest || !initialKek) {
     throw new Error("Expected initial root projection");
   }
-  const resolveUserIdentity = async (userId: string) =>
-    userId === USER_ID
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: memberKem.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId,
-        })
-      : null;
   const warmDatabase = await createTestExecSql(
     "container-rekey-admin-group-warm",
   );

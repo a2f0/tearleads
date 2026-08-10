@@ -239,7 +239,7 @@
     },
     "packages/app/src/stores/explorer/ExplorerProvider.syncAgent.test.ts": {
       "lines": 503,
-      "bytes": 14866
+      "bytes": 14867
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
@@ -278,8 +278,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
-      "lines": 547,
-      "bytes": 18887
+      "lines": 545,
+      "bytes": 18896
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,

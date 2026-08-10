@@ -1,13 +1,12 @@
 import { expect, test } from "bun:test";
-import type { DomainScope } from "../../data/domainScope";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type {
   InitialDocumentProbeBatchInput,
   InitialDocumentProbeBatchResult,
 } from "./initialDocumentProbe";
-import {
-  createReconciliationService,
-  type ReconciliationHost,
-} from "./service";
+import { createReconciliationService } from "./service";
+import { createReconciliationTestHost } from "./service.testFixtures";
+import type { ReconciliationHost } from "./serviceTypes";
 
 function createProbeHost(input: {
   readonly listKnownContainerIds?: () => ReadonlyArray<string>;
@@ -19,46 +18,15 @@ function createProbeHost(input: {
   ) => Promise<InitialDocumentProbeBatchResult>;
   readonly reportComplete?: (requestedCount: number) => void;
 }): ReconciliationHost {
-  return {
-    canDiscoverContainerDocuments: () => true,
-    domainScope: {} as DomainScope,
-    getRuntimeStatus: () => ({
-      dbStatus: "ready",
-      isAuthenticated: true,
-      online: true,
-    }),
+  return createReconciliationTestHost({
     listKnownContainerIds:
       input.listKnownContainerIds ?? (() => ["c-1", "c-2"]),
     listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
     listContainerDocumentIds: input.listContainerDocumentIds,
-    discoverContainerDocuments: async () => [],
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [],
-    }),
-    applyReconciled: () => undefined,
     probeUndiscoveredDocumentsBatch: input.probeUndiscoveredDocumentsBatch,
     reportInitialDocumentProbeComplete:
       input.reportComplete ?? (() => undefined),
-    refreshTree: async () => undefined,
-    refreshRootTree: async () => undefined,
-    isIgnorableError: () => false,
-  };
-}
-
-async function waitFor(
-  predicate: () => boolean,
-  message: string,
-  timeoutMs = 1_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() <= deadline) {
-    if (predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(message);
+  });
 }
 
 test("initial probe uses every authoritative listing and bounded batches once", async () => {

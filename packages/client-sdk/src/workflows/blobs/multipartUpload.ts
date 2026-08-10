@@ -1,3 +1,4 @@
+import { bytesToHex } from "@tearleads/crypto";
 import type {
   InitiateMultipartBlobStageResponse,
   MultipartBlobStagePart,
@@ -47,29 +48,15 @@ function multipartPartPath(input: {
   return `${basePath}/bytes`;
 }
 
-function describeRequestFailure(
-  apiClient: BlobAttachmentApi,
-  request: RequestFailureInput,
-): string | null {
-  const failure = apiClient.getRequestFailure?.(request);
-  return failure?.message ?? null;
-}
-
 function multipartApiFailureMessage(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly fallback: string;
   readonly request: RequestFailureInput;
 }): string {
-  const failure = describeRequestFailure(input.apiClient, input.request);
+  const failure = input.apiClient.getRequestFailure?.(input.request)?.message;
   return failure
     ? `${input.fallback} Last API failure: ${failure}`
     : input.fallback;
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
 }
 
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {

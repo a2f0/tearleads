@@ -17,7 +17,7 @@ import {
   deriveDocumentContentRecordKey,
   deriveDocumentPlaintextHashKey,
   documentContentRecordDerivationPayload,
-  importDocumentContentKeyMaterial,
+  importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { assertDecryptedDocumentUpdateMetadata } from "./documentUpdateIntegrity";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
@@ -428,7 +428,7 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
     if (!contentKey) {
       throw new Error("Document content key missing for sync update epoch");
     }
-    const imported = importDocumentContentKeyMaterial(contentKey);
+    const imported = importContentKeyMaterial(contentKey);
     contentKeyMaterialByEpoch.set(contentKeyEpoch, imported);
     return imported;
   };

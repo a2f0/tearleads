@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
@@ -249,13 +250,11 @@ test("orphan byte reclaim reschedules bounded work until the queue drains", asyn
 
     await reclaimDocumentOrphanBlobs(runtime);
     expect(deletedStorageKeys.length).toBeLessThan(storageKeys.length);
-    const deadline = Date.now() + 2_000;
-    while (deletedStorageKeys.length < storageKeys.length) {
-      if (Date.now() > deadline) {
-        throw new Error("Timed out waiting for the orphan reclaim queue");
-      }
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await waitFor(
+      () => deletedStorageKeys.length >= storageKeys.length,
+      "Timed out waiting for the orphan reclaim queue",
+      2_000,
+    );
     await reclaimDocumentOrphanBlobs(runtime);
 
     expect(deletedStorageKeys).toHaveLength(65);

@@ -62,10 +62,9 @@ test("container sync watermarks are persisted independently per lane", async () 
       updatedAt: "2026-05-05T00:00:00.000Z",
     });
     await expect(
-      sqlContainerSyncWatermarkPersistence.loadWatermarkRecord(
-        execSql,
-        containerParentSyncLane(null),
-      ),
+      sqlContainerSyncWatermarkPersistence
+        .loadWatermarkRecords(execSql, [containerParentSyncLane(null)])
+        .then(([record]) => record),
     ).resolves.toMatchObject({
       laneId: "root",
       laneKind: "container_parent",

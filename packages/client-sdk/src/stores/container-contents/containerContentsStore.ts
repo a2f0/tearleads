@@ -115,15 +115,6 @@ function chainContainerTask<T>(
   return task;
 }
 
-function chainPurgeWrite(
-  state: ContainerContentsStoreState,
-  work: () => Promise<boolean>,
-): Promise<boolean> {
-  const purged = state.writeChain.catch(() => null).then(work);
-  state.writeChain = purged.then(() => null);
-  return purged;
-}
-
 type ContainerWriteMethods = Pick<
   ContainerContentsStore,
   | "createChild"
@@ -209,9 +200,11 @@ function createContainerWriteMethods(
         deleteContainer(state, syncAgent, containerId),
       ),
     purgeContainer: (containerId, options) =>
-      chainPurgeWrite(state, () => purgeContainer(state, containerId, options)),
+      chainContainerTask(state, () =>
+        purgeContainer(state, containerId, options),
+      ),
     emptyTrash: (trashContainerId, options) =>
-      chainPurgeWrite(state, () =>
+      chainContainerTask(state, () =>
         emptyTrash(state, trashContainerId, options),
       ),
     ensureSystemContainer: (systemSlot, name, options) =>
@@ -271,13 +264,7 @@ function createContainerContentsStoreEntry(
       syncAgent.scheduleSync();
     },
     store: {
-      createChild: writeMethods.createChild,
-      deleteContainer: writeMethods.deleteContainer,
-      emptyTrash: writeMethods.emptyTrash,
-      purgeContainer: writeMethods.purgeContainer,
-      ensureSystemContainer: writeMethods.ensureSystemContainer,
-      moveContainer: writeMethods.moveContainer,
-      prepareGroupRewrap: writeMethods.prepareGroupRewrap,
+      ...writeMethods,
       refresh: () => syncAgent.refresh(),
       refreshRootLane: (options) => syncAgent.refreshRootLane(options),
       // Force an on-demand local SQLite re-read (see the interface doc): arm the
@@ -288,10 +275,6 @@ function createContainerContentsStoreEntry(
         return syncAgent.refreshLocalContainers();
       },
       requestSync: () => syncAgent.scheduleSync(),
-      renameContainer: writeMethods.renameContainer,
-      setContainerIcon: writeMethods.setContainerIcon,
-      shareWithUser: writeMethods.shareWithUser,
-      shareWithGroup: writeMethods.shareWithGroup,
       getCachedContainerWriterProjection: (containerId) =>
         getCachedContainerWriterProjectionForStore(state, containerId),
       getSnapshot: () => state.snapshot,

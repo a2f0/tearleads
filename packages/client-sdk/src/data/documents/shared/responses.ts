@@ -7,7 +7,7 @@ import type {
 import {
   readRecordString,
   serializeCanonical,
-  serializeState,
+  serializedPersistedDocumentState,
 } from "./readers";
 import type {
   DocumentCreatePlan,
@@ -22,106 +22,157 @@ export {
   submitDocumentSync,
 } from "./syncResponses";
 
-// 1. assertCreateResponseMatchesPlan (internal) + persistedDocumentCreateStateFromResponse (EXPORT)
-export function assertDocumentCreateResponseMatchesPlan(
-  plan: DocumentCreatePlan,
-  response: DocumentCreateResponse,
-): void {
+type DocumentMutationPlan = Pick<
+  DocumentCreatePlan,
+  | "documentId"
+  | "event"
+  | "eventHash"
+  | "manifest"
+  | "manifestHash"
+  | "state"
+  | "targetHash"
+  | "targets"
+> & {
+  // Link and unlink bodies are both serialized canonically, so the shared
+  // matcher does not care which event body shape the plan carries.
+  body: unknown;
+};
+
+function assertDocumentMutationManifestMatchesPlan(input: {
+  label: string;
+  plan: DocumentMutationPlan;
+  probeStateDocumentId: boolean;
+  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
+}): void {
+  const { label, plan, response } = input;
   if (response.id !== plan.documentId) {
-    throw new Error("Document create response id mismatch");
+    throw new Error(`${label} id mismatch`);
   }
   if (response.accessManifest.manifestHash !== plan.manifestHash) {
-    throw new Error("Document create response manifest hash mismatch");
+    throw new Error(`${label} manifest hash mismatch`);
   }
   if (
     serializeCanonical(response.accessManifest.manifest, "manifest") !==
     serializeCanonical(plan.manifest, "manifest")
   ) {
-    throw new Error("Document create response manifest mismatch");
+    throw new Error(`${label} manifest mismatch`);
   }
 
   const responseEvent = response.accessManifest.event;
   if (!isPlainRecord(responseEvent)) {
-    throw new Error("Document create response event bundle is invalid");
+    throw new Error(`${label} event bundle is invalid`);
   }
   if (
     readRecordString(responseEvent, "eventHash", "event bundle") !==
     plan.eventHash
   ) {
-    throw new Error("Document create response event hash mismatch");
+    throw new Error(`${label} event hash mismatch`);
   }
   if (
     serializeCanonical(Reflect.get(responseEvent, "event"), "event") !==
     serializeCanonical(plan.event, "event")
   ) {
-    throw new Error("Document create response event mismatch");
+    throw new Error(`${label} event mismatch`);
   }
   if (
     serializeCanonical(Reflect.get(responseEvent, "body"), "event body") !==
     serializeCanonical(plan.body, "event body")
   ) {
-    throw new Error("Document create response event body mismatch");
+    throw new Error(`${label} event body mismatch`);
   }
 
   const responseState = response.accessManifest.state;
-  if (!isPlainRecord(responseState)) {
-    throw new Error("Document create response state is invalid");
-  }
-  if (
-    readRecordString(responseState, "documentId", "document state") !==
-    plan.documentId
-  ) {
-    throw new Error("Document create response document id mismatch");
+  if (input.probeStateDocumentId) {
+    if (!isPlainRecord(responseState)) {
+      throw new Error(`${label} state is invalid`);
+    }
+    if (
+      readRecordString(responseState, "documentId", "document state") !==
+      plan.documentId
+    ) {
+      throw new Error(`${label} document id mismatch`);
+    }
   }
   if (
     serializeCanonical(responseState, "state") !==
     serializeCanonical(plan.state, "state")
   ) {
-    throw new Error("Document create response state mismatch");
+    throw new Error(`${label} state mismatch`);
   }
+}
 
+function assertDocumentMutationKeyBundlesMatchPlan(input: {
+  expectedContentKeyEpoch: number;
+  expectedContentKeyTargets: unknown;
+  label: string;
+  plan: DocumentMutationPlan;
+  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
+}): void {
+  const { label, plan, response } = input;
   if (response.contentKeyBundle.documentId !== plan.documentId) {
-    throw new Error("Document create response content-key document mismatch");
+    throw new Error(`${label} content-key document mismatch`);
   }
   if (
-    response.contentKeyBundle.contentKeyEpoch !==
-    plan.request.contentKeyBundle.contentKeyEpoch
+    response.contentKeyBundle.contentKeyEpoch !== input.expectedContentKeyEpoch
   ) {
-    throw new Error("Document create response content-key epoch mismatch");
+    throw new Error(`${label} content-key epoch mismatch`);
   }
   if (response.contentKeyBundle.linkSetManifestHash !== plan.manifestHash) {
-    throw new Error("Document create response link manifest mismatch");
+    throw new Error(`${label} link manifest mismatch`);
   }
   if (response.contentKeyBundle.targetHash !== plan.targetHash) {
-    throw new Error("Document create response target hash mismatch");
+    throw new Error(`${label} target hash mismatch`);
   }
   if (
     serializeCanonical(
       response.contentKeyBundle.targets,
       "content-key targets",
     ) !==
-    serializeCanonical(
-      plan.request.contentKeyBundle.targets,
-      "content-key targets",
-    )
+    serializeCanonical(input.expectedContentKeyTargets, "content-key targets")
   ) {
-    throw new Error("Document create response content-key targets mismatch");
+    throw new Error(`${label} content-key targets mismatch`);
   }
   if (response.documentKekTargets.documentId !== plan.documentId) {
-    throw new Error("Document create response target document mismatch");
+    throw new Error(`${label} target document mismatch`);
   }
   if (response.documentKekTargets.linkSetManifestHash !== plan.manifestHash) {
-    throw new Error("Document create response target manifest mismatch");
+    throw new Error(`${label} target manifest mismatch`);
   }
   if (response.documentKekTargets.documentKeyTargetHash !== plan.targetHash) {
-    throw new Error("Document create response document target hash mismatch");
+    throw new Error(`${label} document target hash mismatch`);
   }
   if (
     serializeCanonical(response.documentKekTargets.targets, "KEK targets") !==
     serializeCanonical(plan.targets, "KEK targets")
   ) {
-    throw new Error("Document create response KEK targets mismatch");
+    throw new Error(`${label} KEK targets mismatch`);
   }
+}
+
+function assertDocumentMutationResponseMatchesPlan(input: {
+  expectedContentKeyEpoch: number;
+  expectedContentKeyTargets: unknown;
+  label: string;
+  plan: DocumentMutationPlan;
+  probeStateDocumentId: boolean;
+  response: DocumentCreateResponse | DocumentLinkSetMutationResponse;
+}): void {
+  assertDocumentMutationManifestMatchesPlan(input);
+  assertDocumentMutationKeyBundlesMatchPlan(input);
+}
+
+export function assertDocumentCreateResponseMatchesPlan(
+  plan: DocumentCreatePlan,
+  response: DocumentCreateResponse,
+): void {
+  assertDocumentMutationResponseMatchesPlan({
+    expectedContentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
+    expectedContentKeyTargets: plan.request.contentKeyBundle.targets,
+    label: "Document create response",
+    plan,
+    probeStateDocumentId: true,
+    response,
+  });
 }
 
 export function persistedDocumentCreateStateFromResponse(
@@ -130,12 +181,12 @@ export function persistedDocumentCreateStateFromResponse(
 ): PersistedDocumentCreateState {
   assertDocumentCreateResponseMatchesPlan(plan, response);
 
-  return {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: response.contentKeyBundle,
     documentId: response.id,
-    contentKeyBundle: serializeState(response.contentKeyBundle),
-    documentKekTargets: serializeState(response.documentKekTargets),
-    documentManifestBundle: serializeState(response.accessManifest),
-  };
+    documentKekTargets: response.documentKekTargets,
+    documentManifestBundle: response.accessManifest,
+  });
 }
 
 /**
@@ -148,105 +199,31 @@ export function persistedDocumentCreateStateFromResponse(
 export function persistedDocumentCreateStateFromWriterProjection(
   writerProjection: DocumentWriterProjectionResponse,
 ): PersistedDocumentCreateState {
-  return {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: writerProjection.contentKeyBundle,
     documentId: writerProjection.documentId,
-    contentKeyBundle: serializeState(writerProjection.contentKeyBundle),
-    documentKekTargets: serializeState(writerProjection.documentKekTargets),
-    documentManifestBundle: serializeState(writerProjection.documentManifest),
-  };
-}
-
-// 2. assertLinkSetMutationResponseMatchesPlan (internal) + persistedDocumentLinkSetMutationStateFromResponse (EXPORT)
-function assertDocumentLinkSetMutationResponseMatchesPlan(
-  plan: DocumentLinkSetMutationPlan,
-  response: DocumentLinkSetMutationResponse,
-): void {
-  if (response.id !== plan.documentId) {
-    throw new Error("Document link-set response id mismatch");
-  }
-  if (response.accessManifest.manifestHash !== plan.manifestHash) {
-    throw new Error("Document link-set response manifest hash mismatch");
-  }
-  if (
-    serializeCanonical(response.accessManifest.manifest, "manifest") !==
-    serializeCanonical(plan.manifest, "manifest")
-  ) {
-    throw new Error("Document link-set response manifest mismatch");
-  }
-
-  const responseEvent = response.accessManifest.event;
-  if (!isPlainRecord(responseEvent)) {
-    throw new Error("Document link-set response event bundle is invalid");
-  }
-  if (
-    readRecordString(responseEvent, "eventHash", "event bundle") !==
-    plan.eventHash
-  ) {
-    throw new Error("Document link-set response event hash mismatch");
-  }
-  if (
-    serializeCanonical(Reflect.get(responseEvent, "event"), "event") !==
-    serializeCanonical(plan.event, "event")
-  ) {
-    throw new Error("Document link-set response event mismatch");
-  }
-  if (
-    serializeCanonical(Reflect.get(responseEvent, "body"), "event body") !==
-    serializeCanonical(plan.body, "event body")
-  ) {
-    throw new Error("Document link-set response event body mismatch");
-  }
-  if (
-    serializeCanonical(response.accessManifest.state, "state") !==
-    serializeCanonical(plan.state, "state")
-  ) {
-    throw new Error("Document link-set response state mismatch");
-  }
-  if (
-    response.contentKeyBundle.documentId !== plan.documentId ||
-    response.contentKeyBundle.contentKeyEpoch !== plan.contentKeyEpoch ||
-    response.contentKeyBundle.linkSetManifestHash !== plan.manifestHash ||
-    response.contentKeyBundle.targetHash !== plan.targetHash
-  ) {
-    throw new Error("Document link-set response content-key mismatch");
-  }
-  if (
-    serializeCanonical(
-      response.contentKeyBundle.targets,
-      "content-key targets",
-    ) !==
-    serializeCanonical(
-      plan.request.contentKeyBundle.targets,
-      "content-key targets",
-    )
-  ) {
-    throw new Error("Document link-set response content-key targets mismatch");
-  }
-  if (
-    response.documentKekTargets.documentId !== plan.documentId ||
-    response.documentKekTargets.linkSetManifestHash !== plan.manifestHash ||
-    response.documentKekTargets.documentKeyTargetHash !== plan.targetHash
-  ) {
-    throw new Error("Document link-set response KEK target mismatch");
-  }
-  if (
-    serializeCanonical(response.documentKekTargets.targets, "KEK targets") !==
-    serializeCanonical(plan.targets, "KEK targets")
-  ) {
-    throw new Error("Document link-set response KEK targets mismatch");
-  }
+    documentKekTargets: writerProjection.documentKekTargets,
+    documentManifestBundle: writerProjection.documentManifest,
+  });
 }
 
 export function persistedDocumentLinkSetMutationStateFromResponse(
   plan: DocumentLinkSetMutationPlan,
   response: DocumentLinkSetMutationResponse,
 ): PersistedDocumentCreateState {
-  assertDocumentLinkSetMutationResponseMatchesPlan(plan, response);
+  assertDocumentMutationResponseMatchesPlan({
+    expectedContentKeyEpoch: plan.contentKeyEpoch,
+    expectedContentKeyTargets: plan.request.contentKeyBundle.targets,
+    label: "Document link-set response",
+    plan,
+    probeStateDocumentId: false,
+    response,
+  });
 
-  return {
+  return serializedPersistedDocumentState({
+    contentKeyBundle: response.contentKeyBundle,
     documentId: response.id,
-    contentKeyBundle: serializeState(response.contentKeyBundle),
-    documentKekTargets: serializeState(response.documentKekTargets),
-    documentManifestBundle: serializeState(response.accessManifest),
-  };
+    documentKekTargets: response.documentKekTargets,
+    documentManifestBundle: response.accessManifest,
+  });
 }

@@ -939,15 +939,8 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
       },
     ],
   };
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === parent.userId
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: parent.encapsulationPublicKey,
-          signingKeyFingerprint: parent.author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        })
-      : null;
+  const resolveProjectionUserKey =
+    createParentProjectionUserKeyResolver(parent);
   const { close, execSql } = await createTestExecSql(
     "managed-principal-projection-verification",
   );

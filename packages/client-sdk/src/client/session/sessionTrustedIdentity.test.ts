@@ -1,28 +1,17 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  KeyingVerificationError,
-} from "@tearleads/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createSqlClient,
+  setGeneratedIdentity,
+} from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
-import type { ExecSql, ExecSqlClientLike } from "../../sqlite";
 import { Database } from "../database";
 import { createIdentity } from "../identity";
 import { createSession } from "./index";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
-
-function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 async function createLoginHarness(
   onUserIdentityAvailable?: (userId: string) => Promise<void>,
@@ -39,10 +28,7 @@ async function createLoginHarness(
     () => undefined,
     () => undefined,
   );
-  await identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
+  await setGeneratedIdentity(identity);
   const session = createSession({
     api,
     database: new Database(),
@@ -111,10 +97,7 @@ test("registration does not publish server context before local identity trust",
     () => undefined,
     () => undefined,
   );
-  await identity.setKeyPairs({
-    encapsulationKeyPair: generateKemSeedAndKeyPair(),
-    signingKeyPair: generateSigningSeedAndKeyPair(),
-  });
+  await setGeneratedIdentity(identity);
   const mismatch = new KeyingVerificationError(
     "equivocation",
     "Local identity does not match its durable pin",

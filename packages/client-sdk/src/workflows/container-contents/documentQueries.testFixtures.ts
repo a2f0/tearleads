@@ -1,5 +1,14 @@
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { listPendingWrites } from "./pendingWrites";
+
+/** Run the pending-write listing once so its tables exist. */
+export async function ensurePendingWriteSchema(
+  execSql: ExecSql,
+): Promise<void> {
+  await listPendingWrites(execSql);
+}
 
 export async function saveTestContainer(input: {
   execSql: Parameters<
@@ -27,6 +36,83 @@ export async function saveTestContainer(input: {
     },
     null,
     { localUpdatedAt: input.timestamp },
+  );
+}
+
+/**
+ * Save a container that already synced: a metadata document record plus server
+ * timestamps, with the ids the suites derive from the container id
+ * (`metadata-<id>`, `access-<id>`).
+ */
+export async function saveTestSyncedContainer(input: {
+  accessLevel?: "admin" | "write";
+  execSql: Parameters<
+    typeof defaultContainerContentsPersistence.saveContainer
+  >[0];
+  id: string;
+  metadataUpdates?: string;
+  name: string;
+  organizationId: string;
+  parentId?: string | null | undefined;
+  snapshotEndVersion?: string;
+  timestamp: string;
+}) {
+  const metadataDocumentId = `metadata-${input.id}`;
+  await defaultContainerContentsPersistence.saveContainer(
+    input.execSql,
+    {
+      effectiveAccessLevel: input.accessLevel ?? "admin",
+      icon: null,
+      id: input.id,
+      metadataDocumentId,
+      name: input.name,
+      organizationId: input.organizationId,
+      parentId: input.parentId ?? null,
+    },
+    {
+      accessEpoch: 1,
+      accessStateHash: `access-${input.id}`,
+      documentId: metadataDocumentId,
+      id: input.id,
+      metadataUpdates: input.metadataUpdates ?? "",
+      snapshotEndVersion: input.snapshotEndVersion ?? "",
+    },
+    {
+      localUpdatedAt: input.timestamp,
+      serverTimestamps: {
+        createdAt: input.timestamp,
+        updatedAt: input.timestamp,
+      },
+    },
+  );
+}
+
+/** Insert one raw pending-update row (`source_version_vector` stays NULL). */
+export async function insertTestPendingUpdate(input: {
+  appKind: string;
+  createdAt: string;
+  execSql: ExecSql;
+  id: string;
+  localId: string;
+  partialEndVersionVector?: string | undefined;
+  partialStartVersionVector?: string | undefined;
+  updateData?: string | undefined;
+}): Promise<void> {
+  await input.execSql(
+    `INSERT INTO document_pending_updates (
+      id, app_kind, local_id, update_data,
+      partial_start_version_vector, partial_end_version_vector,
+      source_version_vector, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+    [
+      input.id,
+      input.appKind,
+      input.localId,
+      input.updateData ?? "payload",
+      input.partialStartVersionVector ?? "{}",
+      input.partialEndVersionVector ?? "{}",
+      input.createdAt,
+    ],
   );
 }
 

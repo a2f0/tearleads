@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { PurgeProgress } from "../../workflows/container-contents/container-state/purgeProgress";
-import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import {
+  createContainerContentsTestRuntime,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 
 // These tests drive the real recursive purge engine through the store over an
 // in-memory SQLite, but keep every container LOCAL-ONLY (created offline, so
@@ -20,23 +20,6 @@ const ROOT_CONTAINER_ID = "purge-progress-root";
 const TRASH_SLOT =
   "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc" as ContainerSystemSlot;
 
-async function seedLocalRootContainer(execSql: ExecSql): Promise<void> {
-  await defaultContainerContentsPersistence.ensureSchema(execSql);
-  await defaultContainerContentsPersistence.saveContainer(
-    execSql,
-    {
-      icon: null,
-      id: ROOT_CONTAINER_ID,
-      effectiveAccessLevel: "admin",
-      metadataDocumentId: `${ROOT_CONTAINER_ID}-metadata-document`,
-      name: "/",
-      organizationId: "org-1",
-      parentId: null,
-    },
-    null,
-  );
-}
-
 async function withOfflineStore(
   body: (
     store: ReturnType<typeof createContainerContentsStore>,
@@ -44,46 +27,26 @@ async function withOfflineStore(
 ): Promise<void> {
   const { close, execSql } = await createTestExecSql("purge-progress-test");
   try {
-    await seedLocalRootContainer(execSql);
-    const runtime = createContainerContentsStoreTestRuntime({
+    await seedLocalRootContainer(execSql, {
+      rootContainerId: ROOT_CONTAINER_ID,
+    });
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: async () => null,
       }),
-      auth: {
-        isAuthenticated: true,
-        organizationId: "org-1",
-        userId: "user-1",
-      },
-      crypto: {
-        encapsulationKeyPair: null,
-        signingFingerprint: null,
-        signingKeyPair: null,
-      },
-      infra: {
-        blobStore: {} as BlobStore,
-        dbStatus: "ready",
-        documentProjectors: defaultDocumentProjectorRegistry,
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: ROOT_CONTAINER_ID,
-        domainScope: {} as DomainScope,
-        events: [],
-        online: false,
-      },
-      util: {
-        log: () => {},
-      },
+      containerId: ROOT_CONTAINER_ID,
+      domainScope: {} as DomainScope,
+      execSql,
+      online: false,
     });
     const store = createContainerContentsStore(runtime);
     store.updateRuntime(runtime);
 
-    const deadline = Date.now() + 2_000;
-    while (!store.getSnapshot().ready && Date.now() <= deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    expect(store.getSnapshot().ready).toBe(true);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+      2_000,
+    );
 
     await body(store);
   } finally {

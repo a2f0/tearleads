@@ -17,6 +17,7 @@ import { sqlDocumentsPersistence } from "../../../data/persistence/documents/doc
 import { listDeferredPendingWriteCandidates } from "../../../workflows/container-contents/pendingWrites/deferredTails";
 import { enqueuePendingDocumentUpdate } from "../../../workflows/documents";
 import type { DocumentsRuntime } from "../types";
+import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { persistDocument } from "./persistence";
 import {
   createDocumentStoreState,
@@ -100,10 +101,7 @@ async function createCoverageFixture(name: string, queueUpdate: boolean) {
     localId,
     runtime,
     sqlDocumentsPersistence,
-    {
-      emitPersistedDocument: () => undefined,
-      registerDocumentIdentity: () => undefined,
-    },
+    noopDocumentStorePersistenceEffects,
     "document-1",
   );
   state.doc = document;

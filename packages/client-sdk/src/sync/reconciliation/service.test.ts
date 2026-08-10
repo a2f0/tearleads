@@ -1,12 +1,16 @@
 import { expect, test } from "bun:test";
-import type { DomainScope } from "../../data/domainScope";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import { createReconciliationService } from "./service";
 import {
-  createReconciliationService,
-  type ReconciliationHost,
-  type ReconciliationRuntimeStatus,
-} from "./service";
-import { silenceExpectedTransientDiscoveryError } from "./service.testFixtures";
+  createGate,
+  createReconciliationTestHost,
+  silenceExpectedTransientDiscoveryError,
+} from "./service.testFixtures";
+import type {
+  ReconciliationHost,
+  ReconciliationRuntimeStatus,
+} from "./serviceTypes";
 
 function createHost(
   overrides: Partial<ReconciliationHost> & {
@@ -23,9 +27,7 @@ function createHost(
     online: true,
   };
 
-  return {
-    canDiscoverContainerDocuments: () => true,
-    domainScope: {} as DomainScope,
+  return createReconciliationTestHost({
     getRuntimeStatus: () => status,
     listKnownContainerIds: () => overrides.knownContainerIds ?? [],
     listAutomaticRootCatchupContainerIds: () =>
@@ -35,24 +37,25 @@ function createHost(
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
     },
-    loadContainerDelta: async (
-      containerId,
-    ): Promise<LocalProjectionReconciledDelta> => ({
-      containerId,
-      documentSummaries: [],
-    }),
-    applyReconciled: () => {},
-    listContainerDocumentIds: async () => [],
-    probeUndiscoveredDocumentsBatch: async () => ({
-      done: true,
-      nextCursor: null,
-      requestedCount: 0,
-    }),
-    reportInitialDocumentProbeComplete: () => {},
-    refreshTree: async () => {},
-    refreshRootTree: async () => {},
-    isIgnorableError: () => false,
     ...overrides,
+  });
+}
+
+/** One reconciled delta carrying a single document summary. */
+function deltaWithOneSummary(
+  containerId: string,
+): LocalProjectionReconciledDelta {
+  return {
+    containerId,
+    documentSummaries: [
+      {
+        id: "d-1",
+        containerId,
+        documentId: "d-1",
+        title: "doc",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
   };
 }
 
@@ -60,20 +63,6 @@ async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve();
   }
-}
-
-async function waitFor(
-  predicate: () => boolean,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (predicate()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5));
-  }
-  throw new Error(message);
 }
 
 test("service reconciles the active container before idle backfill", async () => {
@@ -296,15 +285,6 @@ test("explicit full refresh retries an active container outside the background s
   expect(discovered).toEqual(["known-regular", "foreign-write-system"]);
 });
 
-/** A promise plus its resolver, for gating a mock host call open by hand. */
-function createGate(): { wait: Promise<void>; open: () => void } {
-  let open!: () => void;
-  const wait = new Promise<void>((resolve) => {
-    open = resolve;
-  });
-  return { open, wait };
-}
-
 test("a full refresh during an in-flight root refresh still runs the full tree refresh", async () => {
   const calls: string[] = [];
   const rootStarted = createGate();
@@ -427,18 +407,7 @@ test("background reconcile requests a non-forced document content sync", async (
   const pulls: Array<{ containerId: string; force: boolean }> = [];
   const host = createHost({
     knownContainerIds: ["c-1"],
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [
-        {
-          id: "d-1",
-          containerId,
-          documentId: "d-1",
-          title: "doc",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      ],
-    }),
+    loadContainerDelta: async (containerId) => deltaWithOneSummary(containerId),
     requestDocumentContentPull: (containerId, _documents, force) => {
       pulls.push({ containerId, force });
     },
@@ -458,18 +427,7 @@ test("explicit refresh requests a forced document content sync", async () => {
   const pulls: Array<{ containerId: string; force: boolean }> = [];
   const host = createHost({
     knownContainerIds: ["c-1"],
-    loadContainerDelta: async (containerId) => ({
-      containerId,
-      documentSummaries: [
-        {
-          id: "d-1",
-          containerId,
-          documentId: "d-1",
-          title: "doc",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      ],
-    }),
+    loadContainerDelta: async (containerId) => deltaWithOneSummary(containerId),
     requestDocumentContentPull: (containerId, _documents, force) => {
       pulls.push({ containerId, force });
     },

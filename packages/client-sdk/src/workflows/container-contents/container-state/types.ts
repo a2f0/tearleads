@@ -112,12 +112,14 @@ export interface CreatedChildContainerState {
   shouldRequestSync: boolean;
 }
 
-export interface ContainerCreateIntentSyncState {
+export interface ContainerIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }
+
+export type ContainerCreateIntentSyncState = ContainerIntentSyncState;
 
 export type ContainerCreateIntentSyncHost = Pick<
   RemoteContainerHydrationHost,
@@ -131,12 +133,7 @@ export interface ContainerCreateIntentSyncInput {
   state: ContainerCreateIntentSyncState;
 }
 
-export interface ContainerMoveIntentSyncState {
-  containersById: ReadonlyMap<string, ContainerState>;
-  persistence: ContainerContentsPersistence;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  runtime: ContainerWorkflowRuntime;
-}
+export type ContainerMoveIntentSyncState = ContainerIntentSyncState;
 
 export type ContainerMoveIntentSyncHost = Pick<
   RemoteContainerHydrationHost,

@@ -8,10 +8,8 @@ import type {
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   createContainerParentSyncLane,
@@ -24,7 +22,11 @@ import {
   createContainerContentsStore,
   getOrCreateContainerContentsStore,
 } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import {
+  createContainerContentsTestRuntime,
+  emptyListContainersResponse,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -49,108 +51,6 @@ function createDeferred<T>(): Deferred<T> {
   };
 }
 
-function emptyListContainersResponse(): ListContainersResponse {
-  return {
-    hasMore: false,
-    items: [],
-    nextWatermark: null,
-    tombstones: [],
-  };
-}
-
-async function waitForCondition(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-
-  throw new Error(message);
-}
-
-function createTestRuntime(input: {
-  domainScope: DomainScope;
-  log: (message: string) => void;
-}) {
-  const execSql: ExecSql = async () => {
-    throw new Error("Unexpected SQL call in container contents store test.");
-  };
-
-  return createContainerContentsStoreTestRuntime({
-    apiClient: {} as Parameters<
-      typeof createContainerContentsStoreTestRuntime
-    >[0]["apiClient"],
-    auth: {
-      isAuthenticated: false,
-      organizationId: null,
-      userId: null,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: input.domainScope,
-      events: [],
-      online: false,
-    },
-    util: {
-      log: input.log,
-    },
-  });
-}
-
-function createSqlTestRuntime(input: {
-  apiClient: ReturnType<typeof createMockApiClient>;
-  domainScope: DomainScope;
-  execSql: ExecSql;
-}) {
-  return createContainerContentsStoreTestRuntime({
-    apiClient: input.apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: input.domainScope,
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-    },
-  });
-}
-
 test("getOrCreateContainerContentsStore applies updated options to the cached scope store", async () => {
   const domainScope = {} as DomainScope;
   const logs: string[] = [];
@@ -166,9 +66,14 @@ test("getOrCreateContainerContentsStore applies updated options to the cached sc
       return [];
     },
   };
-  const runtime = createTestRuntime({
+  const runtime = createContainerContentsTestRuntime({
     domainScope,
+    execSql: async () => {
+      throw new Error("Unexpected SQL call in container contents store test.");
+    },
+    isAuthenticated: false,
     log: (message) => logs.push(message),
+    online: false,
   });
 
   const store = getOrCreateContainerContentsStore(domainScope, runtime, {
@@ -207,20 +112,7 @@ test("container contents store publishes cached containers before startup hydrat
   let parentLaneResolversSettled = 0;
 
   try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await defaultContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        icon: null,
-        id: "cached-root",
-        effectiveAccessLevel: "admin",
-        metadataDocumentId: "cached-root-metadata-document",
-        name: "/",
-        organizationId: "org-1",
-        parentId: null,
-      },
-      null,
-    );
+    await seedLocalRootContainer(execSql, { rootContainerId: "cached-root" });
     await markContainerSyncLaneChecked(
       execSql,
       createContainerParentSyncLane(null),
@@ -230,7 +122,7 @@ test("container contents store publishes cached containers before startup hydrat
       ["2026-01-01T00:00:00.000Z", "container_parent", "root"],
     );
 
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(async () => {
           parentLaneResolversStarted += 1;
@@ -246,7 +138,7 @@ test("container contents store publishes cached containers before startup hydrat
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -257,19 +149,19 @@ test("container contents store publishes cached containers before startup hydrat
     expect(parentLaneResolversSettled).toBe(0);
 
     if (parentLaneResolversStarted === 0) {
-      await waitForCondition(
+      await waitFor(
         () => parentLaneResolversStarted > 0,
         "Startup hydration was not scheduled.",
       );
     }
     listedContainers.resolve(emptyListContainersResponse());
-    await waitForCondition(
+    await waitFor(
       () =>
         parentLaneResolversStarted > 0 &&
         parentLaneResolversSettled === parentLaneResolversStarted,
       "Startup hydration did not settle.",
     );
-    await waitForCondition(async () => {
+    await waitFor(async () => {
       const checks = await loadContainerSyncLaneCheckRecords(execSql, [
         createContainerParentSyncLane(null),
       ]);
@@ -339,23 +231,10 @@ test("root-lane refresh follows a newly discovered shared root into its children
   const domainScope = {} as DomainScope;
 
   try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
     // Warm cache: the peer already has their own root locally with a freshly
     // checked, watermarked root lane — the same cache-first startup posture as the
     // sibling test above.
-    await defaultContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        icon: null,
-        id: "peer-root",
-        effectiveAccessLevel: "admin",
-        metadataDocumentId: "peer-root-metadata-document",
-        name: "/",
-        organizationId: "org-1",
-        parentId: null,
-      },
-      null,
-    );
+    await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
     await markContainerSyncLaneChecked(
       execSql,
       createContainerParentSyncLane(null),
@@ -367,7 +246,7 @@ test("root-lane refresh follows a newly discovered shared root into its children
     );
 
     const childLaneParentIds: Array<string | null | undefined> = [];
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
@@ -393,7 +272,7 @@ test("root-lane refresh follows a newly discovered shared root into its children
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -405,7 +284,7 @@ test("root-lane refresh follows a newly discovered shared root into its children
     // manual View -> Refresh.
     await store.refreshRootLane();
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().nodes.some((node) => node.id === "owner-child"),
       "Root-lane refresh did not hydrate the shared root's children.",
     );
@@ -423,23 +302,10 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
   const rootLaneWatermarks: Array<SyncWatermark | null | undefined> = [];
 
   try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
     // Warm cache: the peer already has their own root container locally, the
     // root lane is marked freshly checked, and it carries a persisted watermark
     // from a prior sync. Startup stays cache-first and does not auto-probe.
-    await defaultContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        icon: null,
-        id: "peer-root",
-        effectiveAccessLevel: "admin",
-        metadataDocumentId: "peer-root-metadata-document",
-        name: "/",
-        organizationId: "org-1",
-        parentId: null,
-      },
-      null,
-    );
+    await seedLocalRootContainer(execSql, { rootContainerId: "peer-root" });
     await markContainerSyncLaneChecked(
       execSql,
       createContainerParentSyncLane(null),
@@ -454,7 +320,7 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
 
     // The server grants the peer access to the owner's root container, but only
     // returns it when the root lane is probed WITHOUT the stale watermark.
-    const runtime = createSqlTestRuntime({
+    const runtime = createContainerContentsTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: batchParentLanes(
           async ({ parentId, watermark }) => {
@@ -475,7 +341,7 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
 
     store.updateRuntime(runtime);
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -489,7 +355,7 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
     // the root lane WITHOUT the persisted watermark and discovers the share.
     await store.refresh();
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().nodes.some((node) => node.id === "owner-root"),
       "Refresh did not surface the newly shared root container.",
     );

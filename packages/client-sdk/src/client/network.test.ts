@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { Logger } from "./logger";
+import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { Network } from "./network";
 import { Tearleads } from "./Tearleads";
-
-const quietLogger: Required<Logger> = {
-  log: () => undefined,
-  logError: () => undefined,
-};
 
 describe("Network reachability", () => {
   test("reportReachability drives connectivity when no authoritative source governs it", () => {

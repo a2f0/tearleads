@@ -75,6 +75,7 @@ async function loadProjection(
 ): Promise<OrganizationReadModelProjection | null> {
   return runOrganizationPresentationRead(
     organizationPresentationAccessInput(input),
+    "readModel",
     () => loadRawProjection(input),
   );
 }
@@ -97,17 +98,6 @@ function organizationPresentationAccessInput(
     organizationId: input.organizationId,
     requesterUserId: input.currentUserId,
   };
-}
-
-function reportRetainedFailure(
-  failure: Extract<
-    Awaited<
-      ReturnType<OrganizationReadModelApi["getOrganizationReadModelResult"]>
-    >,
-    { ok: false }
-  >,
-): void {
-  failure.report();
 }
 
 interface ReconciliationState {
@@ -214,7 +204,7 @@ async function requestReadModelPage(
     return { kind: "continue" };
   }
 
-  reportRetainedFailure(result);
+  result.report();
   return localResult(input, state, { failed: true });
 }
 
@@ -383,6 +373,7 @@ export async function loadLocalOrganizationGroupMembers(
 ) {
   return runOrganizationPresentationRead(
     organizationPresentationAccessInput(input),
+    "readModel",
     () =>
       loadOrganizationReadModelGroupMembers(
         input.execSql,

@@ -8,11 +8,9 @@ import type {
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import {
-  computeAccessManifestHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
-  deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
   ContainerMutationRequest,
@@ -61,10 +59,11 @@ async function principalHeadFromInitialGroupPolicy(
   };
 }
 
-async function principalPolicyRecordFromInitialGroupPolicy(
-  input: RootManagedPrincipalGrantInput,
-): Promise<Record<string, unknown>> {
-  const head = await principalHeadFromInitialGroupPolicy(input);
+function principalPolicyRecordFromInitialGroupPolicy(input: {
+  readonly head: ReferencedPrincipalHead;
+  readonly policy: InitialManagedPrincipalPolicy;
+}): Record<string, unknown> {
+  const { head } = input;
 
   return readCanonicalRecord(
     {
@@ -98,14 +97,15 @@ function buildRootContainerCreateBody(input: {
   containerKeyEpochId: string;
   metadataDocumentId: string;
 }): ContainerCreateAccessEventBody {
+  const baseBody = buildContainerCreateBody({
+    containerKeyEpochId: input.containerKeyEpochId,
+    metadataDocumentId: input.metadataDocumentId,
+    parentContainerId: null,
+    parentManifestHash: null,
+  });
   if (input.managedPrincipalGrant) {
     return {
-      ...buildContainerCreateBody({
-        containerKeyEpochId: input.containerKeyEpochId,
-        metadataDocumentId: input.metadataDocumentId,
-        parentContainerId: null,
-        parentManifestHash: null,
-      }),
+      ...baseBody,
       directGrants: [
         {
           accessLevel: input.managedPrincipalGrant.accessLevel,
@@ -118,12 +118,7 @@ function buildRootContainerCreateBody(input: {
   }
 
   return {
-    ...buildContainerCreateBody({
-      containerKeyEpochId: input.containerKeyEpochId,
-      metadataDocumentId: input.metadataDocumentId,
-      parentContainerId: null,
-      parentManifestHash: null,
-    }),
+    ...baseBody,
     directGrants: [
       {
         accessLevel: "admin",
@@ -131,35 +126,6 @@ function buildRootContainerCreateBody(input: {
         subjectType: "user",
       },
     ],
-  };
-}
-
-async function deriveRootContainerCreateManifest(input: {
-  author: ContainerMutationAuthor;
-  body: ContainerCreateAccessEventBody;
-  containerId: string;
-  containerKeyEpochId: string;
-  eventHash: string;
-  metadataDocumentId: string;
-}): Promise<Pick<ContainerCreatePlan, "manifest" | "manifestHash" | "state">> {
-  const { state } = await deriveContainerCreateManifest({
-    // A root container belongs to the creator's own organization.
-    organizationId: input.author.organizationId,
-    containerId: input.containerId,
-    containerKeyEpochId: input.containerKeyEpochId,
-    eventHash: input.eventHash,
-    metadataDocumentId: input.metadataDocumentId,
-    parentContainerId: null,
-    parentManifestHash: null,
-  });
-  state.directGrants = input.body.directGrants;
-  state.referencedPrincipalHeads = input.body.referencedPrincipalHeads;
-  const manifest = await deriveContainerAccessManifest(state);
-
-  return {
-    manifest,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state,
   };
 }
 
@@ -222,12 +188,54 @@ async function buildRootManagedPrincipalContext(
   return {
     managedPrincipalHead,
     managedPrincipalPolicies: [
-      await principalPolicyRecordFromInitialGroupPolicy({
-        principalId: adminGroup.groupId,
+      principalPolicyRecordFromInitialGroupPolicy({
+        head: managedPrincipalHead,
         policy: adminGroup.initialGroupPolicy,
       }),
     ],
   };
+}
+
+async function deriveRootCreateArtifacts(input: {
+  author: ContainerMutationAuthor;
+  body: ContainerCreateAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  metadataDocumentId: string;
+  signedAt: string | undefined;
+}) {
+  const { event, eventHash } = await signContainerCreateEvent({
+    author: input.author,
+    body: input.body,
+    containerId: input.containerId,
+    eventId: crypto.randomUUID(),
+    // A root container belongs to the creator's own organization.
+    organizationId: input.author.organizationId,
+    parentPath: [],
+    signedAt: input.signedAt ?? new Date().toISOString(),
+  });
+  const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
+    {
+      containerId: input.containerId,
+      containerKeyEpochId: input.containerKeyEpochId,
+      directGrants: input.body.directGrants,
+      eventHash,
+      metadataDocumentId: input.metadataDocumentId,
+      // A root container belongs to the creator's own organization.
+      organizationId: input.author.organizationId,
+      parentContainerId: null,
+      parentManifestHash: null,
+      referencedPrincipalHeads: input.body.referencedPrincipalHeads,
+    },
+  );
+  const keyEpoch = buildContainerCreateKeyEpoch({
+    containerId: input.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    eventHash,
+    manifestHash,
+    parentContainerKeyEpochId: null,
+  });
+  return { event, eventHash, keyEpoch, manifest, manifestHash, state };
 }
 
 async function wrapRootContainerKeyForPlan(input: {
@@ -262,61 +270,11 @@ async function wrapRootContainerKeyForPlan(input: {
   });
 }
 
-function buildMaterializedRootContainerPlan(input: {
-  body: ContainerCreateAccessEventBody;
-  containerId: string;
-  containerKeyEpochId: string;
-  event: AccessEvent;
-  eventHash: string;
-  keyEpoch: ContainerKeyEpoch;
-  keyEpochHash: string;
-  keyTargetHash: string;
-  manifest: AccessManifest;
-  manifestHash: string;
-  metadataDocumentId: string;
-  principalPolicies: readonly Record<string, unknown>[];
-  recipientTargets: ContainerCreatePlan["recipientTargets"];
-  state: ContainerCreatePlan["state"];
-  userRecipientKeys: readonly ContainerUserRecipientKey[];
-  wraps: readonly ContainerKeyWrap[];
-}): ContainerCreatePlan {
-  return {
-    body: input.body,
-    containerId: input.containerId,
-    containerKeyEpochId: input.containerKeyEpochId,
-    event: input.event,
-    eventHash: input.eventHash,
-    keyEpoch: input.keyEpoch,
-    keyEpochHash: input.keyEpochHash,
-    keyTargetHash: input.keyTargetHash,
-    manifest: input.manifest,
-    manifestHash: input.manifestHash,
-    metadataDocumentId: input.metadataDocumentId,
-    parentContainerId: null,
-    parentManifestHash: null,
-    recipientTargets: [...input.recipientTargets],
-    request: buildRootContainerCreateRequest({
-      body: input.body,
-      event: input.event,
-      keyEpoch: input.keyEpoch,
-      manifest: input.manifest,
-      manifestHash: input.manifestHash,
-      principalPolicies: input.principalPolicies,
-      userRecipientKeys: input.userRecipientKeys,
-      wraps: input.wraps,
-    }),
-    state: input.state,
-    wraps: [...input.wraps],
-  };
-}
-
 export async function buildRootContainerCreatePlan(input: {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   author: ContainerMutationAuthor;
   containerId: string;
   containerKey?: Uint8Array | undefined;
-  containerKeyEpochId?: string | undefined;
-  eventId?: string | undefined;
   metadataDocumentId: string;
   recipientEncapsulationPublicKey: Uint8Array;
   signedAt?: string | undefined;
@@ -334,7 +292,6 @@ export async function buildRootContainerCreatePlan(input: {
     containerId: input.containerId,
     keyEpoch: 1,
     keyMaterial: containerKey,
-    override: input.containerKeyEpochId,
   });
   const body = buildRootContainerCreateBody({
     author: input.author,
@@ -349,32 +306,15 @@ export async function buildRootContainerCreatePlan(input: {
       : {}),
     metadataDocumentId: input.metadataDocumentId,
   });
-  const { event, eventHash } = await signContainerCreateEvent({
-    author: input.author,
-    body,
-    containerId: input.containerId,
-    eventId: input.eventId ?? crypto.randomUUID(),
-    // A root container belongs to the creator's own organization.
-    organizationId: input.author.organizationId,
-    parentPath: [],
-    signedAt: input.signedAt ?? new Date().toISOString(),
-  });
-  const { manifest, manifestHash, state } =
-    await deriveRootContainerCreateManifest({
+  const { event, eventHash, keyEpoch, manifest, manifestHash, state } =
+    await deriveRootCreateArtifacts({
       author: input.author,
       body,
       containerId: input.containerId,
       containerKeyEpochId,
-      eventHash,
       metadataDocumentId: input.metadataDocumentId,
+      signedAt: input.signedAt,
     });
-  const keyEpoch = buildContainerCreateKeyEpoch({
-    containerId: input.containerId,
-    containerKeyEpochId,
-    eventHash,
-    manifestHash,
-    parentContainerKeyEpochId: null,
-  });
   const rootRecipient = await wrapRootContainerKeyForPlan({
     adminGroup,
     containerKey,
@@ -389,7 +329,8 @@ export async function buildRootContainerCreatePlan(input: {
   const keyTargetHash =
     await computeContainerKekRecipientTargetHash(recipientTargets);
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
-  const plan = buildMaterializedRootContainerPlan({
+  const wraps = [wrap];
+  const plan: ContainerCreatePlan = {
     body,
     containerId: input.containerId,
     containerKeyEpochId,
@@ -401,12 +342,22 @@ export async function buildRootContainerCreatePlan(input: {
     manifest,
     manifestHash,
     metadataDocumentId: input.metadataDocumentId,
-    principalPolicies: managedPrincipalPolicies,
+    parentContainerId: null,
+    parentManifestHash: null,
     recipientTargets,
+    request: buildRootContainerCreateRequest({
+      body,
+      event,
+      keyEpoch,
+      manifest,
+      manifestHash,
+      principalPolicies: managedPrincipalPolicies,
+      userRecipientKeys: userRecipientKey ? [userRecipientKey] : [],
+      wraps,
+    }),
     state,
-    wraps: [wrap],
-    userRecipientKeys: userRecipientKey ? [userRecipientKey] : [],
-  });
+    wraps,
+  };
 
   return { containerKey, plan };
 }

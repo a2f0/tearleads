@@ -14,7 +14,7 @@ import {
   createSignedSyncResponseUpdate,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/sync";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 /**

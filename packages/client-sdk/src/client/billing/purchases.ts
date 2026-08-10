@@ -18,11 +18,10 @@ import {
 } from "@tearleads/validators/billing";
 import { PurchasesUnavailableError } from "./purchaseErrors";
 import {
-  createRevenueCatIdentityCoordinator,
-  type RevenueCatIdentityCoordinator,
   revenueCatCheckoutSettlementTimeoutMs,
   revenueCatOperationTimeoutMs,
-} from "./revenueCatIdentity";
+} from "./revenueCatErrors";
+import { createRevenueCatIdentityCoordinator } from "./revenueCatIdentity";
 import { nativeMove } from "./revenueCatNativeSubscriptionMove";
 import {
   normalizeRevenueCatCheckoutError,
@@ -209,24 +208,6 @@ export interface RevenueCatPurchasesConfig {
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
 
-function revenueCatAttributeKey(config: RevenueCatPurchasesConfig): string {
-  return config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
-}
-
-function revenueCatIdentity(
-  backend: RevenueCatBackend,
-  config: RevenueCatPurchasesConfig,
-): RevenueCatIdentityCoordinator {
-  return createRevenueCatIdentityCoordinator({
-    apiKey: config.apiKey,
-    backend,
-    checkoutSettlementTimeoutMs: revenueCatCheckoutSettlementTimeoutMs(
-      config.checkoutSettlementTimeoutMs,
-    ),
-    timeoutMs: revenueCatOperationTimeoutMs(config.operationTimeoutMs),
-  });
-}
-
 function holdsSyncEntitlement(
   info: RevenueCatCustomerInfo,
   entitlementId: string,
@@ -264,32 +245,6 @@ function requirePurchasesEnabled(enabled: boolean): void {
   }
 }
 
-function runRevenueCatCustomerOperation<T>(input: {
-  readonly identity: RevenueCatIdentityCoordinator;
-  readonly operation: () => Promise<T>;
-  readonly operationName: string;
-}): Promise<T> {
-  return input.identity
-    .runProviderOperation({
-      operation: input.operation,
-      operationName: input.operationName,
-    })
-    .catch(normalizeRevenueCatIdentityError);
-}
-
-function listRevenueCatOptions(
-  identity: RevenueCatIdentityCoordinator,
-  backend: RevenueCatBackend,
-): Promise<RevenueCatPackage[]> {
-  return identity
-    .runProviderOperation({
-      operation: () => backend.getCurrentPackages(),
-      operationName: "offerings",
-      requiresKnownIdentity: false,
-    })
-    .catch(normalizeRevenueCatIdentityError);
-}
-
 /**
  * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
  * provider is configured lazily and exactly once (the first call that needs it),
@@ -300,8 +255,16 @@ export function createRevenueCatPurchases(
   config: RevenueCatPurchasesConfig,
 ): PurchasesCapability {
   const purchasesEnabled = config.purchasesEnabled ?? true;
-  const attributeKey = revenueCatAttributeKey(config);
-  const identity = revenueCatIdentity(backend, config);
+  const attributeKey =
+    config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
+  const identity = createRevenueCatIdentityCoordinator({
+    apiKey: config.apiKey,
+    backend,
+    checkoutSettlementTimeoutMs: revenueCatCheckoutSettlementTimeoutMs(
+      config.checkoutSettlementTimeoutMs,
+    ),
+    timeoutMs: revenueCatOperationTimeoutMs(config.operationTimeoutMs),
+  });
   return {
     isAvailable: purchasesEnabled,
     nativeStore: config.nativeStore,
@@ -315,7 +278,13 @@ export function createRevenueCatPurchases(
     reset: () => identity.reset().catch(normalizeRevenueCatIdentityError),
     async listSyncOptions() {
       if (!purchasesEnabled) return [];
-      const packages = await listRevenueCatOptions(identity, backend);
+      const packages = await identity
+        .runProviderOperation({
+          operation: () => backend.getCurrentPackages(),
+          operationName: "offerings",
+          requiresKnownIdentity: false,
+        })
+        .catch(normalizeRevenueCatIdentityError);
       return packages.flatMap(toSyncSubscriptionOptions);
     },
     async purchaseSync(input) {
@@ -375,11 +344,12 @@ export function createRevenueCatPurchases(
     },
     moveNativeSubscription: nativeMove(backend, config, identity, attributeKey),
     async hasActiveSyncEntitlement() {
-      const info = await runRevenueCatCustomerOperation({
-        identity,
-        operation: () => backend.getCustomerInfo(),
-        operationName: "customer information",
-      });
+      const info = await identity
+        .runProviderOperation({
+          operation: () => backend.getCustomerInfo(),
+          operationName: "customer information",
+        })
+        .catch(normalizeRevenueCatIdentityError);
       return holdsSyncEntitlement(info, config.syncEntitlementId);
     },
   };

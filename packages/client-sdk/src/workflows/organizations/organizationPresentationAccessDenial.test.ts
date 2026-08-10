@@ -18,6 +18,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createRejectingExecSql } from "../../../test/helpers/rejectingExecSql";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
@@ -25,11 +26,7 @@ import {
   loadOrganizationReadModelProjection,
 } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import {
-  createExecSql,
-  type ExecSql,
-  type ExecSqlClientLike,
-} from "../../data/sqlite/sqlSchema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,
   reconcileOrganizationDataUsage,
@@ -121,25 +118,6 @@ function presentationSnapshot(
       },
     },
   };
-}
-
-function createRejectingExecSql(
-  execSql: ExecSql,
-  rejectSql: (sql: string) => boolean,
-): ExecSql {
-  const client: ExecSqlClientLike = {
-    async exec({ bind, rowMode, sql }) {
-      if (rejectSql(sql)) {
-        throw new Error("forced projection purge failure");
-      }
-      const rows =
-        rowMode === "array"
-          ? await execSql(sql, bind, { rowMode: "array" })
-          : await execSql(sql, bind, { rowMode: "object" });
-      return { rows };
-    },
-  };
-  return createExecSql(client);
 }
 
 async function savePresentationState(execSql: ExecSql): Promise<void> {
@@ -415,11 +393,15 @@ test("presentation reads recheck access after asynchronous loading", async () =>
   const accessInput = { execSql, organizationId, requesterUserId };
 
   try {
-    const read = runOrganizationPresentationRead(accessInput, async () => {
-      signalReadStarted();
-      await readGate;
-      return "stale presentation";
-    });
+    const read = runOrganizationPresentationRead(
+      accessInput,
+      "readModel",
+      async () => {
+        signalReadStarted();
+        await readGate;
+        return "stale presentation";
+      },
+    );
     await readStarted;
     denyOrganizationPresentationAccess(accessInput, ["readModel"]);
     releaseRead();

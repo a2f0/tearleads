@@ -14,7 +14,7 @@ export type RemoteHydrationRequester = (
 
 interface RemoteHydrationRefreshState {
   containerParentIdsNeedingHydration: Set<string | null>;
-  containersById: ReadonlyMap<string, unknown>;
+  containersById: ReadonlyMap<string, RefreshRootContainerLike>;
   initialized: boolean;
   remoteHydrationPromise: Promise<void> | null;
   runtime: {
@@ -27,24 +27,13 @@ interface RemoteHydrationRefreshState {
   };
 }
 
-interface RefreshRootContainerLike {
+export interface RefreshRootContainerLike {
   container: {
     id: string;
     metadataDocumentId?: string | null | undefined;
     organizationId: string | null;
     parentId: string | null;
   };
-}
-
-function isRefreshRootContainerLike(
-  value: unknown,
-): value is RefreshRootContainerLike {
-  if (typeof value !== "object" || value === null || !("container" in value)) {
-    return false;
-  }
-
-  const container = Reflect.get(value, "container");
-  return typeof container === "object" && container !== null;
 }
 
 // Resolve the parent whose child lane the provisioned-system-container poll
@@ -68,11 +57,7 @@ function resolveActiveRootChildLaneParentId(
 ): string | null | undefined {
   const organizationId = state.runtime.auth.organizationId ?? null;
   if (organizationId !== null) {
-    for (const value of state.containersById.values()) {
-      if (!isRefreshRootContainerLike(value)) {
-        continue;
-      }
-      const { container } = value;
+    for (const { container } of state.containersById.values()) {
       if (
         container.parentId === null &&
         container.organizationId === organizationId &&

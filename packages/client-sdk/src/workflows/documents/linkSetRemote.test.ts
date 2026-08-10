@@ -13,7 +13,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
@@ -78,15 +78,12 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     signerPrivateKey: author.signerPrivateKey,
     userId: author.signerUserId,
   });
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === author.signerUserId
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: keyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId,
-        })
-      : null;
+  const resolveProjectionUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
   const created = await buildMaterializedDocumentCreatePlan({
     author,
     containerProjection: projection,
@@ -217,15 +214,12 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
     signerPrivateKey: author.signerPrivateKey,
     userId: author.signerUserId,
   });
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === author.signerUserId
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: keyPair.publicKey,
-          signingKeyFingerprint: author.signerKeyFingerprint,
-          signingPublicKey,
-          userId,
-        })
-      : null;
+  const resolveProjectionUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
   const created = await buildMaterializedDocumentCreatePlan({
     author,
     containerProjection: projection,

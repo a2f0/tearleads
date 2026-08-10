@@ -1,10 +1,10 @@
 import {
   type DocumentRecord,
   type DocumentSyncLane,
+  isDatabaseUnavailableError,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
-import { isDatabaseUnavailableError } from "../../../workflows/documents/syncLane";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import { listPendingUpdates } from "./persistence";

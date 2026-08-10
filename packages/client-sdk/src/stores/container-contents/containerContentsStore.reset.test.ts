@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
+import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsStoreRuntime,
@@ -13,37 +11,12 @@ import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 
 function createRuntime(input: {
   dbStatus: "idle" | "ready";
-}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
-  return createContainerContentsStoreTestRuntime({
-    apiClient: {} as Parameters<
-      typeof createContainerContentsStoreTestRuntime
-    >[0]["apiClient"],
-    auth: {
-      isAuthenticated: true,
-      organizationId: "org-1",
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: "signing-fingerprint-1",
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: input.dbStatus,
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: (async () => []) as ExecSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-    },
+}): ReturnType<typeof createContainerContentsTestRuntime> {
+  return createContainerContentsTestRuntime({
+    dbStatus: input.dbStatus,
+    domainScope: createDomainScope(),
+    execSql: (async () => []) as ExecSql,
+    signingFingerprint: "signing-fingerprint-1",
   });
 }
 

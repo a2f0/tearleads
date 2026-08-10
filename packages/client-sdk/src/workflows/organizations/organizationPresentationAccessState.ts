@@ -193,24 +193,25 @@ export function restoreOrganizationPresentationAccess(
 
 export async function runOrganizationPresentationRead<T>(
   input: OrganizationPresentationAccessInput,
+  projection: OrganizationPresentationProjection,
   operation: () => Promise<T>,
 ): Promise<T | null> {
   const attempt = captureOrganizationPresentationAccessAttempt(
     input,
-    "readModel",
+    projection,
   );
-  if (!isOrganizationPresentationAccessReadable(input, "readModel")) {
+  if (!isOrganizationPresentationAccessReadable(input, projection)) {
     return null;
   }
   // In-memory denial dies with the process. The durable marker keeps a
   // revoked projection unreadable when its purge failed and the app
   // restarted; a successful reconcile clears it.
-  if (await hasOrganizationPresentationDenial(input, "readModel")) {
+  if (await hasOrganizationPresentationDenial(input, projection)) {
     return null;
   }
   const value = await operation();
   return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
-    isOrganizationPresentationAccessReadable(input, "readModel")
+    isOrganizationPresentationAccessReadable(input, projection)
     ? value
     : null;
 }

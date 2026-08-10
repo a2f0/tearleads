@@ -55,10 +55,6 @@ export const documentSummaryJoin = and(
   eq(documents.localId, documentProjection.localId),
 );
 
-export function deriveDocumentTitle(text: string): string {
-  return deriveStoredDocumentTitle(text);
-}
-
 export function mapDocumentSummary(
   row: SelectedDocumentProjection,
 ): DocumentSummary {
@@ -89,7 +85,7 @@ export function toDocumentSummary(
     containerId: record.containerId,
     documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: record.documentId,
-    title: record.title ?? deriveDocumentTitle(record.text),
+    title: record.title ?? deriveStoredDocumentTitle(record.text),
     updatedAt,
   };
 }
@@ -132,7 +128,7 @@ export function getProjectionTitle(
     return title;
   }
 
-  return deriveDocumentTitle(row?.text ?? "");
+  return deriveStoredDocumentTitle(row?.text ?? "");
 }
 
 export function getProjectionUpdatedAt(

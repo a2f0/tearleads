@@ -362,7 +362,7 @@ export async function activateDocumentLink<TRuntime>(params: {
   }
 
   const relinkedNote = await relinkContainerDocumentLocally({
-    accessEpoch: 1,
+    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
     currentDocumentStore,
     host,
     note,

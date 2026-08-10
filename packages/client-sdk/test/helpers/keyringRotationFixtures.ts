@@ -3,10 +3,14 @@ import {
   type ContainerKekKeyringEntry,
   computeContainerKekMaterialId,
   computeContainerKeyEpochHash,
+  createContainerKekPredecessorBridge,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerKekLogEpochResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { readContainerKeyEpoch } from "../../src/data/keyingProjectionVerification/readers";
 import {
   createUserContainerWrap,
@@ -14,6 +18,75 @@ import {
 } from "./documentFixtures";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
+
+interface LogEpochKey {
+  containerKeyEpochId: string;
+  keyEpoch: number;
+  keyMaterial: Uint8Array;
+}
+
+/** Fresh key material for epochs 1..count with their committed epoch ids. */
+export async function makeEpochKeys(
+  containerId: string,
+  count: number,
+): Promise<LogEpochKey[]> {
+  return Promise.all(
+    Array.from({ length: count }, async (_value, index) => {
+      const keyEpoch = index + 1;
+      const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
+      return {
+        containerKeyEpochId: await computeContainerKekMaterialId({
+          containerId,
+          keyEpoch,
+          keyMaterial,
+        }),
+        keyEpoch,
+        keyMaterial,
+      };
+    }),
+  );
+}
+
+/** Bridge sealing keys[successorIndex - 1] under keys[successorIndex]. */
+export async function makeEpochBridge(
+  containerId: string,
+  keys: readonly LogEpochKey[],
+  successorIndex: number,
+): Promise<Record<string, unknown>> {
+  const predecessor = keys[successorIndex - 1];
+  const successor = keys[successorIndex];
+  if (!predecessor || !successor) {
+    throw new Error("Expected predecessor and successor epoch keys");
+  }
+
+  return (await createContainerKekPredecessorBridge({
+    containerId,
+    predecessorContainerKey: predecessor.keyMaterial,
+    predecessorContainerKeyEpochId: predecessor.containerKeyEpochId,
+    successorContainerKey: successor.keyMaterial,
+    successorContainerKeyEpochId: successor.containerKeyEpochId,
+  })) as unknown as Record<string, unknown>;
+}
+
+/** One synthetic KEK-log epoch record; bridge and keyring default severed. */
+export function makeLogEpoch(
+  key: LogEpochKey,
+  overrides: {
+    bridge?: Record<string, unknown> | null;
+    keyring?: ContainerKekKeyring | null;
+  } = {},
+): ContainerKekLogEpochResponse {
+  return {
+    accessManifestHash: `manifest-${key.keyEpoch}`,
+    bridge: overrides.bridge ?? null,
+    containerKeyEpoch: key.keyEpoch,
+    containerKeyEpochId: key.containerKeyEpochId,
+    keyring: (overrides.keyring ??
+      null) as ContainerKekLogEpochResponse["keyring"],
+    parentContainerKeyEpochId: null,
+    wraps: [],
+  };
+}
 
 export interface KeyringRotationFixture {
   /** Child of the root, pinned to root epoch 1 via its parent wrap. */

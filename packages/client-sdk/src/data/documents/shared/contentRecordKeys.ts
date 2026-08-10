@@ -82,7 +82,7 @@ export async function deriveDocumentPlaintextHashKey(
   );
 }
 
-export async function importDocumentContentKeyMaterial(
+export async function importContentKeyMaterial(
   contentKey: Uint8Array,
 ): Promise<CryptoKey> {
   return crypto.subtle.importKey(

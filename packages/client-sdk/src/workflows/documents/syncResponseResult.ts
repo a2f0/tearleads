@@ -77,7 +77,7 @@ export async function syncRemoteDocumentResultFromResponse(input: {
       (updateId) =>
         updateId !== input.materializedPlan.staleRecoveryBaselineUpdateId,
     ),
-    ...(input.materializedPlan.heldBackPendingUpdateIds ?? []),
+    ...input.materializedPlan.heldBackPendingUpdateIds,
   ];
   const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({

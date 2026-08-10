@@ -3,7 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { primeDocumentsForLoadedRoots } from "./documentPriming";
-import { saveTestDocument } from "./documentQueries.testFixtures";
+import {
+  insertTestPendingUpdate,
+  saveTestDocument,
+} from "./documentQueries.testFixtures";
 
 function createPrimeHost(
   opened: Array<{ containerId: string | null; localId: string }>,
@@ -201,22 +204,13 @@ test("a last-link orphan primes with a null container scope", async () => {
       "UPDATE document_projection SET container_id = NULL, organization_id = 'org-a' WHERE local_id = ?",
       ["orphaned-document"],
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      [
-        "orphan-edit",
-        "documents",
-        "orphaned-document",
-        "payload",
-        "{}",
-        "{}",
-        "2026-07-23T14:19:13.000Z",
-      ],
-    );
+    await insertTestPendingUpdate({
+      appKind: "documents",
+      createdAt: "2026-07-23T14:19:13.000Z",
+      execSql,
+      id: "orphan-edit",
+      localId: "orphaned-document",
+    });
     const opened: Array<{ containerId: string | null; localId: string }> = [];
 
     const result = await primeDocumentsForLoadedRoots({

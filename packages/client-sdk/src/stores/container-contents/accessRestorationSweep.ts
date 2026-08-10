@@ -1,3 +1,4 @@
+import { getContainerContentsStoreLogLabel } from "./logLabel";
 import {
   type RemoteHydrationRequester,
   refreshAllRemoteHydration,
@@ -114,7 +115,7 @@ async function completeRestorationSweeps(
       );
     if (purgedCount > 0) {
       state.runtime.util.log(
-        `${state.logLabel ?? "Container contents"}: purged ${purgedCount} dormant metadata document(s) after access restoration`,
+        `${getContainerContentsStoreLogLabel(state)}: purged ${purgedCount} dormant metadata document(s) after access restoration`,
       );
     }
     if (shouldRetry) {
@@ -124,12 +125,12 @@ async function completeRestorationSweeps(
           sweep,
         );
         state.runtime.util.log(
-          `${state.logLabel ?? "Container contents"}: stopped dormant metadata sweep after ${sweep.attemptCount} inconclusive attempts; metadata remains dormant`,
+          `${getContainerContentsStoreLogLabel(state)}: stopped dormant metadata sweep after ${sweep.attemptCount} inconclusive attempts; metadata remains dormant`,
         );
         continue;
       }
       state.runtime.util.log(
-        `${state.logLabel ?? "Container contents"}: deferred dormant metadata sweep after an inconclusive deletion probe`,
+        `${getContainerContentsStoreLogLabel(state)}: deferred dormant metadata sweep after an inconclusive deletion probe`,
       );
       continue;
     }
@@ -154,7 +155,7 @@ async function claimDueRestorationSweeps(
         sweep,
       );
       state.runtime.util.log(
-        `${state.logLabel ?? "Container contents"}: retired exhausted dormant metadata sweep; metadata remains dormant`,
+        `${getContainerContentsStoreLogLabel(state)}: retired exhausted dormant metadata sweep; metadata remains dormant`,
       );
       continue;
     }
@@ -215,7 +216,7 @@ export function createRestoredAccessReconciler(input: {
     try {
       await reconcileRestoredAccess(input);
     } catch (error) {
-      const message = `${state.logLabel ?? "Container contents"}: dormant metadata sweep failed`;
+      const message = `${getContainerContentsStoreLogLabel(state)}: dormant metadata sweep failed`;
       if (state.runtime.util.logError) {
         state.runtime.util.logError(message, error);
       } else {

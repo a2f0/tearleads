@@ -8,18 +8,17 @@ import {
   purgeOrganizationDataUsageProjection,
   saveOrganizationDataUsageProjection,
 } from "../../data/persistence/organizations/organizationDataUsagePersistence";
-import {
-  hasOrganizationPresentationDenial,
-  recordOrganizationPresentationDenials,
-} from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
+import { recordOrganizationPresentationDenials } from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   captureOrganizationPresentationAccessAttempt,
   denyOrganizationPresentationAccess,
   isOrganizationPresentationAccessAttemptCurrent,
   isOrganizationPresentationAccessReadable,
+  type OrganizationPresentationAccessAttempt,
   restoreOrganizationPresentationAccess,
   runOrganizationPresentationMutation,
+  runOrganizationPresentationRead,
 } from "./organizationPresentationAccessState";
 
 export type OrganizationDataUsage = OrganizationDataUsageResponse;
@@ -48,23 +47,23 @@ export interface ReconcileOrganizationDataUsageInput
 export async function loadLocalOrganizationDataUsage(
   input: OrganizationDataUsageProjectionInput,
 ): Promise<OrganizationDataUsage | null> {
-  const attempt = captureOrganizationPresentationAccessAttempt(input, "usage");
-  if (!isOrganizationPresentationAccessReadable(input, "usage")) {
-    return null;
-  }
-  // Mirrors the read-model gate: a durable denial marker outlives the
-  // process, so a failed purge plus a restart cannot serve revoked usage.
-  if (await hasOrganizationPresentationDenial(input, "usage")) {
-    return null;
-  }
-  const projection = await loadOrganizationDataUsageProjection(
-    input.execSql,
-    input.organizationId,
-    input.requesterUserId,
+  return runOrganizationPresentationRead(input, "usage", () =>
+    loadOrganizationDataUsageProjection(
+      input.execSql,
+      input.organizationId,
+      input.requesterUserId,
+    ),
   );
+}
+
+function retainedIfUsageReadable<T>(
+  input: OrganizationDataUsageProjectionInput,
+  attempt: OrganizationPresentationAccessAttempt,
+  value: T,
+): T | null {
   return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
     isOrganizationPresentationAccessReadable(input, "usage")
-    ? projection
+    ? value
     : null;
 }
 
@@ -110,20 +109,14 @@ export async function reconcileOrganizationDataUsage(
     }
 
     result.report();
-    return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
-      isOrganizationPresentationAccessReadable(input, "usage")
-      ? local
-      : null;
+    return retainedIfUsageReadable(input, attempt, local);
   }
 
   if (result.data.organizationId !== input.organizationId) {
     input.logError?.(
       `Organization data-usage response scope does not match ${input.organizationId}`,
     );
-    return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
-      isOrganizationPresentationAccessReadable(input, "usage")
-      ? local
-      : null;
+    return retainedIfUsageReadable(input, attempt, local);
   }
 
   return runOrganizationPresentationMutation(input.execSql, async () => {
@@ -138,10 +131,7 @@ export async function reconcileOrganizationDataUsage(
       });
     } catch (error) {
       input.logError?.("Failed to persist organization data usage", error);
-      return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
-        isOrganizationPresentationAccessReadable(input, "usage")
-        ? local
-        : null;
+      return retainedIfUsageReadable(input, attempt, local);
     }
     return restoreOrganizationPresentationAccess(input, attempt)
       ? result.data

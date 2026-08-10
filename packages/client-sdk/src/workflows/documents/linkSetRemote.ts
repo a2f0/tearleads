@@ -4,11 +4,14 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
+import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
   DocumentLinkSetMutationApi,
   DocumentLinkSetMutationOperation,
+  DocumentSyncSubmitFailure,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 import {
@@ -18,7 +21,6 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
-import { persistAcknowledgedLinkSetState } from "./linkSetAcknowledgement";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 import { completeLinkSetMutationRequest } from "./rotationBaseline";
 
@@ -66,15 +68,18 @@ interface LinkSetProjectionFetch<TProjection> {
 // Cold-cache projection fetches must keep their HTTP status: collapsing a
 // 403 to null would leave an access-denied link/unlink routinely retriable
 // instead of parking its move for the access-restored signal (row 7).
-async function fetchLinkSetDocumentProjection(
-  apiClient: DocumentLinkSetMutationApi,
-  documentId: string,
-): Promise<LinkSetProjectionFetch<DocumentWriterProjectionResponse>> {
-  if (apiClient.getDocumentWriterProjectionResult) {
-    const result = await apiClient.getDocumentWriterProjectionResult(
-      documentId,
-      { reportErrors: false },
-    );
+async function fetchLinkSetProjection<TProjection>(input: {
+  fallbackMessage: string;
+  fetchProjection: () => Promise<TProjection | null>;
+  fetchProjectionResult:
+    | (() => Promise<
+        | { readonly data: TProjection; readonly ok: true }
+        | DocumentSyncSubmitFailure
+      >)
+    | undefined;
+}): Promise<LinkSetProjectionFetch<TProjection>> {
+  if (input.fetchProjectionResult) {
+    const result = await input.fetchProjectionResult();
     if (result.ok) {
       return { failure: null, projection: result.data };
     }
@@ -84,46 +89,43 @@ async function fetchLinkSetDocumentProjection(
       projection: null,
     };
   }
-  const projection = await apiClient.getDocumentWriterProjection(documentId);
+  const projection = await input.fetchProjection();
   return projection
     ? { failure: null, projection }
     : {
-        failure: {
-          message: "Document writer projection is unavailable",
-          status: null,
-        },
+        failure: { message: input.fallbackMessage, status: null },
         projection: null,
       };
 }
 
-async function fetchLinkSetContainerProjection(
+function fetchLinkSetDocumentProjection(
+  apiClient: DocumentLinkSetMutationApi,
+  documentId: string,
+): Promise<LinkSetProjectionFetch<DocumentWriterProjectionResponse>> {
+  return fetchLinkSetProjection({
+    fallbackMessage: "Document writer projection is unavailable",
+    fetchProjection: () => apiClient.getDocumentWriterProjection(documentId),
+    fetchProjectionResult: apiClient.getDocumentWriterProjectionResult?.bind(
+      apiClient,
+      documentId,
+      { reportErrors: false },
+    ),
+  });
+}
+
+function fetchLinkSetContainerProjection(
   apiClient: DocumentLinkSetMutationApi,
   containerId: string,
 ): Promise<LinkSetProjectionFetch<ContainerWriterProjectionResponse>> {
-  if (apiClient.getContainerWriterProjectionResult) {
-    const result = await apiClient.getContainerWriterProjectionResult(
+  return fetchLinkSetProjection({
+    fallbackMessage: "Container writer projection is unavailable",
+    fetchProjection: () => apiClient.getContainerWriterProjection(containerId),
+    fetchProjectionResult: apiClient.getContainerWriterProjectionResult?.bind(
+      apiClient,
       containerId,
       { reportErrors: false },
-    );
-    if (result.ok) {
-      return { failure: null, projection: result.data };
-    }
-    result.report();
-    return {
-      failure: { message: result.message, status: result.status },
-      projection: null,
-    };
-  }
-  const projection = await apiClient.getContainerWriterProjection(containerId);
-  return projection
-    ? { failure: null, projection }
-    : {
-        failure: {
-          message: "Container writer projection is unavailable",
-          status: null,
-        },
-        projection: null,
-      };
+    ),
+  });
 }
 
 export async function relinkRemoteDocument(input: {
@@ -204,10 +206,13 @@ export async function relinkRemoteDocument(input: {
   if (!response) {
     return null;
   }
-  const persistedState = await persistAcknowledgedLinkSetState({
+  const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
+    completedPlan,
+    response,
+  );
+  await acknowledgeDocumentMutation({
     execSql: input.execSql,
     plan: completedPlan,
-    response,
   });
 
   await seedLinkSetWriterProjection({

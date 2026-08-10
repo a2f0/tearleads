@@ -17,7 +17,6 @@ import {
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
   generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
   signAccessEvent,
   toFingerprint,
@@ -26,61 +25,26 @@ import {
   type VerifiedContainerKekState,
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
+import {
+  createAuthor,
+  createUserContainerWrap,
+} from "./documentFixturePrimitives";
+import {
+  createTestTrustedUserIdentity,
+  createTestTrustedUserIdentityResolver,
+} from "./trustedUserIdentity";
 
-export { createMutationResponseFromRequest } from "./containerMutationResponseFixtures";
+export { createContainerMutationResponseFromRequest as createMutationResponseFromRequest } from "@tearleads/test-utils";
+export {
+  createAuthor,
+  createDeepNonCanonicalRecord,
+  createUserContainerWrap,
+} from "./documentFixturePrimitives";
 
 export const SIGNED_AT = "2026-04-28T12:00:00.000Z";
-
-interface DeepNonCanonicalRecord {
-  next?: DeepNonCanonicalRecord;
-  notJson?: undefined;
-}
-
-export function createDeepNonCanonicalRecord(
-  depth: number,
-): DeepNonCanonicalRecord {
-  const root: DeepNonCanonicalRecord = {};
-  let cursor = root;
-
-  for (let index = 0; index < depth; index += 1) {
-    const next: DeepNonCanonicalRecord = {};
-    cursor.next = next;
-    cursor = next;
-  }
-
-  cursor.notJson = undefined;
-  return root;
-}
-
-export async function createAuthor(input?: {
-  organizationId?: string;
-  userId?: string;
-}): Promise<{
-  author: ContainerMutationAuthor;
-  signingPublicKey: Uint8Array;
-}> {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const signerKeyFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-
-  return {
-    author: {
-      organizationId: input?.organizationId ?? "organization-1",
-      signerDeviceId: "test-device-1",
-      signerKeyFingerprint,
-      signerPrivateKey: signingKeyPair.signingPrivateKey,
-      signerUserId: input?.userId ?? "user-1",
-    },
-    signingPublicKey: signingKeyPair.signingPublicKey,
-  };
-}
 
 async function signContainerEvent(input: {
   body: ContainerAccessEventBody;
@@ -249,33 +213,6 @@ export async function createContainerRevokeManifestFixture(input: {
   return verified.value;
 }
 
-export async function createUserContainerWrap(input: {
-  containerKeyEpochId: string;
-  containerKek: Uint8Array;
-  publicKey: Uint8Array;
-  recipientKeyEpochId: string;
-  userId: string;
-  wrapManifestHash: string;
-}) {
-  const [recipient] = await wrapDekForRecipients(input.containerKek, [
-    input.publicKey,
-  ]);
-  if (!recipient) {
-    throw new Error("Expected recipient wrap");
-  }
-
-  return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: "user" as const,
-    recipientId: input.userId,
-    recipientKeyEpochId: input.recipientKeyEpochId,
-    recipientKeyFingerprint: recipient.keyFingerprint,
-    kemCipherText: bytesToBase64(recipient.kemCipherText),
-    wrappedKey: bytesToBase64(recipient.wrappedKey),
-    wrapManifestHash: input.wrapManifestHash,
-  };
-}
-
 export async function createParentProjection(input?: {
   existingUserRecipient?: {
     accessLevel: ContainerAccessLevel;
@@ -419,15 +356,26 @@ export async function createParentProjection(input?: {
 export function createParentProjectionUserKeyResolver(
   parent: Awaited<ReturnType<typeof createParentProjection>>,
 ) {
+  return createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: parent.encapsulationPublicKey,
+    signingKeyFingerprint: parent.author.signerKeyFingerprint,
+    signingPublicKey: parent.signingPublicKey,
+    userId: parent.userId,
+  });
+}
+
+/**
+ * Trusted-identity resolver handing every requested user the same recipient
+ * key material — the shape share/revoke tests use for the peer being granted
+ * or losing access.
+ */
+export function createRecipientIdentityResolver(input: {
+  encapsulationPublicKey: Uint8Array;
+  signingKeyFingerprint: string;
+  signingPublicKey: Uint8Array;
+}) {
   return async (userId: string) =>
-    userId === parent.userId
-      ? createTestTrustedUserIdentity({
-          encapsulationPublicKey: parent.encapsulationPublicKey,
-          signingKeyFingerprint: parent.author.signerKeyFingerprint,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        })
-      : null;
+    createTestTrustedUserIdentity({ ...input, userId });
 }
 
 export async function substituteFirstProjectionUserWrapMaterial(input: {

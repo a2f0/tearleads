@@ -12,16 +12,14 @@ import type {
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
-import type { RegistrationResponse } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
-import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
   buildInitialOrganizationPolicyRequest,
+  type RegistrationApi,
   registerIdentity,
 } from "./registerIdentity";
 
@@ -42,13 +40,54 @@ interface CapturedRegistrationRequest {
   initialOrganizationProfileDocument: ProvisionedDocumentRequest;
 }
 
-function createClient(execSql: ExecSql): ExecSqlClientLike {
+type RegisterUserParameters = Parameters<RegistrationApi["registerUser"]>;
+
+function captureRegistrationRequest(
+  args: RegisterUserParameters,
+): CapturedRegistrationRequest {
+  const [
+    userId,
+    organizationId,
+    rootContainerId,
+    signingPublicKey,
+    encapsulationPublicKey,
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    initialRootContainer,
+    initialRootMetadataDocument,
+    initialRosterProfileContainer,
+    initialRosterProfileDocument,
+    initialOrganizationMetadataContainer,
+    initialOrganizationProfileDocument,
+  ] = args;
+  if (!initialRosterProfileContainer) {
+    throw new Error("Expected initial roster profile container request");
+  }
+  if (!initialRosterProfileDocument) {
+    throw new Error("Expected initial roster profile document request");
+  }
+  if (!initialOrganizationMetadataContainer) {
+    throw new Error("Expected initial organization metadata container request");
+  }
+  if (!initialOrganizationProfileDocument) {
+    throw new Error("Expected initial organization profile document request");
+  }
   return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
+    userId,
+    organizationId,
+    rootContainerId,
+    signingPublicKey,
+    encapsulationPublicKey,
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    initialRootContainer,
+    initialRootMetadataDocument,
+    initialRosterProfileContainer,
+    initialRosterProfileDocument,
+    initialOrganizationMetadataContainer,
+    initialOrganizationProfileDocument,
   };
 }
 
@@ -119,126 +158,9 @@ test("registerIdentity submits the registration request and persists the local b
   const errors: unknown[] = [];
   let captured: CapturedRegistrationRequest | null = null;
   const apiClient = {
-    registerUser: async (
-      userId: string,
-      organizationId: string,
-      rootContainerId: string,
-      signingPublicKey: Uint8Array,
-      encapsulationPublicKey: Uint8Array,
-      initialAdminGroup: CreateOrganizationGroupRequest,
-      initialMemberGroup: CreateOrganizationGroupRequest,
-      initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
-      initialRootContainer: RegistrationRequest["initialRootContainer"],
-      initialRootMetadataDocument: ProvisionedDocumentRequest,
-      initialRosterProfileContainer?:
-        | ProvisionedSystemContainerRequest
-        | undefined,
-      initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-      initialOrganizationMetadataContainer?:
-        | ProvisionedSystemContainerRequest
-        | undefined,
-      initialOrganizationProfileDocument?:
-        | ProvisionedDocumentRequest
-        | undefined,
-    ): Promise<RegistrationResponse> => {
-      if (!initialRosterProfileContainer) {
-        throw new Error("Expected initial roster profile container request");
-      }
-      if (!initialRosterProfileDocument) {
-        throw new Error("Expected initial roster profile document request");
-      }
-      if (!initialOrganizationMetadataContainer) {
-        throw new Error(
-          "Expected initial organization metadata container request",
-        );
-      }
-      if (!initialOrganizationProfileDocument) {
-        throw new Error(
-          "Expected initial organization profile document request",
-        );
-      }
-      captured = {
-        userId,
-        organizationId,
-        rootContainerId,
-        signingPublicKey,
-        encapsulationPublicKey,
-        initialAdminGroup,
-        initialMemberGroup,
-        initialOrganizationPolicy,
-        initialRootContainer,
-        initialRootMetadataDocument,
-        initialRosterProfileContainer,
-        initialRosterProfileDocument,
-        initialOrganizationMetadataContainer,
-        initialOrganizationProfileDocument,
-      };
-      const rootMetadataDocument = await createResponseFromRequest(
-        initialRootMetadataDocument,
-      );
-      const rosterProfileMetadataDocument = await createResponseFromRequest(
-        initialRosterProfileContainer.metadataDocument,
-      );
-      const rosterProfileContainerResponse =
-        await createMutationResponseFromRequest(
-          initialRosterProfileContainer.container,
-        );
-      rosterProfileContainerResponse.systemSlot =
-        initialRosterProfileContainer.systemSlot ?? null;
-      const rosterProfileDocument = await createResponseFromRequest(
-        initialRosterProfileDocument,
-      );
-      const organizationMetadataMetadataDocument =
-        await createResponseFromRequest(
-          initialOrganizationMetadataContainer.metadataDocument,
-        );
-      const organizationMetadataContainerResponse =
-        await createMutationResponseFromRequest(
-          initialOrganizationMetadataContainer.container,
-        );
-      organizationMetadataContainerResponse.systemSlot =
-        initialOrganizationMetadataContainer.systemSlot ?? null;
-      const organizationProfileDocument = await createResponseFromRequest(
-        initialOrganizationProfileDocument,
-      );
-
-      return {
-        userId,
-        organizationId,
-        rootContainerId,
-        rootMetadataDocumentId: rootMetadataDocument.id,
-        rootMetadataAccessEpoch: 1,
-        rootMetadataAccessStateHash: initialRootContainer.expectedManifestHash,
-        rootMetadataDocument,
-        rosterProfileContainer: {
-          container: rosterProfileContainerResponse,
-          metadataDocument: rosterProfileMetadataDocument,
-        },
-        rosterProfileContainerId: rosterProfileContainerResponse.containerId,
-        rosterProfileDocument,
-        rosterProfileDocumentId: rosterProfileDocument.id,
-        organizationMetadataContainer: {
-          container: organizationMetadataContainerResponse,
-          metadataDocument: organizationMetadataMetadataDocument,
-        },
-        organizationMetadataContainerId:
-          organizationMetadataContainerResponse.containerId,
-        organizationProfileDocument,
-        organizationProfileDocumentId: organizationProfileDocument.id,
-        committedCoreMetadataUpdateIds: [
-          initialRootMetadataDocument.initialSync,
-          initialRosterProfileContainer.initialMetadataSync,
-          initialOrganizationMetadataContainer.initialMetadataSync,
-        ].flatMap((sync) => sync.outgoingUpdates.map((update) => update.id)),
-        committedProfileUpdateIds: [
-          initialRosterProfileDocument,
-          initialOrganizationProfileDocument,
-        ].flatMap((document) =>
-          document.initialSync.outgoingUpdates.map((update) => update.id),
-        ),
-        systemContainers: [],
-        challenge: "a".repeat(64),
-      };
+    registerUser: async (...args: RegisterUserParameters) => {
+      captured = captureRegistrationRequest(args);
+      return respondToRegistration(args);
     },
   };
 
@@ -246,7 +168,7 @@ test("registerIdentity submits the registration request and persists the local b
     const response = await registerIdentity({
       apiClient,
       containerId,
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       encapsulationKeyPair,
       log: (message) => logs.push(message),
       logError: (message, cause) => errors.push({ message, cause }),
@@ -415,47 +337,9 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
   const errors: Array<{ message: string | Error; cause: unknown }> = [];
   let registrationSubmitted = false;
   const apiClient = {
-    registerUser: async (
-      userId: string,
-      organizationId: string,
-      rootContainerId: string,
-      _signingPublicKey: Uint8Array,
-      _encapsulationPublicKey: Uint8Array,
-      initialAdminGroup: CreateOrganizationGroupRequest,
-      initialMemberGroup: CreateOrganizationGroupRequest,
-      initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
-      initialRootContainer: RegistrationRequest["initialRootContainer"],
-      initialRootMetadataDocument: ProvisionedDocumentRequest,
-      initialRosterProfileContainer?:
-        | ProvisionedSystemContainerRequest
-        | undefined,
-      initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-      initialOrganizationMetadataContainer?:
-        | ProvisionedSystemContainerRequest
-        | undefined,
-      initialOrganizationProfileDocument?:
-        | ProvisionedDocumentRequest
-        | undefined,
-    ): Promise<RegistrationResponse> => {
+    registerUser: async (...args: RegisterUserParameters) => {
       registrationSubmitted = true;
-      const response = await respondToOrganizationProvisioning({
-        initialAdminGroup,
-        initialMemberGroup,
-        initialOrganizationMetadataContainer,
-        initialOrganizationPolicy,
-        initialOrganizationProfileDocument,
-        initialRootContainer,
-        initialRootMetadataDocument,
-        initialRosterProfileContainer,
-        initialRosterProfileDocument,
-        organizationId,
-        rootContainerId,
-        userId,
-      });
-      return {
-        ...response,
-        challenge: "a".repeat(64),
-      };
+      return respondToRegistration(args);
     },
   };
 

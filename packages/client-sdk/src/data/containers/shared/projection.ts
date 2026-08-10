@@ -8,29 +8,17 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { readManifestContainerId } from "../../documents/shared/readers";
 import {
   readCanonicalManifestBundle,
   readContainerAccessManifestState,
 } from "./readers";
 import type { ParentContainerCreateContext } from "./types";
-
-function readManifestContainerId(
-  bundle: ContainerWriterProjectionResponse["path"][number],
-): string | null {
-  const containerId = isPlainObject(bundle.state)
-    ? Reflect.get(bundle.state, "containerId")
-    : undefined;
-
-  return typeof containerId === "string" && containerId.length > 0
-    ? containerId
-    : null;
-}
 
 export function uniqueSortedManifestHashes(
   path: readonly ContainerWriterProjectionResponse["path"][number][],
@@ -38,31 +26,51 @@ export function uniqueSortedManifestHashes(
   return [...new Set(path.map((bundle) => bundle.manifestHash))].sort();
 }
 
-export function getParentCreateContext(
-  parentProjection: ContainerWriterProjectionResponse,
+interface LeafContainerContextErrors {
+  readonly emptyProjection: string;
+  readonly inconsistentKek: string;
+  readonly inconsistentPath: string;
+  readonly inconsistentTarget: string;
+  readonly staleKek: string;
+}
+
+function getLeafContainerContext(
+  projection: ContainerWriterProjectionResponse,
+  errors: LeafContainerContextErrors,
 ): ParentContainerCreateContext {
-  if (parentProjection.path.length !== parentProjection.containerKeks.length) {
-    throw new Error(
-      "Container parent projection path and KEKs are inconsistent",
-    );
+  if (projection.path.length !== projection.containerKeks.length) {
+    throw new Error(errors.inconsistentPath);
   }
 
-  const manifest = parentProjection.path.at(-1);
-  const kek = parentProjection.containerKeks.at(-1);
+  const manifest = projection.path.at(-1);
+  const kek = projection.containerKeks.at(-1);
   if (!manifest || !kek) {
-    throw new Error("Container parent projection is empty");
+    throw new Error(errors.emptyProjection);
   }
-  if (readManifestContainerId(manifest) !== parentProjection.containerId) {
-    throw new Error("Container parent projection target is inconsistent");
+  if (readManifestContainerId(manifest) !== projection.containerId) {
+    throw new Error(errors.inconsistentTarget);
   }
-  if (kek.containerId !== parentProjection.containerId) {
-    throw new Error("Container parent KEK target is inconsistent");
+  if (kek.containerId !== projection.containerId) {
+    throw new Error(errors.inconsistentKek);
   }
   if (kek.accessManifestHash !== manifest.manifestHash) {
-    throw new Error("Container parent KEK is stale");
+    throw new Error(errors.staleKek);
   }
 
   return { manifest, kek };
+}
+
+export function getParentCreateContext(
+  parentProjection: ContainerWriterProjectionResponse,
+): ParentContainerCreateContext {
+  return getLeafContainerContext(parentProjection, {
+    emptyProjection: "Container parent projection is empty",
+    inconsistentKek: "Container parent KEK target is inconsistent",
+    inconsistentPath:
+      "Container parent projection path and KEKs are inconsistent",
+    inconsistentTarget: "Container parent projection target is inconsistent",
+    staleKek: "Container parent KEK is stale",
+  });
 }
 
 export function asContainerManifestBundle(
@@ -83,26 +91,13 @@ export function readContainerState(
 export function getTargetContainerContext(
   projection: ContainerWriterProjectionResponse,
 ): ParentContainerCreateContext {
-  if (projection.path.length !== projection.containerKeks.length) {
-    throw new Error("Container projection path and KEKs are inconsistent");
-  }
-
-  const manifest = projection.path.at(-1);
-  const kek = projection.containerKeks.at(-1);
-  if (!manifest || !kek) {
-    throw new Error("Container projection is empty");
-  }
-  if (readManifestContainerId(manifest) !== projection.containerId) {
-    throw new Error("Container projection target is inconsistent");
-  }
-  if (kek.containerId !== projection.containerId) {
-    throw new Error("Container target KEK is inconsistent");
-  }
-  if (kek.accessManifestHash !== manifest.manifestHash) {
-    throw new Error("Container target KEK is stale");
-  }
-
-  return { manifest, kek };
+  return getLeafContainerContext(projection, {
+    emptyProjection: "Container projection is empty",
+    inconsistentKek: "Container target KEK is inconsistent",
+    inconsistentPath: "Container projection path and KEKs are inconsistent",
+    inconsistentTarget: "Container projection target is inconsistent",
+    staleKek: "Container target KEK is stale",
+  });
 }
 
 export function getParentKekForTarget(

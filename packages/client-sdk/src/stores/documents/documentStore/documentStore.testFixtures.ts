@@ -5,18 +5,26 @@ import {
   exportFullHistorySnapshot,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { buildMaterializedDocumentSyncPlan } from "../../src/workflows/documents/sync";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
-} from "./documentFixtures";
+} from "../../../../test/helpers/documentFixtures";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import type { DocumentStorePersistenceEffects } from "./state";
+
+/** Shared no-op persistence effects for tests that ignore registry fan-out. */
+export const noopDocumentStorePersistenceEffects: DocumentStorePersistenceEffects =
+  {
+    emitPersistedDocument: () => undefined,
+    registerDocumentIdentity: () => undefined,
+  };
 
 /**
  * A remote document whose op log spans two commits ("survives key" then
  * "survives key rotation"), materialized into a sync response a store-level
- * recovery pull can replay. Shared by the rotation-preflight and stale-heal
- * recovery suites, which both rebuild full history from this fixture.
+ * recovery pull can replay. The rotation-preflight and stale-heal recovery
+ * tests both rebuild full history from this fixture.
  */
 export async function createRemoteHistoryFixture(): Promise<
   Awaited<ReturnType<typeof createMaterializedSyncFixture>> & {

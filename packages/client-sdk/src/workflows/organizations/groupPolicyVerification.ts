@@ -9,7 +9,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
-import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -117,12 +117,10 @@ export async function prepareGroupPolicyVerification(input: {
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
 }> {
   const principalId = input.currentPolicy.currentState.principalId;
-  const localPolicyCheckpoint = await loadPrincipalPolicyVerificationCheckpoint(
-    {
-      execSql: input.execSql,
-      principalId,
-      principalType: "group",
-    },
+  const localPolicyCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    "group",
+    principalId,
   );
 
   return {

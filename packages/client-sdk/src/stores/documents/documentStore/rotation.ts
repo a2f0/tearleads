@@ -21,6 +21,12 @@ import {
 import type { DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
+  cleanupPreRegisteredUpdateIdsOnFailure,
+  discardPreRegisteredUpdateIds,
+  discardUnacceptedPreRegisteredUpdateIds,
+  preRegisterUpdateIds,
+} from "./syncAcceptedUpdateIds";
+import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
 } from "./syncGeneration";
@@ -45,18 +51,6 @@ function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   return { author, documentId, encapsulationKeyPair };
 }
 
-function reconcileSentUpdateIds(
-  state: DocumentStoreState,
-  sentUpdateIds: readonly string[],
-  acceptedUpdateIds: ReadonlySet<string>,
-): void {
-  for (const updateId of sentUpdateIds) {
-    if (!acceptedUpdateIds.has(updateId)) {
-      state.locallyAcceptedUpdateIds.delete(updateId);
-    }
-  }
-}
-
 async function pullVerifiedHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
@@ -66,69 +60,66 @@ async function pullVerifiedHistoryForRotation(input: {
 }) {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
-  const sentUpdateIds = input.pendingUpdates.map((update) => update.id);
-  for (const updateId of sentUpdateIds) {
-    input.state.locallyAcceptedUpdateIds.add(updateId);
-  }
+  const sentUpdateIds = preRegisterUpdateIds(input.state, input.pendingUpdates);
 
-  let synced: Awaited<ReturnType<typeof syncRemoteDocument>>;
   let abandonReason: string | null = null;
-  try {
-    synced = await syncRemoteDocument({
-      apiClient: input.state.runtime.apiClient,
-      author,
-      // The recovery pull can meet a stale content-key bundle too; heal it
-      // from the live document's full history like the ordinary sync lane
-      // does, instead of aborting the rotation preflight.
-      buildRotationSnapshot: async () => {
-        const currentDoc = input.state.doc;
-        return currentDoc ? exportFullHistorySnapshot(currentDoc) : null;
-      },
-      documentId,
-      execSql: input.state.runtime.infra.execSql,
-      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
-      localVersionVector: input.localVersionVector,
-      minLsn: input.currentRecord.lastCommitLsn ?? undefined,
-      onSyncAbandoned: (reason) => {
-        abandonReason = reason;
-      },
-      onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
-      onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
-        input.state,
-        input.generation,
-      ),
-      pendingUpdates: input.pendingUpdates,
-      persistedState: input.currentRecord,
-      rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
-      resolveProjectionUserKey: input.state.resolveProjectionUserKey,
-      resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-        logPrefix: "Documents",
-        runtime: input.state.runtime,
-        writerKeyLabel: "writer key",
+  const synced = await cleanupPreRegisteredUpdateIdsOnFailure(
+    input.state,
+    sentUpdateIds,
+    () =>
+      syncRemoteDocument({
+        apiClient: input.state.runtime.apiClient,
+        author,
+        // The recovery pull can meet a stale content-key bundle too; heal it
+        // from the live document's full history like the ordinary sync lane
+        // does, instead of aborting the rotation preflight.
+        buildRotationSnapshot: async () => {
+          const currentDoc = input.state.doc;
+          return currentDoc ? exportFullHistorySnapshot(currentDoc) : null;
+        },
+        documentId,
+        execSql: input.state.runtime.infra.execSql,
+        isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
+        localVersionVector: input.localVersionVector,
+        minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+        onSyncAbandoned: (reason) => {
+          abandonReason = reason;
+        },
+        onSyncTrace: (line) =>
+          input.state.runtime.util.log(`Documents: ${line}`),
+        onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
+          input.state,
+          input.generation,
+        ),
+        pendingUpdates: input.pendingUpdates,
+        persistedState: input.currentRecord,
+        rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
+        resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+        resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+          logPrefix: "Documents",
+          runtime: input.state.runtime,
+          writerKeyLabel: "writer key",
+        }),
+        targetSecretKey: encapsulationKeyPair.secretKey,
+        warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+          input.state.runtime,
+        ),
+        writerProjection:
+          input.state.writerProjection?.documentId === documentId
+            ? input.state.writerProjection
+            : undefined,
       }),
-      targetSecretKey: encapsulationKeyPair.secretKey,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        input.state.runtime,
-      ),
-      writerProjection:
-        input.state.writerProjection?.documentId === documentId
-          ? input.state.writerProjection
-          : undefined,
-    });
-  } catch (error) {
-    reconcileSentUpdateIds(input.state, sentUpdateIds, new Set());
-    throw error;
-  }
+  );
   if (!synced) {
-    reconcileSentUpdateIds(input.state, sentUpdateIds, new Set());
+    discardPreRegisteredUpdateIds(input.state, sentUpdateIds);
     throw new Error(
       `Rotation full-history recovery could not complete (${abandonReason ?? "sync did not finish"}); key rotation was not started`,
     );
   }
-  reconcileSentUpdateIds(
+  discardUnacceptedPreRegisteredUpdateIds(
     input.state,
     sentUpdateIds,
-    new Set(synced.response.acceptedOutgoingUpdateIds),
+    synced.response.acceptedOutgoingUpdateIds,
   );
   return synced;
 }

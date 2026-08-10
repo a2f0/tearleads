@@ -1,10 +1,8 @@
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type {
-  DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { importDocumentContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
+import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import {
   collectContainerKeksForDocumentSync,
@@ -32,9 +30,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
   if (input.pendingUpdates.length === 0) {
     return [];
   }
-  const contentKeyMaterial = await importDocumentContentKeyMaterial(
-    input.contentKey,
-  );
+  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
 
   return Promise.all(
     input.pendingUpdates.map(async (update) => {
@@ -151,11 +147,4 @@ export async function unwrapDocumentSyncResponseContentKeys(
   }
 
   return contentKeysByEpoch;
-}
-
-export function contentKeyBundleForSyncRequest(
-  input: DocumentCreateResponse["contentKeyBundle"],
-): NonNullable<DocumentSyncRequest["contentKeyBundle"]> {
-  const { documentId: _omit, ...bundle } = input;
-  return bundle;
 }

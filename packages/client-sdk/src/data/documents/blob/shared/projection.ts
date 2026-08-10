@@ -1,10 +1,5 @@
-import {
-  BLOB_CONTENT_KEY_WRAP_SUITE,
-  decryptWithDek,
-  encryptWithDek,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type {
   BlobContentKeyBundleResponse,
@@ -12,6 +7,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "../../shared/projection";
+import { unwrapContentKeyTargetForSuite } from "../../shared/projectionContentKeys";
 import { assertEqualBytes } from "../../shared/readers";
 import {
   type ProjectionVerificationOptions,
@@ -34,6 +30,9 @@ export function deriveBlobTargetsFromDocumentProjection(input: {
   );
 }
 
+// Not collectContainerKeksForDocumentSync: the blob upload retry classifier
+// keys on the bare "Container writer projection KEK… could not be unwrapped"
+// message, which the sync collector would wrap with document-sync context.
 async function collectContainerKeks(
   input: {
     execSql?: ExecSql | undefined;
@@ -110,25 +109,12 @@ async function unwrapBlobContentKeyTarget(input: {
   containerKek: Uint8Array;
   envelope: BlobContentKeyTargetEnvelopeRequest;
 }): Promise<Uint8Array> {
-  const metadata = input.envelope.wrappingMetadata;
-  const suite = isPlainRecord(metadata)
-    ? Reflect.get(metadata, "suite")
-    : undefined;
-  const iv = isPlainRecord(metadata) ? Reflect.get(metadata, "iv") : undefined;
-  if (suite !== BLOB_CONTENT_KEY_WRAP_SUITE) {
-    throw new Error("Blob content-key target uses an unknown suite");
-  }
-  if (typeof iv !== "string" || iv.length === 0) {
-    throw new Error("Blob content-key target is missing an IV");
-  }
-
-  return decryptWithDek(
-    {
-      iv: base64ToBytes(iv),
-      ciphertext: base64ToBytes(input.envelope.wrappedKey),
-    },
-    input.containerKek,
-  );
+  return unwrapContentKeyTargetForSuite({
+    containerKek: input.containerKek,
+    envelope: input.envelope,
+    label: "Blob",
+    suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+  });
 }
 
 export async function unwrapBlobContentKey(

@@ -138,7 +138,7 @@ export async function hasStartupContainerSyncWork(state: {
   const execSql = state.runtime.infra.execSql;
   const [createIntents, moveIntents] = await Promise.all([
     state.persistence.listPendingCreateIntents(execSql),
-    state.persistence.listPendingMoveIntents(execSql),
+    state.persistence.listUnsyncedMoveIntents(execSql),
   ]);
   if (createIntents.length > 0 || moveIntents.length > 0) {
     return true;

@@ -1,28 +1,14 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { BlobStore } from "../../data/blobContracts";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
-import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
-
-async function waitForCondition(
-  predicate: () => boolean | Promise<boolean>,
-  message: string,
-): Promise<void> {
-  const deadline = Date.now() + 1_000;
-  while (Date.now() <= deadline) {
-    if (await predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-
-  throw new Error(message);
-}
+import {
+  createContainerContentsTestRuntime,
+  seedLocalRootContainer,
+} from "./runtime.testFixtures";
 
 function createRuntime(input: {
   domainScope: DomainScope;
@@ -30,34 +16,12 @@ function createRuntime(input: {
   organizationId: string | null;
   rootContainerId: string;
 }) {
-  return createContainerContentsStoreTestRuntime({
+  return createContainerContentsTestRuntime({
     apiClient: createMockApiClient(),
-    auth: {
-      isAuthenticated: true,
-      organizationId: input.organizationId,
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: {} as BlobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: input.rootContainerId,
-      domainScope: input.domainScope,
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-    },
+    containerId: input.rootContainerId,
+    domainScope: input.domainScope,
+    execSql: input.execSql,
+    organizationId: input.organizationId,
   });
 }
 
@@ -69,20 +33,10 @@ test("container contents store merges locally persisted bootstrap rows after con
   const rootContainerId = "registered-root";
 
   try {
-    await defaultContainerContentsPersistence.ensureSchema(execSql);
-    await defaultContainerContentsPersistence.saveContainer(
-      execSql,
-      {
-        icon: null,
-        id: rootContainerId,
-        effectiveAccessLevel: "admin",
-        metadataDocumentId: "registered-root-metadata-document",
-        name: "/",
-        organizationId: "",
-        parentId: null,
-      },
-      null,
-    );
+    await seedLocalRootContainer(execSql, {
+      organizationId: "",
+      rootContainerId,
+    });
 
     const store = createContainerContentsStore(
       createRuntime({
@@ -101,7 +55,7 @@ test("container contents store merges locally persisted bootstrap rows after con
       }),
     );
 
-    await waitForCondition(
+    await waitFor(
       () => store.getSnapshot().ready,
       "Container contents store did not become ready.",
     );
@@ -133,7 +87,7 @@ test("container contents store merges locally persisted bootstrap rows after con
       }),
     );
 
-    await waitForCondition(
+    await waitFor(
       () =>
         store
           .getSnapshot()

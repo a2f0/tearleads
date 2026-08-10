@@ -26,7 +26,6 @@ import {
   deriveBlobTargetsFromDocumentProjection,
   wrapBlobContentKey,
 } from "../../data/documents/blob/shared/projection";
-import { readDocumentManifestIdentity } from "../../data/documents/blob/shared/readers";
 import { assertBlobAttachmentBindResponse } from "../../data/documents/blob/shared/responses";
 import type {
   BlobAttachmentApi,
@@ -36,10 +35,7 @@ import type {
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
-import {
-  assertDocumentWriterProjectionConsistent,
-  authorizingContainerPathRefs,
-} from "../../data/documents/shared/projection";
+import { authorizingContainerPathRefs } from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import {
   type DocumentCreateAuthor,
@@ -48,10 +44,11 @@ import {
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { shouldRetryWithFreshProjection } from "../documents/syncFailureClassification";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
+import { resolveBlobMutationWriterProjection } from "./writerProjection";
 
 async function buildBlobAttachmentMaterial(
   input: {
@@ -71,24 +68,19 @@ async function buildBlobAttachmentMaterial(
     writerProjection?: UploadDocumentAttachmentInput["writerProjection"];
   } & ProjectionVerificationOptions,
 ): Promise<BlobAttachmentMaterial | null> {
-  const writerProjection =
-    input.writerProjection ??
-    (await input.apiClient.getDocumentWriterProjection(input.documentId));
-  if (!writerProjection) {
-    return null;
-  }
-
-  await assertDocumentWriterProjectionConsistent(writerProjection, {
+  const resolved = await resolveBlobMutationWriterProjection({
+    apiClient: input.apiClient,
+    documentId: input.documentId,
+    errorLabel: "Blob attachment",
     execSql: input.execSql,
+    isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
-  const manifestIdentity = readDocumentManifestIdentity(writerProjection);
-  if (manifestIdentity.documentId !== input.documentId) {
-    throw new Error("Blob attachment writer projection targets wrong document");
-  }
-  if (input.isRemoteSyncBlocked?.(manifestIdentity.organizationId)) {
+  if (!resolved) {
     return null;
   }
+  const { manifestIdentity, writerProjection } = resolved;
 
   const targets = deriveBlobTargetsFromDocumentProjection({
     bindingId: input.bindingId,
@@ -144,30 +136,6 @@ async function buildBlobAttachmentMaterial(
   };
 }
 
-function shouldRetryBlobUploadWithFreshWriterProjection(error: unknown) {
-  if (isKeyingVerificationError(error)) {
-    return false;
-  }
-  return (
-    error instanceof Error &&
-    error.message.startsWith("Container writer projection KEK") &&
-    error.message.includes("could not be unwrapped")
-  );
-}
-
-function blobAttachmentStagedBlobRequest(
-  stageId: string,
-  writeHeader: WriteHeader,
-): NonNullable<BlobAttachmentBindRequest["stagedBlob"]> {
-  return {
-    stageId,
-    writeHeader: readCanonicalRecord(
-      writeHeader,
-      "Blob attachment write header",
-    ),
-  };
-}
-
 function blobAttachmentBindRequest(input: {
   body: AttachmentBindAccessEventBody;
   event: AccessEvent;
@@ -182,10 +150,13 @@ function blobAttachmentBindRequest(input: {
       input.material.writerProjection,
     ),
     contentKeyBundle: input.material.contentKeyBundle,
-    stagedBlob: blobAttachmentStagedBlobRequest(
-      input.stageId,
-      input.writeHeader,
-    ),
+    stagedBlob: {
+      stageId: input.stageId,
+      writeHeader: readCanonicalRecord(
+        input.writeHeader,
+        "Blob attachment write header",
+      ),
+    },
   };
 }
 
@@ -354,7 +325,12 @@ async function uploadDocumentAttachmentImpl({
   } catch (error) {
     if (
       !apiClient.evictDocumentWriterProjection ||
-      !shouldRetryBlobUploadWithFreshWriterProjection(error)
+      !shouldRetryWithFreshProjection(
+        error,
+        (message) =>
+          message.startsWith("Container writer projection KEK") &&
+          message.includes("could not be unwrapped"),
+      )
     ) {
       throw error;
     }

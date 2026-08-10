@@ -1,8 +1,11 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes } from "@tearleads/encoding";
+import {
+  assertUnwrappableAesGcmEnvelope,
+  sealAesGcmEnvelope,
+} from "./aesGcmWrapping";
 import {
   assertEnvelopeContextMatches,
   assertNonEmptyString,
-  assertWrappedLocalSecretEnvelope,
   type BrowserLocalKeyringOptions,
   copyBytes,
   createIndexedDbWrappingKeyKeystore,
@@ -12,7 +15,6 @@ import {
   normalizeLocalKeyringScope,
   resolveBrowserLocalKeyringManifestStore,
   type UnwrapLocalSecretInput,
-  WRAPPED_LOCAL_SECRET_FORMAT,
   type WrapLocalSecretInput,
   type WrappedLocalSecretEnvelope,
   type WrappingKeyHandle,
@@ -96,20 +98,12 @@ class PinCodeWrappingKeyKeystore implements WrappingKeyKeystore {
     context,
     envelope,
   }: UnwrapLocalSecretInput): Promise<Uint8Array<ArrayBuffer>> {
-    assertWrappedLocalSecretEnvelope(envelope);
-    assertEnvelopeContextMatches({
-      actual: envelope.context,
-      expected: context,
+    const iv = assertUnwrappableAesGcmEnvelope({
+      algorithm: PIN_CODE_WRAPPING_ALGORITHM,
+      context,
+      envelope,
+      provider: this.provider,
     });
-    if (envelope.provider !== this.provider) {
-      throw new Error("Wrapped local secret provider is unsupported.");
-    }
-    if (envelope.algorithm !== PIN_CODE_WRAPPING_ALGORITHM) {
-      throw new Error("Wrapped local secret algorithm is unsupported.");
-    }
-    if (!envelope.iv) {
-      throw new Error("Wrapped local secret IV is required.");
-    }
 
     const metadata = parsePinCodeWrappingKeyId(envelope.keyId);
     const key = await derivePinCodeWrappingKey({
@@ -127,7 +121,7 @@ class PinCodeWrappingKeyKeystore implements WrappingKeyKeystore {
               keyId: envelope.keyId,
               provider: this.provider,
             }),
-            iv: copyBytes(base64ToBytes(envelope.iv)),
+            iv: copyBytes(base64ToBytes(iv)),
             name: "AES-GCM",
           },
           key,
@@ -196,17 +190,14 @@ class PinCodeWrappingKeyKeystore implements WrappingKeyKeystore {
       ),
     );
 
-    return {
+    return sealAesGcmEnvelope({
       algorithm: PIN_CODE_WRAPPING_ALGORITHM,
-      ciphertext: bytesToBase64(ciphertext),
+      ciphertext,
       context,
-      format: WRAPPED_LOCAL_SECRET_FORMAT,
-      iv: bytesToBase64(iv),
+      iv,
       keyId: handle.keyId,
       provider: this.provider,
-      version: 1,
-      wrappedAt: new Date().toISOString(),
-    };
+    });
   }
 }
 

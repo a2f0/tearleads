@@ -36,7 +36,6 @@ import type {
   ContainerSharePlan,
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
-import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,
@@ -44,7 +43,11 @@ import {
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { containerMutationRequestCore } from "./mutationRequestCore";
+import {
+  containerMutationRequestCore,
+  previousPathRequestFields,
+  readCanonicalRecordOrNull,
+} from "./mutationRequestCore";
 
 export type ContainerShareRecipient =
   | {
@@ -112,6 +115,46 @@ function upsertReferencedPrincipalHead(
   );
 }
 
+/**
+ * The previous manifest's referenced principal heads with the replacement
+ * policy's head upserted in place of any stale head for the same principal.
+ */
+export function refreshedPrincipalReferences(input: {
+  readonly previousState: ContainerAccessManifestState;
+  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+}): ReferencedPrincipalHead[] {
+  const replacement = input.replacementPrincipalPolicy;
+  if (!replacement) {
+    return [...input.previousState.referencedPrincipalHeads];
+  }
+  return upsertReferencedPrincipalHead(
+    input.previousState.referencedPrincipalHeads,
+    referencedPrincipalHeadFromPolicy(replacement),
+  );
+}
+
+/**
+ * The previous policies with the replacement policy substituted for any
+ * existing policy of the same principal identity.
+ */
+export function refreshedPrincipalPolicies(input: {
+  readonly previousPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+}): VerifiedPrincipalPolicy[] {
+  const replacement = input.replacementPrincipalPolicy;
+  if (!replacement) {
+    return uniquePrincipalPolicies(input.previousPolicies);
+  }
+  return uniquePrincipalPolicies([
+    ...input.previousPolicies.filter(
+      (policy) =>
+        policy.principalType !== replacement.principalType ||
+        policy.principalId !== replacement.principalId,
+    ),
+    replacement,
+  ]);
+}
+
 export async function deriveContainerShareManifest(input: {
   eventHash: string;
   grant: ContainerDirectGrant;
@@ -157,20 +200,17 @@ function buildContainerShareRequest(input: {
 }): ContainerMutationRequest {
   return {
     ...containerMutationRequestCore("share", input),
-    previousManifest: input.previousManifest,
-    previousContainerPath: input.previousProjection.path.map(
-      asContainerManifestBundle,
+    ...previousPathRequestFields(
+      input.previousManifest,
+      input.previousProjection,
     ),
     containerManifestHistory: [...input.containerManifestHistory],
     predecessorBridge: null,
     keyring: null,
-    parentKekState:
-      input.parentKek === null
-        ? null
-        : readCanonicalRecord(
-            input.parentKek,
-            "Container share parent KEK state",
-          ),
+    parentKekState: readCanonicalRecordOrNull(
+      input.parentKek,
+      "Container share parent KEK state",
+    ),
   };
 }
 
@@ -208,15 +248,6 @@ export function shareManifestHistory(input: {
     }
   }
   return [...byHash.values()];
-}
-
-function readCanonicalRecordOrNull(
-  value: unknown,
-  label: string,
-): Record<string, unknown> | null {
-  return value === null || value === undefined
-    ? null
-    : readCanonicalRecord(value, label);
 }
 
 export function buildContainerSharePlanResult(input: {
@@ -345,17 +376,8 @@ export async function collectContainerSharePrincipalPolicies(input: {
       resolveUserKey: input.resolveUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-  const recipientPolicy = input.recipientPolicy;
-  const retainedPreviousPolicies = recipientPolicy
-    ? previousPolicies.filter(
-        (policy) =>
-          policy.principalType !== recipientPolicy.principalType ||
-          policy.principalId !== recipientPolicy.principalId,
-      )
-    : previousPolicies;
-
-  return uniquePrincipalPolicies([
-    ...retainedPreviousPolicies,
-    ...(recipientPolicy ? [recipientPolicy] : []),
-  ]);
+  return refreshedPrincipalPolicies({
+    previousPolicies,
+    replacementPrincipalPolicy: input.recipientPolicy,
+  });
 }

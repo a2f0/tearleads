@@ -171,7 +171,6 @@ export async function saveContainerMoveIntent(input: {
 type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
-  | "listPendingMoveIntents"
   | "listUnsyncedMoveIntents"
   | "recordCreateIntentError"
   | "recordMoveIntentError"
@@ -209,41 +208,13 @@ export const containerIntentPersistence: ContainerIntentPersistence = {
 
     return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
-  async listPendingMoveIntents(execSql) {
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({
-        id: containerMoveIntents.id,
-        containerId: containerMoveIntents.containerId,
-        parentContainerId: containerMoveIntents.parentContainerId,
-        previousParentContainerId:
-          containerMoveIntents.previousParentContainerId,
-        syncStatus: containerMoveIntents.syncStatus,
-        lastError: containerMoveIntents.lastError,
-        lastAttemptedAt: containerMoveIntents.lastAttemptedAt,
-        createdAt: containerMoveIntents.createdAt,
-        updatedAt: containerMoveIntents.updatedAt,
-      })
-      .from(containerMoveIntents)
-      // Blocked intents replay too: "blocked" names the reason the last
-      // attempt could not proceed, not a terminal verdict — the missing
-      // container can appear via hydration, after which the move completes.
-      .where(
-        and(
-          inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
-          eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
-        ),
-      )
-      .orderBy(asc(containerMoveIntents.createdAt));
-
-    return rows.map((row) => mapContainerMoveIntentRecord(row));
-  },
-
   async listUnsyncedMoveIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     // No syncStatus filter: synced moves are deleted (see markMoveIntentSynced),
-    // so every surviving row is unsynced, including 'blocked' ones, which
-    // hydration must still not revert.
+    // so every surviving row is unsynced. Blocked intents replay too: "blocked"
+    // names the reason the last attempt could not proceed, not a terminal
+    // verdict — the missing container can appear via hydration, after which
+    // the move completes — and hydration must still not revert them.
     const rows = await db
       .select({
         id: containerMoveIntents.id,

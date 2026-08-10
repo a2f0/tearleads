@@ -13,38 +13,10 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
-import type { ContainerState } from "../remoteHydration";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
+import { createTestContainerState } from "./containerState.testFixtures";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";
 import type { ContainerCreateIntentSyncState } from "./types";
-
-function containerState(input: {
-  id: string;
-  parentId: string | null;
-  synced: boolean;
-}): ContainerState {
-  return {
-    container: {
-      effectiveAccessLevel: "admin",
-      icon: null,
-      id: input.id,
-      metadataDocumentId: input.synced ? `metadata-${input.id}` : "",
-      name: input.id,
-      organizationId: "organization",
-      parentId: input.parentId,
-      systemSlot: null,
-    },
-    doc: {} as ContainerState["doc"],
-    record: {
-      accessEpoch: 1,
-      accessStateHash: input.synced ? `access-${input.id}` : "",
-      documentId: input.synced ? `metadata-${input.id}` : "",
-      id: `record-${input.id}`,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-  };
-}
 
 test("container create sync propagates identity failures without recording a retry", async () => {
   const integrityError = new KeyingVerificationError(
@@ -79,11 +51,19 @@ test("container create sync propagates identity failures without recording a ret
     containersById: new Map([
       [
         "child",
-        containerState({ id: "child", parentId: "parent", synced: false }),
+        createTestContainerState({
+          id: "child",
+          parentId: "parent",
+          synced: false,
+        }),
       ],
       [
         "parent",
-        containerState({ id: "parent", parentId: "root", synced: true }),
+        createTestContainerState({
+          id: "parent",
+          parentId: "root",
+          synced: true,
+        }),
       ],
     ]),
     persistence,
@@ -212,12 +192,12 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     },
   });
 
-  const childState = containerState({
+  const childState = createTestContainerState({
     id: childContainerId,
     parentId: parentContainerId,
     synced: false,
   });
-  const parentState = containerState({
+  const parentState = createTestContainerState({
     id: parentContainerId,
     parentId: "root",
     synced: true,
@@ -336,7 +316,7 @@ test("container create sync keeps an intent pending while the container row lack
   // not yet point at its metadata document. That torn state must not read as
   // "already synced": moveIntentSync in the same pass still treats the
   // container as local-only, so marking here would strand the move.
-  const childState = containerState({
+  const childState = createTestContainerState({
     id: "child",
     parentId: "parent",
     synced: true,
@@ -347,7 +327,11 @@ test("container create sync keeps an intent pending while the container row lack
       ["child", childState],
       [
         "parent",
-        containerState({ id: "parent", parentId: "root", synced: true }),
+        createTestContainerState({
+          id: "parent",
+          parentId: "root",
+          synced: true,
+        }),
       ],
     ]),
     persistence,

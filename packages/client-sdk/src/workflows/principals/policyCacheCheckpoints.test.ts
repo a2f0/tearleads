@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
+  predecessorBundleFromSuccessor,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -12,36 +12,6 @@ import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
-
-function predecessorBundle(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse {
-  const previous = bundle.previousStates[0];
-  if (!previous) {
-    throw new Error("Expected successor policy state");
-  }
-  return {
-    currentMemberEnvelopes: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      epoch: previous.state.keyEpoch,
-      envelopes: [],
-    },
-    currentPayload: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      cipherSuite: "aes-256-gcm",
-      ciphertext: "cached-previous-ciphertext",
-      ciphertextHash: previous.state.payloadCiphertextHash,
-      createdAt: previous.state.createdAt,
-    },
-    currentProjection: previous.projection,
-    currentState: previous.state,
-    previousStates: [],
-  };
-}
 
 test("principal policy sync hard-fails rollback after the mutable bundle cache is cleared", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -64,7 +34,7 @@ test("principal policy sync hard-fails rollback after the mutable bundle cache i
     });
     await execSql("DELETE FROM principal_policies");
 
-    const olderBundle = predecessorBundle(bundle);
+    const olderBundle = predecessorBundleFromSuccessor(bundle);
     await expect(
       cacheReferencedPolicies({
         execSql,

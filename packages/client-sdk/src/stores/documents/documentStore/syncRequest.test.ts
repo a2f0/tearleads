@@ -8,6 +8,7 @@ import type {
   DocumentsPersistence,
 } from "../../../workflows/documents";
 import type { DocumentsRuntime } from "../types";
+import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { createDocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -41,10 +42,7 @@ test("a deletion response waits behind relink and cannot delete the new identity
     requestRecord.id,
     runtime,
     persistence,
-    {
-      emitPersistedDocument: () => undefined,
-      registerDocumentIdentity: () => undefined,
-    },
+    noopDocumentStorePersistenceEffects,
     requestRecord.documentId,
   );
   state.doc = currentDoc;

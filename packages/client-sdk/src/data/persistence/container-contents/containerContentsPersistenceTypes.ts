@@ -107,14 +107,11 @@ export interface ContainerContentsPersistence
   listPendingCreateIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerCreateIntentRecord[]>;
-  listPendingMoveIntents: (
-    execSql: ExecSql,
-  ) => Promise<ContainerMoveIntentRecord[]>;
   // Every move intent that has not yet synced, regardless of syncStatus —
-  // a blocked move (destination parent not synced yet) is still unsynced.
-  // Synced moves are deleted, so any surviving row qualifies. Use this where a
-  // 'pending'-only view would miss blocked intents (e.g. hydration must not
-  // revert a blocked local move's parent to the server value).
+  // a blocked move (destination parent not synced yet) is still unsynced, and
+  // synced moves are deleted (see markMoveIntentSynced), so every surviving
+  // row qualifies. Blocked intents replay too: "blocked" names the reason the
+  // last attempt could not proceed, not a terminal verdict.
   listUnsyncedMoveIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerMoveIntentRecord[]>;

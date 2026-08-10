@@ -10,6 +10,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
@@ -17,7 +18,7 @@ import {
   loadPrincipalPolicyCheckpoint,
 } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "../organizations/createOrganization";
 
 const SYSTEM_CONTAINER = {
@@ -30,16 +31,6 @@ const SYSTEM_CONTAINER = {
     version: 1,
   },
 } as const;
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 function checkpoint(input: {
   manifest: Record<string, unknown>;
@@ -180,7 +171,7 @@ test("organization provisioning pins every acknowledged access and policy head",
             return respondToOrganizationProvisioning(value);
           },
         },
-        dbClient: createClient(execSql),
+        dbClient: execSqlClientFromExecSql(execSql),
         encapsulationKeyPair: generateKemSeedAndKeyPair(),
         provisionedSystemContainers: [SYSTEM_CONTAINER],
         signingKeyPair: generateSigningSeedAndKeyPair(),
@@ -212,7 +203,7 @@ test("an incomplete provisioning acknowledgement persists no bootstrap state", a
             return { ...response, rosterProfileContainer: undefined };
           },
         },
-        dbClient: createClient(execSql),
+        dbClient: execSqlClientFromExecSql(execSql),
         encapsulationKeyPair: generateKemSeedAndKeyPair(),
         logError: () => undefined,
         signingKeyPair: generateSigningSeedAndKeyPair(),

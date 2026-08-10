@@ -1,5 +1,9 @@
 import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  getContainerDisplayNameSql,
+  getContainerOrganizationAttributionSql,
+} from "../documentQueries/sql";
 import type { PendingWriteQueueObjectKind } from "../pendingWritesTypes";
 import type { PendingWriteCandidate } from "./aggregation";
 import { readString } from "./rowReaders";
@@ -26,18 +30,18 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     ) AS latest_pending_end_version,
     document_projection.title AS document_name,
     document_projection.container_id AS document_container_id,
-    COALESCE(
-      NULLIF(document_container.organization_id, ''),
-      NULLIF(document_projection.organization_id, '')
-    ) AS document_organization_id,
+    ${getContainerOrganizationAttributionSql({
+      containerAlias: "document_container",
+      projectionAlias: "document_projection",
+    })} AS document_organization_id,
     CASE
       WHEN metadata_container.server_created_at IS NULL THEN NULL
       ELSE metadata_container.id
     END AS container_remote_id,
-    COALESCE(
-      container_projection.display_name,
-      CASE WHEN metadata_container.parent_id IS NULL THEN '/' ELSE 'Untitled' END
-    ) AS container_name,
+    ${getContainerDisplayNameSql({
+      containerAlias: "metadata_container",
+      projectionAlias: "container_projection",
+    })} AS container_name,
     metadata_container.id AS metadata_container_id,
     NULLIF(metadata_container.organization_id, '') AS metadata_organization_id,
     failure.message AS failure_message,

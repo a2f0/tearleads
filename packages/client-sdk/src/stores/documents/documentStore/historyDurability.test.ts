@@ -17,15 +17,11 @@ import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/documentHistoryPersistence";
 import type { DocumentsRuntime } from "../types";
+import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";
 import { pendingDeltaSinceBase, persistDocument } from "./persistence";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
-
-const ignoredPersistenceEffects = {
-  emitPersistedDocument: () => undefined,
-  registerDocumentIdentity: () => undefined,
-};
 
 // Offline runtime: history durability is a purely local property, so these
 // tests never touch the network (the store's sync preconditions all fail).
@@ -65,7 +61,7 @@ async function openStore(
     localId,
     offlineRuntime(execSql),
     sqlDocumentsPersistence,
-    ignoredPersistenceEffects,
+    noopDocumentStorePersistenceEffects,
     null,
     initialText,
   );

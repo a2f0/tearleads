@@ -92,8 +92,22 @@ interface ContainerSystemFilterCounts {
   visibleSystemSlotCount: number;
 }
 
-function getContainerDisplayNameSql(): string {
-  return "COALESCE(cp.display_name, CASE WHEN c.parent_id IS NULL THEN '/' ELSE 'Untitled' END)";
+export function getContainerDisplayNameSql(aliases: {
+  containerAlias: string;
+  projectionAlias: string;
+}): string {
+  return `COALESCE(${aliases.projectionAlias}.display_name, CASE WHEN ${aliases.containerAlias}.parent_id IS NULL THEN '/' ELSE 'Untitled' END)`;
+}
+
+/**
+ * Display attribution for an object reached through a container: the
+ * container's organization when attached, else the projection row's own.
+ */
+export function getContainerOrganizationAttributionSql(aliases: {
+  containerAlias: string;
+  projectionAlias: string;
+}): string {
+  return `COALESCE(NULLIF(${aliases.containerAlias}.organization_id, ''), NULLIF(${aliases.projectionAlias}.organization_id, ''))`;
 }
 
 function getContainerContentsContainerSystemSlotFilter(
@@ -115,7 +129,7 @@ function getContainerContentsContainerSystemSlotFilter(
       () => "?",
     ).join(", ");
     clauses.push(
-      `(c.organization_id != '' AND c.organization_id != ? AND ${getContainerDisplayNameSql()} IN (${visibleSystemNameBindMarkers}))`,
+      `(c.organization_id != '' AND c.organization_id != ? AND ${getContainerDisplayNameSql({ containerAlias: "c", projectionAlias: "cp" })} IN (${visibleSystemNameBindMarkers}))`,
     );
   }
 
@@ -161,7 +175,7 @@ export function getContainerContentsContainerItemsBaseSql(
         0 AS pending_attachment_count,
         0 AS pending_attachment_bytes,
         create_intent.last_error AS sync_last_error,
-        ${getContainerDisplayNameSql()} AS name,
+        ${getContainerDisplayNameSql({ containerAlias: "c", projectionAlias: "cp" })} AS name,
         'folder' AS type_sort,
         COALESCE(c.server_created_at, c.local_created_at) AS created_at,
         COALESCE(c.server_updated_at, c.local_updated_at) AS updated_at

@@ -62,6 +62,7 @@ import {
   submitRemoteContainerCreate,
 } from "./createSubmission";
 import { containerMutationRequestCore } from "./mutationRequestCore";
+import { requireUnwrappedKek } from "./rotationContext";
 
 function assertContainerCreatePlanInput(input: {
   containerKey: Uint8Array;
@@ -304,12 +305,11 @@ export async function buildMaterializedContainerCreatePlan(
     ...projectionVerificationOptions(input),
   });
   const parent = getParentCreateContext(input.parentProjection);
-  const parentKekMaterial = parentKeksByEpochId.get(
-    parent.kek.containerKeyEpochId,
+  const parentKekMaterial = requireUnwrappedKek(
+    parentKeksByEpochId,
+    parent.kek,
+    "Container parent",
   );
-  if (!parentKekMaterial) {
-    throw new Error("Container parent KEK could not be unwrapped");
-  }
   const principalPolicies = input.resolveProjectionUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,

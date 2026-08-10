@@ -135,11 +135,13 @@ function createFakeIndexedDbTransaction(
 }
 
 function createFakeIndexedDbDatabase(
+  databaseName: string,
   stores: Map<string, FakeIndexedDbStore>,
   rejectCryptoKeyValues = false,
+  onClose?: (databaseName: string) => void,
 ): IDBDatabase {
   return {
-    close: () => undefined,
+    close: () => onClose?.(databaseName),
     createObjectStore: (name: string, options?: { keyPath?: string }) => {
       const store: FakeIndexedDbStore = {
         keyPath: options?.keyPath ?? "keyId",
@@ -173,6 +175,8 @@ function createFakeIndexedDbDatabase(
 
 interface FakeIndexedDbOptions {
   readonly failOpenCount?: number | undefined;
+  /** Observes every database `close()`, keyed by database name. */
+  readonly onClose?: ((databaseName: string) => void) | undefined;
   /**
    * Reject `add`s of records that carry a live CryptoKey, the way WKWebView
    * fails to structured-clone a non-extractable CryptoKey into IndexedDB.
@@ -217,8 +221,10 @@ export function createFakeIndexedDb(
           databases.set(name, stores);
         }
         request.result = createFakeIndexedDbDatabase(
+          name,
           stores,
           rejectCryptoKeyValues,
+          options.onClose,
         );
         if (needsUpgrade) {
           request.onupgradeneeded?.({} as IDBVersionChangeEvent);

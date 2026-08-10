@@ -22,6 +22,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import type { ContainerMutationAuthor } from "../../containers/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -134,13 +135,7 @@ export function projectionVerificationOptions(
   );
 }
 
-export interface DocumentCreateAuthor {
-  organizationId: string;
-  signerDeviceId: string;
-  signerKeyFingerprint: string;
-  signerPrivateKey: Uint8Array;
-  signerUserId: string;
-}
+export type DocumentCreateAuthor = ContainerMutationAuthor;
 
 export interface BuildDocumentCreatePlanInput {
   author: DocumentCreateAuthor;
@@ -447,14 +442,14 @@ export interface MaterializedDocumentSyncPlan {
    * On submit success the caller must evict this document's cached writer
    * projection so later passes see the healed state instead of re-healing.
    */
-  healedStaleContentKeyBundle?: boolean;
+  healedStaleContentKeyBundle: boolean;
   /**
    * Pending-queue ids a heal deliberately did NOT submit (superseded rotation
    * checkpoints). On heal success they are reported as settled — the
    * committed covering baseline subsumes their content, and resubmitting them
    * post-heal could mask it as the latest baseline at the healed epoch.
    */
-  heldBackPendingUpdateIds?: readonly string[];
+  heldBackPendingUpdateIds: readonly string[];
   plan: DocumentSyncPlan;
   /**
    * Update id of the synthetic rotation baseline a heal generated. It matches

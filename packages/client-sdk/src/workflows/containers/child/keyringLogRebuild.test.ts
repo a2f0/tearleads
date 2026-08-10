@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
-import {
-  computeContainerKekMaterialId,
-  createContainerKekPredecessorBridge,
-} from "@tearleads/crypto";
+import { createContainerKekPredecessorBridge } from "@tearleads/crypto";
 import {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   MAX_CONTAINER_KEY_EPOCH,
 } from "@tearleads/validators/util";
+import {
+  makeEpochBridge,
+  makeEpochKeys,
+  makeLogEpoch,
+} from "../../../../test/helpers/keyringRotationFixtures";
 import {
   fetchContainerKekLog,
   rebuildKeyringEntriesFromLog,
@@ -17,104 +19,67 @@ test("a severed middle bridge rebuilds both segments around the gap", async () =
   // Four epochs; the bridge from 3 -> 2 is destroyed. The walk must still
   // recover epoch 3 from the intact top bridge, and epochs 1-2 once the
   // caller supplies a wrap-recovered anchor for epoch 2.
-  const keys = await Promise.all(
-    [1, 2, 3, 4].map(async (keyEpoch) => {
-      const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
-      return {
-        containerKeyEpochId: await computeContainerKekMaterialId({
-          containerId,
-          keyEpoch,
-          keyMaterial,
-        }),
-        keyEpoch,
-        keyMaterial,
-      };
-    }),
-  );
-  const bridgeFor = async (successorIndex: number) =>
-    createContainerKekPredecessorBridge({
-      containerId,
-      predecessorContainerKey: keys[successorIndex - 1]
-        ?.keyMaterial as Uint8Array,
-      predecessorContainerKeyEpochId: keys[successorIndex - 1]
-        ?.containerKeyEpochId as string,
-      successorContainerKey: keys[successorIndex]?.keyMaterial as Uint8Array,
-      successorContainerKeyEpochId: keys[successorIndex]
-        ?.containerKeyEpochId as string,
-    });
+  const keys = await makeEpochKeys(containerId, 4);
+  const [epoch1, epoch2, epoch3, epoch4] = keys;
+  if (!epoch1 || !epoch2 || !epoch3 || !epoch4) {
+    throw new Error("expected fixture epochs");
+  }
 
   const log = {
     containerId,
     hasMore: false,
     epochs: await Promise.all(
-      keys.map(async (key, index) => ({
-        accessManifestHash: `manifest-${key.keyEpoch}`,
-        // Epoch 3's bridge (index 2) is severed.
-        bridge:
-          index === 0 || index === 2
-            ? null
-            : ((await bridgeFor(index)) as unknown as Record<string, unknown>),
-        containerKeyEpoch: key.keyEpoch,
-        containerKeyEpochId: key.containerKeyEpochId,
-        keyring: null,
-        parentContainerKeyEpochId: null,
-        wraps: [],
-      })),
+      keys.map(async (key, index) =>
+        makeLogEpoch(key, {
+          // Epoch 3's bridge (index 2) is severed.
+          bridge:
+            index === 0 || index === 2
+              ? null
+              : await makeEpochBridge(containerId, keys, index),
+        }),
+      ),
     ),
   };
 
   const withoutAnchor = await rebuildKeyringEntriesFromLog({
     containerId,
-    currentContainerKey: keys[3]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[3]?.containerKeyEpochId as string,
+    currentContainerKey: epoch4.keyMaterial,
+    currentContainerKeyEpochId: epoch4.containerKeyEpochId,
     log,
   });
   // The top segment survives; the gap and everything below it is reported.
   expect(withoutAnchor.entries.map((e) => e.containerKeyEpochId)).toEqual([
-    keys[2]?.containerKeyEpochId as string,
+    epoch3.containerKeyEpochId,
   ]);
   expect(withoutAnchor.missingEpochIds).toEqual([
-    keys[0]?.containerKeyEpochId as string,
-    keys[1]?.containerKeyEpochId as string,
+    epoch1.containerKeyEpochId,
+    epoch2.containerKeyEpochId,
   ]);
 
   // Supplying the wrap-recovered epoch-2 key re-anchors the lower segment.
   const withAnchor = await rebuildKeyringEntriesFromLog({
     anchorKeysByEpochId: new Map([
-      [
-        keys[1]?.containerKeyEpochId as string,
-        keys[1]?.keyMaterial as Uint8Array,
-      ],
+      [epoch2.containerKeyEpochId, epoch2.keyMaterial],
     ]),
     containerId,
-    currentContainerKey: keys[3]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[3]?.containerKeyEpochId as string,
+    currentContainerKey: epoch4.keyMaterial,
+    currentContainerKeyEpochId: epoch4.containerKeyEpochId,
     log,
   });
   expect(withAnchor.entries.map((e) => e.containerKeyEpochId)).toEqual([
-    keys[0]?.containerKeyEpochId as string,
-    keys[1]?.containerKeyEpochId as string,
-    keys[2]?.containerKeyEpochId as string,
+    epoch1.containerKeyEpochId,
+    epoch2.containerKeyEpochId,
+    epoch3.containerKeyEpochId,
   ]);
   expect(withAnchor.missingEpochIds).toEqual([]);
 });
 
 test("a poisoned bridge is treated as severance, not a fatal error", async () => {
   const containerId = crypto.randomUUID();
-  const keys = await Promise.all(
-    [1, 2].map(async (keyEpoch) => {
-      const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
-      return {
-        containerKeyEpochId: await computeContainerKekMaterialId({
-          containerId,
-          keyEpoch,
-          keyMaterial,
-        }),
-        keyEpoch,
-        keyMaterial,
-      };
-    }),
-  );
+  const [epoch1, epoch2] = await makeEpochKeys(containerId, 2);
+  if (!epoch1 || !epoch2) {
+    throw new Error("expected fixture epochs");
+  }
 
   // A structurally present but undecryptable bridge: the poisoned-link case
   // the wrap anchors exist for. It must degrade to a reported gap, not an
@@ -123,76 +88,44 @@ test("a poisoned bridge is treated as severance, not a fatal error", async () =>
     containerId,
     hasMore: false,
     epochs: [
-      {
-        accessManifestHash: "manifest-1",
-        bridge: null,
-        containerKeyEpoch: 1,
-        containerKeyEpochId: keys[0]?.containerKeyEpochId as string,
-        keyring: null,
-        parentContainerKeyEpochId: null,
-        wraps: [],
-      },
-      {
-        accessManifestHash: "manifest-2",
-        bridge: { version: 1, wrappingSuite: "nonsense" } as Record<
-          string,
-          unknown
-        >,
-        containerKeyEpoch: 2,
-        containerKeyEpochId: keys[1]?.containerKeyEpochId as string,
-        keyring: null,
-        parentContainerKeyEpochId: null,
-        wraps: [],
-      },
+      makeLogEpoch(epoch1),
+      makeLogEpoch(epoch2, {
+        bridge: { version: 1, wrappingSuite: "nonsense" },
+      }),
     ],
   };
 
   const withoutAnchor = await rebuildKeyringEntriesFromLog({
     containerId,
-    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    currentContainerKey: epoch2.keyMaterial,
+    currentContainerKeyEpochId: epoch2.containerKeyEpochId,
     log: poisonedLog,
   });
   expect(withoutAnchor.entries).toEqual([]);
-  expect(withoutAnchor.missingEpochIds).toEqual([
-    keys[0]?.containerKeyEpochId as string,
-  ]);
+  expect(withoutAnchor.missingEpochIds).toEqual([epoch1.containerKeyEpochId]);
 
   // The anchor recovers what the poisoned bridge could not.
   const withAnchor = await rebuildKeyringEntriesFromLog({
     anchorKeysByEpochId: new Map([
-      [
-        keys[0]?.containerKeyEpochId as string,
-        keys[0]?.keyMaterial as Uint8Array,
-      ],
+      [epoch1.containerKeyEpochId, epoch1.keyMaterial],
     ]),
     containerId,
-    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    currentContainerKey: epoch2.keyMaterial,
+    currentContainerKeyEpochId: epoch2.containerKeyEpochId,
     log: poisonedLog,
   });
   expect(withAnchor.entries.map((e) => e.containerKeyEpochId)).toEqual([
-    keys[0]?.containerKeyEpochId as string,
+    epoch1.containerKeyEpochId,
   ]);
   expect(withAnchor.missingEpochIds).toEqual([]);
 });
 
 test("a lying bridge does not mask a supplied anchor", async () => {
   const containerId = crypto.randomUUID();
-  const keys = await Promise.all(
-    [1, 2].map(async (keyEpoch) => {
-      const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
-      return {
-        containerKeyEpochId: await computeContainerKekMaterialId({
-          containerId,
-          keyEpoch,
-          keyMaterial,
-        }),
-        keyEpoch,
-        keyMaterial,
-      };
-    }),
-  );
+  const [epoch1, epoch2] = await makeEpochKeys(containerId, 2);
+  if (!epoch1 || !epoch2) {
+    throw new Error("expected fixture epochs");
+  }
 
   // An AEAD-VALID bridge that decrypts to the wrong material: it opens
   // cleanly but yields a key that is not the committed epoch's. The anchor
@@ -201,64 +134,43 @@ test("a lying bridge does not mask a supplied anchor", async () => {
   const lyingBridge = await createContainerKekPredecessorBridge({
     containerId,
     predecessorContainerKey: lyingKey,
-    predecessorContainerKeyEpochId: keys[0]?.containerKeyEpochId as string,
-    successorContainerKey: keys[1]?.keyMaterial as Uint8Array,
-    successorContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    predecessorContainerKeyEpochId: epoch1.containerKeyEpochId,
+    successorContainerKey: epoch2.keyMaterial,
+    successorContainerKeyEpochId: epoch2.containerKeyEpochId,
   });
   const log = {
     containerId,
     hasMore: false,
     epochs: [
-      {
-        accessManifestHash: "manifest-1",
-        bridge: null,
-        containerKeyEpoch: 1,
-        containerKeyEpochId: keys[0]?.containerKeyEpochId as string,
-        keyring: null,
-        parentContainerKeyEpochId: null,
-        wraps: [],
-      },
-      {
-        accessManifestHash: "manifest-2",
+      makeLogEpoch(epoch1),
+      makeLogEpoch(epoch2, {
         bridge: lyingBridge as unknown as Record<string, unknown>,
-        containerKeyEpoch: 2,
-        containerKeyEpochId: keys[1]?.containerKeyEpochId as string,
-        keyring: null,
-        parentContainerKeyEpochId: null,
-        wraps: [],
-      },
+      }),
     ],
   };
 
   const withoutAnchor = await rebuildKeyringEntriesFromLog({
     containerId,
-    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    currentContainerKey: epoch2.keyMaterial,
+    currentContainerKeyEpochId: epoch2.containerKeyEpochId,
     log,
   });
   expect(withoutAnchor.entries).toEqual([]);
-  expect(withoutAnchor.missingEpochIds).toEqual([
-    keys[0]?.containerKeyEpochId as string,
-  ]);
+  expect(withoutAnchor.missingEpochIds).toEqual([epoch1.containerKeyEpochId]);
 
   const withAnchor = await rebuildKeyringEntriesFromLog({
     anchorKeysByEpochId: new Map([
-      [
-        keys[0]?.containerKeyEpochId as string,
-        keys[0]?.keyMaterial as Uint8Array,
-      ],
+      [epoch1.containerKeyEpochId, epoch1.keyMaterial],
     ]),
     containerId,
-    currentContainerKey: keys[1]?.keyMaterial as Uint8Array,
-    currentContainerKeyEpochId: keys[1]?.containerKeyEpochId as string,
+    currentContainerKey: epoch2.keyMaterial,
+    currentContainerKeyEpochId: epoch2.containerKeyEpochId,
     log,
   });
   expect(withAnchor.entries.map((e) => e.containerKeyEpochId)).toEqual([
-    keys[0]?.containerKeyEpochId as string,
+    epoch1.containerKeyEpochId,
   ]);
-  expect(withAnchor.entries[0]?.keyMaterial).toEqual(
-    keys[0]?.keyMaterial as Uint8Array,
-  );
+  expect(withAnchor.entries[0]?.keyMaterial).toEqual(epoch1.keyMaterial);
   expect(withAnchor.missingEpochIds).toEqual([]);
 });
 

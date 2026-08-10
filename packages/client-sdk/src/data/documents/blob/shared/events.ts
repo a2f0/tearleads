@@ -20,31 +20,27 @@ import type {
   DocumentManifestIdentity,
 } from "./types";
 
-export async function signBlobAttachmentEvent(input: {
-  author: DocumentCreateAuthor;
-  bindingId: string;
-  blobId: string;
-  documentId: string;
-  eventId: string;
-  expectedBindingId: string | null;
-  manifestIdentity: DocumentManifestIdentity;
-  signedAt: string;
-  slotId: string;
-  targets: readonly BlobContentKeyTarget[];
-}): Promise<{ body: AttachmentBindAccessEventBody; event: AccessEvent }> {
-  const body: AttachmentBindAccessEventBody = {
-    eventType: "attachment.bind",
-    bindingId: input.bindingId,
-    blobId: input.blobId,
-    documentId: input.documentId,
-    slotId: input.slotId,
-    expectedBindingId: input.expectedBindingId,
-    documentManifestHash: input.manifestIdentity.manifestHash,
-  };
+async function signBlobAttachmentBodyEvent<
+  Body extends AttachmentBindAccessEventBody | AttachmentDetachAccessEventBody,
+>(
+  body: Body,
+  input: {
+    author: DocumentCreateAuthor;
+    blobId: string;
+    eventId: string;
+    manifestIdentity: DocumentManifestIdentity;
+    signedAt: string;
+    targets: readonly BlobContentKeyTarget[];
+  },
+): Promise<{ body: Body; event: AccessEvent }> {
+  const bodyLabel =
+    body.eventType === "attachment.bind"
+      ? "Blob attachment bind body"
+      : "Blob attachment detach body";
   const unsignedEvent: UnsignedAccessEvent = {
     version: 1,
     eventId: input.eventId,
-    eventType: "attachment.bind",
+    eventType: body.eventType,
     objectKind: "blob",
     objectId: input.blobId,
     organizationId: input.manifestIdentity.organizationId,
@@ -54,7 +50,7 @@ export async function signBlobAttachmentEvent(input: {
       ...input.targets.map((target) => target.containerManifestHash),
     ]),
     bodyHash: await computeAccessEventBodyHash(
-      readCanonicalJson(body, "Blob attachment bind body"),
+      readCanonicalJson(body, bodyLabel),
     ),
     signerUserId: input.author.signerUserId,
     signerDeviceId: input.author.signerDeviceId,
@@ -68,6 +64,32 @@ export async function signBlobAttachmentEvent(input: {
   };
 }
 
+export async function signBlobAttachmentEvent(input: {
+  author: DocumentCreateAuthor;
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  eventId: string;
+  expectedBindingId: string | null;
+  manifestIdentity: DocumentManifestIdentity;
+  signedAt: string;
+  slotId: string;
+  targets: readonly BlobContentKeyTarget[];
+}): Promise<{ body: AttachmentBindAccessEventBody; event: AccessEvent }> {
+  return signBlobAttachmentBodyEvent(
+    {
+      eventType: "attachment.bind",
+      bindingId: input.bindingId,
+      blobId: input.blobId,
+      documentId: input.documentId,
+      slotId: input.slotId,
+      expectedBindingId: input.expectedBindingId,
+      documentManifestHash: input.manifestIdentity.manifestHash,
+    },
+    input,
+  );
+}
+
 export async function signBlobAttachmentDetachEvent(input: {
   author: DocumentCreateAuthor;
   bindingId: string;
@@ -79,39 +101,17 @@ export async function signBlobAttachmentDetachEvent(input: {
   slotId: string;
   targets: readonly BlobContentKeyTarget[];
 }): Promise<{ body: AttachmentDetachAccessEventBody; event: AccessEvent }> {
-  const body: AttachmentDetachAccessEventBody = {
-    eventType: "attachment.detach",
-    bindingId: input.bindingId,
-    blobId: input.blobId,
-    documentId: input.documentId,
-    slotId: input.slotId,
-    documentManifestHash: input.manifestIdentity.manifestHash,
-  };
-  const unsignedEvent: UnsignedAccessEvent = {
-    version: 1,
-    eventId: input.eventId,
-    eventType: "attachment.detach",
-    objectKind: "blob",
-    objectId: input.blobId,
-    organizationId: input.manifestIdentity.organizationId,
-    previousManifestHash: null,
-    dependencyManifestHashes: uniqueSortedStrings([
-      input.manifestIdentity.manifestHash,
-      ...input.targets.map((target) => target.containerManifestHash),
-    ]),
-    bodyHash: await computeAccessEventBodyHash(
-      readCanonicalJson(body, "Blob attachment detach body"),
-    ),
-    signerUserId: input.author.signerUserId,
-    signerDeviceId: input.author.signerDeviceId,
-    signerKeyFingerprint: input.author.signerKeyFingerprint,
-    signedAt: input.signedAt,
-  };
-
-  return {
-    body,
-    event: await signAccessEvent(unsignedEvent, input.author.signerPrivateKey),
-  };
+  return signBlobAttachmentBodyEvent(
+    {
+      eventType: "attachment.detach",
+      bindingId: input.bindingId,
+      blobId: input.blobId,
+      documentId: input.documentId,
+      slotId: input.slotId,
+      documentManifestHash: input.manifestIdentity.manifestHash,
+    },
+    input,
+  );
 }
 
 export async function signBlobAttachmentWriteHeader(input: {

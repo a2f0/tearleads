@@ -2,19 +2,6 @@ import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSy
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
 
-function getDocumentUpdateEventDetails(
-  event: unknown,
-): { documentId: string; updateIds: readonly string[] | null } | null {
-  if (!isDocumentUpdateCreatedEvent(event)) {
-    return null;
-  }
-
-  return {
-    documentId: event.documentId,
-    updateIds: event.updateIds ?? null,
-  };
-}
-
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
   events: ReadonlyArray<unknown>,
@@ -22,13 +9,15 @@ export function hasRemoteDocumentUpdateEvent(
   let remoteUpdateFound = false;
 
   for (const event of events) {
-    const updateEvent = getDocumentUpdateEventDetails(event);
-    if (!updateEvent || updateEvent.documentId !== state.record?.documentId) {
+    if (
+      !isDocumentUpdateCreatedEvent(event) ||
+      event.documentId !== state.record?.documentId
+    ) {
       continue;
     }
 
-    if (updateEvent.updateIds && updateEvent.updateIds.length > 0) {
-      for (const updateId of updateEvent.updateIds) {
+    if (event.updateIds && event.updateIds.length > 0) {
+      for (const updateId of event.updateIds) {
         if (!state.locallyAcceptedUpdateIds.has(updateId)) {
           remoteUpdateFound = true;
           continue;

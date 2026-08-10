@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   type AnyVerifiedAccessManifest,
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
@@ -17,8 +18,8 @@ import {
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {
   accessManifestObjectKey,
-  loadAccessManifestCheckpointRow,
-  loadPrincipalPolicyCheckpointRow,
+  loadStoredAccessManifestCheckpoint,
+  loadStoredPrincipalPolicyCheckpoint,
   principalPolicyKey,
   upsertAccessManifestCheckpointInTransaction,
   upsertPrincipalPolicyCheckpointInTransaction,
@@ -43,34 +44,9 @@ interface PendingAccessCheckpoint {
   readonly checkpoint: AnyVerifiedAccessManifest["checkpoint"];
 }
 
-const accessObjectKey = accessManifestObjectKey;
-const principalKey = principalPolicyKey;
-
-async function loadAccessCheckpoint(
-  tx: ClientSQLiteTransactionScope,
-  head: AnyVerifiedAccessManifest,
-) {
-  const row = await loadAccessManifestCheckpointRow(tx, head.checkpoint);
-  return row ? { ...head.checkpoint, ...row } : null;
-}
-
-async function loadPolicyCheckpoint(
-  tx: ClientSQLiteTransactionScope,
-  policy: VerifiedPrincipalPolicy,
-) {
-  const row = await loadPrincipalPolicyCheckpointRow(tx, policy);
-  return row
-    ? {
-        principalType: policy.principalType,
-        principalId: policy.principalId,
-        ...row,
-      }
-    : null;
-}
-
 function validateAccessAdvance(
   advance: AccessManifestCheckpointAdvance,
-  localCheckpoint: Awaited<ReturnType<typeof loadAccessCheckpoint>>,
+  localCheckpoint: AccessManifestCheckpoint | null,
 ): PendingAccessCheckpoint {
   const current = {
     ...advance.head.checkpoint,
@@ -90,7 +66,10 @@ function validateAccessAdvance(
 
   const hashByEpoch = new Map<number, string>();
   for (const predecessor of predecessors) {
-    if (accessObjectKey(predecessor.checkpoint) !== accessObjectKey(current)) {
+    if (
+      accessManifestObjectKey(predecessor.checkpoint) !==
+      accessManifestObjectKey(current)
+    ) {
       throw new KeyingVerificationError(
         "object_mismatch",
         "access manifest checkpoint evidence belongs to another object",
@@ -154,14 +133,17 @@ async function validateAccessAdvances(
   const pending = new Map<string, PendingAccessCheckpoint>();
 
   for (const advance of advances) {
-    const key = accessObjectKey(advance.head.checkpoint);
+    const key = accessManifestObjectKey(advance.head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(
         "equivocation",
         `projection declares multiple access checkpoint heads for ${key}`,
       );
     }
-    const localCheckpoint = await loadAccessCheckpoint(tx, advance.head);
+    const localCheckpoint = await loadStoredAccessManifestCheckpoint(
+      tx,
+      advance.head.checkpoint,
+    );
     pending.set(key, validateAccessAdvance(advance, localCheckpoint));
   }
 
@@ -174,7 +156,7 @@ async function validatePolicyAdvances(
 ): Promise<Map<string, VerifiedPrincipalPolicy>> {
   const policiesByPrincipal = new Map<string, VerifiedPrincipalPolicy[]>();
   for (const policy of policies) {
-    const key = principalKey(policy);
+    const key = principalPolicyKey(policy);
     const candidates = policiesByPrincipal.get(key) ?? [];
     candidates.push(policy);
     policiesByPrincipal.set(key, candidates);
@@ -214,7 +196,7 @@ async function validatePolicyAdvances(
       }
     }
 
-    const localCheckpoint = await loadPolicyCheckpoint(tx, head);
+    const localCheckpoint = await loadStoredPrincipalPolicyCheckpoint(tx, head);
     verifyPrincipalPolicyCheckpoint({
       chain: head.history ?? [],
       currentState: head.state,
@@ -292,7 +274,7 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
 }): Promise<void> {
   const seen = new Set<string>();
   for (const entry of input.entries) {
-    const key = principalKey(entry.policy);
+    const key = principalPolicyKey(entry.policy);
     if (seen.has(key)) {
       throw new KeyingVerificationError(
         "duplicate_entry",
@@ -325,7 +307,10 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
       }
       await writePolicyCheckpoints(tx, policies, input.updatedAt);
       for (const policy of policies.values()) {
-        const checkpoint = await loadPolicyCheckpoint(tx, policy);
+        const checkpoint = await loadStoredPrincipalPolicyCheckpoint(
+          tx,
+          policy,
+        );
         if (
           !checkpoint ||
           checkpoint.version !== policy.version ||

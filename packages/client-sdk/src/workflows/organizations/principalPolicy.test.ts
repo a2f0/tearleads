@@ -8,7 +8,10 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { organizationPolicyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+} from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -35,41 +38,6 @@ function policySignerPublicKeys(input: {
       signingPublicKey: input.signingKeyPair.signingPublicKey,
     },
   ];
-}
-
-async function policyBundleFromInitialRequest(
-  request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
-): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(
-    request.initialGroupPolicy.state,
-  );
-
-  return {
-    currentState: {
-      ...request.initialGroupPolicy.state,
-      stateHash,
-      createdAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      cipherSuite: request.initialGroupPolicy.encryptedPayload.cipherSuite,
-      ciphertext: request.initialGroupPolicy.encryptedPayload.ciphertext,
-      ciphertextHash:
-        request.initialGroupPolicy.encryptedPayload.ciphertextHash,
-      createdAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
-    },
-    currentProjection: request.initialGroupPolicy.projection,
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      epoch: request.initialGroupPolicy.state.keyEpoch,
-      envelopes: request.initialGroupPolicy.memberEnvelopes,
-    },
-    previousStates: [],
-  };
 }
 
 test("buildInitialGroupPolicyRequest creates an admin-only initial group policy", async () => {

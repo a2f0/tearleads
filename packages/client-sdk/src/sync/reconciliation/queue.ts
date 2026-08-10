@@ -8,11 +8,6 @@
  */
 export type ReconcilePriority = "active" | "idle";
 
-interface ReconcileQueueEntry {
-  containerId: string;
-  priority: ReconcilePriority;
-}
-
 export interface ReconcileQueue {
   /** Queue a container, upgrading an existing idle entry to active if needed. */
   enqueue: (containerId: string, priority: ReconcilePriority) => void;
@@ -23,14 +18,15 @@ export interface ReconcileQueue {
 }
 
 export function createReconcileQueue(): ReconcileQueue {
-  // Insertion order is preserved within each priority by Map semantics.
-  const entriesByContainerId = new Map<string, ReconcileQueueEntry>();
+  // Insertion order is preserved within each priority by Map semantics; an
+  // in-place priority upgrade keeps the original insertion position.
+  const priorityByContainerId = new Map<string, ReconcilePriority>();
 
   const takeByPriority = (priority: ReconcilePriority): string | null => {
-    for (const entry of entriesByContainerId.values()) {
-      if (entry.priority === priority) {
-        entriesByContainerId.delete(entry.containerId);
-        return entry.containerId;
+    for (const [containerId, entryPriority] of priorityByContainerId) {
+      if (entryPriority === priority) {
+        priorityByContainerId.delete(containerId);
+        return containerId;
       }
     }
     return null;
@@ -38,19 +34,19 @@ export function createReconcileQueue(): ReconcileQueue {
 
   return {
     enqueue: (containerId, priority) => {
-      const existing = entriesByContainerId.get(containerId);
+      const existing = priorityByContainerId.get(containerId);
       if (existing) {
-        if (priority === "active" && existing.priority === "idle") {
-          existing.priority = "active";
+        if (priority === "active" && existing === "idle") {
+          priorityByContainerId.set(containerId, "active");
         }
         return;
       }
-      entriesByContainerId.set(containerId, { containerId, priority });
+      priorityByContainerId.set(containerId, priority);
     },
     dequeue: () => takeByPriority("active") ?? takeByPriority("idle"),
     get size() {
-      return entriesByContainerId.size;
+      return priorityByContainerId.size;
     },
-    clear: () => entriesByContainerId.clear(),
+    clear: () => priorityByContainerId.clear(),
   };
 }

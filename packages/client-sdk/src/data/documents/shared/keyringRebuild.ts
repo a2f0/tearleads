@@ -375,16 +375,6 @@ export async function recoverKeyringEntryFromWraps(input: {
   };
 }
 
-/**
- * Rebuilds the container's keyring entries from the append-only bridge log —
- * the recovery path when a served keyring fails verification. Each link was
- * written once by the rotator that provably held both keys, so the walk
- * depends only on server-persisted state plus the current KEK; every
- * recovered key is checked against the material-id commitment its epoch id
- * carries. Returns entries for epochs 1..n-1 in ascending order, ready to
- * re-seal via a repair rekey.
- */
-
 export { fetchContainerKekLog } from "./containerKekLogFetch";
 export type {
   AggregatedContainerKekLog,

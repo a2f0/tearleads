@@ -49,22 +49,6 @@ interface InitialDocumentProbeState {
   skippedContainerIds: Set<string>;
 }
 
-export function scheduleInitialDocumentProbeContinuation(input: {
-  readonly canContinue: () => boolean;
-  readonly delayMs: number;
-  readonly requestRun: () => void;
-}): () => void {
-  if (!input.canContinue()) {
-    return () => undefined;
-  }
-  const timeout = setTimeout(() => {
-    if (input.canContinue()) {
-      input.requestRun();
-    }
-  }, input.delayMs);
-  return () => clearTimeout(timeout);
-}
-
 function createInitialDocumentProbeState(): InitialDocumentProbeState {
   return {
     armed: false,
@@ -108,18 +92,28 @@ function hasPendingWork(state: InitialDocumentProbeState): boolean {
   );
 }
 
+/**
+ * Eligible containers still awaiting an authoritative listing, each with the
+ * earliest time its bounded retry backoff allows another attempt (0 = now).
+ */
+function unlistedContainerRetries(
+  state: InitialDocumentProbeState,
+): Array<{ containerId: string; notBeforeMs: number }> {
+  return [...state.eligibleContainerIds]
+    .filter((id) => !state.listedDocumentIdsByContainer.has(id))
+    .map((id) => ({
+      containerId: id,
+      notBeforeMs: state.listingRetryNotBeforeByContainer.get(id) ?? 0,
+    }));
+}
+
 function canRun(state: InitialDocumentProbeState, nowMs = Date.now()): boolean {
   if (!state.armed || state.running || !hasPendingWork(state)) {
     return false;
   }
-  const unlistedContainerIds = [...state.eligibleContainerIds].filter(
-    (id) => !state.listedDocumentIdsByContainer.has(id),
-  );
+  const retries = unlistedContainerRetries(state);
   return (
-    unlistedContainerIds.length === 0 ||
-    unlistedContainerIds.some(
-      (id) => (state.listingRetryNotBeforeByContainer.get(id) ?? 0) <= nowMs,
-    )
+    retries.length === 0 || retries.some((retry) => retry.notBeforeMs <= nowMs)
   );
 }
 
@@ -127,28 +121,41 @@ function continuationDelayMs(
   state: InitialDocumentProbeState,
   nowMs = Date.now(),
 ): number {
-  const retryTimes = [...state.eligibleContainerIds]
-    .filter((id) => !state.listedDocumentIdsByContainer.has(id))
-    .map((id) => state.listingRetryNotBeforeByContainer.get(id) ?? 0);
-  if (retryTimes.length === 0 || retryTimes.some((time) => time <= nowMs)) {
+  const retries = unlistedContainerRetries(state);
+  if (
+    retries.length === 0 ||
+    retries.some((retry) => retry.notBeforeMs <= nowMs)
+  ) {
     return 0;
   }
-  return Math.max(0, Math.min(...retryTimes) - nowMs);
+  return Math.max(
+    0,
+    Math.min(...retries.map((retry) => retry.notBeforeMs)) - nowMs,
+  );
 }
 
-function resetPending(state: InitialDocumentProbeState): void {
+/**
+ * Invalidate the listing session: bump the generation, drop the candidate
+ * cursor and merged listing set, and clear listing retry bookkeeping.
+ * Per-container listing/probe results survive unless the caller clears them.
+ */
+function resetListingSession(state: InitialDocumentProbeState): void {
   state.generation += 1;
   state.armed = false;
   state.cursor = null;
-  state.eligibleContainerIds.clear();
   state.listedDocumentIds = null;
-  state.listedDocumentIdsByContainer.clear();
   state.listingAttemptsByContainer.clear();
   state.listingRetryNotBeforeByContainer.clear();
-  state.probedContainerIds.clear();
   state.reported = false;
   state.requestedCount = 0;
   state.skippedContainerIds.clear();
+}
+
+function resetPending(state: InitialDocumentProbeState): void {
+  resetListingSession(state);
+  state.eligibleContainerIds.clear();
+  state.listedDocumentIdsByContainer.clear();
+  state.probedContainerIds.clear();
 }
 
 function resetSkippedListings(state: InitialDocumentProbeState): void {
@@ -158,15 +165,7 @@ function resetSkippedListings(state: InitialDocumentProbeState): void {
   // A reconnect is a new opportunity for lanes that exhausted their bounded
   // listing retries. Preserve completed healthy lanes, but invalidate any
   // candidate cursor because the authoritative listing set can now grow.
-  state.generation += 1;
-  state.armed = false;
-  state.cursor = null;
-  state.listedDocumentIds = null;
-  state.listingAttemptsByContainer.clear();
-  state.listingRetryNotBeforeByContainer.clear();
-  state.reported = false;
-  state.requestedCount = 0;
-  state.skippedContainerIds.clear();
+  resetListingSession(state);
 }
 
 function retainEligibleProbeState(

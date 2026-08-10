@@ -13,7 +13,7 @@ import {
 import { unwrapContainerKekPath } from "../../data/documents/shared/containerKekPath";
 import { DocumentHistoryUnavailableError } from "../../data/documents/shared/projectionContentKeys";
 import { readContainerKeyEpoch } from "../../data/keyingProjectionVerification/readers";
-import { buildMaterializedDocumentSyncPlan } from "./sync";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 /**
  * Rotates the fixture container to epoch 2 with damaged history — either a

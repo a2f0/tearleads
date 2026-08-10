@@ -9,6 +9,11 @@ import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import {
+  ensurePendingWriteSchema,
+  insertTestPendingUpdate,
+  saveTestSyncedContainer,
+} from "./documentQueries.testFixtures";
 import { listPendingWrites } from "./pendingWrites";
 
 const T0 = "2026-01-01T00:00:00.000Z";
@@ -16,10 +21,6 @@ const T1 = "2026-01-01T00:00:01.000Z";
 const T2 = "2026-01-01T00:00:02.000Z";
 const T3 = "2026-01-01T00:00:03.000Z";
 const T4 = "2026-01-01T00:00:04.000Z";
-
-async function ensurePendingWriteSchema(execSql: ExecSql): Promise<void> {
-  await listPendingWrites(execSql);
-}
 
 async function saveRemoteContainer(input: {
   containerId: string;
@@ -29,32 +30,14 @@ async function saveRemoteContainer(input: {
   parentId?: string | null;
   updatedAt?: string;
 }): Promise<void> {
-  const updatedAt = input.updatedAt ?? T0;
-  const metadataDocumentId = `metadata-${input.containerId}`;
-  await defaultContainerContentsPersistence.saveContainer(
-    input.execSql,
-    {
-      effectiveAccessLevel: "admin",
-      icon: null,
-      id: input.containerId,
-      metadataDocumentId,
-      name: input.name ?? input.containerId,
-      organizationId: input.organizationId ?? "organization-a",
-      parentId: input.parentId ?? null,
-    },
-    {
-      accessEpoch: 1,
-      accessStateHash: `access-${input.containerId}`,
-      documentId: metadataDocumentId,
-      id: input.containerId,
-      metadataUpdates: "",
-      snapshotEndVersion: "",
-    },
-    {
-      localUpdatedAt: updatedAt,
-      serverTimestamps: { createdAt: updatedAt, updatedAt },
-    },
-  );
+  await saveTestSyncedContainer({
+    execSql: input.execSql,
+    id: input.containerId,
+    name: input.name ?? input.containerId,
+    organizationId: input.organizationId ?? "organization-a",
+    parentId: input.parentId ?? null,
+    timestamp: input.updatedAt ?? T0,
+  });
 }
 
 async function saveLocalContainer(input: {
@@ -118,22 +101,15 @@ async function insertPendingUpdate(input: {
   localId: string;
   partialEndVersionVector?: string;
 }): Promise<void> {
-  await input.execSql(
-    `INSERT INTO document_pending_updates (
-      id, app_kind, local_id, update_data,
-      partial_start_version_vector, partial_end_version_vector,
-      source_version_vector, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [
-      input.id,
-      input.appKind,
-      input.localId,
-      `secret-update-${input.id}`,
-      "{}",
-      input.partialEndVersionVector ?? "{}",
-      input.createdAt,
-    ],
-  );
+  await insertTestPendingUpdate({
+    appKind: input.appKind,
+    createdAt: input.createdAt,
+    execSql: input.execSql,
+    id: input.id,
+    localId: input.localId,
+    partialEndVersionVector: input.partialEndVersionVector,
+    updateData: `secret-update-${input.id}`,
+  });
 }
 
 test("listPendingWrites groups every durable source without exposing payloads", async () => {

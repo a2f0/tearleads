@@ -25,7 +25,6 @@ test("expected group-head verification reuses an exact local bundle without a po
           return bundle;
         },
       }),
-      deferCheckpointAdvance: true,
       execSql,
       expectedGroupHead: referencedPrincipalStateFromBundle(bundle),
       groupId: bundle.currentState.principalId,
@@ -63,7 +62,6 @@ test("expected group-head verification fetches once when the local head is wrong
           return bundle;
         },
       }),
-      deferCheckpointAdvance: true,
       execSql,
       expectedGroupHead: referencedPrincipalStateFromBundle(bundle),
       groupId: bundle.currentState.principalId,
@@ -95,7 +93,6 @@ test("generic group-share policy planning remains network-fresh", async () => {
           return bundle;
         },
       }),
-      deferCheckpointAdvance: true,
       execSql,
       groupId: bundle.currentState.principalId,
       organizationId: "organization-1",

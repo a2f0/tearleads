@@ -10,6 +10,7 @@ import {
   createAuthor,
   createMutationResponseFromRequest,
   createParentProjection,
+  createRecipientIdentityResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -73,13 +74,11 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
 
       return null;
     },
-    resolveTrustedUserIdentity: async (userId) =>
-      createTestTrustedUserIdentity({
-        encapsulationPublicKey: newRecipientKeyPair.publicKey,
-        signingKeyFingerprint: parent.author.signerKeyFingerprint,
-        signingPublicKey: parent.signingPublicKey,
-        userId,
-      }),
+    resolveTrustedUserIdentity: createRecipientIdentityResolver({
+      encapsulationPublicKey: newRecipientKeyPair.publicKey,
+      signingKeyFingerprint: parent.author.signerKeyFingerprint,
+      signingPublicKey: parent.signingPublicKey,
+    }),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });

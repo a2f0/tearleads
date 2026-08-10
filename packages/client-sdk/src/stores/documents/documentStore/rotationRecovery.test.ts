@@ -11,13 +11,16 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { createRemoteHistoryFixture } from "../../../../test/helpers/remoteHistoryFixture";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
+import {
+  createRemoteHistoryFixture,
+  noopDocumentStorePersistenceEffects,
+} from "./documentStore.testFixtures";
 import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
@@ -32,11 +35,6 @@ import {
 } from "./persistence";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import { createDocumentStoreState } from "./state";
-
-const ignoredPersistenceEffects = {
-  emitPersistedDocument: () => undefined,
-  registerDocumentIdentity: () => undefined,
-};
 
 /**
  * Persist a document the way production does: content into the durable
@@ -182,7 +180,7 @@ test("a full-history preflight settles pending writes before returning its basel
       localId,
       runtime,
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -230,7 +228,7 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
       localId,
       createRuntime({ execSql, fixture, syncCalls }),
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -267,7 +265,7 @@ test("a text edit queued during rotation applies to the rebuilt document", async
       localId,
       createRuntime({ execSql, fixture }),
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -316,7 +314,7 @@ test("rotation preflight fails closed offline and can retry once online", async 
       localId,
       runtime,
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -358,7 +356,7 @@ test("an edit after preflight remains replayable after the new key metadata is p
       localId,
       createRuntime({ execSql, fixture }),
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -445,7 +443,7 @@ test("a torn-down store records no rotation preflight failure", async () => {
       localId,
       runtime,
       sqlDocumentsPersistence,
-      ignoredPersistenceEffects,
+      noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);

@@ -1,7 +1,7 @@
 import { normalizeEffectiveAccessLevel } from "../../data/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
+import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
-import type { ContainerState } from "./syncAgent";
 import type { ContainerNode } from "./types";
 
 function hasPendingContainerTimestamp(container: ContainerRecord): boolean {

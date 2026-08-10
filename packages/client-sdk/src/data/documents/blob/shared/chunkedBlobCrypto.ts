@@ -11,6 +11,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
 import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
+import { importContentKeyMaterial } from "../../shared/contentRecordKeys";
 import {
   BLOB_CHUNK_SIZE_BYTES,
   blobChunkPlaintextByteLength,
@@ -26,7 +27,6 @@ import {
   contentRecordAdditionalDataBytes,
   deriveBlobBaseIv,
   deriveBlobContentRecordKey,
-  importBlobContentKeyMaterial,
 } from "./blobRecordCrypto";
 import {
   type BlobSourceSnapshot,
@@ -109,9 +109,7 @@ async function createBlobEncryptionContext(
       contentKeyEpoch,
     }),
   ]);
-  const contentKeyMaterial = await importBlobContentKeyMaterial(
-    input.contentKey,
-  );
+  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
   const recordKey = await deriveBlobContentRecordKey({
     blobId: input.blobId,
     contentKeyEpoch,

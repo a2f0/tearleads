@@ -36,7 +36,6 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -44,6 +43,7 @@ import {
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import { requireUnwrappedKek } from "./rotationContext";
 import {
   buildContainerSharePlanResult,
   type ContainerShareRecipient,
@@ -55,6 +55,7 @@ import {
   shareManifestHistory,
 } from "./sharePlanCore";
 import {
+  advanceVerifiedSharePolicies,
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
 } from "./sharePrincipalPolicy";
@@ -120,10 +121,11 @@ export async function buildMaterializedContainerSharePlan(input: {
     previousManifest: target.manifest,
     referencedPrincipalHead,
   });
-  const containerKey = keksByEpochId.get(target.kek.containerKeyEpochId);
-  if (!containerKey) {
-    throw new Error("Container share target KEK could not be unwrapped");
-  }
+  const containerKey = requireUnwrappedKek(
+    keksByEpochId,
+    target.kek,
+    "Container share target",
+  );
   let recipientTarget: ContainerKekRecipientTarget;
   let userRecipientKeys: ContainerUserRecipientKey[];
   let wrap: ContainerKeyWrap;
@@ -300,24 +302,12 @@ export async function shareRemoteContainerWithGroup(input: {
   }
   const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.apiClient,
-    deferCheckpointAdvance: true,
     execSql: input.execSql,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  await advanceKeyingCheckpointsAtomically({
-    access: [],
-    execSql: input.execSql,
-    policies: verifiedPrincipalPolicy.checkpointPolicies,
-  });
-  for (const dependencyBundle of verifiedPrincipalPolicy.dependencyBundles) {
-    await savePrincipalPolicyBundle(
-      input.execSql,
-      dependencyBundle,
-      new Date().toISOString(),
-    );
-  }
+  await advanceVerifiedSharePolicies(input.execSql, verifiedPrincipalPolicy);
 
   const materializedPlan = await buildMaterializedContainerSharePlan({
     accessLevel: input.accessLevel,

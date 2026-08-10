@@ -1,4 +1,5 @@
 export {
+  createMockApiTrustedUserIdentityResolver,
   createTestTrustedUserIdentity,
   createTestTrustedUserIdentityResolver,
   trustedUserIdentityFromResponse,

@@ -1,6 +1,15 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { BlobByteSource, BlobBytes } from "../blobContracts";
+import {
+  type BlobByteSource,
+  type BlobBytes,
+  readExactBlobBytes,
+} from "../blobContracts";
+import {
+  readRecordSafeByteLength,
+  readRecordSafePositiveInteger,
+  readRecordString,
+} from "../recordReaders";
 
 export type EncryptedBlobStoreCipher = "aes-256-gcm";
 
@@ -59,48 +68,12 @@ function readRecord(value: unknown, label: string): Record<string, unknown> {
   return value;
 }
 
-function readString(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): string {
-  const field = value[key];
-  if (typeof field !== "string" || field.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string.`);
-  }
-  return field;
-}
-
-function readPositiveInteger(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const field = value[key];
-  if (typeof field !== "number" || !Number.isSafeInteger(field) || field <= 0) {
-    throw new Error(`${label}.${key} must be a positive safe integer.`);
-  }
-  return field;
-}
-
-function readByteLength(
-  value: Record<string, unknown>,
-  key: string,
-  label: string,
-): number {
-  const field = value[key];
-  if (typeof field !== "number" || !Number.isSafeInteger(field) || field < 0) {
-    throw new Error(`${label}.${key} must be a non-negative safe integer.`);
-  }
-  return field;
-}
-
 export function readBase64Bytes(
   value: Record<string, unknown>,
   key: string,
   label: string,
 ): BlobBytes {
-  const encoded = readString(value, key, label);
+  const encoded = readRecordString(value, key, label);
   try {
     return asBlobBytes(base64ToBytes(encoded));
   } catch {
@@ -162,7 +135,7 @@ function readKeyDerivationEnvelope(
   }
   const record = readRecord(value, "Encrypted blob store keyDerivation");
   if (
-    readString(record, "name", "Encrypted blob store keyDerivation") !==
+    readRecordString(record, "name", "Encrypted blob store keyDerivation") !==
     "pbkdf2-sha256"
   ) {
     throw new Error("Encrypted blob store key derivation is unsupported.");
@@ -175,12 +148,16 @@ function readKeyDerivationEnvelope(
   }
   return {
     name: "pbkdf2-sha256",
-    iterations: readPositiveInteger(
+    iterations: readRecordSafePositiveInteger(
       record,
       "iterations",
       "Encrypted blob store keyDerivation",
     ),
-    salt: readString(record, "salt", "Encrypted blob store keyDerivation"),
+    salt: readRecordString(
+      record,
+      "salt",
+      "Encrypted blob store keyDerivation",
+    ),
   };
 }
 
@@ -196,22 +173,24 @@ function parseHeader(headerBytes: BlobBytes): {
   }
   const label = "Encrypted blob store header";
   const record = readRecord(parsed, label);
-  if (readString(record, "format", label) !== ENCRYPTED_BLOB_STORE_FORMAT) {
+  if (
+    readRecordString(record, "format", label) !== ENCRYPTED_BLOB_STORE_FORMAT
+  ) {
     throw new Error("Encrypted blob store payload format is invalid.");
   }
-  if (readPositiveInteger(record, "version", label) !== 2) {
+  if (readRecordSafePositiveInteger(record, "version", label) !== 2) {
     throw new Error("Encrypted blob store payload version is invalid.");
   }
-  const chunkSize = readPositiveInteger(record, "chunkSize", label);
+  const chunkSize = readRecordSafePositiveInteger(record, "chunkSize", label);
   if (chunkSize !== ENCRYPTED_BLOB_CHUNK_SIZE) {
     throw new Error("Encrypted blob store payload chunk size is invalid.");
   }
-  const plaintextByteLength = readByteLength(
+  const plaintextByteLength = readRecordSafeByteLength(
     record,
     "plaintextByteLength",
     label,
   );
-  const chunkCount = readPositiveInteger(record, "chunkCount", label);
+  const chunkCount = readRecordSafePositiveInteger(record, "chunkCount", label);
   if (chunkCount !== getChunkCount(plaintextByteLength)) {
     throw new Error("Encrypted blob store payload chunk count is invalid.");
   }
@@ -224,9 +203,9 @@ function parseHeader(headerBytes: BlobBytes): {
     envelope: {
       chunkCount,
       chunkSize,
-      cipher: normalizeCipher(readString(record, "cipher", label)),
+      cipher: normalizeCipher(readRecordString(record, "cipher", label)),
       format: ENCRYPTED_BLOB_STORE_FORMAT,
-      iv: readString(record, "iv", label),
+      iv: readRecordString(record, "iv", label),
       keyDerivation: readKeyDerivationEnvelope(keyDerivation),
       plaintextByteLength,
       version: ENCRYPTED_BLOB_STORE_VERSION,
@@ -288,18 +267,6 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   );
 }
 
-async function readExact(
-  source: BlobByteSource,
-  offset: number,
-  byteLength: number,
-): Promise<BlobBytes> {
-  const bytes = await source.read(offset, byteLength);
-  if (bytes.byteLength !== byteLength) {
-    throw new Error("Encrypted blob store payload read was incomplete.");
-  }
-  return bytes;
-}
-
 export async function readEncryptedBlobEnvelope(
   source: BlobByteSource,
 ): Promise<ParsedEncryptedBlobEnvelope> {
@@ -307,7 +274,7 @@ export async function readEncryptedBlobEnvelope(
   if (source.byteLength < fixedPrefixLength) {
     throw new Error("Encrypted blob store payload is too short.");
   }
-  const fixedPrefix = await readExact(source, 0, fixedPrefixLength);
+  const fixedPrefix = await readExactBlobBytes(source, 0, fixedPrefixLength);
   if (
     !equalBytes(fixedPrefix.subarray(0, MAGIC_BYTES.byteLength), MAGIC_BYTES)
   ) {
@@ -325,7 +292,7 @@ export async function readEncryptedBlobEnvelope(
   if (source.byteLength < prefixByteLength) {
     throw new Error("Encrypted blob store payload is truncated.");
   }
-  const headerBytes = await readExact(
+  const headerBytes = await readExactBlobBytes(
     source,
     fixedPrefixLength,
     headerByteLength,

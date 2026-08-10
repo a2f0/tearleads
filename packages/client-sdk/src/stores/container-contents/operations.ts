@@ -5,12 +5,14 @@ import {
   shareContainerState,
   shareContainerStateWithGroup,
 } from "../../workflows/container-contents/container-state/share";
+import type { SharedContainerState } from "../../workflows/container-contents/container-state/types";
 import type { ContainerDocumentRecord } from "../../workflows/container-contents/containerPersistence";
 import {
   type ContainerMetadataPatch,
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -37,12 +39,6 @@ import { isContainerInSubtree, toContainerNode } from "./utils";
 type PersistContainerSaveOptions = Parameters<
   typeof persistContainerMetadataStateFromRuntime
 >[0]["saveOptions"];
-
-function getContainerContentsStoreLogLabel(
-  state: ContainerContentsStoreState,
-): string {
-  return state.logLabel ?? "Container contents";
-}
 
 export async function persistContainerState(
   state: ContainerContentsStoreState,
@@ -336,11 +332,17 @@ export async function renameContainer(
   return toContainerNode(existingState);
 }
 
-export async function shareContainerWithUser(
+// Shared core for the user/group share operations: guard remote authority and
+// the target's shareable state, run the supplied share call, then apply the
+// shared state, prime the subtree's documents, and log.
+async function shareContainerUsing(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   containerId: string,
-  userId: string,
+  share: (
+    containerState: ContainerState,
+  ) => Promise<SharedContainerState | null>,
+  logMessage: string,
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -361,15 +363,7 @@ export async function shareContainerWithUser(
     return null;
   }
 
-  const shared = await shareContainerState({
-    accessLevel: "write",
-    containerState: existingState,
-    persistence: state.persistence,
-    recipientUserId: userId,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
+  const shared = await share(existingState);
   if (!shared) {
     return null;
   }
@@ -380,9 +374,32 @@ export async function shareContainerWithUser(
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
   syncAgent.scheduleSync();
   state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with ${userId}`,
+    `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
   );
   return toContainerNode(existingState);
+}
+
+export async function shareContainerWithUser(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  userId: string,
+) {
+  return shareContainerUsing(
+    state,
+    syncAgent,
+    containerId,
+    (containerState) =>
+      shareContainerState({
+        accessLevel: "write",
+        containerState,
+        persistence: state.persistence,
+        recipientUserId: userId,
+        resolveProjectionUserKey: state.resolveProjectionUserKey,
+        runtime: state.runtime,
+      }),
+    `shared container ${containerId} with ${userId}`,
+  );
 }
 
 export async function shareContainerWithGroup(
@@ -396,49 +413,23 @@ export async function shareContainerWithGroup(
     requireExistingGrant?: boolean | undefined;
   } = {},
 ) {
-  if (
-    state.runtime.infra.dbStatus !== "ready" ||
-    !state.snapshot.ready ||
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
-  ) {
-    return null;
-  }
-
-  const existingState = state.containersById.get(containerId);
-  const expectedAccessStateHash = existingState?.record.accessStateHash;
-  if (
-    !existingState?.record.documentId ||
-    typeof expectedAccessStateHash !== "string" ||
-    expectedAccessStateHash.length === 0
-  ) {
-    return null;
-  }
-
-  const shared = await shareContainerStateWithGroup({
-    accessLevel,
-    containerState: existingState,
-    knownContainerKeks: options.knownContainerKeks,
-    persistence: state.persistence,
-    recipientGroupId: groupId,
-    requireExistingGrant: options.requireExistingGrant,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-
-  if (!shared) {
-    return null;
-  }
-
-  existingState.container = shared.container;
-  existingState.record = shared.record;
-  updateContainerContentsSnapshot(state);
-  await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  syncAgent.scheduleSync();
-  state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with group ${groupId}`,
+  return shareContainerUsing(
+    state,
+    syncAgent,
+    containerId,
+    (containerState) =>
+      shareContainerStateWithGroup({
+        accessLevel,
+        containerState,
+        knownContainerKeks: options.knownContainerKeks,
+        persistence: state.persistence,
+        recipientGroupId: groupId,
+        requireExistingGrant: options.requireExistingGrant,
+        resolveProjectionUserKey: state.resolveProjectionUserKey,
+        runtime: state.runtime,
+      }),
+    `shared container ${containerId} with group ${groupId}`,
   );
-  return toContainerNode(existingState);
 }
 
 export async function moveContainer(

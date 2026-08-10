@@ -1,5 +1,3 @@
-import type { LocalKeyPurpose } from "./types";
-
 type ParsedObject = ReadonlyMap<string, unknown>;
 
 export function readObject(value: unknown, label: string): ParsedObject {
@@ -30,13 +28,6 @@ export function readExactString<const ExpectedValue extends string>(
   }
 
   return expectedValue;
-}
-
-export function readLocalKeyPurpose(
-  value: ParsedObject,
-  key: string,
-): LocalKeyPurpose {
-  return readString(value, key);
 }
 
 export function readOptionalString(

@@ -61,7 +61,6 @@ function comparePrincipalMemberChanges(
 ): number {
   return (
     left.userId.localeCompare(right.userId) ||
-    left.userId.localeCompare(right.userId) ||
     left.changeType.localeCompare(right.changeType)
   );
 }

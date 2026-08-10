@@ -4,28 +4,17 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
+import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
   createExecSql,
-  type ExecSql,
-  type ExecSqlClientLike,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
-
-function createClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
-    },
-  };
-}
 
 test("registration persists nothing when the identity goes stale in-flight", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -37,35 +26,15 @@ test("registration persists nothing when the identity goes stale in-flight", asy
   let capturedOrganizationId: string | null = null;
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
-      const request = {
-        userId: args[0],
-        organizationId: args[1],
-        rootContainerId: args[2],
-        signingPublicKey: Array.from(args[3]),
-        encapsulationPublicKey: Array.from(args[4]),
-        initialAdminGroup: args[5],
-        initialMemberGroup: args[6],
-        initialOrganizationPolicy: args[7],
-        initialRootContainer: args[8],
-        initialRootMetadataDocument: args[9],
-        initialRosterProfileContainer: args[10],
-        initialRosterProfileDocument: args[11],
-        initialOrganizationMetadataContainer: args[12],
-        initialOrganizationProfileDocument: args[13],
-        initialSystemContainers: args[14],
-      };
-      capturedRootContainerId = request.rootContainerId;
-      capturedOrganizationId = request.organizationId;
-      return {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
+      capturedOrganizationId = args[1];
+      capturedRootContainerId = args[2];
+      return respondToRegistration(args);
     },
   };
 
   let releaseHold = () => {};
   try {
-    const client = createClient(execSql);
+    const client = execSqlClientFromExecSql(execSql);
     // Genuinely hold the mutation queue the bootstrap persist serializes on,
     // so the registration reaches the queue and waits behind a mutation that
     // is still running — the window the in-mutex currency check guards.
@@ -159,29 +128,9 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
   let capturedOrganizationId: string | null = null;
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
-      const request = {
-        userId: args[0],
-        organizationId: args[1],
-        rootContainerId: args[2],
-        signingPublicKey: Array.from(args[3]),
-        encapsulationPublicKey: Array.from(args[4]),
-        initialAdminGroup: args[5],
-        initialMemberGroup: args[6],
-        initialOrganizationPolicy: args[7],
-        initialRootContainer: args[8],
-        initialRootMetadataDocument: args[9],
-        initialRosterProfileContainer: args[10],
-        initialRosterProfileDocument: args[11],
-        initialOrganizationMetadataContainer: args[12],
-        initialOrganizationProfileDocument: args[13],
-        initialSystemContainers: args[14],
-      };
-      capturedRootContainerId = request.rootContainerId;
-      capturedOrganizationId = request.organizationId;
-      return {
-        ...(await respondToOrganizationProvisioning(request)),
-        challenge: "a".repeat(64),
-      };
+      capturedOrganizationId = args[1];
+      capturedRootContainerId = args[2];
+      return respondToRegistration(args);
     },
   };
 
@@ -194,7 +143,7 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
     const response = await registerIdentity({
       apiClient,
       containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
+      dbClient: execSqlClientFromExecSql(execSql),
       documentProjectors: [],
       encapsulationKeyPair,
       isIdentityCurrent: () => {

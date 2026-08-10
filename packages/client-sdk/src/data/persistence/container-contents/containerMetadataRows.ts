@@ -1,7 +1,10 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
-import { mapSelectedDocumentRecord } from "../../sqlite/documentPersistence";
+import {
+  documentRecordSelection,
+  mapSelectedDocumentRecord,
+} from "../../sqlite/documentPersistence";
 import { documentHistoryCheckpoints, documents } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -193,17 +196,7 @@ export async function selectContainerMetadataRecord(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
-      id: documents.localId,
-      documentId: documents.documentId,
-      snapshotEndVersion: documents.snapshotEndVersion,
-      accessEpoch: documents.accessEpoch,
-      accessStateHash: documents.accessStateHash,
-      effectiveAccessLevel: documents.effectiveAccessLevel,
-      lastCommitLsn: documents.lastCommitLsn,
-      documentManifestBundle: documents.documentManifestBundle,
-      contentKeyBundle: documents.contentKeyBundle,
-      documentKekTargets: documents.documentKekTargets,
-      pendingBaseVersion: documents.pendingBaseVersion,
+      ...documentRecordSelection,
       metadataUpdates: documentHistoryCheckpoints.snapshot,
     })
     .from(documents)

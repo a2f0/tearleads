@@ -1,39 +1,117 @@
-import { computePrincipalStateHash } from "@tearleads/crypto";
+import {
+  buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
+  signPrincipalState,
+} from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 
+type BundleState = Omit<
+  PrincipalPolicyBundleResponse["currentState"],
+  "createdAt" | "stateHash"
+>;
+
+/**
+ * The one bundle-assembly core: hashes the signed state and expands it into
+ * the server's policy bundle response shape.
+ */
+export async function principalPolicyBundleFromState(input: {
+  readonly createdAt: string;
+  readonly encryptedPayload: {
+    readonly cipherSuite: PrincipalPolicyBundleResponse["currentPayload"]["cipherSuite"];
+    readonly ciphertext: string;
+    readonly ciphertextHash: string;
+  };
+  readonly memberEnvelopes: PrincipalPolicyBundleResponse["currentMemberEnvelopes"]["envelopes"];
+  readonly previousStates?: PrincipalPolicyBundleResponse["previousStates"];
+  readonly principalId?: string;
+  readonly projection: PrincipalPolicyBundleResponse["currentProjection"];
+  readonly state: BundleState;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const stateHash = await computePrincipalStateHash(input.state);
+  const principalType = input.state.principalType;
+  const principalId = input.principalId ?? input.state.principalId;
+
+  return {
+    currentState: {
+      ...input.state,
+      createdAt: input.createdAt,
+      stateHash,
+    },
+    currentPayload: {
+      principalType,
+      principalId,
+      stateHash,
+      cipherSuite: input.encryptedPayload.cipherSuite,
+      ciphertext: input.encryptedPayload.ciphertext,
+      ciphertextHash: input.encryptedPayload.ciphertextHash,
+      createdAt: input.createdAt,
+    },
+    currentProjection: [...input.projection],
+    currentMemberEnvelopes: {
+      principalType,
+      principalId,
+      stateHash,
+      epoch: input.state.keyEpoch,
+      envelopes: [...input.memberEnvelopes],
+    },
+    previousStates: input.previousStates ?? [],
+  };
+}
+
+/**
+ * Signs a principal state (members derived from the projection) and assembles
+ * the resulting bundle — the sign-state → hash → bundle sequence the policy
+ * fixture builders repeat.
+ */
+export async function signedPrincipalPolicyBundle(input: {
+  readonly memberEnvelopes: PrincipalPolicyBundleResponse["currentMemberEnvelopes"]["envelopes"];
+  readonly payloadCiphertext: string;
+  readonly previousStates?: PrincipalPolicyBundleResponse["previousStates"];
+  readonly projection: PrincipalPolicyBundleResponse["currentProjection"];
+  readonly signing: Omit<
+    Parameters<typeof buildPrincipalStateSigningInput>[0],
+    "memberEnvelopes" | "members" | "payloadCiphertext" | "projection"
+  >;
+  readonly signingPrivateKey: Uint8Array;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const state = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      ...input.signing,
+      members: input.projection.map((member) => ({ userId: member.userId })),
+      memberEnvelopes: input.memberEnvelopes,
+      payloadCiphertext: input.payloadCiphertext,
+      projection: input.projection,
+    }),
+    input.signingPrivateKey,
+  );
+
+  return principalPolicyBundleFromState({
+    createdAt: input.signing.signedAt,
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm",
+      ciphertext: input.payloadCiphertext,
+      ciphertextHash: state.payloadCiphertextHash,
+    },
+    memberEnvelopes: input.memberEnvelopes,
+    ...(input.previousStates === undefined
+      ? {}
+      : { previousStates: input.previousStates }),
+    projection: input.projection,
+    state,
+  });
+}
+
 export async function policyBundleAfterMutation(input: {
   readonly mutation: PutPrincipalPolicyRequest;
   readonly previous: PrincipalPolicyBundleResponse;
 }): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(input.mutation.state);
-  const createdAt = input.mutation.state.signedAt;
-
-  return {
-    currentState: {
-      ...input.mutation.state,
-      stateHash,
-      createdAt,
-    },
-    currentPayload: {
-      principalType: input.mutation.state.principalType,
-      principalId: input.mutation.state.principalId,
-      stateHash,
-      cipherSuite: input.mutation.encryptedPayload.cipherSuite,
-      ciphertext: input.mutation.encryptedPayload.ciphertext,
-      ciphertextHash: input.mutation.encryptedPayload.ciphertextHash,
-      createdAt,
-    },
-    currentProjection: [...input.mutation.projection],
-    currentMemberEnvelopes: {
-      principalType: input.mutation.state.principalType,
-      principalId: input.mutation.state.principalId,
-      stateHash,
-      epoch: input.mutation.state.keyEpoch,
-      envelopes: [...input.mutation.memberEnvelopes],
-    },
+  return principalPolicyBundleFromState({
+    createdAt: input.mutation.state.signedAt,
+    encryptedPayload: input.mutation.encryptedPayload,
+    memberEnvelopes: input.mutation.memberEnvelopes,
     previousStates: [
       ...input.previous.previousStates,
       {
@@ -41,73 +119,34 @@ export async function policyBundleAfterMutation(input: {
         projection: input.previous.currentProjection,
       },
     ],
-  };
+    projection: input.mutation.projection,
+    state: input.mutation.state,
+  });
 }
 
 export async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
 ): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(
-    request.initialGroupPolicy.state,
-  );
-
-  return {
-    currentState: {
-      ...request.initialGroupPolicy.state,
-      stateHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      cipherSuite: request.initialGroupPolicy.encryptedPayload.cipherSuite,
-      ciphertext: request.initialGroupPolicy.encryptedPayload.ciphertext,
-      ciphertextHash:
-        request.initialGroupPolicy.encryptedPayload.ciphertextHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentProjection: request.initialGroupPolicy.projection,
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      epoch: request.initialGroupPolicy.state.keyEpoch,
-      envelopes: request.initialGroupPolicy.memberEnvelopes,
-    },
-    previousStates: [],
-  };
+  return principalPolicyBundleFromState({
+    createdAt: "2026-05-12T12:00:00.000Z",
+    encryptedPayload: request.initialGroupPolicy.encryptedPayload,
+    memberEnvelopes: request.initialGroupPolicy.memberEnvelopes,
+    principalId: request.groupId,
+    projection: request.initialGroupPolicy.projection,
+    state: request.initialGroupPolicy.state,
+  });
 }
 
 export async function organizationPolicyBundleFromInitialRequest(
   organizationId: string,
   request: Awaited<ReturnType<typeof buildInitialOrganizationPolicyRequest>>,
 ): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(request.state);
-
-  return {
-    currentState: {
-      ...request.state,
-      stateHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentPayload: {
-      principalType: "organization",
-      principalId: organizationId,
-      stateHash,
-      cipherSuite: request.encryptedPayload.cipherSuite,
-      ciphertext: request.encryptedPayload.ciphertext,
-      ciphertextHash: request.encryptedPayload.ciphertextHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentProjection: request.projection,
-    currentMemberEnvelopes: {
-      principalType: "organization",
-      principalId: organizationId,
-      stateHash,
-      epoch: request.state.keyEpoch,
-      envelopes: request.memberEnvelopes,
-    },
-    previousStates: [],
-  };
+  return principalPolicyBundleFromState({
+    createdAt: "2026-05-12T12:00:00.000Z",
+    encryptedPayload: request.encryptedPayload,
+    memberEnvelopes: request.memberEnvelopes,
+    principalId: organizationId,
+    projection: request.projection,
+    state: request.state,
+  });
 }

@@ -12,7 +12,7 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 
-const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
 
 // Resolves the organization a parked move belongs to, in confidence order:
 // the move's target container, the document's preserved projection
