@@ -6,7 +6,10 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { addEffectiveOrganizationMember } from "../../../test/helpers/revenuecatWebhook";
+import {
+  addEffectiveOrganizationMember,
+  addSyntheticEffectiveOrganizationMembers,
+} from "../../../test/helpers/revenuecatWebhook";
 import { createRouteApp, routeApp } from "../../routeApp";
 
 /**
@@ -308,9 +311,11 @@ test("unconfigured options skip active-state eligibility", async () => {
 test("options reject an organization above the largest tier", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  for (let index = 0; index < 10; index += 1) {
-    await addEffectiveOrganizationMember(organizationId, crypto.randomUUID());
-  }
+  await addSyntheticEffectiveOrganizationMembers({
+    actor: admin,
+    count: 10,
+    organizationId,
+  });
   Object.assign(process.env, {
     REVENUECAT_PROJECT_ID: "proj_test",
     REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_test",
@@ -359,7 +364,11 @@ test("options reject a non-admin organization member", async () => {
   const organizationId = await registerAndAuthenticate(admin);
   const member = createTestUser();
   await registerAndAuthenticate(member);
-  await addEffectiveOrganizationMember(organizationId, member.userId);
+  await addEffectiveOrganizationMember({
+    actor: admin,
+    organizationId,
+    userId: member.userId,
+  });
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/stripe/options`,

@@ -182,6 +182,7 @@ async function verifyMutationArtifacts(
   );
   const containerManifestHistory =
     await assertHistoricalContainerManifestsConsistent(
+      context,
       input.request.containerManifestHistory,
     );
   const previousManifest = await loadPreviousContainerManifest(

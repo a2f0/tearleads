@@ -2,6 +2,7 @@ import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  KeyingVerificationError,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
@@ -21,6 +22,7 @@ import {
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
+import { rethrowDatabaseUnavailableError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
   readContainerKekRecipientTarget,
@@ -326,15 +328,26 @@ export async function verifyContainerWriterProjectionWithContext(
 export async function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
-  const checkpointContext = createProjectionCheckpointContext({
-    execSql: input.execSql,
-  });
-  const verifiedPath = await verifyContainerWriterProjectionWithContext(
-    input,
-    checkpointContext,
-  );
-  await commitProjectionCheckpoints(checkpointContext);
-  return verifiedPath;
+  try {
+    const checkpointContext = createProjectionCheckpointContext({
+      execSql: input.execSql,
+    });
+    const verifiedPath = await verifyContainerWriterProjectionWithContext(
+      input,
+      checkpointContext,
+    );
+    await commitProjectionCheckpoints(checkpointContext);
+    return verifiedPath;
+  } catch (error) {
+    rethrowDatabaseUnavailableError(error);
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 export async function collectContainerWriterProjectionPrincipalPolicies(input: {

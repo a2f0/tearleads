@@ -62,8 +62,8 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 46240,
-      "bytes": 1893599
+      "lines": 46534,
+      "bytes": 1905414
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -90,8 +90,8 @@
       "bytes": 18015
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 885,
-      "bytes": 26519
+      "lines": 892,
+      "bytes": 26727
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 606,
@@ -105,17 +105,13 @@
       "lines": 835,
       "bytes": 24521
     },
-    "packages/api/src/access/write/blobContentKeyStore.test.ts": {
-      "lines": 668,
-      "bytes": 19204
-    },
     "packages/api/src/access/write/containerKekStore.test.ts": {
       "lines": 596,
       "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1054,
-      "bytes": 32495
+      "lines": 1070,
+      "bytes": 32909
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 903,
@@ -154,8 +150,8 @@
       "bytes": 25795
     },
     "packages/api/src/routes/principals/policy.test.ts": {
-      "lines": 905,
-      "bytes": 29450
+      "lines": 911,
+      "bytes": 29751
     },
     "packages/api/src/schema.test.ts": {
       "lines": 507,
@@ -266,8 +262,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 557,
-      "bytes": 17955
+      "lines": 559,
+      "bytes": 18084
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
@@ -296,6 +292,10 @@
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 617,
       "bytes": 18635
+    },
+    "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
+      "lines": 705,
+      "bytes": 24732
     },
     "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
       "lines": 725,
@@ -358,8 +358,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 18383,
-      "bytes": 743272
+      "lines": 18464,
+      "bytes": 747120
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

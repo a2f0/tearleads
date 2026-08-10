@@ -232,16 +232,19 @@ async function stageAndBindBlobAttachment(input: {
   }
 
   await assertBlobAttachmentBindResponse({
+    body,
     bindingId: input.bindingId,
     blobAccessManifestHash: input.material.blobAccessManifestHash,
     blobId: input.blobId,
     contentKeyBundle: input.material.contentKeyBundle,
     documentId: input.documentId,
+    event,
     manifestIdentity: input.material.manifestIdentity,
     response,
     slotId: input.slotId,
     targetHash: input.material.targetHash,
     targets: input.material.targets,
+    writeHeader,
     writeHeaderHash,
   });
 

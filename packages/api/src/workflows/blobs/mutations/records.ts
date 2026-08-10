@@ -1,3 +1,4 @@
+import type { BlobWriteAuthorization } from "@tearleads/api-shared/schema";
 import type {
   AccessEvent,
   AttachmentBindAccessEventBody,
@@ -5,6 +6,7 @@ import type {
   ContentObjectKind,
   ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
+  VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
   WriteHeader,
 } from "@tearleads/crypto";
@@ -26,6 +28,7 @@ import type {
 } from "../../../access/read/blobContentKeyStore";
 import type { resolveCurrentBlobKekTargets } from "../../../access/read/blobKekTargets";
 import {
+  projectionVerifiedAccessEventRecord,
   readProjectionAccessEvent,
   readProjectionCanonicalJson,
   readProjectionPlainRecord,
@@ -271,9 +274,7 @@ export function toContentKeyBundleResponse(input: {
   };
 }
 
-function toBlobKekTargetsResponse(
-  input: ResolvedBlobKekTargets,
-): BlobKekTargetsResponse {
+function blobKekTargetsProjection(input: ResolvedBlobKekTargets) {
   return {
     blobId: input.blobId,
     organizationId: input.organizationId,
@@ -287,26 +288,43 @@ function toBlobKekTargetsResponse(
   };
 }
 
+export function toBlobKekTargetsResponse(
+  input: ResolvedBlobKekTargets,
+): BlobKekTargetsResponse {
+  return blobKekTargetsProjection(input);
+}
+
+export function toBlobWriteAuthorization(
+  input: ResolvedBlobKekTargets,
+): BlobWriteAuthorization {
+  return blobKekTargetsProjection(input);
+}
+
 export function toBindResponse(input: {
-  readonly binding: {
-    readonly bindingId: string;
-    readonly documentId: string;
-    readonly slotId: string;
-  };
+  readonly binding: VerifiedAttachmentBinding;
   readonly blobId: string;
   readonly contentKeyBundle: StoredBlobContentKeyBundleWithTargets;
   readonly currentTargets: ResolvedBlobKekTargets;
+  readonly writeHeader: WriteHeader | undefined;
   readonly writeHeaderHash: string | undefined;
+  readonly writeAuthorization: BlobKekTargetsResponse | undefined;
 }) {
   return {
+    bindingEvent: projectionVerifiedAccessEventRecord(input.binding.event),
     bindingId: input.binding.bindingId,
     blobId: input.blobId,
     documentId: input.binding.documentId,
+    documentManifestHash: input.binding.documentManifestHash,
+    previousBindingId: input.binding.body.expectedBindingId,
     slotId: input.binding.slotId,
     contentKeyBundle: toContentKeyBundleResponse(input.contentKeyBundle),
     blobKekTargets: toBlobKekTargetsResponse(input.currentTargets),
+    ...(input.writeHeader ? { writeHeader: { ...input.writeHeader } } : {}),
     ...(input.writeHeaderHash
       ? { writeHeaderHash: input.writeHeaderHash }
+      : {}),
+    ...(input.writeAuthorization
+      ? { writeAuthorization: { ...input.writeAuthorization } }
       : {}),
   };
 }

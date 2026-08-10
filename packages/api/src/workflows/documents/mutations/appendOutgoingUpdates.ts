@@ -209,6 +209,12 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
 }): Promise<DocumentOutgoingUpdate[]> {
   const { appendInput } = input;
   const newUpdates: DocumentOutgoingUpdate[] = [];
+  if (!appendInput.writeAuthorization) {
+    throw new DocumentMutationError(
+      "Document write authorization proof is required",
+      400,
+    );
+  }
 
   for (const update of input.outgoingUpdates) {
     const acceptedHeaderHash = input.acceptedHeaderHashes.get(
@@ -236,9 +242,10 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
       userId: appendInput.userId,
       writeAuthorization: appendInput.writeAuthorization,
     });
-
     await storeDocumentContentWriteHeader(
       {
+        authorizationTargets:
+          appendInput.writeAuthorization.documentKekTargets.targets,
         documentId: appendInput.documentId,
         header: verifiedHeader.header,
         headerHash: verifiedHeader.headerHash,

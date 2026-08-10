@@ -55,6 +55,14 @@ type ProjectionIntegrityErrorCode =
   | "rollback"
   | "stale_predecessor";
 
+function keyingVerificationErrorCode(error: unknown): string | null {
+  if (!isKeyingVerificationError(error) || !(error instanceof Error)) {
+    return null;
+  }
+  const code = Reflect.get(error, "code");
+  return typeof code === "string" ? code : null;
+}
+
 export function projectionIntegrityErrorCode(
   error: unknown,
 ): ProjectionIntegrityErrorCode | null {
@@ -65,7 +73,7 @@ export function projectionIntegrityErrorCode(
     return null;
   }
 
-  const code = Reflect.get(error, "code");
+  const code = keyingVerificationErrorCode(error);
   return code === "rollback" ||
     code === "equivocation" ||
     code === "stale_predecessor"
@@ -90,6 +98,12 @@ export function shouldRetryWithFreshProjection(
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";
+  }
+  if (keyingVerificationErrorCode(error) === "invalid_shape") {
+    // Verification boundaries normalize malformed/stale projection data to a
+    // terminal error. One cache eviction is still safe: a dishonest or broken
+    // fresh response fails again outside this retry boundary.
+    return true;
   }
   if (isKeyingVerificationError(error)) {
     return false;

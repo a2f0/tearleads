@@ -1,23 +1,17 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
-  PrincipalProjectionMember,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
-  computePrincipalProjectionRoot,
-  makeVerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import {
   getCurrentPrincipalStates,
-  listPrincipalStateHistory,
   type PrincipalStateReference,
   principalStateReferenceKey,
-  type StoredPrincipalProjectionMember,
-  type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { PrincipalPolicyError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;
@@ -33,15 +27,6 @@ function principalIdentityKey(input: {
   readonly principalType: string;
 }): string {
   return `${input.principalType}:${input.principalId}`;
-}
-
-function projectionMemberFromStored(
-  member: StoredPrincipalProjectionMember,
-): PrincipalProjectionMember {
-  return {
-    userId: member.userId,
-    role: member.role,
-  };
 }
 
 function collectReferencedPrincipalHeads(
@@ -66,97 +51,51 @@ function collectReferencedPrincipalHeads(
   );
 }
 
-function assertStoredPrincipalStateMatchesReference(
-  reference: PrincipalStateReference,
-  state: StoredPrincipalState | undefined,
-): asserts state is StoredPrincipalState {
-  if (
-    !state ||
-    state.principalType !== reference.principalType ||
-    state.principalId !== reference.principalId ||
-    state.version !== reference.version ||
-    state.keyEpoch !== reference.keyEpoch ||
-    state.stateHash !== reference.stateHash ||
-    state.keyFingerprint !== reference.keyFingerprint
-  ) {
-    throw new PrincipalPolicyProjectionError("Principal policy state is stale");
+function dedupeReferencedPrincipalHeads(
+  references: readonly ReferencedPrincipalHead[],
+): ReferencedPrincipalHead[] {
+  const headsByReference = new Map<string, ReferencedPrincipalHead>();
+  for (const reference of references) {
+    headsByReference.set(principalStateReferenceKey(reference), {
+      ...reference,
+    });
   }
+  return Array.from(headsByReference.values()).sort((left, right) =>
+    principalStateReferenceKey(left).localeCompare(
+      principalStateReferenceKey(right),
+    ),
+  );
 }
 
 function principalStateMatchesReference(
   reference: PrincipalStateReference,
-  state: StoredPrincipalState,
+  state: VerifiedPrincipalPolicy["state"],
 ): boolean {
-  try {
-    assertStoredPrincipalStateMatchesReference(reference, state);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function assertStoredProjectionMatchesState(input: {
-  readonly projection: readonly PrincipalProjectionMember[];
-  readonly state: StoredPrincipalState;
-}): Promise<void> {
-  const projectionRoot = await computePrincipalProjectionRoot(input.projection);
-  if (
-    projectionRoot !== input.state.projectionRoot ||
-    input.projection.length !== input.state.memberCount
-  ) {
-    throw new PrincipalPolicyProjectionError(
-      "Principal policy projection is stale",
-    );
-  }
-}
-
-async function principalPolicyFromStored(input: {
-  readonly history: Awaited<ReturnType<typeof listPrincipalStateHistory>>;
-}): Promise<VerifiedPrincipalPolicy> {
-  const history = await Promise.all(
-    input.history.map(async (entry) => {
-      const projection = entry.projection.map(projectionMemberFromStored);
-
-      await assertStoredProjectionMatchesState({
-        projection,
-        state: entry.state,
-      });
-
-      return {
-        state: entry.state,
-        projection,
-      };
-    }),
+  return (
+    state.principalType === reference.principalType &&
+    state.principalId === reference.principalId &&
+    state.version === reference.version &&
+    state.keyEpoch === reference.keyEpoch &&
+    state.stateHash === reference.stateHash &&
+    state.keyFingerprint === reference.keyFingerprint
   );
-  const currentEntry = history.at(-1);
-
-  if (!currentEntry) {
-    throw new PrincipalPolicyProjectionError("Principal policy state is stale");
-  }
-
-  return makeVerifiedPrincipalPolicy({
-    principalType: currentEntry.state.principalType,
-    principalId: currentEntry.state.principalId,
-    version: currentEntry.state.version,
-    keyEpoch: currentEntry.state.keyEpoch,
-    stateHash: currentEntry.state.stateHash,
-    state: currentEntry.state,
-    projection: currentEntry.projection,
-    history,
-    checkpoint: {
-      principalType: currentEntry.state.principalType,
-      principalId: currentEntry.state.principalId,
-      version: currentEntry.state.version,
-      stateHash: currentEntry.state.stateHash,
-    },
-  });
 }
 
 export async function loadPrincipalPoliciesForContainerPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {
-  const referencedPrincipalHeads = collectReferencedPrincipalHeads(paths);
+  return loadPrincipalPoliciesForReferences(
+    executor,
+    collectReferencedPrincipalHeads(paths),
+  );
+}
+
+export async function loadPrincipalPoliciesForReferences(
+  executor: DatabaseSession,
+  references: readonly ReferencedPrincipalHead[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  const referencedPrincipalHeads = dedupeReferencedPrincipalHeads(references);
 
   if (referencedPrincipalHeads.length === 0) {
     return [];
@@ -190,11 +129,26 @@ export async function loadPrincipalPoliciesForContainerPaths(
       executor,
       Array.from(currentStates.values()),
       async (currentState) => {
-        const history = await listPrincipalStateHistory(
-          currentState.principalType,
-          currentState.principalId,
-          executor,
-        );
+        let policy: VerifiedPrincipalPolicy;
+        try {
+          ({ policy } = await getVerifiedPrincipalPolicyForStateWithExecutor(
+            executor,
+            currentState,
+          ));
+        } catch (error) {
+          if (error instanceof PrincipalPolicyError) {
+            throw new PrincipalPolicyProjectionError(
+              `Principal policy failed integrity verification: ${error.message}`,
+            );
+          }
+          throw error;
+        }
+        const history = policy.history ?? [
+          {
+            state: policy.state,
+            projection: policy.projection,
+          },
+        ];
         const referencesForPrincipal = referencesForType.filter(
           (reference) =>
             principalIdentityKey(reference) ===
@@ -213,9 +167,7 @@ export async function loadPrincipalPoliciesForContainerPaths(
           }
         }
 
-        return principalPolicyFromStored({
-          history,
-        });
+        return policy;
       },
     );
 

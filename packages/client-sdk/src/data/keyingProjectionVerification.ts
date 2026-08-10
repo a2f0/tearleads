@@ -25,4 +25,8 @@ export {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
 } from "./keyingProjectionVerification/containerProjectionVerification";
-export { verifyDocumentWriterProjection } from "./keyingProjectionVerification/documentProjectionVerification";
+export {
+  type DocumentWriterProjectionAuthorization,
+  verifyDocumentWriterProjection,
+  verifyDocumentWriterProjectionAuthorization,
+} from "./keyingProjectionVerification/documentProjectionVerification";

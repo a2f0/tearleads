@@ -6,7 +6,9 @@ import {
   createPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
+import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { cachePrincipalPolicyBundles } from "./policyCache";
 
 test("principal policy cache preserves trusted identity integrity failures", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -66,6 +68,48 @@ test("principal policy cache preserves foreign-instance integrity failures", asy
         references: [referencedPrincipalStateFromBundle(bundle)],
       }),
     ).rejects.toBe(foreignInstanceError);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("API-supplied policy bundles hard-fail when signed permissions are tampered", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-api-tampering",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+    const firstMember = bundle.currentProjection[0];
+    if (!firstMember) {
+      throw new Error("Expected a principal policy member");
+    }
+    const tamperedBundle: typeof bundle = {
+      ...bundle,
+      currentProjection: [
+        {
+          ...firstMember,
+          role: firstMember.role === "admin" ? "member" : "admin",
+        },
+        ...bundle.currentProjection.slice(1),
+      ],
+    };
+
+    await expect(
+      cachePrincipalPolicyBundles({
+        bundles: [tamperedBundle],
+        execSql,
+        getCurrentPrincipalPolicy: async () => null,
+        resolveTrustedUserIdentity: async () =>
+          trustedUserIdentityFromResponse(signerKeyResponse),
+      }),
+    ).rejects.toMatchObject({
+      code: "hash_mismatch",
+      name: "KeyingVerificationError",
+    });
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();

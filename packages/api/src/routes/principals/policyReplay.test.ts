@@ -17,6 +17,11 @@ import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
+import {
+  createPolicyTestGroup,
+  getDefaultOrganizationId,
+} from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -104,6 +109,12 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   await registerUser(replacementAdmin);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(departingAdmin.userId, principalId);
+  await addOrganizationMember({
+    actor: departingAdmin,
+    member: replacementAdmin,
+    organizationId: await getDefaultOrganizationId(departingAdmin.userId),
+  });
   const initialPolicy = await createSignedPolicy({
     principalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -208,6 +219,7 @@ test("recipient-key rejection rolls back every policy artifact", async () => {
   await authenticate(actor);
 
   const principalId = crypto.randomUUID();
+  await createPolicyTestGroup(actor.userId, principalId);
   const principalKem = generateKemSeedAndKeyPair();
   const substitutedRecipientKem = generateKemSeedAndKeyPair();
   const [substitutedEnvelope] = await wrapDekForRecipients(

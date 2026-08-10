@@ -42,6 +42,10 @@ import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
 } from "./mutations/shared/records";
+import {
+  StoredDocumentManifestError,
+  verifyStoredDocumentManifest,
+} from "./storedDocumentManifestVerification";
 import { resolveAuthorizingContainerPathCandidates } from "./writerProjectionContainerPaths";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
@@ -84,11 +88,8 @@ const {
   readCanonicalRecord,
   readNullableString,
   readPlainRecord,
-  readPositiveInteger,
-  readString,
   readStringArray,
   readValue,
-  readVersion,
   verifiedAccessEventRecord,
 } = createProjectionReaders(projectionError);
 
@@ -100,35 +101,6 @@ function toAccessManifestBundleWireResponse(
     manifest: accessManifestRecord(input.manifest),
     manifestHash: input.manifestHash,
     state: readCanonicalRecord(input.state, "Document manifest state"),
-  };
-}
-
-function readDocumentLinkSetState(
-  state: unknown,
-): DocumentLinkSetManifestState {
-  const record = readPlainRecord(state, "Document manifest state");
-  readVersion(record, "Document manifest state");
-  const linkedContainerIds = readStringArray(
-    readValue(record, "linkedContainerIds"),
-    "Document manifest state.linkedContainerIds",
-  );
-
-  return {
-    version: 1,
-    documentId: readString(record, "documentId", "Document manifest state"),
-    organizationId: readString(
-      record,
-      "organizationId",
-      "Document manifest state",
-    ),
-    epoch: readPositiveInteger(record, "epoch", "Document manifest state"),
-    previousManifestHash: readNullableString(
-      record,
-      "previousManifestHash",
-      "Document manifest state",
-    ),
-    eventHash: readString(record, "eventHash", "Document manifest state"),
-    linkedContainerIds,
   };
 }
 
@@ -550,10 +522,23 @@ async function resolveDocumentWriterProjection(input: {
     input.executor,
     input.documentId,
   );
-  const documentState = readDocumentLinkSetState(documentManifest.state);
   const containerProjectionContext = createContainerWriterProjectionContext(
     input.executor,
   );
+  let documentState: DocumentLinkSetManifestState;
+  try {
+    documentState = (
+      await verifyStoredDocumentManifest({
+        bundle: documentManifest,
+        containerContext: containerProjectionContext,
+      })
+    ).state;
+  } catch (error) {
+    if (error instanceof StoredDocumentManifestError) {
+      throw new DocumentWriterProjectionError(error.message, 409);
+    }
+    throw error;
+  }
   let documentKekTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;

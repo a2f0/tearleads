@@ -86,10 +86,13 @@ function readOnlySyncApi(input: {
   };
 }
 
-test("persisted read-only sync refetches once after a cached rollback", async () => {
+test.each([
+  "rollback",
+  "invalid_shape",
+] as const)("persisted read-only sync refetches once after a cached %s failure", async (code) => {
   const fixture = await createReadOnlyResponseFixture();
   const { close, execSql } = await createTestExecSql(
-    "persisted-read-only-cached-rollback",
+    `persisted-read-only-cached-${code}`,
   );
   let projectionFetches = 0;
   let projectionEvictions = 0;
@@ -116,7 +119,7 @@ test("persisted read-only sync refetches once after a cached rollback", async ()
         if (injectRollback) {
           injectRollback = false;
           throw new KeyingVerificationError(
-            "rollback",
+            code,
             "cached projection is behind the local checkpoint",
           );
         }
@@ -234,6 +237,7 @@ test("persisted read-only sync propagates rollback after the evicted refetch", a
 
 test.each([
   "equivocation",
+  "invalid_shape",
   "object_mismatch",
   "stale_predecessor",
 ] as const)("persisted read-only sync propagates %s from a fresh projection", async (code) => {

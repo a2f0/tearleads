@@ -178,7 +178,13 @@ async function putPrincipalPolicyInTransaction(
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
   await lockPolicyPrincipalMutation(tx, input);
-  await lockOrganizationReadModelForPolicyMutation(tx, input);
+  const policyTarget = await lockOrganizationReadModelForPolicyMutation(
+    tx,
+    input,
+  );
+  if (!policyTarget) {
+    throw new PrincipalPolicyError("Principal policy target not found", 404);
+  }
   await assertPolicyAuthorityConstraints(tx, input);
   const previousState = await getCurrentPrincipalState(
     input.state.principalType,

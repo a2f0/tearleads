@@ -29,6 +29,13 @@ export type DocumentContentKeyTargetEnvelopeResponse = z.infer<
   typeof DocumentContentKeyTargetEnvelopeResponseSchema
 >;
 
+const DocumentContentKeyTargetResponseSchema = loosePlainObject({
+  containerId: nonEmptyStringSchema,
+  containerKeyEpoch: positiveIntegerSchema,
+  containerKeyEpochId: nonEmptyStringSchema,
+  containerManifestHash: nonEmptyStringSchema,
+});
+
 export const DocumentKekTargetsResponseSchema = loosePlainObject({
   documentId: z.string(),
   documentKeyTargetHash: nonEmptyStringSchema,
@@ -58,6 +65,9 @@ export const DocumentSyncUpdateResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       accessEpoch: positiveIntegerSchema,
+      authorizationTargets: nonEmptyArraySchema(
+        DocumentContentKeyTargetResponseSchema,
+      ).optional(),
       authorFingerprint: z.string(),
       checkpointKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)

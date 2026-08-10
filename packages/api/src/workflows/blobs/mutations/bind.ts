@@ -8,6 +8,7 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import { storeVerifiedAttachmentBindingInTransaction } from "../../../access/write/attachmentBindingStore";
 import {
   storeBlobContentKeyBundleInTransaction,
@@ -35,6 +36,8 @@ import {
   type ResolvedBlobKekTargets,
   readWriteHeader,
   toBindResponse,
+  toBlobKekTargetsResponse,
+  toBlobWriteAuthorization,
   toStoredContentKeyBundleInput,
   verifiedBlobKekTargetsFromResolved,
 } from "./records";
@@ -104,6 +107,7 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
 
   await storeBlobContentWriteHeader(
     {
+      authorization: toBlobWriteAuthorization(input.blobKekTargets),
       blobId: input.blobId,
       header: verified.value.header,
       headerHash: verified.value.headerHash,
@@ -113,6 +117,52 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   );
 
   return verified.value.headerHash;
+}
+
+async function requireBlobWriteHeader(
+  blobId: string,
+  executor: DatabaseTransaction,
+) {
+  const stored = (await listBlobContentWriteHeaders([blobId], executor)).get(
+    blobId,
+  );
+  if (!stored) {
+    throw new BlobMutationError("Blob write header is missing", 409);
+  }
+  return stored;
+}
+
+async function verifyBindEvent(input: {
+  readonly activeBinding: Awaited<
+    ReturnType<typeof requireSingleActiveAttachmentBindingForSlot>
+  >;
+  readonly bindBody: ReturnType<typeof readBindRequestSession>["bindBody"];
+  readonly blobId: string;
+  readonly event: ReturnType<typeof readBindRequestSession>["event"];
+  readonly proof: AttachmentAuthorizationProof;
+  readonly request: BindBlobAttachmentInput["request"];
+  readonly signingPublicKey: Uint8Array;
+}) {
+  const verified = await verifyAttachmentBindingEvent({
+    authorizingContainerPaths: input.proof.authorizingContainerPaths,
+    body: readKeyingCanonicalJson(
+      input.request.body,
+      "Blob attachment bind body",
+    ),
+    documentManifest: input.proof.documentManifest,
+    event: input.event,
+    expectedBindingId: input.bindBody.bindingId,
+    expectedBlobId: input.blobId,
+    expectedDocumentId: input.bindBody.documentId,
+    expectedDocumentManifestHash: input.proof.documentManifest.manifestHash,
+    expectedPreviousBindingId: input.activeBinding?.id ?? null,
+    principalPolicies: input.proof.principalPolicies,
+    signerPublicKey: input.signingPublicKey,
+  });
+  if (!verified.ok) {
+    throw verified.error;
+  }
+  return verified.value;
 }
 
 // Serialize the blob content-key write against a concurrent container.rekey on
@@ -165,26 +215,15 @@ async function bindBlobAttachmentTransaction(
     executor: tx,
     slotId: bindBody.slotId,
   });
-  const verifiedBinding = await verifyAttachmentBindingEvent({
-    authorizingContainerPaths: proof.authorizingContainerPaths,
-    body: readKeyingCanonicalJson(
-      input.request.body,
-      "Blob attachment bind body",
-    ),
-    documentManifest: proof.documentManifest,
+  const verifiedBinding = await verifyBindEvent({
+    activeBinding,
+    bindBody,
+    blobId: input.blobId,
     event,
-    expectedBindingId: bindBody.bindingId,
-    expectedBlobId: input.blobId,
-    expectedDocumentId: bindBody.documentId,
-    expectedDocumentManifestHash: proof.documentManifest.manifestHash,
-    expectedPreviousBindingId: activeBinding?.id ?? null,
-    principalPolicies: proof.principalPolicies,
-    signerPublicKey: signingPublicKey,
+    proof,
+    request: input.request,
+    signingPublicKey,
   });
-  if (!verifiedBinding.ok) {
-    throw verifiedBinding.error;
-  }
-
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,
     executor: tx,
@@ -193,7 +232,7 @@ async function bindBlobAttachmentTransaction(
     userId: input.userId,
   });
   await detachActiveSlotBinding({ activeBinding, executor: tx });
-  await storeVerifiedAttachmentBindingInTransaction(verifiedBinding.value, tx);
+  await storeVerifiedAttachmentBindingInTransaction(verifiedBinding, tx);
   // The blob now has an active binding again; clear any prior purge soft-delete
   // so the GC sweep does not reclaim a blob this bind just re-referenced.
   await reviveBlobIfDereferenced({ blobId: input.blobId, executor: tx });
@@ -212,25 +251,32 @@ async function bindBlobAttachmentTransaction(
     stagedBlob,
     userId: input.userId,
   });
+  // Intentional verification flag day: a legacy blob without a persisted
+  // signed write header cannot be re-bound because the receiving client would
+  // have no independent proof of who wrote its ciphertext.
+  const storedWriteHeader = await requireBlobWriteHeader(input.blobId, tx);
   await appendAttachmentAuditEvent({
     activeBinding,
-    binding: verifiedBinding.value,
+    binding: verifiedBinding,
     executor: tx,
     fingerprint: input.fingerprint,
     manifest: proof.documentManifest,
     userId: input.userId,
   });
   await touchDocumentAndLinkedContainers(tx, {
-    documentId: verifiedBinding.value.documentId,
+    documentId: verifiedBinding.documentId,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
   });
-
   return toBindResponse({
-    binding: verifiedBinding.value,
+    binding: verifiedBinding,
     blobId: input.blobId,
     contentKeyBundle,
     currentTargets,
-    writeHeaderHash,
+    writeHeader: storedWriteHeader.header,
+    writeHeaderHash: writeHeaderHash ?? storedWriteHeader.headerHash,
+    writeAuthorization: storedWriteHeader.authorization
+      ? toBlobKekTargetsResponse(storedWriteHeader.authorization)
+      : undefined,
   });
 }
 

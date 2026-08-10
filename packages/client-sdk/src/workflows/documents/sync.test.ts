@@ -41,6 +41,7 @@ import {
   createPendingUpdateRecord,
   createPreparedUpdate,
   createResponse,
+  createSignedSyncResponseUpdate,
   createSyncFixture,
   createSyncResponse,
   getOnlyTarget,
@@ -49,6 +50,7 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
+import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/syncResponses";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -1007,6 +1009,83 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
   expect(
     await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("historical update");
+});
+
+test("document sync rejects an incoming update from a read-only writer", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    execSql,
+    localVersionVector: null,
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const { author: ungrantedWriter, signingPublicKey } = await createAuthor();
+  ungrantedWriter.signerUserId = "read-only-writer";
+  const update = await createSignedSyncResponseUpdate({
+    accessManifestHash: materialized.plan.expectedLinkSetManifestHash,
+    author: ungrantedWriter,
+    plan: materialized.plan,
+    targetHash: materialized.plan.expectedTargetHash,
+  });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      materialized.plan,
+      await createSyncResponse(materialized.plan, {
+        acceptedOutgoingUpdateIds: [],
+        updates: [update],
+      }),
+      {
+        resolveWriterPublicKey: async () => signingPublicKey,
+      },
+    ),
+  ).rejects.toThrow("signer lacks write access");
+});
+
+test("document sync rejects substituted writer-authorization targets", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    execSql,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const update = response.updates[0];
+  const target = update?.authorizationTargets?.[0];
+  if (!update || !target) {
+    throw new Error("Expected writer-authorization target fixture");
+  }
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      materialized.plan,
+      {
+        ...response,
+        updates: [
+          {
+            ...update,
+            authorizationTargets: [
+              { ...target, containerManifestHash: "0".repeat(64) },
+            ],
+          },
+        ],
+      },
+      { resolveWriterPublicKey: async () => signingPublicKey },
+    ),
+  ).rejects.toThrow("write targets are not canonical");
 });
 
 test("syncRemoteDocument recovers pending write id conflicts with a read-only sync", async () => {

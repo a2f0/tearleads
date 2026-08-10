@@ -30,6 +30,7 @@ import type {
   ProjectionVerificationOptions,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
+import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
@@ -370,9 +371,13 @@ export async function buildMaterializedDocumentSyncPlan(
   // binds the key material independently.
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
+  let writerAuthorization: DocumentWriterProjectionAuthorization | undefined;
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
     allowStaleContentKeyBundle: true,
     execSql: input.execSql,
+    onVerifiedAuthorization: (authorization) => {
+      writerAuthorization = authorization;
+    },
     principalPolicyCache,
     verifiedByHash,
     ...projectionVerificationOptions(input),
@@ -427,7 +432,7 @@ export async function buildMaterializedDocumentSyncPlan(
     organizationId: manifestIdentity.organizationId,
     pendingUpdates,
   });
-  const plan = await buildDocumentSyncPlan({
+  const basePlan = await buildDocumentSyncPlan({
     author: {
       ...input.author,
       organizationId: manifestIdentity.organizationId,
@@ -444,6 +449,9 @@ export async function buildMaterializedDocumentSyncPlan(
     outgoingUpdates,
     signedAt: input.signedAt,
   });
+  const plan = writerAuthorization
+    ? { ...basePlan, documentWriterAuthorization: writerAuthorization }
+    : basePlan;
 
   return {
     contentKey,

@@ -5,7 +5,7 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
-  BlobContentKeyBundleResponse,
+  BlobAttachmentSummary,
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -74,12 +74,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     readonly blobId: string;
     readonly request: BlobAttachmentBindRequest;
   }> = [];
-  const attachments: Array<{
-    readonly bindingId: string;
-    readonly blobId: string;
-    readonly contentKeyBundle: BlobContentKeyBundleResponse;
-    readonly slotId: string;
-  }> = [];
+  const attachments: BlobAttachmentSummary[] = [];
   const blobs = new Map<
     string,
     {
@@ -141,10 +136,16 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       });
       attachmentBinds.push({ blobId, request });
       attachments.push({
+        bindingEvent: response.bindingEvent,
         bindingId: response.bindingId,
         blobId: response.blobId,
+        blobKekTargets: response.blobKekTargets,
         contentKeyBundle: response.contentKeyBundle,
+        documentManifestHash: response.documentManifestHash,
+        previousBindingId: response.previousBindingId,
         slotId: response.slotId,
+        writeAuthorization: response.writeAuthorization,
+        writeHeader: response.writeHeader,
       });
       blobs.set(blobId, {
         byteLength: completedBlob.byteLength,
@@ -273,10 +274,10 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     expect(store.getSnapshot().attachments).toHaveLength(1);
 
     const decryptedBytes = await decryptDocumentAttachmentBlob({
-      contentKeyBundle: attachment.contentKeyBundle,
+      binding: attachment,
       encryptedBytes: blob.encryptedBytes,
-      expectedBindingId: attachment.bindingId,
-      expectedBlobId: attachment.blobId,
+      expectedDocumentId: projection.documentId,
+      expectedSlotId: attachment.slotId,
       execSql,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       targetSecretKey: fixture.secretKey,
@@ -288,25 +289,27 @@ test("document store uploads attachment bytes with signed bindings", async () =>
 
     await expect(
       decryptDocumentAttachmentBlob({
-        contentKeyBundle: attachment.contentKeyBundle,
+        binding: { ...attachment, bindingId: "wrong-binding-id" },
         encryptedBytes: blob.encryptedBytes,
-        expectedBindingId: "wrong-binding-id",
-        expectedBlobId: attachment.blobId,
+        expectedDocumentId: projection.documentId,
+        expectedSlotId: attachment.slotId,
         execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         targetSecretKey: fixture.secretKey,
         writerProjection: projection,
       }),
-    ).rejects.toThrow("missing attachment target");
+    ).rejects.toThrow(
+      "attachment event binding id does not match expected binding id",
+    );
 
     const invalidMagic = blob.encryptedBytes.slice();
     invalidMagic[0] = (invalidMagic[0] ?? 0) ^ 0xff;
     await expect(
       decryptDocumentAttachmentBlob({
-        contentKeyBundle: attachment.contentKeyBundle,
+        binding: attachment,
         encryptedBytes: invalidMagic,
-        expectedBindingId: attachment.bindingId,
-        expectedBlobId: attachment.blobId,
+        expectedDocumentId: projection.documentId,
+        expectedSlotId: attachment.slotId,
         execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         targetSecretKey: fixture.secretKey,
@@ -321,19 +324,22 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     }
     await expect(
       decryptDocumentAttachmentBlob({
-        contentKeyBundle: {
-          ...attachment.contentKeyBundle,
-          targets: [
-            {
-              ...firstTarget,
-              containerKeyEpochId: "tampered-container-key-epoch",
-            },
-            ...remainingTargets,
-          ],
+        binding: {
+          ...attachment,
+          contentKeyBundle: {
+            ...attachment.contentKeyBundle,
+            targets: [
+              {
+                ...firstTarget,
+                containerKeyEpochId: "tampered-container-key-epoch",
+              },
+              ...remainingTargets,
+            ],
+          },
         },
         encryptedBytes: blob.encryptedBytes,
-        expectedBindingId: attachment.bindingId,
-        expectedBlobId: attachment.blobId,
+        expectedDocumentId: projection.documentId,
+        expectedSlotId: attachment.slotId,
         execSql,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         targetSecretKey: fixture.secretKey,

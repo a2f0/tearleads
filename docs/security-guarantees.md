@@ -88,8 +88,8 @@ The access and policy handshake has these layers:
 A principal signature binds its type/id, version and predecessor, key epoch and
 encapsulation key, membership/projection/envelope roots, encrypted payload
 hash, member count, signer identity, and timestamp. The server validates this
-before storage; clients revalidate the complete contiguous chain before
-caching or key use. Projection rows are therefore not authority by themselves:
+before storage; API authorization consumers and clients revalidate complete
+chains before use. Projection rows are therefore not authority by themselves:
 changing them without a matching signed state causes rejection.
 
 ### Admin-Signer Authorization
@@ -127,8 +127,10 @@ state's `memberCount` must match the projection length. Its
 `memberEnvelopesRoot` must match the canonical exact envelope set.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
-tampered projection, payload, state hash, or chain link is skipped and not used
-for decryption.
+tampered projection, payload, state hash, chain link, signer, or checkpoint
+raises a typed terminal verification error. It is neither cached nor used for
+decryption, and the policy-warming or recovery workflow that received it
+aborts instead of reporting success.
 
 ### Member Envelope Binding
 
@@ -462,7 +464,9 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Organization membership is verified from the reserved `Members` group, not
  from mutable roster rows or product roles on the organization principal.
 - Principal policy bundles fetched by the app are verified before caching and
- skipped on validation failure.
+  make the receiving workflow fail hard on validation failure. Transport-level
+  absence remains a recoverable cache miss, but hostile policy material does
+  not degrade to that availability path.
 - Principal member envelopes must match the active direct signed projection.
 - Group membership and access shrink rotate affected KEKs atomically; stale
  group-grant references and organization successors with stale references are

@@ -10,7 +10,7 @@ import type {
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
-  BlobContentKeyBundleResponse,
+  BlobAttachmentSummary,
   CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
@@ -254,10 +254,10 @@ export interface DetachDocumentAttachmentResult {
 }
 
 export interface DecryptDocumentAttachmentBlobInput {
-  contentKeyBundle: BlobContentKeyBundleResponse;
+  binding: BlobAttachmentSummary;
   encryptedBytes: BlobBytes;
-  expectedBindingId: string;
-  expectedBlobId: string;
+  expectedDocumentId: string;
+  expectedSlotId: string;
   execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   targetSecretKey: Uint8Array;

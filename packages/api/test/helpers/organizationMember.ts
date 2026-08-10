@@ -17,14 +17,14 @@ import { routeApp } from "../../src/routeApp";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import { signPrincipalStateBundle } from "./principalState";
 
-interface MemberGroupUserMutationInput {
+interface MemberGroupUsersMutationInput {
   actor: TestUser;
-  memberUserId: string;
+  memberUserIds: readonly string[];
   organizationId: string;
 }
 
-async function updateMemberGroupUser(
-  input: MemberGroupUserMutationInput,
+async function updateMemberGroupUsers(
+  input: MemberGroupUsersMutationInput,
   operation: "add" | "remove",
 ): Promise<void> {
   const [organization] = await db
@@ -54,13 +54,13 @@ async function updateMemberGroupUser(
     operation === "add"
       ? [
           ...existingProjection,
-          {
-            userId: input.memberUserId,
+          ...input.memberUserIds.map((userId) => ({
+            userId,
             role: "member" as const,
-          },
+          })),
         ]
       : existingProjection.filter(
-          (member) => member.userId !== input.memberUserId,
+          (member) => !input.memberUserIds.includes(member.userId),
         ),
   );
   const payloadCiphertext = bytesToBase64(
@@ -109,13 +109,29 @@ async function updateMemberGroupUser(
 }
 
 export function addMemberGroupUser(
-  input: MemberGroupUserMutationInput,
+  input: Omit<MemberGroupUsersMutationInput, "memberUserIds"> & {
+    memberUserId: string;
+  },
 ): Promise<void> {
-  return updateMemberGroupUser(input, "add");
+  return updateMemberGroupUsers(
+    { ...input, memberUserIds: [input.memberUserId] },
+    "add",
+  );
+}
+
+export function addMemberGroupUsers(
+  input: MemberGroupUsersMutationInput,
+): Promise<void> {
+  return updateMemberGroupUsers(input, "add");
 }
 
 export function removeMemberGroupUser(
-  input: MemberGroupUserMutationInput,
+  input: Omit<MemberGroupUsersMutationInput, "memberUserIds"> & {
+    memberUserId: string;
+  },
 ): Promise<void> {
-  return updateMemberGroupUser(input, "remove");
+  return updateMemberGroupUsers(
+    { ...input, memberUserIds: [input.memberUserId] },
+    "remove",
+  );
 }

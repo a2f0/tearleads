@@ -164,6 +164,7 @@ async function createFixture(input: {
       execSql: database.execSql,
       grants: [grant],
       groupId: GROUP_ID,
+      locallyKnownContainerIds: [],
       nextPolicy,
       resolveTrustedUserIdentity,
       targetSecretKey: memberKem.secretKey,
@@ -227,6 +228,15 @@ test("principal rematerialization rejects stale grant inputs before commit", asy
         revokedContainerId: ROOT_CONTAINER_ID,
       }),
     ).rejects.toThrow("Revoked container is not granted to the group");
+    await expect(
+      buildPrincipalContainerRematerializationBatch({
+        ...fixture.input,
+        grants: [],
+        locallyKnownContainerIds: [ROOT_CONTAINER_ID],
+      }),
+    ).rejects.toThrow(
+      `Server group grant set omits locally known container ${ROOT_CONTAINER_ID}`,
+    );
   } finally {
     fixture.database.close();
   }

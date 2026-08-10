@@ -1,8 +1,4 @@
 import type {
-  PrincipalPolicyCheckpoint,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -13,10 +9,7 @@ import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/pers
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
-import {
-  principalPolicyReferenceFromBundle,
-  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../data/principals/principalPolicyAdminSigners";
+import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
@@ -24,11 +17,7 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "./externalAdminPolicy";
-import {
-  collectPrincipalPolicySignerPublicKeys,
-  type PrincipalPolicySignerPublicKeyLoadErrorCode,
-  principalPolicyStates,
-} from "./policyVerification";
+import { validatePrincipalPolicyBundleForCache } from "./principalPolicyCacheValidation";
 
 export interface CacheReferencedPrincipalPoliciesOptions {
   execSql: ExecSql;
@@ -76,168 +65,6 @@ function dedupePrincipalPolicyBundles(
   return Array.from(bundlesByPrincipal.values());
 }
 
-function getBundleReferenceMismatchReason(
-  reference: ReferencedPrincipalStateResponse,
-  bundle: PrincipalPolicyBundleResponse,
-): string | null {
-  const states = principalPolicyStates(bundle);
-  const hasReferencedPrincipal = states.some(
-    (state) =>
-      state.principalType === reference.principalType &&
-      state.principalId === reference.principalId,
-  );
-  if (!hasReferencedPrincipal) {
-    return "bundle principal does not match referenced principal";
-  }
-
-  if (
-    !states.some(
-      (state) =>
-        state.principalType === reference.principalType &&
-        state.principalId === reference.principalId &&
-        state.version === reference.version &&
-        state.keyEpoch === reference.keyEpoch &&
-        state.stateHash === reference.stateHash &&
-        state.keyFingerprint === reference.keyFingerprint,
-    )
-  ) {
-    return "bundle chain does not contain referenced principal";
-  }
-
-  if (
-    bundle.currentMemberEnvelopes.principalType !==
-      bundle.currentState.principalType ||
-    bundle.currentMemberEnvelopes.principalId !==
-      bundle.currentState.principalId
-  ) {
-    return "member envelope principal does not match current principal";
-  }
-
-  if (
-    bundle.currentMemberEnvelopes.stateHash !== bundle.currentState.stateHash
-  ) {
-    return "member envelope state hash does not match current principal";
-  }
-
-  if (bundle.currentMemberEnvelopes.epoch !== bundle.currentState.keyEpoch) {
-    return "member envelope epoch does not match current principal";
-  }
-
-  if (
-    bundle.currentPayload.principalType !== bundle.currentState.principalType ||
-    bundle.currentPayload.principalId !== bundle.currentState.principalId
-  ) {
-    return "payload principal does not match current principal";
-  }
-
-  if (bundle.currentPayload.stateHash !== bundle.currentState.stateHash) {
-    return "payload state hash does not match current principal";
-  }
-
-  return null;
-}
-
-function getCheckpointMismatchReason(
-  checkpoint: PrincipalPolicyCheckpoint | null,
-  bundle: PrincipalPolicyBundleResponse,
-): string | null {
-  if (!checkpoint) {
-    return null;
-  }
-  const current = bundle.currentState;
-  if (current.version < checkpoint.version) {
-    return "principal policy state is older than the local checkpoint";
-  }
-  if (
-    current.version === checkpoint.version &&
-    current.stateHash !== checkpoint.stateHash
-  ) {
-    return "principal policy state conflicts with the local checkpoint";
-  }
-  if (current.version === checkpoint.version) {
-    return null;
-  }
-
-  const checkpointState = principalPolicyStates(bundle).find(
-    (state) => state.version === checkpoint.version,
-  );
-  return checkpointState?.stateHash === checkpoint.stateHash
-    ? null
-    : "principal policy chain does not extend the local checkpoint";
-}
-
-function signerPublicKeyLoadErrorMessage(
-  code: PrincipalPolicySignerPublicKeyLoadErrorCode,
-): string {
-  switch (code) {
-    case "fingerprint-mismatch":
-      return "signer key fingerprint does not match state signer";
-    case "not-found":
-      return "failed to fetch signer key";
-  }
-}
-
-async function validatePrincipalPolicyBundle(
-  reference: ReferencedPrincipalStateResponse,
-  bundle: PrincipalPolicyBundleResponse,
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
-  localCheckpoint: PrincipalPolicyCheckpoint | null,
-  loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
-): Promise<
-  | {
-      readonly externalAdminPolicy: VerifiedExternalAdminPolicy | null;
-      readonly ok: true;
-      readonly policy: VerifiedPrincipalPolicy;
-    }
-  | { readonly message: string; readonly ok: false }
-> {
-  const referenceMismatch = getBundleReferenceMismatchReason(reference, bundle);
-  if (referenceMismatch) {
-    return { message: referenceMismatch, ok: false };
-  }
-  const checkpointMismatch = getCheckpointMismatchReason(
-    localCheckpoint,
-    bundle,
-  );
-  if (checkpointMismatch) {
-    return { message: checkpointMismatch, ok: false };
-  }
-
-  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-    bundle,
-    resolveTrustedUserIdentity,
-  });
-  if ("error" in signerPublicKeys) {
-    return {
-      message: signerPublicKeyLoadErrorMessage(signerPublicKeys.error),
-      ok: false,
-    };
-  }
-
-  let usedExternalAdminPolicy = false;
-  const verified =
-    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
-      bundle,
-      expectedReference: reference,
-      loadExternalAuthority: async () => {
-        usedExternalAdminPolicy = true;
-        return (await loadExternalAdminPolicy())?.externalAuthority ?? null;
-      },
-      localCheckpoint,
-      signerPublicKeys: signerPublicKeys.signerPublicKeys,
-    });
-
-  return verified.ok
-    ? {
-        externalAdminPolicy: usedExternalAdminPolicy
-          ? await loadExternalAdminPolicy()
-          : null,
-        ok: true,
-        policy: verified.value,
-      }
-    : { message: verified.error.message, ok: false };
-}
-
 async function cacheReferencedPrincipalPolicy(
   execSql: ExecSql,
   getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"],
@@ -271,18 +98,15 @@ async function cacheReferencedPrincipalPolicy(
     return;
   }
 
-  const validation = await validatePrincipalPolicyBundle(
-    reference,
+  const validation = await validatePrincipalPolicyBundleForCache({
     bundle,
-    resolveTrustedUserIdentity,
-    localCheckpoint,
     loadExternalAdminPolicy,
-  );
+    localCheckpoint,
+    reference,
+    resolveTrustedUserIdentity,
+  });
   if (!validation.ok) {
-    log?.(
-      `Principal policy cache: skipped ${getReferencedPrincipalKey(reference)}: ${validation.message}`,
-    );
-    return;
+    throw validation.error;
   }
 
   await persistVerifiedPrincipalPolicyBundlesAtomically({
@@ -312,18 +136,15 @@ async function cachePrincipalPolicyBundle(input: {
     reference.principalType,
     reference.principalId,
   );
-  const validation = await validatePrincipalPolicyBundle(
-    reference,
-    input.bundle,
-    input.resolveTrustedUserIdentity,
+  const validation = await validatePrincipalPolicyBundleForCache({
+    bundle: input.bundle,
+    loadExternalAdminPolicy: input.loadExternalAdminPolicy,
     localCheckpoint,
-    input.loadExternalAdminPolicy,
-  );
+    reference,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   if (!validation.ok) {
-    input.log?.(
-      `Principal policy cache: skipped ${getReferencedPrincipalKey(reference)}: ${validation.message}`,
-    );
-    return;
+    throw validation.error;
   }
 
   await persistVerifiedPrincipalPolicyBundlesAtomically({

@@ -169,7 +169,8 @@ async function openVerifiedKeyringEntries(input: {
   );
   for (const historicalEpochId of manifestHistoryEpochIds(kek)) {
     if (!entryEpochIds.has(historicalEpochId)) {
-      throw new Error(
+      throw new KeyingVerificationError(
+        "missing_dependency",
         `${projectionKekLabel(input.index)} keyring omits an epoch its manifest history commits to`,
       );
     }

@@ -357,6 +357,7 @@ interface ContentWriteHeaderRow {
 
 interface CreateContentWriteHeaderStoreOptions<
   TInput extends ContentWriteHeaderInput,
+  TRow extends ContentWriteHeaderRow,
 > {
   readonly createConflictError: () => Error;
   readonly createObjectMismatchError: () => Error;
@@ -373,7 +374,7 @@ interface CreateContentWriteHeaderStoreOptions<
   readonly list: (
     recordIds: readonly string[],
     executor: DatabaseSession,
-  ) => Promise<readonly ContentWriteHeaderRow[]>;
+  ) => Promise<readonly TRow[]>;
   readonly loadHeaderHash: (
     recordId: string,
     executor: DatabaseSession,
@@ -382,12 +383,13 @@ interface CreateContentWriteHeaderStoreOptions<
 
 export function createContentWriteHeaderStore<
   TInput extends ContentWriteHeaderInput,
->(options: CreateContentWriteHeaderStoreOptions<TInput>) {
+  TRow extends ContentWriteHeaderRow = ContentWriteHeaderRow,
+>(options: CreateContentWriteHeaderStoreOptions<TInput, TRow>) {
   return {
     list: async (
       recordIds: readonly string[],
       executor: DatabaseSession,
-    ): Promise<Map<string, { header: WriteHeader; headerHash: string }>> => {
+    ): Promise<Map<string, Omit<TRow, "recordId">>> => {
       const uniqueRecordIds = [...new Set(recordIds)];
       if (uniqueRecordIds.length === 0) {
         return new Map();
@@ -395,10 +397,10 @@ export function createContentWriteHeaderStore<
 
       const rows = await options.list(uniqueRecordIds, executor);
       return new Map(
-        rows.map((row) => [
-          row.recordId,
-          { header: row.header, headerHash: row.headerHash },
-        ]),
+        rows.map((row) => {
+          const { recordId, ...stored } = row;
+          return [recordId, stored];
+        }),
       );
     },
     store: async (input: TInput, executor: DatabaseSession): Promise<void> => {

@@ -1,4 +1,5 @@
 import type {
+  BlobContentKeyTarget,
   ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
   WriteHeader,
@@ -13,6 +14,18 @@ import {
   uniqueIndex,
   uuid,
 } from "./columns";
+
+export interface BlobWriteAuthorization {
+  readonly activeBindingIds: readonly string[];
+  readonly blobAccessManifestHash: string;
+  readonly blobId: string;
+  readonly blobKeyTargetHash: string;
+  readonly documentManifestHashes: readonly string[];
+  readonly linkedContainerKeyEpochIds: readonly string[];
+  readonly linkedContainerManifestHashes: readonly string[];
+  readonly organizationId: string;
+  readonly targets: readonly BlobContentKeyTarget[];
+}
 
 /**
  * Content-key epochs for encrypted blob payloads.
@@ -154,6 +167,8 @@ export const blobContentKeyTargets = pgTable(
  *   domain reuse within the same blob content-key epoch.
  * - `headerHash`: Hash of the canonical write header.
  * - `header`: Full canonical write header JSON.
+ * - `authorization`: Exact verified blob KEK projection committed by the
+ *   header when the write was accepted. Nullable only for legacy rows.
  * - `createdAt`: Server-side insertion timestamp.
  *
  * Indexes:
@@ -181,6 +196,7 @@ export const blobContentWriteHeaders = pgTable(
     nonceDomainHash: text("nonce_domain_hash").notNull(),
     headerHash: text("header_hash").notNull(),
     header: jsonb("header").$type<WriteHeader>().notNull(),
+    authorization: jsonb("authorization").$type<BlobWriteAuthorization>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

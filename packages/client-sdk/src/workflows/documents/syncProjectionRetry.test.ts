@@ -144,6 +144,43 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
   expect(planned?.[1]).toBe(writerProjection);
 });
 
+test("retrySyncPlan refetches once after a normalized invalid projection", async () => {
+  const { writerProjection } = await createMaterializedSyncFixture();
+  const staleProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+  };
+  let buildCount = 0;
+  let evictionCount = 0;
+
+  const planned = await retrySyncPlan({
+    apiClient: {
+      evictDocumentWriterProjection: () => {
+        evictionCount += 1;
+      },
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => null,
+    },
+    buildWithProjection: async (projection) => {
+      buildCount += 1;
+      if (projection === staleProjection) {
+        throw new KeyingVerificationError(
+          "invalid_shape",
+          "cached projection failed normalized verification",
+        );
+      }
+      return {} as Awaited<
+        ReturnType<typeof buildMaterializedDocumentSyncPlan>
+      >;
+    },
+    documentId: writerProjection.documentId,
+    writerProjection: staleProjection,
+  });
+
+  expect(evictionCount).toBe(1);
+  expect(buildCount).toBe(2);
+  expect(planned?.[1]).toBe(writerProjection);
+});
+
 test("retrySyncPlan does not retry identity failures that resemble stale unwraps", async () => {
   const { writerProjection } = await createMaterializedSyncFixture();
   const integrityError = new KeyingVerificationError(

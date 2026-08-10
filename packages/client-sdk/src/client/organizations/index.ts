@@ -1,10 +1,6 @@
-import type {
-  ContainerGrantSubjectType,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { ContainerGrantSubjectType } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
-import { resolveDocumentCreateAuthor } from "../../workflows/documents";
 import {
   addOrganizationGroupUser,
   cancelStripeSubscription,
@@ -26,7 +22,6 @@ import {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../../workflows/organizations";
-import { buildPrincipalContainerRematerializationBatch } from "../../workflows/organizations/principalContainerRematerialization";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
 import type {
@@ -48,6 +43,7 @@ import {
   runForAuthenticatedOrganization,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
+import { preparePrincipalContainerMutations } from "./principalContainerMutations";
 
 export type {
   ImportedOrganizationUser,
@@ -241,49 +237,6 @@ class OrganizationsService implements Organizations {
     );
   }
 
-  private async preparePrincipalContainerMutations(input: {
-    readonly groupId: string;
-    readonly nextPolicy: VerifiedPrincipalPolicy;
-    readonly revokedContainerId?: string | undefined;
-    readonly runtime: InternalWorkflowRuntimeInput;
-    readonly signingContext: OrganizationSigningContext;
-  }) {
-    const reconciled = await this.readModelCoordinator.reconcile(
-      input.signingContext.organizationId,
-    );
-    if (reconciled === undefined) {
-      throw new Error(
-        "Organization grants could not be reconciled before the group mutation",
-      );
-    }
-    const granted = await this.readModelCoordinator.loadLocalGroupContainers(
-      input.groupId,
-      input.signingContext.organizationId,
-    );
-    const author = resolveDocumentCreateAuthor(input.runtime);
-    const targetSecretKey =
-      input.runtime.crypto.encapsulationKeyPair?.secretKey;
-    if (!granted || !author || !targetSecretKey) {
-      throw new Error(
-        "Organization container rematerialization context is unavailable",
-      );
-    }
-    return buildPrincipalContainerRematerializationBatch({
-      apiClient: input.runtime.apiClient,
-      author,
-      execSql: input.runtime.infra.execSql,
-      grants: granted.containers,
-      groupId: input.groupId,
-      nextPolicy: input.nextPolicy,
-      revokedContainerId: input.revokedContainerId,
-      resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-      targetSecretKey,
-      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-        input.runtime,
-      ),
-    });
-  }
-
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
@@ -298,11 +251,12 @@ class OrganizationsService implements Organizations {
       execSql: runtime.infra.execSql,
       groupId: input.groupId,
       prepareContainerMutations: ({ nextPolicy }) =>
-        this.preparePrincipalContainerMutations({
+        preparePrincipalContainerMutations({
           groupId: input.groupId,
           nextPolicy,
+          organizationId: signingContext.organizationId,
+          readModelCoordinator: this.readModelCoordinator,
           runtime,
-          signingContext,
         }),
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       targetUserId: input.targetUserId,
@@ -533,11 +487,12 @@ class OrganizationsService implements Organizations {
       execSql: runtime.infra.execSql,
       groupId: input.groupId,
       prepareContainerMutations: ({ nextPolicy }) =>
-        this.preparePrincipalContainerMutations({
+        preparePrincipalContainerMutations({
           groupId: input.groupId,
           nextPolicy,
+          organizationId: signingContext.organizationId,
+          readModelCoordinator: this.readModelCoordinator,
           runtime,
-          signingContext,
         }),
       removedUserId: input.removedUserId,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
@@ -570,12 +525,13 @@ class OrganizationsService implements Organizations {
         execSql: runtime.infra.execSql,
         groupId: grant.subjectId,
         prepareContainerMutations: ({ nextPolicy }) =>
-          this.preparePrincipalContainerMutations({
+          preparePrincipalContainerMutations({
             groupId: grant.subjectId,
             nextPolicy,
+            organizationId: signingContext.organizationId,
+            readModelCoordinator: this.readModelCoordinator,
             revokedContainerId: grant.containerId,
             runtime,
-            signingContext,
           }),
         resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
         ...signingContext,
