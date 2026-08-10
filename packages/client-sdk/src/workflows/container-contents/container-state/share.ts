@@ -11,7 +11,10 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
-import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
+import {
+  advanceVerifiedSharePolicies,
+  loadVerifiedGroupSharePrincipalPolicy,
+} from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -62,6 +65,10 @@ async function resolveCurrentGroupKeyEpoch(input: {
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
   });
+  // Commit the verification immediately: this read stands alone (no enclosing
+  // mutation advances it later), and an unadvanced checkpoint would let a
+  // newer same-epoch policy be rolled back on the next fetch.
+  await advanceVerifiedSharePolicies(input.runtime.infra.execSql, verified);
   return verified.policy.keyEpoch;
 }
 

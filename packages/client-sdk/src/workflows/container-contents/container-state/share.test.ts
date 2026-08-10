@@ -17,6 +17,7 @@ import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
@@ -330,7 +331,9 @@ async function runGroupShareScenario(input: {
   testLabel: string;
 }): Promise<{
   containerId: string;
+  currentGroupPolicyStateHash: string;
   currentPolicyCalls: Array<{ principalId: string; principalType: string }>;
+  groupCheckpoint: Awaited<ReturnType<typeof loadPrincipalPolicyCheckpoint>>;
   groupId: string;
   logs: string[];
   shareCallCount: number;
@@ -450,7 +453,13 @@ async function runGroupShareScenario(input: {
 
     return {
       containerId,
+      currentGroupPolicyStateHash: currentGroupPolicy.currentState.stateHash,
       currentPolicyCalls,
+      groupCheckpoint: await loadPrincipalPolicyCheckpoint(
+        execSql,
+        "group",
+        groupId,
+      ),
       groupId,
       logs,
       shareCallCount,
@@ -464,7 +473,9 @@ async function runGroupShareScenario(input: {
 test("shareContainerStateWithGroup re-shares when the group key epoch advanced past the pinned grant", async () => {
   const {
     containerId,
+    currentGroupPolicyStateHash,
     currentPolicyCalls,
+    groupCheckpoint,
     groupId,
     logs,
     shareCallCount,
@@ -492,6 +503,12 @@ test("shareContainerStateWithGroup re-shares when the group key epoch advanced p
   );
   expect(shared).toBeNull();
   expect(shareCallCount).toBe(0);
+  // The standalone key-epoch read has no enclosing mutation to advance its
+  // verification, so it must commit the checkpoint itself — otherwise a newer
+  // same-epoch policy could be rolled back on the next fetch.
+  expect(groupCheckpoint).toMatchObject({
+    stateHash: currentGroupPolicyStateHash,
+  });
 });
 
 test("a prepared existing-grant re-wrap always attempts a real mutation", async () => {
