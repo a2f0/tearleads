@@ -49,6 +49,7 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
         encryptedPayload: signed.encryptedPayload,
         projection: signed.projection,
         memberEnvelopes: signed.memberEnvelopes,
+        grants: signed.grants,
       }),
     },
   );

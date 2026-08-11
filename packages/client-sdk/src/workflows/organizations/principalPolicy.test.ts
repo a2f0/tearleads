@@ -352,6 +352,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
     currentProjection: addRequest.projection,
+    currentGrants: addRequest.grants,
     currentMemberEnvelopes: {
       principalType: "group",
       principalId: initialRequest.groupId,
@@ -363,6 +364,7 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       {
         state: initialPolicy.currentState,
         projection: initialPolicy.currentProjection,
+        grants: initialPolicy.currentGrants,
       },
     ],
   };

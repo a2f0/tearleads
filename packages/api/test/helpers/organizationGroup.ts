@@ -78,6 +78,7 @@ export async function createGroupRequest(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection,
+    grants: [],
     memberEnvelopes,
     payloadCiphertext,
     externalAuthority,
@@ -94,6 +95,7 @@ export async function createGroupRequest(input: {
       state: state.state,
       encryptedPayload: state.encryptedPayload,
       projection: state.projection,
+      grants: state.grants,
       memberEnvelopes,
     },
   };

@@ -129,6 +129,10 @@ The principal state's `projectionRoot` must match the supplied projection. The
 state's `payloadCiphertextHash` must match the supplied encrypted payload. The
 state's `memberCount` must match the projection length. Its
 `memberEnvelopesRoot` must match the canonical exact envelope set.
+The signed `grantRoot` and `grantCount` likewise commit the complete canonical
+set of `{containerId, accessLevel}` grants for that principal. Current and
+historical policy bundle entries carry those grant projections, and both the
+client and API recompute the commitment before accepting them.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint
@@ -372,6 +376,12 @@ to the wrong recipient set.
 Removing a member does not erase learned keys. Group membership shrink rotates
 the principal and granted containers, leaving old keys no forward bridge. The
 client authors the artifacts; the API atomically rejects incomplete batches.
+A client derives the required container set from the verified current and next
+signed grant projections, never from the organization read-model grant lane.
+The API independently compares that signed union with current verified
+container manifests and requires exactly one matching mutation for every
+added, changed, removed, or stale grant. A server omitting one container can
+therefore cause only a failed transaction, not a falsely successful rotation.
 A cold client needs only current policy and container state. Group grant revoke
 rotates the group and its remaining grants; standalone group revokes are
 rejected, while grant-level `read`/`write`/`admin` remains unchanged.

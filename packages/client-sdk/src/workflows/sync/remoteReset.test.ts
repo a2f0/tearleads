@@ -194,6 +194,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         currentStateJson: "{}",
         currentPayloadJson: "{}",
         currentProjectionJson: "[]",
+        currentGrantsJson: "[]",
         currentMemberEnvelopesJson: "[]",
         previousStatesJson: "[]",
         updatedAt: stale,

@@ -23,6 +23,7 @@ test("organization successors fail closed instead of claiming foreign container 
     applyPrincipalContainerRematerializations({
       executor: executorReturning([
         {
+          accessLevel: "read",
           containerId: crypto.randomUUID(),
           keyEpoch: 1,
           keyFingerprint: "previous-fingerprint",
@@ -40,6 +41,7 @@ test("organization successors fail closed instead of claiming foreign container 
         stateHash: "next-state",
         keyFingerprint: "next-fingerprint",
       },
+      nextGrants: [],
       previousKeyEpoch: 1,
       requests: [],
       userId: crypto.randomUUID(),

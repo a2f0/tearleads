@@ -108,6 +108,7 @@ export async function addOrganizationMember(input: {
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
         projection: signedState.projection,
+        grants: signedState.grants,
         memberEnvelopes: signedState.memberEnvelopes,
       }),
     },

@@ -243,6 +243,10 @@ export {
   verifyWriteHeader,
 } from "./keying";
 export {
+  computePrincipalContainerGrantRoot,
+  normalizePrincipalContainerGrants,
+} from "./principalContainerGrants";
+export {
   computePrincipalMemberEnvelopesRoot,
   normalizePrincipalStateMemberEnvelopes,
   PrincipalMemberEnvelopeValidationError,
@@ -254,6 +258,8 @@ export {
 } from "./principalPolicyValidationError";
 export type {
   ManagedRecipientPrincipalType,
+  PrincipalContainerGrant,
+  PrincipalContainerGrantAccessLevel,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,

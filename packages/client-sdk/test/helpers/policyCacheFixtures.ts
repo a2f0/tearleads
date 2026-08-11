@@ -83,6 +83,7 @@ export async function principalPolicyBundleFromInitialPolicy(input: {
   return principalPolicyBundleFromState({
     createdAt: "2026-04-08T00:00:00.000Z",
     encryptedPayload: input.policy.encryptedPayload,
+    grants: input.policy.grants,
     memberEnvelopes: input.policy.memberEnvelopes,
     principalId: input.principalId,
     projection: input.policy.projection,
@@ -117,6 +118,7 @@ export function predecessorBundleFromSuccessor(
       createdAt: previous.state.createdAt,
     },
     currentProjection: previous.projection,
+    currentGrants: previous.grants,
     currentState: previous.state,
     previousStates: [],
   };
@@ -248,7 +250,11 @@ export async function createSuccessorPrincipalPolicyBundle(
     memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
     payloadCiphertext: "ciphertext-2",
     previousStates: [
-      { state: previousBundle.currentState, projection: previousProjection },
+      {
+        state: previousBundle.currentState,
+        projection: previousProjection,
+        grants: previousBundle.currentGrants,
+      },
     ],
     projection: currentProjection,
     signing: {
@@ -334,7 +340,11 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
     memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
     payloadCiphertext: "ciphertext-2",
     previousStates: [
-      { state: previousBundle.currentState, projection: previousProjection },
+      {
+        state: previousBundle.currentState,
+        projection: previousProjection,
+        grants: previousBundle.currentGrants,
+      },
     ],
     projection: currentProjection,
     signing: {

@@ -310,17 +310,21 @@ export {
   CurrentPrincipalMemberEnvelopesResponseSchema,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
+  isPrincipalPolicyMutationResponse,
   isPrincipalPolicyStaleErrorResponse,
   isPrincipalPolicyStateChainEntryResponse,
   isPrincipalStatePayloadResponse,
   isPrincipalStateResponse,
-  isReferencedPrincipalStateResponse,
+  type PrincipalContainerGrantResponse,
+  PrincipalContainerGrantResponseSchema,
   type PrincipalMemberEnvelopeResponse,
   PrincipalMemberEnvelopeResponseSchema,
   type PrincipalPolicyBundleResponse,
   PrincipalPolicyBundleResponseSchema,
   type PrincipalPolicyErrorResponse,
   PrincipalPolicyErrorResponseSchema,
+  type PrincipalPolicyMutationResponse,
+  PrincipalPolicyMutationResponseSchema,
   type PrincipalPolicyStaleErrorResponse,
   PrincipalPolicyStaleErrorResponseSchema,
   type PrincipalPolicyStateChainEntryResponse,
@@ -333,9 +337,12 @@ export {
   PrincipalStatePayloadResponseSchema,
   type PrincipalStateResponse,
   PrincipalStateResponseSchema,
+} from "./principal";
+export {
+  isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
   ReferencedPrincipalStateResponseSchema,
-} from "./principal";
+} from "./principalReference";
 export {
   isRegistrationResponse,
   type RegistrationResponse,

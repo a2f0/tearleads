@@ -95,6 +95,11 @@ export async function prepareUserForAdminGroup(input: {
     db,
   );
   invariant(currentState, "expected current Admins state");
+  const root = await bootstrapRoot(input.actor);
+  const currentPolicy = root.principalPolicies.find(
+    (policy) => policy.principalId === organization.adminGroupId,
+  );
+  invariant(currentPolicy, "expected current Admins policy");
   const currentProjection = await listCurrentPrincipalProjectionMembers(
     "group",
     organization.adminGroupId,
@@ -139,6 +144,7 @@ export async function prepareUserForAdminGroup(input: {
       userId: projectionMember.userId,
     })),
     projection: nextProjection,
+    grants: currentPolicy.grants,
     payloadCiphertext: JSON.stringify({ members: nextProjection }),
     signedAt: SIGNED_AT,
     signerUserId: input.actor.userId,
@@ -147,11 +153,6 @@ export async function prepareUserForAdminGroup(input: {
     memberEnvelopes,
   });
   const stateHash = await computePrincipalStateHash(signedState.state);
-  const root = await bootstrapRoot(input.actor);
-  const currentPolicy = root.principalPolicies.find(
-    (policy) => policy.principalId === organization.adminGroupId,
-  );
-  invariant(currentPolicy, "expected current Admins policy");
   const nextState = {
     ...signedState.state,
     stateHash,
@@ -165,9 +166,18 @@ export async function prepareUserForAdminGroup(input: {
     stateHash,
     state: nextState,
     projection: signedState.projection,
+    grants: signedState.grants,
     history: [
-      { state: currentPolicy.state, projection: currentPolicy.projection },
-      { state: nextState, projection: signedState.projection },
+      {
+        state: currentPolicy.state,
+        projection: currentPolicy.projection,
+        grants: currentPolicy.grants,
+      },
+      {
+        state: nextState,
+        projection: signedState.projection,
+        grants: signedState.grants,
+      },
     ],
     checkpoint: {
       principalType: nextState.principalType,
@@ -188,6 +198,7 @@ export async function prepareUserForAdminGroup(input: {
       state: signedState.state,
       encryptedPayload: signedState.encryptedPayload,
       projection: signedState.projection,
+      grants: signedState.grants,
       memberEnvelopes: signedState.memberEnvelopes,
       containerMutations: [rootRekey.request],
     },

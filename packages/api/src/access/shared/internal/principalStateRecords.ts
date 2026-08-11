@@ -1,4 +1,5 @@
 import {
+  principalContainerGrantProjection,
   principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
@@ -6,7 +7,10 @@ import {
 } from "@tearleads/api-shared/schema";
 import {
   type ManagedRecipientPrincipalType,
+  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
+  type PrincipalContainerGrant,
+  type PrincipalContainerGrantAccessLevel,
   type PrincipalProjectionMember,
   type PrincipalProjectionRole,
   type PrincipalStateExternalAuthority,
@@ -39,9 +43,17 @@ export interface StoredPrincipalProjectionMember {
   createdAt: Date;
 }
 
+export interface StoredPrincipalContainerGrant extends PrincipalContainerGrant {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  createdAt: Date;
+}
+
 export interface StoredPrincipalStateChainEntry {
   state: StoredPrincipalState;
   projection: StoredPrincipalProjectionMember[];
+  grants: StoredPrincipalContainerGrant[];
 }
 
 export interface StoredPrincipalEpochKey {
@@ -64,6 +76,7 @@ export interface PrincipalStateBundleInput {
   state: SignedPrincipalState;
   encryptedPayload: PrincipalStatePayloadInput;
   projection: PrincipalProjectionMember[];
+  grants: PrincipalContainerGrant[];
   memberEnvelopes: PrincipalStateMemberEnvelope[];
 }
 
@@ -95,8 +108,10 @@ export const principalStateSelect = {
   membershipRoot: principalStates.membershipRoot,
   memberEnvelopesRoot: principalStates.memberEnvelopesRoot,
   projectionRoot: principalStates.projectionRoot,
+  grantRoot: principalStates.grantRoot,
   payloadCiphertextHash: principalStates.payloadCiphertextHash,
   memberCount: principalStates.memberCount,
+  grantCount: principalStates.grantCount,
   externalAuthority: principalStates.externalAuthority,
   signedAt: principalStates.signedAt,
   signerUserId: principalStates.signerUserId,
@@ -135,6 +150,15 @@ export const principalProjectionMemberSelect = {
   createdAt: principalMembershipProjection.createdAt,
 } as const;
 
+export const principalContainerGrantSelect = {
+  principalType: principalContainerGrantProjection.principalType,
+  principalId: principalContainerGrantProjection.principalId,
+  stateHash: principalContainerGrantProjection.stateHash,
+  containerId: principalContainerGrantProjection.containerId,
+  accessLevel: principalContainerGrantProjection.accessLevel,
+  createdAt: principalContainerGrantProjection.createdAt,
+} as const;
+
 interface PrincipalStateRow {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -147,8 +171,10 @@ interface PrincipalStateRow {
   membershipRoot: string;
   memberEnvelopesRoot: string;
   projectionRoot: string;
+  grantRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  grantCount: number;
   externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: Date;
   signerUserId: string;
@@ -167,6 +193,15 @@ interface PrincipalProjectionMemberRow {
   createdAt: Date;
 }
 
+interface PrincipalContainerGrantRow {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  containerId: string;
+  accessLevel: PrincipalContainerGrantAccessLevel;
+  createdAt: Date;
+}
+
 export function toStoredPrincipalState(
   row: PrincipalStateRow,
 ): StoredPrincipalState {
@@ -182,8 +217,10 @@ export function toStoredPrincipalState(
     membershipRoot: row.membershipRoot,
     memberEnvelopesRoot: row.memberEnvelopesRoot,
     projectionRoot: row.projectionRoot,
+    grantRoot: row.grantRoot,
     payloadCiphertextHash: row.payloadCiphertextHash,
     memberCount: row.memberCount,
+    grantCount: row.grantCount,
     externalAuthority: row.externalAuthority,
     signedAt: row.signedAt.toISOString(),
     signerUserId: row.signerUserId,
@@ -192,6 +229,12 @@ export function toStoredPrincipalState(
     stateHash: row.stateHash,
     createdAt: row.createdAt,
   };
+}
+
+export function toStoredPrincipalContainerGrant(
+  row: PrincipalContainerGrantRow,
+): StoredPrincipalContainerGrant {
+  return { ...row };
 }
 
 export function toStoredProjectionMember(
@@ -222,8 +265,10 @@ function stripSignedPrincipalStateArtifacts(
     membershipRoot: state.membershipRoot,
     memberEnvelopesRoot: state.memberEnvelopesRoot,
     projectionRoot: state.projectionRoot,
+    grantRoot: state.grantRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    grantCount: state.grantCount,
     externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
@@ -243,6 +288,7 @@ export function normalizePrincipalStateWriteInput(
       ciphertextHash: input.encryptedPayload.ciphertextHash,
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
+    grants: normalizePrincipalContainerGrants(input.grants),
     memberEnvelopes: input.memberEnvelopes.map((envelope) => ({
       userId: envelope.userId,
       memberKeyFingerprint: envelope.memberKeyFingerprint,

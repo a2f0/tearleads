@@ -68,6 +68,7 @@ async function createInitialOrganizationPolicy(input: {
       members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
+      grants: [],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
@@ -85,6 +86,7 @@ async function createInitialOrganizationPolicy(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
+    grants: [],
     memberEnvelopes,
   };
 }
@@ -124,14 +126,27 @@ export async function createRegistrationRequestBody(
   const userId = options.userId ?? crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
+  const organizationMetadataContainerId =
+    options.includeOrganizationProfileDocument
+      ? crypto.randomUUID()
+      : undefined;
   const initialAdminGroup = await createInitialAdminGroupRequest({
     encapsulationPublicKey,
+    grants: [{ containerId: rootContainerId, accessLevel: "admin" }],
     signingPrivateKey,
     signingPublicKey,
     userId,
   });
   const initialMemberGroup = await createInitialMemberGroupRequest({
     encapsulationPublicKey,
+    grants: organizationMetadataContainerId
+      ? [
+          {
+            containerId: organizationMetadataContainerId,
+            accessLevel: "read",
+          },
+        ]
+      : [],
     signingPrivateKey,
     signingPublicKey,
     userId,
@@ -141,6 +156,7 @@ export async function createRegistrationRequestBody(
     encapsulationPublicKey,
     memberGroup: initialMemberGroup,
     organizationId,
+    organizationMetadataContainerId,
     includeTrashSystemContainer: options.includeTrashSystemContainer,
     ...(options.includeRosterProfileDocument
       ? { rosterProfileDocumentId: crypto.randomUUID() }

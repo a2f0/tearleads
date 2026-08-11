@@ -25,6 +25,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
+  policyBundleAfterMutation,
   policyBundleFromInitialRequest,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
@@ -239,26 +240,38 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
 
 test("shareRemoteContainerWithGroup grants a managed principal with the selected access", async () => {
   const parent = await createParentProjection();
-  const { author } = await createAuthor({
-    organizationId: parent.projection.organizationId,
-    userId: parent.userId,
-  });
-  const groupSigningKeyPair = generateSigningSeedAndKeyPair();
-  const groupEncapsulationKeyPair = generateKemSeedAndKeyPair();
-  const groupSignerUserId = "group-signer";
+  const author = parent.author;
+  const groupSigningKeyPair = {
+    signingPrivateKey: author.signerPrivateKey,
+    signingPublicKey: parent.signingPublicKey,
+  };
+  const groupEncapsulationKeyPair = {
+    publicKey: parent.encapsulationPublicKey,
+    secretKey: parent.secretKey,
+  };
+  const groupSignerUserId = author.signerUserId;
   const groupId = "group-1";
-  const groupSigningFingerprint = await toFingerprint(
-    groupSigningKeyPair.signingPublicKey,
-  );
+  const groupSigningFingerprint = author.signerKeyFingerprint;
   const groupPolicyRequest = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
     groupId,
-    name: "Operators",
+    name: "Admins",
     signerUserId: groupSignerUserId,
     signingFingerprint: groupSigningFingerprint,
     signingKeyPair: groupSigningKeyPair,
   });
-  const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
+  let groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    parent.projection.organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId: groupId,
+      encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+      memberGroupId: "members-group",
+      organizationId: parent.projection.organizationId,
+      signingKeyPair: groupSigningKeyPair,
+      userId: groupSignerUserId,
+    }),
+  );
   const submittedRequests: ContainerMutationRequest[] = [];
 
   const shared = await withTestExecSql("container-group-share", (execSql) =>
@@ -267,13 +280,30 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       apiClient: {
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          if (principalType === "organization") {
+            return organizationPolicy;
+          }
           expect(principalType).toBe("group");
           expect(principalId).toBe(groupId);
           return groupPolicy;
         },
-        shareContainer: async (_containerId, request) => {
-          submittedRequests.push(request);
-          return createMutationResponseFromRequest(request);
+        putPrincipalPolicy: async (_principalType, _principalId, request) => {
+          submittedRequests.push(...(request.containerMutations ?? []));
+          groupPolicy = await policyBundleAfterMutation({
+            mutation: request,
+            previous: groupPolicy,
+          });
+          return {
+            ...groupPolicy,
+            containerMutations: await Promise.all(
+              submittedRequests.map((submittedRequest) =>
+                createMutationResponseFromRequest(submittedRequest),
+              ),
+            ),
+          };
+        },
+        shareContainer: async () => {
+          throw new Error("Compound group share must use the policy PUT");
         },
       },
       author,
@@ -291,6 +321,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
         });
       },
       signedAt: SIGNED_AT,
+      signingKeyPair: groupSigningKeyPair,
       targetSecretKey: parent.secretKey,
     }),
   );
@@ -382,6 +413,12 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
       keyFingerprint: adminPolicy.currentState.keyFingerprint,
     },
     groupId,
+    grants: [
+      {
+        accessLevel: "read",
+        containerId: parent.projection.containerId,
+      },
+    ],
     includeSignerAsAdmin: false,
     name: "Operators",
     signerUserId: groupSignerUserId,

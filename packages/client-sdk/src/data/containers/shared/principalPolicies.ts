@@ -17,6 +17,7 @@ export function principalPolicyRequestRecord(
         stateHash: policy.stateHash,
       },
       projection: policy.projection,
+      grants: policy.grants,
       checkpoint: policy.checkpoint,
     },
     label,

@@ -43,6 +43,7 @@ export async function createSuccessorGroupPolicyBundle(input: {
       {
         state: input.previousBundle.currentState,
         projection: input.previousBundle.currentProjection,
+        grants: input.previousBundle.currentGrants,
       },
     ],
     projection: [{ userId: input.userId, role: "admin" as const }],
@@ -58,6 +59,7 @@ export async function createSuccessorGroupPolicyBundle(input: {
       signedAt: input.signedAt,
       signerUserId: input.userId,
       signerUserKeyFingerprint: input.author.signerKeyFingerprint,
+      grants: input.previousBundle.currentGrants,
     },
     signingPrivateKey: input.author.signerPrivateKey,
   });

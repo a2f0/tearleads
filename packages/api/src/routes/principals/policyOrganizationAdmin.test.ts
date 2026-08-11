@@ -25,6 +25,7 @@ function putPolicy(
     body: JSON.stringify({
       state: signed.state,
       encryptedPayload: signed.encryptedPayload,
+      grants: signed.grants,
       projection: signed.projection,
       memberEnvelopes: signed.memberEnvelopes,
     }),

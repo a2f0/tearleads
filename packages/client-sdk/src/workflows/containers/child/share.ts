@@ -1,36 +1,16 @@
-import type {
-  ContainerAccessLevel,
-  ContainerDirectGrant,
-  ContainerGrantAccessEventBody,
-  ContainerKekRecipientTarget,
-  ContainerKeyWrap,
-  ContainerUserRecipientKey,
-} from "@tearleads/crypto";
+import type { ContainerAccessLevel, SigningKeyPair } from "@tearleads/crypto";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import {
-  asContainerManifestBundle,
-  getTargetContainerContext,
-  readContainerState,
-  uniqueSortedManifestHashes,
-  wrapContainerKeyToManagedPrincipal,
-  wrapContainerKeyToRootUser,
-} from "../../../data/containers/shared/projection";
-import { readContainerKeyWraps } from "../../../data/containers/shared/readers";
 import type {
   ContainerMutationAuthor,
   ContainerShareApi,
   ContainerSharePlan,
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import {
-  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -42,166 +22,15 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
+import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
+import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
-import { requireUnwrappedKek } from "./rotationContext";
-import {
-  buildContainerSharePlanResult,
-  type ContainerShareRecipient,
-  collectContainerSharePrincipalPolicies,
-  collectShareUserRecipientKeys,
-  deriveContainerShareManifest,
-  referencedPrincipalHeadFromPolicy,
-  replaceContainerWrap,
-  shareManifestHistory,
-} from "./sharePlanCore";
+import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 import {
   advanceVerifiedSharePolicies,
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
 } from "./sharePrincipalPolicy";
-
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Container share planning keeps the cryptographic transition in one auditable sequence.
-export async function buildMaterializedContainerSharePlan(input: {
-  accessLevel: ContainerAccessLevel;
-  author: ContainerMutationAuthor;
-  eventId?: string | undefined;
-  execSql: ExecSql;
-  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-  principalPolicyCache?: PrincipalPolicyCache | undefined;
-  previousProjection: ContainerWriterProjectionResponse;
-  recipient: ContainerShareRecipient;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<MaterializedContainerSharePlan> {
-  const keksByEpochId = await unwrapContainerKekPath({
-    execSql: input.execSql,
-    knownContainerKeks: input.knownContainerKeks,
-    principalPolicyCache: input.principalPolicyCache,
-    projection: input.previousProjection,
-    secretKey: input.targetSecretKey,
-    ...projectionVerificationOptions(input),
-  });
-  const target = getTargetContainerContext(input.previousProjection);
-  const previousState = readContainerState(target.manifest);
-  if (previousState.organizationId !== input.author.organizationId) {
-    throw new Error("Container share author organization mismatch");
-  }
-
-  const grant: ContainerDirectGrant = {
-    accessLevel: input.accessLevel,
-    subjectId: input.recipient.subjectId,
-    subjectType: input.recipient.subjectType,
-  };
-  const referencedPrincipalHead =
-    input.recipient.subjectType === "user"
-      ? null
-      : referencedPrincipalHeadFromPolicy(input.recipient.principalPolicy);
-  const body: ContainerGrantAccessEventBody = {
-    eventType: "container.grant",
-    containerKeyEpochId: previousState.containerKeyEpochId,
-    grant,
-    referencedPrincipalHead,
-  };
-  const { event, eventHash } = await signContainerMutationEvent({
-    author: input.author,
-    body,
-    containerId: previousState.containerId,
-    dependencyManifestHashes: uniqueSortedManifestHashes(
-      input.previousProjection.path,
-    ),
-    eventId: input.eventId ?? crypto.randomUUID(),
-    previousManifestHash: target.manifest.manifestHash,
-    signedAt: input.signedAt ?? new Date().toISOString(),
-  });
-  const { manifest, manifestHash, state } = await deriveContainerShareManifest({
-    eventHash,
-    grant,
-    previousManifest: target.manifest,
-    referencedPrincipalHead,
-  });
-  const containerKey = requireUnwrappedKek(
-    keksByEpochId,
-    target.kek,
-    "Container share target",
-  );
-  let recipientTarget: ContainerKekRecipientTarget;
-  let userRecipientKeys: ContainerUserRecipientKey[];
-  let wrap: ContainerKeyWrap;
-  if (input.recipient.subjectType === "user") {
-    const shareRecipient = await wrapContainerKeyToRootUser({
-      containerKey,
-      containerKeyEpochId: target.kek.containerKeyEpochId,
-      manifestHash,
-      recipientEncapsulationPublicKey:
-        input.recipient.recipientEncapsulationPublicKey,
-      userId: input.recipient.subjectId,
-    });
-    recipientTarget = shareRecipient.recipientTarget;
-    userRecipientKeys = collectShareUserRecipientKeys({
-      newUserRecipientKey: shareRecipient.userRecipientKey,
-      state,
-      targetKek: target.kek,
-    });
-    wrap = shareRecipient.wrap;
-  } else {
-    const shareRecipient = await wrapContainerKeyToManagedPrincipal({
-      containerKey,
-      containerKeyEpochId: target.kek.containerKeyEpochId,
-      manifestHash,
-      principalEncapsulationPublicKey:
-        input.recipient.principalPolicy.state.encapsulationPublicKey,
-      principalHead: referencedPrincipalHeadFromPolicy(
-        input.recipient.principalPolicy,
-      ),
-    });
-    recipientTarget = shareRecipient.recipientTarget;
-    userRecipientKeys = collectShareUserRecipientKeys({
-      state,
-      targetKek: target.kek,
-    });
-    wrap = shareRecipient.wrap;
-  }
-  const previousWraps = readContainerKeyWraps(
-    target.kek.wraps,
-    "Container share previous wraps",
-  );
-  const principalPolicies = await collectContainerSharePrincipalPolicies({
-    execSql: input.execSql,
-    principalPolicyCache: input.principalPolicyCache,
-    previousProjection: input.previousProjection,
-    ...(input.recipient.subjectType === "user"
-      ? {}
-      : { recipientPolicy: input.recipient.principalPolicy }),
-    resolveUserKey: input.resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
-
-  return buildContainerSharePlanResult({
-    body,
-    containerManifestHistory: shareManifestHistory({
-      containerId: previousState.containerId,
-      targetKek: target.kek,
-      targetManifest: target.manifest,
-    }),
-    containerKey,
-    containerId: previousState.containerId,
-    event,
-    eventHash,
-    grant,
-    manifest,
-    manifestHash,
-    previousManifest: asContainerManifestBundle(target.manifest),
-    previousProjection: input.previousProjection,
-    principalPolicies,
-    recipientTarget,
-    state,
-    targetKek: target.kek,
-    userRecipientKeys,
-    wraps: replaceContainerWrap(previousWraps, wrap),
-  });
-}
 
 export async function shareRemoteContainer(input: {
   accessLevel: ContainerAccessLevel;
@@ -270,7 +99,7 @@ export async function shareRemoteContainer(input: {
   });
 }
 
-export async function shareRemoteContainerWithGroup(input: {
+interface RemoteContainerGroupShareInput {
   accessLevel: ContainerAccessLevel;
   apiClient: ContainerManagedPrincipalShareApi;
   author: ContainerMutationAuthor;
@@ -283,13 +112,107 @@ export async function shareRemoteContainerWithGroup(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
+  signingKeyPair?: SigningKeyPair | null | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
+}
+
+interface RemoteContainerGroupShareResult {
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
   response: ContainerMutationResponse;
-} | null> {
+}
+
+function isMaterializedContainerSharePlan(
+  value: Awaited<
+    ReturnType<typeof preparePrincipalContainerRematerializationBatch>
+  >["plans"][number],
+): value is MaterializedContainerSharePlan {
+  return value.plan.body.eventType === "container.grant";
+}
+
+async function commitMissingGroupGrant(
+  input: RemoteContainerGroupShareInput,
+): Promise<RemoteContainerGroupShareResult> {
+  if (!input.apiClient.putPrincipalPolicy || !input.signingKeyPair) {
+    throw new Error(
+      "Container group share requires principal policy signing context",
+    );
+  }
+  const policyApi = {
+    getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy.bind(
+      input.apiClient,
+    ),
+    putPrincipalPolicy: input.apiClient.putPrincipalPolicy.bind(
+      input.apiClient,
+    ),
+  };
+  let preparedTarget:
+    | Awaited<
+        ReturnType<typeof preparePrincipalContainerRematerializationBatch>
+      >
+    | undefined;
+  const storedPolicy = await setOrganizationGroupContainerGrant({
+    accessLevel: input.accessLevel,
+    apiClient: policyApi,
+    containerId: input.containerId,
+    execSql: input.execSql,
+    groupId: input.recipientGroupId,
+    organizationId: input.author.organizationId,
+    prepareContainerMutations: async ({ currentPolicy, nextPolicy }) => {
+      const prepared = await preparePrincipalContainerRematerializationBatch({
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        grants: [
+          ...new Map(
+            [...currentPolicy.currentGrants, ...nextPolicy.grants].map(
+              (grant) => [grant.containerId, grant] as const,
+            ),
+          ).values(),
+        ],
+        groupId: input.recipientGroupId,
+        nextPolicy,
+        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+      preparedTarget = prepared;
+      return prepared;
+    },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    signerUserId: input.author.signerUserId,
+    signingFingerprint: input.author.signerKeyFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+  const targetIndex = preparedTarget?.plans.findIndex(
+    (planned) => planned.plan.containerId === input.containerId,
+  );
+  const response =
+    targetIndex === undefined || targetIndex < 0
+      ? undefined
+      : storedPolicy.containerMutations[targetIndex];
+  const targetPlan =
+    targetIndex === undefined || targetIndex < 0
+      ? undefined
+      : preparedTarget?.plans[targetIndex];
+  if (
+    !targetPlan ||
+    !response ||
+    !isMaterializedContainerSharePlan(targetPlan)
+  ) {
+    throw new Error("Container group share acknowledgement is incomplete");
+  }
+  return {
+    containerKey: targetPlan.containerKey,
+    plan: targetPlan.plan,
+    response,
+  };
+}
+
+export async function shareRemoteContainerWithGroup(
+  input: RemoteContainerGroupShareInput,
+): Promise<RemoteContainerGroupShareResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container share",
@@ -308,6 +231,13 @@ export async function shareRemoteContainerWithGroup(input: {
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   await advanceVerifiedSharePolicies(input.execSql, verifiedPrincipalPolicy);
+
+  const signedGrant = verifiedPrincipalPolicy.policy.grants.find(
+    (grant) => grant.containerId === input.containerId,
+  );
+  if (!signedGrant || signedGrant.accessLevel !== input.accessLevel) {
+    return commitMissingGroupGrant(input);
+  }
 
   const materializedPlan = await buildMaterializedContainerSharePlan({
     accessLevel: input.accessLevel,

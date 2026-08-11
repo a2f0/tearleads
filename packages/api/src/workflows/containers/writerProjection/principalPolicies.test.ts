@@ -92,6 +92,7 @@ test("principal policy cache keys match historical referenced policy heads", () 
                 keyFingerprint: "key-fingerprint",
               } as VerifiedPrincipalPolicy["state"],
               projection: [],
+              grants: [],
             },
           ],
         }),

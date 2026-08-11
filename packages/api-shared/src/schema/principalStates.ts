@@ -1,5 +1,6 @@
 import type {
   ManagedRecipientPrincipalType,
+  PrincipalContainerGrantAccessLevel,
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
@@ -104,8 +105,10 @@ export const principalStates = pgTable(
     membershipRoot: text("membership_root").notNull(),
     memberEnvelopesRoot: text("member_envelopes_root").notNull(),
     projectionRoot: text("projection_root").notNull(),
+    grantRoot: text("grant_root").notNull(),
     payloadCiphertextHash: text("payload_ciphertext_hash").notNull(),
     memberCount: integer("member_count").notNull(),
+    grantCount: integer("grant_count").notNull(),
     externalAuthority:
       jsonb("external_authority").$type<PrincipalStateExternalAuthority>(),
     stateHash: text("state_hash").notNull(),
@@ -277,6 +280,39 @@ export const principalMembershipProjection = pgTable(
       table.principalId,
       table.stateHash,
       table.userId,
+    ),
+  ],
+);
+
+/** Historical complete direct-container grant projection committed by a state. */
+export const principalContainerGrantProjection = pgTable(
+  "principal_container_grant_projection",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    principalType: text("principal_type")
+      .$type<ManagedRecipientPrincipalType>()
+      .notNull(),
+    principalId: uuid("principal_id").notNull(),
+    stateHash: text("state_hash").notNull(),
+    containerId: uuid("container_id").notNull(),
+    accessLevel: text("access_level")
+      .$type<PrincipalContainerGrantAccessLevel>()
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("principal_container_grant_projection_principal_idx").on(
+      table.principalType,
+      table.principalId,
+    ),
+    index("principal_container_grant_projection_container_idx").on(
+      table.containerId,
+    ),
+    uniqueIndex("principal_container_grant_projection_state_container_idx").on(
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+      table.containerId,
     ),
   ],
 );

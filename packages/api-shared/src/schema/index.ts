@@ -59,6 +59,7 @@ export {
   organizations,
 } from "./organizations";
 export {
+  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import {
+  computePrincipalContainerGrantRoot,
   computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
@@ -278,9 +279,11 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       ]),
       memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
+      grantRoot: await computePrincipalContainerGrantRoot([]),
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
       memberCount: projection.length + 1,
+      grantCount: 0,
       externalAuthority: null,
       signedAt: "2026-04-07T12:07:00.000Z",
       signerUserId: signer.signerUserId,
@@ -299,6 +302,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
           ciphertextHash: state.payloadCiphertextHash,
         },
         projection,
+        grants: [],
         memberEnvelopes: [],
       },
       db,

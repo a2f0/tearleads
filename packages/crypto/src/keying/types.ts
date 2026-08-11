@@ -1,4 +1,5 @@
 import type {
+  PrincipalContainerGrant,
   PrincipalProjectionMember,
   PrincipalStateMemberEnvelope,
   PrincipalStatePayloadCipherSuite,
@@ -548,6 +549,7 @@ export interface VerifiedPrincipalPolicy {
   readonly stateHash: string;
   readonly state: PrincipalPolicySignedState;
   readonly projection: PrincipalProjectionMember[];
+  readonly grants: PrincipalContainerGrant[];
   readonly history?: readonly NormalizedPrincipalPolicyStateChainEntry[];
   readonly checkpoint: PrincipalPolicyCheckpoint;
   readonly [verifiedPrincipalPolicyBrand]: true;
@@ -1035,6 +1037,7 @@ export interface PrincipalPolicySignedState extends SignedPrincipalState {
 export interface PrincipalPolicyStateChainEntry {
   readonly state: PrincipalPolicySignedState;
   readonly projection: readonly PrincipalProjectionMember[];
+  readonly grants: readonly PrincipalContainerGrant[];
 }
 
 export interface PrincipalPolicyPayload {
@@ -1058,6 +1061,7 @@ export interface PrincipalPolicyBundle {
   readonly currentState: PrincipalPolicySignedState;
   readonly currentPayload: PrincipalPolicyPayload;
   readonly currentProjection: readonly PrincipalProjectionMember[];
+  readonly currentGrants: readonly PrincipalContainerGrant[];
   readonly currentMemberEnvelopes: PrincipalPolicyMemberEnvelopes;
   readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
 }
@@ -1079,4 +1083,5 @@ export interface VerifyPrincipalPolicyBundleInput {
 export interface NormalizedPrincipalPolicyStateChainEntry {
   readonly state: PrincipalPolicySignedState;
   readonly projection: PrincipalProjectionMember[];
+  readonly grants: PrincipalContainerGrant[];
 }

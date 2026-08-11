@@ -2,6 +2,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
+import { computePrincipalContainerGrantRoot } from "./principalContainerGrants";
 import { computePrincipalMemberEnvelopesRoot } from "./principalMemberEnvelopes";
 import { throwPrincipalPolicyValidationError } from "./principalPolicyValidationError";
 import {
@@ -30,6 +31,8 @@ const TEXT_DECODER = new TextDecoder();
 
 export type {
   ManagedRecipientPrincipalType,
+  PrincipalContainerGrant,
+  PrincipalContainerGrantAccessLevel,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,
@@ -96,8 +99,10 @@ function encodeUnsignedPrincipalState(
       membershipRoot: state.membershipRoot,
       memberEnvelopesRoot: state.memberEnvelopesRoot,
       projectionRoot: state.projectionRoot,
+      grantRoot: state.grantRoot,
       payloadCiphertextHash: state.payloadCiphertextHash,
       memberCount: state.memberCount,
+      grantCount: state.grantCount,
       externalAuthority: state.externalAuthority,
       signedAt: state.signedAt,
       signerUserId: state.signerUserId,
@@ -121,8 +126,10 @@ function toUnsignedPrincipalState(
     membershipRoot: state.membershipRoot,
     memberEnvelopesRoot: state.memberEnvelopesRoot,
     projectionRoot: state.projectionRoot,
+    grantRoot: state.grantRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    grantCount: state.grantCount,
     externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
@@ -292,6 +299,10 @@ async function normalizeUnsignedPrincipalState(
     state.projectionRoot,
     "Principal state projectionRoot is required",
   );
+  const resolvedGrantRoot = requireNonEmptyHeaderString(
+    state.grantRoot,
+    "Principal state grantRoot is required",
+  );
   const resolvedMemberEnvelopesRoot = requireNonEmptyHeaderString(
     state.memberEnvelopesRoot,
     "Principal state memberEnvelopesRoot is required",
@@ -301,6 +312,11 @@ async function normalizeUnsignedPrincipalState(
     "Principal state payloadCiphertextHash is required",
   );
   const memberCount = resolveMemberCount(state);
+  if (!isValidNonNegativeInteger(state.grantCount)) {
+    throw new Error(
+      "Principal state grantCount must be a non-negative integer",
+    );
+  }
 
   await validatePrincipalEncapsulationKey(state);
 
@@ -316,8 +332,10 @@ async function normalizeUnsignedPrincipalState(
     membershipRoot: resolvedMembershipRoot,
     memberEnvelopesRoot: resolvedMemberEnvelopesRoot,
     projectionRoot: resolvedProjectionRoot,
+    grantRoot: resolvedGrantRoot,
     payloadCiphertextHash: resolvedPayloadCiphertextHash,
     memberCount,
+    grantCount: state.grantCount,
     externalAuthority: normalizeExternalAuthority(state.externalAuthority),
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
@@ -415,10 +433,12 @@ export async function buildPrincipalStateSigningInput(
       input.memberEnvelopes,
     ),
     projectionRoot: await computePrincipalProjectionRoot(input.projection),
+    grantRoot: await computePrincipalContainerGrantRoot(input.grants),
     payloadCiphertextHash: await computePrincipalStatePayloadCiphertextHash(
       input.payloadCiphertext,
     ),
     memberCount: input.projection.length,
+    grantCount: input.grants.length,
     externalAuthority: input.externalAuthority,
     signedAt: input.signedAt,
     signerUserId: input.signerUserId,

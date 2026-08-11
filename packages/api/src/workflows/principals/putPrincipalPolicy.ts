@@ -2,7 +2,7 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalState,
   type StoredPrincipalState,
@@ -44,7 +44,7 @@ import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrinci
 export type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
 
 export interface PutPrincipalPolicyResult {
-  readonly policy: PrincipalPolicyBundleResponse;
+  readonly policy: PrincipalPolicyMutationResponse;
   readonly sharedWithYouUserIds: readonly string[];
 }
 
@@ -173,6 +173,31 @@ function assertPutPrincipalPolicyRouteBinding(
   }
 }
 
+function applyPolicyContainerRematerializations(input: {
+  readonly nextState: StoredPrincipalState;
+  readonly policy: PutPrincipalPolicyInput;
+  readonly previousState: StoredPrincipalState | null;
+  readonly tx: DatabaseTransaction;
+}) {
+  return applyPrincipalContainerRematerializations({
+    executor: input.tx,
+    fingerprint: input.policy.state.signerUserKeyFingerprint,
+    isExactReplay: input.previousState?.stateHash === input.nextState.stateHash,
+    nextHead: {
+      principalType: input.nextState.principalType,
+      principalId: input.nextState.principalId,
+      version: input.nextState.version,
+      keyEpoch: input.nextState.keyEpoch,
+      stateHash: input.nextState.stateHash,
+      keyFingerprint: input.nextState.keyFingerprint,
+    },
+    nextGrants: input.policy.grants,
+    previousKeyEpoch: input.previousState?.keyEpoch ?? null,
+    requests: input.policy.containerMutations,
+    userId: input.policy.requesterUserId,
+  });
+}
+
 async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
@@ -202,6 +227,7 @@ async function putPrincipalPolicyInTransaction(
       state: input.state,
       encryptedPayload: input.encryptedPayload,
       projection: input.projection,
+      grants: input.grants,
       memberEnvelopes: input.memberEnvelopes,
     },
     tx,
@@ -222,26 +248,19 @@ async function putPrincipalPolicyInTransaction(
     input.state.principalId,
   );
   const applyRematerializations = () =>
-    applyPrincipalContainerRematerializations({
-      executor: tx,
-      fingerprint: input.state.signerUserKeyFingerprint,
-      isExactReplay: previousState?.stateHash === nextState.stateHash,
-      nextHead: {
-        principalType: nextState.principalType,
-        principalId: nextState.principalId,
-        version: nextState.version,
-        keyEpoch: nextState.keyEpoch,
-        stateHash: nextState.stateHash,
-        keyFingerprint: nextState.keyFingerprint,
-      },
-      previousKeyEpoch: previousState?.keyEpoch ?? null,
-      requests: input.containerMutations,
-      userId: input.requesterUserId,
+    applyPolicyContainerRematerializations({
+      nextState,
+      policy: input,
+      previousState,
+      tx,
     });
   if (previousState?.stateHash === nextState.stateHash) {
-    await applyRematerializations();
+    const containerMutations = await applyRematerializations();
     return {
-      policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+      policy: {
+        ...(await getPrincipalPolicyForStateWithExecutor(tx, nextState)),
+        containerMutations,
+      },
       sharedWithYouUserIds: [],
     };
   }
@@ -257,9 +276,12 @@ async function putPrincipalPolicyInTransaction(
     previousState,
     tx,
   });
-  await applyRematerializations();
+  const containerMutations = await applyRematerializations();
   return {
-    policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+    policy: {
+      ...(await getPrincipalPolicyForStateWithExecutor(tx, nextState)),
+      containerMutations,
+    },
     sharedWithYouUserIds,
   };
 }

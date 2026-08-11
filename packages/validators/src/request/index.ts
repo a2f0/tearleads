@@ -94,6 +94,8 @@ export {
 } from "./organizationProvisioning";
 export {
   isPutPrincipalPolicyRequest,
+  type PrincipalContainerGrantRequest,
+  PrincipalContainerGrantRequestSchema,
   type PrincipalMemberEnvelopeRequest,
   type PrincipalProjectionMemberRequest,
   type PrincipalStateEncryptedPayloadRequest,

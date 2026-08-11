@@ -24,6 +24,7 @@ test("PUT principal policy rejects a principal without a backing group", async (
     {
       body: JSON.stringify({
         encryptedPayload: signedState.encryptedPayload,
+        grants: signedState.grants,
         memberEnvelopes: signedState.memberEnvelopes,
         projection: signedState.projection,
         state: signedState.state,

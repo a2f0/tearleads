@@ -48,6 +48,7 @@ async function prepareRotation(input: { rotateKey?: boolean } = {}) {
       userId: member.userId,
     })),
     projection: [...currentPolicy.projection],
+    grants: [...currentPolicy.grants],
     signerUserId: owner.userId,
     signerUserKeyFingerprint: owner.fingerprint,
     signingPrivateKey: owner.signing.signingPrivateKey,
@@ -66,9 +67,18 @@ async function prepareRotation(input: { rotateKey?: boolean } = {}) {
     stateHash,
     state: nextState,
     projection: signed.projection,
+    grants: signed.grants,
     history: [
-      { state: currentPolicy.state, projection: currentPolicy.projection },
-      { state: nextState, projection: signed.projection },
+      {
+        state: currentPolicy.state,
+        projection: currentPolicy.projection,
+        grants: currentPolicy.grants,
+      },
+      {
+        state: nextState,
+        projection: signed.projection,
+        grants: signed.grants,
+      },
     ],
     checkpoint: {
       principalType: nextState.principalType,
@@ -114,6 +124,7 @@ function putPolicy(
         state: input.signed.state,
         encryptedPayload: input.signed.encryptedPayload,
         projection: input.signed.projection,
+        grants: input.signed.grants,
         memberEnvelopes: input.signed.memberEnvelopes,
         containerMutations,
       }),
@@ -130,7 +141,7 @@ test("policy rotation and dependent container rekey commit atomically", async ()
 
   const response = await putPolicy(prepared);
 
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   expect(
     (
       await getCurrentPrincipalState(

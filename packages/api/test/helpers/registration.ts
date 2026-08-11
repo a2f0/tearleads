@@ -27,6 +27,7 @@ import {
   derivePrincipalRecipientKeyEpochId,
   encryptWithDek,
   generateKemSeedAndKeyPair,
+  type PrincipalContainerGrant,
   type ReferencedPrincipalHead,
   signAccessEvent,
   signPrincipalState,
@@ -63,6 +64,7 @@ interface RegistrationBootstrapInput {
   // Gives org metadata a production-matching Members read grant.
   memberGroup?: CreateOrganizationGroupRequest | undefined;
   organizationId: string;
+  organizationMetadataContainerId?: string | undefined;
   organizationProfileDocumentId?: string | undefined;
   rosterProfileDocumentId?: string | undefined;
   rootContainerId: string;
@@ -151,6 +153,7 @@ function groupProjectionMember(userId: string) {
 
 export async function createInitialAdminGroupRequest(input: {
   encapsulationPublicKey: Uint8Array;
+  grants?: readonly PrincipalContainerGrant[] | undefined;
   groupId?: string | undefined;
   name?: string | undefined;
   signingPrivateKey: Uint8Array;
@@ -191,6 +194,7 @@ export async function createInitialAdminGroupRequest(input: {
       members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
+      grants: [...(input.grants ?? [])],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: REGISTER_SIGNED_AT,
@@ -211,6 +215,7 @@ export async function createInitialAdminGroupRequest(input: {
         ciphertextHash: state.payloadCiphertextHash,
       },
       projection,
+      grants: [...(input.grants ?? [])],
       memberEnvelopes,
     },
   };
@@ -218,6 +223,7 @@ export async function createInitialAdminGroupRequest(input: {
 
 export async function createInitialMemberGroupRequest(input: {
   encapsulationPublicKey: Uint8Array;
+  grants?: readonly PrincipalContainerGrant[] | undefined;
   groupId?: string | undefined;
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
@@ -263,6 +269,7 @@ export async function createInitialMemberGroupRequest(input: {
       members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
+      grants: [...(input.grants ?? [])],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: REGISTER_SIGNED_AT,
@@ -283,6 +290,7 @@ export async function createInitialMemberGroupRequest(input: {
         ciphertextHash: state.payloadCiphertextHash,
       },
       projection,
+      grants: [...(input.grants ?? [])],
       memberEnvelopes,
     },
   };
@@ -349,6 +357,7 @@ async function principalPolicyRecordFromInitialGroupPolicy(input: {
         stateHash: head.stateHash,
       },
       projection: initialGroupPolicy.projection,
+      grants: initialGroupPolicy.grants,
       checkpoint: {
         principalType: head.principalType,
         principalId: head.principalId,
@@ -1047,7 +1056,8 @@ export async function createRegistrationBootstrap(
     });
   const organizationMetadataContainer = input.organizationProfileDocumentId
     ? await createChildContainerArtifacts({
-        metadataDocumentId: crypto.randomUUID(),
+        metadataDocumentId:
+          input.organizationMetadataContainerId ?? crypto.randomUUID(),
         ...(input.memberGroup
           ? { managedGrant: { accessLevel: "read", group: input.memberGroup } }
           : {}),

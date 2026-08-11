@@ -155,12 +155,14 @@ test("exact principal policy lookup ignores a corrupt unrelated retained row", a
       `INSERT INTO principal_policy_bundle_history
          (principal_type, principal_id, state_hash, current_state_json,
           current_payload_json, current_projection_json,
-          current_member_envelopes_json, previous_states_json, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          current_member_envelopes_json, current_grants_json,
+          previous_states_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         reference.principalType,
         reference.principalId,
         "e".repeat(64),
+        "{",
         "{",
         "{",
         "{",
@@ -297,7 +299,11 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
       },
       previousStates: [
         ...bundle.previousStates,
-        { state: bundle.currentState, projection: bundle.currentProjection },
+        {
+          state: bundle.currentState,
+          projection: bundle.currentProjection,
+          grants: bundle.currentGrants,
+        },
       ],
     };
     const competingCurrentState = {
@@ -314,8 +320,9 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
       `INSERT INTO principal_policy_bundle_history
          (principal_type, principal_id, state_hash, current_state_json,
           current_payload_json, current_projection_json,
-          current_member_envelopes_json, previous_states_json, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          current_member_envelopes_json, current_grants_json,
+          previous_states_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         reference.principalType,
         reference.principalId,
@@ -324,6 +331,7 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
         JSON.stringify(bundle.currentPayload),
         JSON.stringify(bundle.currentProjection),
         JSON.stringify(bundle.currentMemberEnvelopes),
+        JSON.stringify(bundle.currentGrants),
         JSON.stringify(bundle.previousStates),
         "2026-07-18T00:01:00Z",
       ],

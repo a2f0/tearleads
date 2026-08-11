@@ -101,6 +101,12 @@ always materialize every required rekey during a group rotation. The grant's
 `read`, `write`, or `admin` level is separate from authority to manage the
 principal itself.
 
+Each signed group policy commits its complete container-grant projection with
+`grantRoot` and `grantCount`. Organization grant lanes are presentation and
+discovery indexes only. Membership and key rotations enumerate the verified
+signed projection, while the API verifies the exact required container batch
+against current signed manifests before committing either side.
+
 Organizations also carry two reserved group pointers:
 
 - `adminGroupId` points to the reserved `Admins` group. Users reachable through

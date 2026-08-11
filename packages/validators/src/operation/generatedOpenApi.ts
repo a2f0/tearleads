@@ -1230,6 +1230,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             memberEnvelopes: ({
                                 kemCipherText: string;
                                 memberKeyFingerprint: string;
@@ -1258,6 +1265,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;
@@ -1408,6 +1417,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             memberEnvelopes: ({
                                 kemCipherText: string;
                                 memberKeyFingerprint: string;
@@ -1436,6 +1452,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;
@@ -2022,6 +2040,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         memberEnvelopes: ({
                             kemCipherText: string;
                             memberKeyFingerprint: string;
@@ -2050,6 +2075,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            grantCount: number;
+                            grantRoot: string;
                             keyEpoch: number;
                             keyFingerprint: string;
                             memberCount: number;
@@ -11889,6 +11916,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             memberEnvelopes: ({
                                 kemCipherText: string;
                                 memberKeyFingerprint: string;
@@ -11917,6 +11951,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;
@@ -12067,6 +12103,13 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             };
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             memberEnvelopes: ({
                                 kemCipherText: string;
                                 memberKeyFingerprint: string;
@@ -12095,6 +12138,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;
@@ -12681,6 +12726,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         memberEnvelopes: ({
                             kemCipherText: string;
                             memberKeyFingerprint: string;
@@ -12709,6 +12761,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            grantCount: number;
+                            grantRoot: string;
                             keyEpoch: number;
                             keyFingerprint: string;
                             memberCount: number;
@@ -16876,6 +16930,13 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         memberEnvelopes: ({
                             kemCipherText: string;
                             memberKeyFingerprint: string;
@@ -16904,6 +16965,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            grantCount: number;
+                            grantRoot: string;
                             keyEpoch: number;
                             keyFingerprint: string;
                             memberCount: number;
@@ -17856,6 +17919,13 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        currentGrants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         currentMemberEnvelopes: {
                             envelopes: ({
                                 kemCipherText: string;
@@ -17907,6 +17977,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            grantCount: number;
+                            grantRoot: string;
                             keyEpoch: number;
                             keyFingerprint: string;
                             memberCount: number;
@@ -17930,6 +18002,13 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         previousStates: ({
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             projection: ({
                                 /** @enum {string} */
                                 role: "member" | "admin";
@@ -17951,6 +18030,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;
@@ -18171,6 +18252,13 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     };
+                    grants: ({
+                        /** @enum {string} */
+                        accessLevel: "admin" | "read" | "write";
+                        containerId: string;
+                    } & {
+                        [key: string]: unknown;
+                    })[];
                     memberEnvelopes: ({
                         kemCipherText: string;
                         memberKeyFingerprint: string;
@@ -18199,6 +18287,8 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
+                        grantCount: number;
+                        grantRoot: string;
                         keyEpoch: number;
                         keyFingerprint: string;
                         memberCount: number;
@@ -18233,6 +18323,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        containerMutations: ({
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            containerId: string;
+                            containerKek: {
+                                accessManifestHash: string;
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHistory: ({
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyEpochHash: string;
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyTargetHash: string;
+                                parentContainerKeyEpochId: string | null;
+                                recipientTargets: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            manifestHead: {
+                                epoch: number;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            organizationId: string;
+                            parentId: string | null;
+                            referencedPrincipalHeads: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            systemSlot?: string | null;
+                            updatedAt: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        currentGrants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         currentMemberEnvelopes: {
                             envelopes: ({
                                 kemCipherText: string;
@@ -18284,6 +18479,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            grantCount: number;
+                            grantRoot: string;
                             keyEpoch: number;
                             keyFingerprint: string;
                             memberCount: number;
@@ -18307,6 +18504,13 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         previousStates: ({
+                            grants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
                             projection: ({
                                 /** @enum {string} */
                                 role: "member" | "admin";
@@ -18328,6 +18532,8 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
+                                grantCount: number;
+                                grantRoot: string;
                                 keyEpoch: number;
                                 keyFingerprint: string;
                                 memberCount: number;

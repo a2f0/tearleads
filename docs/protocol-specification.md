@@ -287,6 +287,15 @@ only the current verified principal policy and the current container grant to
 recover every still-authorized container; recovery never walks historical
 principal keys and does not depend on another user performing a repair action.
 
+Completeness is authenticated by the principal state itself. `grantRoot` is
+the digest of the sorted canonical `{containerId, accessLevel}` projection and
+`grantCount` binds its cardinality. Policy requests and bundles include the
+full projection for every state. During a transition the client plans from the
+verified current/next projections, and the API recomputes the required union
+from stored verified manifests. The policy state and the exact container batch
+commit or roll back together; standalone group-grant changes are accepted only
+when they already match the current signed projection.
+
 The API intentionally exposes no historical principal-key envelope endpoint.
 Serving a requester's subset of historical envelopes cannot prove inclusion in
 the full `memberEnvelopesRoot`, while serving the full set would disclose

@@ -3,6 +3,7 @@ import { groups, users } from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   type ManagedPrincipalKind,
+  type PrincipalContainerGrant,
   toFingerprint,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -29,6 +30,15 @@ function verifiedPrincipalPolicyFromBundle(
     stateHash: state.stateHash,
     state,
     projection: bundle.currentProjection,
+    grants: bundle.currentGrants,
+    history: [
+      ...bundle.previousStates,
+      {
+        state,
+        projection: bundle.currentProjection,
+        grants: bundle.currentGrants,
+      },
+    ],
     checkpoint: {
       principalType: state.principalType,
       principalId: state.principalId,
@@ -57,6 +67,7 @@ export async function createSignedPrincipalState(input: {
     typeof signPrincipalStateBundle
   >[0]["externalAuthority"];
   keyEpoch?: number;
+  grants?: readonly PrincipalContainerGrant[];
   members: Array<{ userId: string }>;
   prevStateHash?: string | null;
   principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
@@ -92,6 +103,7 @@ export async function createSignedPrincipalState(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection,
+    grants: [...(input.grants ?? [])],
     externalAuthority: input.externalAuthority ?? null,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(input.members)),

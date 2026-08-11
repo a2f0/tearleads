@@ -32,6 +32,7 @@ interface PrincipalPolicyRow {
   currentStateJson: string;
   currentPayloadJson: string;
   currentProjectionJson: string;
+  currentGrantsJson: string;
   currentMemberEnvelopesJson: string;
   previousStatesJson: string;
   updatedAt: string;
@@ -44,6 +45,7 @@ export interface SelectedPrincipalPolicyRow {
   currentStateJson: string;
   currentPayloadJson: string;
   currentProjectionJson: string;
+  currentGrantsJson: string;
   currentMemberEnvelopesJson: string;
   previousStatesJson: string;
   updatedAt: string;
@@ -74,6 +76,7 @@ function parsePrincipalPolicyRow(
     currentStateJson: row.currentStateJson,
     currentPayloadJson: row.currentPayloadJson,
     currentProjectionJson: row.currentProjectionJson,
+    currentGrantsJson: row.currentGrantsJson,
     currentMemberEnvelopesJson: row.currentMemberEnvelopesJson,
     previousStatesJson: row.previousStatesJson,
     updatedAt: row.updatedAt,
@@ -134,6 +137,7 @@ export function principalPolicyBundleSelection(
     currentStateJson: table.currentStateJson,
     currentPayloadJson: table.currentPayloadJson,
     currentProjectionJson: table.currentProjectionJson,
+    currentGrantsJson: table.currentGrantsJson,
     currentMemberEnvelopesJson: table.currentMemberEnvelopesJson,
     previousStatesJson: table.previousStatesJson,
     updatedAt: table.updatedAt,
@@ -230,6 +234,7 @@ function policyBundleRow(
     currentStateJson: JSON.stringify(bundle.currentState),
     currentPayloadJson: JSON.stringify(bundle.currentPayload),
     currentProjectionJson: JSON.stringify(bundle.currentProjection),
+    currentGrantsJson: JSON.stringify(bundle.currentGrants),
     currentMemberEnvelopesJson: JSON.stringify(bundle.currentMemberEnvelopes),
     previousStatesJson: JSON.stringify(bundle.previousStates),
     updatedAt,

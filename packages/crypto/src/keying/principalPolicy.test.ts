@@ -331,3 +331,31 @@ test("verifyPrincipalPolicyBundle rejects membership roots that do not match the
 
   expectVerificationError(result, "hash_mismatch");
 });
+
+test("verifyPrincipalPolicyBundle rejects an omitted or altered signed grant", async () => {
+  const signer = await createPolicySigner();
+  const state = await signPolicyState({
+    grants: [{ accessLevel: "admin", containerId: "container-root" }],
+    members: [{ userId: signer.userId }],
+    prevStateHash: null,
+    principalId: "group-grant-commitment",
+    signer,
+    version: 1,
+  });
+  const bundle = createBundle({ current: state });
+
+  const omitted = await verifyPrincipalPolicyBundle({
+    bundle: { ...bundle, currentGrants: [] },
+    signerPublicKeys: [signer],
+  });
+  expectVerificationError(omitted, "hash_mismatch");
+
+  const altered = await verifyPrincipalPolicyBundle({
+    bundle: {
+      ...bundle,
+      currentGrants: [{ accessLevel: "read", containerId: "container-root" }],
+    },
+    signerPublicKeys: [signer],
+  });
+  expectVerificationError(altered, "hash_mismatch");
+});

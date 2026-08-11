@@ -147,6 +147,7 @@ export async function loadPrincipalPoliciesForReferences(
           {
             state: policy.state,
             projection: policy.projection,
+            grants: policy.grants,
           },
         ];
         const referencesForPrincipal = referencesForType.filter(

@@ -42,6 +42,7 @@ async function setUpAdminGroupRoot() {
   const memberKem = generateKemSeedAndKeyPair();
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: memberKem,
+    grants: [{ accessLevel: "admin", containerId: ROOT_CONTAINER_ID }],
     groupId: ADMIN_GROUP_ID,
     name: "Admins",
     signerUserId: USER_ID,
@@ -74,6 +75,9 @@ async function setUpAdminGroupRoot() {
     recipientEncapsulationPublicKey: memberKem.publicKey,
     signedAt: SIGNED_AT,
   });
+  expect(
+    Reflect.get(root.plan.request.principalPolicies[0] ?? {}, "grants"),
+  ).toEqual(initialAdminGroup.initialGroupPolicy.grants);
   const initialProjection = rootContainerWriterProjectionFromCreatePlan(
     root.plan,
   );
@@ -159,10 +163,17 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     }
     expect(
       (submittedRequest.principalPolicies ?? []).map((policy) => ({
+        grants: Reflect.get(policy, "grants"),
         keyEpoch: Reflect.get(policy, "keyEpoch"),
         principalId: Reflect.get(policy, "principalId"),
       })),
-    ).toEqual([{ keyEpoch: 2, principalId: ADMIN_GROUP_ID }]);
+    ).toEqual([
+      {
+        grants: epochTwoPolicy.currentGrants,
+        keyEpoch: 2,
+        principalId: ADMIN_GROUP_ID,
+      },
+    ]);
 
     const initialManifest = initialProjection.path[0];
     const initialKek = initialProjection.containerKeks[0];
@@ -249,12 +260,18 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     stateHash: nextState.stateHash,
     state: nextState,
     projection: epochTwoPolicy.currentProjection,
+    grants: epochTwoPolicy.currentGrants,
     history: [
       {
         state: epochOnePolicy.currentState,
         projection: epochOnePolicy.currentProjection,
+        grants: epochOnePolicy.currentGrants,
       },
-      { state: nextState, projection: epochTwoPolicy.currentProjection },
+      {
+        state: nextState,
+        projection: epochTwoPolicy.currentProjection,
+        grants: epochTwoPolicy.currentGrants,
+      },
     ],
     checkpoint: {
       principalType: nextState.principalType,

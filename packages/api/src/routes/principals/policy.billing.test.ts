@@ -87,6 +87,7 @@ test("a native tier accepts an over-capacity member without assigning a sync sea
       },
       body: JSON.stringify({
         encryptedPayload: signedState.encryptedPayload,
+        grants: signedState.grants,
         memberEnvelopes: signedState.memberEnvelopes,
         projection: signedState.projection,
         state: signedState.state,

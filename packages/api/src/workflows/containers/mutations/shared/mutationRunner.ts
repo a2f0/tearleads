@@ -4,6 +4,10 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import {
+  getCurrentPrincipalState,
+  listContainerGrantsForState,
+} from "../../../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../../../billing/organizationSyncEligibility";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
@@ -113,33 +117,63 @@ interface VerifiedMutationArtifacts {
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
 
-function assertGroupGrantRevocationIsAtomic(
+async function assertGroupGrantSetChangesAreAtomic(
   context: ContainerMutationContext,
   artifacts: VerifiedMutationArtifacts,
-): void {
-  if (!artifacts.previousManifest) {
-    return;
-  }
-  const currentGrantKeys = new Set(
-    artifacts.manifest.state.directGrants.map(
-      (grant) => `${grant.subjectType}:${grant.subjectId}`,
-    ),
+): Promise<void> {
+  const previousByGroupId = new Map(
+    (artifacts.previousManifest?.state.directGrants ?? [])
+      .filter((grant) => grant.subjectType === "group")
+      .map((grant) => [grant.subjectId, grant] as const),
   );
-  const removedGroupGrants =
-    artifacts.previousManifest.state.directGrants.filter(
-      (grant) =>
-        grant.subjectType === "group" &&
-        !currentGrantKeys.has(`${grant.subjectType}:${grant.subjectId}`),
+  const currentByGroupId = new Map(
+    artifacts.manifest.state.directGrants
+      .filter((grant) => grant.subjectType === "group")
+      .map((grant) => [grant.subjectId, grant] as const),
+  );
+  const changedGroupIds = [
+    ...new Set([...previousByGroupId.keys(), ...currentByGroupId.keys()]),
+  ].filter((groupId) => {
+    const previous = previousByGroupId.get(groupId);
+    const current = currentByGroupId.get(groupId);
+    return previous?.accessLevel !== current?.accessLevel;
+  });
+  for (const groupId of changedGroupIds) {
+    if (groupId === context.mutatingGroupPrincipalId) {
+      continue;
+    }
+    const currentGrant = currentByGroupId.get(groupId);
+    if (!currentGrant) {
+      throw new ContainerMutationError(
+        "Group grants must be revoked atomically with principal rotation",
+        409,
+      );
+    }
+    const principalState = await getCurrentPrincipalState(
+      "group",
+      groupId,
+      context.executor,
     );
-  if (
-    removedGroupGrants.some(
-      (grant) => grant.subjectId !== context.revokingGroupPrincipalId,
-    )
-  ) {
-    throw new ContainerMutationError(
-      "Group grants must be revoked atomically with principal rotation",
-      409,
-    );
+    const signedGrants = principalState
+      ? await listContainerGrantsForState(
+          "group",
+          groupId,
+          principalState.stateHash,
+          context.executor,
+        )
+      : [];
+    if (
+      !signedGrants.some(
+        (grant) =>
+          grant.containerId === artifacts.manifest.state.containerId &&
+          grant.accessLevel === currentGrant.accessLevel,
+      )
+    ) {
+      throw new ContainerMutationError(
+        "Group grant changes require a matching signed principal grant index",
+        409,
+      );
+    }
   }
 }
 
@@ -246,7 +280,7 @@ async function deriveVerifiedBatchScope(
 ): Promise<PrelockedContainerMutationBatchScope> {
   const preflightContext: ContainerMutationContext = {
     executor: context.executor,
-    revokingGroupPrincipalId: context.revokingGroupPrincipalId,
+    mutatingGroupPrincipalId: context.mutatingGroupPrincipalId,
     manifestHeadByContainerId: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       context.executor,
@@ -260,7 +294,7 @@ async function deriveVerifiedBatchScope(
       ...input,
       executor: context.executor,
     });
-    assertGroupGrantRevocationIsAtomic(preflightContext, artifacts);
+    await assertGroupGrantSetChangesAreAtomic(preflightContext, artifacts);
     await assertMutationHeadCanAdvance(preflightContext, artifacts.manifest);
     organizationIds.add(artifacts.manifest.state.organizationId);
     for (const groupId of containerGroupReferenceIds(artifacts.manifest)) {
@@ -377,7 +411,7 @@ export async function mutateContainerWithExecutor(
   // so a concurrently revoked writer cannot commit stale authorization.
   context.manifestHeadByContainerId.clear();
   const artifacts = await verifyMutationArtifacts(context, input);
-  assertGroupGrantRevocationIsAtomic(context, artifacts);
+  await assertGroupGrantSetChangesAreAtomic(context, artifacts);
   if (prelockedBatchScope) {
     assertMutationWithinPrelockedScope(prelockedBatchScope, artifacts.manifest);
     await assertVerifiedContainerGroupReferencesExist({

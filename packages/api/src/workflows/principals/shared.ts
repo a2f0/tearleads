@@ -66,8 +66,10 @@ export function toPrincipalStateResponse(state: {
   membershipRoot: string;
   memberEnvelopesRoot: string;
   projectionRoot: string;
+  grantRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  grantCount: number;
   externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: string;
   signerUserId: string;
@@ -88,8 +90,10 @@ export function toPrincipalStateResponse(state: {
     membershipRoot: state.membershipRoot,
     memberEnvelopesRoot: state.memberEnvelopesRoot,
     projectionRoot: state.projectionRoot,
+    grantRoot: state.grantRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    grantCount: state.grantCount,
     externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,

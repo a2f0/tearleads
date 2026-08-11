@@ -13,12 +13,14 @@ test("access-set shrink preserves membership while rotating the group key", asyn
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const memberKem = generateKemSeedAndKeyPair();
   const signerUserId = crypto.randomUUID();
+  const revokedContainerId = crypto.randomUUID();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
   const initialPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: memberKem,
+      grants: [{ accessLevel: "read", containerId: revokedContainerId }],
       groupId: crypto.randomUUID(),
       name: "Operators",
       signerUserId,
@@ -44,6 +46,7 @@ test("access-set shrink preserves membership while rotating the group key", asyn
         signingPublicKey: signingKeyPair.signingPublicKey,
       }),
     ],
+    revokedContainerId,
     localPolicyCheckpoint: null,
     signerUserId,
     signingFingerprint,

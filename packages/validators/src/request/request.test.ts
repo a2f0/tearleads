@@ -139,6 +139,8 @@ test("isPutPrincipalPolicyRequest", () => {
       keyEpoch: 1,
       encapsulationPublicKey: "public-key",
       keyFingerprint: "fingerprint",
+      grantCount: 0,
+      grantRoot: "grant-root",
       membershipMode: "projection",
       membershipRoot: "root",
       memberEnvelopesRoot: "member-envelopes-root",
@@ -162,6 +164,7 @@ test("isPutPrincipalPolicyRequest", () => {
         role: "member",
       },
     ],
+    grants: [],
     memberEnvelopes: [
       {
         userId: "550e8400-e29b-41d4-a716-446655440001",
@@ -220,6 +223,8 @@ test("isCreateOrganizationGroupRequest", () => {
         keyEpoch: 1,
         encapsulationPublicKey: "public-key",
         keyFingerprint: "fingerprint",
+        grantCount: 0,
+        grantRoot: "grant-root",
         membershipMode: "projection",
         membershipRoot: "root",
         memberEnvelopesRoot: "member-envelopes-root",
@@ -243,6 +248,7 @@ test("isCreateOrganizationGroupRequest", () => {
           role: "admin",
         },
       ],
+      grants: [],
       memberEnvelopes: [
         {
           userId: userId,

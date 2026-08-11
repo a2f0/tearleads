@@ -188,7 +188,10 @@ testApiClient(
           });
         }
         if (request.url.endsWith("/policy")) {
-          return HttpResponse.json(createPrincipalPolicyBundleResponse());
+          return HttpResponse.json({
+            ...createPrincipalPolicyBundleResponse(),
+            ...(request.method === "PUT" ? { containerMutations: [] } : {}),
+          });
         }
         if (request.method === "POST") {
           return HttpResponse.json({

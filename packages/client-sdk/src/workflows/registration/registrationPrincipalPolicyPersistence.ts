@@ -29,6 +29,7 @@ async function principalPolicyBundleFromInitialRequest(
       ...policy.encryptedPayload,
       createdAt,
     },
+    currentGrants: policy.grants,
     currentProjection: policy.projection,
     currentMemberEnvelopes: {
       principalType,
@@ -80,9 +81,14 @@ function verifiedPrincipalPolicyFromBundle(
     stateHash: bundle.currentState.stateHash,
     state: bundle.currentState,
     projection: bundle.currentProjection,
+    grants: bundle.currentGrants,
     history: [
       ...bundle.previousStates,
-      { state: bundle.currentState, projection: bundle.currentProjection },
+      {
+        state: bundle.currentState,
+        projection: bundle.currentProjection,
+        grants: bundle.currentGrants,
+      },
     ],
     checkpoint: {
       principalType: bundle.currentState.principalType,

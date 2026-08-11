@@ -43,6 +43,7 @@ test("GET principal policy rejects a database-tampered projection", async () => 
       body: JSON.stringify({
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
+        grants: signedState.grants,
         projection: signedState.projection,
         memberEnvelopes: signedState.memberEnvelopes,
       }),
@@ -105,6 +106,7 @@ test("GET principal policy rejects a signer key edited after verification", asyn
       body: JSON.stringify({
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
+        grants: signedState.grants,
         projection: signedState.projection,
         memberEnvelopes: signedState.memberEnvelopes,
       }),

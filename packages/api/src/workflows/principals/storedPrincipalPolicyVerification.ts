@@ -32,7 +32,11 @@ function assertReservedAdminsPolicyShape(
   policy: VerifiedPrincipalPolicy,
 ): void {
   const history = policy.history ?? [
-    { state: policy.state, projection: policy.projection },
+    {
+      state: policy.state,
+      projection: policy.projection,
+      grants: policy.grants,
+    },
   ];
   if (
     history.some(
@@ -52,7 +56,11 @@ function externalAuthorityFromPolicy(
   policy: VerifiedPrincipalPolicy,
 ): PrincipalPolicyExternalAuthority {
   const history = policy.history ?? [
-    { state: policy.state, projection: policy.projection },
+    {
+      state: policy.state,
+      projection: policy.projection,
+      grants: policy.grants,
+    },
   ];
   const toAuthorityHead = (
     state: (typeof history)[number]["state"],

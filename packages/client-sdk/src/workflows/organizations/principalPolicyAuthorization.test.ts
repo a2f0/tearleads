@@ -306,9 +306,9 @@ test("a verified Admins member absent from organization policy can mutate anothe
         }
         if (principalId === adminGroupId) {
           adminPolicyReads += 1;
-          return currentAdminPolicy;
+          return { ...currentAdminPolicy, containerMutations: [] };
         }
-        return currentGroupPolicy;
+        return { ...currentGroupPolicy, containerMutations: [] };
       },
       putPrincipalPolicy: async (
         _principalType: "group" | "organization",
@@ -325,13 +325,13 @@ test("a verified Admins member absent from organization policy can mutate anothe
             mutation,
             previous: currentAdminPolicy,
           });
-          return currentAdminPolicy;
+          return { ...currentAdminPolicy, containerMutations: [] };
         }
         currentGroupPolicy = await policyBundleAfterMutation({
           mutation,
           previous: currentGroupPolicy,
         });
-        return currentGroupPolicy;
+        return { ...currentGroupPolicy, containerMutations: [] };
       },
     };
     await addOrganizationGroupUser({

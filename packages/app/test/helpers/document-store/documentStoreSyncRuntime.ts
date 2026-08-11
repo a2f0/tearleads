@@ -338,6 +338,7 @@ async function createSyncRuntimeInput(
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
     },
   };
 }

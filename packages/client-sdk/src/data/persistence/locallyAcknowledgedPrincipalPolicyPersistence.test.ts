@@ -42,12 +42,17 @@ async function policyFixture(principalId = crypto.randomUUID()) {
       version: bundle.currentState.version,
     },
     history: [
-      { state: bundle.currentState, projection: bundle.currentProjection },
+      {
+        state: bundle.currentState,
+        projection: bundle.currentProjection,
+        grants: bundle.currentGrants,
+      },
     ],
     keyEpoch: bundle.currentState.keyEpoch,
     principalId,
     principalType: "group",
     projection: bundle.currentProjection,
+    grants: bundle.currentGrants,
     state: bundle.currentState,
     stateHash: bundle.currentState.stateHash,
     version: bundle.currentState.version,
@@ -115,7 +120,11 @@ function successorBundle(
       stateHash,
     },
     previousStates: [
-      { state: bundle.currentState, projection: bundle.currentProjection },
+      {
+        state: bundle.currentState,
+        projection: bundle.currentProjection,
+        grants: bundle.currentGrants,
+      },
     ],
   };
 }

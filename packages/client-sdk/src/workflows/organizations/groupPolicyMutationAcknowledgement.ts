@@ -1,32 +1,33 @@
 import {
+  computePrincipalContainerGrantRoot,
   computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
   makeVerifiedPrincipalPolicy,
+  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   CreateOrganizationGroupRequest,
-  PrincipalMemberEnvelopeRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
+  ContainerMutationResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
 
-function sortedEnvelopes(
-  envelopes: readonly PrincipalMemberEnvelopeRequest[],
-): PrincipalMemberEnvelopeRequest[] {
-  return [...envelopes].sort((left, right) =>
-    canonicalKeyingJsonString(left, "principal member envelope").localeCompare(
-      canonicalKeyingJsonString(right, "principal member envelope"),
+function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
+  return [...values].sort((left, right) =>
+    canonicalKeyingJsonString(left, label).localeCompare(
+      canonicalKeyingJsonString(right, label),
     ),
   );
 }
@@ -37,7 +38,10 @@ export function assertGroupPolicyEnvelopesMatchAcknowledgement(
 ): void {
   const normalized = (value: CurrentPrincipalMemberEnvelopesResponse) => ({
     ...value,
-    envelopes: sortedEnvelopes(value.envelopes),
+    envelopes: sortedCanonicalValues(
+      value.envelopes,
+      "principal member envelope",
+    ),
   });
   if (
     canonicalKeyingJsonString(
@@ -58,6 +62,56 @@ function stateWithoutCreatedAt(state: PrincipalStateResponse) {
   return signedState;
 }
 
+function assertContainerMutationAcknowledgements(input: {
+  readonly requests: readonly NonNullable<
+    PutPrincipalPolicyRequest["containerMutations"]
+  >[number][];
+  readonly responses: readonly ContainerMutationResponse[] | undefined;
+}): void {
+  if (!input.responses || input.responses.length !== input.requests.length) {
+    throw new Error(
+      "Group policy container acknowledgement batch is incomplete",
+    );
+  }
+  for (const [index, request] of input.requests.entries()) {
+    const response = input.responses[index];
+    if (!response) {
+      throw new Error(
+        "Group policy container acknowledgement batch is incomplete",
+      );
+    }
+    const expected = {
+      body: request.body,
+      event: request.event,
+      keyEpoch: request.keyEpoch,
+      manifest: request.manifest,
+      wraps: sortedCanonicalValues(request.wraps, "authored container wrap"),
+    };
+    const observed = {
+      body: response.accessManifest.event.body,
+      event: response.accessManifest.event.event,
+      keyEpoch: response.containerKek.keyEpoch,
+      manifest: response.accessManifest.manifest,
+      wraps: sortedCanonicalValues(
+        response.containerKek.wraps,
+        "stored container wrap",
+      ),
+    };
+    if (
+      canonicalKeyingJsonString(
+        observed,
+        "stored group policy container mutation",
+      ) !==
+      canonicalKeyingJsonString(
+        expected,
+        "authored group policy container mutation",
+      )
+    ) {
+      throw new Error("Group policy container acknowledgement mismatch");
+    }
+  }
+}
+
 function historyWithCurrent(
   bundle: PrincipalPolicyBundleResponse,
 ): PrincipalPolicyBundleResponse["previousStates"] {
@@ -66,6 +120,7 @@ function historyWithCurrent(
     {
       state: bundle.currentState,
       projection: bundle.currentProjection,
+      grants: bundle.currentGrants,
     },
   ];
 }
@@ -100,8 +155,12 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
-  readonly response: PrincipalPolicyBundleResponse;
+  readonly response: PrincipalPolicyMutationResponse;
 }): void {
+  assertContainerMutationAcknowledgements({
+    requests: input.request.containerMutations ?? [],
+    responses: input.response.containerMutations,
+  });
   const expectedPreviousStates = historyWithCurrent(input.currentPolicy);
   const normalizedHistory = (
     history: PrincipalPolicyBundleResponse["previousStates"],
@@ -109,6 +168,7 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
     history.map((entry) => ({
       state: stateWithoutCreatedAt(entry.state),
       projection: normalizePrincipalProjectionMembers(entry.projection),
+      grants: normalizePrincipalContainerGrants(entry.grants),
     }));
   const { createdAt: _payloadCreatedAt, ...observedPayload } =
     input.response.currentPayload;
@@ -135,6 +195,14 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
       canonicalKeyingJsonString(
         normalizePrincipalProjectionMembers(input.request.projection),
         "authored group policy projection",
+      ) ||
+    canonicalKeyingJsonString(
+      normalizePrincipalContainerGrants(input.response.currentGrants),
+      "stored group policy grants",
+    ) !==
+      canonicalKeyingJsonString(
+        normalizePrincipalContainerGrants(input.request.grants),
+        "authored group policy grants",
       ) ||
     canonicalKeyingJsonString(
       normalizedHistory(input.response.previousStates),
@@ -170,6 +238,7 @@ async function assertPolicyRequestCommitments(
     memberEnvelopesRoot,
     projectionRoot,
     payloadCiphertextHash,
+    grantRoot,
   ] = await Promise.all([
     computePrincipalMembershipRoot(members),
     computePrincipalMemberEnvelopesRoot(request.memberEnvelopes),
@@ -177,12 +246,15 @@ async function assertPolicyRequestCommitments(
     computePrincipalStatePayloadCiphertextHash(
       request.encryptedPayload.ciphertext,
     ),
+    computePrincipalContainerGrantRoot(request.grants),
   ]);
   if (
     request.state.membershipRoot !== membershipRoot ||
     request.state.memberEnvelopesRoot !== memberEnvelopesRoot ||
     request.state.projectionRoot !== projectionRoot ||
     request.state.memberCount !== projection.length ||
+    request.state.grantRoot !== grantRoot ||
+    request.state.grantCount !== request.grants.length ||
     request.encryptedPayload.ciphertextHash !== payloadCiphertextHash ||
     request.state.payloadCiphertextHash !== payloadCiphertextHash
   ) {
@@ -193,6 +265,7 @@ async function assertPolicyRequestCommitments(
 function verifiedPolicy(input: {
   currentPolicy?: PrincipalPolicyBundleResponse | undefined;
   projection: PutPrincipalPolicyRequest["projection"];
+  grants: PutPrincipalPolicyRequest["grants"];
   state: PrincipalStateResponse;
 }): VerifiedPrincipalPolicy {
   const previousStates = input.currentPolicy
@@ -207,12 +280,17 @@ function verifiedPolicy(input: {
     },
     history: [
       ...previousStates,
-      { state: input.state, projection: input.projection },
+      {
+        state: input.state,
+        projection: input.projection,
+        grants: input.grants,
+      },
     ],
     keyEpoch: input.state.keyEpoch,
     principalId: input.state.principalId,
     principalType: input.state.principalType,
     projection: input.projection,
+    grants: input.grants,
     state: input.state,
     stateHash: input.state.stateHash,
     version: input.state.version,
@@ -246,6 +324,7 @@ export async function acknowledgeGroupPolicyState(input: {
   return verifiedPolicy({
     currentPolicy: input.currentPolicy,
     projection: input.request.projection,
+    grants: input.request.grants,
     state: input.response,
   });
 }
@@ -270,6 +349,7 @@ export async function prepareAuthoredGroupPolicy(input: {
   return verifiedPolicy({
     currentPolicy: input.currentPolicy,
     projection: input.request.projection,
+    grants: input.request.grants,
     state: {
       ...state,
       stateHash: input.expectedHead.stateHash,
@@ -326,6 +406,7 @@ export async function acknowledgeInitialGroupPolicy(input: {
       createdAt: input.response.createdAt,
     },
     currentProjection: input.request.initialGroupPolicy.projection,
+    currentGrants: input.request.initialGroupPolicy.grants,
     currentState: storedState,
     previousStates: [],
   };
@@ -333,6 +414,7 @@ export async function acknowledgeInitialGroupPolicy(input: {
     bundle,
     policy: verifiedPolicy({
       projection: input.request.initialGroupPolicy.projection,
+      grants: input.request.initialGroupPolicy.grants,
       state: storedState,
     }),
   };

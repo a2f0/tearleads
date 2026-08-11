@@ -89,6 +89,7 @@ async function createPrincipalPolicyBundle(input: {
       })),
       memberEnvelopes,
       projection: currentProjection,
+      grants: [],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: input.signedAt,
@@ -113,6 +114,7 @@ async function createPrincipalPolicyBundle(input: {
       stateHash,
     },
     currentProjection,
+    currentGrants: [],
     currentPayload: {
       principalType: "group",
       principalId: input.principalId,
