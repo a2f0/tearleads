@@ -223,8 +223,8 @@ export class Tearleads {
 
   private configureApiClientCallbacks(): void {
     this.apiClient.setOnError((message) => this.logError(message));
-    // With an authoritative OS connectivity source, backend reachability is
-    // not allowed to override the device's network status.
+    // An authoritative OS source owns connectivity. Without one, request
+    // outcomes continue to drive the browser's reachability state.
     this.apiClient.setOnNetworkError(() =>
       this.network.reportReachability(false),
     );

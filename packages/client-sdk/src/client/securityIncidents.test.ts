@@ -87,6 +87,26 @@ test("ordinary failures are not security incidents", async () => {
   }
 });
 
+test("database-unavailable incident reporting logs without throwing", async () => {
+  const logMessages: Array<string | Error> = [];
+  const service = createSecurityIncidentService({
+    database: new Database({ status: "idle" }),
+    logError: (message) => logMessages.push(message),
+    trustDomain: null,
+  });
+
+  await service.report(new KeyingVerificationError("rollback", "stale head"), {
+    objectId: "principal-1",
+    objectKind: "principal",
+    operation: "principal.policy.verify",
+  });
+
+  expect(await service.incidents.list()).toBeNull();
+  expect(logMessages).toEqual([
+    "Security incident could not be persisted because the local database is unavailable",
+  ]);
+});
+
 test("unknown verification codes are logged instead of silently dropped", async () => {
   const { close, execSql } = await createTestExecSql(
     "security-incidents-unknown-code",

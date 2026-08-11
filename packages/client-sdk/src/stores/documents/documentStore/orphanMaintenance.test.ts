@@ -42,7 +42,10 @@ function createMaintenanceRuntime(
       events: [],
       online: false,
     },
-    util: { log: () => undefined },
+    util: {
+      log: () => undefined,
+      reportSecurityIncident: async () => undefined,
+    },
   });
 }
 

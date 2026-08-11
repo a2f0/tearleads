@@ -65,6 +65,8 @@ export function throwKeyingVerificationErrorWithContext(
   context: string,
 ): never {
   if (error instanceof KeyingVerificationError) {
+    // Keep this below reporting boundaries: wrapping creates a new object, and
+    // incident deduplication intentionally follows error-object identity.
     throw new KeyingVerificationError(
       error.code,
       `${context}: ${error.message}`,

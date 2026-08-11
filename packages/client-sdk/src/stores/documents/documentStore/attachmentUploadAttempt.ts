@@ -36,6 +36,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   let uploadError: unknown;
   let uploadThrew = false;
   let uploaded = await tryUploadDocumentAttachment({
+    documentId: input.state.record?.documentId ?? input.state.localId,
     input: {
       ...baseUploadInput,
       writerProjection: input.writerProjection ?? undefined,
@@ -45,7 +46,6 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       uploadError = error;
     },
     reportSecurityIncident: input.state.runtime.util.reportSecurityIncident,
-    documentId: input.state.record?.documentId ?? input.state.localId,
   });
   if (!uploaded && checkedOrganizationId !== undefined) {
     // The request itself may have produced the first 402 after the workflow's
@@ -79,12 +79,12 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
         }
       : baseUploadInput;
     uploaded = await tryUploadDocumentAttachment({
+      documentId: input.state.record?.documentId ?? input.state.localId,
       input: retryUploadInput,
       onError: (error) => {
         uploadError = error;
       },
       reportSecurityIncident: input.state.runtime.util.reportSecurityIncident,
-      documentId: input.state.record?.documentId ?? input.state.localId,
     });
     if (!uploaded && checkedOrganizationId !== undefined) {
       remoteSyncBlocked ||=

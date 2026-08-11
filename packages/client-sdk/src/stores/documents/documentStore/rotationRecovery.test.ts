@@ -155,6 +155,7 @@ function createRuntime(input: {
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   };
 }

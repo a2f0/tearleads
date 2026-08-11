@@ -202,6 +202,7 @@ async function runMoveRemoteContainerDocumentFixture(input: {
         },
         util: {
           log: () => undefined,
+          reportSecurityIncident: async () => undefined,
         },
       },
       targetContainerId: siblingProjection.containerId,

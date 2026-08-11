@@ -147,6 +147,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
     },
   });
   state = createContainerContentsStoreState(runtime, persistence);
@@ -274,6 +275,7 @@ test("a root-first late create rebases before its remote system slot arrives", a
       },
       util: {
         log: () => {},
+        reportSecurityIncident: async () => undefined,
       },
     });
     state = createContainerContentsStoreState(runtime, persistence);

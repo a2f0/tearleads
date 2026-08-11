@@ -389,7 +389,10 @@ test("an undiscovered probe uses coded deletion to destroy local state", async (
         events: [],
         online: true,
       },
-      util: { log: () => undefined },
+      util: {
+        log: () => undefined,
+        reportSecurityIncident: async () => undefined,
+      },
     });
     const stores: Array<ReturnType<typeof openDocumentStore>> = [];
 

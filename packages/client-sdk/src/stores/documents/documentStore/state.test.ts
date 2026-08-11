@@ -53,6 +53,7 @@ function createTestRuntime() {
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 }

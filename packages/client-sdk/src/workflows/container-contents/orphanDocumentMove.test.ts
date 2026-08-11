@@ -86,7 +86,10 @@ test("a remote orphan moves from null scope into a writable container", async ()
         events: [],
         online: true,
       },
-      util: { log: () => undefined },
+      util: {
+        log: () => undefined,
+        reportSecurityIncident: async () => undefined,
+      },
     };
     const note: DocumentSummary = {
       containerId: null,

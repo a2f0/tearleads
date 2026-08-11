@@ -65,7 +65,10 @@ async function prepareCandidate(input: {
       events: [],
       online: true,
     },
-    util: { log: () => undefined },
+    util: {
+      log: () => undefined,
+      reportSecurityIncident: async () => undefined,
+    },
   });
 
   try {

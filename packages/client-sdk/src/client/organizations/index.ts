@@ -218,20 +218,10 @@ class OrganizationsService implements Organizations {
 
   importUserById(userId: string) {
     const runtime = this.runtimeService.workflowInput();
-    return runWithSecurityIncidentReporting(
-      runtime.util.reportSecurityIncident,
-      {
-        objectId: userId,
-        objectKind: "user",
-        operation: "user.identity.import",
-        organizationId: runtime.auth.organizationId,
-      },
-      () =>
-        importOrganizationUser({
-          resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-          userId,
-        }),
-    );
+    return importOrganizationUser({
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      userId,
+    });
   }
 
   loadBilling() {

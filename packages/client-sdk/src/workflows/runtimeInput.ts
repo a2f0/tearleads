@@ -58,7 +58,7 @@ export interface WorkflowRuntimeUtilInput {
     | undefined;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
 }
 
 export interface WorkflowRuntimeGroups {

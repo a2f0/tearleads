@@ -106,6 +106,7 @@ test("container create sync propagates identity failures without recording a ret
       },
       util: {
         log: () => {},
+        reportSecurityIncident: async () => undefined,
       },
     },
   };
@@ -189,6 +190,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 
@@ -369,6 +371,7 @@ test("container create sync keeps an intent pending while the container row lack
       },
       util: {
         log: () => {},
+        reportSecurityIncident: async () => undefined,
       },
     },
   };
