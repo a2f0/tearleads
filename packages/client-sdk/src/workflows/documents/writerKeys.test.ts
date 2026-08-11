@@ -1,38 +1,8 @@
 import { expect, test } from "bun:test";
-import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  KeyingVerificationError,
-  toFingerprint,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import { KeyingVerificationError, toFingerprint } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
-
-function createWriteHeader(input: {
-  authorFingerprint: string;
-  writerUserId: string;
-}): WriteHeader {
-  return {
-    version: 1,
-    organizationId: "organization-1",
-    objectKind: "document",
-    objectId: "document-1",
-    accessManifestHash: "manifest-hash",
-    contentKeyEpoch: 1,
-    targetHash: "target-hash",
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentRecordId: "update-1",
-    nonceDomainHash: "nonce-domain-hash",
-    metadataHash: "metadata-hash",
-    ciphertextHash: "ciphertext-hash",
-    writerUserId: input.writerUserId,
-    writerDeviceId: "device-1",
-    writerKeyFingerprint: input.authorFingerprint,
-    signedAt: "2026-04-27T00:00:00.000Z",
-    signature: "signature",
-  };
-}
 
 test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", async () => {
   const signingPublicKey = Uint8Array.from([1, 2, 3, 4]);
@@ -52,12 +22,8 @@ test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", as
   });
 
   const resolved = await resolver({
-    authorFingerprint: signingFingerprint,
-    header: createWriteHeader({
-      authorFingerprint: signingFingerprint,
-      writerUserId: "user-1",
-    }),
-    update: {} as never,
+    writerSigningKeyFingerprint: signingFingerprint,
+    writerUserId: "user-1",
   });
 
   expect(resolved).toBe(signingPublicKey);
@@ -82,20 +48,13 @@ test("createDocumentWriterPublicKeyResolver caches trusted writer keys", async (
     },
     writerKeyLabel: "metadata writer key",
   });
-  const header = createWriteHeader({
-    authorFingerprint: signingFingerprint,
+  const firstResolved = await resolver({
+    writerSigningKeyFingerprint: signingFingerprint,
     writerUserId: "user-1",
   });
-
-  const firstResolved = await resolver({
-    authorFingerprint: signingFingerprint,
-    header,
-    update: {} as never,
-  });
   const secondResolved = await resolver({
-    authorFingerprint: signingFingerprint,
-    header,
-    update: {} as never,
+    writerSigningKeyFingerprint: signingFingerprint,
+    writerUserId: "user-1",
   });
 
   expect(Array.from(firstResolved ?? [])).toEqual(Array.from(signingPublicKey));
@@ -125,12 +84,8 @@ test("createDocumentWriterPublicKeyResolver logs a writer fingerprint mismatch",
   });
 
   const resolved = await resolver({
-    authorFingerprint,
-    header: createWriteHeader({
-      authorFingerprint,
-      writerUserId: "user-2",
-    }),
-    update: {} as never,
+    writerSigningKeyFingerprint: authorFingerprint,
+    writerUserId: "user-2",
   });
 
   expect(resolved).toBeNull();
@@ -160,12 +115,8 @@ test("createDocumentWriterPublicKeyResolver preserves database-unavailable error
 
   await expect(
     resolver({
-      authorFingerprint: "fingerprint",
-      header: createWriteHeader({
-        authorFingerprint: "fingerprint",
-        writerUserId: "user-2",
-      }),
-      update: {} as never,
+      writerSigningKeyFingerprint: "fingerprint",
+      writerUserId: "user-2",
     }),
   ).rejects.toBe(unavailableError);
   expect(logs).toEqual([]);
@@ -189,12 +140,8 @@ test("createDocumentWriterPublicKeyResolver preserves identity integrity errors"
 
   await expect(
     resolver({
-      authorFingerprint: "fingerprint",
-      header: createWriteHeader({
-        authorFingerprint: "fingerprint",
-        writerUserId: "user-2",
-      }),
-      update: {} as never,
+      writerSigningKeyFingerprint: "fingerprint",
+      writerUserId: "user-2",
     }),
   ).rejects.toBe(integrityError);
 });

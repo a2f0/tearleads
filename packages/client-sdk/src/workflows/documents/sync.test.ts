@@ -46,6 +46,7 @@ import {
   createSyncResponse,
   getOnlyTarget,
   projectionPathRefs,
+  writerKeyResolver,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
@@ -710,9 +711,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
     writerProjection,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(submittedRequests).toHaveLength(1);
@@ -729,8 +728,13 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
 });
 
 test("syncRemoteDocument uses persisted state for clean read-only sync probes", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const submittedRequests: DocumentSyncRequest[] = [];
   let projectionRequestCount = 0;
 
@@ -766,6 +770,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
     pendingUpdates: [],
     persistedState: persistedStateFromWriterProjection(writerProjection),
     resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
   });
 
@@ -846,9 +851,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
     writerProjection,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(projectionRequestCount).toBe(0);
@@ -859,8 +862,13 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
 });
 
 test("syncRemoteDocument falls back to writer projection when persisted read-only state is stale", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const submittedRequests: DocumentSyncRequest[] = [];
   const reportedErrors: string[] = [];
   let projectionRequestCount = 0;
@@ -920,6 +928,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
     pendingUpdates: [],
     persistedState: persistedStateFromWriterProjection(writerProjection),
     resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
   });
 
@@ -1001,9 +1010,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(
@@ -1180,9 +1187,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(submittedOutgoingCounts).toEqual([1, 0]);
@@ -1283,9 +1288,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(synced?.settledPendingUpdateIds).toEqual([]);
@@ -1362,9 +1365,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
@@ -1739,9 +1740,7 @@ test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits"
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
     writerProjection,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   // First attempt passes the stale leftover through; the server's coverage

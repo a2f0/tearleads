@@ -6,6 +6,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
+  writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocument } from "./sync";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
@@ -127,9 +128,7 @@ test.each([
       },
       targetSecretKey: fixture.secretKey,
       writerProjection: fixture.writerProjection,
-      writerPublicKeysByFingerprint: new Map([
-        [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
-      ]),
+      resolveWriterPublicKey: writerKeyResolver(fixture),
     });
 
     expect(projectionFetches).toBe(1);
@@ -177,9 +176,7 @@ test("persisted read-only sync retries a getter-origin rollback after eviction",
         return fixture.resolveProjectionUserKey(userId);
       },
       targetSecretKey: fixture.secretKey,
-      writerPublicKeysByFingerprint: new Map([
-        [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
-      ]),
+      resolveWriterPublicKey: writerKeyResolver(fixture),
     });
 
     expect(projectionFetches).toBe(2);
@@ -223,9 +220,7 @@ test("persisted read-only sync propagates rollback after the evicted refetch", a
           );
         },
         targetSecretKey: fixture.secretKey,
-        writerPublicKeysByFingerprint: new Map([
-          [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
-        ]),
+        resolveWriterPublicKey: writerKeyResolver(fixture),
       }),
     ).rejects.toMatchObject({ code: "rollback" });
     expect(projectionFetches).toBe(2);
@@ -270,9 +265,7 @@ test.each([
           throw integrityError;
         },
         targetSecretKey: fixture.secretKey,
-        writerPublicKeysByFingerprint: new Map([
-          [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
-        ]),
+        resolveWriterPublicKey: writerKeyResolver(fixture),
       }),
     ).rejects.toBe(integrityError);
     expect(projectionFetches).toBe(1);

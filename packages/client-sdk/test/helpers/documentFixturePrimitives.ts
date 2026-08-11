@@ -5,7 +5,10 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
+import type {
+  DocumentCreateAuthor,
+  DocumentWriterPublicKeyResolver,
+} from "../../src/data/documents/shared/types";
 
 export async function fixtureHash(label: string): Promise<string> {
   return toFingerprint(new TextEncoder().encode(`document:${label}`));
@@ -125,5 +128,20 @@ export async function createAuthor(input?: {
       signerUserId: input?.userId ?? "user-1",
     },
     signingPublicKey: signingKeyPair.signingPublicKey,
+  };
+}
+
+export function writerKeyResolver(input: {
+  author: DocumentCreateAuthor;
+  signingPublicKey: Uint8Array;
+}): DocumentWriterPublicKeyResolver {
+  return async ({ writerSigningKeyFingerprint, writerUserId }) => {
+    if (
+      writerUserId !== input.author.signerUserId ||
+      writerSigningKeyFingerprint !== input.author.signerKeyFingerprint
+    ) {
+      return null;
+    }
+    return input.signingPublicKey;
   };
 }

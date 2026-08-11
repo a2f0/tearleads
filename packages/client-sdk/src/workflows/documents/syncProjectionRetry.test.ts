@@ -7,6 +7,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
+  writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocument } from "./sync";
 import { retrySyncPlan } from "./syncFailures";
@@ -74,9 +75,7 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
     pendingUpdates,
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
   close();
 

@@ -10,6 +10,7 @@ import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createSyncResponse,
+  writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import {
   enqueueDocumentPendingUpdate,
@@ -116,9 +117,7 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(submittedOutgoingCounts).toEqual([1, 0]);
@@ -136,8 +135,13 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
 });
 
 test("an exhausted pending update surfaces terminally and survives the pass", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   await ensureDocumentTables(execSql);
   const scope = { appKind: "documents", localId: "exhausted-document" };
   await enqueueDocumentPendingUpdate(
@@ -199,6 +203,7 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
     },
     pendingUpdates: [pendingUpdate],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
   });
 
@@ -333,9 +338,7 @@ test("a projection refusal after recovery stays write-bearing", async () => {
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(synced).toBeNull();
@@ -405,9 +408,7 @@ test("a terminal failure after recovery still records durably", async () => {
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
-    writerPublicKeysByFingerprint: new Map([
-      [author.signerKeyFingerprint, signingPublicKey],
-    ]),
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
   });
 
   expect(synced).toBeNull();

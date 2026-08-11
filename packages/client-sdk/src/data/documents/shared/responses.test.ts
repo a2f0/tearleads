@@ -9,6 +9,7 @@ import {
   createSyncResponse,
   fixtureHash,
   getOnlyTarget,
+  writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
 import { DatabaseUnavailableError } from "../../sync/databaseUnavailable";
@@ -79,13 +80,14 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   });
   const plan = materialized.plan;
   const response = await createSyncResponse(plan);
-  const writerPublicKeysByFingerprint = new Map([
-    [author.signerKeyFingerprint, signingPublicKey],
-  ]);
+  const resolveWriterPublicKey = writerKeyResolver({
+    author,
+    signingPublicKey,
+  });
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, response, {
-      writerPublicKeysByFingerprint,
+      resolveWriterPublicKey,
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
@@ -123,7 +125,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         updates: [staleAcceptedUpdate],
       }),
       {
-        writerPublicKeysByFingerprint,
+        resolveWriterPublicKey,
       },
     ),
   ).rejects.toThrow("write header mismatch");
@@ -154,7 +156,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
       readOnlyMaterialized.plan,
       historicalResponse,
       {
-        writerPublicKeysByFingerprint,
+        resolveWriterPublicKey,
       },
     ),
   ).rejects.toThrow("lacks verified writer-authorization material");
@@ -197,7 +199,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
       rotatedMaterialized.plan,
       priorContentKeyResponse,
       {
-        writerPublicKeysByFingerprint,
+        resolveWriterPublicKey,
       },
     ),
   ).rejects.toThrow("lacks verified writer-authorization material");
@@ -210,50 +212,75 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         contentKeyBundles: [rotatedProjection.contentKeyBundle],
       },
       {
-        writerPublicKeysByFingerprint,
+        resolveWriterPublicKey,
       },
     ),
   ).rejects.toThrow("content-key bundle missing");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, response),
-  ).rejects.toThrow("writer public key verification is required");
-
-  await expect(
     persistedDocumentSyncStateFromResponse(plan, response, {
-      writerPublicKeysByFingerprint: new Map(),
+      resolveWriterPublicKey: async () => null,
     }),
   ).rejects.toThrow("writer public key missing");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      acceptedOutgoingUpdateIds: ["550e8400-e29b-41d4-a716-446655440999"],
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        acceptedOutgoingUpdateIds: ["550e8400-e29b-41d4-a716-446655440999"],
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("accepted update mismatch");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      updates: response.updates.map((update) => ({
-        ...update,
-        encryptedData: "tampered",
-      })),
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        updates: response.updates.map((update) => ({
+          ...update,
+          encryptedData: "tampered",
+        })),
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("ciphertext hash mismatch");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      updates: response.updates.map((update) => ({
-        ...update,
-        writeHeader: {
-          ...update.writeHeader,
-          contentKeyEpoch: 0,
-        },
-      })),
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        updates: response.updates.map((update) => ({
+          ...update,
+          writeHeader: {
+            ...update.writeHeader,
+            contentKeyEpoch: 0,
+          },
+        })),
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("write header.contentKeyEpoch must be a positive integer");
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        updates: response.updates.map((update) => ({
+          ...update,
+          writeHeader: {
+            ...update.writeHeader,
+            writerUserId: "substituted-writer",
+          },
+        })),
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("writer public key missing");
 });
 
 test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", async () => {
@@ -271,13 +298,14 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
   });
   const plan = materialized.plan;
   const response = await createSyncResponse(plan, { commitLsn: "0/20" });
-  const writerPublicKeysByFingerprint = new Map([
-    [author.signerKeyFingerprint, signingPublicKey],
-  ]);
+  const resolveWriterPublicKey = writerKeyResolver({
+    author,
+    signingPublicKey,
+  });
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, response, {
-      writerPublicKeysByFingerprint,
+      resolveWriterPublicKey,
     }),
   ).resolves.toEqual({
     documentId: plan.documentId,
@@ -287,33 +315,49 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
   });
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      commitLsn: "0/1F",
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/1F",
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("commit LSN is stale");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      commitLsn: null,
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: null,
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("commit LSN is missing");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      commitLsn: "not-a-lsn",
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "not-a-lsn",
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("commit LSN is invalid");
 
   await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      updates: response.updates.map((update) => ({
-        ...update,
-        accessEpoch: 2,
-      })),
-    }),
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        updates: response.updates.map((update) => ({
+          ...update,
+          accessEpoch: 2,
+        })),
+      },
+      { resolveWriterPublicKey },
+    ),
   ).rejects.toThrow("future access epoch");
 });
