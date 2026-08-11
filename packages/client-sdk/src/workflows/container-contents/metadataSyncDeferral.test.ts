@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { PrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import { syncContainerMetadataState } from "./metadata";
@@ -113,5 +114,38 @@ test("syncContainerMetadataState rethrows unrelated sync errors", async () => {
       metadataState: { container, doc, record },
     }),
   ).rejects.toThrow("writer projection request failed");
+  expect(logs).toEqual([]);
+});
+
+test("syncContainerMetadataState never defers keying verification failures", async () => {
+  const container = createContainerRecord({
+    id: "container-integrity-failure",
+    metadataDocumentId: "metadata-document-integrity-failure",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    documentId: "metadata-document-integrity-failure",
+    id: container.id,
+  });
+  const logs: string[] = [];
+  const integrityError = new KeyingVerificationError(
+    "missing_dependency",
+    "Document authorizing container KEK path could not be unwrapped",
+  );
+
+  await expect(
+    syncContainerMetadataState({
+      ...createForcedMetadataSyncInput(
+        createMetadataSyncRuntime({
+          getDocumentWriterProjection: async () => {
+            throw integrityError;
+          },
+          logs,
+        }),
+      ),
+      metadataState: { container, doc, record },
+    }),
+  ).rejects.toBe(integrityError);
   expect(logs).toEqual([]);
 });

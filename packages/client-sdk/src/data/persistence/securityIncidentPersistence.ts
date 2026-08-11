@@ -171,6 +171,8 @@ export async function appendSecurityIncident(
       )
       .limit(1)
       .offset(SECURITY_INCIDENT_RETENTION_LIMIT);
+    // Each call can add at most one distinct row, so deleting the single 1,001st
+    // row restores the cap. A future bulk writer must delete its whole excess.
     if (staleRows.length > 0) {
       await tx
         .delete(securityIncidents)
@@ -195,12 +197,18 @@ export async function appendSecurityIncident(
 
 export async function listSecurityIncidents(
   execSql: ExecSql,
+  trustDomain: string | null,
 ): Promise<SecurityIncident[]> {
   await ensureSecurityIncidentTable(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select()
     .from(securityIncidents)
+    .where(
+      trustDomain === null
+        ? isNull(securityIncidents.trustDomain)
+        : eq(securityIncidents.trustDomain, trustDomain),
+    )
     .orderBy(desc(securityIncidents.lastDetectedAt), desc(securityIncidents.id))
     .limit(SECURITY_INCIDENT_RETENTION_LIMIT);
   return rows.map(parseSecurityIncidentRow);

@@ -6,6 +6,7 @@ import {
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import {
   CONTAINER_METADATA_APP_KIND,
@@ -162,6 +163,9 @@ export function listContainerMetadataDocumentUpdateIds(
 }
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
+  // Signed-state verification failures are terminal integrity incidents, even
+  // when their diagnostic message resembles an ordinary stale-key condition.
+  if (isKeyingVerificationError(error)) return false;
   const message = error instanceof Error ? error.message : "";
 
   return (

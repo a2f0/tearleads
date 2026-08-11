@@ -1,0 +1,84 @@
+import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { Database } from "./database";
+import { createSecurityIncidentService } from "./securityIncidents";
+
+test("durable incidents retain at most 1,000 rows per trust domain", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-retention-limit",
+  );
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    trustDomain: "https://api.example.test",
+  });
+
+  try {
+    for (let index = 0; index <= 1_000; index += 1) {
+      await service.report(
+        new KeyingVerificationError("rollback", `stale head ${index}`),
+        {
+          objectId: `principal-${index}`,
+          objectKind: "principal",
+          operation: "principal.policy.verify",
+        },
+      );
+    }
+
+    expect(await service.incidents.list()).toHaveLength(1_000);
+    expect(
+      await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
+    ).toEqual([{ count: 1_000 }]);
+  } finally {
+    await close();
+  }
+});
+
+test("incident lists stay scoped to their configured trust domain", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-trust-domain-list",
+  );
+  const createService = (trustDomain: string) =>
+    createSecurityIncidentService({
+      database: new Database({ execSql, status: "ready" }),
+      logError: () => undefined,
+      trustDomain,
+    });
+  const first = createService("https://first-api.example.test");
+  const second = createService("https://second-api.example.test");
+
+  try {
+    await first.report(
+      new KeyingVerificationError("rollback", "first stale head"),
+      {
+        objectId: "principal-first",
+        objectKind: "principal",
+        operation: "principal.policy.verify",
+      },
+    );
+    await second.report(
+      new KeyingVerificationError("rollback", "second stale head"),
+      {
+        objectId: "principal-second",
+        objectKind: "principal",
+        operation: "principal.policy.verify",
+      },
+    );
+
+    expect(await first.incidents.list()).toEqual([
+      expect.objectContaining({
+        objectId: "principal-first",
+        trustDomain: "https://first-api.example.test",
+      }),
+    ]);
+    expect(await second.incidents.list()).toEqual([
+      expect.objectContaining({
+        objectId: "principal-second",
+        trustDomain: "https://second-api.example.test",
+      }),
+    ]);
+  } finally {
+    await close();
+  }
+});

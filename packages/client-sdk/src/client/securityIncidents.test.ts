@@ -226,17 +226,17 @@ test("a transient ready-database append failure retries buffered evidence", asyn
   const { close, execSql } = await createTestExecSql(
     "security-incidents-transient-append",
   );
-  let shouldFailInsert = true;
+  let remainingInsertFailures = 2;
   async function flakyExecSql(
     sql: string,
     bind?: SqlBind,
     options?: { rowMode?: SqlRowMode },
   ): Promise<Array<SqlRow | SqlArrayRow>> {
     if (
-      shouldFailInsert &&
+      remainingInsertFailures > 0 &&
       sql.toLowerCase().includes('insert into "security_incidents"')
     ) {
-      shouldFailInsert = false;
+      remainingInsertFailures -= 1;
       throw new Error("transient SQLite failure");
     }
     return execSql(sql, bind, options);
@@ -280,40 +280,12 @@ test("a transient ready-database append failure retries buffered evidence", asyn
     expect(await service.incidents.list()).toEqual([
       expect.objectContaining({ objectId: "principal-retry" }),
     ]);
-    expect(logMessages).toEqual(["Security incident could not be persisted"]);
+    expect(logMessages).toEqual([
+      "Security incident could not be persisted",
+      "Buffered security incident could not be persisted",
+    ]);
   } finally {
     clearTimeout(deliveryTimeout);
-    await close();
-  }
-});
-
-test("durable incidents retain at most 1,000 rows per trust domain", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "security-incidents-retention-limit",
-  );
-  const service = createSecurityIncidentService({
-    database: new Database({ execSql, status: "ready" }),
-    logError: () => undefined,
-    trustDomain: "https://api.example.test",
-  });
-
-  try {
-    for (let index = 0; index <= 1_000; index += 1) {
-      await service.report(
-        new KeyingVerificationError("rollback", `stale head ${index}`),
-        {
-          objectId: `principal-${index}`,
-          objectKind: "principal",
-          operation: "principal.policy.verify",
-        },
-      );
-    }
-
-    expect(await service.incidents.list()).toHaveLength(1_000);
-    expect(
-      await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
-    ).toEqual([{ count: 1_000 }]);
-  } finally {
     await close();
   }
 });
@@ -462,6 +434,19 @@ test("context boundaries preserve verification error identity", () => {
     Object.getOwnPropertyDescriptor(error, "keyingVerificationContexts")
       ?.enumerable,
   ).toBe(false);
+});
+
+test("context boundaries preserve name-matched verification errors", () => {
+  const error = new Error("foreign verification failure");
+  error.name = "KeyingVerificationError";
+  Reflect.set(error, "code", "rollback");
+
+  expect(() =>
+    throwKeyingVerificationErrorWithContext(error, "foreign projection"),
+  ).toThrow(error);
+  expect(Reflect.get(error, "keyingVerificationContexts")).toEqual([
+    "foreign projection",
+  ]);
 });
 
 test("an incident callback cannot replace the verification failure", async () => {

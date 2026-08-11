@@ -21,7 +21,11 @@ export type { SecurityIncident, SecurityIncidentObjectKind };
 export type SecurityIncidentListener = (incident: SecurityIncident) => void;
 
 const MAX_BUFFERED_SECURITY_INCIDENTS = 100;
+const MAX_EVIDENCE_HASH_COUNT = 32;
+const MAX_EVIDENCE_HASH_KEY_LENGTH = 64;
+const MAX_EVIDENCE_HASH_VALUE_LENGTH = 256;
 const SECURITY_INCIDENT_RETRY_DELAY_MS = 250;
+const SECURITY_INCIDENT_MAX_RETRY_DELAY_MS = 30_000;
 
 export interface SecurityIncidents {
   /** Returns null while the local database is unavailable. */
@@ -60,9 +64,15 @@ function redactIncidentContext(
 ): SecurityIncidentContext {
   return {
     evidenceHashes: Object.fromEntries(
-      Object.entries(context.evidenceHashes ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
+      Object.entries(context.evidenceHashes ?? {})
+        .filter(
+          ([key, value]) =>
+            key.length > 0 &&
+            key.length <= MAX_EVIDENCE_HASH_KEY_LENGTH &&
+            value.length <= MAX_EVIDENCE_HASH_VALUE_LENGTH,
+        )
+        .sort(([left], [right]) => left.localeCompare(right))
+        .slice(0, MAX_EVIDENCE_HASH_COUNT),
     ),
     objectId: context.objectId,
     objectKind: context.objectKind,
@@ -89,6 +99,7 @@ type SecurityIncidentListeners = ReturnType<
 class SecurityIncidentSink {
   private readonly bufferedIncidents = new Map<string, RedactedIncident>();
   private flushPromise: Promise<boolean> | null = null;
+  private retryDelayMs = SECURITY_INCIDENT_RETRY_DELAY_MS;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -119,6 +130,7 @@ class SecurityIncidentSink {
 
     try {
       this.notify(await this.append(execSql, incident));
+      if (this.bufferedIncidents.size === 0) this.resetFlushRetry();
       return true;
     } catch (persistenceError) {
       const buffered = this.buffer(incident);
@@ -136,6 +148,7 @@ class SecurityIncidentSink {
       const activeFlush = this.flushPromise ?? this.startFlushBatch();
       if (!activeFlush) return;
       const succeeded = await activeFlush;
+      if (succeeded) this.resetFlushRetry();
       if (this.flushPromise && this.flushPromise !== activeFlush) continue;
       if (this.flushPromise === activeFlush) this.flushPromise = null;
       if (
@@ -209,7 +222,7 @@ class SecurityIncidentSink {
         this.notify(await this.append(execSql, incident));
       } catch (persistenceError) {
         succeeded = false;
-        this.buffer(incident);
+        if (this.buffer(incident)) this.scheduleFlushRetry();
         this.options.logError(
           "Buffered security incident could not be persisted",
           persistenceError,
@@ -230,10 +243,22 @@ class SecurityIncidentSink {
 
   private scheduleFlushRetry(): void {
     if (this.retryTimeout) return;
+    const retryDelayMs = this.retryDelayMs;
+    this.retryDelayMs = Math.min(
+      this.retryDelayMs * 2,
+      SECURITY_INCIDENT_MAX_RETRY_DELAY_MS,
+    );
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
       void this.flush();
-    }, SECURITY_INCIDENT_RETRY_DELAY_MS);
+    }, retryDelayMs);
+  }
+
+  private resetFlushRetry(): void {
+    this.retryDelayMs = SECURITY_INCIDENT_RETRY_DELAY_MS;
+    if (!this.retryTimeout) return;
+    clearTimeout(this.retryTimeout);
+    this.retryTimeout = null;
   }
 }
 
@@ -290,7 +315,7 @@ export function createSecurityIncidentService(
         await sink.flush();
         const execSql = options.database.execSql;
         return options.database.status === "ready" && execSql
-          ? listSecurityIncidents(execSql)
+          ? listSecurityIncidents(execSql, options.trustDomain)
           : null;
       },
       subscribe: listeners.subscribe,

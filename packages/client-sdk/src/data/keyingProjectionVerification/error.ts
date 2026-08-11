@@ -6,6 +6,8 @@ import type {
 } from "../securityIncidents";
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
 
+const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
+
 /**
  * Preserve identity and projection verification failures across workflow
  * boundaries that intentionally soften ordinary transport or availability
@@ -66,7 +68,7 @@ export function throwKeyingVerificationErrorWithContext(
   error: unknown,
   context: string,
 ): never {
-  if (error instanceof KeyingVerificationError) {
+  if (isKeyingVerificationError(error)) {
     // Preserve identity so nested reporting boundaries persist one incident.
     // The incident's operation supplies boundary context without minting a new
     // verification error that could bypass identity-based deduplication. Keep
@@ -74,7 +76,7 @@ export function throwKeyingVerificationErrorWithContext(
     try {
       const previous = Reflect.get(error, "keyingVerificationContexts");
       const contexts = Array.isArray(previous)
-        ? [...previous, context]
+        ? [...previous, context].slice(-KEYING_VERIFICATION_CONTEXT_LIMIT)
         : [context];
       Object.defineProperty(error, "keyingVerificationContexts", {
         configurable: true,
