@@ -87,7 +87,7 @@ type SecurityIncidentListeners = ReturnType<
 
 class SecurityIncidentSink {
   private readonly bufferedIncidents = new Map<string, RedactedIncident>();
-  private flushPromise: Promise<void> | null = null;
+  private flushPromise: Promise<boolean> | null = null;
 
   constructor(
     private readonly options: SecurityIncidentServiceOptions,
@@ -129,19 +129,32 @@ class SecurityIncidentSink {
   }
 
   async flush(): Promise<void> {
-    if (this.flushPromise) return this.flushPromise;
+    for (;;) {
+      const activeFlush = this.flushPromise ?? this.startFlushBatch();
+      if (!activeFlush) return;
+      const succeeded = await activeFlush;
+      if (this.flushPromise && this.flushPromise !== activeFlush) continue;
+      if (this.flushPromise === activeFlush) this.flushPromise = null;
+      if (
+        !succeeded ||
+        this.bufferedIncidents.size === 0 ||
+        this.options.database.status !== "ready"
+      ) {
+        return;
+      }
+    }
+  }
+
+  private startFlushBatch(): Promise<boolean> | null {
     const execSql = this.options.database.execSql;
-    if (this.options.database.status !== "ready" || !execSql) return;
+    if (this.options.database.status !== "ready" || !execSql) return null;
 
     const pending = [...this.bufferedIncidents.values()];
+    if (pending.length === 0) return null;
     this.bufferedIncidents.clear();
     const flush = this.flushPending(execSql, pending);
     this.flushPromise = flush;
-    try {
-      await flush;
-    } finally {
-      if (this.flushPromise === flush) this.flushPromise = null;
-    }
+    return flush;
   }
 
   private append(
@@ -186,11 +199,13 @@ class SecurityIncidentSink {
   private async flushPending(
     execSql: NonNullable<Database["execSql"]>,
     pending: ReadonlyArray<RedactedIncident>,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    let succeeded = true;
     for (const incident of pending) {
       try {
         this.notify(await this.append(execSql, incident));
       } catch (persistenceError) {
+        succeeded = false;
         this.buffer(incident);
         this.options.logError(
           "Buffered security incident could not be persisted",
@@ -198,6 +213,7 @@ class SecurityIncidentSink {
         );
       }
     }
+    return succeeded;
   }
 
   private notify(incident: SecurityIncident): void {
@@ -228,6 +244,7 @@ export function createSecurityIncidentService(
         options.logError(
           "Security incident could not be persisted because its verification code is unrecognized",
         );
+        return true;
       }
       return false;
     }
@@ -237,7 +254,6 @@ export function createSecurityIncidentService(
 
   const report: SecurityIncidentReporter = async (error, context) => {
     if (typeof error !== "object" || error === null) {
-      await persistIncident(error, context);
       return;
     }
     if (observedErrors.has(error)) return;

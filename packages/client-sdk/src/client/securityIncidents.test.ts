@@ -6,6 +6,13 @@ import {
   throwKeyingVerificationErrorWithContext,
 } from "../data/keyingProjectionVerification/error";
 import type { SecurityIncidentContext } from "../data/securityIncidents";
+import type {
+  ExecSql,
+  SqlArrayRow,
+  SqlBind,
+  SqlRow,
+  SqlRowMode,
+} from "../data/sqlite/sqlSchema";
 import { Database } from "./database";
 import { createSecurityIncidentService } from "./securityIncidents";
 
@@ -128,6 +135,93 @@ test("incidents detected before database startup flush when it becomes ready", a
   }
 });
 
+test("the startup incident buffer drops unique overflow safely", async () => {
+  const logMessages: Array<string | Error> = [];
+  const service = createSecurityIncidentService({
+    database: new Database({ status: "idle" }),
+    logError: (message) => logMessages.push(message),
+    trustDomain: null,
+  });
+
+  for (let index = 0; index <= 100; index += 1) {
+    await service.report(
+      new KeyingVerificationError("rollback", `stale head ${index}`),
+      {
+        objectId: `principal-${index}`,
+        objectKind: "principal",
+        operation: "principal.policy.verify",
+      },
+    );
+  }
+
+  expect(logMessages).toEqual([
+    "Security incident could not be buffered because the startup buffer is full",
+  ]);
+  expect(await service.incidents.list()).toBeNull();
+});
+
+test("a list joins an active flush and drains incidents buffered during it", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-overlapping-flush",
+  );
+  let releaseInsert: (() => void) | undefined;
+  const insertGate = new Promise<void>((resolve) => {
+    releaseInsert = resolve;
+  });
+  let markInsertStarted: (() => void) | undefined;
+  const insertStarted = new Promise<void>((resolve) => {
+    markInsertStarted = resolve;
+  });
+  let shouldDelayInsert = true;
+  async function delayedExecSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>> {
+    if (
+      shouldDelayInsert &&
+      sql.toLowerCase().includes('insert into "security_incidents"')
+    ) {
+      shouldDelayInsert = false;
+      markInsertStarted?.();
+      await insertGate;
+    }
+    return execSql(sql, bind, options);
+  }
+
+  const database = new Database({ status: "idle" });
+  const service = createSecurityIncidentService({
+    database,
+    logError: () => undefined,
+    trustDomain: null,
+  });
+  const report = (objectId: string) =>
+    service.report(new KeyingVerificationError("rollback", "stale head"), {
+      objectId,
+      objectKind: "principal",
+      operation: "principal.policy.verify",
+    });
+
+  try {
+    await report("principal-before-flush");
+    database.setExecSql(delayedExecSql as ExecSql);
+    await insertStarted;
+    database.clear();
+    await report("principal-during-flush");
+    database.setExecSql(delayedExecSql as ExecSql);
+    releaseInsert?.();
+
+    const incidents = await service.incidents.list();
+    expect(incidents?.map((incident) => incident.objectId).sort()).toEqual([
+      "principal-before-flush",
+      "principal-during-flush",
+    ]);
+  } finally {
+    releaseInsert?.();
+    await close();
+  }
+});
+
 test("equivalent retry failures coalesce into one counted incident", async () => {
   const { close, execSql } = await createTestExecSql(
     "security-incidents-coalesced-retries",
@@ -193,6 +287,11 @@ test("unknown verification codes are logged instead of silently dropped", async 
   Reflect.set(error, "code", "future_code");
 
   try {
+    await service.report(error, {
+      objectId: null,
+      objectKind: "unknown",
+      operation: "future.operation",
+    });
     await service.report(error, {
       objectId: null,
       objectKind: "unknown",

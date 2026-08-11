@@ -113,7 +113,7 @@ async function tryUploadDocumentAttachment(input: {
       input.reportSecurityIncident,
       {
         objectId: input.documentId,
-        objectKind: "blob",
+        objectKind: "document",
         operation: "document.attachment.upload",
       },
     );

@@ -4,6 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobContracts";
+import type { SecurityIncidentContext } from "../../../data/securityIncidents";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import type { DocumentStoreState } from "./state";
 
@@ -306,9 +307,20 @@ test("attachment upload propagates identity failures without a projection retry"
   );
   let projectionRequests = 0;
   let stageRequests = 0;
+  const incidentContexts: SecurityIncidentContext[] = [];
   const state = {
+    localId: writerProjection.documentId,
     runtime: {
-      util: { isRemoteSyncBlocked: () => false },
+      util: {
+        isRemoteSyncBlocked: () => false,
+        reportSecurityIncident: async (
+          error: unknown,
+          context: SecurityIncidentContext,
+        ) => {
+          expect(error).toBe(integrityError);
+          incidentContexts.push(context);
+        },
+      },
     },
     writerProjection,
   } as unknown as DocumentStoreState;
@@ -348,6 +360,13 @@ test("attachment upload propagates identity failures without a projection retry"
     expect(state.writerProjection).toBe(writerProjection);
     expect(projectionRequests).toBe(0);
     expect(stageRequests).toBe(0);
+    expect(incidentContexts).toEqual([
+      {
+        objectId: writerProjection.documentId,
+        objectKind: "document",
+        operation: "document.attachment.upload",
+      },
+    ]);
   } finally {
     close();
   }
