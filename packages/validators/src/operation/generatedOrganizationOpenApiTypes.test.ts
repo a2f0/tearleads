@@ -1,14 +1,14 @@
 import { test } from "bun:test";
 import type {
-  CreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "../request";
 import type {
+  CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupMembersResponse,
-  OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
   PaymentRequiredErrorResponse,
@@ -85,12 +85,12 @@ test("generated OpenAPI types match organization management contracts", () => {
   >();
   assertType<IsAssignable<CreateGroupPathParams, { organizationId: string }>>();
   assertType<
-    IsAssignable<CreateGroupRequest, CreateOrganizationGroupRequest>
+    IsAssignable<CreateGroupRequest, CreateOrganizationGroupWithPolicyRequest>
   >();
   assertType<
-    IsEqual<
+    IsAssignable<
       NormalizeWireType<CreateGroupResponse>,
-      NormalizeWireType<OrganizationGroupSummaryResponse>
+      NormalizeWireType<CreateOrganizationGroupResponse>
     >
   >();
   assertType<

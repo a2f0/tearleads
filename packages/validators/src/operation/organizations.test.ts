@@ -1,21 +1,24 @@
 import { expect, test } from "bun:test";
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
-import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
+import {
+  organizationProvisioningContainerKeyringRefinement,
+  organizationProvisioningGroupNameRefinement,
+} from "../organizationProvisioningRefinements";
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
-  CreateOrganizationGroupRequestSchema,
+  CreateOrganizationGroupWithPolicyRequestSchema,
   OrganizationProvisioningRequestSchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
 } from "../request";
 import {
+  CreateOrganizationGroupResponseSchema,
   DeleteOrganizationGroupResponseSchema,
   ErrorResponseSchema,
   OrganizationDataUsageResponseSchema,
   OrganizationDirectoryUserResponseSchema,
   OrganizationGroupMembersResponseSchema,
-  OrganizationGroupSummaryResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
   OrganizationReadModelResponseSchema,
@@ -176,13 +179,16 @@ test("organization read-model paths derive from shared path and query schemas", 
 test("organization management operations own their HTTP contracts", () => {
   expect(createOrganizationGroupOperation).toMatchObject({
     auth: "session",
-    body: CreateOrganizationGroupRequestSchema,
+    body: CreateOrganizationGroupWithPolicyRequestSchema,
     failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
     id: "organizations.groups.create",
     method: "POST",
     params: OrganizationPathParamsSchema,
-    responses: { 200: OrganizationGroupSummaryResponseSchema },
-    runtimeRefinements: [organizationProvisioningGroupNameRefinement],
+    responses: { 200: CreateOrganizationGroupResponseSchema },
+    runtimeRefinements: [
+      organizationProvisioningContainerKeyringRefinement,
+      organizationProvisioningGroupNameRefinement,
+    ],
   });
   expect(createOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,

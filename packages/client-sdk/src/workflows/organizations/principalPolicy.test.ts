@@ -188,20 +188,29 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         expect(request.initialGroupPolicy.projection).toEqual([]);
         expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
         createdPolicyBundle = await policyBundleFromInitialRequest(request);
-
+        const organizationMutation = await policyBundleAfterMutation({
+          mutation: request.organizationPolicy,
+          previous: organizationPolicy,
+        });
+        const { containerMutations: _containerMutations, ...nextPolicy } =
+          organizationMutation;
+        organizationPolicy = nextPolicy;
         return {
-          groupId: request.groupId,
-          organizationId: nextOrganizationId,
-          name: request.name,
-          createdAt: "2026-05-12T12:00:00.000Z",
-          isBuiltin: false,
-          currentState: {
-            stateHash: createdPolicyBundle.currentState.stateHash,
-            version: createdPolicyBundle.currentState.version,
-            keyEpoch: createdPolicyBundle.currentState.keyEpoch,
-            keyFingerprint: createdPolicyBundle.currentState.keyFingerprint,
-            memberCount: createdPolicyBundle.currentState.memberCount,
+          group: {
+            groupId: request.groupId,
+            organizationId: nextOrganizationId,
+            name: request.name,
+            createdAt: "2026-05-12T12:00:00.000Z",
+            isBuiltin: false,
+            currentState: {
+              stateHash: createdPolicyBundle.currentState.stateHash,
+              version: createdPolicyBundle.currentState.version,
+              keyEpoch: createdPolicyBundle.currentState.keyEpoch,
+              keyFingerprint: createdPolicyBundle.currentState.keyFingerprint,
+              memberCount: createdPolicyBundle.currentState.memberCount,
+            },
           },
+          organizationPolicy: organizationMutation,
         };
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -221,17 +230,8 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         expect(principalId).toBe(createdPolicyBundle.currentState.principalId);
         return createdPolicyBundle;
       },
-      putPrincipalPolicy: async (principalType, principalId, mutation) => {
-        expect(principalType).toBe("organization");
-        expect(principalId).toBe(organizationId);
-        const mutationResponse = await policyBundleAfterMutation({
-          mutation,
-          previous: organizationPolicy,
-        });
-        const { containerMutations: _containerMutations, ...nextPolicy } =
-          mutationResponse;
-        organizationPolicy = nextPolicy;
-        return mutationResponse;
+      putPrincipalPolicy: async () => {
+        throw new Error("Group creation must commit atomically");
       },
     };
 

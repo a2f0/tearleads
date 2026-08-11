@@ -208,12 +208,16 @@ mutations and content records to cryptographic authority.
 
 ## Principal Policy Protocol
 
-Groups and organizations are managed by signed principal-state chains exposed
-through `PUT /principals/:principalType/:principalId/policy` and the
-corresponding `GET`. Supported organization-group successors use
+Groups and organizations are managed by signed principal-state chains. The
+generic policy `PUT` accepts organization successors only; standalone group
+writes fail closed because they cannot advance the signed group directory.
+Organization-group successors use
 `PUT /organizations/:organizationId/groups/:groupId/policy-commit`, which
 atomically stores the group successor and an organization-policy successor
 whose authority descriptor commits the new exact group head.
+Group creation uses the same rule: `POST /organizations/:organizationId/groups`
+stores the group row, initial group policy, and matching organization-policy
+successor in one transaction, or stores none of them.
 
 A state commits the principal identity, version and predecessor, key epoch and
 encapsulation key, membership/projection/envelope roots, payload hash, member

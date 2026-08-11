@@ -15,6 +15,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
+import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -120,17 +121,12 @@ test("PUT policy rejects non-admin roles in the reserved Admins group", async ()
     projection,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.adminGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(successor),
-    },
-  );
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: organization.adminGroupId,
+    groupPolicy: successor,
+    organizationId,
+  });
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
@@ -248,17 +244,12 @@ test("PUT policy rejects a stale signed Admins authority head", async () => {
   await registerUser(replacement);
   await addUserToAdminGroup({ actor, member: replacement, organizationId });
 
-  const response = await routeApp.request(
-    `/principals/group/${groupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(successor),
-    },
-  );
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId,
+    groupPolicy: successor,
+    organizationId,
+  });
 
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({

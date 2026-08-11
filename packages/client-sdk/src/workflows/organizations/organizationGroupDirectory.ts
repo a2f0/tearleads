@@ -133,23 +133,19 @@ export async function commitCreatedGroupToDirectory(input: {
   readonly externalAdminPolicy: NonNullable<
     Awaited<ReturnType<typeof loadOrganizationExternalAdminPolicy>>
   >;
-  readonly group: OrganizationGroupSummaryResponse;
   readonly organizationId: string;
   readonly request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<ReferencedPrincipalHead> {
+}): Promise<{
+  readonly group: OrganizationGroupSummaryResponse;
+  readonly head: ReferencedPrincipalHead;
+}> {
   const expectedHead = await groupPolicyMutationHead(
     input.request.initialGroupPolicy,
   );
-  const acknowledged = await acknowledgeInitialGroupPolicy({
-    organizationId: input.organizationId,
-    request: input.request,
-    response: input.group,
-    stateHash: expectedHead.stateHash,
-  });
   const adminProjection =
     input.externalAdminPolicy.adminBundle.currentProjection;
   const adminUsers = await resolveRequiredUserIdentities({
@@ -170,34 +166,39 @@ export async function commitCreatedGroupToDirectory(input: {
       signingFingerprint: input.signingFingerprint,
       signingKeyPair: input.signingKeyPair,
     });
-  const stored = await input.apiClient.putPrincipalPolicy(
-    "organization",
+  const stored = await input.apiClient.createOrganizationGroup(
     input.organizationId,
-    organizationRequest,
+    { ...input.request, organizationPolicy: organizationRequest },
   );
   if (!stored) {
-    throw new Error("Created group could not be committed to the organization");
+    throw new Error("Group could not be created");
   }
+  const acknowledged = await acknowledgeInitialGroupPolicy({
+    organizationId: input.organizationId,
+    request: input.request,
+    response: stored.group,
+    stateHash: expectedHead.stateHash,
+  });
   const organizationHead = await groupPolicyMutationHead(organizationRequest);
   const organizationPolicy = await acknowledgeGroupPolicyState({
     currentPolicy: input.externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,
-    response: stored.currentState,
+    response: stored.organizationPolicy.currentState,
   });
   assertGroupPolicyBundleMatchesAcknowledgement({
     currentPolicy: input.externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,
-    response: stored,
+    response: stored.organizationPolicy,
   });
   await persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [
       { bundle: acknowledged.bundle, policy: acknowledged.policy },
-      { bundle: stored, policy: organizationPolicy },
+      { bundle: stored.organizationPolicy, policy: organizationPolicy },
     ],
     execSql: input.execSql,
     updatedAt: new Date().toISOString(),
   });
-  return expectedHead;
+  return { group: stored.group, head: expectedHead };
 }

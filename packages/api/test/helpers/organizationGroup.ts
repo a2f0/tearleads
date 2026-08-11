@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import { withOrganizationGroupDirectoryPolicy } from "./principalPolicy";
 import {
   signPrincipalStateBundle,
   toPrincipalStateExternalAuthority,
@@ -24,6 +25,16 @@ export async function createGroupRequest(input: {
   includeActorAsAdmin?: boolean | undefined;
   name: string;
 }) {
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      organizationId: organizations.id,
+    })
+    .from(users)
+    .innerJoin(organizations, eq(organizations.id, users.defaultOrganizationId))
+    .where(eq(users.id, input.actor.userId))
+    .limit(1);
+  invariant(organization, "expected actor organization");
   const principalKem = generateKemSeedAndKeyPair();
   const includeActor = input.includeActorAsAdmin ?? true;
   const projection = normalizePrincipalProjectionMembers([
@@ -50,16 +61,6 @@ export async function createGroupRequest(input: {
     });
   let externalAuthority = null;
   if (!includeActor) {
-    const [organization] = await db
-      .select({ adminGroupId: organizations.adminGroupId })
-      .from(users)
-      .innerJoin(
-        organizations,
-        eq(organizations.id, users.defaultOrganizationId),
-      )
-      .where(eq(users.id, input.actor.userId))
-      .limit(1);
-    invariant(organization, "expected actor organization");
     const adminState = await getCurrentPrincipalState(
       "group",
       organization.adminGroupId,
@@ -88,15 +89,19 @@ export async function createGroupRequest(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
 
-  return {
-    groupId: input.groupId,
-    name: input.name,
-    initialGroupPolicy: {
-      state: state.state,
-      encryptedPayload: state.encryptedPayload,
-      projection: state.projection,
-      grants: state.grants,
-      memberEnvelopes,
+  return withOrganizationGroupDirectoryPolicy({
+    actor: input.actor,
+    organizationId: organization.organizationId,
+    request: {
+      groupId: input.groupId,
+      name: input.name,
+      initialGroupPolicy: {
+        state: state.state,
+        encryptedPayload: state.encryptedPayload,
+        projection: state.projection,
+        grants: state.grants,
+        memberEnvelopes,
+      },
     },
-  };
+  });
 }

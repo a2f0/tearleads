@@ -7,7 +7,7 @@ import type {
   CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
-  CreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
@@ -1007,7 +1007,7 @@ export class ApiClient {
 
   createOrganizationGroup(
     organizationId: string,
-    input: CreateOrganizationGroupRequest,
+    input: CreateOrganizationGroupWithPolicyRequest,
   ) {
     return this.request(
       groupCreate.path(organizationId),

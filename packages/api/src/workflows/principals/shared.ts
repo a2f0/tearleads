@@ -22,6 +22,17 @@ export class PrincipalPolicyError extends Error {
   }
 }
 
+export function assertStandalonePrincipalPolicyWrite(
+  principalType: "group" | "organization",
+): void {
+  if (principalType === "group") {
+    throw new PrincipalPolicyError(
+      "Organization group policy updates require an authenticated organization commit",
+      409,
+    );
+  }
+}
+
 function principalPolicyValidationStatus(
   code: PrincipalPolicyValidationErrorCode,
 ): 400 | 403 | 404 | 409 {

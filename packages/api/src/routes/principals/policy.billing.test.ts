@@ -13,13 +13,13 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
+  submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
-import { routeApp } from "../../routeApp";
 
 test("a native tier accepts an over-capacity member without assigning a sync seat", async () => {
   const admin = createTestUser();
@@ -77,23 +77,18 @@ test("a native tier accepts an over-capacity member without assigning a sync sea
     version: currentState.version + 1,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${admin.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        encryptedPayload: signedState.encryptedPayload,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-        projection: signedState.projection,
-        state: signedState.state,
-      }),
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor: admin,
+    groupId: organization.memberGroupId,
+    groupPolicy: {
+      encryptedPayload: signedState.encryptedPayload,
+      grants: signedState.grants,
+      memberEnvelopes: signedState.memberEnvelopes,
+      projection: signedState.projection,
+      state: signedState.state,
     },
-  );
+    organizationId,
+  });
 
   expect(response.status).toBe(200);
   const [rosterEntry] = await db

@@ -13,8 +13,8 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
-import { routeApp } from "../../src/routeApp";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
 
 interface MemberGroupUsersMutationInput {
@@ -90,17 +90,12 @@ async function updateMemberGroupUsers(
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.actor.token}`,
-      },
-      body: JSON.stringify(state),
-    },
-  );
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor: input.actor,
+    groupId: organization.memberGroupId,
+    groupPolicy: state,
+    organizationId: input.organizationId,
+  });
   if (!response.ok) {
     throw new Error(
       `Failed to update organization membership: ${response.status} ${await response.text()}`,

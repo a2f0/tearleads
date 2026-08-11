@@ -2,14 +2,15 @@ import { z } from "zod";
 import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
 import {
+  organizationProvisioningContainerKeyringRefinement,
   organizationProvisioningGroupNameRefinement,
   organizationProvisioningRequestRuntimeRefinements,
   organizationProvisioningResponseRuntimeRefinements,
 } from "../organizationProvisioningRefinements";
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
-  CreateOrganizationGroupRequestSchema,
-  isCreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequestSchema,
+  isCreateOrganizationGroupWithPolicyRequest,
   isCreateOrganizationRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
@@ -19,6 +20,7 @@ import {
   UpdateOrganizationRosterEntryRequestSchema,
 } from "../request";
 import {
+  CreateOrganizationGroupResponseSchema,
   DeleteOrganizationGroupResponseSchema,
   ErrorResponseSchema,
   isCreateOrganizationGroupResponse,
@@ -32,7 +34,6 @@ import {
   OrganizationDataUsageResponseSchema,
   OrganizationDirectoryUserResponseSchema,
   OrganizationGroupMembersResponseSchema,
-  OrganizationGroupSummaryResponseSchema,
   OrganizationProfileResponseSchema,
   OrganizationProvisioningResponseSchema,
   OrganizationReadModelResponseSchema,
@@ -134,7 +135,7 @@ export const getOrganizationReadModelOperation = defineJsonOperation({
 
 export const createOrganizationGroupOperation = defineJsonOperation({
   auth: "session",
-  body: CreateOrganizationGroupRequestSchema,
+  body: CreateOrganizationGroupWithPolicyRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
     401: ErrorResponseSchema,
@@ -151,9 +152,12 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/groups",
   responses: {
-    200: OrganizationGroupSummaryResponseSchema,
+    200: CreateOrganizationGroupResponseSchema,
   },
-  runtimeRefinements: [organizationProvisioningGroupNameRefinement],
+  runtimeRefinements: [
+    organizationProvisioningContainerKeyringRefinement,
+    organizationProvisioningGroupNameRefinement,
+  ],
 });
 
 export const deleteOrganizationGroupOperation = defineJsonOperation({
@@ -239,7 +243,7 @@ export const updateOrganizationRosterEntryOperation = defineJsonOperation({
 });
 
 export const isCreateOrganizationGroupOperationRequest =
-  isCreateOrganizationGroupRequest;
+  isCreateOrganizationGroupWithPolicyRequest;
 export const isCreateOrganizationGroupOperationResponse =
   isCreateOrganizationGroupResponse;
 export const isCreateOrganizationOperationRequest = isCreateOrganizationRequest;

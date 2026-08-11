@@ -2,11 +2,7 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
-import type {
-  CommitOrganizationGroupPolicyResponse,
-  PrincipalPolicyMutationResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalState,
   type StoredPrincipalState,
@@ -42,7 +38,11 @@ import {
   type PutPrincipalPolicyInput,
 } from "./principalPolicyMutationAuthorization";
 import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
-import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
+import {
+  assertStandalonePrincipalPolicyWrite,
+  PrincipalPolicyError,
+  toPrincipalPolicyError,
+} from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
 
 export type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
@@ -145,7 +145,7 @@ async function appendPolicyReadModelChanges(input: {
   }
 }
 
-function assertPutPrincipalPolicyRouteBinding(
+export function assertPutPrincipalPolicyRouteBinding(
   input: PutPrincipalPolicyInput,
 ): void {
   if (input.state.signerUserId !== input.requesterUserId) {
@@ -202,7 +202,7 @@ function applyPolicyContainerRematerializations(input: {
   });
 }
 
-async function putPrincipalPolicyInTransaction(
+export async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
@@ -385,6 +385,7 @@ export async function runPutPrincipalPolicyWorkflow(
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
   assertPutPrincipalPolicyRouteBinding(input);
+  assertStandalonePrincipalPolicyWrite(input.expectedPrincipalType);
 
   try {
     return await db.transaction((tx) =>
@@ -406,90 +407,6 @@ export async function runPutPrincipalPolicyWorkflow(
       throw principalPolicyError;
     }
 
-    throw error;
-  }
-}
-
-export interface CommitOrganizationGroupPolicyResult {
-  readonly policy: CommitOrganizationGroupPolicyResponse;
-  readonly sharedWithYouUserIds: readonly string[];
-}
-
-export async function runCommitOrganizationGroupPolicyWorkflow(
-  db: ApiDatabase,
-  input: {
-    readonly groupId: string;
-    readonly organizationId: string;
-    readonly request: CommitOrganizationGroupPolicyRequest;
-    readonly requesterUserId: string;
-  },
-): Promise<CommitOrganizationGroupPolicyResult> {
-  const groupInput: PutPrincipalPolicyInput = {
-    ...input.request.groupPolicy,
-    expectedPrincipalId: input.groupId,
-    expectedPrincipalType: "group",
-    requesterUserId: input.requesterUserId,
-  };
-  const organizationInput: PutPrincipalPolicyInput = {
-    ...input.request.organizationPolicy,
-    expectedPrincipalId: input.organizationId,
-    expectedPrincipalType: "organization",
-    requesterUserId: input.requesterUserId,
-  };
-  assertPutPrincipalPolicyRouteBinding(groupInput);
-  assertPutPrincipalPolicyRouteBinding(organizationInput);
-  if (groupInput.state.signerUserId !== organizationInput.state.signerUserId) {
-    throw new PrincipalPolicyError(
-      "Group and organization policies must have the same signer",
-      400,
-    );
-  }
-
-  try {
-    return await db.transaction(async (tx) => {
-      const target = await loadRosterSyncTargetForPrincipal({
-        input: groupInput,
-        tx,
-      });
-      if (!target || target.organizationId !== input.organizationId) {
-        throw new PrincipalPolicyError(
-          "Group does not belong to the committed organization",
-          404,
-        );
-      }
-      const group = await putPrincipalPolicyInTransaction(tx, groupInput);
-      const organization = await putPrincipalPolicyInTransaction(
-        tx,
-        organizationInput,
-      );
-      return {
-        policy: {
-          groupPolicy: group.policy,
-          organizationPolicy: organization.policy,
-        },
-        sharedWithYouUserIds: [
-          ...new Set([
-            ...group.sharedWithYouUserIds,
-            ...organization.sharedWithYouUserIds,
-          ]),
-        ],
-      };
-    });
-  } catch (error) {
-    const containerMutationError = toMutationError(error);
-    if (containerMutationError) {
-      throw new PrincipalPolicyError(
-        containerMutationError.message,
-        containerMutationError.status,
-      );
-    }
-    if (error instanceof OrganizationManagerError) {
-      throw new PrincipalPolicyError(error.message, error.status, error.code);
-    }
-    const principalPolicyError = toPrincipalPolicyError(error);
-    if (principalPolicyError) {
-      throw principalPolicyError;
-    }
     throw error;
   }
 }

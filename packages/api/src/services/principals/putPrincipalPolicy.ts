@@ -1,9 +1,11 @@
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import {
   type CommitOrganizationGroupPolicyResult,
+  runCommitOrganizationGroupPolicyWorkflow,
+} from "../../workflows/principals/commitOrganizationGroupPolicy";
+import {
   type PutPrincipalPolicyInput,
   type PutPrincipalPolicyResult,
-  runCommitOrganizationGroupPolicyWorkflow,
   runPutPrincipalPolicyWorkflow,
 } from "../../workflows/principals/putPrincipalPolicy";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";

@@ -6,12 +6,15 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { prepareUserForAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { createPolicyTestGroup } from "../../../test/helpers/principalPolicy";
+import {
+  createPolicyTestGroup,
+  submitOrganizationGroupPolicyCommit,
+} from "../../../test/helpers/principalPolicy";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
@@ -94,25 +97,16 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const signedState = await signSoloGroupState(actor, principalId);
 
-  const putPolicyResponse = await app.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        grants: signedState.grants,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const putPolicyResponse = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: principalId,
+    groupPolicy: signedState,
+    organizationId,
+    request: (path, init) => app.request(path, init),
+  });
   expect(putPolicyResponse.status).toBe(200);
 
   expect(sharedWithYouUserIds(publishedEvents)).toEqual([]);
@@ -126,6 +120,7 @@ test("PUT granted Admins access notifies only the newly reachable user", async (
   await registerUser(member);
 
   const { adminGroupId, request } = await signAdminsAccessGain(actor, member);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const publishedEvents: Array<Record<string, unknown>> = [];
   const app = createRouteApp({
     publish: async (event) => {
@@ -133,17 +128,13 @@ test("PUT granted Admins access notifies only the newly reachable user", async (
     },
   });
 
-  const putPolicyResponse = await app.request(
-    `/principals/group/${adminGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(request),
-    },
-  );
+  const putPolicyResponse = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: adminGroupId,
+    groupPolicy: request,
+    organizationId,
+    request: (path, init) => app.request(path, init),
+  });
 
   expect(putPolicyResponse.status).toBe(200);
   expect(sharedWithYouUserIds(publishedEvents)).toEqual([member.userId]);
@@ -159,6 +150,7 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
   await registerUser(member);
 
   const { adminGroupId, request } = await signAdminsAccessGain(actor, member);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
 
   const app = createRouteApp({
     publish: async () => {
@@ -166,22 +158,18 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
     },
   });
 
-  const putPolicyResponse = await app.request(
-    `/principals/group/${adminGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify(request),
-    },
-  );
+  const putPolicyResponse = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: adminGroupId,
+    groupPolicy: request,
+    organizationId,
+    request: (path, init) => app.request(path, init),
+  });
   expect(putPolicyResponse.status).toBe(200);
   const storedPolicy = await putPolicyResponse.json();
   invariant(
-    isPrincipalPolicyBundleResponse(storedPolicy),
-    "expected principal policy bundle response",
+    isCommitOrganizationGroupPolicyResponse(storedPolicy),
+    "expected compound principal policy response",
   );
   const sortByMemberId = <T extends { userId: string }>(
     envelopes: readonly T[],
@@ -189,7 +177,7 @@ test("PUT granted access still succeeds when shared_with_you publish throws", as
     [...envelopes].sort((left, right) =>
       left.userId.localeCompare(right.userId),
     );
-  expect(sortByMemberId(storedPolicy.currentMemberEnvelopes.envelopes)).toEqual(
-    sortByMemberId(request.memberEnvelopes),
-  );
+  expect(
+    sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
+  ).toEqual(sortByMemberId(request.memberEnvelopes));
 });

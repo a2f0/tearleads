@@ -13,6 +13,8 @@ import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import {
   createPolicyTestGroup,
   createSignedPrincipalState,
+  getDefaultOrganizationId,
+  submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
@@ -24,6 +26,7 @@ test("GET principal policy rejects a database-tampered projection", async () => 
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
@@ -32,23 +35,12 @@ test("GET principal policy rejects a database-tampered projection", async () => 
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
-  const putResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        grants: signedState.grants,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const putResponse = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: principalId,
+    groupPolicy: signedState,
+    organizationId,
+  });
   expect(putResponse.status).toBe(200);
 
   const verifiedResponse = await routeApp.request(
@@ -87,6 +79,7 @@ test("GET principal policy rejects a signer key edited after verification", asyn
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
@@ -95,23 +88,12 @@ test("GET principal policy rejects a signer key edited after verification", asyn
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
-  const putResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        grants: signedState.grants,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const putResponse = await submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: principalId,
+    groupPolicy: signedState,
+    organizationId,
+  });
   expect(putResponse.status).toBe(200);
 
   const verifiedResponse = await routeApp.request(

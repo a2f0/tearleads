@@ -69,7 +69,10 @@ export {
 export {
   type CreateOrganizationGroupRequest,
   CreateOrganizationGroupRequestSchema,
+  type CreateOrganizationGroupWithPolicyRequest,
+  CreateOrganizationGroupWithPolicyRequestSchema,
   isCreateOrganizationGroupRequest,
+  isCreateOrganizationGroupWithPolicyRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   type OrganizationReadModelQuery,

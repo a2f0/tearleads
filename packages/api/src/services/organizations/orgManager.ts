@@ -1,14 +1,14 @@
 import type {
-  CreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
 import type {
+  CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
   OrganizationDataUsageResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupMembersResponse,
-  OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
@@ -86,8 +86,8 @@ export async function createOrganizationGroup(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
-  input: CreateOrganizationGroupRequest,
-): Promise<OrganizationGroupSummaryResponse> {
+  input: CreateOrganizationGroupWithPolicyRequest,
+): Promise<CreateOrganizationGroupResponse> {
   return runCreateOrganizationGroupWorkflow(
     runtime.db,
     organizationId,

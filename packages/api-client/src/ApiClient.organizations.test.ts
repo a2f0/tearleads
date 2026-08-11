@@ -195,17 +195,23 @@ testApiClient(
         }
         if (request.method === "POST") {
           return HttpResponse.json({
-            groupId: "group-1",
-            organizationId: "org-1",
-            name: "Operators",
-            createdAt: "2026-05-12T12:00:00.000Z",
-            isBuiltin: false,
-            currentState: {
-              stateHash: "state-hash",
-              version: 1,
-              keyEpoch: 1,
-              keyFingerprint: "key-fingerprint",
-              memberCount: 1,
+            group: {
+              groupId: "group-1",
+              organizationId: "org-1",
+              name: "Operators",
+              createdAt: "2026-05-12T12:00:00.000Z",
+              isBuiltin: false,
+              currentState: {
+                stateHash: "state-hash",
+                version: 1,
+                keyEpoch: 1,
+                keyFingerprint: "key-fingerprint",
+                memberCount: 1,
+              },
+            },
+            organizationPolicy: {
+              ...createPrincipalPolicyBundleResponse(),
+              containerMutations: [],
             },
           });
         }
@@ -228,6 +234,10 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const groupRequest = createOrganizationGroupRequest();
     const policyRequest = createPrincipalPolicyRequest();
+    const authenticatedGroupRequest = {
+      ...groupRequest,
+      organizationPolicy: policyRequest,
+    };
 
     expect(
       (await client.getOrganizationDataUsageResult(dataUsageOrganizationId)).ok,
@@ -247,7 +257,7 @@ testApiClient(
     expect(
       await client.createOrganizationGroup(
         dataUsageOrganizationId,
-        groupRequest,
+        authenticatedGroupRequest,
       ),
     ).not.toBeNull();
     expect(
@@ -293,7 +303,7 @@ testApiClient(
         method: "PUT",
       },
       {
-        body: JSON.stringify(groupRequest),
+        body: JSON.stringify(authenticatedGroupRequest),
         input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups`,
         method: "POST",
       },

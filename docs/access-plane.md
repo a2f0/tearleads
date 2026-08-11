@@ -84,6 +84,10 @@ valid group policy therefore fails closed even on a device with no prior
 checkpoint for that group. A descriptor may retain the last head of a durably
 tombstoned group so an unsigned hard deletion cannot poison later active-group
 commits; tombstoned IDs cannot be reused or resolved as active recipients.
+The generic principal-policy write route rejects group updates. Group creation
+atomically stores the new row and initial policy with the matching signed
+organization-directory successor, so a failed second artifact cannot leave an
+active but undiscoverable group.
 
 Container authorization likewise re-verifies every stored manifest on the
 historical authorization path. The API verifies the event signature and signer

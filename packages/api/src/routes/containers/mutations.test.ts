@@ -97,7 +97,11 @@ import {
   getDefaultOrganizationId,
 } from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
-import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
+import {
+  loadVerifiedPrincipalPolicy,
+  submitOrganizationGroupPolicyCommit,
+  withOrganizationGroupDirectoryPolicy,
+} from "../../../test/helpers/principalPolicy";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
@@ -446,30 +450,35 @@ async function putGroupPrincipalPolicy(input: {
           Authorization: `Bearer ${input.actor.token}`,
         },
         body: JSON.stringify({
-          groupId: input.principalId,
-          name: "Test group",
-          initialGroupPolicy: policyRequest,
+          ...(await withOrganizationGroupDirectoryPolicy({
+            actor: input.actor,
+            organizationId: actor.organizationId,
+            request: {
+              groupId: input.principalId,
+              name: "Test group",
+              initialGroupPolicy: policyRequest,
+            },
+          })),
         }),
       },
     );
   } else {
-    response = await routeApp.request(
-      `/principals/group/${input.principalId}/policy`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${input.actor.token}`,
-        },
-        body: JSON.stringify(policyRequest),
-      },
-    );
+    response = await submitOrganizationGroupPolicyCommit({
+      actor: input.actor,
+      groupId: input.principalId,
+      groupPolicy: policyRequest,
+      organizationId: await getDefaultOrganizationId(input.actor.userId),
+    });
   }
 
   expect(response.status).toBe(200);
   const responseBody = isInitialState
     ? null
-    : ((await response.json()) as PrincipalPolicyMutationResponse);
+    : (
+        (await response.json()) as {
+          groupPolicy: PrincipalPolicyMutationResponse;
+        }
+      ).groupPolicy;
   const policy = await loadVerifiedPrincipalPolicy(
     db,
     "group",

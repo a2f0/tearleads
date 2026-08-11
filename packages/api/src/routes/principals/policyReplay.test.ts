@@ -13,7 +13,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -21,6 +21,7 @@ import { addOrganizationMember } from "../../../test/helpers/organizationMembers
 import {
   createPolicyTestGroup,
   getDefaultOrganizationId,
+  submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -28,7 +29,6 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
-import { routeApp } from "../../routeApp";
 
 type TestPrincipalKem = ReturnType<typeof generateKemSeedAndKeyPair>;
 
@@ -86,18 +86,16 @@ async function createSignedPolicy(input: {
   });
 }
 
-function putPolicy(
+async function putPolicy(
   actor: TestUser,
   principalId: string,
   policy: Awaited<ReturnType<typeof createSignedPolicy>>,
 ) {
-  return routeApp.request(`/principals/group/${principalId}/policy`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${actor.token}`,
-    },
-    body: JSON.stringify(policy),
+  return submitOrganizationGroupPolicyCommit({
+    actor,
+    groupId: principalId,
+    groupPolicy: policy,
+    organizationId: await getDefaultOrganizationId(actor.userId),
   });
 }
 
@@ -109,12 +107,12 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   await registerUser(replacementAdmin);
 
   const principalId = crypto.randomUUID();
-  await createPolicyTestGroup(departingAdmin.userId, principalId);
   await addOrganizationMember({
     actor: departingAdmin,
     member: replacementAdmin,
     organizationId: await getDefaultOrganizationId(departingAdmin.userId),
   });
+  await createPolicyTestGroup(departingAdmin.userId, principalId);
   const initialPolicy = await createSignedPolicy({
     principalId,
     principalKem: generateKemSeedAndKeyPair(),
@@ -143,15 +141,15 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   expect(initialResponse.status).toBe(200);
   const initialBundle = await initialResponse.json();
   invariant(
-    isPrincipalPolicyBundleResponse(initialBundle),
-    "expected initial principal policy bundle",
+    isCommitOrganizationGroupPolicyResponse(initialBundle),
+    "expected initial compound policy bundle",
   );
 
   const successorPolicy = await createSignedPolicy({
     principalId,
     principalKem: generateKemSeedAndKeyPair(),
     version: 2,
-    prevStateHash: initialBundle.currentState.stateHash,
+    prevStateHash: initialBundle.groupPolicy.currentState.stateHash,
     keyEpoch: 2,
     signedAt: "2026-07-15T12:01:00.000Z",
     signer: departingAdmin,
@@ -171,8 +169,8 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   expect(successorResponse.status).toBe(200);
   const successorBundle = await successorResponse.json();
   invariant(
-    isPrincipalPolicyBundleResponse(successorBundle),
-    "expected successor principal policy bundle",
+    isCommitOrganizationGroupPolicyResponse(successorBundle),
+    "expected successor compound policy bundle",
   );
 
   const projectionAfterRemoval = await listCurrentPrincipalProjectionMembers(
@@ -201,16 +199,16 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   expect(replayResponse.status).toBe(200);
   const replayBundle = await replayResponse.json();
   invariant(
-    isPrincipalPolicyBundleResponse(replayBundle),
-    "expected replayed principal policy bundle",
+    isCommitOrganizationGroupPolicyResponse(replayBundle),
+    "expected replayed compound policy bundle",
   );
-  expect(replayBundle.currentState.stateHash).toBe(
-    successorBundle.currentState.stateHash,
+  expect(replayBundle.groupPolicy.currentState.stateHash).toBe(
+    successorBundle.groupPolicy.currentState.stateHash,
   );
-  expect(replayBundle.currentMemberEnvelopes).toEqual(
-    successorBundle.currentMemberEnvelopes,
+  expect(replayBundle.groupPolicy.currentMemberEnvelopes).toEqual(
+    successorBundle.groupPolicy.currentMemberEnvelopes,
   );
-  expect(replayBundle.previousStates).toHaveLength(1);
+  expect(replayBundle.groupPolicy.previousStates).toHaveLength(1);
 }, 10_000);
 
 test("recipient-key rejection rolls back every policy artifact", async () => {

@@ -23,11 +23,11 @@ same-organization durable group tombstone. Such an entry is historical: the ID
 cannot be recreated and no current group bundle exists for recipient use.
 
 Supported group mutations submit the group successor and matching organization
-successor to one atomic API operation. Sharing and key-rotation probes consume
-the signed directory, not the read-model group lane, and reject a current group
-response whose head differs from the committed entry. A newly created group is
-not considered usable by the client until its head has been added by the signed
-organization-policy successor.
+successor to one atomic API operation. Group creation likewise commits the row,
+initial group policy, and signed-directory successor in one transaction.
+Sharing and key-rotation probes consume the signed directory, not the read-model
+group lane, and reject a current group response whose head differs from the
+committed entry.
 
 Every signed principal-state header has an `externalAuthority` field. Directly
 authorized states use `null`; externally administered organization groups cite

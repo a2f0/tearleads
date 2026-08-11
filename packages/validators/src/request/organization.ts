@@ -15,14 +15,27 @@ const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
   [organizationProvisioningGroupNameRefinement],
 );
 
-export const CreateOrganizationGroupRequestSchema = loosePlainObject({
+const CreateOrganizationGroupRequestShape = {
   groupId: uuidV4StringSchema,
   initialGroupPolicy: PutPrincipalPolicyRequestSchema,
   name: NonBlankGroupNameSchema,
+};
+
+export const CreateOrganizationGroupRequestSchema = loosePlainObject(
+  CreateOrganizationGroupRequestShape,
+);
+
+export const CreateOrganizationGroupWithPolicyRequestSchema = loosePlainObject({
+  ...CreateOrganizationGroupRequestShape,
+  organizationPolicy: PutPrincipalPolicyRequestSchema,
 });
 
 export type CreateOrganizationGroupRequest = z.infer<
   typeof CreateOrganizationGroupRequestSchema
+>;
+
+export type CreateOrganizationGroupWithPolicyRequest = z.infer<
+  typeof CreateOrganizationGroupWithPolicyRequestSchema
 >;
 
 export const OrganizationReadModelQuerySchema = loosePlainObject({
@@ -53,6 +66,13 @@ export function isCreateOrganizationGroupRequest(
   value: unknown,
 ): value is CreateOrganizationGroupRequest {
   return CreateOrganizationGroupRequestSchema.safeParse(value).success;
+}
+
+export function isCreateOrganizationGroupWithPolicyRequest(
+  value: unknown,
+): value is CreateOrganizationGroupWithPolicyRequest {
+  return CreateOrganizationGroupWithPolicyRequestSchema.safeParse(value)
+    .success;
 }
 
 export function isUpdateOrganizationRosterEntryRequest(

@@ -192,18 +192,9 @@ export async function createOrganizationGroup(input: {
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-  const group = await input.apiClient.createOrganizationGroup(
-    input.organizationId,
-    request,
-  );
-
-  if (!group) {
-    throw new Error("Group could not be created");
-  }
-  const expectedHead = await commitCreatedGroupToDirectory({
+  const { group, head: expectedHead } = await commitCreatedGroupToDirectory({
     ...input,
     externalAdminPolicy,
-    group,
     request,
   });
 

@@ -14,7 +14,11 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
 } from "../../../test/helpers/keyingWriterProjectionKit";
-import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
+import {
+  createSignedPrincipalState,
+  getDefaultOrganizationId,
+  submitOrganizationGroupPolicyCommit,
+} from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -108,28 +112,23 @@ async function prepareRotation(input: { rotateKey?: boolean } = {}) {
   return { currentPolicy, nextPolicy, owner, root, rootRekey, signed };
 }
 
-function putPolicy(
+async function putPolicy(
   input: Awaited<ReturnType<typeof prepareRotation>>,
   containerMutations = [input.rootRekey.request],
 ) {
-  return routeApp.request(
-    `/principals/group/${input.nextPolicy.principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${input.owner.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        state: input.signed.state,
-        encryptedPayload: input.signed.encryptedPayload,
-        projection: input.signed.projection,
-        grants: input.signed.grants,
-        memberEnvelopes: input.signed.memberEnvelopes,
-        containerMutations,
-      }),
+  return submitOrganizationGroupPolicyCommit({
+    actor: input.owner,
+    groupId: input.nextPolicy.principalId,
+    groupPolicy: {
+      state: input.signed.state,
+      encryptedPayload: input.signed.encryptedPayload,
+      projection: input.signed.projection,
+      grants: input.signed.grants,
+      memberEnvelopes: input.signed.memberEnvelopes,
+      containerMutations,
     },
-  );
+    organizationId: await getDefaultOrganizationId(input.owner.userId),
+  });
 }
 
 test("policy rotation and dependent container rekey commit atomically", async () => {
@@ -196,13 +195,13 @@ test("an exact compound policy replay survives a later container mutation", asyn
   const replayResponse = await putPolicy(prepared);
   expect(replayResponse.status).toBe(200);
   const replay = await replayResponse.json();
-  expect(replay.containerMutations).toHaveLength(1);
-  expect(replay.containerMutations[0]?.accessManifest.manifestHash).toBe(
-    prepared.rootRekey.bundle.manifestHash,
-  );
-  expect(replay.containerMutations[0]?.containerKek.containerKeyEpochId).toBe(
-    prepared.rootRekey.kekState.containerKeyEpochId,
-  );
+  expect(replay.groupPolicy.containerMutations).toHaveLength(1);
+  expect(
+    replay.groupPolicy.containerMutations[0]?.accessManifest.manifestHash,
+  ).toBe(prepared.rootRekey.bundle.manifestHash);
+  expect(
+    replay.groupPolicy.containerMutations[0]?.containerKek.containerKeyEpochId,
+  ).toBe(prepared.rootRekey.kekState.containerKeyEpochId);
   expect(
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,

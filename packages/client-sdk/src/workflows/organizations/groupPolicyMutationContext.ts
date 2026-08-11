@@ -7,13 +7,13 @@ import type {
 } from "@tearleads/crypto";
 import type {
   CommitOrganizationGroupPolicyRequest,
-  CreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
+  CreateOrganizationGroupResponse,
   CurrentPrincipalMemberEnvelopesResponse,
-  OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
@@ -71,8 +71,8 @@ export interface OrganizationPrincipalPolicyApi
   extends PrincipalPolicyReadWriteApi {
   createOrganizationGroup: (
     organizationId: string,
-    input: CreateOrganizationGroupRequest,
-  ) => Promise<OrganizationGroupSummaryResponse | null>;
+    input: CreateOrganizationGroupWithPolicyRequest,
+  ) => Promise<CreateOrganizationGroupResponse | null>;
 }
 
 export interface BuildGroupMembershipMutationInput {

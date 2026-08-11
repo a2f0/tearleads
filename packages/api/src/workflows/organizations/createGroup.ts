@@ -3,12 +3,13 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import { groups as groupsTable } from "@tearleads/api-shared/schema";
-import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
-import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
+import type { CreateOrganizationGroupWithPolicyRequest } from "@tearleads/validators/request";
+import type { CreateOrganizationGroupResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";
-import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
+import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
+import { putPrincipalPolicyInTransaction } from "../principals/putPrincipalPolicy";
 import {
   PrincipalPolicyError,
   toPrincipalPolicyError,
@@ -39,7 +40,7 @@ function toPrincipalWriteError(
 
 async function prepareOrganizationGroupCreation(input: {
   readonly organizationId: string;
-  readonly request: CreateOrganizationGroupRequest;
+  readonly request: CreateOrganizationGroupWithPolicyRequest;
   readonly sessionUserId: string;
   readonly tx: DatabaseTransaction;
 }): Promise<void> {
@@ -49,9 +50,9 @@ async function prepareOrganizationGroupCreation(input: {
     requireAdmin: true,
     userId: input.sessionUserId,
   });
-  await lockPrincipalMutationInTransaction(
+  await lockOrganizationGroupMutationInTransaction(
     input.tx,
-    "group",
+    input.organizationId,
     input.request.groupId,
   );
   await requireSerializedOrganizationMutationAccess({
@@ -103,7 +104,7 @@ async function appendCreatedGroupReadModelChanges(input: {
 }
 
 function validateOrganizationGroupCreation(
-  input: CreateOrganizationGroupRequest,
+  input: CreateOrganizationGroupWithPolicyRequest,
 ): string {
   const name = input.name.trim();
   if (name.length === 0) {
@@ -133,6 +134,16 @@ function validateOrganizationGroupCreation(
       400,
     );
   }
+  if (
+    input.organizationPolicy.state.principalType !== "organization" ||
+    input.organizationPolicy.state.signerUserId !==
+      input.initialGroupPolicy.state.signerUserId
+  ) {
+    throw new OrganizationManagerError(
+      "Group and organization policies must have the same signer and organization scope",
+      400,
+    );
+  }
   return name;
 }
 
@@ -140,8 +151,8 @@ export async function runCreateOrganizationGroupWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-  input: CreateOrganizationGroupRequest,
-): Promise<OrganizationGroupSummaryResponse> {
+  input: CreateOrganizationGroupWithPolicyRequest,
+): Promise<CreateOrganizationGroupResponse> {
   const name = validateOrganizationGroupCreation(input);
 
   return db.transaction(async (tx) => {
@@ -212,7 +223,7 @@ export async function runCreateOrganizationGroupWorkflow(
         tx,
       });
 
-      return toGroupSummary({
+      const group = toGroupSummary({
         createdAt: insertedGroup.createdAt,
         groupId: insertedGroup.groupId,
         isBuiltin: false,
@@ -220,6 +231,16 @@ export async function runCreateOrganizationGroupWorkflow(
         organizationId,
         state: storedState,
       });
+      const organization = await putPrincipalPolicyInTransaction(tx, {
+        ...input.organizationPolicy,
+        expectedPrincipalId: organizationId,
+        expectedPrincipalType: "organization",
+        requesterUserId: sessionUserId,
+      });
+      return {
+        group,
+        organizationPolicy: organization.policy,
+      };
     } catch (error) {
       const organizationManagerError = toPrincipalWriteError(error);
       if (organizationManagerError) {

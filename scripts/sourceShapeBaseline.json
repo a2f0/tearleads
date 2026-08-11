@@ -62,8 +62,8 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 50409,
-      "bytes": 2077505
+      "lines": 51857,
+      "bytes": 2144148
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -83,7 +83,7 @@
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1815,
-      "bytes": 58642
+      "bytes": 58662
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -134,8 +134,8 @@
       "bytes": 17390
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3813,
-      "bytes": 125869
+      "lines": 3822,
+      "bytes": 126138
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
@@ -146,8 +146,8 @@
       "bytes": 74287
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 825,
-      "bytes": 25795
+      "lines": 835,
+      "bytes": 26191
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 925,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 19662,
-      "bytes": 803953
+      "lines": 20087,
+      "bytes": 825175
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

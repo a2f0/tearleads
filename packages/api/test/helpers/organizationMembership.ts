@@ -10,8 +10,8 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
-import { routeApp } from "../../src/routeApp";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
 
 export async function getDefaultOrganizationId(
@@ -96,22 +96,11 @@ export async function addOrganizationMember(input: {
     memberEnvelopes,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
-  expect(response.status).toBe(200);
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor: input.actor,
+    groupId: organization.memberGroupId,
+    groupPolicy: signedState,
+    organizationId: input.organizationId,
+  });
+  expect(response.status, await response.clone().text()).toBe(200);
 }

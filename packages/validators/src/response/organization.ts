@@ -6,6 +6,7 @@ import {
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { PrincipalPolicyMutationResponseSchema } from "./principal";
 
 const OrganizationRoleSchema = z.literal(["member", "admin"]);
 const OrganizationRosterStatusSchema = z.literal(["active", "disabled"]);
@@ -114,6 +115,15 @@ export const OrganizationGroupSummaryResponseSchema = loosePlainObject(
 
 export type OrganizationGroupSummaryResponse = z.infer<
   typeof OrganizationGroupSummaryResponseSchema
+>;
+
+export const CreateOrganizationGroupResponseSchema = loosePlainObject({
+  group: OrganizationGroupSummaryResponseSchema,
+  organizationPolicy: PrincipalPolicyMutationResponseSchema,
+});
+
+export type CreateOrganizationGroupResponse = z.infer<
+  typeof CreateOrganizationGroupResponseSchema
 >;
 
 export const DeleteOrganizationGroupResponseSchema = loosePlainObject({
@@ -341,8 +351,8 @@ export function isOrganizationUserDetailResponse(
 
 export function isCreateOrganizationGroupResponse(
   value: unknown,
-): value is OrganizationGroupSummaryResponse {
-  return OrganizationGroupSummaryResponseSchema.safeParse(value).success;
+): value is CreateOrganizationGroupResponse {
+  return CreateOrganizationGroupResponseSchema.safeParse(value).success;
 }
 
 export function isDeleteOrganizationGroupResponse(

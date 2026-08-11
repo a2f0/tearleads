@@ -187,6 +187,8 @@ export {
   isHealthResponse,
 } from "./health";
 export {
+  type CreateOrganizationGroupResponse,
+  CreateOrganizationGroupResponseSchema,
   type DeleteOrganizationGroupResponse,
   DeleteOrganizationGroupResponseSchema,
   isCreateOrganizationGroupResponse,
