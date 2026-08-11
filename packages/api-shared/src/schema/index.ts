@@ -58,7 +58,9 @@ export {
   organizationRosterEntries,
   organizations,
 } from "./organizations";
+export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
+  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,

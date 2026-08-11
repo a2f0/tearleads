@@ -13,6 +13,7 @@ import type {
   CurrentPrincipalMemberEnvelopesResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import {
   advanceKeyingCheckpointsAtomically,
@@ -40,11 +41,7 @@ import {
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
 
-export interface OrganizationPrincipalPolicyApi {
-  createOrganizationGroup: (
-    organizationId: string,
-    input: CreateOrganizationGroupRequest,
-  ) => Promise<OrganizationGroupSummaryResponse | null>;
+export interface PrincipalPolicyReadWriteApi {
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
@@ -53,7 +50,15 @@ export interface OrganizationPrincipalPolicyApi {
     principalType: "group" | "organization",
     principalId: string,
     input: PutPrincipalPolicyRequest,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
+  ) => Promise<PrincipalPolicyMutationResponse | null>;
+}
+
+export interface OrganizationPrincipalPolicyApi
+  extends PrincipalPolicyReadWriteApi {
+  createOrganizationGroup: (
+    organizationId: string,
+    input: CreateOrganizationGroupRequest,
+  ) => Promise<OrganizationGroupSummaryResponse | null>;
 }
 
 export interface BuildGroupMembershipMutationInput {
@@ -79,7 +84,7 @@ export async function cacheGroupPolicy(input: {
   readonly acknowledgedMemberEnvelopes?:
     | CurrentPrincipalMemberEnvelopesResponse
     | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly externalAuthority?: PrincipalPolicyExternalAuthority | undefined;
   readonly execSql: ExecSql;
   readonly expectedCurrentHead?: ReferencedPrincipalHead | undefined;
@@ -134,7 +139,7 @@ export async function cacheGroupPolicy(input: {
 }
 
 export async function loadGroupPolicyMutationContext(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -221,13 +226,13 @@ export async function loadGroupPolicyMutationContext(input: {
 }
 
 export async function commitGroupPolicyMutation(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly execSql: ExecSql;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly groupId: string;
   readonly request: PutPrincipalPolicyRequest;
-}): Promise<PrincipalPolicyBundleResponse> {
+}): Promise<PrincipalPolicyMutationResponse> {
   const storedPolicy = await input.apiClient.putPrincipalPolicy(
     "group",
     input.groupId,

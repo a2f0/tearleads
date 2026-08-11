@@ -1,5 +1,6 @@
 import {
   KeyingVerificationError,
+  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -46,9 +47,11 @@ function securityContent(bundle: PrincipalPolicyBundleResponse) {
     currentProjection: normalizePrincipalProjectionMembers(
       bundle.currentProjection,
     ),
+    currentGrants: normalizePrincipalContainerGrants(bundle.currentGrants),
     currentState: withoutCreatedAt(bundle.currentState),
     previousStates: bundle.previousStates.map((entry) => ({
       projection: normalizePrincipalProjectionMembers(entry.projection),
+      grants: normalizePrincipalContainerGrants(entry.grants),
       state: withoutCreatedAt(entry.state),
     })),
   };

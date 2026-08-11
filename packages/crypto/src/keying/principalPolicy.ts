@@ -9,7 +9,10 @@ import {
   normalizePrincipalProjectionMembers,
   verifySignedPrincipalState,
 } from "../principalState";
-import { verifyPrincipalPolicyProjectionCommitments } from "./principalPolicyCommitments";
+import {
+  verifyPrincipalPolicyGrantCommitments,
+  verifyPrincipalPolicyProjectionCommitments,
+} from "./principalPolicyCommitments";
 import {
   createPrincipalPolicyExternalAuthorityVerifier,
   externalAuthorityIncludesAdminSigner,
@@ -135,10 +138,15 @@ async function normalizePrincipalPolicyStateChainEntry(
     projection,
     state: entry.state,
   });
+  const grants = await verifyPrincipalPolicyGrantCommitments({
+    grants: entry.grants,
+    state: entry.state,
+  });
 
   return {
     state: entry.state,
     projection,
+    grants,
   };
 }
 
@@ -447,6 +455,7 @@ async function verifyPrincipalPolicyChain(input: {
     {
       state: input.bundle.currentState,
       projection: input.bundle.currentProjection,
+      grants: input.bundle.currentGrants,
     },
   ];
 
@@ -558,6 +567,7 @@ export async function verifyPrincipalPolicyBundle({
       stateHash: currentEntry.state.stateHash,
       state: currentEntry.state,
       projection: currentEntry.projection,
+      grants: currentEntry.grants,
       history: normalizedChain,
       checkpoint: {
         principalType: currentEntry.state.principalType,

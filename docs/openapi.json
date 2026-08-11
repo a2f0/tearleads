@@ -607,6 +607,31 @@
                             ],
                             "additionalProperties": {}
                           },
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "memberEnvelopes": {
                             "type": "array",
                             "items": {
@@ -710,6 +735,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -782,6 +815,8 @@
                             "required": [
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -804,6 +839,7 @@
                         },
                         "required": [
                           "encryptedPayload",
+                          "grants",
                           "memberEnvelopes",
                           "projection",
                           "state"
@@ -1157,6 +1193,31 @@
                             ],
                             "additionalProperties": {}
                           },
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "memberEnvelopes": {
                             "type": "array",
                             "items": {
@@ -1260,6 +1321,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -1332,6 +1401,8 @@
                             "required": [
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -1354,6 +1425,7 @@
                         },
                         "required": [
                           "encryptedPayload",
+                          "grants",
                           "memberEnvelopes",
                           "projection",
                           "state"
@@ -2971,6 +3043,31 @@
                         ],
                         "additionalProperties": {}
                       },
+                      "grants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "accessLevel": {
+                              "type": "string",
+                              "enum": [
+                                "admin",
+                                "read",
+                                "write"
+                              ]
+                            },
+                            "containerId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "accessLevel",
+                            "containerId"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
                       "memberEnvelopes": {
                         "type": "array",
                         "items": {
@@ -3074,6 +3171,14 @@
                               }
                             ]
                           },
+                          "grantCount": {
+                            "maximum": 1.7976931348623157e+308,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "grantRoot": {
+                            "type": "string"
+                          },
                           "keyEpoch": {
                             "type": "number",
                             "minimum": -1.7976931348623157e+308,
@@ -3146,6 +3251,8 @@
                         "required": [
                           "encapsulationPublicKey",
                           "externalAuthority",
+                          "grantCount",
+                          "grantRoot",
                           "keyEpoch",
                           "keyFingerprint",
                           "memberCount",
@@ -3168,6 +3275,7 @@
                     },
                     "required": [
                       "encryptedPayload",
+                      "grants",
                       "memberEnvelopes",
                       "projection",
                       "state"
@@ -31424,6 +31532,31 @@
                         ],
                         "additionalProperties": {}
                       },
+                      "grants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "accessLevel": {
+                              "type": "string",
+                              "enum": [
+                                "admin",
+                                "read",
+                                "write"
+                              ]
+                            },
+                            "containerId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "accessLevel",
+                            "containerId"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
                       "memberEnvelopes": {
                         "type": "array",
                         "items": {
@@ -31527,6 +31660,14 @@
                               }
                             ]
                           },
+                          "grantCount": {
+                            "maximum": 1.7976931348623157e+308,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "grantRoot": {
+                            "type": "string"
+                          },
                           "keyEpoch": {
                             "type": "number",
                             "minimum": -1.7976931348623157e+308,
@@ -31599,6 +31740,8 @@
                         "required": [
                           "encapsulationPublicKey",
                           "externalAuthority",
+                          "grantCount",
+                          "grantRoot",
                           "keyEpoch",
                           "keyFingerprint",
                           "memberCount",
@@ -31621,6 +31764,7 @@
                     },
                     "required": [
                       "encryptedPayload",
+                      "grants",
                       "memberEnvelopes",
                       "projection",
                       "state"
@@ -34025,6 +34169,31 @@
                             ],
                             "additionalProperties": {}
                           },
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "memberEnvelopes": {
                             "type": "array",
                             "items": {
@@ -34128,6 +34297,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -34200,6 +34377,8 @@
                             "required": [
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -34222,6 +34401,7 @@
                         },
                         "required": [
                           "encryptedPayload",
+                          "grants",
                           "memberEnvelopes",
                           "projection",
                           "state"
@@ -34575,6 +34755,31 @@
                             ],
                             "additionalProperties": {}
                           },
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "memberEnvelopes": {
                             "type": "array",
                             "items": {
@@ -34678,6 +34883,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -34750,6 +34963,8 @@
                             "required": [
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -34772,6 +34987,7 @@
                         },
                         "required": [
                           "encryptedPayload",
+                          "grants",
                           "memberEnvelopes",
                           "projection",
                           "state"
@@ -36389,6 +36605,31 @@
                         ],
                         "additionalProperties": {}
                       },
+                      "grants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "accessLevel": {
+                              "type": "string",
+                              "enum": [
+                                "admin",
+                                "read",
+                                "write"
+                              ]
+                            },
+                            "containerId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "accessLevel",
+                            "containerId"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
                       "memberEnvelopes": {
                         "type": "array",
                         "items": {
@@ -36492,6 +36733,14 @@
                               }
                             ]
                           },
+                          "grantCount": {
+                            "maximum": 1.7976931348623157e+308,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "grantRoot": {
+                            "type": "string"
+                          },
                           "keyEpoch": {
                             "type": "number",
                             "minimum": -1.7976931348623157e+308,
@@ -36564,6 +36813,8 @@
                         "required": [
                           "encapsulationPublicKey",
                           "externalAuthority",
+                          "grantCount",
+                          "grantRoot",
                           "keyEpoch",
                           "keyFingerprint",
                           "memberCount",
@@ -36586,6 +36837,7 @@
                     },
                     "required": [
                       "encryptedPayload",
+                      "grants",
                       "memberEnvelopes",
                       "projection",
                       "state"
@@ -44751,6 +45003,30 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "currentGrants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessLevel": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "read",
+                              "write"
+                            ]
+                          },
+                          "containerId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accessLevel",
+                          "containerId"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
                     "currentMemberEnvelopes": {
                       "type": "object",
                       "properties": {
@@ -44926,6 +45202,14 @@
                             }
                           ]
                         },
+                        "grantCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "grantRoot": {
+                          "type": "string"
+                        },
                         "keyEpoch": {
                           "type": "number",
                           "minimum": -1.7976931348623157e+308,
@@ -45000,6 +45284,8 @@
                         "createdAt",
                         "encapsulationPublicKey",
                         "externalAuthority",
+                        "grantCount",
+                        "grantRoot",
                         "keyEpoch",
                         "keyFingerprint",
                         "memberCount",
@@ -45025,6 +45311,30 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "projection": {
                             "type": "array",
                             "items": {
@@ -45101,6 +45411,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -45175,6 +45493,8 @@
                               "createdAt",
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -45197,6 +45517,7 @@
                           }
                         },
                         "required": [
+                          "grants",
                           "projection",
                           "state"
                         ],
@@ -45205,6 +45526,7 @@
                     }
                   },
                   "required": [
+                    "currentGrants",
                     "currentMemberEnvelopes",
                     "currentPayload",
                     "currentProjection",
@@ -45674,6 +45996,31 @@
                     ],
                     "additionalProperties": {}
                   },
+                  "grants": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "accessLevel": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "read",
+                            "write"
+                          ]
+                        },
+                        "containerId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "accessLevel",
+                        "containerId"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
                   "memberEnvelopes": {
                     "type": "array",
                     "items": {
@@ -45777,6 +46124,14 @@
                           }
                         ]
                       },
+                      "grantCount": {
+                        "maximum": 1.7976931348623157e+308,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "grantRoot": {
+                        "type": "string"
+                      },
                       "keyEpoch": {
                         "type": "number",
                         "minimum": -1.7976931348623157e+308,
@@ -45849,6 +46204,8 @@
                     "required": [
                       "encapsulationPublicKey",
                       "externalAuthority",
+                      "grantCount",
+                      "grantRoot",
                       "keyEpoch",
                       "keyFingerprint",
                       "memberCount",
@@ -45871,6 +46228,7 @@
                 },
                 "required": [
                   "encryptedPayload",
+                  "grants",
                   "memberEnvelopes",
                   "projection",
                   "state"
@@ -45888,6 +46246,30 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "currentGrants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessLevel": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "read",
+                              "write"
+                            ]
+                          },
+                          "containerId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accessLevel",
+                          "containerId"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
                     "currentMemberEnvelopes": {
                       "type": "object",
                       "properties": {
@@ -46063,6 +46445,14 @@
                             }
                           ]
                         },
+                        "grantCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "grantRoot": {
+                          "type": "string"
+                        },
                         "keyEpoch": {
                           "type": "number",
                           "minimum": -1.7976931348623157e+308,
@@ -46137,6 +46527,8 @@
                         "createdAt",
                         "encapsulationPublicKey",
                         "externalAuthority",
+                        "grantCount",
+                        "grantRoot",
                         "keyEpoch",
                         "keyFingerprint",
                         "memberCount",
@@ -46162,6 +46554,30 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
                           "projection": {
                             "type": "array",
                             "items": {
@@ -46238,6 +46654,14 @@
                                   }
                                 ]
                               },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
                               "keyEpoch": {
                                 "type": "number",
                                 "minimum": -1.7976931348623157e+308,
@@ -46312,6 +46736,8 @@
                               "createdAt",
                               "encapsulationPublicKey",
                               "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
                               "keyEpoch",
                               "keyFingerprint",
                               "memberCount",
@@ -46334,19 +46760,352 @@
                           }
                         },
                         "required": [
+                          "grants",
                           "projection",
                           "state"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "containerMutations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessManifest": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {
+                                  "body": {},
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "eventHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "body",
+                                  "event",
+                                  "eventHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "containerId": {
+                            "type": "string"
+                          },
+                          "containerKek": {
+                            "type": "object",
+                            "properties": {
+                              "accessManifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerId": {
+                                "type": "string"
+                              },
+                              "containerKeyEpoch": {
+                                "exclusiveMinimum": 0,
+                                "maximum": 1.7976931348623157e+308,
+                                "type": "integer"
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerManifestHistory": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "event": {
+                                      "type": "object",
+                                      "properties": {
+                                        "body": {},
+                                        "event": {
+                                          "type": "object",
+                                          "properties": {},
+                                          "additionalProperties": {}
+                                        },
+                                        "eventHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "body",
+                                        "event",
+                                        "eventHash"
+                                      ],
+                                      "additionalProperties": {}
+                                    },
+                                    "manifest": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "manifestHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "state": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    }
+                                  },
+                                  "required": [
+                                    "event",
+                                    "manifest",
+                                    "manifestHash",
+                                    "state"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "keyEpoch": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "keyEpochHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "keyring": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "containerId": {
+                                        "type": "string"
+                                      },
+                                      "containerKeyEpochId": {
+                                        "type": "string"
+                                      },
+                                      "iv": {
+                                        "maxLength": 16,
+                                        "type": "string"
+                                      },
+                                      "sealed": {
+                                        "maxLength": 5592352,
+                                        "type": "string"
+                                      },
+                                      "sealingSuite": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "const": 1,
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "containerId",
+                                      "containerKeyEpochId",
+                                      "iv",
+                                      "sealed",
+                                      "sealingSuite",
+                                      "version"
+                                    ],
+                                    "additionalProperties": {}
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "keyTargetHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "parentContainerKeyEpochId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "recipientTargets": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "wraps": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              }
+                            },
+                            "required": [
+                              "accessManifestHash",
+                              "containerId",
+                              "containerKeyEpoch",
+                              "containerKeyEpochId",
+                              "containerManifestHistory",
+                              "keyEpoch",
+                              "keyEpochHash",
+                              "keyring",
+                              "keyTargetHash",
+                              "parentContainerKeyEpochId",
+                              "recipientTargets",
+                              "wraps"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "manifestHead": {
+                            "type": "object",
+                            "properties": {
+                              "epoch": {
+                                "type": "number",
+                                "minimum": -1.7976931348623157e+308,
+                                "maximum": 1.7976931348623157e+308
+                              },
+                              "manifestHash": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "epoch",
+                              "manifestHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "parentId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "referencedPrincipalHeads": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "keyEpoch": {
+                                  "type": "number",
+                                  "minimum": -1.7976931348623157e+308,
+                                  "maximum": 1.7976931348623157e+308
+                                },
+                                "keyFingerprint": {
+                                  "type": "string"
+                                },
+                                "principalId": {
+                                  "type": "string"
+                                },
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "stateHash": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "type": "number",
+                                  "minimum": -1.7976931348623157e+308,
+                                  "maximum": 1.7976931348623157e+308
+                                }
+                              },
+                              "required": [
+                                "keyEpoch",
+                                "keyFingerprint",
+                                "principalId",
+                                "principalType",
+                                "stateHash",
+                                "version"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "systemSlot": {
+                            "anyOf": [
+                              {
+                                "pattern": "^sys_v1_[A-Za-z0-9_-]{43}$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accessManifest",
+                          "containerId",
+                          "containerKek",
+                          "createdAt",
+                          "manifestHead",
+                          "organizationId",
+                          "parentId",
+                          "referencedPrincipalHeads",
+                          "updatedAt"
                         ],
                         "additionalProperties": {}
                       }
                     }
                   },
                   "required": [
+                    "currentGrants",
                     "currentMemberEnvelopes",
                     "currentPayload",
                     "currentProjection",
                     "currentState",
-                    "previousStates"
+                    "previousStates",
+                    "containerMutations"
                   ],
                   "additionalProperties": {}
                 }
@@ -46526,6 +47285,12 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "a container response keyring is null exactly for container key epoch 1",
+            "id": "response.organization-provisioning-container-keyring"
           }
         ]
       }

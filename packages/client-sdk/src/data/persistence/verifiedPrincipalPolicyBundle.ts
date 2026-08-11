@@ -2,6 +2,7 @@ import {
   computePrincipalMemberEnvelopesRoot,
   computePrincipalStatePayloadCiphertextHash,
   KeyingVerificationError,
+  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   PrincipalMemberEnvelopeValidationError,
   type VerifiedPrincipalPolicy,
@@ -25,6 +26,31 @@ async function memberEnvelopesRoot(
       throw new KeyingVerificationError("invalid_shape", error.message);
     }
     throw error;
+  }
+}
+
+async function assertBundlePayloadMatches(input: {
+  bundle: PrincipalPolicyBundleResponse;
+  policy: VerifiedPrincipalPolicy;
+}): Promise<void> {
+  const { bundle, policy } = input;
+  const payloadHash = await computePrincipalStatePayloadCiphertextHash(
+    bundle.currentPayload.ciphertext,
+  );
+  const envelopesRoot = await memberEnvelopesRoot(bundle);
+  if (
+    bundle.currentPayload.principalType !== policy.principalType ||
+    bundle.currentPayload.principalId !== policy.principalId ||
+    bundle.currentPayload.stateHash !== policy.stateHash ||
+    bundle.currentPayload.ciphertextHash !== payloadHash ||
+    policy.state.payloadCiphertextHash !== payloadHash ||
+    bundle.currentMemberEnvelopes.principalType !== policy.principalType ||
+    bundle.currentMemberEnvelopes.principalId !== policy.principalId ||
+    bundle.currentMemberEnvelopes.stateHash !== policy.stateHash ||
+    bundle.currentMemberEnvelopes.epoch !== policy.keyEpoch ||
+    envelopesRoot !== policy.state.memberEnvelopesRoot
+  ) {
+    bundleMismatch("Verified principal policy bundle payload mismatch");
   }
 }
 
@@ -60,6 +86,14 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
       canonicalKeyingJsonString(
         normalizePrincipalProjectionMembers(policy.projection),
         "verified principal policy projection",
+      ) ||
+    canonicalKeyingJsonString(
+      normalizePrincipalContainerGrants(bundle.currentGrants),
+      "principal policy bundle grants",
+    ) !==
+      canonicalKeyingJsonString(
+        normalizePrincipalContainerGrants(policy.grants),
+        "verified principal policy grants",
       )
   ) {
     bundleMismatch("Verified principal policy bundle content mismatch");
@@ -68,14 +102,20 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
   const history = policy.history ?? [];
   const expectedChain = [
     ...bundle.previousStates,
-    { state: bundle.currentState, projection: bundle.currentProjection },
+    {
+      state: bundle.currentState,
+      projection: bundle.currentProjection,
+      grants: bundle.currentGrants,
+    },
   ].map((entry) => ({
     ...entry,
     projection: normalizePrincipalProjectionMembers(entry.projection),
+    grants: normalizePrincipalContainerGrants(entry.grants),
   }));
   const verifiedHistory = history.map((entry) => ({
     ...entry,
     projection: normalizePrincipalProjectionMembers(entry.projection),
+    grants: normalizePrincipalContainerGrants(entry.grants),
   }));
   if (
     canonicalKeyingJsonString(
@@ -89,22 +129,5 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
   ) {
     bundleMismatch("Verified principal policy bundle history mismatch");
   }
-  const payloadHash = await computePrincipalStatePayloadCiphertextHash(
-    bundle.currentPayload.ciphertext,
-  );
-  const envelopesRoot = await memberEnvelopesRoot(bundle);
-  if (
-    bundle.currentPayload.principalType !== policy.principalType ||
-    bundle.currentPayload.principalId !== policy.principalId ||
-    bundle.currentPayload.stateHash !== policy.stateHash ||
-    bundle.currentPayload.ciphertextHash !== payloadHash ||
-    policy.state.payloadCiphertextHash !== payloadHash ||
-    bundle.currentMemberEnvelopes.principalType !== policy.principalType ||
-    bundle.currentMemberEnvelopes.principalId !== policy.principalId ||
-    bundle.currentMemberEnvelopes.stateHash !== policy.stateHash ||
-    bundle.currentMemberEnvelopes.epoch !== policy.keyEpoch ||
-    envelopesRoot !== policy.state.memberEnvelopesRoot
-  ) {
-    bundleMismatch("Verified principal policy bundle payload mismatch");
-  }
+  await assertBundlePayloadMatches(input);
 }

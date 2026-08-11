@@ -102,12 +102,12 @@ export async function addUserToOrganizationGroup(
           .secretKey,
         execSql: input.runtime.infra.execSql,
         groupId: input.groupId,
-        prepareContainerMutations: ({ nextPolicy }) =>
+        prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({
+            currentPolicy,
             groupId: input.groupId,
             nextPolicy,
             organizationId: signingContext.organizationId,
-            readModelCoordinator: input.readModelCoordinator,
             runtime: input.runtime,
           }),
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
@@ -175,12 +175,12 @@ export async function removeUserFromOrganizationGroup(
         },
         execSql: input.runtime.infra.execSql,
         groupId: input.groupId,
-        prepareContainerMutations: ({ nextPolicy }) =>
+        prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
           preparePrincipalContainerMutations({
+            currentPolicy,
             groupId: input.groupId,
             nextPolicy,
             organizationId: signingContext.organizationId,
-            readModelCoordinator: input.readModelCoordinator,
             runtime: input.runtime,
           }),
         removedUserId: input.removedUserId,
@@ -226,12 +226,13 @@ export async function revokeOrganizationGrant(
               apiClient: input.runtime.apiClient,
               execSql: input.runtime.infra.execSql,
               groupId: input.subjectId,
-              prepareContainerMutations: ({ nextPolicy }) =>
+              revokedContainerId: input.containerId,
+              prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
                 preparePrincipalContainerMutations({
+                  currentPolicy,
                   groupId: input.subjectId,
                   nextPolicy,
                   organizationId: signingContext.organizationId,
-                  readModelCoordinator: input.readModelCoordinator,
                   revokedContainerId: input.containerId,
                   runtime: input.runtime,
                 }),

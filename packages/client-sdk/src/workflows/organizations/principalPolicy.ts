@@ -10,8 +10,10 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
+  ContainerMutationResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { persistLocallyAcknowledgedPrincipalPolicyBundle } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -26,12 +28,14 @@ import {
   commitGroupPolicyMutation,
   loadGroupPolicyMutationContext,
   type OrganizationPrincipalPolicyApi,
+  type PrincipalPolicyReadWriteApi,
 } from "./groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import {
   buildAddGroupUserPolicyRequest,
   buildGroupAccessSetShrinkPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
+  buildSetGroupContainerGrantPolicyRequest,
 } from "./groupPolicyRequests";
 import {
   buildInitialGroupPolicyRequest,
@@ -44,9 +48,23 @@ import {
 
 export { buildInitialGroupPolicyRequest, buildInitialMemberGroupPolicyRequest };
 
+interface PreparedGroupContainerMutations {
+  readonly acknowledge: (
+    responses: readonly ContainerMutationResponse[],
+  ) => Promise<void>;
+  readonly requests: readonly ContainerMutationRequest[];
+}
+
+type PrepareGroupContainerMutations = (input: {
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly nextPolicy: VerifiedPrincipalPolicy;
+}) => Promise<
+  readonly ContainerMutationRequest[] | PreparedGroupContainerMutations
+>;
+
 async function commitAndCacheGroupPolicyMutation(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly beforePolicyCommit?:
     | ((head: ReferencedPrincipalHead) => void)
     | undefined;
@@ -55,23 +73,31 @@ async function commitAndCacheGroupPolicyMutation(input: {
   readonly externalAuthority: PrincipalPolicyExternalAuthority | undefined;
   readonly groupId: string;
   readonly prepareContainerMutations?:
-    | ((input: {
-        readonly nextPolicy: VerifiedPrincipalPolicy;
-      }) => Promise<ContainerMutationRequest[]>)
+    | PrepareGroupContainerMutations
     | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): Promise<PrincipalPolicyBundleResponse> {
+}): Promise<PrincipalPolicyMutationResponse> {
   const expectedHead = await groupPolicyMutationHead(input.request);
   input.beforePolicyCommit?.(expectedHead);
+  let acknowledgeContainerMutations:
+    | PreparedGroupContainerMutations["acknowledge"]
+    | undefined;
   if (input.prepareContainerMutations) {
-    input.request.containerMutations = await input.prepareContainerMutations({
+    const prepared = await input.prepareContainerMutations({
+      currentPolicy: input.currentPolicy,
       nextPolicy: await prepareAuthoredGroupPolicy({
         currentPolicy: input.currentPolicy,
         expectedHead,
         request: input.request,
       }),
     });
+    if ("requests" in prepared) {
+      input.request.containerMutations = [...prepared.requests];
+      acknowledgeContainerMutations = prepared.acknowledge;
+    } else {
+      input.request.containerMutations = [...prepared];
+    }
   }
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
@@ -81,8 +107,11 @@ async function commitAndCacheGroupPolicyMutation(input: {
     groupId: input.groupId,
     request: input.request,
   });
+  if (acknowledgeContainerMutations) {
+    await acknowledgeContainerMutations(acknowledgedBundle.containerMutations);
+  }
   await input.afterPolicyCommitBeforeCache?.();
-  return cacheGroupPolicy({
+  await cacheGroupPolicy({
     acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
     execSql: input.execSql,
@@ -97,6 +126,7 @@ async function commitAndCacheGroupPolicyMutation(input: {
     },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
+  return acknowledgedBundle;
 }
 
 export async function createOrganizationGroup(input: {
@@ -190,11 +220,9 @@ export async function addOrganizationGroupUser(input: {
     },
   ) => void;
   readonly prepareContainerMutations?:
-    | ((input: {
-        readonly nextPolicy: VerifiedPrincipalPolicy;
-      }) => Promise<ContainerMutationRequest[]>)
+    | PrepareGroupContainerMutations
     | undefined;
-}): Promise<PrincipalPolicyBundleResponse> {
+}): Promise<PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
     execSql: input.execSql,
@@ -265,11 +293,9 @@ export async function removeOrganizationGroupUser(input: {
     },
   ) => void;
   readonly prepareContainerMutations?:
-    | ((input: {
-        readonly nextPolicy: VerifiedPrincipalPolicy;
-      }) => Promise<ContainerMutationRequest[]>)
+    | PrepareGroupContainerMutations
     | undefined;
-}): Promise<PrincipalPolicyBundleResponse> {
+}): Promise<PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
     execSql: input.execSql,
@@ -317,6 +343,50 @@ export async function removeOrganizationGroupUser(input: {
 }
 
 /**
+ * Adds or changes one container in the group's signed complete grant set and
+ * commits every resulting container rematerialization in the same request.
+ */
+export async function setOrganizationGroupContainerGrant(input: {
+  readonly accessLevel: "admin" | "read" | "write";
+  readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly containerId: string;
+  readonly execSql: ExecSql;
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly prepareContainerMutations: PrepareGroupContainerMutations;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly signerUserId: string;
+  readonly signingFingerprint: string;
+  readonly signingKeyPair: SigningKeyPair;
+}): Promise<PrincipalPolicyMutationResponse> {
+  const policyContext = await loadGroupPolicyMutationContext({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
+  const request = await buildSetGroupContainerGrantPolicyRequest({
+    ...policyContext,
+    accessLevel: input.accessLevel,
+    containerId: input.containerId,
+  });
+  return commitAndCacheGroupPolicyMutation({
+    apiClient: input.apiClient,
+    currentPolicy: policyContext.currentPolicy,
+    execSql: input.execSql,
+    externalAuthority: policyContext.externalAuthority,
+    groupId: input.groupId,
+    prepareContainerMutations: input.prepareContainerMutations,
+    request,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+}
+
+/**
  * A group losing a container grant rotates its own key in the same request as
  * that container revoke and the rekeys of all remaining grants. This prevents
  * a later member from using the group's still-current key to open a retained
@@ -327,14 +397,13 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
-  readonly prepareContainerMutations: (input: {
-    readonly nextPolicy: VerifiedPrincipalPolicy;
-  }) => Promise<ContainerMutationRequest[]>;
+  readonly revokedContainerId: string;
+  readonly prepareContainerMutations: PrepareGroupContainerMutations;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<PrincipalPolicyBundleResponse> {
+}): Promise<PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
     execSql: input.execSql,
@@ -352,6 +421,7 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
   const request = await buildGroupAccessSetShrinkPolicyRequest({
     ...policyContext,
     currentUsers,
+    revokedContainerId: input.revokedContainerId,
   });
   return commitAndCacheGroupPolicyMutation({
     apiClient: input.apiClient,

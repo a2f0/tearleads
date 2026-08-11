@@ -2,6 +2,7 @@ export interface StoredPrincipalPolicyBundleJson {
   readonly currentMemberEnvelopesJson: string;
   readonly currentPayloadJson: string;
   readonly currentProjectionJson: string;
+  readonly currentGrantsJson: string;
   readonly currentStateJson: string;
   readonly previousStatesJson: string;
 }
@@ -19,6 +20,7 @@ export function storedPrincipalPolicyBundleFromJson(
     currentMemberEnvelopes: JSON.parse(row.currentMemberEnvelopesJson),
     currentPayload: JSON.parse(row.currentPayloadJson),
     currentProjection: JSON.parse(row.currentProjectionJson),
+    currentGrants: JSON.parse(row.currentGrantsJson),
     currentState: JSON.parse(row.currentStateJson),
     previousStates: JSON.parse(row.previousStatesJson),
   };

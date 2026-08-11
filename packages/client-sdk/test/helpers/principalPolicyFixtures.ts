@@ -4,7 +4,10 @@ import {
   signPrincipalState,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
+} from "@tearleads/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 
@@ -25,6 +28,7 @@ export async function principalPolicyBundleFromState(input: {
     readonly ciphertextHash: string;
   };
   readonly memberEnvelopes: PrincipalPolicyBundleResponse["currentMemberEnvelopes"]["envelopes"];
+  readonly grants?: PrincipalPolicyBundleResponse["currentGrants"];
   readonly previousStates?: PrincipalPolicyBundleResponse["previousStates"];
   readonly principalId?: string;
   readonly projection: PrincipalPolicyBundleResponse["currentProjection"];
@@ -50,6 +54,7 @@ export async function principalPolicyBundleFromState(input: {
       createdAt: input.createdAt,
     },
     currentProjection: [...input.projection],
+    currentGrants: [...(input.grants ?? [])],
     currentMemberEnvelopes: {
       principalType,
       principalId,
@@ -73,13 +78,22 @@ export async function signedPrincipalPolicyBundle(input: {
   readonly projection: PrincipalPolicyBundleResponse["currentProjection"];
   readonly signing: Omit<
     Parameters<typeof buildPrincipalStateSigningInput>[0],
-    "memberEnvelopes" | "members" | "payloadCiphertext" | "projection"
-  >;
+    | "grants"
+    | "memberEnvelopes"
+    | "members"
+    | "payloadCiphertext"
+    | "projection"
+  > & {
+    readonly grants?: Parameters<
+      typeof buildPrincipalStateSigningInput
+    >[0]["grants"];
+  };
   readonly signingPrivateKey: Uint8Array;
 }): Promise<PrincipalPolicyBundleResponse> {
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       ...input.signing,
+      grants: input.signing.grants ?? [],
       members: input.projection.map((member) => ({ userId: member.userId })),
       memberEnvelopes: input.memberEnvelopes,
       payloadCiphertext: input.payloadCiphertext,
@@ -96,6 +110,7 @@ export async function signedPrincipalPolicyBundle(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     memberEnvelopes: input.memberEnvelopes,
+    grants: input.signing.grants ?? [],
     ...(input.previousStates === undefined
       ? {}
       : { previousStates: input.previousStates }),
@@ -107,21 +122,26 @@ export async function signedPrincipalPolicyBundle(input: {
 export async function policyBundleAfterMutation(input: {
   readonly mutation: PutPrincipalPolicyRequest;
   readonly previous: PrincipalPolicyBundleResponse;
-}): Promise<PrincipalPolicyBundleResponse> {
-  return principalPolicyBundleFromState({
-    createdAt: input.mutation.state.signedAt,
-    encryptedPayload: input.mutation.encryptedPayload,
-    memberEnvelopes: input.mutation.memberEnvelopes,
-    previousStates: [
-      ...input.previous.previousStates,
-      {
-        state: input.previous.currentState,
-        projection: input.previous.currentProjection,
-      },
-    ],
-    projection: input.mutation.projection,
-    state: input.mutation.state,
-  });
+}): Promise<PrincipalPolicyMutationResponse> {
+  return {
+    ...(await principalPolicyBundleFromState({
+      createdAt: input.mutation.state.signedAt,
+      encryptedPayload: input.mutation.encryptedPayload,
+      memberEnvelopes: input.mutation.memberEnvelopes,
+      previousStates: [
+        ...input.previous.previousStates,
+        {
+          state: input.previous.currentState,
+          projection: input.previous.currentProjection,
+          grants: input.previous.currentGrants,
+        },
+      ],
+      grants: input.mutation.grants,
+      projection: input.mutation.projection,
+      state: input.mutation.state,
+    })),
+    containerMutations: [],
+  };
 }
 
 export async function policyBundleFromInitialRequest(
@@ -131,6 +151,7 @@ export async function policyBundleFromInitialRequest(
     createdAt: "2026-05-12T12:00:00.000Z",
     encryptedPayload: request.initialGroupPolicy.encryptedPayload,
     memberEnvelopes: request.initialGroupPolicy.memberEnvelopes,
+    grants: request.initialGroupPolicy.grants,
     principalId: request.groupId,
     projection: request.initialGroupPolicy.projection,
     state: request.initialGroupPolicy.state,
@@ -145,6 +166,7 @@ export async function organizationPolicyBundleFromInitialRequest(
     createdAt: "2026-05-12T12:00:00.000Z",
     encryptedPayload: request.encryptedPayload,
     memberEnvelopes: request.memberEnvelopes,
+    grants: request.grants,
     principalId: organizationId,
     projection: request.projection,
     state: request.state,

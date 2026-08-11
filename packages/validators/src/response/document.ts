@@ -11,7 +11,7 @@ import {
   safeNonNegativeIntegerSchema,
 } from "../schema";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
-import { ReferencedPrincipalStateResponseSchema } from "./principal";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 export const ContainerDocumentSummaryResponseSchema = loosePlainObject({

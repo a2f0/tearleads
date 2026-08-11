@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import {
+  computePrincipalContainerGrantRoot,
   computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
@@ -250,7 +251,11 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
   );
 });
 
-test("storeVerifiedPrincipalState rejects signed headers whose member count does not match the projection", async () => {
+test.each([
+  "memberCount",
+  "grantCount",
+  "grantRoot",
+] as const)("storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection", async (mismatchedArtifact) => {
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
@@ -278,9 +283,17 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       ]),
       memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
+      grantRoot:
+        mismatchedArtifact === "grantRoot"
+          ? "0".repeat(64)
+          : await computePrincipalContainerGrantRoot([]),
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
-      memberCount: projection.length + 1,
+      memberCount:
+        mismatchedArtifact === "memberCount"
+          ? projection.length + 1
+          : projection.length,
+      grantCount: mismatchedArtifact === "grantCount" ? 1 : 0,
       externalAuthority: null,
       signedAt: "2026-04-07T12:07:00.000Z",
       signerUserId: signer.signerUserId,
@@ -299,11 +312,18 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
           ciphertextHash: state.payloadCiphertextHash,
         },
         projection,
+        grants: [],
         memberEnvelopes: [],
       },
       db,
     ),
-  ).rejects.toThrow("Principal state memberCount does not match projection");
+  ).rejects.toThrow(
+    mismatchedArtifact === "memberCount"
+      ? "Principal state memberCount does not match projection"
+      : mismatchedArtifact === "grantCount"
+        ? "Principal state grantCount does not match grant projection"
+        : "Principal state grantRoot does not match grant projection",
+  );
 });
 
 test("storeVerifiedPrincipalState accepts empty initial states signed by authorized external admins", async () => {

@@ -77,6 +77,7 @@ function principalPolicyRecordFromInitialGroupPolicy(input: {
         stateHash: head.stateHash,
       },
       projection: input.policy.projection,
+      grants: input.policy.grants,
       checkpoint: {
         principalType: head.principalType,
         principalId: head.principalId,

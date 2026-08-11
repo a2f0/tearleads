@@ -101,6 +101,7 @@ export async function createRegistrationRequest(
   ];
   const initialAdminGroup = await createInitialAdminGroupRequest({
     encapsulationPublicKey: user.kem.publicKey,
+    grants: [{ containerId: rootContainerId, accessLevel: "admin" }],
     signingPrivateKey: user.signing.signingPrivateKey,
     signingPublicKey: user.signing.signingPublicKey,
     userId,
@@ -152,6 +153,7 @@ export async function createRegistrationRequest(
           members: [{ userId }],
           memberEnvelopes: organizationMemberEnvelopes,
           projection: initialOrganizationProjection,
+          grants: [],
           payloadCiphertext: organizationPayloadCiphertext,
           externalAuthority: null,
           signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
@@ -170,6 +172,7 @@ export async function createRegistrationRequest(
         ),
       },
       projection: initialOrganizationProjection,
+      grants: [],
       memberEnvelopes: organizationMemberEnvelopes,
     },
     initialRootContainer: rootBootstrap.initialRootContainer,

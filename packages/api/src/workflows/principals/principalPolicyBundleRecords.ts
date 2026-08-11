@@ -3,8 +3,10 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
 import {
   getPrincipalStatePayloadForState,
+  listContainerGrantsForState,
   listPrincipalStateHistory,
   listProjectionMembersForState,
+  type StoredPrincipalContainerGrant,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
@@ -21,6 +23,13 @@ function toProjectionResponse(
   return projection.map((member) => ({
     userId: member.userId,
     role: member.role,
+  }));
+}
+
+function toGrantResponse(grants: ReadonlyArray<StoredPrincipalContainerGrant>) {
+  return grants.map((grant) => ({
+    accessLevel: grant.accessLevel,
+    containerId: grant.containerId,
   }));
 }
 
@@ -48,6 +57,12 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     pinnedStateHash,
     executor,
   );
+  const currentGrants = await listContainerGrantsForState(
+    principalType,
+    principalId,
+    pinnedStateHash,
+    executor,
+  );
   const stateHistory = await listPrincipalStateHistory(
     principalType,
     principalId,
@@ -64,6 +79,7 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     currentState: toPrincipalStateResponse(currentState),
     currentPayload: toPrincipalStatePayloadResponse(currentPayload),
     currentProjection: toProjectionResponse(currentProjection),
+    currentGrants: toGrantResponse(currentGrants),
     currentMemberEnvelopes: toCurrentPrincipalMemberEnvelopesResponse({
       principalType,
       principalId,
@@ -76,6 +92,7 @@ export async function buildPrincipalPolicyForStateWithExecutor(
       .map((entry) => ({
         state: toPrincipalStateResponse(entry.state),
         projection: toProjectionResponse(entry.projection),
+        grants: toGrantResponse(entry.grants),
       })),
   };
 }

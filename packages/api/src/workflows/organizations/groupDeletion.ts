@@ -5,9 +5,11 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
+  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
+  principalPolicyMutationAcknowledgements,
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
@@ -121,6 +123,22 @@ export async function deleteOrganizationGroupRows(input: {
     groupId: input.groupId,
     organizationId: input.organizationId,
   });
+  await input.executor
+    .delete(principalPolicyMutationAcknowledgements)
+    .where(
+      and(
+        eq(principalPolicyMutationAcknowledgements.principalType, "group"),
+        eq(principalPolicyMutationAcknowledgements.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalContainerGrantProjection)
+    .where(
+      and(
+        eq(principalContainerGrantProjection.principalType, "group"),
+        eq(principalContainerGrantProjection.principalId, input.groupId),
+      ),
+    );
   await input.executor
     .delete(principalMemberEnvelopes)
     .where(

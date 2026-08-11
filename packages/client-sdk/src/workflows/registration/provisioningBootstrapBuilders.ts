@@ -63,6 +63,7 @@ export interface ProvisionedSystemContainerSpec {
 
 interface InitialOrganizationMetadataBootstrapInput {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  containerId: string;
   initialAdminGroup: CreateOrganizationGroupRequest;
   initialMemberGroup: CreateOrganizationGroupRequest;
   organizationProfileName?: string | undefined;
@@ -115,6 +116,7 @@ interface ProvisionedChildContainerCore {
  */
 async function buildProvisionedChildContainerCore(input: {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  containerId?: string | undefined;
   icon: string | null;
   managedPrincipalGrant?: Parameters<
     typeof buildContainerCreatePlan
@@ -128,7 +130,7 @@ async function buildProvisionedChildContainerCore(input: {
   systemSlot: ContainerSystemSlot;
   targetSecretKey: Uint8Array;
 }): Promise<ProvisionedChildContainerCore> {
-  const containerId = crypto.randomUUID();
+  const containerId = input.containerId ?? crypto.randomUUID();
   const { initialUpdate } = await createInitializedContainerMetadataDocument(
     containerId,
     {
@@ -353,6 +355,7 @@ export async function buildInitialOrganizationMetadataBootstrap(
 ): Promise<InitialOrganizationMetadataBootstrap> {
   const core = await buildProvisionedChildContainerCore({
     author: input.author,
+    containerId: input.containerId,
     icon: null,
     managedPrincipalGrant: {
       accessLevel: "read",

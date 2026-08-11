@@ -18,6 +18,15 @@ export type PrincipalProjectionMemberRequest = z.infer<
   typeof PrincipalProjectionMemberRequestSchema
 >;
 
+export const PrincipalContainerGrantRequestSchema = loosePlainObject({
+  accessLevel: z.literal(["admin", "read", "write"]),
+  containerId: uuidV4StringSchema,
+});
+
+export type PrincipalContainerGrantRequest = z.infer<
+  typeof PrincipalContainerGrantRequestSchema
+>;
+
 const PrincipalStateExternalAuthorityRequestSchema = loosePlainObject({
   keyEpoch: boundedPositiveIntegerSchema(Number.MAX_VALUE),
   keyFingerprint: z.string(),
@@ -30,6 +39,8 @@ const PrincipalStateExternalAuthorityRequestSchema = loosePlainObject({
 const PrincipalStateRequestSchema = loosePlainObject({
   encapsulationPublicKey: z.string(),
   externalAuthority: PrincipalStateExternalAuthorityRequestSchema.nullable(),
+  grantCount: nonNegativeIntegerSchema,
+  grantRoot: z.string(),
   keyEpoch: z.number(),
   keyFingerprint: z.string(),
   memberCount: nonNegativeIntegerSchema,
@@ -74,6 +85,7 @@ export type PrincipalMemberEnvelopeRequest = z.infer<
 export const PutPrincipalPolicyRequestSchema = loosePlainObject({
   containerMutations: arraySchema(ContainerMutationRequestSchema).optional(),
   encryptedPayload: PrincipalStateEncryptedPayloadRequestSchema,
+  grants: arraySchema(PrincipalContainerGrantRequestSchema),
   memberEnvelopes: arraySchema(PrincipalMemberEnvelopeRequestSchema),
   projection: arraySchema(PrincipalProjectionMemberRequestSchema),
   state: PrincipalStateRequestSchema,

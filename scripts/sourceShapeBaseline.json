@@ -62,16 +62,16 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 46534,
-      "bytes": 1905414
+      "lines": 47299,
+      "bytes": 1938666
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 512,
-      "bytes": 26572
+      "lines": 528,
+      "bytes": 27661
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -114,8 +114,8 @@
       "bytes": 32909
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
-      "lines": 903,
-      "bytes": 28334
+      "lines": 923,
+      "bytes": 29001
     },
     "packages/api/src/billing/stripeApi.test.ts": {
       "lines": 584,
@@ -134,8 +134,8 @@
       "bytes": 17390
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3715,
-      "bytes": 121975
+      "lines": 3813,
+      "bytes": 125869
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
@@ -150,8 +150,8 @@
       "bytes": 25795
     },
     "packages/api/src/routes/principals/policy.test.ts": {
-      "lines": 911,
-      "bytes": 29751
+      "lines": 925,
+      "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
       "lines": 507,
@@ -186,8 +186,8 @@
       "bytes": 18102
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1132,
-      "bytes": 39031
+      "lines": 1142,
+      "bytes": 39493
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 18464,
-      "bytes": 747120
+      "lines": 18670,
+      "bytes": 757045
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,
@@ -359,7 +359,7 @@
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,
-      "bytes": 33792
+      "bytes": 33895
     },
     "scripts/subsystems.ts": {
       "lines": 743,

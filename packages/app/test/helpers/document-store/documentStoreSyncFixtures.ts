@@ -160,6 +160,7 @@ export function createDocumentsRuntimeInput(
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
       ...overrides.util,
     },
   };

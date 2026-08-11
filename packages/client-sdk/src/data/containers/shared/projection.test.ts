@@ -124,6 +124,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       members: currentProjection.map((member) => ({ userId: member.userId })),
       memberEnvelopes,
       projection: currentProjection,
+      grants: [],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: input.signedAt,
@@ -151,6 +152,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       ciphertextHash: signedState.payloadCiphertextHash,
       createdAt: input.signedAt,
     },
+    currentGrants: [],
     currentProjection,
     currentState: {
       ...signedState,

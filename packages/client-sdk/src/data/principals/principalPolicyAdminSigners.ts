@@ -39,7 +39,11 @@ export function organizationAdminExternalAuthority(
   policy: VerifiedPrincipalPolicy,
 ): PrincipalPolicyExternalAuthority {
   const history = policy.history ?? [
-    { state: policy.state, projection: policy.projection },
+    {
+      state: policy.state,
+      projection: policy.projection,
+      grants: policy.grants,
+    },
   ];
   const toHead = (state: (typeof history)[number]["state"]) => ({
     principalType: "group" as const,

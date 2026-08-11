@@ -27,6 +27,7 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
+  PrincipalContainerGrant,
   PrincipalProjectionMember,
   PrincipalStateMember,
   ReferencedPrincipalHead,
@@ -62,6 +63,7 @@ import {
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
+  type PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
@@ -306,6 +308,7 @@ async function verifyKekState(input: {
 async function putGroupPrincipalPolicy(input: {
   readonly actor: TestUser;
   readonly containerMutations?: readonly ContainerMutationRequest[];
+  readonly grants?: readonly PrincipalContainerGrant[];
   readonly keyEpoch?: number;
   readonly members?: readonly PrincipalStateMember[];
   readonly prevStateHash?: string | null;
@@ -319,6 +322,7 @@ async function putGroupPrincipalPolicy(input: {
   readonly signedAt?: string;
   readonly version?: number;
 }): Promise<{
+  readonly containerMutations: readonly ContainerMutationResponse[];
   readonly policy: VerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
   readonly stateHash: string;
@@ -329,6 +333,12 @@ async function putGroupPrincipalPolicy(input: {
     ...(input.projection ??
       createProjectionWithAdminSigner(input.actor.userId, members)),
   ];
+  const isInitialState =
+    (input.version ?? 1) === 1 && (input.prevStateHash ?? null) === null;
+  const currentPolicy = isInitialState
+    ? null
+    : await loadVerifiedPrincipalPolicy(db, "group", input.principalId);
+  const policyGrants = input.grants ?? currentPolicy?.grants ?? [];
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
       principalSecretKey: principalKem.secretKey,
@@ -344,6 +354,7 @@ async function putGroupPrincipalPolicy(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection,
+    grants: [...policyGrants],
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify({ members: projection })),
     ),
@@ -355,23 +366,14 @@ async function putGroupPrincipalPolicy(input: {
     memberEnvelopes,
   });
   const stateHash = await computePrincipalStateHash(signedState.state);
-  const isInitialState =
-    signedState.state.version === 1 && signedState.state.prevStateHash === null;
   let preparedContainerMutations = input.containerMutations;
   if (input.prepareContainerMutations) {
-    invariant(
-      !isInitialState,
-      "initial groups have no grants to rematerialize",
-    );
+    invariant(!isInitialState, "initial groups have no successor history");
     invariant(
       !input.containerMutations,
       "provide either container mutations or a mutation preparer",
     );
-    const currentPolicy = await loadVerifiedPrincipalPolicy(
-      db,
-      "group",
-      input.principalId,
-    );
+    invariant(currentPolicy, "expected current group policy");
     const nextState = {
       ...signedState.state,
       stateHash,
@@ -385,9 +387,18 @@ async function putGroupPrincipalPolicy(input: {
       stateHash,
       state: nextState,
       projection: signedState.projection,
+      grants: signedState.grants,
       history: [
-        { state: currentPolicy.state, projection: currentPolicy.projection },
-        { state: nextState, projection: signedState.projection },
+        {
+          state: currentPolicy.state,
+          projection: currentPolicy.projection,
+          grants: currentPolicy.grants,
+        },
+        {
+          state: nextState,
+          projection: signedState.projection,
+          grants: signedState.grants,
+        },
       ],
       checkpoint: {
         principalType: nextState.principalType,
@@ -412,6 +423,7 @@ async function putGroupPrincipalPolicy(input: {
     state: signedState.state,
     encryptedPayload: signedState.encryptedPayload,
     projection: signedState.projection,
+    grants: signedState.grants,
     memberEnvelopes: signedState.memberEnvelopes,
     ...(preparedContainerMutations
       ? { containerMutations: [...preparedContainerMutations] }
@@ -455,6 +467,9 @@ async function putGroupPrincipalPolicy(input: {
   }
 
   expect(response.status).toBe(200);
+  const responseBody = isInitialState
+    ? null
+    : ((await response.json()) as PrincipalPolicyMutationResponse);
   const policy = await loadVerifiedPrincipalPolicy(
     db,
     "group",
@@ -471,10 +486,57 @@ async function putGroupPrincipalPolicy(input: {
   };
 
   return {
+    containerMutations: responseBody?.containerMutations ?? [],
     policy,
     reference,
     stateHash,
   };
+}
+
+async function commitGroupGrant(input: {
+  readonly accessLevel?: "admin" | "read" | "write";
+  readonly actor: TestUser;
+  readonly buildMutation: (input: {
+    readonly policy: VerifiedPrincipalPolicy;
+    readonly reference: ReferencedPrincipalHead;
+  }) => Promise<ContainerMutationRequest>;
+  readonly containerId: string;
+  readonly current: Awaited<ReturnType<typeof putGroupPrincipalPolicy>>;
+  readonly signedAt?: string;
+}) {
+  const nextGrants = [
+    ...input.current.policy.grants.filter(
+      (grant) => grant.containerId !== input.containerId,
+    ),
+    {
+      accessLevel: input.accessLevel ?? ("read" as const),
+      containerId: input.containerId,
+    },
+  ];
+  return putGroupPrincipalPolicy({
+    actor: input.actor,
+    grants: nextGrants,
+    keyEpoch: input.current.policy.keyEpoch + 1,
+    members: input.current.policy.projection.map((member) => ({
+      userId: member.userId,
+    })),
+    prevStateHash: input.current.stateHash,
+    principalId: input.current.policy.principalId,
+    projection: [...input.current.policy.projection],
+    prepareContainerMutations: async (next) => [
+      await input.buildMutation(next),
+    ],
+    ...(input.signedAt ? { signedAt: input.signedAt } : {}),
+    version: input.current.policy.version + 1,
+  });
+}
+
+function firstCompoundMutation(
+  result: Awaited<ReturnType<typeof putGroupPrincipalPolicy>>,
+): ContainerMutationResponse {
+  const mutation = result.containerMutations[0];
+  invariant(mutation, "expected compound principal container mutation");
+  return mutation;
 }
 
 function toStoredContainerKeyEpoch(
@@ -1838,6 +1900,38 @@ test("POST /containers/:containerId/share stores signed grants", async () => {
   ]);
 });
 
+test("POST /containers/:containerId/share rejects a group grant absent from its signed index", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const rootManifest = asVerifiedContainerManifest(root.bundle);
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: crypto.randomUUID(),
+  });
+  const request = await buildGroupGrantRequest({
+    parentKekState: null,
+    previous: root.bundle,
+    previousContainerPath: [root.bundle],
+    previousKekState: root.kekState,
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+  });
+
+  const response = await postMutation({
+    path: `/containers/${rootManifest.state.containerId}/share`,
+    request,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error:
+      "Group grant changes require a matching signed principal grant index",
+  });
+});
+
 test("POST /containers/:containerId/share allows additional root group grants", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
@@ -1849,24 +1943,24 @@ test("POST /containers/:containerId/share allows additional root group grants", 
     actor: owner,
     principalId: groupPrincipalId,
   });
-  const request = await buildGroupGrantRequest({
+  const granted = await commitGroupGrant({
     accessLevel: "write",
-    parentKekState: null,
-    previous: root.bundle,
-    previousContainerPath: [root.bundle],
-    previousKekState: root.kekState,
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        accessLevel: "write",
+        parentKekState: null,
+        previous: root.bundle,
+        previousContainerPath: [root.bundle],
+        previousKekState: root.kekState,
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+      }),
+    containerId: rootManifest.state.containerId,
+    current: group,
   });
-
-  const shared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${rootManifest.state.containerId}/share`,
-      request,
-      token: owner.token,
-    }),
-  );
+  const shared = firstCompoundMutation(granted);
 
   const sharedManifest = asVerifiedContainerManifest(
     accessManifestFromResponse(shared),
@@ -1880,8 +1974,8 @@ test("POST /containers/:containerId/share allows additional root group grants", 
   expect(shared.containerKek.recipientTargets).toContainEqual({
     recipientKind: "group",
     recipientId: groupPrincipalId,
-    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(group.reference),
-    recipientKeyFingerprint: group.reference.keyFingerprint,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(granted.reference),
+    recipientKeyFingerprint: granted.reference.keyFingerprint,
   });
 });
 
@@ -1945,25 +2039,24 @@ test("POST /containers/:containerId/share avoids downstream content-key fanout f
     actor: owner,
     principalId: groupPrincipalId,
   });
-  const groupGrantRequest = await buildGroupGrantRequest({
-    containerManifestHistory: [createdBundle, userSharedBundle],
-    parentKekState: root.kekState,
-    previous: userSharedBundle,
-    previousContainerPath: [root.bundle, userSharedBundle],
-    previousKekState: kekStateFromResponse(sharedToUser),
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
-    userRecipientKeys: [recipientKey],
+  const granted = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [createdBundle, userSharedBundle],
+        parentKekState: root.kekState,
+        previous: userSharedBundle,
+        previousContainerPath: [root.bundle, userSharedBundle],
+        previousKekState: kekStateFromResponse(sharedToUser),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [recipientKey],
+      }),
+    containerId: created.containerId,
+    current: group,
   });
-
-  const sharedToGroup = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const sharedToGroup = firstCompoundMutation(granted);
 
   expect(await countDownstreamContentKeyRows(seededContentKeyRows)).toEqual(
     baselineCounts,
@@ -2009,25 +2102,24 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     actor: owner,
     principalId: groupPrincipalId,
   });
-  const groupGrantRequest = await buildGroupGrantRequest({
-    containerManifestHistory: [createdBundle, userSharedBundle],
-    parentKekState: root.kekState,
-    previous: userSharedBundle,
-    previousContainerPath: [root.bundle, userSharedBundle],
-    previousKekState: kekStateFromResponse(userShared),
-    principalPolicy: initialGroup.policy,
-    principalReference: initialGroup.reference,
-    signer: owner,
-    userRecipientKeys: [directRecipientKey],
+  const grantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [createdBundle, userSharedBundle],
+        parentKekState: root.kekState,
+        previous: userSharedBundle,
+        previousContainerPath: [root.bundle, userSharedBundle],
+        previousKekState: kekStateFromResponse(userShared),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [directRecipientKey],
+      }),
+    containerId: created.containerId,
+    current: initialGroup,
   });
-
-  const shared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const shared = firstCompoundMutation(grantedGroup);
 
   expect(shared.containerKek.containerKeyEpochId).toBe(
     userShared.containerKek.containerKeyEpochId,
@@ -2036,10 +2128,10 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     {
       principalType: "group",
       principalId: groupPrincipalId,
-      version: initialGroup.reference.version,
-      keyEpoch: initialGroup.reference.keyEpoch,
-      stateHash: initialGroup.reference.stateHash,
-      keyFingerprint: initialGroup.reference.keyFingerprint,
+      version: grantedGroup.reference.version,
+      keyEpoch: grantedGroup.reference.keyEpoch,
+      stateHash: grantedGroup.reference.stateHash,
+      keyFingerprint: grantedGroup.reference.keyFingerprint,
     },
   ]);
   expect(shared.containerKek.recipientTargets).toEqual([
@@ -2053,9 +2145,9 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
       recipientKind: "group",
       recipientId: groupPrincipalId,
       recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
-        initialGroup.reference,
+        grantedGroup.reference,
       ),
-      recipientKeyFingerprint: initialGroup.reference.keyFingerprint,
+      recipientKeyFingerprint: grantedGroup.reference.keyFingerprint,
     },
     {
       recipientKind: "user",
@@ -2072,25 +2164,30 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     signedAt: "2026-04-30T00:00:30.000Z",
   });
   const sharedBundle = accessManifestFromResponse(shared);
-  const secondGroupGrantRequest = await buildGroupGrantRequest({
-    containerManifestHistory: [createdBundle, userSharedBundle, sharedBundle],
-    parentKekState: root.kekState,
-    previous: sharedBundle,
-    previousContainerPath: [root.bundle, sharedBundle],
-    previousKekState: kekStateFromResponse(shared),
-    principalPolicies: [initialGroup.policy],
-    principalPolicy: secondGroup.policy,
-    principalReference: secondGroup.reference,
-    signer: owner,
-    userRecipientKeys: [directRecipientKey],
+  const secondGrantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [
+          createdBundle,
+          userSharedBundle,
+          sharedBundle,
+        ],
+        parentKekState: root.kekState,
+        previous: sharedBundle,
+        previousContainerPath: [root.bundle, sharedBundle],
+        previousKekState: kekStateFromResponse(shared),
+        principalPolicies: [grantedGroup.policy],
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [directRecipientKey],
+      }),
+    containerId: created.containerId,
+    current: secondGroup,
+    signedAt: "2026-04-30T00:00:31.000Z",
   });
-  const secondGroupShared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: secondGroupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const secondGroupShared = firstCompoundMutation(secondGrantedGroup);
   expect(secondGroupShared.containerKek.containerKeyEpochId).toBe(
     shared.containerKek.containerKeyEpochId,
   );
@@ -2099,23 +2196,23 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
     recipientKind: "group",
     recipientId: groupPrincipalId,
     recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
-      initialGroup.reference,
+      grantedGroup.reference,
     ),
-    recipientKeyFingerprint: initialGroup.reference.keyFingerprint,
+    recipientKeyFingerprint: grantedGroup.reference.keyFingerprint,
   });
   expect(secondGroupShared.containerKek.recipientTargets).toContainEqual({
     recipientKind: "group",
     recipientId: secondGroupPrincipalId,
     recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
-      secondGroup.reference,
+      secondGrantedGroup.reference,
     ),
-    recipientKeyFingerprint: secondGroup.reference.keyFingerprint,
+    recipientKeyFingerprint: secondGrantedGroup.reference.keyFingerprint,
   });
 
   await putGroupPrincipalPolicy({
     actor: owner,
-    keyEpoch: 2,
-    prevStateHash: initialGroup.stateHash,
+    keyEpoch: grantedGroup.policy.keyEpoch + 1,
+    prevStateHash: grantedGroup.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
     prepareContainerMutations: async ({ policy }) => [
@@ -2132,7 +2229,7 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
       }),
     ],
     signedAt: "2026-04-30T00:01:00.000Z",
-    version: 2,
+    version: grantedGroup.policy.version + 1,
   });
   const secondChild = await createChild({
     parent: root.bundle,
@@ -2351,10 +2448,10 @@ for (const accessLevel of ["read", "write"] as const) {
       token: owner.token,
     });
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error:
-        "Built-in container grant cannot be revoked or change access level",
+        "Group grant changes require a matching signed principal grant index",
     });
   });
 }
@@ -2411,22 +2508,22 @@ test("group grant revoke requires and commits with principal rotation", async ()
     members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
-  const groupGrantRequest = await buildGroupGrantRequest({
-    parentKekState: root.kekState,
-    previous: createdBundle,
-    previousContainerPath: [root.bundle, createdBundle],
-    previousKekState: kekStateFromResponse(created),
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
+  const grantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        parentKekState: root.kekState,
+        previous: createdBundle,
+        previousContainerPath: [root.bundle, createdBundle],
+        previousKekState: kekStateFromResponse(created),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+      }),
+    containerId: created.containerId,
+    current: group,
   });
-  const shared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const shared = firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2471,14 +2568,15 @@ test("group grant revoke requires and commits with principal rotation", async ()
   await putGroupPrincipalPolicy({
     actor: owner,
     containerMutations: [revokeRequest],
-    keyEpoch: group.policy.keyEpoch + 1,
-    members: group.policy.projection.map((member) => ({
+    grants: [],
+    keyEpoch: grantedGroup.policy.keyEpoch + 1,
+    members: grantedGroup.policy.projection.map((member) => ({
       userId: member.userId,
     })),
-    prevStateHash: group.policy.stateHash,
+    prevStateHash: grantedGroup.policy.stateHash,
     principalId: groupPrincipalId,
-    projection: [...group.policy.projection],
-    version: group.policy.version + 1,
+    projection: [...grantedGroup.policy.projection],
+    version: grantedGroup.policy.version + 1,
   });
 
   const recipientDeltaResponse = await listRootContainers({
@@ -2520,22 +2618,22 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     members: [{ userId: recipient.userId }],
     principalId: groupPrincipalId,
   });
-  const groupGrantRequest = await buildGroupGrantRequest({
-    parentKekState: root.kekState,
-    previous: createdBundle,
-    previousContainerPath: [root.bundle, createdBundle],
-    previousKekState: kekStateFromResponse(created),
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
+  const grantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        parentKekState: root.kekState,
+        previous: createdBundle,
+        previousContainerPath: [root.bundle, createdBundle],
+        previousKekState: kekStateFromResponse(created),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+      }),
+    containerId: created.containerId,
+    current: group,
   });
-  const shared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const shared = firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2552,9 +2650,9 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
 
   await putGroupPrincipalPolicy({
     actor: owner,
-    keyEpoch: 2,
+    keyEpoch: grantedGroup.policy.keyEpoch + 1,
     members: [{ userId: owner.userId }],
-    prevStateHash: group.stateHash,
+    prevStateHash: grantedGroup.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
     prepareContainerMutations: async ({ policy }) => [
@@ -2571,7 +2669,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
       }),
     ],
     signedAt: "2026-04-30T00:02:00.000Z",
-    version: 2,
+    version: grantedGroup.policy.version + 1,
   });
 
   const recipientDeltaResponse = await listRootContainers({
@@ -2649,24 +2747,24 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     principalId: groupPrincipalId,
   });
   const directSharedBundle = accessManifestFromResponse(directShared);
-  const groupGrantRequest = await buildGroupGrantRequest({
-    containerManifestHistory: [createdBundle, directSharedBundle],
-    parentKekState: root.kekState,
-    previous: directSharedBundle,
-    previousContainerPath: [root.bundle, directSharedBundle],
-    previousKekState: kekStateFromResponse(directShared),
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
-    userRecipientKeys: [recipientKey],
+  const grantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [createdBundle, directSharedBundle],
+        parentKekState: root.kekState,
+        previous: directSharedBundle,
+        previousContainerPath: [root.bundle, directSharedBundle],
+        previousKekState: kekStateFromResponse(directShared),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [recipientKey],
+      }),
+    containerId: created.containerId,
+    current: group,
   });
-  const groupShared = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request: groupGrantRequest,
-      token: owner.token,
-    }),
-  );
+  const groupShared = firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -2683,9 +2781,9 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
 
   await putGroupPrincipalPolicy({
     actor: owner,
-    keyEpoch: 2,
+    keyEpoch: grantedGroup.policy.keyEpoch + 1,
     members: [{ userId: owner.userId }],
-    prevStateHash: group.stateHash,
+    prevStateHash: grantedGroup.stateHash,
     principalId: groupPrincipalId,
     principalKem: generateKemSeedAndKeyPair(),
     prepareContainerMutations: async ({ policy }) => [
@@ -2702,7 +2800,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
       }),
     ],
     signedAt: "2026-04-30T00:03:00.000Z",
-    version: 2,
+    version: grantedGroup.policy.version + 1,
   });
 
   const recipientDeltaResponse = await listRootContainers({
@@ -3351,27 +3449,27 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     principalId: groupPrincipalId,
   });
   const sharedChildBundle = accessManifestFromResponse(sharedChild);
-  const groupShareRequest = await buildGroupGrantRequest({
-    containerManifestHistory: [
-      accessManifestFromResponse(child),
-      sharedChildBundle,
-    ],
-    parentKekState: root.kekState,
-    previous: sharedChildBundle,
-    previousContainerPath: [root.bundle, sharedChildBundle],
-    previousKekState: kekStateFromResponse(sharedChild),
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
-    userRecipientKeys: [recipientKey],
+  const grantedGroup = await commitGroupGrant({
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        containerManifestHistory: [
+          accessManifestFromResponse(child),
+          sharedChildBundle,
+        ],
+        parentKekState: root.kekState,
+        previous: sharedChildBundle,
+        previousContainerPath: [root.bundle, sharedChildBundle],
+        previousKekState: kekStateFromResponse(sharedChild),
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+        userRecipientKeys: [recipientKey],
+      }),
+    containerId: child.containerId,
+    current: group,
   });
-  const groupSharedChild = await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${child.containerId}/share`,
-      request: groupShareRequest,
-      token: owner.token,
-    }),
-  );
+  const groupSharedChild = firstCompoundMutation(grantedGroup);
 
   const recipientBaselineResponse = await listRootContainers({
     token: recipient.token,
@@ -3689,23 +3787,23 @@ test("POST share group grant prunes member tombstones", async () => {
     userId: recipient.userId,
   });
 
-  const request = await buildGroupGrantRequest({
+  await commitGroupGrant({
     accessLevel: "read",
-    parentKekState: root.kekState,
-    previous: childBundle,
-    previousContainerPath: [root.bundle, childBundle],
-    previousKekState: childKek,
-    principalPolicy: group.policy,
-    principalReference: group.reference,
-    signer: owner,
+    actor: owner,
+    buildMutation: ({ policy, reference }) =>
+      buildGroupGrantRequest({
+        accessLevel: "read",
+        parentKekState: root.kekState,
+        previous: childBundle,
+        previousContainerPath: [root.bundle, childBundle],
+        previousKekState: childKek,
+        principalPolicy: policy,
+        principalReference: reference,
+        signer: owner,
+      }),
+    containerId: created.containerId,
+    current: group,
   });
-  await expectMutationSuccess(
-    await postMutation({
-      path: `/containers/${created.containerId}/share`,
-      request,
-      token: owner.token,
-    }),
-  );
 
   const remaining = await db
     .select({ id: containerSyncTombstones.id })

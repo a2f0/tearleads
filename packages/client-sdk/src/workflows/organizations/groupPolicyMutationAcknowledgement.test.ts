@@ -6,8 +6,12 @@ import {
   type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type {
+  ContainerMutationRequest,
+  PutPrincipalPolicyRequest,
+} from "@tearleads/validators/request";
+import type {
+  ContainerMutationResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -196,4 +200,93 @@ test("group policy acknowledgements reject altered projection and envelopes", as
       envelopes: fixture.envelopes.envelopes.slice(1),
     }),
   ).toThrow("Group member envelopes changed after acknowledgement");
+});
+
+test("group policy acknowledgements reject an omitted container result", async () => {
+  const fixture = await acknowledgementFixture();
+  const bundle = await policyBundleAfterMutation({
+    mutation: fixture.mutation,
+    previous: fixture.currentPolicy,
+  });
+  const request: PutPrincipalPolicyRequest = {
+    ...fixture.mutation,
+    containerMutations: [{} as ContainerMutationRequest],
+  };
+
+  expect(() =>
+    assertGroupPolicyBundleMatchesAcknowledgement({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request,
+      response: bundle,
+    }),
+  ).toThrow("Group policy container acknowledgement batch is incomplete");
+});
+
+test("group policy acknowledgements treat container wraps as an unordered set", async () => {
+  const fixture = await acknowledgementFixture();
+  const wraps = [
+    { recipientId: "recipient-b", wrappedKey: "wrapped-b" },
+    { recipientId: "recipient-a", wrappedKey: "wrapped-a" },
+  ];
+  const containerMutation = {
+    body: { operation: "share" },
+    event: { signature: "event-signature" },
+    keyEpoch: { id: "key-epoch" },
+    manifest: { manifestHash: "manifest-hash" },
+    wraps,
+  } as unknown as ContainerMutationRequest;
+  const containerResponse = {
+    accessManifest: {
+      event: {
+        body: containerMutation.body,
+        event: containerMutation.event,
+      },
+      manifest: containerMutation.manifest,
+    },
+    containerKek: {
+      keyEpoch: containerMutation.keyEpoch,
+      wraps: [...wraps].reverse(),
+    },
+  } as unknown as ContainerMutationResponse;
+  const request: PutPrincipalPolicyRequest = {
+    ...fixture.mutation,
+    containerMutations: [containerMutation],
+  };
+  const bundle = {
+    ...(await policyBundleAfterMutation({
+      mutation: request,
+      previous: fixture.currentPolicy,
+    })),
+    containerMutations: [containerResponse],
+  };
+
+  expect(() =>
+    assertGroupPolicyBundleMatchesAcknowledgement({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request,
+      response: bundle,
+    }),
+  ).not.toThrow();
+
+  expect(() =>
+    assertGroupPolicyBundleMatchesAcknowledgement({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request,
+      response: {
+        ...bundle,
+        containerMutations: [
+          {
+            ...containerResponse,
+            containerKek: {
+              ...containerResponse.containerKek,
+              wraps: containerResponse.containerKek.wraps.slice(1),
+            },
+          },
+        ],
+      },
+    }),
+  ).toThrow("Group policy container acknowledgement mismatch");
 });

@@ -13,6 +13,7 @@ function principalPolicyBundleColumns() {
     currentStateJson: text("current_state_json").notNull(),
     currentPayloadJson: text("current_payload_json").notNull(),
     currentProjectionJson: text("current_projection_json").notNull(),
+    currentGrantsJson: text("current_grants_json").notNull(),
     currentMemberEnvelopesJson: text("current_member_envelopes_json").notNull(),
     previousStatesJson: text("previous_states_json").notNull(),
     updatedAt: text("updated_at").notNull(),

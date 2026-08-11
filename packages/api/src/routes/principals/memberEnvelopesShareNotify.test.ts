@@ -107,6 +107,7 @@ test("PUT ungranted policy does not publish shared_with_you", async () => {
       body: JSON.stringify({
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
+        grants: signedState.grants,
         projection: signedState.projection,
         memberEnvelopes: signedState.memberEnvelopes,
       }),

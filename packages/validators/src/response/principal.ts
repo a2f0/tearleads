@@ -6,6 +6,7 @@ import {
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { ContainerMutationResponseSchema } from "./container";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
   keyEpoch: positiveIntegerSchema,
@@ -24,6 +25,8 @@ export const PrincipalStateResponseSchema = loosePlainObject({
   createdAt: z.string(),
   encapsulationPublicKey: z.string(),
   externalAuthority: PrincipalStateExternalAuthorityResponseSchema.nullable(),
+  grantCount: nonNegativeIntegerSchema,
+  grantRoot: z.string(),
   keyEpoch: z.number(),
   keyFingerprint: z.string(),
   memberCount: nonNegativeIntegerSchema,
@@ -54,6 +57,15 @@ export const PrincipalProjectionMemberResponseSchema = loosePlainObject({
 
 export type PrincipalProjectionMemberResponse = z.infer<
   typeof PrincipalProjectionMemberResponseSchema
+>;
+
+export const PrincipalContainerGrantResponseSchema = loosePlainObject({
+  accessLevel: z.literal(["admin", "read", "write"]),
+  containerId: z.string(),
+});
+
+export type PrincipalContainerGrantResponse = z.infer<
+  typeof PrincipalContainerGrantResponseSchema
 >;
 
 export const PrincipalStatePayloadResponseSchema = loosePlainObject({
@@ -93,20 +105,8 @@ export type CurrentPrincipalMemberEnvelopesResponse = z.infer<
   typeof CurrentPrincipalMemberEnvelopesResponseSchema
 >;
 
-export const ReferencedPrincipalStateResponseSchema = loosePlainObject({
-  keyEpoch: z.number(),
-  keyFingerprint: z.string(),
-  principalId: z.string(),
-  principalType: z.literal(["group", "organization"]),
-  stateHash: z.string(),
-  version: z.number(),
-});
-
-export type ReferencedPrincipalStateResponse = z.infer<
-  typeof ReferencedPrincipalStateResponseSchema
->;
-
 export const PrincipalPolicyStateChainEntryResponseSchema = loosePlainObject({
+  grants: arraySchema(PrincipalContainerGrantResponseSchema),
   projection: arraySchema(PrincipalProjectionMemberResponseSchema),
   state: PrincipalStateResponseSchema,
 });
@@ -115,16 +115,30 @@ export type PrincipalPolicyStateChainEntryResponse = z.infer<
   typeof PrincipalPolicyStateChainEntryResponseSchema
 >;
 
-export const PrincipalPolicyBundleResponseSchema = loosePlainObject({
+const principalPolicyBundleResponseShape = {
+  currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponseSchema,
   currentPayload: PrincipalStatePayloadResponseSchema,
   currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
   currentState: PrincipalStateResponseSchema,
   previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
-});
+};
+
+export const PrincipalPolicyBundleResponseSchema = loosePlainObject(
+  principalPolicyBundleResponseShape,
+);
 
 export type PrincipalPolicyBundleResponse = z.infer<
   typeof PrincipalPolicyBundleResponseSchema
+>;
+
+export const PrincipalPolicyMutationResponseSchema = loosePlainObject({
+  ...principalPolicyBundleResponseShape,
+  containerMutations: arraySchema(ContainerMutationResponseSchema),
+});
+
+export type PrincipalPolicyMutationResponse = z.infer<
+  typeof PrincipalPolicyMutationResponseSchema
 >;
 
 const BillingErrorCodeSchema = z.literal([
@@ -169,12 +183,6 @@ export function isCurrentPrincipalMemberEnvelopesResponse(
   return CurrentPrincipalMemberEnvelopesResponseSchema.safeParse(value).success;
 }
 
-export function isReferencedPrincipalStateResponse(
-  value: unknown,
-): value is ReferencedPrincipalStateResponse {
-  return ReferencedPrincipalStateResponseSchema.safeParse(value).success;
-}
-
 export function isPrincipalPolicyStateChainEntryResponse(
   value: unknown,
 ): value is PrincipalPolicyStateChainEntryResponse {
@@ -185,6 +193,12 @@ export function isPrincipalPolicyBundleResponse(
   value: unknown,
 ): value is PrincipalPolicyBundleResponse {
   return PrincipalPolicyBundleResponseSchema.safeParse(value).success;
+}
+
+export function isPrincipalPolicyMutationResponse(
+  value: unknown,
+): value is PrincipalPolicyMutationResponse {
+  return PrincipalPolicyMutationResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyStaleErrorResponse(

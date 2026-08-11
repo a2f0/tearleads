@@ -254,6 +254,7 @@ export async function shareRemoteContainerWithGroup(input: {
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    signingKeyPair: input.runtime.crypto.signingKeyPair,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,

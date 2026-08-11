@@ -18,7 +18,7 @@ import {
 } from "../../persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
-interface AuthoredContainerMutationHead {
+export interface AuthoredContainerMutationHead {
   readonly body: object;
   readonly containerId: string;
   readonly event: AccessEvent;
@@ -251,5 +251,31 @@ export async function acknowledgeContainerMutation(input: {
         response: input.response,
       }),
     ],
+  });
+}
+
+/** Correlates and advances a complete authored mutation batch atomically. */
+export async function acknowledgeContainerMutationBatch(input: {
+  readonly execSql: ExecSql;
+  readonly plans: readonly AuthoredContainerMutationHead[];
+  readonly responses: readonly ContainerMutationResponse[];
+}): Promise<void> {
+  if (input.plans.length !== input.responses.length) {
+    throw new Error("Container mutation acknowledgement batch is incomplete");
+  }
+  const heads = await Promise.all(
+    input.plans.map(async (plan, index) => {
+      const response = input.responses[index];
+      if (!response) {
+        throw new Error(
+          "Container mutation acknowledgement batch is incomplete",
+        );
+      }
+      return locallyAcknowledgedContainerMutationHead({ plan, response });
+    }),
+  );
+  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    execSql: input.execSql,
+    heads,
   });
 }

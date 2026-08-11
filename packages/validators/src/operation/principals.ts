@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import {
   isPutPrincipalPolicyRequest,
   PutPrincipalPolicyRequestSchema,
@@ -6,8 +7,10 @@ import {
 import {
   ErrorResponseSchema,
   isPrincipalPolicyBundleResponse,
+  isPrincipalPolicyMutationResponse,
   PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
+  PrincipalPolicyMutationResponseSchema,
 } from "../response";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
@@ -57,12 +60,13 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
   responses: {
-    200: PrincipalPolicyBundleResponseSchema,
+    200: PrincipalPolicyMutationResponseSchema,
   },
+  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
 
 export const isGetPrincipalPolicyOperationResponse =
   isPrincipalPolicyBundleResponse;
 export const isPutPrincipalPolicyOperationRequest = isPutPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =
-  isPrincipalPolicyBundleResponse;
+  isPrincipalPolicyMutationResponse;

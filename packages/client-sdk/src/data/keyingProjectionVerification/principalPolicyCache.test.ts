@@ -39,12 +39,17 @@ function verifiedPolicyForBundle(
     },
     history: [
       ...bundle.previousStates,
-      { state: bundle.currentState, projection: bundle.currentProjection },
+      {
+        state: bundle.currentState,
+        projection: bundle.currentProjection,
+        grants: bundle.currentGrants,
+      },
     ],
     keyEpoch: bundle.currentState.keyEpoch,
     principalId: bundle.currentState.principalId,
     principalType: bundle.currentState.principalType,
     projection: bundle.currentProjection,
+    grants: bundle.currentGrants,
     state: bundle.currentState,
     stateHash: bundle.currentState.stateHash,
     version: bundle.currentState.version,
@@ -76,6 +81,7 @@ function predecessorBundle(
       createdAt: previous.state.createdAt,
     },
     currentProjection: previous.projection,
+    currentGrants: previous.grants,
     currentState: previous.state,
     previousStates: [],
   };

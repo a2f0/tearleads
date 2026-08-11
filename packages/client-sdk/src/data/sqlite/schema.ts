@@ -757,8 +757,14 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(principalPolicies),
-  defineSqlTableSchema(principalPolicyBundleHistory),
+  {
+    ...defineSqlTableSchema(principalPolicies),
+    requiredColumns: ["current_grants_json"],
+  },
+  {
+    ...defineSqlTableSchema(principalPolicyBundleHistory),
+    requiredColumns: ["current_grants_json"],
+  },
   defineSqlTableSchema(principalPolicyBundleReferences),
 ];
 

@@ -7,6 +7,7 @@ import {
   organizationReadModelHeads,
   organizations,
 } from "@tearleads/api-shared/schema";
+import { normalizePrincipalContainerGrants } from "@tearleads/crypto";
 import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
@@ -22,6 +23,7 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
+import { listCurrentPrincipalContainerGrants } from "../principals/principalContainerRematerialization";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
@@ -182,6 +184,7 @@ async function storeInitialPolicy(
       state: bundle.state,
       encryptedPayload: bundle.encryptedPayload,
       projection: bundle.projection,
+      grants: bundle.grants,
       memberEnvelopes: bundle.memberEnvelopes,
     },
     tx,
@@ -200,6 +203,34 @@ async function createInitialBuiltinGrants(
     subjectId: input.initialAdminGroup.groupId,
     subjectType: "group",
   });
+}
+
+async function assertProvisionedGroupGrantIndex(
+  tx: DatabaseTransaction,
+  policy: PutPrincipalPolicyRequest,
+): Promise<void> {
+  const expected = normalizePrincipalContainerGrants(policy.grants);
+  const actual = await listCurrentPrincipalContainerGrants({
+    executor: tx,
+    principalId: policy.state.principalId,
+    principalType: "group",
+  });
+  if (
+    actual.length !== expected.length ||
+    actual.some((grant, index) => {
+      const entry = expected[index];
+      return (
+        !entry ||
+        entry.containerId !== grant.containerId ||
+        entry.accessLevel !== grant.accessLevel
+      );
+    })
+  ) {
+    throw new OrganizationProvisioningError(
+      "Provisioned group grants do not match the signed principal grant index",
+      409,
+    );
+  }
 }
 
 async function createInitialRootMetadataDocument(
@@ -409,6 +440,14 @@ export async function provisionOrganizationInTransaction(
     tx,
     input,
     signer,
+  );
+  await assertProvisionedGroupGrantIndex(
+    tx,
+    input.initialAdminGroup.initialGroupPolicy,
+  );
+  await assertProvisionedGroupGrantIndex(
+    tx,
+    input.initialMemberGroup.initialGroupPolicy,
   );
   return {
     organizationId,

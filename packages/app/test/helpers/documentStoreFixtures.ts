@@ -473,6 +473,7 @@ export function createDocumentStoreRuntime(
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
       ...overrides.util,
     },
   });

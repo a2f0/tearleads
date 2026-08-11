@@ -2,7 +2,9 @@ import {
   buildPrincipalStateSigningInput,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
+  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
+  type PrincipalContainerGrant,
   type PrincipalPolicyExternalAuthority,
   type SigningKeyPair,
   signPrincipalState,
@@ -24,6 +26,7 @@ interface BuildInitialGroupPolicyInput {
     | PrincipalPolicyExternalAuthority["currentHead"]
     | null;
   readonly groupId: string;
+  readonly grants?: readonly PrincipalContainerGrant[] | undefined;
   readonly includeSignerAsAdmin?: boolean;
   readonly name: string;
   readonly signerUserId: string;
@@ -60,6 +63,7 @@ export async function signedGroupPolicyRequest(input: {
     | null;
   readonly keyEpoch: number;
   readonly keyFingerprint: string;
+  readonly grants: ReadonlyArray<PrincipalContainerGrant>;
   readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
   readonly principalId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
@@ -69,6 +73,7 @@ export async function signedGroupPolicyRequest(input: {
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<PutPrincipalPolicyRequest> {
   const projection = normalizePrincipalProjectionMembers(input.projection);
+  const grants = normalizePrincipalContainerGrants(input.grants);
   const payloadCiphertext = payloadCiphertextForProjection(projection);
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
@@ -84,6 +89,7 @@ export async function signedGroupPolicyRequest(input: {
       members: projectionToStateMembers(projection),
       memberEnvelopes: [...input.memberEnvelopes],
       projection,
+      grants,
       payloadCiphertext,
       externalAuthority: input.externalAuthority,
       signedAt: input.signedAt,
@@ -101,6 +107,7 @@ export async function signedGroupPolicyRequest(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
+    grants,
     memberEnvelopes: [...input.memberEnvelopes],
   };
 }
@@ -139,6 +146,7 @@ export async function buildInitialGroupPolicyRequest(
     externalAuthority: input.externalAuthority ?? null,
     keyEpoch: 1,
     keyFingerprint: await toFingerprint(groupKem.publicKey),
+    grants: input.grants ?? [],
     memberEnvelopes,
     principalId: input.groupId,
     projection,
@@ -166,6 +174,7 @@ export async function buildInitialGroupPolicyRequest(
 export async function buildInitialMemberGroupPolicyRequest(input: {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
+  readonly grants?: readonly PrincipalContainerGrant[] | undefined;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;

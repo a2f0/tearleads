@@ -102,38 +102,47 @@ async function appendCreatedGroupReadModelChanges(input: {
   });
 }
 
-export async function runCreateOrganizationGroupWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  sessionUserId: string,
+function validateOrganizationGroupCreation(
   input: CreateOrganizationGroupRequest,
-): Promise<OrganizationGroupSummaryResponse> {
+): string {
   const name = input.name.trim();
-
   if (name.length === 0) {
     throw new OrganizationManagerError("Group name cannot be empty", 400);
   }
-
   if (input.initialGroupPolicy.state.principalType !== "group") {
     throw new OrganizationManagerError(
       "Initial group policy must target a group principal",
       400,
     );
   }
-
   if (input.initialGroupPolicy.state.principalId !== input.groupId) {
     throw new OrganizationManagerError(
       "Initial group policy principalId must match groupId",
       400,
     );
   }
-
   if (input.initialGroupPolicy.state.version !== 1) {
     throw new OrganizationManagerError(
       "Initial group policy version must be 1",
       400,
     );
   }
+  if (input.initialGroupPolicy.grants.length !== 0) {
+    throw new OrganizationManagerError(
+      "New organization groups must begin with an empty grant index",
+      400,
+    );
+  }
+  return name;
+}
+
+export async function runCreateOrganizationGroupWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+  sessionUserId: string,
+  input: CreateOrganizationGroupRequest,
+): Promise<OrganizationGroupSummaryResponse> {
+  const name = validateOrganizationGroupCreation(input);
 
   return db.transaction(async (tx) => {
     await prepareOrganizationGroupCreation({
@@ -168,6 +177,7 @@ export async function runCreateOrganizationGroupWorkflow(
           state: input.initialGroupPolicy.state,
           encryptedPayload: input.initialGroupPolicy.encryptedPayload,
           projection: input.initialGroupPolicy.projection,
+          grants: input.initialGroupPolicy.grants,
           memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
         },
         tx,

@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
+  type PrincipalContainerGrant,
   unwrapDek,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationGroupContainerResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   SIGNED_AT,
@@ -28,6 +28,7 @@ import { buildInitialGroupPolicyRequest } from "./principalPolicy";
 const GROUP_ID = "admins-group";
 const ORGANIZATION_ID = "organization-1";
 const ROOT_CONTAINER_ID = "root-container";
+const SECOND_CONTAINER_ID = "second-container";
 const USER_ID = "remaining-admin";
 
 function eventType(request: { readonly event: Record<string, unknown> }) {
@@ -35,6 +36,7 @@ function eventType(request: { readonly event: Record<string, unknown> }) {
 }
 
 async function createFixture(input: {
+  readonly containerIds?: readonly string[];
   readonly databaseName: string;
   readonly rotateKey: boolean;
 }) {
@@ -43,8 +45,14 @@ async function createFixture(input: {
     userId: USER_ID,
   });
   const memberKem = generateKemSeedAndKeyPair();
+  const containerIds = input.containerIds ?? [ROOT_CONTAINER_ID];
+  const grants: PrincipalContainerGrant[] = containerIds.map((containerId) => ({
+    accessLevel: "admin",
+    containerId,
+  }));
   const initialGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: memberKem,
+    grants,
     groupId: GROUP_ID,
     name: "Admins",
     signerUserId: USER_ID,
@@ -100,12 +108,18 @@ async function createFixture(input: {
     stateHash: nextState.stateHash,
     state: nextState,
     projection: nextBundle.currentProjection,
+    grants: nextBundle.currentGrants,
     history: [
       {
         state: previousBundle.currentState,
         projection: previousBundle.currentProjection,
+        grants: previousBundle.currentGrants,
       },
-      { state: nextState, projection: nextBundle.currentProjection },
+      {
+        state: nextState,
+        projection: nextBundle.currentProjection,
+        grants: nextBundle.currentGrants,
+      },
     ],
     checkpoint: {
       principalType: nextState.principalType,
@@ -114,16 +128,25 @@ async function createFixture(input: {
       stateHash: nextState.stateHash,
     },
   });
-  const root = await buildRootContainerCreatePlan({
-    adminGroup: initialGroup,
-    author,
-    containerId: ROOT_CONTAINER_ID,
-    containerKey: crypto.getRandomValues(new Uint8Array(32)),
-    metadataDocumentId: "root-metadata-document",
-    recipientEncapsulationPublicKey: memberKem.publicKey,
-    signedAt: SIGNED_AT,
-  });
-  const projection = rootContainerWriterProjectionFromCreatePlan(root.plan);
+  const projections = new Map(
+    await Promise.all(
+      containerIds.map(async (containerId) => {
+        const root = await buildRootContainerCreatePlan({
+          adminGroup: initialGroup,
+          author,
+          containerId,
+          containerKey: crypto.getRandomValues(new Uint8Array(32)),
+          metadataDocumentId: `${containerId}-metadata-document`,
+          recipientEncapsulationPublicKey: memberKem.publicKey,
+          signedAt: SIGNED_AT,
+        });
+        return [
+          containerId,
+          rootContainerWriterProjectionFromCreatePlan(root.plan),
+        ] as const;
+      }),
+    ),
+  );
   const resolveTrustedUserIdentity = async (userId: string) =>
     userId === USER_ID
       ? createTestTrustedUserIdentity({
@@ -140,31 +163,23 @@ async function createFixture(input: {
     previousBundle,
     "2026-04-28T12:00:30.000Z",
   );
-  const grant: OrganizationGroupContainerResponse = {
-    accessLevel: "admin",
-    containerId: ROOT_CONTAINER_ID,
-    createdAt: SIGNED_AT,
-    depth: 0,
-    isBuiltin: true,
-    metadataAccessEpoch: 1,
-    metadataAccessStateHash: "metadata-state",
-    metadataDocumentId: "root-metadata-document",
-    parentId: null,
-    updatedAt: SIGNED_AT,
-  };
+  const requestedContainerIds: string[] = [];
 
   return {
     database,
-    grant,
+    grants,
+    requestedContainerIds,
     input: {
       apiClient: {
-        getContainerWriterProjection: async () => projection,
+        getContainerWriterProjection: async (containerId: string) => {
+          requestedContainerIds.push(containerId);
+          return projections.get(containerId) ?? null;
+        },
       },
       author,
       execSql: database.execSql,
-      grants: [grant],
+      grants,
       groupId: GROUP_ID,
-      locallyKnownContainerIds: [],
       nextPolicy,
       resolveTrustedUserIdentity,
       targetSecretKey: memberKem.secretKey,
@@ -215,10 +230,14 @@ test("principal rematerialization rejects stale grant inputs before commit", asy
     rotateKey: true,
   });
   try {
+    const [grant] = fixture.grants;
+    if (!grant) {
+      throw new Error("Expected fixture grant");
+    }
     await expect(
       buildPrincipalContainerRematerializationBatch({
         ...fixture.input,
-        grants: [{ ...fixture.grant, accessLevel: "read" }],
+        grants: [{ ...grant, accessLevel: "read" }],
       }),
     ).rejects.toThrow("does not contain the expected group grant");
     await expect(
@@ -228,15 +247,27 @@ test("principal rematerialization rejects stale grant inputs before commit", asy
         revokedContainerId: ROOT_CONTAINER_ID,
       }),
     ).rejects.toThrow("Revoked container is not granted to the group");
-    await expect(
-      buildPrincipalContainerRematerializationBatch({
-        ...fixture.input,
-        grants: [],
-        locallyKnownContainerIds: [ROOT_CONTAINER_ID],
-      }),
-    ).rejects.toThrow(
-      `Server group grant set omits locally known container ${ROOT_CONTAINER_ID}`,
+  } finally {
+    fixture.database.close();
+  }
+});
+
+test("principal rematerialization enumerates every signed grant", async () => {
+  const fixture = await createFixture({
+    containerIds: [ROOT_CONTAINER_ID, SECOND_CONTAINER_ID],
+    databaseName: "principal-container-rematerialization-complete-set",
+    rotateKey: true,
+  });
+  try {
+    const requests = await buildPrincipalContainerRematerializationBatch(
+      fixture.input,
     );
+
+    expect(requests).toHaveLength(2);
+    expect(fixture.requestedContainerIds.toSorted()).toEqual([
+      ROOT_CONTAINER_ID,
+      SECOND_CONTAINER_ID,
+    ]);
   } finally {
     fixture.database.close();
   }

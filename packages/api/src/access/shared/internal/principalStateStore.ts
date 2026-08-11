@@ -18,6 +18,11 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
+  listContainerGrantsForState,
+  storePrincipalContainerGrantsForState,
+} from "./principalContainerGrantStore";
+import { listProjectionMembersForState } from "./principalProjectionStore";
+import {
   normalizePrincipalStateWriteInput,
   type PrincipalStateBundleInput,
   type PrincipalStateExternalSignerAuthorizationInput,
@@ -44,10 +49,13 @@ import {
   validatePrincipalStateArtifacts,
 } from "./principalStateValidation";
 
+export { listContainerGrantsForState } from "./principalContainerGrantStore";
+export { listProjectionMembersForState } from "./principalProjectionStore";
 export type {
   PrincipalStateBundleInput,
   PrincipalStateExternalSignerAuthorizationInput,
   PrincipalStateReference,
+  StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,
 } from "./principalStateRecords";
@@ -124,27 +132,6 @@ export async function getPrincipalStatePayloadForState(
     .limit(1);
 
   return row ?? null;
-}
-
-export async function listProjectionMembersForState(
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
-  stateHash: string,
-  executor: DatabaseSession,
-): Promise<StoredPrincipalProjectionMember[]> {
-  const rows = await executor
-    .select(principalProjectionMemberSelect)
-    .from(principalMembershipProjection)
-    .where(
-      and(
-        eq(principalMembershipProjection.principalType, principalType),
-        eq(principalMembershipProjection.principalId, principalId),
-        eq(principalMembershipProjection.stateHash, stateHash),
-      ),
-    )
-    .orderBy(principalMembershipProjection.userId);
-
-  return rows.map(toStoredProjectionMember);
 }
 
 export async function getPrincipalStatesForReferences(
@@ -414,8 +401,10 @@ async function insertPrincipalStateRow(
       membershipRoot: input.normalizedInput.state.membershipRoot,
       memberEnvelopesRoot: input.normalizedInput.state.memberEnvelopesRoot,
       projectionRoot: input.normalizedInput.state.projectionRoot,
+      grantRoot: input.normalizedInput.state.grantRoot,
       payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
       memberCount: input.normalizedInput.state.memberCount,
+      grantCount: input.normalizedInput.state.grantCount,
       externalAuthority: input.normalizedInput.state.externalAuthority,
       stateHash: input.stateHash,
       signedAt: new Date(input.normalizedInput.state.signedAt),
@@ -668,6 +657,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
   await ensureStoredPrincipalPayloadMatches(writeContext);
   await insertPrincipalProjectionRows(writeContext);
   await ensureStoredPrincipalProjectionMatches(writeContext);
+  await storePrincipalContainerGrantsForState(writeContext);
   await insertPrincipalEpochKeyRow(writeContext);
   await ensureStoredPrincipalEpochKeyMatches(writeContext);
 
@@ -745,6 +735,12 @@ export async function listPrincipalStateHistory(
     const state = toStoredPrincipalState(row);
     history.push({
       state,
+      grants: await listContainerGrantsForState(
+        principalType,
+        principalId,
+        state.stateHash,
+        executor,
+      ),
       projection: await listProjectionMembersForState(
         principalType,
         principalId,

@@ -33,8 +33,10 @@ test("isRegistrationRequest", () => {
       membershipRoot: "membership-root",
       memberEnvelopesRoot: "member-envelopes-root",
       projectionRoot: "projection-root",
+      grantRoot: "grant-root",
       payloadCiphertextHash: "ciphertext-hash",
       memberCount: 1,
+      grantCount: 0,
       externalAuthority: null,
       signedAt: new Date().toISOString(),
       signerUserId: userId,
@@ -52,6 +54,7 @@ test("isRegistrationRequest", () => {
         role: "admin" as const,
       },
     ],
+    grants: [],
     memberEnvelopes: [
       {
         userId: userId,
@@ -72,6 +75,7 @@ test("isRegistrationRequest", () => {
       },
       encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
       projection: validInitialOrganizationPolicy.projection,
+      grants: validInitialOrganizationPolicy.grants,
       memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
     },
   };
@@ -86,6 +90,7 @@ test("isRegistrationRequest", () => {
       },
       encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
       projection: validInitialOrganizationPolicy.projection,
+      grants: validInitialOrganizationPolicy.grants,
       memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
     },
   };

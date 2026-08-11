@@ -67,18 +67,21 @@ export function toPrincipalStateExternalAuthority(
 export async function signPrincipalStateBundle(
   input: Omit<
     PrincipalStateHeaderInput,
-    "externalAuthority" | "memberEnvelopes"
+    "externalAuthority" | "grants" | "memberEnvelopes"
   > & {
     externalAuthority?: PrincipalStateHeaderInput["externalAuthority"];
+    grants?: PrincipalStateHeaderInput["grants"];
     memberEnvelopes?: PrincipalStateHeaderInput["memberEnvelopes"];
     signingPrivateKey: Uint8Array;
   },
 ): Promise<PrincipalStateBundleInput> {
   const memberEnvelopes = input.memberEnvelopes ?? [];
+  const grants = input.grants ?? [];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       ...input,
       externalAuthority: input.externalAuthority ?? null,
+      grants,
       memberEnvelopes,
     }),
     input.signingPrivateKey,
@@ -92,6 +95,7 @@ export async function signPrincipalStateBundle(
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
+    grants,
     memberEnvelopes,
   };
 }

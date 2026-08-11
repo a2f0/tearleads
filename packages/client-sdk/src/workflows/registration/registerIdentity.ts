@@ -187,6 +187,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       members: [{ userId: input.userId }],
       memberEnvelopes,
       projection,
+      grants: [],
       payloadCiphertext,
       externalAuthority: null,
       signedAt: new Date().toISOString(),
@@ -204,12 +205,15 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
+    grants: [],
     memberEnvelopes,
   };
 }
 
 async function createOrganizationPrincipalPolicies(input: {
   encapsulationKeyPair: EncapsulationKeyPair;
+  organizationMetadataContainerId: string;
+  rootContainerId: string;
   signingKeyPair: SigningKeyPair;
   userId: string;
 }): Promise<OrganizationProvisioningPrincipalPolicies> {
@@ -220,6 +224,7 @@ async function createOrganizationPrincipalPolicies(input: {
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
+    grants: [{ containerId: input.rootContainerId, accessLevel: "admin" }],
     name: "Admins",
     signerUserId: input.userId,
     signingFingerprint,
@@ -228,6 +233,12 @@ async function createOrganizationPrincipalPolicies(input: {
   const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
+    grants: [
+      {
+        containerId: input.organizationMetadataContainerId,
+        accessLevel: "read",
+      },
+    ],
     signerUserId: input.userId,
     signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -252,6 +263,27 @@ async function createOrganizationPrincipalPolicies(input: {
   };
 }
 
+function requireOrganizationProvisioningAuthor(input: {
+  readonly organizationId: string;
+  readonly signingFingerprint: string;
+  readonly signingKeyPair: SigningKeyPair;
+  readonly userId: string;
+}) {
+  const author = resolveDocumentCreateAuthor({
+    auth: { organizationId: input.organizationId, userId: input.userId },
+    crypto: {
+      signingFingerprint: input.signingFingerprint,
+      signingKeyPair: input.signingKeyPair,
+    },
+  });
+  if (!author) {
+    throw new Error(
+      `Organization provisioning document author context is unavailable for user ${input.userId} in organization ${input.organizationId}.`,
+    );
+  }
+  return author;
+}
+
 /** Builds the signed artifacts shared by registration and org creation. */
 export async function buildOrganizationProvisioningArtifacts(
   input: OrganizationProvisioningArtifactsInput,
@@ -259,6 +291,7 @@ export async function buildOrganizationProvisioningArtifacts(
   const bootstrap = await createInitialRootMetadataBootstrap(
     input.rootContainerId,
   );
+  const organizationMetadataContainerId = crypto.randomUUID();
   const {
     initialAdminGroup,
     initialMemberGroup,
@@ -267,18 +300,17 @@ export async function buildOrganizationProvisioningArtifacts(
     signingFingerprint,
   } = await createOrganizationPrincipalPolicies({
     encapsulationKeyPair: input.encapsulationKeyPair,
+    organizationMetadataContainerId,
+    rootContainerId: input.rootContainerId,
     signingKeyPair: input.signingKeyPair,
     userId: input.userId,
   });
-  const author = resolveDocumentCreateAuthor({
-    auth: { organizationId, userId: input.userId },
-    crypto: { signingFingerprint, signingKeyPair: input.signingKeyPair },
+  const author = requireOrganizationProvisioningAuthor({
+    organizationId,
+    signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+    userId: input.userId,
   });
-  if (!author) {
-    throw new Error(
-      `Organization provisioning document author context is unavailable for user ${input.userId} in organization ${organizationId}.`,
-    );
-  }
 
   const {
     rootContainer,
@@ -305,6 +337,7 @@ export async function buildOrganizationProvisioningArtifacts(
   const organizationMetadataBootstrap =
     await buildInitialOrganizationMetadataBootstrap({
       author,
+      containerId: organizationMetadataContainerId,
       initialAdminGroup,
       initialMemberGroup,
       organizationProfileName: input.organizationProfileName,

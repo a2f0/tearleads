@@ -9,6 +9,7 @@ import { toFingerprint } from "../fingerprint";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
+  type PrincipalContainerGrant,
   type PrincipalProjectionMember,
   type PrincipalStateExternalAuthority,
   type PrincipalStateMember,
@@ -77,6 +78,7 @@ export async function createPolicySigner(
 
 export async function signPolicyState(input: {
   readonly externalAuthority?: PrincipalStateExternalAuthority | null;
+  readonly grants?: readonly PrincipalContainerGrant[];
   readonly keyEpoch?: number;
   readonly memberEnvelopes?: readonly PrincipalStateMemberEnvelope[];
   readonly members: readonly PrincipalStateMember[];
@@ -116,6 +118,7 @@ export async function signPolicyState(input: {
       })),
     ));
   const payloadCiphertext = JSON.stringify({ members: projection });
+  const grants = [...(input.grants ?? [])];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -128,6 +131,7 @@ export async function signPolicyState(input: {
       members: [...input.members],
       memberEnvelopes: [...memberEnvelopes],
       projection: [...projection],
+      grants,
       payloadCiphertext,
       externalAuthority: input.externalAuthority ?? null,
       signedAt:
@@ -149,6 +153,7 @@ export async function signPolicyState(input: {
     entry: {
       state: stateWithHash,
       projection,
+      grants,
     },
     payload: {
       principalType: "group",
@@ -169,6 +174,7 @@ export function createBundle(input: {
     currentState: input.current.state,
     currentPayload: input.current.payload,
     currentProjection: input.current.entry.projection,
+    currentGrants: input.current.entry.grants,
     currentMemberEnvelopes: {
       principalType: input.current.state.principalType,
       principalId: input.current.state.principalId,

@@ -26,10 +26,10 @@ export {
   revokeRemoteContainer,
 } from "./child/revoke";
 export {
-  buildMaterializedContainerSharePlan,
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "./child/share";
+export { buildMaterializedContainerSharePlan } from "./child/shareMaterialization";
 export { referencedPrincipalHeadFromPolicy } from "./child/sharePlanCore";
 export {
   advanceVerifiedSharePolicies,

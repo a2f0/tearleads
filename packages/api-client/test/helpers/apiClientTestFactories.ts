@@ -230,6 +230,8 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
       keyEpoch: 2,
       encapsulationPublicKey: "principal-public-key",
       keyFingerprint: "principal-key-fingerprint",
+      grantCount: 0,
+      grantRoot: "grant-root",
       membershipMode: "projection",
       membershipRoot: "membership-root",
       memberEnvelopesRoot: "member-envelopes-root",
@@ -259,6 +261,7 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
         role: "admin",
       },
     ],
+    currentGrants: [],
     currentMemberEnvelopes: {
       principalType: "group",
       principalId: "group-1",
@@ -388,6 +391,8 @@ export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
       keyEpoch: 1,
       encapsulationPublicKey: "public-key",
       keyFingerprint: "key-fingerprint",
+      grantCount: 0,
+      grantRoot: "grant-root",
       membershipMode: "projection",
       membershipRoot: "membership-root",
       memberEnvelopesRoot: "member-envelopes-root",
@@ -411,6 +416,7 @@ export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
         role: "admin",
       },
     ],
+    grants: [],
     memberEnvelopes: [
       {
         userId: "550e8400-e29b-41d4-a716-446655440002",

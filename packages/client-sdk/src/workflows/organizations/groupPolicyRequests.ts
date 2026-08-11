@@ -7,6 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
+  PrincipalContainerGrantRequest,
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
@@ -69,6 +70,7 @@ async function buildRotatedKeyGroupPolicyRequest(
   input: BuildGroupMembershipMutationInput,
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
   users: ReadonlyArray<TrustedUserIdentity>,
+  grants = input.currentPolicy.currentGrants,
 ): Promise<PutPrincipalPolicyRequest> {
   const groupKem = generateKemSeedAndKeyPair();
   const memberEnvelopes = await rewrapProjectionMemberEnvelopes({
@@ -87,6 +89,7 @@ async function buildRotatedKeyGroupPolicyRequest(
       : requireExternalAuthority(input.externalAuthority).currentHead,
     keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
     keyFingerprint: await toFingerprint(groupKem.publicKey),
+    grants,
     memberEnvelopes,
     principalId: input.currentPolicy.currentState.principalId,
     projection,
@@ -132,6 +135,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     externalAuthority: null,
     keyEpoch: input.currentPolicy.currentState.keyEpoch,
     keyFingerprint: input.currentPolicy.currentState.keyFingerprint,
+    grants: input.currentPolicy.currentGrants,
     memberEnvelopes,
     principalId: input.currentPolicy.currentState.principalId,
     projection,
@@ -203,6 +207,7 @@ export async function buildRemoveGroupUserPolicyRequest(
 export async function buildGroupAccessSetShrinkPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
     readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
+    readonly revokedContainerId: string;
   },
 ): Promise<PutPrincipalPolicyRequest> {
   await verifyAndAuthorizeGroupMutation(input);
@@ -211,5 +216,45 @@ export async function buildGroupAccessSetShrinkPolicyRequest(
     input,
     [...input.currentPolicy.currentProjection],
     input.currentUsers,
+    input.currentPolicy.currentGrants.filter(
+      (grant) => grant.containerId !== input.revokedContainerId,
+    ),
   );
+}
+
+/** Signs a complete successor grant projection without rotating group key material. */
+export async function buildSetGroupContainerGrantPolicyRequest(
+  input: BuildGroupMembershipMutationInput & {
+    readonly accessLevel: PrincipalContainerGrantRequest["accessLevel"];
+    readonly containerId: string;
+  },
+): Promise<PutPrincipalPolicyRequest> {
+  await verifyAndAuthorizeGroupMutation(input);
+  const grants = [
+    ...input.currentPolicy.currentGrants.filter(
+      (grant) => grant.containerId !== input.containerId,
+    ),
+    { accessLevel: input.accessLevel, containerId: input.containerId },
+  ];
+  return signedGroupPolicyRequest({
+    currentPolicy: input.currentPolicy,
+    encapsulationPublicKey:
+      input.currentPolicy.currentState.encapsulationPublicKey,
+    externalAuthority: isDirectGroupAdmin(
+      input.currentPolicy,
+      input.signerUserId,
+    )
+      ? null
+      : requireExternalAuthority(input.externalAuthority).currentHead,
+    keyEpoch: input.currentPolicy.currentState.keyEpoch,
+    keyFingerprint: input.currentPolicy.currentState.keyFingerprint,
+    grants,
+    memberEnvelopes: input.currentPolicy.currentMemberEnvelopes.envelopes,
+    principalId: input.currentPolicy.currentState.principalId,
+    projection: input.currentPolicy.currentProjection,
+    signedAt: new Date().toISOString(),
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
 }

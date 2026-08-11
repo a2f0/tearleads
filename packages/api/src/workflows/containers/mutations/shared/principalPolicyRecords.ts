@@ -1,5 +1,6 @@
 import type {
   ManagedPrincipalKind,
+  PrincipalContainerGrant,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
   PrincipalProjectionMember,
@@ -67,6 +68,40 @@ function readPrincipalProjectionMembers(
   return value.map((entry, index) =>
     readPrincipalProjectionMember(entry, `${label}[${index}]`),
   );
+}
+
+function readPrincipalContainerGrants(
+  value: unknown,
+  label: string,
+): PrincipalContainerGrant[] {
+  if (!Array.isArray(value)) {
+    throw mutationShapeError(`${label} is invalid`);
+  }
+  return value.map((entry, index) => {
+    const itemLabel = `${label}[${index}]`;
+    const record = readProjectionPlainRecord(
+      entry,
+      itemLabel,
+      mutationShapeError,
+    );
+    const accessLevel = readProjectionValue(record, "accessLevel");
+    if (
+      accessLevel !== "admin" &&
+      accessLevel !== "read" &&
+      accessLevel !== "write"
+    ) {
+      throw mutationShapeError(`${itemLabel}.accessLevel is invalid`);
+    }
+    return {
+      accessLevel,
+      containerId: readProjectionString(
+        record,
+        "containerId",
+        itemLabel,
+        mutationShapeError,
+      ),
+    };
+  });
 }
 
 function readExternalAuthority(
@@ -151,8 +186,10 @@ function readPrincipalPolicyState(
     membershipRoot: readStringField("membershipRoot"),
     memberEnvelopesRoot: readStringField("memberEnvelopesRoot"),
     projectionRoot: readStringField("projectionRoot"),
+    grantRoot: readStringField("grantRoot"),
     payloadCiphertextHash: readStringField("payloadCiphertextHash"),
     memberCount: readNonNegativeInteger(record, "memberCount", label),
+    grantCount: readNonNegativeInteger(record, "grantCount", label),
     externalAuthority: readExternalAuthority(
       readProjectionValue(record, "externalAuthority"),
       `${label}.externalAuthority`,
@@ -259,6 +296,10 @@ function readVerifiedPrincipalPolicy(
     projection: readPrincipalProjectionMembers(
       readProjectionValue(record, "projection"),
       `${label}.projection`,
+    ),
+    grants: readPrincipalContainerGrants(
+      readProjectionValue(record, "grants"),
+      `${label}.grants`,
     ),
     checkpoint: readPrincipalPolicyCheckpoint(
       readProjectionValue(record, "checkpoint"),

@@ -16,6 +16,7 @@ export async function storeInitialMemberGroupPolicy(
       state: initialGroupPolicy.state,
       encryptedPayload: initialGroupPolicy.encryptedPayload,
       projection: initialGroupPolicy.projection,
+      grants: initialGroupPolicy.grants,
       memberEnvelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,

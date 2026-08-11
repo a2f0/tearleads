@@ -1,4 +1,5 @@
 import {
+  computePrincipalContainerGrantRoot,
   computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
@@ -56,6 +57,7 @@ export async function validatePrincipalStateArtifacts(
     computedProjectionRoot,
     computedMembershipRoot,
     computedEnvelopesRoot,
+    computedGrantRoot,
   ] = await Promise.all([
     computePrincipalProjectionRoot(input.projection),
     computePrincipalMembershipRoot(
@@ -64,6 +66,7 @@ export async function validatePrincipalStateArtifacts(
       })),
     ),
     computePrincipalMemberEnvelopesRoot(input.memberEnvelopes),
+    computePrincipalContainerGrantRoot(input.grants),
   ]);
   if (computedProjectionRoot !== input.state.projectionRoot) {
     throwPrincipalPolicyValidationError(
@@ -83,6 +86,13 @@ export async function validatePrincipalStateArtifacts(
     throwPrincipalPolicyValidationError(
       "invalid_artifact",
       "Principal state memberEnvelopesRoot does not match member envelopes",
+    );
+  }
+
+  if (computedGrantRoot !== input.state.grantRoot) {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state grantRoot does not match grant projection",
     );
   }
 
@@ -108,6 +118,12 @@ export async function validatePrincipalStateArtifacts(
     throwPrincipalPolicyValidationError(
       "invalid_artifact",
       "Principal state memberCount does not match projection",
+    );
+  }
+  if (input.grants.length !== input.state.grantCount) {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state grantCount does not match grant projection",
     );
   }
 }

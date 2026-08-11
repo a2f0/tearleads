@@ -1,17 +1,25 @@
 import type {
   ContainerDirectGrant,
+  PrincipalContainerGrant,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
+  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-  OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
+import type { AuthoredContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
+import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
-import type { ContainerMutationAuthor } from "../../data/containers/shared/types";
+import type {
+  ContainerMutationAuthor,
+  MaterializedContainerRekeyPlan,
+  MaterializedContainerRevokePlan,
+  MaterializedContainerSharePlan,
+} from "../../data/containers/shared/types";
 import {
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
@@ -19,11 +27,9 @@ import {
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import {
-  buildMaterializedContainerRekeyPlan,
-  buildMaterializedContainerRevokePlan,
-  buildMaterializedContainerSharePlan,
-} from "../containers";
+import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
+import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
+import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 
 interface RematerializationApi {
   getContainerWriterProjection(
@@ -35,9 +41,8 @@ interface PrincipalContainerRematerializationInput {
   readonly apiClient: RematerializationApi;
   readonly author: ContainerMutationAuthor;
   readonly execSql: ExecSql;
-  readonly grants: readonly OrganizationGroupContainerResponse[];
+  readonly grants: readonly PrincipalContainerGrant[];
   readonly groupId: string;
-  readonly locallyKnownContainerIds?: readonly string[] | undefined;
   readonly nextPolicy: VerifiedPrincipalPolicy;
   readonly revokedContainerId?: string | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
@@ -75,7 +80,7 @@ function referencedGroupKeyEpoch(input: {
 
 async function loadGrantedContainerContext(
   input: PrincipalContainerRematerializationInput,
-  grantRow: OrganizationGroupContainerResponse,
+  grantRow: PrincipalContainerGrant,
 ) {
   const projection = await input.apiClient.getContainerWriterProjection(
     grantRow.containerId,
@@ -100,16 +105,21 @@ async function loadGrantedContainerContext(
     directGrants: state.directGrants,
     groupId: input.groupId,
   });
-  if (!grant || grant.accessLevel !== grantRow.accessLevel) {
-    throw new Error(
-      `Container ${grantRow.containerId} does not contain the expected group grant`,
+  if (grant && grant.accessLevel !== grantRow.accessLevel) {
+    const nextGrant = input.nextPolicy.grants.find(
+      (candidate) => candidate.containerId === grantRow.containerId,
     );
+    if (!nextGrant || nextGrant.accessLevel !== grantRow.accessLevel) {
+      throw new Error(
+        `Container ${grantRow.containerId} does not contain the expected group grant`,
+      );
+    }
   }
   const referencedKeyEpoch = referencedGroupKeyEpoch({
     groupId: input.groupId,
     referencedPrincipalHeads: state.referencedPrincipalHeads,
   });
-  if (referencedKeyEpoch === null) {
+  if (grant && referencedKeyEpoch === null) {
     throw new Error(
       `Container ${grantRow.containerId} is missing its group reference`,
     );
@@ -117,58 +127,110 @@ async function loadGrantedContainerContext(
   return { grant, projection, referencedKeyEpoch };
 }
 
-async function assertLocalGrantSetIsComplete(input: {
-  readonly principalInput: PrincipalContainerRematerializationInput;
-  readonly resolveProjectionUserKey: ReturnType<
-    typeof createProjectionUserKeyResolver
-  >;
-}): Promise<void> {
-  const remoteGrantIds = new Set(
-    input.principalInput.grants.map((grant) => grant.containerId),
-  );
-  for (const containerId of input.principalInput.locallyKnownContainerIds ??
-    []) {
-    if (remoteGrantIds.has(containerId)) {
-      continue;
-    }
-    const projection =
-      await input.principalInput.apiClient.getContainerWriterProjection(
-        containerId,
-      );
-    if (!projection) {
-      // Do not silently treat a missing projection as deletion: a dishonest
-      // server could use the same response to hide an extant group grant. A
-      // later read-model reconciliation can remove a legitimately deleted
-      // container from the locally-known set before this mutation is retried.
-      throw new Error(
-        `Locally known container ${containerId} could not be checked for group grants`,
-      );
-    }
-    const verifiedPath = await verifyContainerWriterProjection({
-      execSql: input.principalInput.execSql,
-      projection,
-      resolveUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies:
-        input.principalInput.warmReferencedPrincipalPolicies,
-    });
-    const state = verifiedPath.at(-1)?.state;
-    if (
-      state?.directGrants.some(
-        (grant) =>
-          grant.subjectType === "group" &&
-          grant.subjectId === input.principalInput.groupId,
-      )
-    ) {
-      throw new Error(
-        `Server group grant set omits locally known container ${containerId}`,
-      );
-    }
-  }
-}
-
 export async function buildPrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<ContainerMutationRequest[]> {
+  return (await buildPrincipalContainerRematerializationPlans(input)).map(
+    (planned) => planned.plan.request,
+  );
+}
+
+type MaterializedPrincipalContainerMutationPlan =
+  | MaterializedContainerRekeyPlan
+  | MaterializedContainerRevokePlan
+  | MaterializedContainerSharePlan;
+
+export interface PreparedPrincipalContainerRematerializationBatch {
+  readonly acknowledge: (
+    responses: readonly ContainerMutationResponse[],
+  ) => Promise<void>;
+  readonly plans: readonly MaterializedPrincipalContainerMutationPlan[];
+  readonly requests: readonly ContainerMutationRequest[];
+}
+
+function authoredMutationHead(
+  planned: MaterializedPrincipalContainerMutationPlan,
+): AuthoredContainerMutationHead {
+  return planned.plan;
+}
+
+async function buildPrincipalContainerRematerializationPlan(input: {
+  readonly grantRow: PrincipalContainerGrant;
+  readonly rematerialization: PrincipalContainerRematerializationInput;
+  readonly resolveProjectionUserKey: ReturnType<
+    typeof createProjectionUserKeyResolver
+  >;
+}): Promise<MaterializedPrincipalContainerMutationPlan> {
+  const { grantRow, rematerialization } = input;
+  const { grant, projection, referencedKeyEpoch } =
+    await loadGrantedContainerContext(rematerialization, grantRow);
+  const nextGrant = rematerialization.nextPolicy.grants.find(
+    (candidate) => candidate.containerId === grantRow.containerId,
+  );
+  const author = {
+    ...rematerialization.author,
+    organizationId: projection.organizationId,
+  };
+  const sharedInput = {
+    author,
+    execSql: rematerialization.execSql,
+    previousProjection: projection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    targetSecretKey: rematerialization.targetSecretKey,
+    warmReferencedPrincipalPolicies:
+      rematerialization.warmReferencedPrincipalPolicies,
+  };
+  if (grantRow.containerId === rematerialization.revokedContainerId) {
+    if (!grant) {
+      throw new Error(
+        `Container ${grantRow.containerId} does not contain the revoked group grant`,
+      );
+    }
+    return buildMaterializedContainerRevokePlan({
+      ...sharedInput,
+      replacementPrincipalPolicy: rematerialization.nextPolicy,
+      revokedSubject: {
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
+  }
+  if (!grant || grant.accessLevel !== nextGrant?.accessLevel) {
+    if (!nextGrant) {
+      throw new Error(
+        `Container ${grantRow.containerId} is absent from the next group grant set`,
+      );
+    }
+    return buildMaterializedContainerSharePlan({
+      ...sharedInput,
+      accessLevel: nextGrant.accessLevel,
+      recipient: {
+        principalPolicy: rematerialization.nextPolicy,
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
+  }
+  if (referencedKeyEpoch === rematerialization.nextPolicy.keyEpoch) {
+    return buildMaterializedContainerSharePlan({
+      ...sharedInput,
+      accessLevel: grant.accessLevel,
+      recipient: {
+        principalPolicy: rematerialization.nextPolicy,
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
+  }
+  return buildMaterializedContainerRekeyPlan({
+    ...sharedInput,
+    replacementPrincipalPolicy: rematerialization.nextPolicy,
+  });
+}
+
+async function buildPrincipalContainerRematerializationPlans(
+  input: PrincipalContainerRematerializationInput,
+): Promise<MaterializedPrincipalContainerMutationPlan[]> {
   if (
     input.revokedContainerId &&
     !input.grants.some(
@@ -180,67 +242,33 @@ export async function buildPrincipalContainerRematerializationBatch(
   const resolveProjectionUserKey = createProjectionUserKeyResolver({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  await assertLocalGrantSetIsComplete({
-    principalInput: input,
-    resolveProjectionUserKey,
-  });
-  const requests: ContainerMutationRequest[] = [];
+  const plans: MaterializedPrincipalContainerMutationPlan[] = [];
   for (const grantRow of [...input.grants].sort((left, right) =>
     left.containerId.localeCompare(right.containerId),
   )) {
-    const { grant, projection, referencedKeyEpoch } =
-      await loadGrantedContainerContext(input, grantRow);
-
-    const author = {
-      ...input.author,
-      organizationId: projection.organizationId,
-    };
-    if (grantRow.containerId === input.revokedContainerId) {
-      const planned = await buildMaterializedContainerRevokePlan({
-        author,
-        execSql: input.execSql,
-        previousProjection: projection,
-        replacementPrincipalPolicy: input.nextPolicy,
-        revokedSubject: {
-          subjectId: input.groupId,
-          subjectType: "group",
-        },
+    plans.push(
+      await buildPrincipalContainerRematerializationPlan({
+        grantRow,
+        rematerialization: input,
         resolveProjectionUserKey,
-        targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      });
-      requests.push(planned.plan.request);
-      continue;
-    }
-    if (referencedKeyEpoch === input.nextPolicy.keyEpoch) {
-      const planned = await buildMaterializedContainerSharePlan({
-        accessLevel: grant.accessLevel,
-        author,
-        execSql: input.execSql,
-        previousProjection: projection,
-        recipient: {
-          principalPolicy: input.nextPolicy,
-          subjectId: input.groupId,
-          subjectType: "group",
-        },
-        resolveProjectionUserKey,
-        targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      });
-      requests.push(planned.plan.request);
-      continue;
-    }
-
-    const planned = await buildMaterializedContainerRekeyPlan({
-      author,
-      execSql: input.execSql,
-      previousProjection: projection,
-      replacementPrincipalPolicy: input.nextPolicy,
-      resolveProjectionUserKey,
-      targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-    requests.push(planned.plan.request);
+      }),
+    );
   }
-  return requests;
+  return plans;
+}
+
+export async function preparePrincipalContainerRematerializationBatch(
+  input: PrincipalContainerRematerializationInput,
+): Promise<PreparedPrincipalContainerRematerializationBatch> {
+  const plans = await buildPrincipalContainerRematerializationPlans(input);
+  return {
+    plans,
+    requests: plans.map((planned) => planned.plan.request),
+    acknowledge: (responses) =>
+      acknowledgeContainerMutationBatch({
+        execSql: input.execSql,
+        plans: plans.map(authoredMutationHead),
+        responses,
+      }),
+  };
 }

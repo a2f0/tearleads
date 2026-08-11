@@ -209,12 +209,15 @@ export async function shareContainerWithGroup(
     () =>
       listProxiedApiRequests()
         .slice(requestStartIndex)
-        .some(
-          (request) =>
-            request.method === "POST" &&
+        .some((request) => {
+          const path = requestPath(request.url);
+          return (
             request.status === 200 &&
-            requestPath(request.url).endsWith("/share"),
-        ),
+            ((request.method === "POST" && path.endsWith("/share")) ||
+              (request.method === "PUT" &&
+                path === `/principals/group/${selectedGroupId}/policy`))
+          );
+        }),
     `Container group share did not finish.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
     15_000,
   );

@@ -3,6 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
+  principalContainerGrantProjection,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -88,6 +89,15 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(
     (await postGroup(owner, organization.organizationId, request)).status,
   ).toBe(200);
+  const createdState = await getCurrentPrincipalState("group", groupId, db);
+  invariant(createdState, "expected created group state");
+  await db.insert(principalContainerGrantProjection).values({
+    accessLevel: "read",
+    containerId: crypto.randomUUID(),
+    principalId: groupId,
+    principalType: "group",
+    stateHash: createdState.stateHash,
+  });
   const deleteResponse = await routeApp.request(
     `/organizations/${organization.organizationId}/groups/${groupId}`,
     {
@@ -96,6 +106,12 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
     },
   );
   expect(deleteResponse.status).toBe(200);
+  expect(
+    await db
+      .select({ id: principalContainerGrantProjection.id })
+      .from(principalContainerGrantProjection)
+      .where(eq(principalContainerGrantProjection.principalId, groupId)),
+  ).toEqual([]);
   const before = await readSnapshot(owner, organization.organizationId);
 
   const replayResponse = await routeApp.request(

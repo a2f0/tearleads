@@ -20,7 +20,7 @@ import {
 } from "../util";
 import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
-import { ReferencedPrincipalStateResponseSchema } from "./principal";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 /**

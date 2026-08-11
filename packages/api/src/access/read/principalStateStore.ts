@@ -1,5 +1,6 @@
 export type {
   PrincipalStateReference,
+  StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,
 } from "../shared/internal/principalStateStore";
@@ -10,6 +11,7 @@ export {
   getCurrentPrincipalStates,
   getPrincipalStatePayloadForState,
   getPrincipalStatesForReferences,
+  listContainerGrantsForState,
   listCurrentPrincipalProjectionMembers,
   listPrincipalProjectionMembersForStates,
   listPrincipalStateHistory,

@@ -3,6 +3,7 @@ import type { PutPrincipalPolicyRequest } from "../request";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyErrorResponse,
+  PrincipalPolicyMutationResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
 
@@ -81,10 +82,12 @@ test("generated OpenAPI types match principal policy contracts", () => {
       NormalizeWireType<PutPrincipalPolicyRequest>
     >
   >();
+  // Nested loose response records intentionally use the same one-way
+  // generated-to-runtime contract as the container mutation type test.
   assertType<
-    IsEqual<
+    IsAssignable<
       NormalizeWireType<PutPolicyResponse>,
-      NormalizeWireType<PrincipalPolicyBundleResponse>
+      NormalizeWireType<PrincipalPolicyMutationResponse>
     >
   >();
   assertType<

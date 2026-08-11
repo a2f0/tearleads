@@ -22,6 +22,20 @@
       "when": 1786365874528,
       "tag": "0002_sudden_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786462293241,
+      "tag": "0003_sticky_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786472084882,
+      "tag": "0004_fresh_millenium_guard",
+      "breakpoints": true
     }
   ]
 }
