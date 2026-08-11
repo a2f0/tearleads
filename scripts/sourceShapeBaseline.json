@@ -114,8 +114,8 @@
       "bytes": 32909
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
-      "lines": 907,
-      "bytes": 28476
+      "lines": 917,
+      "bytes": 28776
     },
     "packages/api/src/billing/stripeApi.test.ts": {
       "lines": 584,

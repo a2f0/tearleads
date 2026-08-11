@@ -178,7 +178,16 @@ test("an exact compound policy replay is idempotent", async () => {
     db,
   );
 
-  expect((await putPolicy(prepared)).status).toBe(200);
+  const replayResponse = await putPolicy(prepared);
+  expect(replayResponse.status).toBe(200);
+  const replay = await replayResponse.json();
+  expect(replay.containerMutations).toHaveLength(1);
+  expect(replay.containerMutations[0]?.accessManifest.manifestHash).toBe(
+    prepared.rootRekey.bundle.manifestHash,
+  );
+  expect(replay.containerMutations[0]?.containerKek.containerKeyEpochId).toBe(
+    prepared.rootRekey.kekState.containerKeyEpochId,
+  );
   expect(
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,

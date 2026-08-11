@@ -251,7 +251,10 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
   );
 });
 
-test("storeVerifiedPrincipalState rejects signed headers whose member count does not match the projection", async () => {
+test.each([
+  "memberCount",
+  "grantCount",
+] as const)("storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection", async (mismatchedCount) => {
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
@@ -282,8 +285,11 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       grantRoot: await computePrincipalContainerGrantRoot([]),
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
-      memberCount: projection.length + 1,
-      grantCount: 0,
+      memberCount:
+        mismatchedCount === "memberCount"
+          ? projection.length + 1
+          : projection.length,
+      grantCount: mismatchedCount === "grantCount" ? 1 : 0,
       externalAuthority: null,
       signedAt: "2026-04-07T12:07:00.000Z",
       signerUserId: signer.signerUserId,
@@ -307,7 +313,11 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       },
       db,
     ),
-  ).rejects.toThrow("Principal state memberCount does not match projection");
+  ).rejects.toThrow(
+    mismatchedCount === "memberCount"
+      ? "Principal state memberCount does not match projection"
+      : "Principal state grantCount does not match grant projection",
+  );
 });
 
 test("storeVerifiedPrincipalState accepts empty initial states signed by authorized external admins", async () => {

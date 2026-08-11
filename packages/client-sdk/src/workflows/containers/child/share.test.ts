@@ -245,10 +245,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     signingPrivateKey: author.signerPrivateKey,
     signingPublicKey: parent.signingPublicKey,
   };
-  const groupEncapsulationKeyPair = {
-    publicKey: parent.encapsulationPublicKey,
-    secretKey: parent.secretKey,
-  };
+  const groupEncapsulationKeyPair = generateKemSeedAndKeyPair();
   const groupSignerUserId = author.signerUserId;
   const groupId = "group-1";
   const groupSigningFingerprint = author.signerKeyFingerprint;
@@ -265,7 +262,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
       adminGroupId: groupId,
-      encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+      encapsulationPublicKey: parent.encapsulationPublicKey,
       memberGroupId: "members-group",
       organizationId: parent.projection.organizationId,
       signingKeyPair: groupSigningKeyPair,
@@ -314,7 +311,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       resolveTrustedUserIdentity: async (userId) => {
         expect(userId).toBe(groupSignerUserId);
         return createTestTrustedUserIdentity({
-          encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+          encapsulationPublicKey: parent.encapsulationPublicKey,
           signingKeyFingerprint: groupSigningFingerprint,
           signingPublicKey: groupSigningKeyPair.signingPublicKey,
           userId,

@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { principalContainerGrantProjection } from "@tearleads/api-shared/schema";
 import {
   type ManagedRecipientPrincipalType,
+  normalizePrincipalContainerGrants,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
 } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
@@ -66,11 +67,13 @@ async function ensureStoredPrincipalContainerGrantsMatch(input: {
   readonly normalizedInput: PrincipalStateBundleInput;
   readonly stateHash: string;
 }): Promise<void> {
-  const stored = await listContainerGrantsForState(
-    input.normalizedInput.state.principalType,
-    input.normalizedInput.state.principalId,
-    input.stateHash,
-    input.executor,
+  const stored = normalizePrincipalContainerGrants(
+    await listContainerGrantsForState(
+      input.normalizedInput.state.principalType,
+      input.normalizedInput.state.principalId,
+      input.stateHash,
+      input.executor,
+    ),
   );
   if (
     stored.length !== input.normalizedInput.grants.length ||
