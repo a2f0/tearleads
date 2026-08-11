@@ -254,7 +254,8 @@ test("storeVerifiedPrincipalState rejects encrypted payloads that do not match t
 test.each([
   "memberCount",
   "grantCount",
-] as const)("storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection", async (mismatchedCount) => {
+  "grantRoot",
+] as const)("storeVerifiedPrincipalState rejects signed headers whose %s does not match its projection", async (mismatchedArtifact) => {
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
@@ -282,14 +283,17 @@ test.each([
       ]),
       memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
-      grantRoot: await computePrincipalContainerGrantRoot([]),
+      grantRoot:
+        mismatchedArtifact === "grantRoot"
+          ? "0".repeat(64)
+          : await computePrincipalContainerGrantRoot([]),
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
       memberCount:
-        mismatchedCount === "memberCount"
+        mismatchedArtifact === "memberCount"
           ? projection.length + 1
           : projection.length,
-      grantCount: mismatchedCount === "grantCount" ? 1 : 0,
+      grantCount: mismatchedArtifact === "grantCount" ? 1 : 0,
       externalAuthority: null,
       signedAt: "2026-04-07T12:07:00.000Z",
       signerUserId: signer.signerUserId,
@@ -314,9 +318,11 @@ test.each([
       db,
     ),
   ).rejects.toThrow(
-    mismatchedCount === "memberCount"
+    mismatchedArtifact === "memberCount"
       ? "Principal state memberCount does not match projection"
-      : "Principal state grantCount does not match grant projection",
+      : mismatchedArtifact === "grantCount"
+        ? "Principal state grantCount does not match grant projection"
+        : "Principal state grantRoot does not match grant projection",
   );
 });
 

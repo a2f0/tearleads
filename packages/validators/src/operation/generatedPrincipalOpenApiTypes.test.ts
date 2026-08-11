@@ -82,6 +82,8 @@ test("generated OpenAPI types match principal policy contracts", () => {
       NormalizeWireType<PutPrincipalPolicyRequest>
     >
   >();
+  // Nested loose response records intentionally use the same one-way
+  // generated-to-runtime contract as the container mutation type test.
   assertType<
     IsAssignable<
       NormalizeWireType<PutPolicyResponse>,
