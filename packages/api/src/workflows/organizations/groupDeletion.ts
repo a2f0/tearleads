@@ -5,6 +5,7 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
+  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
@@ -128,6 +129,14 @@ export async function deleteOrganizationGroupRows(input: {
       and(
         eq(principalPolicyMutationAcknowledgements.principalType, "group"),
         eq(principalPolicyMutationAcknowledgements.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalContainerGrantProjection)
+    .where(
+      and(
+        eq(principalContainerGrantProjection.principalType, "group"),
+        eq(principalContainerGrantProjection.principalId, input.groupId),
       ),
     );
   await input.executor
