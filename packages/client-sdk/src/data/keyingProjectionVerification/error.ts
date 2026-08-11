@@ -69,7 +69,21 @@ export function throwKeyingVerificationErrorWithContext(
   if (error instanceof KeyingVerificationError) {
     // Preserve identity so nested reporting boundaries persist one incident.
     // The incident's operation supplies boundary context without minting a new
-    // verification error that could bypass identity-based deduplication.
+    // verification error that could bypass identity-based deduplication. Keep
+    // the boundary labels non-enumerably for host-side diagnostics.
+    try {
+      const previous = Reflect.get(error, "keyingVerificationContexts");
+      const contexts = Array.isArray(previous)
+        ? [...previous, context]
+        : [context];
+      Object.defineProperty(error, "keyingVerificationContexts", {
+        configurable: true,
+        enumerable: false,
+        value: contexts,
+      });
+    } catch {
+      // A frozen foreign error still preserves its identity and code.
+    }
     throw error;
   }
   const message = errorMessage(error);

@@ -21,6 +21,7 @@ export type { SecurityIncident, SecurityIncidentObjectKind };
 export type SecurityIncidentListener = (incident: SecurityIncident) => void;
 
 const MAX_BUFFERED_SECURITY_INCIDENTS = 100;
+const SECURITY_INCIDENT_RETRY_DELAY_MS = 250;
 
 export interface SecurityIncidents {
   /** Returns null while the local database is unavailable. */
@@ -88,6 +89,7 @@ type SecurityIncidentListeners = ReturnType<
 class SecurityIncidentSink {
   private readonly bufferedIncidents = new Map<string, RedactedIncident>();
   private flushPromise: Promise<boolean> | null = null;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly options: SecurityIncidentServiceOptions,
@@ -120,6 +122,7 @@ class SecurityIncidentSink {
       return true;
     } catch (persistenceError) {
       const buffered = this.buffer(incident);
+      if (buffered) this.scheduleFlushRetry();
       this.options.logError(
         "Security incident could not be persisted",
         persistenceError,
@@ -223,6 +226,14 @@ class SecurityIncidentSink {
     } catch (callbackError) {
       this.options.logError("Security incident callback failed", callbackError);
     }
+  }
+
+  private scheduleFlushRetry(): void {
+    if (this.retryTimeout) return;
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = null;
+      void this.flush();
+    }, SECURITY_INCIDENT_RETRY_DELAY_MS);
   }
 }
 

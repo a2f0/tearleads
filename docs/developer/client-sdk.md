@@ -243,7 +243,8 @@ durably appended. The same rows are available through
 `tearleads.securityIncidents.subscribe(listener)`. An incident contains the
 code, operation, first/last timestamps, repeat count, protocol hashes, plus
 object identity and trust domain when known. Equivalent repeat detections are
-coalesced. It stores no exception messages or content. `list()` returns `null`
+coalesced, and the most recently detected 1,000 rows per trust domain are
+retained. It stores no exception messages or content. `list()` returns `null`
 while the local database is unavailable; detections during database startup are
 held in a bounded, redacted memory buffer and flushed once it becomes ready.
 Ordinary transport and database-availability failures do not create incidents.

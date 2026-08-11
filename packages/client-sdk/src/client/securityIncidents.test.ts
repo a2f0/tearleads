@@ -222,6 +222,102 @@ test("a list joins an active flush and drains incidents buffered during it", asy
   }
 });
 
+test("a transient ready-database append failure retries buffered evidence", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-transient-append",
+  );
+  let shouldFailInsert = true;
+  async function flakyExecSql(
+    sql: string,
+    bind?: SqlBind,
+    options?: { rowMode?: SqlRowMode },
+  ): Promise<Array<SqlRow | SqlArrayRow>> {
+    if (
+      shouldFailInsert &&
+      sql.toLowerCase().includes('insert into "security_incidents"')
+    ) {
+      shouldFailInsert = false;
+      throw new Error("transient SQLite failure");
+    }
+    return execSql(sql, bind, options);
+  }
+  let markDelivered: (() => void) | undefined;
+  const delivered = new Promise<void>((resolve) => {
+    markDelivered = resolve;
+  });
+  const logMessages: Array<string | Error> = [];
+  const service = createSecurityIncidentService({
+    database: new Database({
+      execSql: flakyExecSql as ExecSql,
+      status: "ready",
+    }),
+    logError: (message) => logMessages.push(message),
+    onIncident: () => markDelivered?.(),
+    trustDomain: null,
+  });
+  let deliveryTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await service.report(
+      new KeyingVerificationError("rollback", "stale head"),
+      {
+        objectId: "principal-retry",
+        objectKind: "principal",
+        operation: "principal.policy.verify",
+      },
+    );
+    await Promise.race([
+      delivered,
+      new Promise<never>(
+        (_, reject) =>
+          (deliveryTimeout = setTimeout(
+            () => reject(new Error("Timed out waiting for incident retry")),
+            2_000,
+          )),
+      ),
+    ]);
+
+    expect(await service.incidents.list()).toEqual([
+      expect.objectContaining({ objectId: "principal-retry" }),
+    ]);
+    expect(logMessages).toEqual(["Security incident could not be persisted"]);
+  } finally {
+    clearTimeout(deliveryTimeout);
+    await close();
+  }
+});
+
+test("durable incidents retain at most 1,000 rows per trust domain", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-retention-limit",
+  );
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    trustDomain: "https://api.example.test",
+  });
+
+  try {
+    for (let index = 0; index <= 1_000; index += 1) {
+      await service.report(
+        new KeyingVerificationError("rollback", `stale head ${index}`),
+        {
+          objectId: `principal-${index}`,
+          objectKind: "principal",
+          operation: "principal.policy.verify",
+        },
+      );
+    }
+
+    expect(await service.incidents.list()).toHaveLength(1_000);
+    expect(
+      await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
+    ).toEqual([{ count: 1_000 }]);
+  } finally {
+    await close();
+  }
+});
+
 test("equivalent retry failures coalesce into one counted incident", async () => {
   const { close, execSql } = await createTestExecSql(
     "security-incidents-coalesced-retries",
@@ -359,6 +455,13 @@ test("context boundaries preserve verification error identity", () => {
   expect(() =>
     throwKeyingVerificationErrorWithContext(error, "projection failed"),
   ).toThrow(error);
+  expect(Reflect.get(error, "keyingVerificationContexts")).toEqual([
+    "projection failed",
+  ]);
+  expect(
+    Object.getOwnPropertyDescriptor(error, "keyingVerificationContexts")
+      ?.enumerable,
+  ).toBe(false);
 });
 
 test("an incident callback cannot replace the verification failure", async () => {

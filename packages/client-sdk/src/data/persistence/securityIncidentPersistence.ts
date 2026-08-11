@@ -2,7 +2,7 @@ import {
   isKeyingVerificationCode,
   type KeyingVerificationCode,
 } from "@tearleads/crypto";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
   SecurityIncidentObjectKind,
@@ -26,6 +26,8 @@ interface SecurityIncidentWrite {
   readonly lastDetectedAt: string;
   readonly occurrenceCount: number;
 }
+
+const SECURITY_INCIDENT_RETENTION_LIMIT = 1_000;
 
 function serializeEvidenceHashes(
   evidenceHashes: Readonly<Record<string, string>> | undefined,
@@ -137,28 +139,56 @@ export async function appendSecurityIncident(
     organizationId,
     trustDomain: incident.trustDomain,
   });
-  await db
-    .insert(securityIncidents)
-    .values({
-      ...incident,
-      evidenceHashes,
-      id,
-      organizationId,
-      trustDomain: incident.trustDomain,
-    })
-    .onConflictDoUpdate({
-      target: securityIncidents.id,
-      set: {
-        lastDetectedAt: sql`max(${securityIncidents.lastDetectedAt}, ${incident.lastDetectedAt})`,
-        occurrenceCount: sql`${securityIncidents.occurrenceCount} + ${incident.occurrenceCount}`,
-      },
-    })
-    .run();
-  const [row] = await db
-    .select()
-    .from(securityIncidents)
-    .where(eq(securityIncidents.id, id))
-    .limit(1);
+  const row = await db.transaction(async (tx) => {
+    await tx
+      .insert(securityIncidents)
+      .values({
+        ...incident,
+        evidenceHashes,
+        id,
+        organizationId,
+        trustDomain: incident.trustDomain,
+      })
+      .onConflictDoUpdate({
+        target: securityIncidents.id,
+        set: {
+          lastDetectedAt: sql`max(${securityIncidents.lastDetectedAt}, ${incident.lastDetectedAt})`,
+          occurrenceCount: sql`${securityIncidents.occurrenceCount} + ${incident.occurrenceCount}`,
+        },
+      })
+      .run();
+    const trustDomainCondition =
+      incident.trustDomain === null
+        ? isNull(securityIncidents.trustDomain)
+        : eq(securityIncidents.trustDomain, incident.trustDomain);
+    const staleRows = await tx
+      .select({ id: securityIncidents.id })
+      .from(securityIncidents)
+      .where(trustDomainCondition)
+      .orderBy(
+        desc(securityIncidents.lastDetectedAt),
+        desc(securityIncidents.id),
+      )
+      .limit(1)
+      .offset(SECURITY_INCIDENT_RETENTION_LIMIT);
+    if (staleRows.length > 0) {
+      await tx
+        .delete(securityIncidents)
+        .where(
+          inArray(
+            securityIncidents.id,
+            staleRows.map((staleRow) => staleRow.id),
+          ),
+        )
+        .run();
+    }
+    const [storedRow] = await tx
+      .select()
+      .from(securityIncidents)
+      .where(eq(securityIncidents.id, id))
+      .limit(1);
+    return storedRow;
+  });
   if (!row) throw new Error("Persisted security incident is missing");
   return parseSecurityIncidentRow(row);
 }
@@ -171,9 +201,7 @@ export async function listSecurityIncidents(
   const rows = await db
     .select()
     .from(securityIncidents)
-    .orderBy(
-      desc(securityIncidents.lastDetectedAt),
-      desc(securityIncidents.id),
-    );
+    .orderBy(desc(securityIncidents.lastDetectedAt), desc(securityIncidents.id))
+    .limit(SECURITY_INCIDENT_RETENTION_LIMIT);
   return rows.map(parseSecurityIncidentRow);
 }
