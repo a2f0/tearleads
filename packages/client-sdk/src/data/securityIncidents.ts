@@ -14,7 +14,7 @@ export interface SecurityIncident {
   readonly code: KeyingVerificationCode;
   readonly operation: string;
   readonly objectKind: SecurityIncidentObjectKind;
-  readonly objectId: string;
+  readonly objectId: string | null;
   readonly organizationId: string | null;
   readonly evidenceHashes: Readonly<Record<string, string>>;
   readonly detectedAt: string;
@@ -23,7 +23,7 @@ export interface SecurityIncident {
 export interface SecurityIncidentContext {
   readonly operation: string;
   readonly objectKind: SecurityIncidentObjectKind;
-  readonly objectId: string;
+  readonly objectId: string | null;
   readonly organizationId?: string | null | undefined;
   /** Protocol hashes only. Never pass plaintext, ciphertext, or error text. */
   readonly evidenceHashes?: Readonly<Record<string, string>> | undefined;

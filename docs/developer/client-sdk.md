@@ -241,8 +241,8 @@ Use `database.execSql` only when the host already owns executor construction.
 durably appended. The same rows are available through
 `await tearleads.securityIncidents.list()` and new rows can be observed with
 `tearleads.securityIncidents.subscribe(listener)`. An incident contains the
-verification code, operation, object identity, trust domain, timestamp, and
-explicit protocol hashes. It never stores exception messages or content.
+code, operation, timestamp, protocol hashes, plus object identity and trust
+domain when known. It stores no exception messages or content.
 Ordinary transport and database-availability failures do not create incidents.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The

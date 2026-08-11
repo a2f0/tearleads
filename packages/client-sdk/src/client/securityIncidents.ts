@@ -1,4 +1,7 @@
-import type { KeyingVerificationCode } from "@tearleads/crypto";
+import {
+  isKeyingVerificationCode,
+  type KeyingVerificationCode,
+} from "@tearleads/crypto";
 import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import {
   appendSecurityIncident,
@@ -39,24 +42,7 @@ function verificationCode(error: unknown): KeyingVerificationCode | null {
     return null;
   }
   const code = Reflect.get(error, "code");
-  switch (code) {
-    case "duplicate_entry":
-    case "equivocation":
-    case "hash_mismatch":
-    case "invalid_domain":
-    case "invalid_shape":
-    case "key_epoch_reuse":
-    case "missing_dependency":
-    case "object_mismatch":
-    case "rollback":
-    case "signature_mismatch":
-    case "signer_mismatch":
-    case "stale_predecessor":
-    case "unauthorized":
-      return code;
-    default:
-      return null;
-  }
+  return isKeyingVerificationCode(code) ? code : null;
 }
 
 export function createSecurityIncidentService(
@@ -64,12 +50,17 @@ export function createSecurityIncidentService(
 ): SecurityIncidentServiceResult {
   const listeners = createListenerSet<[SecurityIncident]>();
   const observedErrors = new WeakSet<object>();
+  const incidentReports = new WeakMap<object, Promise<void>>();
 
-  const report: SecurityIncidentReporter = async (error, context) => {
+  const persistIncident: SecurityIncidentReporter = async (error, context) => {
     const code = verificationCode(error);
-    if (!code) return;
-    if (typeof error === "object" && error !== null) {
-      if (observedErrors.has(error)) return;
+    if (!code) {
+      if (isKeyingVerificationError(error)) {
+        options.logError(
+          "Security incident could not be persisted because its verification code is unrecognized",
+        );
+      }
+      return;
     }
 
     const execSql = options.database.execSql;
@@ -112,6 +103,24 @@ export function createSecurityIncidentService(
     } catch (callbackError) {
       options.logError("Security incident callback failed", callbackError);
     }
+  };
+
+  const report: SecurityIncidentReporter = async (error, context) => {
+    if (typeof error !== "object" || error === null) {
+      await persistIncident(error, context);
+      return;
+    }
+    if (observedErrors.has(error)) return;
+    const inFlight = incidentReports.get(error);
+    if (inFlight) {
+      await inFlight;
+      return;
+    }
+    const pending = persistIncident(error, context).finally(() => {
+      incidentReports.delete(error);
+    });
+    incidentReports.set(error, pending);
+    await pending;
   };
 
   return {

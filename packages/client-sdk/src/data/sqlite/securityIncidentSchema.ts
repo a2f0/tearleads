@@ -13,11 +13,11 @@ export const securityIncidents = sqliteTable(
   "security_incidents",
   {
     id: text("id").primaryKey(),
-    trustDomain: text("trust_domain").notNull(),
+    trustDomain: text("trust_domain"),
     code: text("code").notNull(),
     operation: text("operation").notNull(),
     objectKind: text("object_kind").notNull(),
-    objectId: text("object_id").notNull(),
+    objectId: text("object_id"),
     organizationId: text("organization_id"),
     evidenceHashes: text("evidence_hashes").notNull(),
     detectedAt: text("detected_at").notNull(),

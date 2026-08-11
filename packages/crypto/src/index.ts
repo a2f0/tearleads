@@ -200,6 +200,8 @@ export {
   getPrincipalPolicyTransitionMismatchReason,
   identityStateTransparencyLeaf,
   isContainerKekMaterialId,
+  isKeyingVerificationCode,
+  KEYING_VERIFICATION_CODES,
   KeyingVerificationError,
   MAX_CONTAINER_KEY_EPOCH,
   makeVerifiedAccessEvent,

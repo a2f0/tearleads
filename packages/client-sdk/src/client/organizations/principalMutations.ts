@@ -129,7 +129,7 @@ export async function addUserToOrganizationGroup(
   );
 }
 
-export function createOrganizationGroupWithIncident(input: {
+export function createGroupForOrganization(input: {
   readonly name: string;
   readonly runtime: InternalWorkflowRuntimeInput;
 }) {

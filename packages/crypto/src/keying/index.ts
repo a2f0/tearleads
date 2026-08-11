@@ -37,4 +37,8 @@ export {
 } from "./principalPolicyTransition";
 export * from "./transparency";
 export * from "./types";
+export {
+  isKeyingVerificationCode,
+  KEYING_VERIFICATION_CODES,
+} from "./verificationError";
 export * from "./writeHeader";

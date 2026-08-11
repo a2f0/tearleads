@@ -44,7 +44,7 @@ import {
 import {
   type AddOrganizationGroupUserInput,
   addUserToOrganizationGroup,
-  createOrganizationGroupWithIncident,
+  createGroupForOrganization,
   type OrganizationGrantRef,
   type RemoveOrganizationGroupUserInput,
   removeUserFromOrganizationGroup,
@@ -200,7 +200,7 @@ class OrganizationsService implements Organizations {
   }
 
   createGroup(name: string) {
-    return createOrganizationGroupWithIncident({
+    return createGroupForOrganization({
       name,
       runtime: this.runtimeService.workflowInput(),
     });
@@ -319,7 +319,7 @@ class OrganizationsService implements Organizations {
     return runWithSecurityIncidentReporting(
       runtime.util.reportSecurityIncident,
       {
-        objectId: runtime.auth.organizationId ?? "current",
+        objectId: runtime.auth.organizationId,
         objectKind: "principal",
         operation: "organization.read_model.reconcile",
         organizationId: runtime.auth.organizationId,
@@ -333,7 +333,7 @@ class OrganizationsService implements Organizations {
     return runWithSecurityIncidentReporting(
       runtime.util.reportSecurityIncident,
       {
-        objectId: runtime.auth.organizationId ?? "current",
+        objectId: runtime.auth.organizationId,
         objectKind: "principal",
         operation: "organization.read_model.reconcile_after_mutation",
         organizationId: runtime.auth.organizationId,
@@ -400,7 +400,7 @@ class OrganizationsService implements Organizations {
     return runWithSecurityIncidentReporting(
       runtime.util.reportSecurityIncident,
       {
-        objectId: runtime.auth.organizationId ?? "current",
+        objectId: runtime.auth.organizationId,
         objectKind: "principal",
         operation: "organization.policy_history.load",
         organizationId: runtime.auth.organizationId,

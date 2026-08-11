@@ -1,4 +1,7 @@
-import type { KeyingVerificationCode } from "@tearleads/crypto";
+import {
+  isKeyingVerificationCode,
+  type KeyingVerificationCode,
+} from "@tearleads/crypto";
 import { desc } from "drizzle-orm";
 import type {
   SecurityIncident,
@@ -17,7 +20,7 @@ interface SecurityIncidentWrite {
   readonly code: KeyingVerificationCode;
   readonly operation: string;
   readonly objectKind: SecurityIncidentObjectKind;
-  readonly objectId: string;
+  readonly objectId: string | null;
   readonly organizationId?: string | null | undefined;
   readonly evidenceHashes?: Readonly<Record<string, string>> | undefined;
   readonly detectedAt: string;
@@ -51,24 +54,8 @@ function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
 }
 
 function parseVerificationCode(value: string): KeyingVerificationCode {
-  switch (value) {
-    case "duplicate_entry":
-    case "equivocation":
-    case "hash_mismatch":
-    case "invalid_domain":
-    case "invalid_shape":
-    case "key_epoch_reuse":
-    case "missing_dependency":
-    case "object_mismatch":
-    case "rollback":
-    case "signature_mismatch":
-    case "signer_mismatch":
-    case "stale_predecessor":
-    case "unauthorized":
-      return value;
-    default:
-      throw new Error("Security incident verification code is invalid");
-  }
+  if (isKeyingVerificationCode(value)) return value;
+  throw new Error("Security incident verification code is invalid");
 }
 
 function parseObjectKind(value: string): SecurityIncidentObjectKind {
@@ -102,7 +89,7 @@ export async function appendSecurityIncident(
       ...incident,
       evidenceHashes,
       organizationId: incident.organizationId ?? null,
-      trustDomain: incident.trustDomain ?? "",
+      trustDomain: incident.trustDomain,
     })
     .run();
   return {
@@ -126,6 +113,6 @@ export async function listSecurityIncidents(
     code: parseVerificationCode(row.code),
     evidenceHashes: parseEvidenceHashes(row.evidenceHashes),
     objectKind: parseObjectKind(row.objectKind),
-    trustDomain: row.trustDomain || null,
+    trustDomain: row.trustDomain,
   }));
 }

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { reportAndRethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
+import type { SecurityIncidentContext } from "../data/securityIncidents";
 import { Database } from "./database";
 import { createSecurityIncidentService } from "./securityIncidents";
 
@@ -81,6 +82,62 @@ test("ordinary failures are not security incidents", async () => {
       operation: "document.sync",
     });
     expect(await service.incidents.list()).toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
+test("unknown verification codes are logged instead of silently dropped", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-unknown-code",
+  );
+  const logMessages: Array<string | Error> = [];
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: (message) => logMessages.push(message),
+    trustDomain: null,
+  });
+  const error = new Error("future diagnostic");
+  error.name = "KeyingVerificationError";
+  Reflect.set(error, "code", "future_code");
+
+  try {
+    await service.report(error, {
+      objectId: null,
+      objectKind: "unknown",
+      operation: "future.operation",
+    });
+    expect(await service.incidents.list()).toEqual([]);
+    expect(logMessages).toEqual([
+      "Security incident could not be persisted because its verification code is unrecognized",
+    ]);
+  } finally {
+    await close();
+  }
+});
+
+test("concurrent reports of the same error append once", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-concurrent",
+  );
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    trustDomain: null,
+  });
+  const error = new KeyingVerificationError("rollback", "stale head");
+  const context: SecurityIncidentContext = {
+    objectId: null,
+    objectKind: "unknown",
+    operation: "principal.policy.verify",
+  };
+
+  try {
+    await Promise.all([
+      service.report(error, context),
+      service.report(error, context),
+    ]);
+    expect(await service.incidents.list()).toHaveLength(1);
   } finally {
     await close();
   }
