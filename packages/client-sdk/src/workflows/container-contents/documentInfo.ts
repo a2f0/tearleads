@@ -417,7 +417,7 @@ export async function loadDocumentInfo(input: {
   attributionRequestKey?: string | undefined;
   execSql?: ExecSql | null;
   localId: string;
-  reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  reportSecurityIncident: SecurityIncidentReporter;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }): Promise<DocumentInfo> {
   const { attachments, contentSnapshot, local } = await loadLocalDocumentInfo({

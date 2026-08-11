@@ -99,7 +99,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
-| `tearleads.securityIncidents` | append-only local records of terminal trust-boundary verification failures |
+| `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
 scope with the active database and identity so document and container/document
@@ -239,10 +239,13 @@ Use `database.execSql` only when the host already owns executor construction.
 
 `onSecurityIncident` is called after a typed keying-verification failure is
 durably appended. The same rows are available through
-`await tearleads.securityIncidents.list()` and new rows can be observed with
+`await tearleads.securityIncidents.list()` and detections can be observed with
 `tearleads.securityIncidents.subscribe(listener)`. An incident contains the
-code, operation, timestamp, protocol hashes, plus object identity and trust
-domain when known. It stores no exception messages or content.
+code, operation, first/last timestamps, repeat count, protocol hashes, plus
+object identity and trust domain when known. Equivalent repeat detections are
+coalesced. It stores no exception messages or content. `list()` returns `null`
+while the local database is unavailable; detections during database startup are
+held in a bounded, redacted memory buffer and flushed once it becomes ready.
 Ordinary transport and database-availability failures do not create incidents.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The

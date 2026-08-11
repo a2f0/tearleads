@@ -221,6 +221,8 @@ async function runPrincipalPolicyCache<Item>(input: {
       }),
     );
   } catch (error) {
+    // Per-item verification failures were reported above before reaching this
+    // initialization/aggregation boundary.
     rethrowKeyingVerificationError(error);
     const message = errorMessage(error);
     input.log?.(

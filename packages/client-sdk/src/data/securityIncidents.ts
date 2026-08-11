@@ -17,7 +17,11 @@ export interface SecurityIncident {
   readonly objectId: string | null;
   readonly organizationId: string | null;
   readonly evidenceHashes: Readonly<Record<string, string>>;
+  /** Timestamp of the first equivalent detection. */
   readonly detectedAt: string;
+  /** Timestamp of the most recent equivalent detection. */
+  readonly lastDetectedAt: string;
+  readonly occurrenceCount: number;
 }
 
 export interface SecurityIncidentContext {

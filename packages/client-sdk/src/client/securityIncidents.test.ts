@@ -90,24 +90,92 @@ test("ordinary failures are not security incidents", async () => {
   }
 });
 
-test("database-unavailable incident reporting logs without throwing", async () => {
+test("incidents detected before database startup flush when it becomes ready", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-startup-buffer",
+  );
   const logMessages: Array<string | Error> = [];
+  const database = new Database({ status: "idle" });
   const service = createSecurityIncidentService({
-    database: new Database({ status: "idle" }),
+    database,
     logError: (message) => logMessages.push(message),
     trustDomain: null,
   });
+  const error = new KeyingVerificationError("rollback", "secret stale head");
 
-  await service.report(new KeyingVerificationError("rollback", "stale head"), {
-    objectId: "principal-1",
-    objectKind: "principal",
-    operation: "principal.policy.verify",
+  try {
+    await service.report(error, {
+      objectId: "principal-1",
+      objectKind: "principal",
+      operation: "principal.policy.verify",
+    });
+
+    expect(await service.incidents.list()).toBeNull();
+    database.setExecSql(execSql);
+    const incidents = await service.incidents.list();
+    expect(incidents).toHaveLength(1);
+    expect(incidents?.[0]).toMatchObject({
+      code: "rollback",
+      objectId: "principal-1",
+      occurrenceCount: 1,
+    });
+    expect(logMessages).toEqual([]);
+    expect(
+      JSON.stringify(await execSql("SELECT * FROM security_incidents")),
+    ).not.toContain(error.message);
+  } finally {
+    await close();
+  }
+});
+
+test("equivalent retry failures coalesce into one counted incident", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-coalesced-retries",
+  );
+  const observed: SecurityIncidentContext[] = [];
+  const service = createSecurityIncidentService({
+    database: new Database({ execSql, status: "ready" }),
+    logError: () => undefined,
+    onIncident: (incident) => {
+      observed.push({
+        evidenceHashes: incident.evidenceHashes,
+        objectId: incident.objectId,
+        objectKind: incident.objectKind,
+        operation: incident.operation,
+        organizationId: incident.organizationId,
+      });
+    },
+    trustDomain: "https://api.example.test",
   });
+  const context: SecurityIncidentContext = {
+    evidenceHashes: { manifestHash: "hash-1" },
+    objectId: "document-1",
+    objectKind: "document",
+    operation: "document.sync",
+    organizationId: "organization-1",
+  };
 
-  expect(await service.incidents.list()).toBeNull();
-  expect(logMessages).toEqual([
-    "Security incident could not be persisted because the local database is unavailable",
-  ]);
+  try {
+    await service.report(
+      new KeyingVerificationError("signature_mismatch", "first retry"),
+      context,
+    );
+    await service.report(
+      new KeyingVerificationError("signature_mismatch", "second retry"),
+      context,
+    );
+
+    const incidents = await service.incidents.list();
+    expect(incidents).toHaveLength(1);
+    expect(incidents?.[0]).toMatchObject({
+      occurrenceCount: 2,
+      operation: "document.sync",
+    });
+    expect(incidents?.[0]?.lastDetectedAt).not.toBeUndefined();
+    expect(observed).toHaveLength(2);
+  } finally {
+    await close();
+  }
 });
 
 test("unknown verification codes are logged instead of silently dropped", async () => {

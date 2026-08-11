@@ -2,7 +2,7 @@ import {
   isKeyingVerificationCode,
   type KeyingVerificationCode,
 } from "@tearleads/crypto";
-import { desc } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
   SecurityIncidentObjectKind,
@@ -15,7 +15,6 @@ import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRu
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 interface SecurityIncidentWrite {
-  readonly id: string;
   readonly trustDomain: string | null;
   readonly code: KeyingVerificationCode;
   readonly operation: string;
@@ -24,6 +23,8 @@ interface SecurityIncidentWrite {
   readonly organizationId?: string | null | undefined;
   readonly evidenceHashes?: Readonly<Record<string, string>> | undefined;
   readonly detectedAt: string;
+  readonly lastDetectedAt: string;
+  readonly occurrenceCount: number;
 }
 
 function serializeEvidenceHashes(
@@ -76,6 +77,49 @@ async function ensureSecurityIncidentTable(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, [securityIncidentTable]);
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+async function deriveSecurityIncidentId(input: {
+  readonly code: KeyingVerificationCode;
+  readonly evidenceHashes: string;
+  readonly objectId: string | null;
+  readonly objectKind: SecurityIncidentObjectKind;
+  readonly operation: string;
+  readonly organizationId: string | null;
+  readonly trustDomain: string | null;
+}): Promise<string> {
+  const canonicalIdentity = JSON.stringify([
+    input.trustDomain,
+    input.code,
+    input.operation,
+    input.objectKind,
+    input.objectId,
+    input.organizationId,
+    input.evidenceHashes,
+  ]);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonicalIdentity),
+  );
+  return `incident_v1_${bytesToHex(new Uint8Array(digest))}`;
+}
+
+function parseSecurityIncidentRow(
+  row: typeof securityIncidents.$inferSelect,
+): SecurityIncident {
+  return {
+    ...row,
+    code: parseVerificationCode(row.code),
+    evidenceHashes: parseEvidenceHashes(row.evidenceHashes),
+    objectKind: parseObjectKind(row.objectKind),
+    trustDomain: row.trustDomain,
+  };
+}
+
 export async function appendSecurityIncident(
   execSql: ExecSql,
   incident: SecurityIncidentWrite,
@@ -83,20 +127,40 @@ export async function appendSecurityIncident(
   await ensureSecurityIncidentTable(execSql);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const evidenceHashes = serializeEvidenceHashes(incident.evidenceHashes);
+  const organizationId = incident.organizationId ?? null;
+  const id = await deriveSecurityIncidentId({
+    code: incident.code,
+    evidenceHashes,
+    objectId: incident.objectId,
+    objectKind: incident.objectKind,
+    operation: incident.operation,
+    organizationId,
+    trustDomain: incident.trustDomain,
+  });
   await db
     .insert(securityIncidents)
     .values({
       ...incident,
       evidenceHashes,
-      organizationId: incident.organizationId ?? null,
+      id,
+      organizationId,
       trustDomain: incident.trustDomain,
     })
+    .onConflictDoUpdate({
+      target: securityIncidents.id,
+      set: {
+        lastDetectedAt: sql`max(${securityIncidents.lastDetectedAt}, ${incident.lastDetectedAt})`,
+        occurrenceCount: sql`${securityIncidents.occurrenceCount} + ${incident.occurrenceCount}`,
+      },
+    })
     .run();
-  return {
-    ...incident,
-    evidenceHashes: incident.evidenceHashes ?? {},
-    organizationId: incident.organizationId ?? null,
-  };
+  const [row] = await db
+    .select()
+    .from(securityIncidents)
+    .where(eq(securityIncidents.id, id))
+    .limit(1);
+  if (!row) throw new Error("Persisted security incident is missing");
+  return parseSecurityIncidentRow(row);
 }
 
 export async function listSecurityIncidents(
@@ -107,12 +171,9 @@ export async function listSecurityIncidents(
   const rows = await db
     .select()
     .from(securityIncidents)
-    .orderBy(desc(securityIncidents.detectedAt), desc(securityIncidents.id));
-  return rows.map((row) => ({
-    ...row,
-    code: parseVerificationCode(row.code),
-    evidenceHashes: parseEvidenceHashes(row.evidenceHashes),
-    objectKind: parseObjectKind(row.objectKind),
-    trustDomain: row.trustDomain,
-  }));
+    .orderBy(
+      desc(securityIncidents.lastDetectedAt),
+      desc(securityIncidents.id),
+    );
+  return rows.map(parseSecurityIncidentRow);
 }

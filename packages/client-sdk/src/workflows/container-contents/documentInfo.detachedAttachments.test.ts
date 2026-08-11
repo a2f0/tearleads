@@ -61,6 +61,7 @@ test("loadDocumentInfo hides attachments unlinked before the detach flushes", as
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 

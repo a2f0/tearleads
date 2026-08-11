@@ -79,6 +79,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         organizationId: "org-old",
         evidenceHashes: "{}",
         detectedAt: stale,
+        lastDetectedAt: stale,
       });
       await tx.insert(containers).values([
         {
