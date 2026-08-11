@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 const REFERENCE: ReferencedPrincipalHead = {
@@ -13,6 +13,9 @@ const REFERENCE: ReferencedPrincipalHead = {
 };
 
 test("runtime policy warmer fetches policies for every requested organization", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "runtime-principal-policy-warmer",
+  );
   const requestedPolicies: string[] = [];
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: {
@@ -21,7 +24,7 @@ test("runtime policy warmer fetches policies for every requested organization", 
         return null;
       },
     },
-    infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+    infra: { execSql },
     resolveTrustedUserIdentity: async () => null,
     util: {
       log: () => undefined,
@@ -29,14 +32,18 @@ test("runtime policy warmer fetches policies for every requested organization", 
     },
   });
 
-  await warmer({
-    organizationId: "home-organization",
-    references: [REFERENCE],
-  });
-  await warmer({
-    organizationId: "foreign-organization",
-    references: [REFERENCE],
-  });
+  try {
+    await warmer({
+      organizationId: "home-organization",
+      references: [REFERENCE],
+    });
+    await warmer({
+      organizationId: "foreign-organization",
+      references: [REFERENCE],
+    });
 
-  expect(requestedPolicies).toEqual(["group:group-1", "group:group-1"]);
+    expect(requestedPolicies).toEqual(["group:group-1", "group:group-1"]);
+  } finally {
+    await close();
+  }
 });
