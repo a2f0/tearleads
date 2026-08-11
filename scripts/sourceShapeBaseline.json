@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 554,
-      "bytes": 25593
+      "lines": 555,
+      "bytes": 26012
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -70,8 +70,8 @@
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 493,
-      "bytes": 25581
+      "lines": 512,
+      "bytes": 26572
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -244,10 +244,6 @@
     "packages/client-sdk/src/client/Tearleads.test.ts": {
       "lines": 1001,
       "bytes": 31624
-    },
-    "packages/client-sdk/src/client/organizations/index.ts": {
-      "lines": 617,
-      "bytes": 20478
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1032,

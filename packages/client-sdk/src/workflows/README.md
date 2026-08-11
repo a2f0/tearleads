@@ -72,6 +72,13 @@ not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to
 construct the nominal test values; production source must not import it.
 
+Trust-boundary failures are terminal and feed the client-owned
+`tearleads.securityIncidents` ledger. Workflow runtimes receive only its
+internal reporter; they cannot clear the append-only table. Network and SQLite
+availability errors are not incidents. Incident rows intentionally exclude
+exception messages, ciphertext, and decrypted values, and remote-state reset
+does not erase them.
+
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
 the strict version 4 organization read-model feed and keeps the opaque cursor in

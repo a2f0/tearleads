@@ -406,6 +406,7 @@ class ContainerContentsService implements ContainerContents {
       ...input,
       apiClient: runtime.apiClient,
       execSql: readyExecSql(runtime),
+      reportSecurityIncident: runtime.util.reportSecurityIncident,
     });
   }
 

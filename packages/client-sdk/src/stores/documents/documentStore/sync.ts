@@ -1,3 +1,4 @@
+import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import {
   type DocumentRecord,
   type DocumentSyncLane,
@@ -302,6 +303,16 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
     if (isDatabaseUnavailableError(error)) {
       return false;
     }
+
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      state.runtime.util.reportSecurityIncident,
+      {
+        objectId: state.record?.documentId ?? state.localId,
+        objectKind: "document",
+        operation: "document.sync",
+      },
+    );
 
     throw error;
   }

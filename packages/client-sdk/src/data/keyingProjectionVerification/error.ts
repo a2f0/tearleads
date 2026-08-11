@@ -1,5 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { errorMessage } from "../errorMessage";
+import type {
+  SecurityIncidentContext,
+  SecurityIncidentReporter,
+} from "../securityIncidents";
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
 
 /**
@@ -17,6 +21,35 @@ export function isKeyingVerificationError(error: unknown): boolean {
 
 export function rethrowKeyingVerificationError(error: unknown): void {
   if (isKeyingVerificationError(error)) {
+    throw error;
+  }
+}
+
+/** Persist a terminal integrity failure before preserving its original type. */
+export async function reportAndRethrowKeyingVerificationError(
+  error: unknown,
+  reporter: SecurityIncidentReporter | undefined,
+  context: SecurityIncidentContext,
+): Promise<void> {
+  if (!isKeyingVerificationError(error)) return;
+  try {
+    await reporter?.(error, context);
+  } catch {
+    // Incident reporting is best-effort at this boundary. It must never replace
+    // the verification failure that stopped use of untrusted data.
+  }
+  throw error;
+}
+
+export async function runWithSecurityIncidentReporting<T>(
+  reporter: SecurityIncidentReporter | undefined,
+  context: SecurityIncidentContext,
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    await reportAndRethrowKeyingVerificationError(error, reporter, context);
     throw error;
   }
 }

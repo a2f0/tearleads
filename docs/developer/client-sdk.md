@@ -99,6 +99,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
+| `tearleads.securityIncidents` | append-only local records of terminal trust-boundary verification failures |
 
 Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
 scope with the active database and identity so document and container/document
@@ -216,6 +217,7 @@ const tearleads = new Tearleads({
   identityProvisioning,
   identityTrustDomain,
   logger,
+  onSecurityIncident,
   online,
 });
 ```
@@ -234,6 +236,14 @@ HTTP uses `apiBaseUrl`; the API client is internal. See
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
+
+`onSecurityIncident` is called after a typed keying-verification failure is
+durably appended. The same rows are available through
+`await tearleads.securityIncidents.list()` and new rows can be observed with
+`tearleads.securityIncidents.subscribe(listener)`. An incident contains the
+verification code, operation, object identity, trust domain, timestamp, and
+explicit protocol hashes. It never stores exception messages or content.
+Ordinary transport and database-availability failures do not create incidents.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
 constructor only captures the current database `client`, `execSql`, and `id`,

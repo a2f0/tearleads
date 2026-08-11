@@ -28,6 +28,10 @@ import {
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
+import {
+  securityIncidents,
+  securityIncidentTable,
+} from "./securityIncidentSchema";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 export {
@@ -42,6 +46,7 @@ export {
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
+export { securityIncidents } from "./securityIncidentSchema";
 export { organizationReadModelTables };
 
 const accessLevelColumn = "effective_access_level";
@@ -766,6 +771,10 @@ export const trustedUserIdentityPinTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(trustedUserIdentityPins),
 ];
 
+const securityIncidentTables: ReadonlyArray<SqlTableSchema> = [
+  securityIncidentTable,
+];
+
 export const containerTables = containerTableSchemas;
 
 export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
@@ -801,6 +810,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...principalPolicyTables,
   ...keyingCheckpointTables,
   ...trustedUserIdentityPinTables,
+  ...securityIncidentTables,
   ...containerTables,
   ...documentContainerProjectionTables,
   ...documentMoveIntentTables,
@@ -822,6 +832,7 @@ export const clientSQLiteSchema = {
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
   trustedUserIdentityPins,
+  securityIncidents,
   ...containerSQLiteSchema,
   documentContainerProjection,
   documentMoveIntents,

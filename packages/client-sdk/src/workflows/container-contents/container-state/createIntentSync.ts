@@ -1,5 +1,5 @@
 import { errorMessage } from "../../../data/errorMessage";
-import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -10,6 +10,44 @@ import type {
   ContainerCreateIntentSyncState,
   CreatedRemoteContainerState,
 } from "./types";
+
+async function reportContainerCreateIntegrityFailure(input: {
+  readonly containerId: string;
+  readonly error: unknown;
+  readonly organizationId: string;
+  readonly state: ContainerCreateIntentSyncState;
+}): Promise<void> {
+  await reportAndRethrowKeyingVerificationError(
+    input.error,
+    input.state.runtime.util.reportSecurityIncident,
+    {
+      objectId: input.containerId,
+      objectKind: "container",
+      operation: "container.create.replay",
+      organizationId: input.organizationId,
+    },
+  );
+}
+
+async function recordContainerCreateFailure(input: {
+  readonly error: unknown;
+  readonly intent: ContainerCreateIntentSyncInput["intent"];
+  readonly organizationId: string;
+  readonly state: ContainerCreateIntentSyncState;
+}): Promise<"failed"> {
+  await reportContainerCreateIntegrityFailure({
+    containerId: input.intent.containerId,
+    error: input.error,
+    organizationId: input.organizationId,
+    state: input.state,
+  });
+  await input.state.persistence.recordCreateIntentError(
+    input.state.runtime.infra.execSql,
+    input.intent.containerId,
+    `Remote container create failed: ${errorMessage(input.error)}`,
+  );
+  return "failed";
+}
 
 async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   containerState: ContainerState;
@@ -134,18 +172,12 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       runtime: state.runtime,
     });
   } catch (error) {
-    rethrowKeyingVerificationError(error);
-    // Plan construction (e.g. an uncached principal policy or a key-unwrap
-    // failure) can throw. Record the error for this one intent and keep it
-    // pending so the next pass retries it, rather than aborting the whole sweep
-    // and stranding every other pending create.
-    const message = errorMessage(error);
-    await state.persistence.recordCreateIntentError(
-      state.runtime.infra.execSql,
-      intent.containerId,
-      `Remote container create failed: ${message}`,
-    );
-    return "failed";
+    return recordContainerCreateFailure({
+      error,
+      intent,
+      organizationId: parentState.container.organizationId,
+      state,
+    });
   }
 
   if (created === CONTAINER_ALREADY_COMMITTED) {

@@ -16,8 +16,9 @@ import {
   type DocumentFieldBlame,
   summarizeDocumentContributors,
 } from "../../data/documents/editAttribution";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
@@ -416,6 +417,7 @@ export async function loadDocumentInfo(input: {
   attributionRequestKey?: string | undefined;
   execSql?: ExecSql | null;
   localId: string;
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }): Promise<DocumentInfo> {
   const { attachments, contentSnapshot, local } = await loadLocalDocumentInfo({
@@ -435,8 +437,16 @@ export async function loadDocumentInfo(input: {
 
   const attributionPromise = input.apiClient
     .getDocumentEditAttribution(local.documentId, input.attributionRequestKey)
-    .catch((error: unknown) => {
-      rethrowKeyingVerificationError(error);
+    .catch(async (error: unknown) => {
+      await reportAndRethrowKeyingVerificationError(
+        error,
+        input.reportSecurityIncident,
+        {
+          objectId: local.documentId ?? input.localId,
+          objectKind: "document",
+          operation: "document.info.attribution",
+        },
+      );
       return null;
     });
   const [projection, attachmentBindings, attribution] = await Promise.all([

@@ -1,4 +1,4 @@
-import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "./state";
 
@@ -44,6 +44,8 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       uploadThrew = true;
       uploadError = error;
     },
+    reportSecurityIncident: input.state.runtime.util.reportSecurityIncident,
+    documentId: input.state.record?.documentId ?? input.state.localId,
   });
   if (!uploaded && checkedOrganizationId !== undefined) {
     // The request itself may have produced the first 402 after the workflow's
@@ -81,6 +83,8 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       onError: (error) => {
         uploadError = error;
       },
+      reportSecurityIncident: input.state.runtime.util.reportSecurityIncident,
+      documentId: input.state.record?.documentId ?? input.state.localId,
     });
     if (!uploaded && checkedOrganizationId !== undefined) {
       remoteSyncBlocked ||=
@@ -96,13 +100,23 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
 }
 
 async function tryUploadDocumentAttachment(input: {
+  documentId: string;
   input: Parameters<typeof uploadDocumentAttachment>[0];
   onError: (error: unknown) => void;
+  reportSecurityIncident: DocumentStoreState["runtime"]["util"]["reportSecurityIncident"];
 }): ReturnType<typeof uploadDocumentAttachment> {
   try {
     return await uploadDocumentAttachment(input.input);
   } catch (error) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      input.reportSecurityIncident,
+      {
+        objectId: input.documentId,
+        objectKind: "blob",
+        operation: "document.attachment.upload",
+      },
+    );
     input.onError(error);
     return null;
   }

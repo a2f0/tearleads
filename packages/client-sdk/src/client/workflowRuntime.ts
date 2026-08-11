@@ -1,6 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
+import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
+import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
@@ -67,6 +69,7 @@ interface WorkflowRuntimeDependencies {
   logError: (message: string | Error, cause?: unknown) => void;
   network: Network;
   peerScope?: string | null;
+  reportSecurityIncident: SecurityIncidentReporter;
   session: Session;
   syncBillingGate?: SyncBillingGate | undefined;
 }
@@ -95,17 +98,37 @@ export function createRuntime(
     identityTrustDomain: dependencies.identityTrustDomain,
     remoteSource: createApiUserIdentitySource(dependencies.api),
   });
+  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
+    runWithSecurityIncidentReporting(
+      dependencies.reportSecurityIncident,
+      {
+        objectId: userId,
+        objectKind: "user",
+        operation: "user.identity.resolve",
+        organizationId: dependencies.session.organizationId,
+      },
+      () => trustedUserIdentityService.resolve(userId),
+    );
   const runtimeSubscription = createRuntimeSubscription(dependencies);
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
-    trustedUserIdentityService.resolve,
+    resolveTrustedUserIdentity,
   );
 
   return {
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
     async pinLocalUserIdentity(userId, candidate) {
-      await trustedUserIdentityService.pinLocal(userId, candidate);
+      await runWithSecurityIncidentReporting(
+        dependencies.reportSecurityIncident,
+        {
+          objectId: userId,
+          objectKind: "user",
+          operation: "user.identity.pin_local",
+          organizationId: dependencies.session.organizationId,
+        },
+        () => trustedUserIdentityService.pinLocal(userId, candidate),
+      );
     },
     publicRuntime: {
       get version() {
@@ -207,7 +230,8 @@ function createRuntimeInputFactory(
     if (
       !util ||
       util.log !== dependencies.log ||
-      util.logError !== dependencies.logError
+      util.logError !== dependencies.logError ||
+      util.reportSecurityIncident !== dependencies.reportSecurityIncident
     ) {
       util = {
         isRemoteSyncBlocked: (organizationId) =>
@@ -216,6 +240,7 @@ function createRuntimeInputFactory(
           ) ?? false,
         log: dependencies.log,
         logError: dependencies.logError,
+        reportSecurityIncident: dependencies.reportSecurityIncident,
       };
     }
 
