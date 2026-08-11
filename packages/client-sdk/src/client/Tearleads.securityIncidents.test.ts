@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
@@ -10,22 +11,25 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
   );
   const callbackCodes: string[] = [];
   const sdk = new Tearleads({
+    apiBaseUrl: "https://api.example.test",
     database: { execSql },
     logger: quietLogger,
     onSecurityIncident: (incident) => callbackCodes.push(incident.code),
   });
+  const apiClient = Reflect.get(sdk, "apiClient");
+  if (!(apiClient instanceof ApiClient)) {
+    throw new Error("Expected Tearleads to own an API client");
+  }
+  const error = new KeyingVerificationError("equivocation", "server conflict");
+  apiClient.getUserIdentity = async () => {
+    throw error;
+  };
 
   try {
-    await sdk.runtime
-      .input()
-      .util.reportSecurityIncident(
-        new KeyingVerificationError("equivocation", "server conflict"),
-        {
-          objectId: "user-1",
-          objectKind: "user",
-          operation: "user.identity.resolve",
-        },
-      );
+    expect("reportSecurityIncident" in sdk.runtime.input().util).toBe(false);
+    await expect(
+      sdk.userIdentities.resolve("11111111-1111-4111-8111-111111111111"),
+    ).rejects.toBe(error);
 
     expect(callbackCodes).toEqual(["equivocation"]);
     expect(await sdk.securityIncidents.list()).toEqual([

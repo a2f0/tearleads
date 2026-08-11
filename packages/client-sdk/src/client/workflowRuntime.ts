@@ -29,7 +29,15 @@ import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import type { Session } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
-export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
+type HostWorkflowRuntimeUtilInput = Omit<
+  WorkflowRuntimeUtilInput,
+  "reportSecurityIncident"
+>;
+
+export interface WorkflowRuntimeInput
+  extends Omit<WorkflowRuntimeGroups, "util"> {
+  readonly util: HostWorkflowRuntimeUtilInput;
+}
 
 export type RuntimeListener = () => void;
 
@@ -39,7 +47,7 @@ export interface Runtime {
   subscribe(listener: RuntimeListener): () => void;
 }
 
-export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
+export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
   readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -182,6 +190,7 @@ function createRuntimeInputFactory(
   let infra: WorkflowRuntimeInfraInput | undefined;
   let state: WorkflowRuntimeStateInput | undefined;
   let util: WorkflowRuntimeUtilInput | undefined;
+  let hostUtil: HostWorkflowRuntimeUtilInput | undefined;
 
   const workflowInput = (
     containerId?: string | null | undefined,
@@ -260,9 +269,15 @@ function createRuntimeInputFactory(
       const {
         apiClient: _apiClient,
         resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
+        util: workflowUtil,
         ...input
       } = workflowInput(containerId);
-      return input;
+      hostUtil = reuseIfShallowEqual(hostUtil, {
+        isRemoteSyncBlocked: workflowUtil.isRemoteSyncBlocked,
+        log: workflowUtil.log,
+        logError: workflowUtil.logError,
+      });
+      return { ...input, util: hostUtil };
     },
     workflowInput,
   };

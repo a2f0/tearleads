@@ -29,7 +29,11 @@ export function rethrowKeyingVerificationError(error: unknown): void {
   }
 }
 
-/** Persist a terminal integrity failure before preserving its original type. */
+/**
+ * Persist a terminal integrity failure before preserving its original type.
+ * Call only outside an open persistence transaction: the reporter serializes
+ * its own write and awaiting it from that transaction would deadlock.
+ */
 export async function reportAndRethrowKeyingVerificationError(
   error: unknown,
   reporter: SecurityIncidentReporter | undefined,

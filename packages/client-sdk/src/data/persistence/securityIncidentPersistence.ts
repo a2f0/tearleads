@@ -39,14 +39,19 @@ function serializeEvidenceHashes(
 }
 
 function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return {};
+  }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Security incident evidence hashes are invalid");
+    return {};
   }
   const evidenceHashes: Record<string, string> = {};
   for (const [key, item] of Object.entries(parsed)) {
     if (key.length === 0 || typeof item !== "string") {
-      throw new Error("Security incident evidence hashes are invalid");
+      return {};
     }
     evidenceHashes[key] = item;
   }
@@ -68,7 +73,7 @@ function parseObjectKind(value: string): SecurityIncidentObjectKind {
     case "unknown":
       return value;
     default:
-      throw new Error("Security incident object kind is invalid");
+      return "unknown";
   }
 }
 

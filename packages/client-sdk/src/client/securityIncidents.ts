@@ -21,6 +21,8 @@ const MAX_BUFFERED_SECURITY_INCIDENTS = 100;
 const MAX_EVIDENCE_HASH_COUNT = 32;
 const MAX_EVIDENCE_HASH_KEY_LENGTH = 64;
 const MAX_EVIDENCE_HASH_VALUE_LENGTH = 256;
+const MAX_INCIDENT_IDENTIFIER_LENGTH = 256;
+const MAX_INCIDENT_OPERATION_LENGTH = 128;
 const SECURITY_INCIDENT_RETRY_DELAY_MS = 250;
 const SECURITY_INCIDENT_MAX_RETRY_DELAY_MS = 30_000;
 
@@ -59,6 +61,16 @@ interface RedactedIncident {
   readonly occurrenceCount: number;
 }
 
+function boundIncidentText(value: string, maxLength: number): string {
+  return value.slice(0, maxLength);
+}
+
+function boundNullableIncidentText(value: string | null): string | null {
+  return value === null
+    ? null
+    : boundIncidentText(value, MAX_INCIDENT_IDENTIFIER_LENGTH);
+}
+
 function redactIncidentContext(
   context: SecurityIncidentContext,
 ): SecurityIncidentContext {
@@ -74,10 +86,13 @@ function redactIncidentContext(
         .sort(([left], [right]) => left.localeCompare(right))
         .slice(0, MAX_EVIDENCE_HASH_COUNT),
     ),
-    objectId: context.objectId,
+    objectId: boundNullableIncidentText(context.objectId),
     objectKind: context.objectKind,
-    operation: context.operation,
-    organizationId: context.organizationId ?? null,
+    operation: boundIncidentText(
+      context.operation,
+      MAX_INCIDENT_OPERATION_LENGTH,
+    ),
+    organizationId: boundNullableIncidentText(context.organizationId ?? null),
   };
 }
 
@@ -142,6 +157,11 @@ class SecurityIncidentSink {
     try {
       const persisted = await this.append(execSql, incident);
       if (persisted) this.notify(persisted);
+      else {
+        this.options.logError(
+          "Security incident was dropped by the local retention limit",
+        );
+      }
       if (this.bufferedIncidents.size === 0) this.resetFlushRetry();
       return true;
     } catch (persistenceError) {

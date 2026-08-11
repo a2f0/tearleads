@@ -32,10 +32,7 @@ test("security incidents are durable, redacted, and emitted once", async () => {
     trustDomain: "https://api.example.test",
   });
   service.incidents.subscribe((incident) => subscriptions.push(incident.id));
-  const error = new KeyingVerificationError(
-    "signature_mismatch",
-    "secret server-controlled diagnostic",
-  );
+  const error = new KeyingVerificationError("signature_mismatch", "secret");
 
   try {
     await service.report(error, {
@@ -70,6 +67,7 @@ test("security incidents are durable, redacted, and emitted once", async () => {
     const rows = await execSql("SELECT * FROM security_incidents");
     expect(JSON.stringify(rows)).not.toContain(error.message);
   } finally {
+    service.dispose();
     await close();
   }
 });
@@ -93,6 +91,7 @@ test("ordinary failures are not security incidents", async () => {
     });
     expect(await service.incidents.list()).toEqual([]);
   } finally {
+    service.dispose();
     await close();
   }
 });
@@ -131,6 +130,7 @@ test("incidents detected before database startup flush when it becomes ready", a
       JSON.stringify(await execSql("SELECT * FROM security_incidents")),
     ).not.toContain(error.message);
   } finally {
+    service.dispose();
     await close();
   }
 });
@@ -158,6 +158,7 @@ test("the startup incident buffer drops unique overflow safely", async () => {
     "Security incident could not be buffered because the startup buffer is full",
   ]);
   expect(await service.incidents.list()).toBeNull();
+  service.dispose();
 });
 
 test("a list joins an active flush and drains incidents buffered during it", async () => {
@@ -218,6 +219,7 @@ test("a list joins an active flush and drains incidents buffered during it", asy
     ]);
   } finally {
     releaseInsert?.();
+    service.dispose();
     await close();
   }
 });
@@ -286,6 +288,7 @@ test("a transient ready-database append failure retries buffered evidence", asyn
     ]);
   } finally {
     clearTimeout(deliveryTimeout);
+    service.dispose();
     await close();
   }
 });
@@ -336,10 +339,10 @@ test("equivalent retry failures coalesce into one counted incident", async () =>
     expect(incidents?.[0]?.lastDetectedAt).not.toBeUndefined();
     expect(observed).toHaveLength(2);
   } finally {
+    service.dispose();
     await close();
   }
 });
-
 test("unknown verification codes are logged instead of silently dropped", async () => {
   const { close, execSql } = await createTestExecSql(
     "security-incidents-unknown-code",
@@ -374,11 +377,18 @@ test("unknown verification codes are logged instead of silently dropped", async 
     expect(logMessages).toEqual([
       "Security incident used the fallback code because its verification code is unrecognized",
     ]);
-    await execSql('UPDATE "security_incidents" SET "code" = \'retired_code\'');
+    await execSql(
+      'UPDATE "security_incidents" SET "code" = \'retired_code\', "evidence_hashes" = \'not-json\', "object_kind" = \'future-kind\'',
+    );
     expect(await service.incidents.list()).toEqual([
-      expect.objectContaining({ code: "unrecognized_verification_code" }),
+      expect.objectContaining({
+        code: "unrecognized_verification_code",
+        evidenceHashes: {},
+        objectKind: "unknown",
+      }),
     ]);
   } finally {
+    service.dispose();
     await close();
   }
 });
@@ -406,10 +416,10 @@ test("concurrent reports of the same error append once", async () => {
     ]);
     expect(await service.incidents.list()).toHaveLength(1);
   } finally {
+    service.dispose();
     await close();
   }
 });
-
 test("report and rethrow preserves the terminal verification error", async () => {
   const error = new KeyingVerificationError("rollback", "stale head");
   const reported: unknown[] = [];
@@ -482,6 +492,7 @@ test("an incident callback cannot replace the verification failure", async () =>
     ).rejects.toBe(error);
     expect(await service.incidents.list()).toHaveLength(1);
   } finally {
+    service.dispose();
     await close();
   }
 });

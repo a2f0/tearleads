@@ -121,9 +121,8 @@ ready snapshot or deciding whether to show an unavailable-storage state.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
-bundle themselves. This host-facing runtime input intentionally does not expose
-the raw API client; SDK namespaces and workflow facades own HTTP transport
-access.
+bundle themselves. This host-facing input omits API access and incident
+reporting; SDK facades own both.
 
 Root exports include built-in organization slot helpers.
 
@@ -139,7 +138,7 @@ Runtime input snapshots are grouped by capability:
 | `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
 | `state` | `containerId`, `domainScope`, `events`, `online` |
-| `util` | `log`, `logError`, `cacheReferencedPrincipalPolicies` |
+| `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
 `auth.defaultOrganizationId` identifies the personal org across active switches.
 Host and workflow integration code should use these grouped fields so a
