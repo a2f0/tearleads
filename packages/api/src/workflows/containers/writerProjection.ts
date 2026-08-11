@@ -113,7 +113,7 @@ export async function resolveContainerReaderProjection(input: {
   });
 }
 
-export async function resolveContainerWriterProjection(input: {
+async function resolveContainerWriterProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;

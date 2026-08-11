@@ -29,6 +29,13 @@
       "when": 1786462297576,
       "tag": "0003_curly_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786472085196,
+      "tag": "0004_amazing_mister_fear",
+      "breakpoints": true
     }
   ]
 }

@@ -3,19 +3,16 @@ import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
-  containers,
 } from "@tearleads/api-shared/schema";
 import type {
   PrincipalContainerGrant,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   readProjectionAccessEvent,
-  readProjectionAccessManifest,
   readProjectionPlainRecord,
   readProjectionString,
 } from "../../keyingProjectionRecords";
@@ -28,10 +25,11 @@ import type {
   ContainerMutationContext,
   MutateContainerInput,
 } from "../containers/mutations/types";
+import { createContainerWriterProjectionContext } from "../containers/writerProjection";
 import {
-  createContainerWriterProjectionContext,
-  resolveContainerWriterProjection,
-} from "../containers/writerProjection";
+  loadExactReplayMutationResponses,
+  storeMutationAcknowledgements,
+} from "./principalPolicyMutationAcknowledgements";
 import { PrincipalPolicyError } from "./shared";
 
 type RematerializationEventType =
@@ -307,85 +305,6 @@ function rematerializationInputs(input: {
   });
 }
 
-async function loadExactReplayMutationResponses(input: {
-  readonly executor: DatabaseTransaction;
-  readonly requests: readonly ContainerMutationRequest[];
-  readonly userId: string;
-}): Promise<ContainerMutationResponse[]> {
-  const seenContainerIds = new Set<string>();
-  const responses: ContainerMutationResponse[] = [];
-  for (const request of input.requests) {
-    const event = requestEvent(request);
-    if (
-      event.objectKind !== "container" ||
-      seenContainerIds.has(event.objectId)
-    ) {
-      throw new PrincipalPolicyError(
-        "Principal policy container replay batch is invalid",
-        409,
-      );
-    }
-    seenContainerIds.add(event.objectId);
-    const projection = await resolveContainerWriterProjection({
-      containerId: event.objectId,
-      executor: input.executor,
-      userId: input.userId,
-    });
-    const accessManifest = projection.path.at(-1);
-    const containerKek = projection.containerKeks.at(-1);
-    if (
-      !accessManifest ||
-      !containerKek ||
-      accessManifest.manifestHash !== request.expectedManifestHash
-    ) {
-      throw new PrincipalPolicyError(
-        "Principal policy container replay does not match current state",
-        409,
-      );
-    }
-    const manifest = readProjectionAccessManifest(
-      accessManifest.manifest,
-      "Principal policy replay container manifest",
-      (message) => new PrincipalPolicyError(message, 409),
-    );
-    const [container] = await input.executor
-      .select({
-        createdAt: containers.createdAt,
-        systemSlot: containers.systemSlot,
-        organizationId: containers.organizationId,
-        parentId: containers.parentId,
-        updatedAt: containers.updatedAt,
-      })
-      .from(containers)
-      .where(eq(containers.id, event.objectId))
-      .limit(1);
-    if (!container || manifest.objectId !== event.objectId) {
-      throw new PrincipalPolicyError(
-        "Principal policy replay container is missing",
-        409,
-      );
-    }
-    responses.push({
-      ...(isContainerSystemSlot(container.systemSlot)
-        ? { systemSlot: container.systemSlot }
-        : {}),
-      accessManifest,
-      containerId: event.objectId,
-      containerKek,
-      createdAt: container.createdAt.toISOString(),
-      manifestHead: {
-        epoch: manifest.epoch,
-        manifestHash: accessManifest.manifestHash,
-      },
-      organizationId: container.organizationId,
-      parentId: container.parentId,
-      referencedPrincipalHeads: manifest.referencedPrincipalHeads,
-      updatedAt: container.updatedAt.toISOString(),
-    });
-  }
-  return responses;
-}
-
 export async function applyPrincipalContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
@@ -404,8 +323,8 @@ export async function applyPrincipalContainerRematerializations(input: {
   if (input.isExactReplay && required.length === 0) {
     return loadExactReplayMutationResponses({
       executor: input.executor,
+      nextHead: input.nextHead,
       requests: input.requests ?? [],
-      userId: input.userId,
     });
   }
   if (input.nextHead.principalType === "organization") {
@@ -468,5 +387,11 @@ export async function applyPrincipalContainerRematerializations(input: {
       409,
     );
   }
+  await storeMutationAcknowledgements({
+    executor: input.executor,
+    nextHead: input.nextHead,
+    requests: input.requests ?? [],
+    responses,
+  });
   return responses;
 }

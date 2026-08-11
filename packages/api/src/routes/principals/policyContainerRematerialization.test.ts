@@ -170,13 +170,28 @@ test("policy rotation and dependent container rekey commit atomically", async ()
   });
 }, 15_000);
 
-test("an exact compound policy replay is idempotent", async () => {
+test("an exact compound policy replay survives a later container mutation", async () => {
   const prepared = await prepareRotation();
   expect((await putPolicy(prepared)).status).toBe(200);
-  const committedKek = await getCurrentContainerKeyEpoch(
-    prepared.root.kekState.containerId,
-    db,
+  if (!("container" in prepared.rootRekey)) {
+    throw new Error("Expected a rotating principal policy mutation");
+  }
+  const laterRekey = await buildRootContainerRekeyMutation({
+    previous: prepared.rootRekey.container,
+    signer: prepared.owner,
+  });
+  const laterResponse = await routeApp.request(
+    `/containers/${prepared.root.kekState.containerId}/rekey`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${prepared.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(laterRekey.request),
+    },
   );
+  expect(laterResponse.status, await laterResponse.clone().text()).toBe(200);
 
   const replayResponse = await putPolicy(prepared);
   expect(replayResponse.status).toBe(200);
@@ -191,7 +206,7 @@ test("an exact compound policy replay is idempotent", async () => {
   expect(
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
-  ).toBe(committedKek?.id);
+  ).toBe(laterRekey.kekState.containerKeyEpochId);
 }, 15_000);
 
 test("same-key-epoch policy successors refresh grants without rekeying", async () => {
