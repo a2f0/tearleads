@@ -66,6 +66,7 @@ export function createOrganizationMutationsRoute({
       deleteOrganizationGroupOperation.params,
       "Invalid organization group route",
     ),
+    jsonRequestValidator(deleteOrganizationGroupOperation.body),
     async (c) => {
       const { groupId, organizationId } = c.req.valid("param");
 
@@ -76,6 +77,7 @@ export function createOrganizationMutationsRoute({
             organizationId,
             groupId,
             c.get("session").userId,
+            c.req.valid("json"),
           ),
         );
       } catch (error) {

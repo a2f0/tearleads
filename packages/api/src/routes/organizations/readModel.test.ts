@@ -10,7 +10,10 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
-import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import {
+  createGroupRequest,
+  deleteGroupRequest,
+} from "../../../test/helpers/organizationGroup";
 import {
   addMemberGroupUser,
   removeMemberGroupUser,
@@ -201,10 +204,11 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   expect(afterExactReplay.lanes).toEqual({});
 
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${groupId}`,
-    { method: "DELETE", headers: { Authorization: `Bearer ${actor.token}` } },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor,
+    groupId,
+    organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
   const deletedDeltaResponse = await routeApp.request(
     readModelPath(organizationId, changed.nextCursor),
@@ -359,13 +363,11 @@ test("membership deltas coalesce transitions to final entity state", async () =>
     },
   );
   expect(createResponse.status).toBe(200);
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${deletedGroupId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${owner.token}` },
-    },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor: owner,
+    groupId: deletedGroupId,
+    organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
 
   const deltaResponse = await routeApp.request(

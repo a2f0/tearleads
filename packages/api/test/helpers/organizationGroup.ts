@@ -10,8 +10,12 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
+import { routeApp } from "../../src/routeApp";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
-import { withOrganizationGroupDirectoryPolicy } from "./principalPolicy";
+import {
+  buildOrganizationGroupDeletionRequest,
+  withOrganizationGroupDirectoryPolicy,
+} from "./principalPolicy";
 import {
   signPrincipalStateBundle,
   toPrincipalStateExternalAuthority,
@@ -104,4 +108,22 @@ export async function createGroupRequest(input: {
       },
     },
   });
+}
+
+export async function deleteGroupRequest(input: {
+  actor: TestUser;
+  groupId: string;
+  organizationId: string;
+}) {
+  return routeApp.request(
+    `/organizations/${input.organizationId}/groups/${input.groupId}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.actor.token}`,
+      },
+      body: JSON.stringify(await buildOrganizationGroupDeletionRequest(input)),
+    },
+  );
 }

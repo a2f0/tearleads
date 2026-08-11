@@ -139,7 +139,7 @@ async function createMutationApi(
   fixture: GroupPolicyFixture,
   currentPolicy: PrincipalPolicyBundleResponse,
 ) {
-  const calls = { putPolicy: 0 };
+  const calls = {};
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     fixture.organizationId,
     await buildInitialOrganizationPolicyRequest({
@@ -172,10 +172,6 @@ async function createMutationApi(
         }
         expect(principalId).toBe(currentPolicy.currentState.principalId);
         return currentPolicy;
-      },
-      putPrincipalPolicy: async () => {
-        calls.putPolicy += 1;
-        throw new Error("Unexpected principal policy mutation");
       },
     };
 
@@ -234,7 +230,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
 
   expect(resolvedUserIds).toContain(targetUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putPolicy: 0 });
+  expect(calls).toEqual({});
 });
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
@@ -314,5 +310,5 @@ test("group removal propagates remaining identity equivocation before rekey or m
 
   expect(resolvedUserIds).toContain(remainingUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putPolicy: 0 });
+  expect(calls).toEqual({});
 });

@@ -10,6 +10,7 @@ import {
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupWithPolicyRequestSchema,
+  DeleteOrganizationGroupRequestSchema,
   isCreateOrganizationGroupWithPolicyRequest,
   isCreateOrganizationRequest,
   isUpdateOrganizationProfileRequest,
@@ -162,6 +163,7 @@ export const createOrganizationGroupOperation = defineJsonOperation({
 
 export const deleteOrganizationGroupOperation = defineJsonOperation({
   auth: "session",
+  body: DeleteOrganizationGroupRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
     401: ErrorResponseSchema,
@@ -179,6 +181,7 @@ export const deleteOrganizationGroupOperation = defineJsonOperation({
   responses: {
     200: DeleteOrganizationGroupResponseSchema,
   },
+  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
 
 export const listOrganizationGroupMembersOperation = defineJsonOperation({

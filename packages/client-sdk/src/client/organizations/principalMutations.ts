@@ -3,6 +3,7 @@ import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVer
 import {
   addOrganizationGroupUser,
   createOrganizationGroup,
+  deleteOrganizationGroup,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   rotateOrganizationGroupForAccessSetShrink,
@@ -148,6 +149,30 @@ export function createGroupForOrganization(input: {
         creatorEncapsulationKeyPair: requireEncapsulationKeyPair(input.runtime),
         execSql: input.runtime.infra.execSql,
         name: input.name,
+        resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+        ...signingContext,
+      }),
+  );
+}
+
+export function deleteGroupForOrganization(input: {
+  readonly groupId: string;
+  readonly runtime: InternalWorkflowRuntimeInput;
+}) {
+  const signingContext = requireSigningContext(input.runtime);
+  return runWithSecurityIncidentReporting(
+    input.runtime.util.reportSecurityIncident,
+    {
+      objectId: input.groupId,
+      objectKind: "principal",
+      operation: "group.delete",
+      organizationId: signingContext.organizationId,
+    },
+    () =>
+      deleteOrganizationGroup({
+        apiClient: input.runtime.apiClient,
+        execSql: input.runtime.infra.execSql,
+        groupId: input.groupId,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
       }),

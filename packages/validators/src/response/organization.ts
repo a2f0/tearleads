@@ -129,6 +129,7 @@ export type CreateOrganizationGroupResponse = z.infer<
 export const DeleteOrganizationGroupResponseSchema = loosePlainObject({
   deleted: z.literal(true),
   groupId: z.string(),
+  organizationPolicy: PrincipalPolicyMutationResponseSchema,
   organizationId: z.string(),
 });
 

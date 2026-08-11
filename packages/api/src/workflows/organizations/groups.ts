@@ -1,11 +1,13 @@
 import type {
   ApiDatabase,
   DatabaseSession,
+  DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import {
   groups as groupsTable,
   organizations,
 } from "@tearleads/api-shared/schema";
+import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
@@ -20,7 +22,15 @@ import {
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
-import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
+import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
+import {
+  assertPutPrincipalPolicyRouteBinding,
+  putPrincipalPolicyInTransaction,
+} from "../principals/putPrincipalPolicy";
+import {
+  PrincipalPolicyError,
+  toPrincipalPolicyError,
+} from "../principals/shared";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import {
@@ -77,60 +87,125 @@ export async function loadOrganizationGroupsInTransaction(input: {
   };
 }
 
+function assertDeleteOrganizationGroupPolicyBinding(input: {
+  readonly organizationId: string;
+  readonly request: DeleteOrganizationGroupRequest;
+  readonly sessionUserId: string;
+}): void {
+  try {
+    assertPutPrincipalPolicyRouteBinding({
+      ...input.request.organizationPolicy,
+      expectedPrincipalId: input.organizationId,
+      expectedPrincipalType: "organization",
+      requesterUserId: input.sessionUserId,
+    });
+  } catch (error) {
+    if (error instanceof PrincipalPolicyError) {
+      throw new OrganizationManagerError(error.message, error.status);
+    }
+    throw error;
+  }
+}
+
+async function deleteOrganizationGroupInTransaction(input: {
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly request: DeleteOrganizationGroupRequest;
+  readonly sessionUserId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<DeleteOrganizationGroupResponse> {
+  assertDeleteOrganizationGroupPolicyBinding({
+    organizationId: input.organizationId,
+    request: input.request,
+    sessionUserId: input.sessionUserId,
+  });
+  await lockOrganizationGroupMutationInTransaction(
+    input.tx,
+    input.organizationId,
+    input.groupId,
+  );
+  await lockGroupReferenceExclusiveInTransaction(input.tx, input.groupId);
+  await requireSerializedOrganizationMutationAccess({
+    organizationId: input.organizationId,
+    requireAdmin: true,
+    tx: input.tx,
+    userId: input.sessionUserId,
+  });
+  await assertOrganizationCanSync(
+    input.tx,
+    input.organizationId,
+    input.sessionUserId,
+  );
+  await requireDeletableOrganizationGroup({
+    executor: input.tx,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+  });
+  await requireOrganizationGroupWithoutDeleteBlockers({
+    executor: input.tx,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+  });
+  await deleteOrganizationGroupRows({
+    executor: input.tx,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+  });
+  const organization = await putPrincipalPolicyInTransaction(input.tx, {
+    ...input.request.organizationPolicy,
+    expectedPrincipalId: input.organizationId,
+    expectedPrincipalType: "organization",
+    requesterUserId: input.sessionUserId,
+  });
+  for (const lane of ["groups", "groupMemberships"] as const) {
+    await appendOrganizationReadModelChangeInTransaction(input.tx, {
+      organizationId: input.organizationId,
+      lane,
+      entityId: input.groupId,
+      operation: "delete",
+    });
+  }
+  return {
+    deleted: true,
+    groupId: input.groupId,
+    organizationPolicy: organization.policy,
+    organizationId: input.organizationId,
+  };
+}
+
 export async function runDeleteOrganizationGroupWorkflow(
   db: ApiDatabase,
   organizationId: string,
   groupId: string,
   sessionUserId: string,
+  input: DeleteOrganizationGroupRequest,
 ): Promise<DeleteOrganizationGroupResponse> {
-  return withOrganizationAdminTransaction(
-    db,
-    { organizationId, userId: sessionUserId },
-    async (tx) => {
-      await lockPrincipalMutationInTransaction(tx, "group", groupId);
-      await lockGroupReferenceExclusiveInTransaction(tx, groupId);
-      await requireSerializedOrganizationMutationAccess({
-        organizationId,
-        requireAdmin: true,
-        tx,
-        userId: sessionUserId,
-      });
-      await assertOrganizationCanSync(tx, organizationId, sessionUserId);
-      await requireDeletableOrganizationGroup({
-        executor: tx,
-        groupId,
-        organizationId,
-      });
-      await requireOrganizationGroupWithoutDeleteBlockers({
-        executor: tx,
-        groupId,
-        organizationId,
-      });
-      await deleteOrganizationGroupRows({
-        executor: tx,
-        groupId,
-        organizationId,
-      });
-      await appendOrganizationReadModelChangeInTransaction(tx, {
-        organizationId,
-        lane: "groups",
-        entityId: groupId,
-        operation: "delete",
-      });
-      await appendOrganizationReadModelChangeInTransaction(tx, {
-        organizationId,
-        lane: "groupMemberships",
-        entityId: groupId,
-        operation: "delete",
-      });
-
-      return {
-        deleted: true,
-        groupId,
-        organizationId,
-      };
-    },
-  );
+  try {
+    return await withOrganizationAdminTransaction(
+      db,
+      { organizationId, userId: sessionUserId },
+      (tx) =>
+        deleteOrganizationGroupInTransaction({
+          groupId,
+          organizationId,
+          request: input,
+          sessionUserId,
+          tx,
+        }),
+    );
+  } catch (error) {
+    const policyError =
+      error instanceof PrincipalPolicyError
+        ? error
+        : toPrincipalPolicyError(error);
+    if (policyError) {
+      throw new OrganizationManagerError(
+        policyError.message,
+        policyError.status,
+      );
+    }
+    throw error;
+  }
 }
 
 async function listOrganizationGroupSummariesInTransaction(input: {

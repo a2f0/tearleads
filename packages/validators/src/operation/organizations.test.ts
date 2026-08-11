@@ -7,6 +7,7 @@ import {
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupWithPolicyRequestSchema,
+  DeleteOrganizationGroupRequestSchema,
   OrganizationProvisioningRequestSchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
@@ -202,11 +203,13 @@ test("organization management operations own their HTTP contracts", () => {
   });
   expect(deleteOrganizationGroupOperation).toMatchObject({
     auth: "session",
+    body: DeleteOrganizationGroupRequestSchema,
     failureStatuses: [400, 401, 402, 403, 404, 409, 500],
     id: "organizations.groups.delete",
     method: "DELETE",
     params: OrganizationGroupPathParamsSchema,
     responses: { 200: DeleteOrganizationGroupResponseSchema },
+    runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
   });
   expect(listOrganizationGroupMembersOperation).toMatchObject({
     auth: "session",

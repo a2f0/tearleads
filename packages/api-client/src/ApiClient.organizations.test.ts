@@ -219,6 +219,10 @@ testApiClient(
           return HttpResponse.json({
             deleted: true,
             groupId: "group-1",
+            organizationPolicy: {
+              ...createPrincipalPolicyBundleResponse(),
+              containerMutations: [],
+            },
             organizationId: "org-1",
           });
         }
@@ -264,6 +268,7 @@ testApiClient(
       await client.deleteOrganizationGroup(
         dataUsageOrganizationId,
         organizationGroupId,
+        { organizationPolicy: policyRequest },
       ),
     ).not.toBeNull();
     expect(
@@ -308,7 +313,7 @@ testApiClient(
         method: "POST",
       },
       {
-        body: "",
+        body: JSON.stringify({ organizationPolicy: policyRequest }),
         input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups/${organizationGroupId}`,
         method: "DELETE",
       },

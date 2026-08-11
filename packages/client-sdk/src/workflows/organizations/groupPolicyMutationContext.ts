@@ -60,11 +60,6 @@ export interface PrincipalPolicyReadWriteApi {
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  putPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-    input: PutPrincipalPolicyRequest,
-  ) => Promise<PrincipalPolicyMutationResponse | null>;
 }
 
 export interface OrganizationPrincipalPolicyApi

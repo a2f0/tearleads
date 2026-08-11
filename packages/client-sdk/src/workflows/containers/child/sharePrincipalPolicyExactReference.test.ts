@@ -15,7 +15,9 @@ import { buildInitialGroupPolicyRequest } from "../../organizations/principalPol
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { loadVerifiedGroupSharePrincipalPolicy } from "./sharePrincipalPolicy";
 
-async function createDirectoryFixture(input: { successor?: boolean } = {}) {
+async function createDirectoryFixture(
+  input: { includeTargetHead?: boolean; successor?: boolean } = {},
+) {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: "organization-1",
     userId: "signer-user-1",
@@ -34,8 +36,10 @@ async function createDirectoryFixture(input: { successor?: boolean } = {}) {
       },
     });
   const initialAdmin = await buildGroup("admins-group", "Admins");
-  const initialTarget = await buildGroup("group-1", "Members");
+  const initialMember = await buildGroup("members-group", "Members");
+  const initialTarget = await buildGroup("group-1", "Operators");
   const adminPolicy = await policyBundleFromInitialRequest(initialAdmin);
+  const memberPolicy = await policyBundleFromInitialRequest(initialMember);
   const predecessor = await policyBundleFromInitialRequest(initialTarget);
   const targetPolicy = input.successor
     ? await createSuccessorGroupPolicyBundle({
@@ -53,9 +57,12 @@ async function createDirectoryFixture(input: { successor?: boolean } = {}) {
     encapsulationPublicKey: memberKem.publicKey,
     groupHeads: [
       principalPolicyHead(adminPolicy),
-      principalPolicyHead(targetPolicy),
+      principalPolicyHead(memberPolicy),
+      ...(input.includeTargetHead === false
+        ? []
+        : [principalPolicyHead(targetPolicy)]),
     ],
-    memberGroupId: "group-1",
+    memberGroupId: "members-group",
     organizationId: author.organizationId,
     signingKeyPair: {
       signingPrivateKey: author.signerPrivateKey,
@@ -86,6 +93,9 @@ async function createDirectoryFixture(input: { successor?: boolean } = {}) {
     }
     if (principalId === "admins-group") {
       return adminPolicy;
+    }
+    if (principalId === "members-group") {
+      return memberPolicy;
     }
     onTargetGet();
     return targetPolicy;
@@ -227,6 +237,30 @@ test("a cold client rejects a stale group head served below the signed organizat
     ).rejects.toThrow(
       "group policy does not match the signed organization directory",
     );
+  } finally {
+    close();
+  }
+});
+
+test("a cold client rejects a deleted group replayed outside the signed organization directory", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-share-policy-signed-directory-deleted",
+  );
+  try {
+    const fixture = await createDirectoryFixture({ includeTargetHead: false });
+
+    await expect(
+      loadVerifiedGroupSharePrincipalPolicy({
+        apiClient: createMockApiClient({
+          getCurrentPrincipalPolicy: (principalType, principalId) =>
+            fixture.load(principalType, principalId, () => undefined),
+        }),
+        execSql,
+        groupId: fixture.targetPolicy.currentState.principalId,
+        organizationId: fixture.organizationId,
+        resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      }),
+    ).rejects.toThrow("absent from the signed organization directory");
   } finally {
     close();
   }

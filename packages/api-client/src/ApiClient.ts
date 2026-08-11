@@ -9,6 +9,7 @@ import type {
   ContainerMutationRequest,
   CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
+  DeleteOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
@@ -1017,11 +1018,16 @@ export class ApiClient {
     );
   }
 
-  deleteOrganizationGroup(organizationId: string, groupId: string) {
+  deleteOrganizationGroup(
+    organizationId: string,
+    groupId: string,
+    input: DeleteOrganizationGroupRequest,
+  ) {
     return this.request(
       groupDelete.path(organizationId, groupId),
       groupDelete.isResponse,
       groupDelete.method,
+      JSON.stringify(input),
     ).finally(() => this.clearWriterProjectionCaches());
   }
 

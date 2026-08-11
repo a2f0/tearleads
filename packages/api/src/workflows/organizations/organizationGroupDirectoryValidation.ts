@@ -1,8 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import {
-  groups,
-  organizationGroupTombstones,
-} from "@tearleads/api-shared/schema";
+import { groups } from "@tearleads/api-shared/schema";
 import type { PrincipalProjectionMember } from "@tearleads/crypto";
 import { asc, eq } from "drizzle-orm";
 import { getCurrentPrincipalStates } from "../../access/read/principalStateStore";
@@ -91,16 +88,9 @@ export async function assertOrganizationGroupDirectoryCurrent(input: {
     );
   }
 
-  const tombstones = await input.executor
-    .select({ groupId: organizationGroupTombstones.groupId })
-    .from(organizationGroupTombstones)
-    .where(
-      eq(organizationGroupTombstones.organizationId, input.organizationId),
-    );
-  const allowedIds = new Set([
-    ...authoritativeHeads.map((head) => head.principalId),
-    ...tombstones.map(({ groupId }) => groupId),
-  ]);
+  const allowedIds = new Set(
+    authoritativeHeads.map((head) => head.principalId),
+  );
   if (input.directory.some((head) => !allowedIds.has(head.principalId))) {
     throw new PrincipalPolicyError(
       "Organization authority descriptor contains an unknown group",

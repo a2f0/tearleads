@@ -38,6 +38,14 @@ export type CreateOrganizationGroupWithPolicyRequest = z.infer<
   typeof CreateOrganizationGroupWithPolicyRequestSchema
 >;
 
+export const DeleteOrganizationGroupRequestSchema = loosePlainObject({
+  organizationPolicy: PutPrincipalPolicyRequestSchema,
+});
+
+export type DeleteOrganizationGroupRequest = z.infer<
+  typeof DeleteOrganizationGroupRequestSchema
+>;
+
 export const OrganizationReadModelQuerySchema = loosePlainObject({
   cursor: z.string().optional(),
 });
@@ -73,6 +81,12 @@ export function isCreateOrganizationGroupWithPolicyRequest(
 ): value is CreateOrganizationGroupWithPolicyRequest {
   return CreateOrganizationGroupWithPolicyRequestSchema.safeParse(value)
     .success;
+}
+
+export function isDeleteOrganizationGroupRequest(
+  value: unknown,
+): value is DeleteOrganizationGroupRequest {
+  return DeleteOrganizationGroupRequestSchema.safeParse(value).success;
 }
 
 export function isUpdateOrganizationRosterEntryRequest(

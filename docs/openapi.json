@@ -33942,6 +33942,37 @@
             },
             "description": "Failure JSON response"
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "billing_inactive",
+                        "sync_seat_unassigned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "organizationId",
+                    "reason"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -34106,6 +34137,589 @@
             "style": "simple"
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationPolicy": {
+                    "type": "object",
+                    "properties": {
+                      "containerMutations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "body": {},
+                            "containerManifestHistory": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifest": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "state": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "event",
+                                  "manifest",
+                                  "manifestHash",
+                                  "state"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "destinationParentContainerPath": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifest": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "state": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "event",
+                                  "manifest",
+                                  "manifestHash",
+                                  "state"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "event": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "expectedManifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "keyEpoch": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "keyring": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "containerId": {
+                                      "type": "string"
+                                    },
+                                    "containerKeyEpochId": {
+                                      "type": "string"
+                                    },
+                                    "iv": {
+                                      "maxLength": 16,
+                                      "type": "string"
+                                    },
+                                    "sealed": {
+                                      "maxLength": 5592352,
+                                      "type": "string"
+                                    },
+                                    "sealingSuite": {
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "const": 1,
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "containerId",
+                                    "containerKeyEpochId",
+                                    "iv",
+                                    "sealed",
+                                    "sealingSuite",
+                                    "version"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "manifest": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "parentContainerPath": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifest": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "state": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "event",
+                                  "manifest",
+                                  "manifestHash",
+                                  "state"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "parentKekState": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "predecessorBridge": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "previousContainerPath": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifest": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "state": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "event",
+                                  "manifest",
+                                  "manifestHash",
+                                  "state"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "previousManifest": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "event": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "manifest": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    },
+                                    "manifestHash": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "state": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    }
+                                  },
+                                  "required": [
+                                    "event",
+                                    "manifest",
+                                    "manifestHash",
+                                    "state"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "principalPolicies": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "userRecipientKeys": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "wraps": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            }
+                          },
+                          "required": [
+                            "body",
+                            "event",
+                            "expectedManifestHash",
+                            "keyEpoch",
+                            "keyring",
+                            "manifest",
+                            "predecessorBridge",
+                            "principalPolicies",
+                            "wraps"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
+                      "encryptedPayload": {
+                        "type": "object",
+                        "properties": {
+                          "cipherSuite": {
+                            "type": "string",
+                            "const": "aes-256-gcm"
+                          },
+                          "ciphertext": {
+                            "type": "string"
+                          },
+                          "ciphertextHash": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "cipherSuite",
+                          "ciphertext",
+                          "ciphertextHash"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "grants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "accessLevel": {
+                              "type": "string",
+                              "enum": [
+                                "admin",
+                                "read",
+                                "write"
+                              ]
+                            },
+                            "containerId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "accessLevel",
+                            "containerId"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
+                      "memberEnvelopes": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kemCipherText": {
+                              "type": "string"
+                            },
+                            "memberKeyFingerprint": {
+                              "type": "string"
+                            },
+                            "userId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "wrappedKey": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kemCipherText",
+                            "memberKeyFingerprint",
+                            "userId",
+                            "wrappedKey"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
+                      "projection": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "member",
+                                "admin"
+                              ]
+                            },
+                            "userId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "role",
+                            "userId"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      },
+                      "state": {
+                        "type": "object",
+                        "properties": {
+                          "encapsulationPublicKey": {
+                            "type": "string"
+                          },
+                          "externalAuthority": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "keyEpoch": {
+                                    "maximum": 1.7976931348623157e+308,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "keyFingerprint": {
+                                    "type": "string"
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "principalType": {
+                                    "type": "string",
+                                    "const": "group"
+                                  },
+                                  "stateHash": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 1.7976931348623157e+308,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "keyEpoch",
+                                  "keyFingerprint",
+                                  "principalId",
+                                  "principalType",
+                                  "stateHash",
+                                  "version"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "grantCount": {
+                            "maximum": 1.7976931348623157e+308,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "grantRoot": {
+                            "type": "string"
+                          },
+                          "keyEpoch": {
+                            "type": "number",
+                            "minimum": -1.7976931348623157e+308,
+                            "maximum": 1.7976931348623157e+308
+                          },
+                          "keyFingerprint": {
+                            "type": "string"
+                          },
+                          "memberCount": {
+                            "maximum": 1.7976931348623157e+308,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "memberEnvelopesRoot": {
+                            "type": "string"
+                          },
+                          "membershipMode": {
+                            "type": "string",
+                            "const": "projection"
+                          },
+                          "membershipRoot": {
+                            "type": "string"
+                          },
+                          "payloadCiphertextHash": {
+                            "type": "string"
+                          },
+                          "prevStateHash": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "principalId": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                            "type": "string"
+                          },
+                          "principalType": {
+                            "type": "string",
+                            "enum": [
+                              "group",
+                              "organization"
+                            ]
+                          },
+                          "projectionRoot": {
+                            "type": "string"
+                          },
+                          "signature": {
+                            "type": "string"
+                          },
+                          "signedAt": {
+                            "type": "string"
+                          },
+                          "signerUserId": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                            "type": "string"
+                          },
+                          "signerUserKeyFingerprint": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "maximum": 16384,
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "encapsulationPublicKey",
+                          "externalAuthority",
+                          "grantCount",
+                          "grantRoot",
+                          "keyEpoch",
+                          "keyFingerprint",
+                          "memberCount",
+                          "memberEnvelopesRoot",
+                          "membershipMode",
+                          "membershipRoot",
+                          "payloadCiphertextHash",
+                          "prevStateHash",
+                          "principalId",
+                          "principalType",
+                          "projectionRoot",
+                          "signature",
+                          "signedAt",
+                          "signerUserId",
+                          "signerUserKeyFingerprint",
+                          "version"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "encryptedPayload",
+                      "grants",
+                      "memberEnvelopes",
+                      "projection",
+                      "state"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "organizationPolicy"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -34120,6 +34734,872 @@
                     "groupId": {
                       "type": "string"
                     },
+                    "organizationPolicy": {
+                      "type": "object",
+                      "properties": {
+                        "currentGrants": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "accessLevel": {
+                                "type": "string",
+                                "enum": [
+                                  "admin",
+                                  "read",
+                                  "write"
+                                ]
+                              },
+                              "containerId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "accessLevel",
+                              "containerId"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "currentMemberEnvelopes": {
+                          "type": "object",
+                          "properties": {
+                            "envelopes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kemCipherText": {
+                                    "type": "string"
+                                  },
+                                  "memberKeyFingerprint": {
+                                    "type": "string"
+                                  },
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "wrappedKey": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kemCipherText",
+                                  "memberKeyFingerprint",
+                                  "userId",
+                                  "wrappedKey"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "epoch": {
+                              "type": "number",
+                              "minimum": -1.7976931348623157e+308,
+                              "maximum": 1.7976931348623157e+308
+                            },
+                            "principalId": {
+                              "type": "string"
+                            },
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "stateHash": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "envelopes",
+                            "epoch",
+                            "principalId",
+                            "principalType",
+                            "stateHash"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "currentPayload": {
+                          "type": "object",
+                          "properties": {
+                            "cipherSuite": {
+                              "type": "string",
+                              "const": "aes-256-gcm"
+                            },
+                            "ciphertext": {
+                              "type": "string"
+                            },
+                            "ciphertextHash": {
+                              "type": "string"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "principalId": {
+                              "type": "string"
+                            },
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "stateHash": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "cipherSuite",
+                            "ciphertext",
+                            "ciphertextHash",
+                            "createdAt",
+                            "principalId",
+                            "principalType",
+                            "stateHash"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "currentProjection": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "member",
+                                  "admin"
+                                ]
+                              },
+                              "userId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "role",
+                              "userId"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "currentState": {
+                          "type": "object",
+                          "properties": {
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "encapsulationPublicKey": {
+                              "type": "string"
+                            },
+                            "externalAuthority": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "keyEpoch": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    },
+                                    "keyFingerprint": {
+                                      "type": "string"
+                                    },
+                                    "principalId": {
+                                      "type": "string"
+                                    },
+                                    "principalType": {
+                                      "type": "string",
+                                      "const": "group"
+                                    },
+                                    "stateHash": {
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 1.7976931348623157e+308,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "keyEpoch",
+                                    "keyFingerprint",
+                                    "principalId",
+                                    "principalType",
+                                    "stateHash",
+                                    "version"
+                                  ],
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "grantCount": {
+                              "maximum": 1.7976931348623157e+308,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "grantRoot": {
+                              "type": "string"
+                            },
+                            "keyEpoch": {
+                              "type": "number",
+                              "minimum": -1.7976931348623157e+308,
+                              "maximum": 1.7976931348623157e+308
+                            },
+                            "keyFingerprint": {
+                              "type": "string"
+                            },
+                            "memberCount": {
+                              "maximum": 1.7976931348623157e+308,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "memberEnvelopesRoot": {
+                              "type": "string"
+                            },
+                            "membershipMode": {
+                              "type": "string",
+                              "const": "projection"
+                            },
+                            "membershipRoot": {
+                              "type": "string"
+                            },
+                            "payloadCiphertextHash": {
+                              "type": "string"
+                            },
+                            "prevStateHash": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "principalId": {
+                              "type": "string"
+                            },
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "projectionRoot": {
+                              "type": "string"
+                            },
+                            "signature": {
+                              "type": "string"
+                            },
+                            "signedAt": {
+                              "type": "string"
+                            },
+                            "signerUserId": {
+                              "type": "string"
+                            },
+                            "signerUserKeyFingerprint": {
+                              "type": "string"
+                            },
+                            "stateHash": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "number",
+                              "minimum": -1.7976931348623157e+308,
+                              "maximum": 1.7976931348623157e+308
+                            }
+                          },
+                          "required": [
+                            "createdAt",
+                            "encapsulationPublicKey",
+                            "externalAuthority",
+                            "grantCount",
+                            "grantRoot",
+                            "keyEpoch",
+                            "keyFingerprint",
+                            "memberCount",
+                            "memberEnvelopesRoot",
+                            "membershipMode",
+                            "membershipRoot",
+                            "payloadCiphertextHash",
+                            "prevStateHash",
+                            "principalId",
+                            "principalType",
+                            "projectionRoot",
+                            "signature",
+                            "signedAt",
+                            "signerUserId",
+                            "signerUserKeyFingerprint",
+                            "stateHash",
+                            "version"
+                          ],
+                          "additionalProperties": {}
+                        },
+                        "previousStates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "grants": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "accessLevel": {
+                                      "type": "string",
+                                      "enum": [
+                                        "admin",
+                                        "read",
+                                        "write"
+                                      ]
+                                    },
+                                    "containerId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "accessLevel",
+                                    "containerId"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "projection": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "member",
+                                        "admin"
+                                      ]
+                                    },
+                                    "userId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "userId"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {
+                                  "createdAt": {
+                                    "type": "string"
+                                  },
+                                  "encapsulationPublicKey": {
+                                    "type": "string"
+                                  },
+                                  "externalAuthority": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "keyEpoch": {
+                                            "exclusiveMinimum": 0,
+                                            "maximum": 1.7976931348623157e+308,
+                                            "type": "integer"
+                                          },
+                                          "keyFingerprint": {
+                                            "type": "string"
+                                          },
+                                          "principalId": {
+                                            "type": "string"
+                                          },
+                                          "principalType": {
+                                            "type": "string",
+                                            "const": "group"
+                                          },
+                                          "stateHash": {
+                                            "type": "string"
+                                          },
+                                          "version": {
+                                            "exclusiveMinimum": 0,
+                                            "maximum": 1.7976931348623157e+308,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "keyEpoch",
+                                          "keyFingerprint",
+                                          "principalId",
+                                          "principalType",
+                                          "stateHash",
+                                          "version"
+                                        ],
+                                        "additionalProperties": {}
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "grantCount": {
+                                    "maximum": 1.7976931348623157e+308,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "grantRoot": {
+                                    "type": "string"
+                                  },
+                                  "keyEpoch": {
+                                    "type": "number",
+                                    "minimum": -1.7976931348623157e+308,
+                                    "maximum": 1.7976931348623157e+308
+                                  },
+                                  "keyFingerprint": {
+                                    "type": "string"
+                                  },
+                                  "memberCount": {
+                                    "maximum": 1.7976931348623157e+308,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "memberEnvelopesRoot": {
+                                    "type": "string"
+                                  },
+                                  "membershipMode": {
+                                    "type": "string",
+                                    "const": "projection"
+                                  },
+                                  "membershipRoot": {
+                                    "type": "string"
+                                  },
+                                  "payloadCiphertextHash": {
+                                    "type": "string"
+                                  },
+                                  "prevStateHash": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "type": "string"
+                                  },
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "projectionRoot": {
+                                    "type": "string"
+                                  },
+                                  "signature": {
+                                    "type": "string"
+                                  },
+                                  "signedAt": {
+                                    "type": "string"
+                                  },
+                                  "signerUserId": {
+                                    "type": "string"
+                                  },
+                                  "signerUserKeyFingerprint": {
+                                    "type": "string"
+                                  },
+                                  "stateHash": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "type": "number",
+                                    "minimum": -1.7976931348623157e+308,
+                                    "maximum": 1.7976931348623157e+308
+                                  }
+                                },
+                                "required": [
+                                  "createdAt",
+                                  "encapsulationPublicKey",
+                                  "externalAuthority",
+                                  "grantCount",
+                                  "grantRoot",
+                                  "keyEpoch",
+                                  "keyFingerprint",
+                                  "memberCount",
+                                  "memberEnvelopesRoot",
+                                  "membershipMode",
+                                  "membershipRoot",
+                                  "payloadCiphertextHash",
+                                  "prevStateHash",
+                                  "principalId",
+                                  "principalType",
+                                  "projectionRoot",
+                                  "signature",
+                                  "signedAt",
+                                  "signerUserId",
+                                  "signerUserKeyFingerprint",
+                                  "stateHash",
+                                  "version"
+                                ],
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "grants",
+                              "projection",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "containerMutations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "accessManifest": {
+                                "type": "object",
+                                "properties": {
+                                  "event": {
+                                    "type": "object",
+                                    "properties": {
+                                      "body": {},
+                                      "event": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": {}
+                                      },
+                                      "eventHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "body",
+                                      "event",
+                                      "eventHash"
+                                    ],
+                                    "additionalProperties": {}
+                                  },
+                                  "manifest": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "manifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "state": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "event",
+                                  "manifest",
+                                  "manifestHash",
+                                  "state"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "containerId": {
+                                "type": "string"
+                              },
+                              "containerKek": {
+                                "type": "object",
+                                "properties": {
+                                  "accessManifestHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerId": {
+                                    "type": "string"
+                                  },
+                                  "containerKeyEpoch": {
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1.7976931348623157e+308,
+                                    "type": "integer"
+                                  },
+                                  "containerKeyEpochId": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "containerManifestHistory": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "event": {
+                                          "type": "object",
+                                          "properties": {
+                                            "body": {},
+                                            "event": {
+                                              "type": "object",
+                                              "properties": {},
+                                              "additionalProperties": {}
+                                            },
+                                            "eventHash": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          },
+                                          "required": [
+                                            "body",
+                                            "event",
+                                            "eventHash"
+                                          ],
+                                          "additionalProperties": {}
+                                        },
+                                        "manifest": {
+                                          "type": "object",
+                                          "properties": {},
+                                          "additionalProperties": {}
+                                        },
+                                        "manifestHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "state": {
+                                          "type": "object",
+                                          "properties": {},
+                                          "additionalProperties": {}
+                                        }
+                                      },
+                                      "required": [
+                                        "event",
+                                        "manifest",
+                                        "manifestHash",
+                                        "state"
+                                      ],
+                                      "additionalProperties": {}
+                                    }
+                                  },
+                                  "keyEpoch": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {}
+                                  },
+                                  "keyEpochHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "keyring": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "containerId": {
+                                            "type": "string"
+                                          },
+                                          "containerKeyEpochId": {
+                                            "type": "string"
+                                          },
+                                          "iv": {
+                                            "maxLength": 16,
+                                            "type": "string"
+                                          },
+                                          "sealed": {
+                                            "maxLength": 5592352,
+                                            "type": "string"
+                                          },
+                                          "sealingSuite": {
+                                            "type": "string"
+                                          },
+                                          "version": {
+                                            "const": 1,
+                                            "type": "number"
+                                          }
+                                        },
+                                        "required": [
+                                          "containerId",
+                                          "containerKeyEpochId",
+                                          "iv",
+                                          "sealed",
+                                          "sealingSuite",
+                                          "version"
+                                        ],
+                                        "additionalProperties": {}
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "keyTargetHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "parentContainerKeyEpochId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "recipientTargets": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    }
+                                  },
+                                  "wraps": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {},
+                                      "additionalProperties": {}
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "accessManifestHash",
+                                  "containerId",
+                                  "containerKeyEpoch",
+                                  "containerKeyEpochId",
+                                  "containerManifestHistory",
+                                  "keyEpoch",
+                                  "keyEpochHash",
+                                  "keyring",
+                                  "keyTargetHash",
+                                  "parentContainerKeyEpochId",
+                                  "recipientTargets",
+                                  "wraps"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "manifestHead": {
+                                "type": "object",
+                                "properties": {
+                                  "epoch": {
+                                    "type": "number",
+                                    "minimum": -1.7976931348623157e+308,
+                                    "maximum": 1.7976931348623157e+308
+                                  },
+                                  "manifestHash": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "epoch",
+                                  "manifestHash"
+                                ],
+                                "additionalProperties": {}
+                              },
+                              "organizationId": {
+                                "type": "string"
+                              },
+                              "parentId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "referencedPrincipalHeads": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "keyEpoch": {
+                                      "type": "number",
+                                      "minimum": -1.7976931348623157e+308,
+                                      "maximum": 1.7976931348623157e+308
+                                    },
+                                    "keyFingerprint": {
+                                      "type": "string"
+                                    },
+                                    "principalId": {
+                                      "type": "string"
+                                    },
+                                    "principalType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "group",
+                                        "organization"
+                                      ]
+                                    },
+                                    "stateHash": {
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "type": "number",
+                                      "minimum": -1.7976931348623157e+308,
+                                      "maximum": 1.7976931348623157e+308
+                                    }
+                                  },
+                                  "required": [
+                                    "keyEpoch",
+                                    "keyFingerprint",
+                                    "principalId",
+                                    "principalType",
+                                    "stateHash",
+                                    "version"
+                                  ],
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "systemSlot": {
+                                "anyOf": [
+                                  {
+                                    "pattern": "^sys_v1_[A-Za-z0-9_-]{43}$",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "accessManifest",
+                              "containerId",
+                              "containerKek",
+                              "createdAt",
+                              "manifestHead",
+                              "organizationId",
+                              "parentId",
+                              "referencedPrincipalHeads",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "currentGrants",
+                        "currentMemberEnvelopes",
+                        "currentPayload",
+                        "currentProjection",
+                        "currentState",
+                        "previousStates",
+                        "containerMutations"
+                      ],
+                      "additionalProperties": {}
+                    },
                     "organizationId": {
                       "type": "string"
                     }
@@ -34127,6 +35607,7 @@
                   "required": [
                     "deleted",
                     "groupId",
+                    "organizationPolicy",
                     "organizationId"
                   ],
                   "additionalProperties": {}
@@ -34284,6 +35765,12 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "a container response keyring is null exactly for container key epoch 1",
+            "id": "response.organization-provisioning-container-keyring"
           }
         ]
       }

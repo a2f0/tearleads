@@ -9,7 +9,10 @@ import { getCurrentPrincipalState } from "../../access/read/principalStateStore"
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";
 import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
-import { putPrincipalPolicyInTransaction } from "../principals/putPrincipalPolicy";
+import {
+  assertPutPrincipalPolicyRouteBinding,
+  putPrincipalPolicyInTransaction,
+} from "../principals/putPrincipalPolicy";
 import {
   PrincipalPolicyError,
   toPrincipalPolicyError,
@@ -36,6 +39,25 @@ function toPrincipalWriteError(
   return policyError
     ? new OrganizationManagerError(policyError.message, policyError.status)
     : null;
+}
+
+function assertOrganizationPolicyRouteBinding(input: {
+  readonly organizationId: string;
+  readonly policy: CreateOrganizationGroupWithPolicyRequest["organizationPolicy"];
+  readonly sessionUserId: string;
+}): void {
+  try {
+    assertPutPrincipalPolicyRouteBinding({
+      ...input.policy,
+      expectedPrincipalId: input.organizationId,
+      expectedPrincipalType: "organization",
+      requesterUserId: input.sessionUserId,
+    });
+  } catch (error) {
+    const organizationManagerError = toPrincipalWriteError(error);
+    if (organizationManagerError) throw organizationManagerError;
+    throw error;
+  }
 }
 
 async function prepareOrganizationGroupCreation(input: {
@@ -161,6 +183,11 @@ export async function runCreateOrganizationGroupWorkflow(
       request: input,
       sessionUserId,
       tx,
+    });
+    assertOrganizationPolicyRouteBinding({
+      organizationId,
+      policy: input.organizationPolicy,
+      sessionUserId,
     });
 
     const [insertedGroup] = await tx

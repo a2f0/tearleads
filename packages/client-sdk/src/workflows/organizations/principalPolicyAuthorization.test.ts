@@ -131,7 +131,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
     adminPolicy: 0,
     beforeCommit: 0,
     organizationPolicy: 0,
-    putPolicy: 0,
   };
   const { close, execSql } = await createTestExecSql(
     "organization-group-mutation-projected-admin-boundary",
@@ -153,10 +152,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
             }
             return groupPolicy;
           },
-          putPrincipalPolicy: async () => {
-            calls.putPolicy += 1;
-            return null;
-          },
         },
         beforePolicyCommit: () => {
           calls.beforeCommit += 1;
@@ -177,7 +172,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
       adminPolicy: 1,
       beforeCommit: 0,
       organizationPolicy: 1,
-      putPolicy: 0,
     });
     await expect(
       loadPrincipalPolicyCheckpoint(execSql, "organization", organizationId),
@@ -362,7 +356,6 @@ test("a verified Admins member can mutate another group after the signed directo
           },
         };
       },
-      putPrincipalPolicy: async () => null,
     };
     await addOrganizationGroupUser({
       apiClient,

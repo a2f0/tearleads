@@ -12,6 +12,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupRequest,
+  DeleteOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -156,9 +157,16 @@ async function buildOrganizationPolicyForGroupCommit(input: {
     signing: { signingPrivateKey: Uint8Array };
     userId: string;
   };
-  groupPolicy: PutPrincipalPolicyRequest;
+  groupPolicy?: PutPrincipalPolicyRequest | undefined;
   organizationId: string;
+  removedGroupId?: string | undefined;
 }) {
+  if (
+    (input.groupPolicy === undefined) ===
+    (input.removedGroupId === undefined)
+  ) {
+    throw new Error("Exactly one group directory mutation is required");
+  }
   const [organization] = await db
     .select({
       adminGroupId: organizations.adminGroupId,
@@ -180,27 +188,33 @@ async function buildOrganizationPolicyForGroupCommit(input: {
     input.organizationId,
   );
   const organizationProjection =
-    input.groupPolicy.state.principalId === organization.adminGroupId
+    input.groupPolicy?.state.principalId === organization.adminGroupId
       ? input.groupPolicy.projection
       : organizationBundle.currentProjection;
-  const nextGroupHead = {
-    principalType: "group" as const,
-    principalId: input.groupPolicy.state.principalId,
-    version: input.groupPolicy.state.version,
-    keyEpoch: input.groupPolicy.state.keyEpoch,
-    stateHash: await computePrincipalStateHash(input.groupPolicy.state),
-    keyFingerprint: input.groupPolicy.state.keyFingerprint,
-  };
   const descriptor = parseOrganizationAuthorityDescriptor(
     organizationBundle.currentPayload.ciphertext,
   );
   invariant(descriptor, "expected organization authority descriptor");
-  const groupHeads = [
-    ...descriptor.groupHeads.filter(
-      (head) => head.principalId !== nextGroupHead.principalId,
-    ),
-    nextGroupHead,
-  ].sort((left, right) => left.principalId.localeCompare(right.principalId));
+  const groupHeads = input.groupPolicy
+    ? [
+        ...descriptor.groupHeads.filter(
+          (head) => head.principalId !== input.groupPolicy?.state.principalId,
+        ),
+        {
+          principalType: "group" as const,
+          principalId: input.groupPolicy.state.principalId,
+          version: input.groupPolicy.state.version,
+          keyEpoch: input.groupPolicy.state.keyEpoch,
+          stateHash: await computePrincipalStateHash(input.groupPolicy.state),
+          keyFingerprint: input.groupPolicy.state.keyFingerprint,
+        },
+      ]
+    : descriptor.groupHeads.filter(
+        (head) => head.principalId !== input.removedGroupId,
+      );
+  groupHeads.sort((left, right) =>
+    left.principalId.localeCompare(right.principalId),
+  );
   const organizationKem = generateKemSeedAndKeyPair();
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
@@ -236,6 +250,20 @@ async function buildOrganizationPolicyForGroupCommit(input: {
     signerUserKeyFingerprint: input.actor.fingerprint,
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
+}
+
+export async function buildOrganizationGroupDeletionRequest(input: {
+  actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
+  groupId: string;
+  organizationId: string;
+}): Promise<DeleteOrganizationGroupRequest> {
+  return {
+    organizationPolicy: await buildOrganizationPolicyForGroupCommit({
+      actor: input.actor,
+      organizationId: input.organizationId,
+      removedGroupId: input.groupId,
+    }),
+  };
 }
 
 export async function withOrganizationGroupDirectoryPolicy(input: {

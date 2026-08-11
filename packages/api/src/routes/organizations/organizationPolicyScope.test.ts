@@ -11,7 +11,10 @@ import { isOrganizationReadModelResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import {
+  createGroupRequest,
+  deleteGroupRequest,
+} from "../../../test/helpers/organizationGroup";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -91,6 +94,23 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   ).toBe(200);
   const createdState = await getCurrentPrincipalState("group", groupId, db);
   invariant(createdState, "expected created group state");
+  const staleDirectoryRemoval = await routeApp.request(
+    `/organizations/${organization.organizationId}/groups/${groupId}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        organizationPolicy: request.organizationPolicy,
+      }),
+    },
+  );
+  expect(staleDirectoryRemoval.status).toBe(409);
+  expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
+    createdState,
+  );
   await db.insert(principalContainerGrantProjection).values({
     accessLevel: "read",
     containerId: crypto.randomUUID(),
@@ -98,13 +118,11 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
     principalType: "group",
     stateHash: createdState.stateHash,
   });
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organization.organizationId}/groups/${groupId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${owner.token}` },
-    },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor: owner,
+    groupId,
+    organizationId: organization.organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
   expect(
     await db

@@ -1,5 +1,6 @@
 import type {
   CreateOrganizationGroupWithPolicyRequest,
+  DeleteOrganizationGroupRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
@@ -101,12 +102,14 @@ export async function deleteOrganizationGroup(
   organizationId: string,
   groupId: string,
   sessionUserId: string,
+  input: DeleteOrganizationGroupRequest,
 ): Promise<DeleteOrganizationGroupResponse> {
   return runDeleteOrganizationGroupWorkflow(
     runtime.db,
     organizationId,
     groupId,
     sessionUserId,
+    input,
   );
 }
 

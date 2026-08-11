@@ -1,12 +1,18 @@
 import { expect, test } from "bun:test";
-import { PutPrincipalPolicyRequestSchema } from "../request";
 import {
+  CommitOrganizationGroupPolicyRequestSchema,
+  PutPrincipalPolicyRequestSchema,
+} from "../request";
+import {
+  CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
+  PaymentRequiredErrorResponseSchema,
   PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
+  commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
   PrincipalPolicyPathParamsSchema,
   putPrincipalPolicyOperation,
@@ -43,6 +49,27 @@ test("principal policy operations own their HTTP contracts", () => {
   expect(putPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,
     401: ErrorResponseSchema,
+    403: PrincipalPolicyErrorResponseSchema,
+    404: PrincipalPolicyErrorResponseSchema,
+    409: PrincipalPolicyErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: PrincipalPolicyErrorResponseSchema,
+  });
+});
+
+test("compound organization group policy commits declare billing failures", () => {
+  expect(commitOrganizationGroupPolicyOperation).toMatchObject({
+    auth: "session",
+    body: CommitOrganizationGroupPolicyRequestSchema,
+    failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
+    id: "organizations.groups.policy.commit",
+    method: "PUT",
+    responses: { 200: CommitOrganizationGroupPolicyResponseSchema },
+  });
+  expect(commitOrganizationGroupPolicyOperation.failureResponses).toEqual({
+    400: PrincipalPolicyErrorResponseSchema,
+    401: ErrorResponseSchema,
+    402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,

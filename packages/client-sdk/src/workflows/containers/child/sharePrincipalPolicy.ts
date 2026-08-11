@@ -4,14 +4,10 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type {
-  CommitOrganizationGroupPolicyRequest,
-  PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
+import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
-  PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
@@ -54,13 +50,6 @@ export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
     principalType: ManagedPrincipalKind,
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  putPrincipalPolicy?:
-    | ((
-        principalType: ManagedPrincipalKind,
-        principalId: string,
-        input: PutPrincipalPolicyRequest,
-      ) => Promise<PrincipalPolicyMutationResponse | null>)
-    | undefined;
 }
 
 export interface VerifiedSharePrincipalPolicy {

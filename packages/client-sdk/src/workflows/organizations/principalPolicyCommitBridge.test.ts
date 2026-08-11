@@ -192,7 +192,6 @@ test("remove group user bridges committed policy writes before caching the rotat
         },
       };
     },
-    putPrincipalPolicy: async () => null,
   };
 
   try {

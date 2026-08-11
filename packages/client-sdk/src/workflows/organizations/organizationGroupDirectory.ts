@@ -65,6 +65,25 @@ export function replaceOrganizationGroupHead(input: {
   ]);
 }
 
+export function removeOrganizationGroupHead(input: {
+  readonly descriptor: OrganizationAuthorityDescriptor;
+  readonly groupId: string;
+}): OrganizationGroupHead[] {
+  if (
+    input.groupId === input.descriptor.adminGroupId ||
+    input.groupId === input.descriptor.memberGroupId
+  ) {
+    throw new Error("Built-in groups cannot be removed from the directory");
+  }
+  const groupHeads = input.descriptor.groupHeads.filter(
+    (head) => head.principalId !== input.groupId,
+  );
+  if (groupHeads.length === input.descriptor.groupHeads.length) {
+    throw new Error("Organization directory does not commit the deleted group");
+  }
+  return normalizeOrganizationGroupHeads(groupHeads);
+}
+
 export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   readonly adminProjection: readonly PrincipalProjectionMemberRequest[];
   readonly adminUsers: readonly TrustedUserIdentity[];

@@ -34,7 +34,10 @@ import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
-import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import {
+  createGroupRequest,
+  deleteGroupRequest,
+} from "../../../test/helpers/organizationGroup";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -798,22 +801,18 @@ test("org manager routes create and list groups with members", async () => {
     },
   ]);
 
-  const builtinDeleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${organization.adminGroupId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
+  const builtinDeleteResponse = await deleteGroupRequest({
+    actor,
+    groupId: organization.adminGroupId,
+    organizationId,
+  });
   expect(builtinDeleteResponse.status).toBe(409);
 
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${groupId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor,
+    groupId,
+    organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
   const deleteBody = await deleteResponse.json();
   invariant(
@@ -823,6 +822,12 @@ test("org manager routes create and list groups with members", async () => {
   expect(deleteBody).toEqual({
     deleted: true,
     groupId,
+    organizationPolicy: expect.objectContaining({
+      currentState: expect.objectContaining({
+        principalId: organizationId,
+        principalType: "organization",
+      }),
+    }),
     organizationId,
   });
 

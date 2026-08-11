@@ -314,7 +314,6 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
           expect(principalId).toBe(groupId);
           return groupPolicy;
         },
-        putPrincipalPolicy: async () => null,
         shareContainer: async () => {
           throw new Error("Compound group share must use the policy PUT");
         },

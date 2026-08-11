@@ -62,8 +62,8 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 51857,
-      "bytes": 2144148
+      "lines": 53344,
+      "bytes": 2211606
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1815,
-      "bytes": 58662
+      "lines": 1821,
+      "bytes": 58781
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -146,8 +146,8 @@
       "bytes": 74287
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 835,
-      "bytes": 26191
+      "lines": 840,
+      "bytes": 26203
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 925,
@@ -305,6 +305,10 @@
       "lines": 1769,
       "bytes": 62568
     },
+    "packages/client-sdk/src/workflows/organizations/principalPolicy.test.ts": {
+      "lines": 533,
+      "bytes": 19048
+    },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 748,
       "bytes": 23438
@@ -350,8 +354,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20087,
-      "bytes": 825175
+      "lines": 20531,
+      "bytes": 846939
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,
