@@ -1,8 +1,4 @@
-import {
-  createBrowserLocalKeyring,
-  type LocalKeyring,
-  type Tearleads,
-} from "@tearleads/client-sdk";
+import type { LocalKeyring, Tearleads } from "@tearleads/client-sdk";
 import {
   type MutableRefObject,
   useCallback,
@@ -11,43 +7,17 @@ import {
   useRef,
   useState,
 } from "react";
+import { getLocalStorage } from "../../utils/storedPreference";
+import { createHostLocalKeyring } from "../local-keyring/localKeyringLockSupport";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import {
   LocalIdentityRepository,
-  type LocalIdentityStorage,
   type LocalIdentitySummary,
 } from "./localIdentityRegistry";
 
 const LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX =
   "tearleads.local-identity-registry:";
-
-function getDefaultLocalIdentityStorage(): LocalIdentityStorage | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-function createHostLocalKeyring(input: {
-  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
-  readonly localIdentityStorage: LocalIdentityStorage | null;
-}): LocalKeyring | null {
-  if (input.createLocalKeyring) {
-    return input.createLocalKeyring();
-  }
-  if (
-    typeof globalThis.indexedDB === "undefined" ||
-    !input.localIdentityStorage
-  ) {
-    return null;
-  }
-
-  return createBrowserLocalKeyring();
-}
 
 function localIdentityRegistryStorageKey(namespace: string): string {
   return `${LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX}${namespace}`;
@@ -58,7 +28,7 @@ export function useLocalIdentityPersistence(input: {
   readonly namespace: string | null;
 }): LocalIdentityRepository | null {
   const localIdentityStorage = useMemo(
-    () => (input.namespace ? getDefaultLocalIdentityStorage() : null),
+    () => (input.namespace ? getLocalStorage() : null),
     [input.namespace],
   );
   const localIdentityKeyring = useMemo(
@@ -66,7 +36,7 @@ export function useLocalIdentityPersistence(input: {
       input.namespace
         ? createHostLocalKeyring({
             createLocalKeyring: input.createLocalKeyring,
-            localIdentityStorage,
+            storage: localIdentityStorage,
           })
         : null,
     [input.createLocalKeyring, input.namespace, localIdentityStorage],

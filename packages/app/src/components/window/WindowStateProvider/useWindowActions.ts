@@ -1,10 +1,3 @@
-import { useContext } from "react";
-import { WindowActionsContext } from "./context";
+import { windowActionsContext } from "./context";
 
-export function useWindowActions() {
-  const ctx = useContext(WindowActionsContext);
-  if (!ctx) {
-    throw new Error("useWindowActions requires WindowStateProvider");
-  }
-  return ctx;
-}
+export const useWindowActions = windowActionsContext.useRequired;

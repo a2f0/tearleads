@@ -1,12 +1,11 @@
 import type {
-  BlobInfoInput,
-  BlobInfoList,
   ContainerInfo,
   ContainerItemRow,
   DocumentInfo,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
+import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import type {
   ExplorerContainerContextMenuVariant,
@@ -46,10 +45,6 @@ export interface ExplorerContextMenuModel {
     localId: string,
     containerId: string,
   ) => void;
-  handleSidebarContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: string,
-  ) => void;
 }
 
 export interface ExplorerPanelState {
@@ -58,7 +53,7 @@ export interface ExplorerPanelState {
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: ExplorerDocumentMutationAction;
   uploadManager: ExplorerUploadManager;
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  loadBlobInfo: ExplorerBlobInfoLoader;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;

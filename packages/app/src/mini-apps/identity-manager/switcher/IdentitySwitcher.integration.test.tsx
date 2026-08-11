@@ -15,7 +15,7 @@ import {
   renderPane,
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
-import { compactIdentityFingerprint } from "./IdentitySwitcher";
+import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 
 const initializedDatabaseNames: string[] = [];
 const initializedBlobNamespaces: string[] = [];
@@ -126,13 +126,13 @@ test(
     await waitFor(() => {
       expect(
         identityManager.getByRole("option", {
-          name: compactIdentityFingerprint(identityA),
+          name: compactIdentifier(identityA),
         }),
       ).toBeTruthy();
     });
     fireEvent.click(
       identityManager.getByRole("option", {
-        name: compactIdentityFingerprint(identityA),
+        name: compactIdentifier(identityA),
       }),
     );
 

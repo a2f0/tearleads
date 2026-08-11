@@ -1,6 +1,12 @@
-import { createContext } from "react";
-
+import {
+  createRequiredContext,
+  type RequiredContext,
+} from "../../../utils/createRequiredContext";
 import type { DualPaneContextValue, PaneSide } from "./types";
 
-export const DualPaneContext = createContext<DualPaneContextValue | null>(null);
-export const PaneSideContext = createContext<PaneSide | null>(null);
+export const dualPaneContext: RequiredContext<DualPaneContextValue> =
+  createRequiredContext("useDualPane must be used within a DualPaneProvider.");
+
+export const paneSideContext: RequiredContext<PaneSide> = createRequiredContext(
+  "usePaneSide must be used within a PaneSideProvider.",
+);

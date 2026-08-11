@@ -1,6 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
+import type { ContextType } from "react";
+import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { UserDetailView } from "./UserDetailView";
@@ -34,23 +36,34 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
+// The inlined RosterProfileEditor only needs the container ensure; resolving
+// null keeps it on its loading status without mounting a document store.
+const orgManagerActionsStub = {
+  ensureRosterProfileContainer: async () => null,
+} as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;
+
 function renderUserDetailView(
   props: Partial<Parameters<typeof UserDetailView>[0]> = {},
 ) {
   return render(
-    <UserDetailView
-      canEditRosterProfile={false}
-      canRevokeGrants={false}
-      detail={detail}
-      pending={false}
-      mutating={false}
-      onRosterProfileDisplayNameChange={() => undefined}
-      openGrantRoute={() => undefined}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={rosterUser.userId}
-      {...props}
-    />,
+    <OrgManagerContext.Provider value={orgManagerActionsStub}>
+      <UserDetailView
+        canEditRosterProfile={false}
+        canRevokeGrants={false}
+        detail={detail}
+        pending={false}
+        mutating={false}
+        onRosterProfileDisplayNameChange={() => undefined}
+        openGrantRoute={() => undefined}
+        openGroupRoute={() => undefined}
+        organizationId={detail.organizationId}
+        profileDisplayName={undefined}
+        revokeGrant={() => undefined}
+        rosterProfileEditRequestKey={null}
+        syncSeatAssigned={null}
+        {...props}
+      />
+    </OrgManagerContext.Provider>,
   );
 }
 

@@ -243,6 +243,5 @@ export function useExplorerContextMenu(
     handleContainerContextMenu,
     handleItemContextMenu,
     handleSidebarDocumentContextMenu,
-    handleSidebarContextMenu: handleContainerContextMenu,
   };
 }

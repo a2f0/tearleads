@@ -43,7 +43,7 @@ function readNumber(row: SqlRow | undefined, key: string): number {
   return typeof value === "number" ? value : 0;
 }
 
-function quoteSqlIdentifier(identifier: string): string {
+export function quoteSqlIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 

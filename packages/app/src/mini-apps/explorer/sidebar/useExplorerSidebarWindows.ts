@@ -5,6 +5,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppVirtualWindow } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
+import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import {
   buildExplorerSidebarSections,
   countExplorerSidebarRows,
@@ -58,6 +59,18 @@ export function useExplorerSidebarDocumentWindows(params: {
     useState<ReadonlyMap<string, ExplorerSidebarDocumentWindowState>>(
       () => new Map(),
     );
+  // Invalidate every in-flight load: settled results from a superseded
+  // generation are dropped, and pending/latest bookkeeping starts fresh.
+  const invalidateWindowLoads = useCallback(() => {
+    loadGenerationRef.current += 1;
+    latestWindowLoadKeyByContainerIdRef.current.clear();
+    pendingWindowLoadKeysRef.current.clear();
+  }, []);
+  const clearDocumentWindows = useCallback(() => {
+    setDocumentWindowsByContainerId((currentWindows) =>
+      currentWindows.size === 0 ? currentWindows : new Map(),
+    );
+  }, []);
   const documentWindowsByContainerIdRef = useRef(documentWindowsByContainerId);
   documentWindowsByContainerIdRef.current = documentWindowsByContainerId;
   const collapsedIdsKey = useMemo(
@@ -88,6 +101,18 @@ export function useExplorerSidebarDocumentWindows(params: {
       if (limit > 0) {
         latestWindowLoadKeyByContainerIdRef.current.set(containerId, loadKey);
       }
+      // Settles this load's pending key and reports whether its result may
+      // apply — a bumped generation or a newer load for the same container
+      // supersedes it.
+      const settleWindowLoad = () => {
+        pendingWindowLoadKeysRef.current.delete(loadKey);
+        return (
+          loadGenerationRef.current === generation &&
+          (limit === 0 ||
+            latestWindowLoadKeyByContainerIdRef.current.get(containerId) ===
+              loadKey)
+        );
+      };
       // Reloads are never destructive: the stale rows stay rendered while the
       // replacement window loads and are swapped in place when it lands, so a
       // link refresh during a bulk import cannot flash a populated container
@@ -114,15 +139,7 @@ export function useExplorerSidebarDocumentWindows(params: {
           offset,
         })
         .then((documentWindow) => {
-          pendingWindowLoadKeysRef.current.delete(loadKey);
-          if (loadGenerationRef.current !== generation) {
-            return;
-          }
-          if (
-            limit > 0 &&
-            latestWindowLoadKeyByContainerIdRef.current.get(containerId) !==
-              loadKey
-          ) {
+          if (!settleWindowLoad()) {
             return;
           }
 
@@ -141,22 +158,13 @@ export function useExplorerSidebarDocumentWindows(params: {
           });
         })
         .catch((error: unknown) => {
-          pendingWindowLoadKeysRef.current.delete(loadKey);
-          if (loadGenerationRef.current !== generation) {
-            return;
-          }
-          if (
-            limit > 0 &&
-            latestWindowLoadKeyByContainerIdRef.current.get(containerId) !==
-              loadKey
-          ) {
+          if (!settleWindowLoad()) {
             return;
           }
 
           setDocumentWindowsByContainerId((currentWindows) => {
             const currentWindow = currentWindows.get(containerId);
-            const message =
-              error instanceof Error ? error.message : String(error);
+            const message = unknownErrorMessage(error);
             const nextWindows = new Map(currentWindows);
             nextWindows.set(containerId, {
               error:
@@ -177,9 +185,7 @@ export function useExplorerSidebarDocumentWindows(params: {
 
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    loadGenerationRef.current += 1;
-    latestWindowLoadKeyByContainerIdRef.current.clear();
-    pendingWindowLoadKeysRef.current.clear();
+    invalidateWindowLoads();
     // A reload pass armed against the previous query or organization scope
     // must not fire into the freshly wiped scope; the next version bump
     // re-arms it against the new one.
@@ -187,10 +193,13 @@ export function useExplorerSidebarDocumentWindows(params: {
       clearTimeout(reloadTimerRef.current);
       reloadTimerRef.current = null;
     }
-    setDocumentWindowsByContainerId((currentWindows) =>
-      currentWindows.size === 0 ? currentWindows : new Map(),
-    );
-  }, [currentOrganizationId, documentQueries]);
+    clearDocumentWindows();
+  }, [
+    clearDocumentWindows,
+    currentOrganizationId,
+    documentQueries,
+    invalidateWindowLoads,
+  ]);
 
   const readyRef = useRef(ready);
   readyRef.current = ready;
@@ -198,9 +207,7 @@ export function useExplorerSidebarDocumentWindows(params: {
     if (!readyRef.current) {
       return;
     }
-    loadGenerationRef.current += 1;
-    latestWindowLoadKeyByContainerIdRef.current.clear();
-    pendingWindowLoadKeysRef.current.clear();
+    invalidateWindowLoads();
     for (const containerId of expandedContainerIdsRef.current) {
       const currentWindow =
         documentWindowsByContainerIdRef.current.get(containerId);
@@ -210,7 +217,7 @@ export function useExplorerSidebarDocumentWindows(params: {
         currentWindow?.rows.length ?? 0,
       );
     }
-  }, [requestDocumentWindow]);
+  }, [invalidateWindowLoads, requestDocumentWindow]);
   // The timer always invokes the LATEST pass closure: an armed timer can
   // outlive the render that armed it, and firing a stale closure would issue
   // loads against a superseded documentQueries object.
@@ -245,12 +252,8 @@ export function useExplorerSidebarDocumentWindows(params: {
 
   useEffect(() => {
     if (!ready) {
-      loadGenerationRef.current += 1;
-      latestWindowLoadKeyByContainerIdRef.current.clear();
-      pendingWindowLoadKeysRef.current.clear();
-      setDocumentWindowsByContainerId((currentWindows) =>
-        currentWindows.size === 0 ? currentWindows : new Map(),
-      );
+      invalidateWindowLoads();
+      clearDocumentWindows();
       return;
     }
 
@@ -270,7 +273,12 @@ export function useExplorerSidebarDocumentWindows(params: {
 
       return changed ? nextWindows : currentWindows;
     });
-  }, [ready, validContainerIdsKey]);
+  }, [
+    clearDocumentWindows,
+    invalidateWindowLoads,
+    ready,
+    validContainerIdsKey,
+  ]);
 
   useEffect(() => {
     if (!ready) {

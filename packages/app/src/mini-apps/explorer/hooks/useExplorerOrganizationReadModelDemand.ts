@@ -1,16 +1,11 @@
 import type {
   DomainScope,
   OrganizationDirectoryAndGroups,
-  Tearleads,
 } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { subscribeOrganizationReadModelRealtime } from "../../../providers/sdk/organizationReadModelRealtime";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-
-type ExplorerOrganizationReadModelListener = (
-  projection: OrganizationDirectoryAndGroups | null,
-) => unknown | Promise<unknown>;
 
 export interface ExplorerOrganizationReadModelScope {
   readonly domainScope: DomainScope;
@@ -29,24 +24,6 @@ function isSameScope(
     left.organizationId === right.organizationId &&
     left.userId === right.userId
   );
-}
-
-function subscribeExplorerOrganizationReadModelDemand(input: {
-  readonly listener: ExplorerOrganizationReadModelListener;
-  readonly organizationId: string;
-  readonly tearleads: Tearleads;
-}): () => void {
-  const repaintFromLocalProjection = async () => {
-    const projection =
-      await input.tearleads.organizations.loadLocalDirectoryAndGroups();
-    await input.listener(projection);
-  };
-  const unsubscribe = subscribeOrganizationReadModelRealtime(
-    input.tearleads,
-    input.organizationId,
-    repaintFromLocalProjection,
-  );
-  return unsubscribe;
 }
 
 export function useExplorerOrganizationReadModelDemand(input: {
@@ -100,8 +77,12 @@ export function useExplorerOrganizationReadModelDemand(input: {
     if (!demanded || !canDemandProjection || !organizationId || !activeScope) {
       return;
     }
-    return subscribeExplorerOrganizationReadModelDemand({
-      listener: (projection) => {
+    return subscribeOrganizationReadModelRealtime(
+      tearleads,
+      organizationId,
+      async () => {
+        const projection =
+          await tearleads.organizations.loadLocalDirectoryAndGroups();
         setProjectionState((current) => ({
           projection,
           revision:
@@ -111,9 +92,7 @@ export function useExplorerOrganizationReadModelDemand(input: {
           scope: activeScope,
         }));
       },
-      organizationId,
-      tearleads,
-    });
+    );
   }, [canDemandProjection, demanded, activeScope, organizationId, tearleads]);
 
   if (!projectionState || !isSameScope(projectionState.scope, activeScope)) {

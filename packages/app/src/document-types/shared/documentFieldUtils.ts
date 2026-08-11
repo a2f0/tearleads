@@ -1,4 +1,31 @@
-import type { DocumentFieldValidationIssue } from "@tearleads/client-sdk";
+import type {
+  DocumentFieldValidationIssue,
+  DocumentProjection,
+  DocumentProjectorInput,
+  ValidatedDocumentFields,
+} from "@tearleads/client-sdk";
+
+/**
+ * The projector every string-structured document kind shares: validate the
+ * stored fields, echo them back, and derive the title from the typed view.
+ */
+export function structuredFieldsProjector<
+  Fields extends Record<string, string>,
+>(
+  readFields: (
+    source: Readonly<Record<string, unknown>>,
+  ) => ValidatedDocumentFields<Fields>,
+  deriveTitle: (fields: Fields) => string,
+): (input: DocumentProjectorInput) => DocumentProjection {
+  return ({ structuredFields }) => {
+    const validated = readFields(structuredFields);
+    return {
+      fieldValidationIssues: validated.issues,
+      structuredFields: { ...validated.fields },
+      title: deriveTitle(validated.fields),
+    };
+  };
+}
 
 export function addFormatIssue(
   issues: DocumentFieldValidationIssue[],

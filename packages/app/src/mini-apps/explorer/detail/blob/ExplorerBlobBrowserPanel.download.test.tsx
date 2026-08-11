@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -81,7 +80,6 @@ function renderBlobBrowserPanel(input: {
   return render(
     <ExplorerBlobBrowserPanel
       blobStore={input.blobStore}
-      domainScope={createDomainScope()}
       loadBlobInfo={async () => ({
         rows: input.rows,
         totalCount: input.rows.length,
@@ -220,7 +218,6 @@ test("right-click opens the menu without bubbling to the pane menu", async () =>
     >
       <ExplorerBlobBrowserPanel
         blobStore={createBlobStore()}
-        domainScope={createDomainScope()}
         loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
         nodes={[]}
         online={true}
@@ -387,7 +384,6 @@ test("pick mode does not offer a row download context menu", async () => {
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
       online={true}

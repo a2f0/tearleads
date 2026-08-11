@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowBackActionValue,
@@ -69,7 +68,6 @@ function renderPickPanel(overrides: {
     <WindowMenuProvider>
       <ExplorerBlobBrowserPanel
         blobStore={createBlobStore()}
-        domainScope={createDomainScope()}
         loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
         nodes={[]}
         online={true}

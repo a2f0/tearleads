@@ -8,22 +8,19 @@ import {
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
-import { summarizePendingWrites } from "./syncStatusModel";
+import {
+  type PendingWriteQueueSummary,
+  summarizePendingWrites,
+} from "./syncStatusModel";
 
 // `listPendingWrites()` is an identity-wide scan (multiple tables plus deferred
 // Loro tails), and this indicator is always mounted (two panes in the windowed
 // layout), so change notifications are throttled to at most one scan per window.
 const READ_THROTTLE_MS = 750;
 
-interface PendingWriteCount {
+interface PendingWriteCount extends PendingWriteQueueSummary {
   /** False until the first successful read resolves (or while the db is booting). */
   readonly loaded: boolean;
-  /** Aggregate unflushed write-operation count; `0` once everything is synced. */
-  readonly count: number;
-  /** Queue items whose last submission failed terminally (status `error`). */
-  readonly failedCount: number;
-  /** The first failed item's recorded error, for the tooltip/popover. */
-  readonly firstError: string | null;
 }
 
 const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {

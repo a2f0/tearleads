@@ -10,14 +10,8 @@ import {
   useMiniAppVirtualWindow,
 } from "./MiniAppVirtual";
 
-const resizeObserverGlobal = globalThis as unknown as {
-  ResizeObserver?: unknown;
-};
-const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
-
 afterEach(() => {
   cleanup();
-  resizeObserverGlobal.ResizeObserver = originalResizeObserver;
 });
 
 test("mini app virtual range clamps invalid scroll values and uses minimum window", () => {
@@ -65,7 +59,6 @@ function VirtualListHarness({ rows }: { rows: ReadonlyArray<string> }) {
 }
 
 test("mini app virtual rows render a scroll-driven slice", async () => {
-  resizeObserverGlobal.ResizeObserver = undefined;
   const rows = Array.from({ length: 80 }, (_, index) => `row-${index + 1}`);
   const view = render(<VirtualListHarness rows={rows} />);
   const frame = view.getByTestId("virtual-frame");

@@ -33,6 +33,11 @@ interface ScopedWriteQueueReport {
   readonly report: SystemMonitorWriteQueueReport;
 }
 
+const UNAVAILABLE_SCOPED_REPORT: ScopedWriteQueueReport = {
+  domainScope: null,
+  report: UNAVAILABLE_WRITE_QUEUE,
+};
+
 export function selectSystemMonitorWriteQueue(input: {
   readonly dbReady: boolean;
   readonly domainScope: DomainScope;
@@ -75,22 +80,13 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
   );
 
   const [observedWriteQueue, setObservedWriteQueue] =
-    useState<ScopedWriteQueueReport>({
-      domainScope: null,
-      report: UNAVAILABLE_WRITE_QUEUE,
-    });
+    useState<ScopedWriteQueueReport>(UNAVAILABLE_SCOPED_REPORT);
 
   useEffect(() => {
     if (!dbReady) {
-      // Idempotent reset: keep the same object when already unavailable so a
-      // re-render with unchanged not-ready inputs cannot loop.
-      setObservedWriteQueue((prev) =>
-        prev.domainScope !== null ||
-        prev.report.available ||
-        prev.report.items.length > 0
-          ? { domainScope: null, report: UNAVAILABLE_WRITE_QUEUE }
-          : prev,
-      );
+      // Idempotent reset: the shared constant lets React's Object.is bail-out
+      // keep a re-render with unchanged not-ready inputs from looping.
+      setObservedWriteQueue(UNAVAILABLE_SCOPED_REPORT);
       return;
     }
     const watcher = createPendingWriteWatcher({

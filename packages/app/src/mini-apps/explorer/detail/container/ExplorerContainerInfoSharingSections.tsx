@@ -14,6 +14,7 @@ import {
   MiniAppInfoTable,
   MiniAppInfoTableRow,
 } from "../../../../components/mini-app/MiniAppTable";
+import { isKeyboardActivationKey } from "../../../../utils/keyboardActivation";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoInheritedGrantSource,
@@ -105,10 +106,6 @@ function getContainerInfoSubjectTypeLabel(
   subjectType: ExplorerContainerInfoGrantSubjectType,
 ): string {
   return CONTAINER_INFO_SUBJECT_TYPE_LABELS[subjectType];
-}
-
-function isKeyboardActivationKey(key: string): boolean {
-  return key === "Enter" || key === " ";
 }
 
 function getKeyboardEventPosition(

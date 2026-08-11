@@ -8,10 +8,7 @@ const BROWSER_CONTEXT_MENU_TARGET_SELECTOR =
   "input, select, textarea, [contenteditable='true']";
 
 function hasSelectedText(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    (window.getSelection()?.toString().trim() ?? "") !== ""
-  );
+  return (window.getSelection()?.toString().trim() ?? "") !== "";
 }
 
 function shouldUseBrowserContextMenu(event: MouseEvent<HTMLElement>): boolean {

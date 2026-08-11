@@ -21,6 +21,7 @@ import {
 } from "./components/pane/dual-pane";
 import { PaneProvider } from "./components/pane/runtime/PaneProvider";
 import { Pane } from "./components/pane/shell/Pane";
+import { SystemMonitorDeveloperModeProvider } from "./mini-apps/system-monitor/systemMonitorDeveloperMode";
 import type { AppNavigationMode } from "./navigation/AppNavigationMode";
 import { useDeviceFirstContainerContents } from "./stores/device-first/DeviceFirstProvider";
 
@@ -60,22 +61,26 @@ function PaneNavigationHarness({
   onDeviceFirstSnapshot: (snapshot: DeviceFirstIdentitySnapshot) => void;
   onDeviceFirstUnmount: () => void;
 }) {
+  // Mirrors production composition: Layout mounts the developer-mode provider
+  // above every Pane.
   return (
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
-          <DeviceFirstIdentityProbe
-            onSnapshot={onDeviceFirstSnapshot}
-            onUnmount={onDeviceFirstUnmount}
-          />
-          <Pane
-            className="pane"
-            navigationMode={navigationMode}
-            routedVisible
-          />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={hostConfig}>
+            <DeviceFirstIdentityProbe
+              onSnapshot={onDeviceFirstSnapshot}
+              onUnmount={onDeviceFirstUnmount}
+            />
+            <Pane
+              className="pane"
+              navigationMode={navigationMode}
+              routedVisible
+            />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>
   );
 }
 

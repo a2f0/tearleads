@@ -1,8 +1,8 @@
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import { TrackerReadCard } from "../shared/TrackerReadCard";
+import { formatTrackerMeasuredAt } from "../shared/trackerValues";
 import {
   type BloodPressureReadingRow,
-  formatMeasuredAt,
   formatMeasurementPair,
   formatPulse,
   toBloodPressureReadingDetailFields,
@@ -24,7 +24,10 @@ export function BloodPressureReadingReadRow(params: {
       cells={[
         { label: "Reading", text: formatMeasurementPair(reading) },
         { label: "Pulse", text: formatPulse(reading) },
-        { label: "Measured", text: formatMeasuredAt(reading) },
+        {
+          label: "Measured",
+          text: formatTrackerMeasuredAt(reading.measuredAt),
+        },
       ]}
       currentAuthorId={currentAuthorId}
       detailFields={toBloodPressureReadingDetailFields(

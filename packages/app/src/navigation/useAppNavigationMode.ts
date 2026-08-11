@@ -4,31 +4,14 @@ import {
   type AppNavigationMode,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
-import {
-  COARSE_POINTER_QUERY,
-  MOBILE_BREAKPOINT_PX,
-  MOBILE_BREAKPOINT_QUERY,
-} from "./breakpoints";
+import { COARSE_POINTER_QUERY, MOBILE_BREAKPOINT_QUERY } from "./breakpoints";
 
 function readEnvironment(): AppNavigationEnvironment {
-  const viewport =
-    typeof window === "undefined"
-      ? { innerWidth: MOBILE_BREAKPOINT_PX, matchMedia: undefined }
-      : window;
-  const navigatorLike =
-    typeof navigator === "undefined"
-      ? { maxTouchPoints: 0, userAgent: "" }
-      : navigator;
-  const pointerCoarse =
-    typeof viewport.matchMedia === "function"
-      ? viewport.matchMedia(COARSE_POINTER_QUERY).matches
-      : false;
-
   return {
-    innerWidth: viewport.innerWidth,
-    maxTouchPoints: navigatorLike.maxTouchPoints ?? 0,
-    pointerCoarse,
-    userAgent: navigatorLike.userAgent,
+    innerWidth: window.innerWidth,
+    maxTouchPoints: navigator.maxTouchPoints,
+    pointerCoarse: window.matchMedia(COARSE_POINTER_QUERY).matches,
+    userAgent: navigator.userAgent,
   };
 }
 
@@ -54,10 +37,6 @@ export function useAppNavigationMode(
   useEffect(() => {
     if (resolvedForced) {
       setMode(resolvedForced);
-      return;
-    }
-
-    if (typeof window === "undefined" || !window.matchMedia) {
       return;
     }
 

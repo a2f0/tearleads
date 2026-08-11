@@ -2,16 +2,11 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useId,
-  useRef,
-} from "react";
+import { type ReactNode, type RefObject, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   MiniAppButton,
+  MiniAppImageViewer,
   MiniAppModalBackdrop,
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
@@ -26,6 +21,7 @@ import "../../components/window/WindowToolBar.css";
 import { useWindowedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
+import { useModalEscapeAndFocusRestore } from "../shared/useModalEscapeAndFocusRestore";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
 type AttachmentFileType = ReturnType<typeof getAttachmentFileType>;
@@ -253,7 +249,7 @@ function NoteAttachmentPreviewStage({
 // uncluttered. Rendered through a portal into <body> so it overlays the whole
 // window rather than being clipped by the note's scroll container, and closes on
 // Escape or a backdrop click like the app's other modals.
-export function NoteAttachmentPreview({
+function NoteAttachmentPreview({
   attachment,
   canRemove,
   imageUrl,
@@ -269,32 +265,7 @@ export function NoteAttachmentPreview({
     name: attachment.name,
   });
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [onClose]);
-
-  // Move focus into the overlay on open and restore it to the triggering tile
-  // on close, so keyboard focus is never dropped to the document body. The
-  // active element is narrowed with instanceof (not a cast) so `.focus()` is
-  // only called on something that actually has it.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    closeButtonRef.current?.focus();
-    return () => {
-      if (previouslyFocused instanceof HTMLElement) {
-        previouslyFocused.focus();
-      }
-    };
-  }, []);
+  useModalEscapeAndFocusRestore(onClose, closeButtonRef);
 
   return createPortal(
     <MiniAppModalBackdrop
@@ -335,4 +306,41 @@ export function NoteAttachmentPreview({
     </MiniAppModalBackdrop>,
     document.body,
   );
+}
+
+/**
+ * The overlay an opened attachment gets, chosen by what the attachment is.
+ *
+ * An image goes to the shared full-screen viewer — the same one the blob browser
+ * opens — because an image is the attachment worth looking at closely, and only
+ * that viewer lets a phone pinch, pan, and zoom it. Everything else keeps the
+ * panel preview, which is the surface that can draw a type icon, a size, and
+ * "no preview available" for a file nothing here can render. An image whose
+ * bytes have not arrived yet has no URL to hand the viewer, so it lands there
+ * too and the panel says as much.
+ *
+ * Remove is deliberately absent from the image viewer: staging a removal opens
+ * the confirmation dialog, which the full-screen overlay would sit on top of.
+ * The tile's own trash control stays the way out — visible at rest on touch, on
+ * hover or focus elsewhere.
+ */
+export function NoteAttachmentOverlay(props: NoteAttachmentPreviewProps) {
+  const { attachment, imageUrl, onClose, onDownload } = props;
+  const isImage = getAttachmentFileType({
+    mimeType: attachment.mimeType,
+    name: attachment.name,
+  }).isImage;
+
+  if (isImage && imageUrl) {
+    return (
+      <MiniAppImageViewer
+        label={attachment.name}
+        onClose={onClose}
+        onDownload={() => onDownload(attachment.slotId)}
+        url={imageUrl}
+      />
+    );
+  }
+
+  return <NoteAttachmentPreview {...props} />;
 }

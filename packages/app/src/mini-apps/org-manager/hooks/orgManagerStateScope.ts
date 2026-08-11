@@ -1,6 +1,5 @@
 import type {
   OrganizationDirectory,
-  OrganizationGroupPolicyHistory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
@@ -68,17 +67,6 @@ export function scopeSelectedGroupValue<
   organizationId: string | null,
   selectedGroupId: string | null,
 ): TValue | null {
-  return value?.organizationId === organizationId &&
-    value.groupId === selectedGroupId
-    ? value
-    : null;
-}
-
-export function scopeSelectedGroupPolicyHistory(
-  value: OrganizationGroupPolicyHistory | null,
-  organizationId: string | null,
-  selectedGroupId: string | null,
-): OrganizationGroupPolicyHistory | null {
   return value?.organizationId === organizationId &&
     value.groupId === selectedGroupId
     ? value

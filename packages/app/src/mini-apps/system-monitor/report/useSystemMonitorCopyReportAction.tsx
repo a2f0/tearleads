@@ -30,7 +30,8 @@ export function useSystemMonitorCopyReportAction(
   }, []);
 
   const handleCopy = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
+    // The Clipboard API is genuinely absent in insecure contexts.
+    if (!navigator.clipboard) {
       return;
     }
 

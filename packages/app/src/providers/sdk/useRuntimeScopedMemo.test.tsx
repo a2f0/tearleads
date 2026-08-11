@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
@@ -11,10 +11,10 @@ import { useRuntimeScopedMemo } from "./useRuntimeScopedMemo";
 
 afterEach(cleanup);
 
-const HOST_CONFIG = new AppHostConfig(
-  "http://api.example.test",
-  "ws://events.example.test/runtime-scoped-memo",
-);
+const HOST_CONFIG = createAppHostConfig({
+  apiBaseUrl: "http://api.example.test",
+  wsUrl: "ws://events.example.test/runtime-scoped-memo",
+});
 
 function RuntimeScopedMemoProbe(props: {
   create: (dependency: string) => object;

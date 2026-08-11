@@ -45,11 +45,6 @@ export type GroupDetailsRefreshOptions = {
   clearError?: boolean;
 };
 
-export type GrantsRefreshOptions = {
-  clearError?: boolean;
-  manageLoading?: boolean;
-};
-
 export type DataUsageRefreshOptions = {
   clearError?: boolean;
   localOnly?: boolean;
@@ -67,7 +62,7 @@ export interface OrgManagerVisibleRefreshInput {
   refreshDirectoryAndGroups: (
     options?: DirectoryRefreshOptions,
   ) => Promise<DirectoryRefreshResult>;
-  refreshGrants: (options?: GrantsRefreshOptions) => Promise<void>;
+  refreshGrants: (options?: RefreshBehaviorOptions) => Promise<void>;
   refreshOrganizationPolicyHistory: (
     options?: RefreshBehaviorOptions,
   ) => Promise<void>;

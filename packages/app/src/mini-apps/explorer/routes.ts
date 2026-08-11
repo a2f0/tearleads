@@ -196,31 +196,9 @@ export function isExplorerRouteAvailable(
   route: ExplorerRoute,
   nodes: ReadonlyArray<ContainerNode>,
 ): boolean {
-  if (route.view === "selection") {
-    return true;
-  }
-
-  if (route.view === "blob-browser") {
-    return true;
-  }
-
-  if (route.view === "sync-lanes") {
-    return true;
-  }
-
-  if (route.view === "sync-lane-detail") {
-    return true;
-  }
-
-  if (route.view === "write-queue") {
-    return true;
-  }
-
-  if (route.view === "write-queue-entry") {
-    return true;
-  }
-
-  if (route.view === "uploads") {
+  // Only container-backed routes can dangle; every other view is always
+  // available.
+  if (!("containerId" in route)) {
     return true;
   }
 

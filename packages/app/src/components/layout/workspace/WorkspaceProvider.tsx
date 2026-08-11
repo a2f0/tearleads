@@ -1,11 +1,5 @@
-import {
-  createContext,
-  type PropsWithChildren,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
+import { createRequiredContext } from "../../../utils/createRequiredContext";
 
 export const WORKSPACE_IDS = [1, 2] as const;
 
@@ -14,6 +8,10 @@ export const WORKSPACE_IDS = [1, 2] as const;
 export const SINGLE_WORKSPACE_IDS = [WORKSPACE_IDS[0]] as const;
 
 type WorkspaceId = (typeof WORKSPACE_IDS)[number];
+
+// Non-empty by type so the provider can take the first entry as the initial
+// active workspace without a fallback for an empty list that cannot occur.
+type WorkspaceIdList = readonly [WorkspaceId, ...WorkspaceId[]];
 
 export function localIdentityNamespaceForWorkspace(
   baseNamespace: string | undefined,
@@ -33,19 +31,21 @@ interface WorkspaceContextValue {
   workspaceIds: readonly WorkspaceId[];
 }
 
-const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+const workspaceContext = createRequiredContext<WorkspaceContextValue>(
+  "useWorkspace must be used within a WorkspaceProvider.",
+);
 
 export function WorkspaceProvider({
   children,
   workspaceIds = WORKSPACE_IDS,
-}: PropsWithChildren<{ workspaceIds?: readonly WorkspaceId[] }>) {
+}: PropsWithChildren<{ workspaceIds?: WorkspaceIdList }>) {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>(
-    workspaceIds[0] ?? WORKSPACE_IDS[0],
+    workspaceIds[0],
   );
 
   useEffect(() => {
     if (!workspaceIds.includes(activeWorkspace)) {
-      setActiveWorkspace(workspaceIds[0] ?? WORKSPACE_IDS[0]);
+      setActiveWorkspace(workspaceIds[0]);
     }
   }, [activeWorkspace, workspaceIds]);
 
@@ -55,22 +55,14 @@ export function WorkspaceProvider({
   );
 
   return (
-    <WorkspaceContext.Provider value={value}>
+    <workspaceContext.context.Provider value={value}>
       {children}
-    </WorkspaceContext.Provider>
+    </workspaceContext.context.Provider>
   );
 }
 
 // Non-throwing accessor for chrome (e.g. the workspace switcher) that can render
 // inside a pane shown standalone — outside any WorkspaceProvider — in tests.
-export function useOptionalWorkspace(): WorkspaceContextValue | null {
-  return useContext(WorkspaceContext);
-}
+export const useOptionalWorkspace = workspaceContext.useOptional;
 
-export function useWorkspace(): WorkspaceContextValue {
-  const ctx = useOptionalWorkspace();
-  if (!ctx) {
-    throw new Error("useWorkspace must be used within a WorkspaceProvider.");
-  }
-  return ctx;
-}
+export const useWorkspace = workspaceContext.useRequired;

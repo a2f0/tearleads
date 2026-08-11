@@ -5,7 +5,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useEvents } from "../../../providers/events/useEvents";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { usePeerUserId, usePeerUserIdsEnabled } from "../dual-pane";
+import { useDualPane, usePeerUserId } from "../dual-pane";
 
 // Human-readable labels for the raw status keys, so the UI shows
 // "Web Socket" instead of "ws", "Public Key" instead of "publicKey", etc.
@@ -59,7 +59,10 @@ export function useSystemStatusSnapshot(): SystemStatusSnapshot {
   const { events, connected } = useEvents();
   const { mode, online } = useNetworkState();
   const peerUserId = usePeerUserId();
-  const peerUserIdsEnabled = usePeerUserIdsEnabled();
+  // Peer user ids are a demo-only feature (the `panePeerUserIds` host profile
+  // flag); the normal app reads `false` and suppresses peer-only rows entirely
+  // rather than rendering them in a permanently empty state.
+  const { peerUserIdsEnabled } = useDualPane();
 
   return useMemo(() => {
     const networkLabel = `${online ? "online" : "offline"}${

@@ -20,17 +20,28 @@ function needsAttentionMessage(view: OrganizationBillingView): string {
   }
 }
 
+const BILLING_ROUTE = {
+  appId: "org-manager",
+  pathSegments: ["billing"],
+} as const;
+
 /**
- * Presentational billing warning shown only while sync needs attention
- * (lapsed/disabled/past due). Trial promotion no longer occupies app chrome.
+ * Billing warning shown only while sync needs attention (lapsed/disabled/past
+ * due) and the active pane route is not Organization Billing itself, where the
+ * warning would duplicate the screen it points at. Trial promotion no longer
+ * occupies app chrome.
  */
 export function BillingBannerView({
   view,
-  isBillingScreen = false,
 }: {
   view: OrganizationBillingView | null;
-  isBillingScreen?: boolean | undefined;
 }) {
+  const activeRoute = useActiveMiniAppRoute();
+  // Billing sub-routes retain the same leading segment and hide the banner too.
+  const isBillingScreen =
+    activeRoute?.appId === BILLING_ROUTE.appId &&
+    activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
+
   if (!view || isBillingScreen || !view.needsAttention) {
     return null;
   }
@@ -42,29 +53,7 @@ export function BillingBannerView({
   );
 }
 
-const BILLING_ROUTE = {
-  appId: "org-manager",
-  pathSegments: ["billing"],
-} as const;
-
-/**
- * Connects {@link BillingBannerView} to the active pane route so the warning is
- * not duplicated inside Organization Billing.
- */
-export function ActiveRouteBillingBanner({
-  view,
-}: {
-  view: OrganizationBillingView | null;
-}) {
-  const activeRoute = useActiveMiniAppRoute();
-  // Billing sub-routes retain the same leading segment and hide the banner too.
-  const isBillingScreen =
-    activeRoute?.appId === BILLING_ROUTE.appId &&
-    activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
-  return <BillingBannerView isBillingScreen={isBillingScreen} view={view} />;
-}
-
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  return <ActiveRouteBillingBanner view={view} />;
+  return <BillingBannerView view={view} />;
 }

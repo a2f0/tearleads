@@ -10,7 +10,7 @@ import {
   createFakeIndexedDb,
   createTrackedFakeIndexedDb,
 } from "../../../test/helpers/fakeIndexedDb";
-import { AppHostConfig, createAppHostConfig } from "../../host/AppHostConfig";
+import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import {
   LocalKeyringLockProvider,
@@ -56,12 +56,10 @@ test("unlock fails when PIN config exists without a PIN-wrapped manifest", async
 
     render(
       <AppHostConfigProvider
-        value={
-          new AppHostConfig(
-            "http://api.example.test",
-            "ws://events.example.test",
-          )
-        }
+        value={createAppHostConfig({
+          apiBaseUrl: "http://api.example.test",
+          wsUrl: "ws://events.example.test",
+        })}
       >
         <LocalKeyringLockProvider>
           <LockProbe
@@ -103,12 +101,10 @@ test("lock clears only the in-memory PIN unlock state", async () => {
 
     render(
       <AppHostConfigProvider
-        value={
-          new AppHostConfig(
-            "http://api.example.test",
-            "ws://events.example.test",
-          )
-        }
+        value={createAppHostConfig({
+          apiBaseUrl: "http://api.example.test",
+          wsUrl: "ws://events.example.test",
+        })}
       >
         <LocalKeyringLockProvider>
           <LockProbe
@@ -173,12 +169,10 @@ test("a no-op refresh preserves the active keyring configuration", async () => {
 
     render(
       <AppHostConfigProvider
-        value={
-          new AppHostConfig(
-            "http://api.example.test",
-            "ws://events.example.test",
-          )
-        }
+        value={createAppHostConfig({
+          apiBaseUrl: "http://api.example.test",
+          wsUrl: "ws://events.example.test",
+        })}
       >
         <LocalKeyringLockProvider>
           <LockProbe
@@ -348,12 +342,10 @@ test("setPinCode refuses a PIN that fails the strength policy", async () => {
 
     render(
       <AppHostConfigProvider
-        value={
-          new AppHostConfig(
-            "http://api.example.test",
-            "ws://events.example.test",
-          )
-        }
+        value={createAppHostConfig({
+          apiBaseUrl: "http://api.example.test",
+          wsUrl: "ws://events.example.test",
+        })}
       >
         <LocalKeyringLockProvider>
           <LockProbe

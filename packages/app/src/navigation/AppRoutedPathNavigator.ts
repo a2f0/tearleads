@@ -26,10 +26,6 @@ function pushWindowHistoryCursor(
   cursor: AppNavigationHistoryCursor,
   path: string,
 ) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
   const state = createAppNavigationHistoryState(window.history.state, cursor);
   window.history.pushState(state, "", path);
 }
@@ -38,10 +34,6 @@ export function replaceWindowHistoryCursor(
   cursor: AppNavigationHistoryCursor,
   path?: string,
 ) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
   const state = createAppNavigationHistoryState(window.history.state, cursor);
   if (path === undefined) {
     window.history.replaceState(state, "");
@@ -69,9 +61,7 @@ export function useRoutedPathNavigator({
       }
 
       setRoute(route);
-      const shouldReplace =
-        replace ||
-        (typeof window !== "undefined" && window.location.pathname === path);
+      const shouldReplace = replace || window.location.pathname === path;
       if (shouldReplace) {
         replaceWindowHistoryCursor(historyCursorRef.current, path);
         return;

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDocumentRootAttribute } from "../utils/useDocumentRootAttribute";
 import type { AppNavigationMode } from "./AppNavigationMode";
 
 /**
@@ -9,8 +9,7 @@ import type { AppNavigationMode } from "./AppNavigationMode";
  * The attribute — not a `@media (pointer: coarse)` query — is the touch hook
  * because an iPad with a mouse or trackpad renders the routed layout yet reports
  * `pointer: fine`; a coarse-pointer query would leave every control at its dense
- * desktop size on that device. Stamping the document root (rather than a
- * subtree) also lets portaled menus and modals inherit the hook.
+ * desktop size on that device.
  *
  * See `:root[data-navigation-mode="routed"]` rules in @tearleads/ui's
  * styles.css and across the mini-app component stylesheets.
@@ -18,13 +17,5 @@ import type { AppNavigationMode } from "./AppNavigationMode";
 export function useNavigationModeDocumentAttribute(
   mode: AppNavigationMode,
 ): void {
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-    document.documentElement.setAttribute("data-navigation-mode", mode);
-    return () => {
-      document.documentElement.removeAttribute("data-navigation-mode");
-    };
-  }, [mode]);
+  useDocumentRootAttribute("data-navigation-mode", mode);
 }

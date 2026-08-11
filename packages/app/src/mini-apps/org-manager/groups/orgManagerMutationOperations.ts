@@ -40,6 +40,64 @@ export async function refreshAfterGroupMutation(input: {
   }
 }
 
+// Resolves the target user from the directory, importing them by id when the
+// roster does not know them yet.
+async function resolveRosterTargetUser(input: {
+  directoryUser: OrganizationDirectory["users"][number] | undefined;
+  isOperationActive: IsOperationActive;
+  operationOrganizationId: string;
+  orgManagerActions: OrgManagerActions;
+  setError: Dispatch<SetStateAction<string | null>>;
+  targetUserId: string;
+}): Promise<{ userId: string } | null> {
+  const targetUser = input.directoryUser
+    ? { userId: input.directoryUser.userId }
+    : await input.orgManagerActions.importUserById(input.targetUserId);
+  if (!input.isOperationActive(input.operationOrganizationId)) {
+    return null;
+  }
+  if (!targetUser) {
+    input.setError(ORG_MANAGER_LABELS.userNotFound);
+    return null;
+  }
+
+  return targetUser;
+}
+
+// Adds the user to the group unless they already belong to it. Returns null
+// when the operation went stale or the membership list failed to load.
+async function ensureRosterUserInGroup(input: {
+  groupId: string;
+  isOperationActive: IsOperationActive;
+  operationOrganizationId: string;
+  orgManagerActions: OrgManagerActions;
+  setError: Dispatch<SetStateAction<string | null>>;
+  userId: string;
+}): Promise<"added" | "already-member" | null> {
+  const groupMembers = await input.orgManagerActions.loadGroupMembers(
+    input.groupId,
+  );
+  if (!input.isOperationActive(input.operationOrganizationId)) {
+    return null;
+  }
+  if (!groupMembers) {
+    input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+    return null;
+  }
+
+  const alreadyMember = groupMembers.members.some(
+    (member) => member.userId === input.userId,
+  );
+  if (alreadyMember) {
+    return "already-member";
+  }
+  await input.orgManagerActions.addUserToGroup(input.groupId, input.userId);
+
+  return input.isOperationActive(input.operationOrganizationId)
+    ? "added"
+    : null;
+}
+
 export async function prepareRosterImport(input: {
   directory: OrganizationDirectory;
   isOperationActive: IsOperationActive;
@@ -49,40 +107,23 @@ export async function prepareRosterImport(input: {
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
 }): Promise<{ userId: string } | null> {
-  const directoryUser = input.directory.users.find(
-    (user) => user.userId === input.targetUserId,
-  );
-  const [targetUser, memberGroupMembers] = await Promise.all([
-    directoryUser
-      ? Promise.resolve({ userId: directoryUser.userId })
-      : input.orgManagerActions.importUserById(input.targetUserId),
-    input.orgManagerActions.loadGroupMembers(input.memberGroupId),
-  ]);
-  if (!input.isOperationActive(input.operationOrganizationId)) {
-    return null;
-  }
+  const targetUser = await resolveRosterTargetUser({
+    ...input,
+    directoryUser: input.directory.users.find(
+      (user) => user.userId === input.targetUserId,
+    ),
+  });
   if (!targetUser) {
-    input.setError(ORG_MANAGER_LABELS.userNotFound);
-    return null;
-  }
-  if (!memberGroupMembers) {
-    input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
     return null;
   }
 
-  const alreadyMember = memberGroupMembers.members.some(
-    (member) => member.userId === targetUser.userId,
-  );
-  if (!alreadyMember) {
-    await input.orgManagerActions.addUserToGroup(
-      input.memberGroupId,
-      targetUser.userId,
-    );
-  }
+  const membership = await ensureRosterUserInGroup({
+    ...input,
+    groupId: input.memberGroupId,
+    userId: targetUser.userId,
+  });
 
-  return input.isOperationActive(input.operationOrganizationId)
-    ? targetUser
-    : null;
+  return membership ? targetUser : null;
 }
 
 export async function addRosterUserToGroup(input: {
@@ -96,14 +137,8 @@ export async function addRosterUserToGroup(input: {
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
 }): Promise<PrincipalPolicyBundleResponse | null> {
-  const targetUser = input.directoryUser
-    ? { userId: input.directoryUser.userId }
-    : await input.orgManagerActions.importUserById(input.targetUserId);
-  if (!input.isOperationActive(input.operationOrganizationId)) {
-    return null;
-  }
+  const targetUser = await resolveRosterTargetUser(input);
   if (!targetUser) {
-    input.setError(ORG_MANAGER_LABELS.userNotFound);
     return null;
   }
 
@@ -114,29 +149,15 @@ export async function addRosterUserToGroup(input: {
   // is not. Ordinary groups keep their old behaviour: they may hold users who
   // are not Members, so seeding them would change who gets billed.
   if (input.isAdminGroup && input.memberGroupId) {
-    const memberGroupMembers = await input.orgManagerActions.loadGroupMembers(
-      input.memberGroupId,
-    );
-    if (!input.isOperationActive(input.operationOrganizationId)) {
+    const membership = await ensureRosterUserInGroup({
+      ...input,
+      groupId: input.memberGroupId,
+      userId: targetUser.userId,
+    });
+    if (!membership) {
       return null;
     }
-    if (!memberGroupMembers) {
-      input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-      return null;
-    }
-    const alreadyMember = memberGroupMembers.members.some(
-      (member) => member.userId === targetUser.userId,
-    );
-    if (!alreadyMember) {
-      await input.orgManagerActions.addUserToGroup(
-        input.memberGroupId,
-        targetUser.userId,
-      );
-      if (!input.isOperationActive(input.operationOrganizationId)) {
-        return null;
-      }
-      seededMembership = true;
-    }
+    seededMembership = membership === "added";
   }
 
   // Two writes cannot be one transaction, so the Admins half can fail with the

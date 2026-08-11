@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  loadStoredPreference,
+  saveStoredPreference,
+} from "../../../utils/storedPreference";
 
 export interface MiniAppColumnVisibility<ColumnId extends string> {
   hiddenColumns: ReadonlySet<ColumnId>;
@@ -9,16 +13,6 @@ interface MiniAppColumnVisibilityStorageOptions<ColumnId extends string> {
   defaultHiddenColumnIds?: ReadonlyArray<ColumnId> | undefined;
   storageKey: string;
   toggleableColumnIds: ReadonlyArray<ColumnId>;
-}
-
-function getStorage(): Pick<Storage, "getItem" | "setItem"> | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 function filterKnownColumnIds<ColumnId extends string>(
@@ -46,12 +40,7 @@ function defaultHiddenColumns<ColumnId extends string>(
 export function loadMiniAppHiddenColumns<ColumnId extends string>(
   options: MiniAppColumnVisibilityStorageOptions<ColumnId>,
 ): ReadonlySet<ColumnId> {
-  const storage = getStorage();
-  if (!storage) {
-    return defaultHiddenColumns(options);
-  }
-  try {
-    const stored = storage.getItem(options.storageKey);
+  return loadStoredPreference(options.storageKey, (stored) => {
     if (stored === null) {
       return defaultHiddenColumns(options);
     }
@@ -60,9 +49,7 @@ export function loadMiniAppHiddenColumns<ColumnId extends string>(
       return defaultHiddenColumns(options);
     }
     return filterKnownColumnIds(parsed, options.toggleableColumnIds);
-  } catch {
-    return defaultHiddenColumns(options);
-  }
+  });
 }
 
 export function saveMiniAppHiddenColumns<ColumnId extends string>({
@@ -72,15 +59,7 @@ export function saveMiniAppHiddenColumns<ColumnId extends string>({
   hiddenColumns: ReadonlySet<ColumnId>;
   storageKey: string;
 }): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.setItem(storageKey, JSON.stringify([...hiddenColumns]));
-  } catch {
-    // Column visibility is a display preference; disabled storage is harmless.
-  }
+  saveStoredPreference(storageKey, JSON.stringify([...hiddenColumns]));
 }
 
 export function useMiniAppColumnVisibility<ColumnId extends string>(

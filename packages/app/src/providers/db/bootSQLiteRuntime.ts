@@ -5,6 +5,7 @@ import {
   requestPersistentStorage,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import { dumpDatabaseCharacteristics } from "./dumpDatabaseCharacteristics";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 
@@ -39,7 +40,7 @@ const BOOT_ROUNDTRIP_TIMEOUT_ERROR_PREFIX = "SQLite boot round-trip";
  * teardown/respawn race — rather than a real init/decrypt failure.
  */
 export function isBootRoundTripTimeoutError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = unknownErrorMessage(error);
   return message.startsWith(BOOT_ROUNDTRIP_TIMEOUT_ERROR_PREFIX);
 }
 
@@ -138,9 +139,7 @@ export async function bootSQLiteRuntime(
     } catch (error) {
       // Best-effort: a failed durability request must never block boot.
       log(
-        `Warning: failed to request durable storage: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Warning: failed to request durable storage: ${unknownErrorMessage(error)}`,
       );
     }
   }

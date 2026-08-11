@@ -5,19 +5,22 @@ import {
   type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
-import { addFormatIssue } from "../shared/documentFieldUtils";
+import {
+  addFormatIssue,
+  structuredFieldsProjector,
+} from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const CREDIT_CARD_DOCUMENT_KIND =
   "credit_card" satisfies StoredDocumentKind;
 
-export interface CreditCardDocumentFields {
+export type CreditCardDocumentFields = {
   cardNumber: string;
   cvvCode: string;
   expirationDate: string;
   issuer: string;
   nameOnCard: string;
-}
+};
 
 const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
 
@@ -69,19 +72,15 @@ export function readCreditCardFieldsFromRecord(
     issuer: readStringDocumentField(source, "issuer", issues),
     nameOnCard: readStringDocumentField(source, "nameOnCard", issues),
   };
-
-  if (
-    fields.expirationDate.length > 0 &&
-    !isValidYearMonth(fields.expirationDate)
-  ) {
+  const { expirationDate } = fields;
+  if (expirationDate.length > 0 && !isValidYearMonth(expirationDate)) {
     addFormatIssue(
       issues,
       "expirationDate",
-      fields.expirationDate,
+      expirationDate,
       "Expected a card expiration month in YYYY-MM format.",
     );
   }
-
   return { fields, issues };
 }
 
@@ -91,13 +90,9 @@ export const creditCardDocumentProjectorDefinition: AppDocumentProjectorDefiniti
     createLabel: "Credit Card",
     kind: CREDIT_CARD_DOCUMENT_KIND,
     label: "credit card",
-    project: ({ structuredFields }) => {
-      const validated = readCreditCardFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveCreditCardTitle(validated.fields),
-      };
-    },
+    project: structuredFieldsProjector(
+      readCreditCardFieldsFromRecord,
+      deriveCreditCardTitle,
+    ),
     untitledTitle: "Untitled credit card",
   };

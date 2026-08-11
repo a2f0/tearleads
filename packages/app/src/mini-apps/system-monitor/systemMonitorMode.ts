@@ -1,4 +1,8 @@
 import type { PaneSide } from "../../components/pane/dual-pane/types";
+import {
+  loadStoredPreference,
+  saveStoredPreference,
+} from "../../utils/storedPreference";
 
 export type SystemMonitorMode = "pinned" | "windowed";
 type SystemMonitorDeveloperMode = "disabled" | "enabled";
@@ -20,16 +24,6 @@ export function systemMonitorDeveloperModeStorageKey(): string {
   return `${STORAGE_PREFIX}:developer-mode`;
 }
 
-function getStorage(): Pick<Storage, "getItem" | "setItem"> | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function isSystemMonitorMode(value: string | null): value is SystemMonitorMode {
   return value === "pinned" || value === "windowed";
 }
@@ -41,61 +35,31 @@ function isSystemMonitorDeveloperMode(
 }
 
 export function loadSystemMonitorMode(storageKey: string): SystemMonitorMode {
-  const storage = getStorage();
-  if (!storage) {
-    return DEFAULT_SYSTEM_MONITOR_MODE;
-  }
-  try {
-    const stored = storage.getItem(storageKey);
-    return isSystemMonitorMode(stored) ? stored : DEFAULT_SYSTEM_MONITOR_MODE;
-  } catch {
-    return DEFAULT_SYSTEM_MONITOR_MODE;
-  }
+  return loadStoredPreference(storageKey, (stored) =>
+    isSystemMonitorMode(stored) ? stored : DEFAULT_SYSTEM_MONITOR_MODE,
+  );
 }
 
 export function loadSystemMonitorDeveloperMode(
   storageKey: string,
 ): SystemMonitorDeveloperMode {
-  const storage = getStorage();
-  if (!storage) {
-    return DEFAULT_SYSTEM_MONITOR_DEVELOPER_MODE;
-  }
-  try {
-    const stored = storage.getItem(storageKey);
-    return isSystemMonitorDeveloperMode(stored)
+  return loadStoredPreference(storageKey, (stored) =>
+    isSystemMonitorDeveloperMode(stored)
       ? stored
-      : DEFAULT_SYSTEM_MONITOR_DEVELOPER_MODE;
-  } catch {
-    return DEFAULT_SYSTEM_MONITOR_DEVELOPER_MODE;
-  }
+      : DEFAULT_SYSTEM_MONITOR_DEVELOPER_MODE,
+  );
 }
 
 export function saveSystemMonitorMode(
   storageKey: string,
   mode: SystemMonitorMode,
 ): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.setItem(storageKey, mode);
-  } catch {
-    // Persistence is best-effort; ignore disabled storage / quota errors.
-  }
+  saveStoredPreference(storageKey, mode);
 }
 
 export function saveSystemMonitorDeveloperMode(
   storageKey: string,
   mode: SystemMonitorDeveloperMode,
 ): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-  try {
-    storage.setItem(storageKey, mode);
-  } catch {
-    // Persistence is best-effort; ignore disabled storage / quota errors.
-  }
+  saveStoredPreference(storageKey, mode);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -11,6 +11,7 @@ import {
   MiniAppKeyValueTable,
 } from "../../components/mini-app/MiniAppTable";
 import { formatRowByline, formatWriterLabel } from "./rowAttribution";
+import { useModalEscapeAndFocusRestore } from "./useModalEscapeAndFocusRestore";
 import "./DocumentRowDetail.css";
 
 const ROW_DETAIL_EMPTY_VALUE = "None";
@@ -55,30 +56,7 @@ export function DocumentRowDetailOverlay(params: {
   } = params;
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  // Move focus into the overlay on open and restore it to the triggering row
-  // action on close, so keyboard focus is never dropped to the document body.
-  // The active element is narrowed with instanceof (not a cast) so `.focus()`
-  // is only called on something that actually has it.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement;
-    closeButtonRef.current?.focus();
-    return () => {
-      if (previouslyFocused instanceof HTMLElement) {
-        previouslyFocused.focus();
-      }
-    };
-  }, []);
+  useModalEscapeAndFocusRestore(onClose, closeButtonRef);
 
   const created = formatRowByline({
     at: createdAt,

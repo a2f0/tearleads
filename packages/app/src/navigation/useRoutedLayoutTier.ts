@@ -15,15 +15,6 @@ import {
 export type RoutedLayoutTier = "mobile" | "tablet";
 
 function readTier(): RoutedLayoutTier {
-  if (
-    typeof window === "undefined" ||
-    typeof window.matchMedia !== "function"
-  ) {
-    // Server / non-DOM render: default to the wider layout so the markup is
-    // stable and the narrow drawer never flashes before hydration.
-    return "tablet";
-  }
-
   return window.matchMedia(ROUTED_TABLET_QUERY).matches ? "tablet" : "mobile";
 }
 
@@ -38,10 +29,6 @@ export function useRoutedLayoutTier(): RoutedLayoutTier {
   const [tier, setTier] = useState(readTier);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return;
-    }
-
     const query = window.matchMedia(ROUTED_TABLET_QUERY);
     const updateTier = () => setTier(query.matches ? "tablet" : "mobile");
 

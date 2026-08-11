@@ -3,6 +3,7 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { useState } from "react";
+import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
 import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
@@ -47,39 +48,37 @@ export function ExplorerContextMenuLayerHarness(params: {
         position: { x: 12, y: 34 },
       },
     );
+  const contextMenuState: ExplorerContextMenuModel = {
+    canCreateChildContextMenuNode: params.canCreateChildContextMenuNode ?? true,
+    canCreateContactContextMenuNode: true,
+    canCreateStructuredDocumentContextMenuNode:
+      params.canCreateStructuredDocumentContextMenuNode ?? true,
+    canEmptyTrashContextMenuNode: params.canEmptyTrashContextMenuNode ?? false,
+    canMoveToTrashContextMenuNode:
+      params.canMoveToTrashContextMenuNode ?? false,
+    canMoveContextMenuNode: false,
+    canPurgeContextMenuNode: params.canPurgeContextMenuNode ?? false,
+    canRenameContextMenuNode: false,
+    canUploadToContextMenuNode: params.canUploadToContextMenuNode ?? true,
+    closeContextMenu: () => setContextMenu(null),
+    containerContextMenuVariant:
+      params.containerContextMenuVariant ?? "default",
+    contextMenu,
+    handleContainerContextMenu: () => {},
+    handleItemContextMenu: () => {},
+    handleSidebarDocumentContextMenu: () => {},
+  };
 
   return (
     <ExplorerContextMenuLayer
-      canCreateChildContextMenuNode={
-        params.canCreateChildContextMenuNode ?? true
-      }
-      canCreateContactContextMenuNode={true}
-      canCreateStructuredDocumentContextMenuNode={
-        params.canCreateStructuredDocumentContextMenuNode ?? true
-      }
-      canEmptyTrashContextMenuNode={
-        params.canEmptyTrashContextMenuNode ?? false
-      }
-      containerContextMenuVariant={
-        params.containerContextMenuVariant ?? "default"
-      }
-      canMoveToTrashContextMenuNode={
-        params.canMoveToTrashContextMenuNode ?? false
-      }
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canDownloadSelectedDocument={params.canDownloadSelectedDocument ?? false}
       canLinkSelectedDocument={false}
-      canMoveContextMenuNode={false}
-      canPurgeContextMenuNode={params.canPurgeContextMenuNode ?? false}
-      canRenameContextMenuNode={false}
-      canUploadToContextMenuNode={params.canUploadToContextMenuNode ?? true}
       canMoveSelectedDocument={false}
       canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
-      closeContextMenu={() => setContextMenu(null)}
-      contextMenu={contextMenu}
+      contextMenuState={contextMenuState}
       deleteDocument={params.deleteDocument ?? (async () => null)}
       downloadDocument={params.downloadDocument ?? (() => {})}
-      triggerUpload={params.triggerUpload ?? (() => {})}
       moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
       openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
       openCreateChildModal={() => {}}
@@ -95,6 +94,7 @@ export function ExplorerContextMenuLayerHarness(params: {
       openPurgeModal={params.openPurgeModal ?? (() => {})}
       openRenameModal={() => {}}
       purgeDocument={params.purgeDocument ?? (async () => null)}
+      triggerUpload={params.triggerUpload ?? (() => {})}
     />
   );
 }

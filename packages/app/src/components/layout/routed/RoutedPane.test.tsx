@@ -6,7 +6,6 @@ import {
   renderRoutedPane,
 } from "../../../../test/helpers/routedPaneTestUtils";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
-import type { MiniAppId } from "../../../mini-apps/types";
 import {
   initialRoutedSidebarExpanded,
   resolveRoutedActiveMiniAppId,
@@ -64,12 +63,6 @@ test("the root route opens explorer as the routed home screen", () => {
   // resolves to it.
   expect(resolveRoutedActiveMiniAppId(null)).toBe("explorer");
   expect(resolveRoutedActiveMiniAppId("contacts")).toBe("contacts");
-});
-
-test("invalid route app ids fall back to explorer without indexing missing mini-apps", () => {
-  const invalidRouteAppId = "invalid-app" as MiniAppId;
-
-  expect(resolveRoutedActiveMiniAppId(invalidRouteAppId)).toBe("explorer");
 });
 
 test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {

@@ -64,7 +64,7 @@ function SidebarContextMenuHarness(params: {
   const [sidebar, setSidebar] = useState<ReactNode>(null);
   const collapsedIds = useMemo(() => new Set<string>(), []);
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
-  const handleSidebarContextMenu = useCallback(
+  const handleContainerContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLElement>, containerId: string) => {
       event.preventDefault();
       params.onContainerContextMenu(containerId);
@@ -99,7 +99,7 @@ function SidebarContextMenuHarness(params: {
     documentLinkProjectionVersionByContainerId: NO_CONTAINER_VERSIONS,
     documentListRevision: 0,
     documentQueries,
-    handleSidebarContextMenu,
+    handleContainerContextMenu,
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,

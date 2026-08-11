@@ -1,3 +1,8 @@
+import {
+  loadStoredPreference,
+  saveStoredPreference,
+} from "../../utils/storedPreference";
+
 export const APP_FEATURE_FLAG_IDS = [
   "built-in-system-containers",
   "document-edit-ranges",
@@ -17,16 +22,6 @@ export function appFeatureFlagStorageKey(flag: AppFeatureFlagId): string {
   return `${STORAGE_PREFIX}:${flag}`;
 }
 
-function getStorage(): Pick<Storage, "getItem" | "setItem"> | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 function isAppFeatureFlagMode(
   value: string | null,
 ): value is AppFeatureFlagMode {
@@ -34,33 +29,14 @@ function isAppFeatureFlagMode(
 }
 
 export function loadAppFeatureFlag(storageKey: string): AppFeatureFlagMode {
-  const storage = getStorage();
-  if (!storage) {
-    return DEFAULT_APP_FEATURE_FLAG_MODE;
-  }
-
-  try {
-    const stored = storage.getItem(storageKey);
-    return isAppFeatureFlagMode(stored)
-      ? stored
-      : DEFAULT_APP_FEATURE_FLAG_MODE;
-  } catch {
-    return DEFAULT_APP_FEATURE_FLAG_MODE;
-  }
+  return loadStoredPreference(storageKey, (stored) =>
+    isAppFeatureFlagMode(stored) ? stored : DEFAULT_APP_FEATURE_FLAG_MODE,
+  );
 }
 
 export function saveAppFeatureFlag(
   storageKey: string,
   mode: AppFeatureFlagMode,
 ): void {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-
-  try {
-    storage.setItem(storageKey, mode);
-  } catch {
-    // Persistence is best-effort; ignore disabled storage / quota errors.
-  }
+  saveStoredPreference(storageKey, mode);
 }

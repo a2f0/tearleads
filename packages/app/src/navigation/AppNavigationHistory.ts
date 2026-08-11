@@ -70,7 +70,6 @@ export function createAppNavigationHistoryState(
 }
 
 export function getNextAppNavigationHistoryCursor({
-  entries: _entries,
   index,
 }: AppNavigationHistoryCursor): AppNavigationHistoryCursor {
   const nextIndex = index + 1;

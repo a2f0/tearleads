@@ -5,10 +5,7 @@ import type {
   BlobInfoInput,
   BlobStore,
 } from "@tearleads/client-sdk";
-import {
-  createDomainScope,
-  syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -18,14 +15,8 @@ import {
 } from "@testing-library/react";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
-const resizeObserverGlobal = globalThis as unknown as {
-  ResizeObserver?: unknown;
-};
-const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
-
 afterEach(() => {
   cleanup();
-  resizeObserverGlobal.ResizeObserver = originalResizeObserver;
   // A test that enables a column writes the preference; leave the next one the
   // defaults it expects.
   globalThis.localStorage.clear();
@@ -98,7 +89,6 @@ test("blob browser opens list rows in the detail screen", async () => {
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
@@ -159,7 +149,6 @@ test("blob browser document links open documents and expose get info from the ro
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[
         {
@@ -214,7 +203,6 @@ test("blob browser document links open documents and expose get info from the ro
 });
 
 test("blob browser requests a new blob window when the table scrolls", async () => {
-  resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
   const calls: BlobInfoInput[] = [];
   const loadBlobInfo = async (
@@ -231,7 +219,6 @@ test("blob browser requests a new blob window when the table scrolls", async () 
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
@@ -275,7 +262,6 @@ test("blob browser requests a new blob window when the table scrolls", async () 
 });
 
 test("blob browser keeps current rows visible while the next scroll window loads", async () => {
-  resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
   const calls: BlobInfoInput[] = [];
   let resolveScrolledWindow:
@@ -301,7 +287,6 @@ test("blob browser keeps current rows visible while the next scroll window loads
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
@@ -341,7 +326,6 @@ test("blob browser keeps current rows visible while the next scroll window loads
 });
 
 test("blob browser resets the blob window when sorting changes", async () => {
-  resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
   const calls: BlobInfoInput[] = [];
   let resolveSortedWindow:
@@ -367,7 +351,6 @@ test("blob browser resets the blob window when sorting changes", async () => {
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
@@ -433,7 +416,6 @@ test("blob browser renders row sync badges in the rightmost column", async () =>
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
       online={true}

@@ -18,14 +18,12 @@ import {
   ensureContactsInitialized,
   hasContactsContainerRuntime,
   resetContactsStore,
-  waitForContactsInitialization,
 } from "./contactStoreInitialization";
 import {
   createLateSelfContactReconciliation,
   hydrateLateSelfContactFallback,
 } from "./contactStoreLateSelfReconciliation";
 import {
-  canWriteContactEntry,
   contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
@@ -42,6 +40,10 @@ import type {
   ContactsStoreDependencies,
   ContactsStoreState,
 } from "./contactStoreTypes";
+import {
+  contactsRuntimeWritable,
+  queueContactWrite,
+} from "./contactStoreWriteQueue";
 import {
   type EnsureSelfContactInput,
   findPrimarySelfContact,
@@ -101,22 +103,14 @@ async function createContactFromRuntime(
   state: ContactsStoreState,
   patch: ContactEntryPatch,
 ): Promise<string | null> {
-  await waitForContactsInitialization(state);
-  if (
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
-  ) {
+  if (!(await contactsRuntimeWritable(state))) {
     return null;
   }
 
   const contactId = crypto.randomUUID();
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(() => writeContactPatch(state, contactId, patch))
-    .catch((error: unknown) => {
-      state.dependencies.logError("Contacts: failed to create contact.", error);
-    });
-  await state.writeChain;
+  await queueContactWrite(state, "Contacts: failed to create contact.", () =>
+    writeContactPatch(state, contactId, patch),
+  );
   return contactId;
 }
 
@@ -142,12 +136,7 @@ async function ensureSelfContactFromRuntime(
   input: EnsureSelfContactInput,
   guard: ContactStoreOperationGuard = allowContactStoreOperation,
 ): Promise<string | null> {
-  await waitForContactsInitialization(state);
-  if (
-    !guard() ||
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
-  ) {
+  if (!(await contactsRuntimeWritable(state)) || !guard()) {
     return null;
   }
 
@@ -182,9 +171,10 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
 
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => {
+  await queueContactWrite(
+    state,
+    "Contacts: failed to ensure self contact.",
+    async () => {
       if (!guard()) {
         return;
       }
@@ -209,14 +199,8 @@ async function ensureSelfContactFromRuntime(
         return;
       }
       await removeDuplicateSelfContacts(state, contactId, identity, guard);
-    })
-    .catch((error: unknown) => {
-      state.dependencies.logError(
-        "Contacts: failed to ensure self contact.",
-        error,
-      );
-    });
-  await state.writeChain;
+    },
+  );
   return contactId;
 }
 
@@ -242,22 +226,13 @@ async function updateContactFromRuntime(
   contactId: string,
   patch: ContactEntryPatch,
 ): Promise<void> {
-  await waitForContactsInitialization(state);
-  if (
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state) ||
-    !canWriteContactEntry(state, contactId)
-  ) {
+  if (!(await contactsRuntimeWritable(state, contactId))) {
     return;
   }
 
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(() => writeContactPatch(state, contactId, patch))
-    .catch((error: unknown) => {
-      state.dependencies.logError("Contacts: failed to update contact.", error);
-    });
-  await state.writeChain;
+  await queueContactWrite(state, "Contacts: failed to update contact.", () =>
+    writeContactPatch(state, contactId, patch),
+  );
 }
 
 async function importKeyFromRuntime(
@@ -269,11 +244,7 @@ async function importKeyFromRuntime(
     return null;
   }
 
-  await waitForContactsInitialization(state);
-  if (
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
-  ) {
+  if (!(await contactsRuntimeWritable(state))) {
     return null;
   }
 
@@ -282,9 +253,10 @@ async function importKeyFromRuntime(
     ? findSelfContact(state.entriesById, userIdentity.userId)
     : findContactByUserId(state.entriesById, userIdentity.userId);
   const contactId = existingContact?.id ?? userIdentity.userId;
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => {
+  await queueContactWrite(
+    state,
+    "Contacts: failed to import user key.",
+    async () => {
       const identity = toResolvedSelfContactIdentity({
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         userId: userIdentity.userId,
@@ -302,14 +274,8 @@ async function importKeyFromRuntime(
           allowContactStoreOperation,
         );
       }
-    })
-    .catch((error: unknown) => {
-      state.dependencies.logError(
-        "Contacts: failed to import user key.",
-        error,
-      );
-    });
-  await state.writeChain;
+    },
+  );
   return contactId;
 }
 
@@ -317,18 +283,14 @@ async function removeContactFromRuntime(
   state: ContactsStoreState,
   contactId: string,
 ): Promise<void> {
-  await waitForContactsInitialization(state);
-  if (
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state) ||
-    !canWriteContactEntry(state, contactId)
-  ) {
+  if (!(await contactsRuntimeWritable(state, contactId))) {
     return;
   }
 
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => {
+  await queueContactWrite(
+    state,
+    "Contacts: failed to remove contact.",
+    async () => {
       const contactDocument = await loadContactDocumentSummary(
         state,
         contactId,
@@ -364,11 +326,8 @@ async function removeContactFromRuntime(
       trackedStore?.unsubscribe();
       state.contactDocumentStoresById.delete(contactId);
       removeContactEntry(state, contactId);
-    })
-    .catch((error: unknown) => {
-      state.dependencies.logError("Contacts: failed to remove contact.", error);
-    });
-  await state.writeChain;
+    },
+  );
 }
 
 function updateContactsStoreRuntime(

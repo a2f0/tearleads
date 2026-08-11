@@ -1,10 +1,9 @@
 import type { BlobStore } from "@tearleads/client-sdk";
-import { type MouseEvent, type ReactNode, useMemo } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import {
   MiniAppSidebar,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
-import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import {
   MiniAppRowButton,
   MiniAppRowStack,
@@ -19,39 +18,36 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../components/shared/classNames";
-import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ContactAvatar } from "../../document-types/contact/ContactAvatar";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
 import { useContactAvatarUrls } from "../../document-types/contact/useContactAvatarUrls";
-import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
-import { CONTACTS_LABELS } from "./labels";
+import {
+  createAreaContextMenuHandler,
+  type MiniAppListPresentation,
+  MiniAppRowActionsKebab,
+  useMiniAppSidebarPanel,
+} from "../shared/list-panel/MiniAppListPanel";
 import type { ContactEntries } from "./types";
 
-interface ContactsListProps {
-  // Bleed the list to the screen edges on the mobile list home (the narrow
-  // sidebar stays inset).
-  bleed?: boolean | undefined;
+const CONTACTS_ROW_SELECTOR = ".contacts-sidebar-row, .mini-app-row";
+
+interface ContactsSidebarProps {
   blobStore: BlobStore;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
-  // Draw divider lines between entries (the mobile list home; the narrow
-  // sidebar leaves them off).
-  divided?: boolean | undefined;
   entries: ContactEntries;
+  handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
   handleContextMenu: (
     event: MouseEvent<HTMLElement>,
     contactId: string,
   ) => void;
   ready: boolean;
-  rowHeight?: number | undefined;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
-  // Render a trailing kebab that opens the row's context menu (the mobile list
-  // home; the sidebar relies on right-click / long-press).
-  showActions?: boolean | undefined;
-  showMetadata?: boolean | undefined;
 }
+
+type ContactsListProps = ContactsSidebarProps & MiniAppListPresentation;
 
 function normalizeContactNamePart(value: string | null | undefined): string {
   return value?.trim() ?? "";
@@ -175,17 +171,11 @@ function ContactsList({
                 )}
               </MiniAppRowButton>
               {showActions ? (
-                <MiniAppRowActionsButton
-                  aria-label={`${CONTACTS_LABELS.rowActionsButtonPrefix} ${name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleContextMenu(event, entry.id);
-                  }}
-                  onContextMenu={(event) => {
-                    event.stopPropagation();
-                    handleContextMenu(event, entry.id);
-                  }}
-                  title={`${CONTACTS_LABELS.rowActionsButtonPrefix} ${name}`}
+                <MiniAppRowActionsKebab
+                  openContextMenu={(event) =>
+                    handleContextMenu(event, entry.id)
+                  }
+                  rowName={name}
                 />
               ) : null}
             </MiniAppVirtualListRow>
@@ -196,34 +186,15 @@ function ContactsList({
   );
 }
 
-function isContactsListAreaContextMenuTarget(
-  event: MouseEvent<HTMLElement>,
-): boolean {
-  return (
-    !(event.target instanceof Element) ||
-    !event.target.closest(".contacts-sidebar-row, .mini-app-row")
-  );
-}
-
-export function ContactsListHome(
-  props: ContactsListProps & {
-    handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
-  },
-) {
+export function ContactsListHome(props: ContactsSidebarProps) {
   return (
     <section
       aria-label="Contacts list"
       className="contacts-list-home"
-      onContextMenu={(event) => {
-        if (
-          event.defaultPrevented ||
-          !isContactsListAreaContextMenuTarget(event)
-        ) {
-          return;
-        }
-
-        props.handleAreaContextMenu(event);
-      }}
+      onContextMenu={createAreaContextMenuHandler(
+        CONTACTS_ROW_SELECTOR,
+        props.handleAreaContextMenu,
+      )}
     >
       <ContactsList
         {...props}
@@ -237,78 +208,25 @@ export function ContactsListHome(
   );
 }
 
-export function useContactsSidebarPanel(params: {
-  blobStore: BlobStore;
-  currentSigningFingerprint?: string | null | undefined;
-  currentUserId?: string | null | undefined;
-  entries: ContactEntries;
-  handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
-  handleContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    contactId: string,
-  ) => void;
-  ready: boolean;
-  selectedContactId: string | null;
-  setSelectedContactId: (contactId: string) => void;
-  setSidebar: (sidebar: ReactNode) => void;
-}) {
-  const {
-    blobStore,
-    currentSigningFingerprint,
-    currentUserId,
-    entries,
-    handleAreaContextMenu,
-    handleContextMenu,
-    ready,
-    selectedContactId,
-    setSelectedContactId,
-    setSidebar,
-  } = params;
-  // Touch layouts (phone + tablet) have no right-click, so surface the row
-  // kebab in the sidebar rail too. The mobile list-home shows its own kebab.
-  const showActions = useRoutedLayoutActive();
-
-  const sidebar = useMemo(
-    () => (
-      <MiniAppSidebar
-        className="mini-app-sidebar--virtual"
-        onContextMenu={(event) => {
-          if (
-            event.defaultPrevented ||
-            !isContactsListAreaContextMenuTarget(event)
-          ) {
-            return;
-          }
-
-          handleAreaContextMenu(event);
-        }}
-      >
-        <ContactsList
-          blobStore={blobStore}
-          currentSigningFingerprint={currentSigningFingerprint}
-          currentUserId={currentUserId}
-          entries={entries}
-          handleContextMenu={handleContextMenu}
-          ready={ready}
-          selectedContactId={selectedContactId}
-          setSelectedContactId={setSelectedContactId}
-          showActions={showActions}
-        />
-      </MiniAppSidebar>
-    ),
-    [
-      blobStore,
-      currentSigningFingerprint,
-      currentUserId,
-      entries,
-      handleAreaContextMenu,
-      handleContextMenu,
-      ready,
-      selectedContactId,
-      setSelectedContactId,
-      showActions,
-    ],
+function ContactsSidebar(
+  props: ContactsSidebarProps & { showActions: boolean },
+) {
+  return (
+    <MiniAppSidebar
+      className="mini-app-sidebar--virtual"
+      onContextMenu={createAreaContextMenuHandler(
+        CONTACTS_ROW_SELECTOR,
+        props.handleAreaContextMenu,
+      )}
+    >
+      <ContactsList {...props} />
+    </MiniAppSidebar>
   );
+}
 
-  useRegisteredWindowSidebar({ setSidebar, sidebar });
+export function useContactsSidebarPanel(
+  params: ContactsSidebarProps & { setSidebar: (sidebar: ReactNode) => void },
+) {
+  const { setSidebar, ...props } = params;
+  useMiniAppSidebarPanel({ Sidebar: ContactsSidebar, props, setSidebar });
 }

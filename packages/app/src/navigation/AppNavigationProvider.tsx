@@ -1,15 +1,14 @@
 import {
-  createContext,
   type MutableRefObject,
   type PropsWithChildren,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import {
+  findTopWindow,
   useWindowActions,
   useWindowStateData,
   type WindowStateActions,
@@ -21,6 +20,7 @@ import {
   type MiniAppId,
   type OpenMiniAppRequest,
 } from "../mini-apps/types";
+import { createRequiredContext } from "../utils/createRequiredContext";
 import {
   type AppNavigationHistoryAvailability,
   type AppNavigationHistoryCursor,
@@ -78,47 +78,21 @@ interface AppNavigationRuntime {
   windows: WindowStateData["windows"];
 }
 
-const AppNavigationActionsContext = createContext<AppNavigationActions | null>(
-  null,
+const appNavigationActionsContext = createRequiredContext<AppNavigationActions>(
+  "useAppNavigationActions requires AppNavigationProvider.",
 );
-const AppNavigationStateContext = createContext<AppNavigationState | null>(
-  null,
+const appNavigationStateContext = createRequiredContext<AppNavigationState>(
+  "useAppNavigationState requires AppNavigationProvider.",
 );
 const EMPTY_ROUTE_SEGMENTS: ReadonlyArray<string> = [];
-
-function findTopMiniAppWindow(
-  windows: ReturnType<typeof useWindowStateData>["windows"],
-  appId: MiniAppId,
-) {
-  return windows.reduce<(typeof windows)[number] | null>(
-    (topWindow, windowEntry) => {
-      if (windowEntry.appId !== appId) {
-        return topWindow;
-      }
-
-      return !topWindow || windowEntry.zIndex > topWindow.zIndex
-        ? windowEntry
-        : topWindow;
-    },
-    null,
-  );
-}
 
 function readCurrentRoute(
   miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>,
 ): AppRouteState {
-  if (typeof window === "undefined") {
-    return { appId: null, pathSegments: [] };
-  }
-
   return parseAppRoute(window.location.pathname, miniApps);
 }
 
 function readWindowHistoryCursor(): AppNavigationHistoryCursor {
-  if (typeof window === "undefined") {
-    return DEFAULT_APP_NAVIGATION_HISTORY_CURSOR;
-  }
-
   return (
     readAppNavigationHistoryCursor(window.history.state) ??
     DEFAULT_APP_NAVIGATION_HISTORY_CURSOR
@@ -127,10 +101,7 @@ function readWindowHistoryCursor(): AppNavigationHistoryCursor {
 
 function ensureWindowHistoryCursor(): AppNavigationHistoryCursor {
   const cursor = readWindowHistoryCursor();
-  if (
-    typeof window !== "undefined" &&
-    readAppNavigationHistoryCursor(window.history.state) === null
-  ) {
+  if (readAppNavigationHistoryCursor(window.history.state) === null) {
     replaceWindowHistoryCursor(cursor);
   }
 
@@ -198,7 +169,7 @@ function useAppRouteController({
   });
 
   useEffect(() => {
-    if (mode !== "routed" || typeof window === "undefined") {
+    if (mode !== "routed") {
       return;
     }
 
@@ -246,7 +217,7 @@ function useAppRouteController({
   );
 
   const goBack = useCallback(() => {
-    if (typeof window !== "undefined" && historyCursorRef.current.index > 0) {
+    if (historyCursorRef.current.index > 0) {
       setHistoryCursor({
         ...historyCursorRef.current,
         index: historyCursorRef.current.index - 1,
@@ -256,7 +227,7 @@ function useAppRouteController({
   }, [setHistoryCursor]);
   const goForward = useCallback(() => {
     const { entries, index } = historyCursorRef.current;
-    if (typeof window !== "undefined" && index < entries - 1) {
+    if (index < entries - 1) {
       setHistoryCursor({
         ...historyCursorRef.current,
         index: index + 1,
@@ -306,7 +277,9 @@ function useAppNavigationActionValue(
       }
 
       const existingWindow = reuseExisting
-        ? findTopMiniAppWindow(currentWindows, appId)
+        ? findTopWindow(currentWindows, (windowEntry) => {
+            return windowEntry.appId === appId;
+          })
         : null;
       if (existingWindow) {
         actions.restore(existingWindow.id);
@@ -394,44 +367,29 @@ export function AppNavigationProvider({
   );
 
   return (
-    <AppNavigationActionsContext.Provider value={actions}>
-      <AppNavigationStateContext.Provider value={state}>
+    <appNavigationActionsContext.context.Provider value={actions}>
+      <appNavigationStateContext.context.Provider value={state}>
         <AppNavigationWindowRuntimeBridge
           miniApps={miniApps}
           mode={mode}
           runtimeRef={runtimeRef}
         />
         {children}
-      </AppNavigationStateContext.Provider>
-    </AppNavigationActionsContext.Provider>
+      </appNavigationStateContext.context.Provider>
+    </appNavigationActionsContext.context.Provider>
   );
 }
 
-export function useAppNavigationActions(): AppNavigationActions {
-  const context = useContext(AppNavigationActionsContext);
-  if (!context) {
-    throw new Error("useAppNavigationActions requires AppNavigationProvider.");
-  }
+export const useAppNavigationActions = appNavigationActionsContext.useRequired;
 
-  return context;
-}
+export const useAppNavigationState = appNavigationStateContext.useRequired;
 
-export function useAppNavigationState(): AppNavigationState {
-  const context = useContext(AppNavigationStateContext);
-  if (!context) {
-    throw new Error("useAppNavigationState requires AppNavigationProvider.");
-  }
-
-  return context;
-}
-
-export function useOptionalAppNavigationState(): AppNavigationState | null {
-  return useContext(AppNavigationStateContext);
-}
+export const useOptionalAppNavigationState =
+  appNavigationStateContext.useOptional;
 
 export function useMiniAppRouteSegments(appId: MiniAppId) {
-  const actions = useContext(AppNavigationActionsContext);
-  const state = useContext(AppNavigationStateContext);
+  const actions = appNavigationActionsContext.useOptional();
+  const state = appNavigationStateContext.useOptional();
   const windowRoute = useMiniAppWindowRouteSegments(appId);
   const isGlobalRouted = actions !== null && state?.mode === "routed";
   const isRouted = isGlobalRouted || windowRoute !== null;

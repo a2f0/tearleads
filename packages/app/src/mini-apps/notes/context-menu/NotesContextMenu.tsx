@@ -3,10 +3,8 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { type MouseEvent, useCallback } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
-import {
-  type ContextMenuState,
-  useContextMenuState,
-} from "../../../components/shared/useContextMenuState";
+import type { ContextMenuState } from "../../../components/shared/useContextMenuState";
+import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NOTES_LABELS } from "../labels";
 
 export type NotesContextMenuTarget =
@@ -14,6 +12,12 @@ export type NotesContextMenuTarget =
   | { kind: "note"; noteId: string };
 
 export type NotesContextMenuState = ContextMenuState<NotesContextMenuTarget>;
+
+const AREA_TARGET: NotesContextMenuTarget = { kind: "area" };
+
+function noteTarget(noteId: string): NotesContextMenuTarget {
+  return { kind: "note", noteId };
+}
 
 export interface NotesContextMenuModel {
   closeContextMenu: () => void;
@@ -30,22 +34,15 @@ export function useNotesContextMenu(params: {
   deleteNote: (noteId: string) => Promise<void>;
 }): NotesContextMenuModel {
   const { deleteNote } = params;
-  const { closeContextMenu, contextMenu, openContextMenu } =
-    useContextMenuState<NotesContextMenuTarget>();
-
-  const handleAreaContextMenu = useCallback(
-    (event: MouseEvent<HTMLElement>) => {
-      openContextMenu(event, { kind: "area" });
-    },
-    [openContextMenu],
-  );
-
-  const handleNoteContextMenu = useCallback(
-    (event: MouseEvent<HTMLElement>, noteId: string) => {
-      openContextMenu(event, { kind: "note", noteId });
-    },
-    [openContextMenu],
-  );
+  const {
+    closeContextMenu,
+    contextMenu,
+    handleAreaContextMenu,
+    handleRowContextMenu: handleNoteContextMenu,
+  } = useMiniAppListContextMenu({
+    areaTarget: AREA_TARGET,
+    rowTarget: noteTarget,
+  });
 
   const deleteContextMenuNote = useCallback(async () => {
     if (!contextMenu || contextMenu.id.kind !== "note") {

@@ -2,6 +2,7 @@ import {
   createExecSql,
   type ExecSqlClientLike,
 } from "@tearleads/client-sdk/sqlite";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 interface TableCharacteristic {
   name: string;
@@ -76,9 +77,7 @@ export async function dumpDatabaseCharacteristics(
     }
   } catch (error) {
     log(
-      `Failed to read database characteristics: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `Failed to read database characteristics: ${unknownErrorMessage(error)}`,
     );
   }
 }

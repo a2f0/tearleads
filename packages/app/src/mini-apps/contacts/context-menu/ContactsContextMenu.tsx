@@ -4,10 +4,8 @@ import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
-import {
-  type ContextMenuState,
-  useContextMenuState,
-} from "../../../components/shared/useContextMenuState";
+import type { ContextMenuState } from "../../../components/shared/useContextMenuState";
+import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactEntries } from "../types";
@@ -18,6 +16,12 @@ export type ContactsContextMenuTarget =
 
 export type ContactsContextMenuState =
   ContextMenuState<ContactsContextMenuTarget>;
+
+const AREA_TARGET: ContactsContextMenuTarget = { kind: "area" };
+
+function contactTarget(contactId: string): ContactsContextMenuTarget {
+  return { contactId, kind: "contact" };
+}
 
 export interface ContactsContextMenuModel {
   canRemoveContextMenuContact: boolean;
@@ -46,25 +50,18 @@ export function useContactsContextMenu(params: {
     selectedContactId,
     setSelectedContactId,
   } = params;
-  const { closeContextMenu, contextMenu, openContextMenu } =
-    useContextMenuState<ContactsContextMenuTarget>();
+  const {
+    closeContextMenu,
+    contextMenu,
+    handleAreaContextMenu,
+    handleRowContextMenu: handleSidebarContextMenu,
+  } = useMiniAppListContextMenu({
+    areaTarget: AREA_TARGET,
+    rowTarget: contactTarget,
+  });
   const entriesById = useMemo(
     () => new Map(entries.map((entry) => [entry.id, entry])),
     [entries],
-  );
-
-  const handleAreaContextMenu = useCallback(
-    (event: MouseEvent<HTMLElement>) => {
-      openContextMenu(event, { kind: "area" });
-    },
-    [openContextMenu],
-  );
-
-  const handleSidebarContextMenu = useCallback(
-    (event: MouseEvent<HTMLElement>, contactId: string) => {
-      openContextMenu(event, { contactId, kind: "contact" });
-    },
-    [openContextMenu],
   );
 
   const contextMenuEntry =
@@ -145,11 +142,9 @@ export function ContactsContextMenuLayer(params: {
     return null;
   }
 
-  const clipboard =
-    typeof navigator !== "undefined" ? navigator.clipboard : undefined;
-  const canCopyContextMenuContactUserId = Boolean(
-    contextMenuContactUserId && clipboard,
-  );
+  // The Clipboard API is genuinely absent in insecure contexts; the copy item
+  // simply stays hidden there.
+  const { clipboard } = navigator;
 
   return (
     <Menu
@@ -180,14 +175,14 @@ export function ContactsContextMenuLayer(params: {
         </>
       ) : (
         <>
-          {canCopyContextMenuContactUserId && contextMenuContactUserId && (
+          {clipboard && contextMenuContactUserId && (
             <MenuItem
               icon={ClipboardIcon}
               label={CONTACTS_LABELS.copyUserIdAction}
               onClick={() => {
                 closeContextMenu();
                 void clipboard
-                  ?.writeText(contextMenuContactUserId)
+                  .writeText(contextMenuContactUserId)
                   .catch(() => undefined);
               }}
             />

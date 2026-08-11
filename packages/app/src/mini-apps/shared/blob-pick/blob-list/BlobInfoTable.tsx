@@ -33,9 +33,8 @@ import {
   getVisibleBlobInfoColumnIds,
 } from "./blobListColumns";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
+import { EMPTY_ORGANIZATION_NAMES } from "./useBlobOrganizationNames";
 import "./BlobList.css";
-
-const EMPTY_ORGANIZATION_NAMES = new Map<string, string>();
 
 function BlobInfoTableContent(params: {
   activeBlob: BlobInfo | null;

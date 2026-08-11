@@ -11,7 +11,6 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   scopeOrganizationValue,
-  scopeSelectedGroupPolicyHistory,
   scopeSelectedGroupValue,
   scopeSelectedUserDetail,
 } from "./hooks/orgManagerStateScope";
@@ -55,7 +54,7 @@ function deriveScopedState(input: DeriveOrgManagerStateInput) {
     input.organizationId,
     input.selectedGroupId,
   );
-  const activeGroupPolicyHistory = scopeSelectedGroupPolicyHistory(
+  const activeGroupPolicyHistory = scopeSelectedGroupValue(
     input.groupPolicyHistory,
     input.organizationId,
     input.selectedGroupId,

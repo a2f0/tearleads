@@ -17,6 +17,7 @@ import {
 import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
 import { Pane } from "../../src/components/pane/shell/Pane";
 import type { AppHostConfig } from "../../src/host/AppHostConfig";
+import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -101,15 +102,19 @@ export function renderPane({
     systemMonitorModeStorageKey("left"),
     pinSystemMonitor ? "pinned" : "windowed",
   );
+  // Mirrors production composition: Layout mounts the developer-mode provider
+  // above every Pane.
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
-          <AppTestRuntimeScopeProbe />
-          <Pane className="pane" />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={hostConfig}>
+            <AppTestRuntimeScopeProbe />
+            <Pane className="pane" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 // Clicks a mini-app launcher entry inside the open pane context menu. Scoped to

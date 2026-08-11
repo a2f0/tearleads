@@ -1,16 +1,12 @@
 import { useId } from "react";
-import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import {
-  StructuredDocument,
-  StructuredDocumentField,
-  StructuredDocumentFields,
-} from "../shared/StructuredDocument";
+import { StructuredDocument } from "../shared/StructuredDocument";
 import { TrackerDocument } from "../shared/TrackerDocument";
+import { TrackerNameEditFields } from "../shared/TrackerNameEditFields";
+import { readStructuredTrackerField } from "../shared/trackerRows";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { useTrackerDocument } from "../shared/useTrackerDocument";
 import {
-  type BloodPressureField,
   BloodPressureReadingEditRow,
   type UpdateReading,
 } from "./BloodPressureEditRow";
@@ -31,7 +27,6 @@ import {
 } from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
-  readTrackerNameField,
   toBloodPressureReadingRows,
 } from "./bloodPressureReadings";
 import "./BloodPressure.css";
@@ -54,33 +49,6 @@ interface BloodPressureFieldsProps {
   trackerNameInputId: string;
 }
 
-function BloodPressureEditFields(params: {
-  controlsDisabled: boolean;
-  onRenameTracker: (value: string) => void;
-  ready: boolean;
-  trackerName: string;
-  trackerNameInputId: string;
-}) {
-  return (
-    <StructuredDocumentFields>
-      <StructuredDocumentField
-        inputId={params.trackerNameInputId}
-        label="Tracker Name"
-      >
-        <MiniAppInput
-          id={params.trackerNameInputId}
-          aria-label="Blood pressure tracker name"
-          value={params.trackerName}
-          onChange={(event) => params.onRenameTracker(event.target.value)}
-          placeholder={params.ready ? "Morning readings" : "Loading..."}
-          disabled={params.controlsDisabled}
-          autoComplete="off"
-        />
-      </StructuredDocumentField>
-    </StructuredDocumentFields>
-  );
-}
-
 export function BloodPressureFields(params: BloodPressureFieldsProps) {
   return (
     <TrackerDocument
@@ -96,12 +64,15 @@ export function BloodPressureFields(params: BloodPressureFieldsProps) {
       onToggleEditing={params.onToggleEditing}
       ready={params.ready}
       renderEditFields={(controlsDisabled) => (
-        <BloodPressureEditFields
+        <TrackerNameEditFields
+          ariaLabel="Blood pressure tracker name"
           controlsDisabled={controlsDisabled}
-          onRenameTracker={params.onRenameTracker}
+          inputId={params.trackerNameInputId}
+          label="Tracker Name"
+          onRename={params.onRenameTracker}
+          placeholder="Morning readings"
           ready={params.ready}
-          trackerName={params.trackerName}
-          trackerNameInputId={params.trackerNameInputId}
+          value={params.trackerName}
         />
       )}
       renderEditRow={(reading, index, context) => (
@@ -148,7 +119,10 @@ export function BloodPressure(params: {
   initialEditing?: boolean | undefined;
 }) {
   const tracker = useTrackerDocument(params.initialEditing);
-  const trackerName = readTrackerNameField(tracker.structuredFields);
+  const trackerName = readStructuredTrackerField(
+    tracker.structuredFields,
+    BLOOD_PRESSURE_TRACKER_NAME_FIELD,
+  );
   const readings = toBloodPressureReadingRows(tracker.rows, tracker.readCell);
   const trackerNameInputId = useId();
 
@@ -177,11 +151,7 @@ export function BloodPressure(params: {
             })
           }
           onToggleEditing={tracker.toggleEditing}
-          onUpdateReading={(
-            id: string,
-            field: BloodPressureField,
-            value: string,
-          ) => tracker.updateRow(id, field, value)}
+          onUpdateReading={tracker.updateRow}
           readings={readings}
           ready={tracker.ready}
           resolveRowWriter={tracker.resolveRowWriter}

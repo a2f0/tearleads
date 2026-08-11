@@ -104,7 +104,6 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
             currentSelfContactLocalId={props.currentSelfContactLocalId}
             currentUserId={props.currentUserId}
             depth={0}
-            documentWindowsByContainerId={props.documentWindowsByContainerId}
             offset={props.offset}
             onContextMenu={props.onContextMenu}
             onDocumentContextMenu={props.onDocumentContextMenu}
@@ -143,7 +142,7 @@ interface ExplorerSidebarPanelParams {
   documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
-  handleSidebarContextMenu: (
+  handleContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     nodeId: string,
   ) => void;
@@ -223,11 +222,10 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
       databaseError={props.databaseError}
       depth={0}
       documentLinkProjectionVersion={props.documentLinkProjectionVersion}
-      documentWindowsByContainerId={documentWindowsByContainerId}
       frameRef={frameRef}
       nodesLength={props.nodes.length}
       offset={sidebarOffset}
-      onContextMenu={props.handleSidebarContextMenu}
+      onContextMenu={props.handleContainerContextMenu}
       onDocumentContextMenu={props.handleSidebarDocumentContextMenu}
       onRetryDatabase={props.onRetryDatabase}
       onRetryDocumentWindow={retryDocumentWindow}
@@ -258,7 +256,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.documentLinkProjectionVersionByContainerId,
       params.documentListRevision,
       params.documentQueries,
-      params.handleSidebarContextMenu,
+      params.handleContainerContextMenu,
       params.handleSidebarDocumentContextMenu,
       params.nodes,
       params.onRetryDatabase,

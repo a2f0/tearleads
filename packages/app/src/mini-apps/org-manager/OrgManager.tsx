@@ -1,8 +1,5 @@
-import type {
-  OrganizationContainerGrant,
-  OrganizationUserDetail,
-} from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useMemo, useState } from "react";
+import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
+import { type MouseEvent, useCallback, useState } from "react";
 import {
   MiniAppButton,
   MiniAppRoot,
@@ -21,7 +18,6 @@ import { DataUsageView } from "./billing/DataUsageView";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
 import { resolveOrgManagerDetailBackVisibility } from "./detailBackActions";
 import { DirectoryView } from "./directory/DirectoryView";
-import { RosterProfileEditor } from "./directory/RosterProfileEditor";
 import { GrantsView } from "./grants/GrantsView";
 import { RevokeGrantConfirmationDialog } from "./grants/RevokeGrantConfirmationDialog";
 import { GroupsView } from "./groups/GroupsView";
@@ -38,36 +34,14 @@ import { OrganizationView } from "./organization/OrganizationView";
 import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
-function renderRosterProfileEditor(organizationId: string) {
-  return ({
-    canEdit,
-    isEditing,
-    onDisplayNameChange,
-    user,
-  }: {
-    canEdit: boolean;
-    isEditing: boolean;
-    onDisplayNameChange: (displayName: string | null) => void;
-    user: OrganizationUserDetail["user"];
-  }) => (
-    <RosterProfileEditor
-      canEdit={canEdit}
-      isEditing={isEditing}
-      onDisplayNameChange={onDisplayNameChange}
-      organizationId={organizationId}
-      user={user}
-    />
-  );
-}
-
 function OrgManagerDirectoryContent({
   model,
-  renderProfileEditor,
+  organizationId,
   revokeGrant,
   syncSeatUserIds,
 }: {
   model: OrgManagerModel;
-  renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
+  organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   syncSeatUserIds: ReadonlySet<string> | null;
 }) {
@@ -84,6 +58,7 @@ function OrgManagerDirectoryContent({
       importUserIdDraft={model.importUserIdDraft}
       isImportUserDialogOpen={model.isImportUserDialogOpen}
       loadingUserDetail={model.loadingUserDetail}
+      organizationId={organizationId}
       pending={model.dataPending}
       mutating={model.mutating}
       openDirectoryContextMenu={(event) =>
@@ -95,7 +70,6 @@ function OrgManagerDirectoryContent({
       openGrantRoute={model.openGrantRoute}
       openGroupRoute={model.openGroupRoute}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
-      renderRosterProfileEditor={renderProfileEditor}
       revokeGrant={revokeGrant}
       rosterProfileEditRequest={model.rosterProfileEditRequest}
       selectedUserId={model.selectedUserId}
@@ -118,16 +92,12 @@ function OrgManagerContent({
 }) {
   const { billing, billingMatchesOrganization, syncSeatUserIds } =
     useOrgManagerBillingRosterState(model, organizationId);
-  const renderProfileEditor = useMemo(
-    () => renderRosterProfileEditor(organizationId),
-    [organizationId],
-  );
 
   if (model.view === "directory") {
     return (
       <OrgManagerDirectoryContent
         model={model}
-        renderProfileEditor={renderProfileEditor}
+        organizationId={organizationId}
         revokeGrant={revokeGrant}
         syncSeatUserIds={syncSeatUserIds}
       />

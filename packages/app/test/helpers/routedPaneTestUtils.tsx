@@ -5,19 +5,24 @@ import {
 } from "../../src/components/pane/dual-pane";
 import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
 import { Pane } from "../../src/components/pane/shell/Pane";
+import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import { createTestHostConfig } from "./paneTestUtils";
 
 export function renderRoutedPane(): RenderResult {
   window.history.replaceState(null, "", "/");
 
+  // Mirrors production composition: Layout mounts the developer-mode provider
+  // above every Pane.
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={createTestHostConfig()}>
-          <Pane className="pane" navigationMode="routed" routedVisible />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={createTestHostConfig()}>
+            <Pane className="pane" navigationMode="routed" routedVisible />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 

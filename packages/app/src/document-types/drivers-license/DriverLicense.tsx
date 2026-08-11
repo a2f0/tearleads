@@ -1,6 +1,5 @@
-import { useId, useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { useId } from "react";
+import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
@@ -8,11 +7,8 @@ import {
   StructuredDocumentFields,
   StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
-import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
+import { useAttachedStructuredDocument } from "../shared/useAttachedStructuredDocument";
 import {
   DRIVER_LICENSE_ATTACHMENT_SLOTS,
   readDriverLicenseFields,
@@ -121,83 +117,35 @@ export function DriverLicenseDocumentFieldsPane(params: {
   );
 }
 
-const DRIVER_LICENSE_ATTACHMENT_SLOT_IDS = DRIVER_LICENSE_ATTACHMENT_SLOTS.map(
-  (slot) => slot.slotId,
-);
-
 export function DriverLicense(params: {
   containerId: string | null;
   initialEditing?: boolean | undefined;
   localId: string;
 }) {
-  const { infra } = useTearleadsRuntime();
-  const { blobStore } = infra;
-  const {
-    attachments,
-    attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId,
-    canAttach,
-    canWrite,
-    ready,
-    removeAttachment,
-    replaceAttachment,
-    setStructuredFields,
-    structuredFields,
-  } = useDocument();
-  const fields = useMemo(
-    () => readDriverLicenseFields(structuredFields),
-    [structuredFields],
-  );
-  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
+  const doc = useAttachedStructuredDocument({
+    containerId: params.containerId,
+    documentLabel: "driver's license",
+    initialEditing: params.initialEditing,
+    localId: params.localId,
+    readFields: readDriverLicenseFields,
+    slots: DRIVER_LICENSE_ATTACHMENT_SLOTS,
+  });
   const inputIds = {
     expirationDate: useId(),
     licenseId: useId(),
   };
-  const imageUrlBySlotId = useAttachmentImageUrls(
-    attachments,
-    attachmentStorageKeyBySlotId,
-    blobStore,
-  );
-  const handleSelectedAttachment = useDocumentAttachmentSelection({
-    errorMessage: "Failed to handle driver's license attachment selection",
-    replaceAttachment,
-  });
-  const blobPicker = useBlobPickAttachment({
-    blobStore,
-    containerId: params.containerId,
-    errorMessage: "Failed to handle driver's license blob attachment selection",
-    localId: params.localId,
-    replaceAttachment,
-    slotIds: DRIVER_LICENSE_ATTACHMENT_SLOT_IDS,
-  });
-
   return (
     <StructuredDocument
-      attachments={
-        <DocumentAttachmentSlots
-          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
-          attachmentStatusBySlotId={attachmentStatusBySlotId}
-          attachments={attachments}
-          blobPicker={blobPicker}
-          canAttach={canAttach && isEditing && canWrite}
-          imageUrlBySlotId={imageUrlBySlotId}
-          onClearAttachment={removeAttachment}
-          onSelectedAttachment={handleSelectedAttachment}
-          slots={DRIVER_LICENSE_ATTACHMENT_SLOTS}
-        />
-      }
+      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
       fields={
         <DriverLicenseDocumentFieldsPane
-          canWrite={canWrite}
-          fields={fields}
+          canWrite={doc.canWrite}
+          fields={doc.fields}
           inputIds={inputIds}
-          isEditing={isEditing}
-          onToggleEditing={toggleEditing}
-          ready={ready}
-          setStructuredFields={setStructuredFields}
+          isEditing={doc.isEditing}
+          onToggleEditing={doc.toggleEditing}
+          ready={doc.ready}
+          setStructuredFields={doc.setStructuredFields}
         />
       }
     />

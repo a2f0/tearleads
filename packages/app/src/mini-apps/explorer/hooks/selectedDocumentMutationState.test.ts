@@ -3,6 +3,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
 import {
+  createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
 } from "../model/targetOptions";
@@ -311,22 +312,25 @@ const trashFlowNodes: ReadonlyArray<ContainerNode> = [
   containerNode({ id: "documents-container", name: "Documents" }),
 ];
 
+function trashFlowMoveTargets(trashedDocument: DocumentSummary) {
+  return getDocumentMoveTargetOptions(
+    trashFlowNodes,
+    trashedDocument.id,
+    createExplorerTargetLookups(trashFlowNodes, [trashedDocument]),
+    rulesContext,
+    new Map(),
+  );
+}
+
 function moveOutOfTrashState(trashedDocument: DocumentSummary) {
   const linkTargetOptions = getDocumentLinkTargetOptions(
     trashFlowNodes,
-    [trashedDocument],
     trashedDocument.id,
     [TRASH_CONTAINER_ID],
-    undefined,
+    createExplorerTargetLookups(trashFlowNodes, [trashedDocument]),
     rulesContext,
   );
-  const moveTargetOptions = getDocumentMoveTargetOptions(
-    trashFlowNodes,
-    [trashedDocument],
-    trashedDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const moveTargetOptions = trashFlowMoveTargets(trashedDocument);
   return {
     linkTargetOptions,
     moveTargetOptions,
@@ -393,9 +397,8 @@ test("a last-link orphan can move into its organization's writable containers", 
   };
   const moveTargetOptions = getDocumentMoveTargetOptions(
     gateNodes,
-    [orphanedDocument],
     orphanedDocument.id,
-    undefined,
+    createExplorerTargetLookups(gateNodes, [orphanedDocument]),
     { ...rulesContext, currentOrganizationId: "org-1" },
     new Map([[orphanedDocument.documentId ?? "", []]]),
   );
@@ -418,13 +421,7 @@ test("move out of trash is enabled while offline / unauthenticated", () => {
     ...selectedDocument,
     containerId: TRASH_CONTAINER_ID,
   };
-  const moveTargetOptions = getDocumentMoveTargetOptions(
-    trashFlowNodes,
-    [trashedDocument],
-    trashedDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const moveTargetOptions = trashFlowMoveTargets(trashedDocument);
   expect(moveTargetOptions.length).toBeGreaterThan(0);
   expect(
     getMutationState({
@@ -446,13 +443,7 @@ test("move out of trash is disabled when the trash node is absent from the tree"
     ...selectedDocument,
     containerId: "unresolved-trash-container",
   };
-  const moveTargetOptions = getDocumentMoveTargetOptions(
-    trashFlowNodes,
-    [trashedDocument],
-    trashedDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const moveTargetOptions = trashFlowMoveTargets(trashedDocument);
   expect(moveTargetOptions).toEqual([]);
   expect(
     getMutationState({

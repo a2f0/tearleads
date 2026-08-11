@@ -32,7 +32,6 @@ function renderSidebarIcon(icon: string | undefined) {
       currentSelfContactLocalId={null}
       currentUserId={null}
       depth={0}
-      documentWindowsByContainerId={new Map()}
       offset={0}
       onContextMenu={() => undefined}
       onDocumentContextMenu={() => undefined}
@@ -93,7 +92,6 @@ test("the recovery collection suppresses the native context menu", () => {
       currentSelfContactLocalId={null}
       currentUserId={null}
       depth={0}
-      documentWindowsByContainerId={new Map()}
       offset={0}
       onContextMenu={() => undefined}
       onDocumentContextMenu={() => undefined}
@@ -142,7 +140,6 @@ function renderSidebarContact(avatarUrlByLocalId: Record<string, string>) {
       currentSelfContactLocalId={null}
       currentUserId={null}
       depth={0}
-      documentWindowsByContainerId={new Map()}
       offset={0}
       onContextMenu={() => undefined}
       onDocumentContextMenu={() => undefined}
@@ -218,7 +215,6 @@ test("an orphan sidebar document opens without a context menu", () => {
       currentSelfContactLocalId={null}
       currentUserId={null}
       depth={0}
-      documentWindowsByContainerId={new Map()}
       offset={0}
       onContextMenu={() => undefined}
       onDocumentContextMenu={() => {

@@ -1,15 +1,13 @@
 import type {
   BlobInfo,
-  BlobInfoInput,
-  BlobInfoList,
   BlobStore,
   ContainerDocumentObjectSyncState,
   ContainerNode,
-  DomainScope,
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";
+import type { ExplorerBlobInfoLoader } from "../../../../stores/explorer/blobInfo";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import {
   BlobListScreen,
@@ -42,8 +40,7 @@ function renderExplorerSyncCell(
 
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
-  domainScope: DomainScope;
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  loadBlobInfo: ExplorerBlobInfoLoader;
   nodes: ReadonlyArray<ContainerNode>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   online: boolean;

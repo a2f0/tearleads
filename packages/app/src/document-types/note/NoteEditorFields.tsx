@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { classNames } from "../../components/shared/classNames";
-import { NoteAttachmentOverlay } from "./NoteAttachmentOverlay";
+import { NoteAttachmentOverlay } from "./NoteAttachmentPreview";
 import {
   type NoteAttachmentImageUrlBySlotId,
   type NoteAttachmentStatusBySlotId,

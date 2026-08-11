@@ -6,7 +6,10 @@ import {
   type CreateSQLiteRuntimeOptions,
   createSQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
-import { AppHostConfig } from "../../src/host/AppHostConfig";
+import {
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../src/host/AppHostConfig";
 import { resolveTestHostProfile } from "./manualIdentityProfile";
 import { MockMessageChannel, MockWorker } from "./mockWorker";
 import { wsUrl } from "./mswServer";
@@ -33,25 +36,22 @@ export function createTestHostConfig(
     options.createLocalKeyring === null
       ? undefined
       : (options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory());
-  const config = new AppHostConfig(
-    "http://localhost:3001",
-    wsUrl,
-    () =>
+  return createAppHostConfig({
+    apiBaseUrl: "http://localhost:3001",
+    createBlobStore: () => createMemoryBlobStore(),
+    createLocalKeyring,
+    createSQLiteRuntime: () =>
       createSQLiteRuntime({
         ...(options.reuseDatabaseWorker
           ? { messageChannelConstructor: testMessageChannelConstructor }
           : {}),
         workerConstructor: options.workerConstructor ?? MockWorker,
       }),
-    () => createMemoryBlobStore(),
-    options.localIdentityNamespace,
-    createLocalKeyring,
-    options.localIdentityNamespace === undefined,
-    undefined,
-    undefined,
-    resolveTestHostProfile(options),
-  );
-  return options.reuseDatabaseWorker
-    ? config.withOverrides({ reuseDatabaseWorker: true })
-    : config;
+    disableLocalIdentityPersistence:
+      options.localIdentityNamespace === undefined,
+    localIdentityNamespace: options.localIdentityNamespace,
+    profile: resolveTestHostProfile(options),
+    reuseDatabaseWorker: options.reuseDatabaseWorker,
+    wsUrl,
+  });
 }

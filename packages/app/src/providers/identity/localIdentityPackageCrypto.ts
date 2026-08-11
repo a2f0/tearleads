@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { randomBytes } from "../../utils/randomBytes";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
@@ -30,10 +31,6 @@ function importAesGcmKey(key: Uint8Array): Promise<CryptoKey> {
     false,
     ["decrypt", "encrypt"],
   );
-}
-
-function randomBytes(byteLength: number): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(byteLength));
 }
 
 function decodeBase64Bytes(value: string): Uint8Array {

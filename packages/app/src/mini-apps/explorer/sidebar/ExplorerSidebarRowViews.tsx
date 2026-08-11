@@ -18,7 +18,6 @@ import {
 import { getExplorerContactAvatar } from "../shared/explorerContactAvatar";
 import { getExplorerContainerIcon } from "../shared/explorerContainerIcons";
 import {
-  type ExplorerSidebarDocumentWindowState,
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
 } from "./ExplorerSidebarRows";
@@ -37,10 +36,6 @@ export interface ExplorerSidebarRowProps {
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   depth: number;
-  documentWindowsByContainerId: ReadonlyMap<
-    string,
-    ExplorerSidebarDocumentWindowState
-  >;
   onContextMenu: (event: MouseEvent<HTMLElement>, id: string) => void;
   onDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,

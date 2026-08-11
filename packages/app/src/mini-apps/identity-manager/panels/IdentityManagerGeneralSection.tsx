@@ -15,6 +15,13 @@ import {
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
 
+// The toolbar's props plus the fields the section's overflow menu needs.
+interface IdentitySectionActions extends IdentityActionToolbarProps {
+  readonly handleLogoutCurrentSession: () => void;
+  readonly isAuthenticated: boolean;
+  readonly mutatingSessionId: string | null;
+}
+
 function IdentityDetail({
   action,
   label,
@@ -49,7 +56,7 @@ function getIdentitySectionActions({
   registration,
   session,
   sessionMutations,
-}: IdentityManagerModel): IdentityActionToolbarProps {
+}: IdentityManagerModel): IdentitySectionActions {
   return {
     canAuthenticate,
     canGenerateKey: !localKeyringLocked,

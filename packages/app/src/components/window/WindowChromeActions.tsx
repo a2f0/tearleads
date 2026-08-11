@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useWindowItemRegistration } from "./useWindowItemRegistration";
 import type { WindowTitleBarAction } from "./WindowTitleBar";
 
 export interface WindowTitleBarActionInput {
@@ -47,6 +46,37 @@ export interface WindowBackAction {
   onClick: () => void;
 }
 
+/**
+ * The registered title-bar actions rendered as icon buttons — the shared markup
+ * behind the windowed toolbar row and the routed app bar, which differ only in
+ * their button class.
+ */
+export function WindowTitleBarActionButtons({
+  actions,
+  className,
+}: {
+  actions: ReadonlyArray<WindowTitleBarAction>;
+  className: string;
+}) {
+  return (
+    <>
+      {actions.map((action) => (
+        <button
+          aria-label={action.label}
+          className={className}
+          disabled={action.disabled}
+          key={action.id}
+          title={action.label}
+          type="button"
+          onClick={action.onClick}
+        >
+          {action.icon}
+        </button>
+      ))}
+    </>
+  );
+}
+
 export function createTitleBarActions(
   items: ReadonlyMap<object, RegisteredWindowTitleBarAction>,
 ): WindowTitleBarAction[] {
@@ -76,14 +106,10 @@ export function createTitleBarActions(
   }));
 }
 
-function createRegisteredTitleBarAction(
+export function createRegisteredTitleBarAction(
   item: WindowTitleBarActionInput,
   onClick: () => unknown,
-): RegisteredWindowTitleBarAction | null {
-  if (!item.icon) {
-    return null;
-  }
-
+): RegisteredWindowTitleBarAction {
   return {
     disabled: item.disabled ?? false,
     icon: item.icon,
@@ -95,7 +121,7 @@ function createRegisteredTitleBarAction(
   };
 }
 
-function createRegisteredBackAction(
+export function createRegisteredBackAction(
   item: WindowBackActionInput,
   onClick: () => unknown,
 ): RegisteredWindowBackAction {
@@ -121,35 +147,4 @@ export function createBackAction(
       void item.onClick();
     },
   };
-}
-
-export function useRegisteredWindowTitleBarAction(
-  item: WindowTitleBarActionInput | null,
-  registerTitleBarAction: (
-    id: object,
-    item: RegisteredWindowTitleBarAction,
-  ) => void,
-  unregisterTitleBarAction: (id: object) => void,
-): void {
-  useWindowItemRegistration({
-    action: item?.onClick ?? null,
-    createRegisteredItem: createRegisteredTitleBarAction,
-    input: item,
-    registerItem: registerTitleBarAction,
-    unregisterItem: unregisterTitleBarAction,
-  });
-}
-
-export function useRegisteredWindowBackAction(
-  item: WindowBackActionInput | null,
-  registerBackAction: (id: object, item: RegisteredWindowBackAction) => void,
-  unregisterBackAction: (id: object) => void,
-): void {
-  useWindowItemRegistration({
-    action: item?.onClick ?? null,
-    createRegisteredItem: createRegisteredBackAction,
-    input: item,
-    registerItem: registerBackAction,
-    unregisterItem: unregisterBackAction,
-  });
 }

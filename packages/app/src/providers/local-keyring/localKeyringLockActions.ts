@@ -14,6 +14,7 @@ import {
 } from "react";
 import {
   browserLocalKeyringFactory,
+  canRunPinCodeAction,
   createDynamicLocalKeyring,
   createPinKeystore,
   createPlainKeystore,
@@ -274,12 +275,7 @@ export function useUnlockAction(input: {
   const { environment, setLockState, setUnlockedPinCode } = input;
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
-      if (
-        !environment.canManagePinCode ||
-        !environment.manifestStore ||
-        !environment.pinCodeConfigNamespace ||
-        !pinCode
-      ) {
+      if (!canRunPinCodeAction(environment, pinCode)) {
         return false;
       }
 
@@ -351,10 +347,7 @@ export function useSetPinCodeAction(input: {
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
       if (
-        !environment.canManagePinCode ||
-        !environment.manifestStore ||
-        !environment.pinCodeConfigNamespace ||
-        !pinCode ||
+        !canRunPinCodeAction(environment, pinCode) ||
         // Enforced here as well as in the form so the strength policy holds for
         // any caller, not just the one that renders the validation message.
         pinCodePolicyError(pinCode) !== null
@@ -405,12 +398,7 @@ export function useClearPinCodeAction(input: {
   const { environment, setLockState, setUnlockedPinCode } = input;
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
-      if (
-        !environment.canManagePinCode ||
-        !environment.manifestStore ||
-        !environment.pinCodeConfigNamespace ||
-        !pinCode
-      ) {
+      if (!canRunPinCodeAction(environment, pinCode)) {
         return false;
       }
 

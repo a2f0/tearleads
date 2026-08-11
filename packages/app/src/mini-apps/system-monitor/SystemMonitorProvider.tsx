@@ -7,11 +7,7 @@ import {
   useState,
 } from "react";
 import { usePaneSide } from "../../components/pane/dual-pane/usePaneSide";
-import {
-  SystemMonitorDeveloperModeContext,
-  SystemMonitorDeveloperModeProvider,
-  useSystemMonitorDeveloperMode,
-} from "./systemMonitorDeveloperMode";
+import { useSystemMonitorDeveloperMode } from "./systemMonitorDeveloperMode";
 import {
   DEFAULT_SYSTEM_MONITOR_MODE,
   loadSystemMonitorMode,
@@ -43,7 +39,7 @@ const SystemMonitorContext = createContext<SystemMonitorContextValue>({
   unpinToWindow: () => {},
 });
 
-function SystemMonitorProviderInner({ children }: PropsWithChildren) {
+export function SystemMonitorProvider({ children }: PropsWithChildren) {
   const side = usePaneSide();
   const storageKey = useMemo(() => systemMonitorModeStorageKey(side), [side]);
   const [mode, setMode] = useState<SystemMonitorMode>(() =>
@@ -81,20 +77,6 @@ function SystemMonitorProviderInner({ children }: PropsWithChildren) {
       {children}
     </SystemMonitorContext.Provider>
   );
-}
-
-export function SystemMonitorProvider({ children }: PropsWithChildren) {
-  const developerModeContext = useContext(SystemMonitorDeveloperModeContext);
-
-  if (!developerModeContext) {
-    return (
-      <SystemMonitorDeveloperModeProvider>
-        <SystemMonitorProviderInner>{children}</SystemMonitorProviderInner>
-      </SystemMonitorDeveloperModeProvider>
-    );
-  }
-
-  return <SystemMonitorProviderInner>{children}</SystemMonitorProviderInner>;
 }
 
 export function useSystemMonitor(): SystemMonitorContextValue {

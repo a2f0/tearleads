@@ -26,35 +26,54 @@ export function useOrgManagerRevokeGrant(input: {
   setMutating: Dispatch<SetStateAction<boolean>>;
   setUserDetail: Dispatch<SetStateAction<OrganizationUserDetail | null>>;
 }) {
+  const {
+    isOperationActive,
+    organizationId,
+    orgManagerActions,
+    setError,
+    setGrants,
+    setGroupContainers,
+    setMutating,
+    setUserDetail,
+  } = input;
+
   return useCallback(
     async (grant: OrganizationContainerGrant) => {
-      const operationOrganizationId = input.organizationId;
-      if (grant.isBuiltin || !operationOrganizationId) {
+      if (grant.isBuiltin || !organizationId) {
         return;
       }
 
       await runScopedOrgMutation({
-        isOperationActive: input.isOperationActive,
-        operationOrganizationId,
+        isOperationActive,
+        operationOrganizationId: organizationId,
         run: async () => {
-          await input.orgManagerActions.revokeGrant(grant);
-          if (!input.isOperationActive(operationOrganizationId)) {
+          await orgManagerActions.revokeGrant(grant);
+          if (!isOperationActive(organizationId)) {
             return;
           }
-          input.setGrants((current) =>
+          setGrants((current) =>
             removeRevokedGrantFromGrantState(current, grant),
           );
-          input.setGroupContainers((current) =>
+          setGroupContainers((current) =>
             removeRevokedGrantFromGroupContainers(current, grant),
           );
-          input.setUserDetail((current) =>
+          setUserDetail((current) =>
             removeRevokedGrantFromUserDetail(current, grant),
           );
         },
-        setError: input.setError,
-        setMutating: input.setMutating,
+        setError,
+        setMutating,
       });
     },
-    [input],
+    [
+      isOperationActive,
+      organizationId,
+      orgManagerActions,
+      setError,
+      setGrants,
+      setGroupContainers,
+      setMutating,
+      setUserDetail,
+    ],
   );
 }

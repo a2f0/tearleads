@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getRosterProfileDisplayName,
   getRosterProfileDocumentRelinkInput,
-} from "./RosterProfileEditor";
+} from "../../../stores/org-manager/profileDocuments";
 
 test("roster profile editor relinks cached profile records to the profile container", () => {
   expect(

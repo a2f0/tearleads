@@ -5,6 +5,7 @@ import type {
 import { useCallback, useRef, useState } from "react";
 import type { OpenMiniAppRequest } from "../../types";
 import type { OrgManagerContextMenuState } from "../context-menu/OrgManagerContextMenu";
+import { canDisableRosterUser } from "../permissions";
 import type { OrgManagerView } from "../routes";
 
 interface OrgManagerRosterActionsInput {
@@ -73,28 +74,19 @@ function useRosterActionPermissions(
       Boolean(directory?.currentUser.isOrgAdmin || userId === authUserId),
     [authUserId, directory?.currentUser.isOrgAdmin],
   );
-  const canDisableRosterUser = useCallback(
-    (userId: string) => {
-      const user =
-        directory?.users.find(
-          (directoryUser) => directoryUser.userId === userId,
-        ) ?? null;
-
-      return Boolean(
-        canDisableRosterUsers &&
-          user &&
-          user.status === "active" &&
-          !user.isSelf &&
-          user.userId !== authUserId,
-      );
-    },
-    [authUserId, canDisableRosterUsers, directory?.users],
-  );
   const contextMenuUserId = contextMenuRosterUserId(contextMenu);
 
   return {
     canDisableContextMenuRosterUser: Boolean(
-      contextMenuUserId && canDisableRosterUser(contextMenuUserId),
+      contextMenuUserId &&
+        canDisableRosterUser({
+          authUserId,
+          canDisableRosterUsers,
+          targetUser:
+            directory?.users.find(
+              (directoryUser) => directoryUser.userId === contextMenuUserId,
+            ) ?? null,
+        }),
     ),
     canEditContextMenuRosterUser: Boolean(
       contextMenuUserId &&

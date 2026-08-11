@@ -2,17 +2,12 @@ import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppInput,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import {
-  MiniAppRow,
-  MiniAppRowStack,
-  MiniAppRowText,
-} from "../../../components/mini-app/rows/MiniAppRow";
 import { readContactFields } from "../../../document-types/contact/contactDocumentModel";
 import {
   DocumentsProvider,
@@ -23,17 +18,13 @@ import {
   getRosterProfileDisplayName,
   getRosterProfileDocumentRelinkInput,
 } from "../../../stores/org-manager/profileDocuments";
+import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
+import {
+  blurOnEnter,
+  ProfileReadOnlyField,
+  useProfileDocumentLink,
+} from "../hooks/profileDocumentEditor";
 import { ORG_MANAGER_LABELS } from "../labels";
-
-// Matches the org switcher's index catch-up: ~20s of retries before the editor
-// concludes the container is genuinely unavailable.
-const ROSTER_PROFILE_CONTAINER_RETRY_DELAY_MS = 500;
-const ROSTER_PROFILE_CONTAINER_RETRY_LIMIT = 40;
-
-export {
-  getRosterProfileDisplayName,
-  getRosterProfileDocumentRelinkInput,
-} from "../../../stores/org-manager/profileDocuments";
 
 function useSyncedFieldValue(value: string | null | undefined) {
   const normalizedValue = value ?? "";
@@ -44,12 +35,6 @@ function useSyncedFieldValue(value: string | null | undefined) {
   }, [normalizedValue]);
 
   return [localValue, setLocalValue] as const;
-}
-
-function blurOnEnter(event: KeyboardEvent<HTMLInputElement>): void {
-  if (event.key === "Enter") {
-    event.currentTarget.blur();
-  }
 }
 
 function RosterProfileTextField({
@@ -84,83 +69,6 @@ function RosterProfileTextField({
   );
 }
 
-function getRosterProfileReadValue(value: string | null | undefined): string {
-  const normalizedValue = value?.trim() ?? "";
-  return normalizedValue.length > 0 ? normalizedValue : ORG_MANAGER_LABELS.none;
-}
-
-function RosterProfileReadField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
-  return (
-    <MiniAppRow className="org-manager-roster-row" density="roomy">
-      <MiniAppRowStack>
-        <strong>{label}</strong>
-        <MiniAppRowText muted title={value ?? undefined}>
-          {getRosterProfileReadValue(value)}
-        </MiniAppRowText>
-      </MiniAppRowStack>
-    </MiniAppRow>
-  );
-}
-
-function useRosterProfileDocumentLinkState({
-  documentId,
-  localId,
-  profileContainerId,
-  ready,
-  relink,
-  userProfileDocumentId,
-}: {
-  documentId: string | null;
-  localId: string;
-  profileContainerId: string;
-  ready: boolean;
-  relink: ReturnType<typeof useDocument>["relink"];
-  userProfileDocumentId: string | null;
-}): boolean {
-  const [profileLinkReady, setProfileLinkReady] = useState(false);
-
-  useEffect(() => {
-    setProfileLinkReady(false);
-    if (!ready || !documentId || documentId !== userProfileDocumentId) {
-      return;
-    }
-
-    let cancelled = false;
-    void relink(
-      getRosterProfileDocumentRelinkInput({
-        localId,
-        profileContainerId,
-        profileDocumentId: documentId,
-      }),
-    )
-      .then((result) => {
-        if (!cancelled && result !== null) {
-          setProfileLinkReady(true);
-        }
-      })
-      .catch(() => null);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    documentId,
-    localId,
-    profileContainerId,
-    ready,
-    relink,
-    userProfileDocumentId,
-  ]);
-
-  return profileLinkReady;
-}
-
 function RosterProfileDocumentFields({
   canEdit,
   isEditing,
@@ -188,13 +96,23 @@ function RosterProfileDocumentFields({
     () => readContactFields(structuredFields),
     [structuredFields],
   );
-  const profileLinkReady = useRosterProfileDocumentLinkState({
+  const relinkInput = useMemo(
+    () =>
+      user.profileDocumentId
+        ? getRosterProfileDocumentRelinkInput({
+            localId,
+            profileContainerId,
+            profileDocumentId: user.profileDocumentId,
+          })
+        : null,
+    [localId, profileContainerId, user.profileDocumentId],
+  );
+  const { linkReady: profileLinkReady } = useProfileDocumentLink({
     documentId,
-    localId,
-    profileContainerId,
+    profileDocumentId: user.profileDocumentId,
     ready,
     relink,
-    userProfileDocumentId: user.profileDocumentId,
+    relinkInput,
   });
   const canEditFields = canEdit && isEditing;
   const disabled = !canEditFields || !ready || !profileLinkReady;
@@ -242,15 +160,15 @@ function RosterProfileDocumentFields({
         </div>
       ) : (
         <div className="org-manager-roster-profile-read-fields">
-          <RosterProfileReadField
+          <ProfileReadOnlyField
             label={ORG_MANAGER_LABELS.nickname}
             value={fields.nickname}
           />
-          <RosterProfileReadField
+          <ProfileReadOnlyField
             label={ORG_MANAGER_LABELS.firstName}
             value={fields.firstName}
           />
-          <RosterProfileReadField
+          <ProfileReadOnlyField
             label={ORG_MANAGER_LABELS.lastName}
             value={fields.lastName}
           />
@@ -290,17 +208,11 @@ export function RosterProfileEditor({
   });
 
   useEffect(() => {
-    if (!user.profileDocumentId) {
-      setProfileContainerId(null);
-      setProfileContainerUnavailable(false);
-      return;
-    }
-
-    let attempts = 0;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     setProfileContainerId(null);
     setProfileContainerUnavailable(false);
+    if (!user.profileDocumentId) {
+      return;
+    }
 
     // A null container is ambiguous: usually the org-manager operation scope is
     // not active yet (session, database, or organization still settling), but it
@@ -308,39 +220,34 @@ export function RosterProfileEditor({
     // that failed. Reporting the first null as unavailable showed an error for
     // what is normally a startup race; never reporting it would strand the
     // editor on "Loading" forever, since nothing else re-runs this effect. Retry
-    // on a bounded schedule, then say it is unavailable.
-    const attempt = () => {
+    // on the shared bounded schedule, then say it is unavailable.
+    const retry = createBoundedRetrySchedule(attempt);
+    function attempt() {
       void ensureRosterProfileContainer()
         .then((container) => {
-          if (cancelled) {
+          if (retry.cancelled) {
             return;
           }
           if (container?.id) {
             setProfileContainerId(container.id);
             return;
           }
-          if (attempts >= ROSTER_PROFILE_CONTAINER_RETRY_LIMIT) {
+          if (retry.exhausted) {
             setProfileContainerUnavailable(true);
             return;
           }
 
-          attempts += 1;
-          timer = setTimeout(attempt, ROSTER_PROFILE_CONTAINER_RETRY_DELAY_MS);
+          retry.scheduleNext();
         })
         .catch(() => {
-          if (!cancelled) {
+          if (!retry.cancelled) {
             setProfileContainerUnavailable(true);
           }
         });
-    };
+    }
     attempt();
 
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) {
-        clearTimeout(timer);
-      }
-    };
+    return () => retry.cancel();
   }, [ensureRosterProfileContainer, user.profileDocumentId]);
 
   if (!user.profileDocumentId) {

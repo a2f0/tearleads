@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import {
   type DataUsageRefreshOptions,
   type DirectoryRefreshOptions,
-  type GrantsRefreshOptions,
   type GroupDetailsRefreshOptions,
   type RefreshBehaviorOptions,
   refreshOrgManagerVisibleData,
@@ -31,7 +30,7 @@ function createRefreshHarness(view: OrgManagerView) {
           selectedUserId = "user-after-directory";
           return { didLoad: false as const, groupId: "group-a" };
         },
-        refreshGrants: async (_options?: GrantsRefreshOptions) => {
+        refreshGrants: async (_options?: RefreshBehaviorOptions) => {
           calls.push("grants");
         },
         refreshOrganizationPolicyHistory: async (

@@ -1,16 +1,8 @@
 import type { ActiveNoteSelection } from "./types";
 
-interface NotesRouteSnapshot {
-  selection: ActiveNoteSelection | null;
-}
-
-const DEFAULT_NOTES_ROUTE_SNAPSHOT: NotesRouteSnapshot = {
-  selection: null,
-};
-
 export function parseNotesRouteSegments(
   pathSegments: ReadonlyArray<string>,
-): NotesRouteSnapshot {
+): ActiveNoteSelection | null {
   const [
     firstSegment,
     secondSegment,
@@ -21,11 +13,7 @@ export function parseNotesRouteSegments(
   ] = pathSegments;
 
   if (firstSegment === "note" && secondSegment) {
-    return {
-      selection: {
-        noteId: secondSegment,
-      },
-    };
+    return { noteId: secondSegment };
   }
 
   if (
@@ -35,17 +23,15 @@ export function parseNotesRouteSegments(
     fourthSegment
   ) {
     return {
-      selection: {
-        containerId: secondSegment,
-        ...(fifthSegment === "remote" && sixthSegment
-          ? { documentId: sixthSegment }
-          : {}),
-        noteId: fourthSegment,
-      },
+      containerId: secondSegment,
+      ...(fifthSegment === "remote" && sixthSegment
+        ? { documentId: sixthSegment }
+        : {}),
+      noteId: fourthSegment,
     };
   }
 
-  return DEFAULT_NOTES_ROUTE_SNAPSHOT;
+  return null;
 }
 
 export function formatNotesRouteSegments(

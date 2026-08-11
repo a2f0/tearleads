@@ -3,17 +3,14 @@ import type {
   DocumentStore,
 } from "@tearleads/client-sdk";
 import { CONTACT_AVATAR_SLOT_ID } from "../../document-types/contact/contactAvatarSlot";
-import {
-  ensureContactDocumentStore,
-  hasContactsContainerRuntime,
-  waitForContactsInitialization,
-} from "./contactStoreInitialization";
-import {
-  canWriteContactEntry,
-  contactEntryFromDocumentStore,
-} from "./contactStoreLookup";
+import { ensureContactDocumentStore } from "./contactStoreInitialization";
+import { contactEntryFromDocumentStore } from "./contactStoreLookup";
 import { upsertContactEntry } from "./contactStoreSnapshotMutations";
 import type { ContactsStoreState } from "./contactStoreTypes";
+import {
+  contactsRuntimeWritable,
+  queueContactWrite,
+} from "./contactStoreWriteQueue";
 
 // The avatar is an attachment slot on the contact document, so it mutates
 // through the document store's attachment API rather than a structured-field
@@ -26,33 +23,22 @@ async function mutateContactAvatarFromRuntime(
   mutateAvatar: (store: DocumentStore) => void,
   errorMessage: string,
 ): Promise<void> {
-  await waitForContactsInitialization(state);
-  if (
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state) ||
-    !canWriteContactEntry(state, contactId)
-  ) {
+  if (!(await contactsRuntimeWritable(state, contactId))) {
     return;
   }
 
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(() => {
-      const store = ensureContactDocumentStore(state, contactId);
-      const snapshot = store.getSnapshot();
-      if (snapshot.ready && !snapshot.canWrite) {
-        return;
-      }
-      mutateAvatar(store);
-      const entry = contactEntryFromDocumentStore(contactId, store);
-      if (entry) {
-        upsertContactEntry(state, entry);
-      }
-    })
-    .catch((error: unknown) => {
-      state.dependencies.logError(errorMessage, error);
-    });
-  await state.writeChain;
+  await queueContactWrite(state, errorMessage, () => {
+    const store = ensureContactDocumentStore(state, contactId);
+    const snapshot = store.getSnapshot();
+    if (snapshot.ready && !snapshot.canWrite) {
+      return;
+    }
+    mutateAvatar(store);
+    const entry = contactEntryFromDocumentStore(contactId, store);
+    if (entry) {
+      upsertContactEntry(state, entry);
+    }
+  });
 }
 
 export function setContactAvatarInStore(

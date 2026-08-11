@@ -125,7 +125,7 @@ function formatFallbackCreateLabel(kind: StoredDocumentKind): string {
   const label =
     getStoredDocumentTypeLabel(kind, APP_DOCUMENT_PROJECTOR_DEFINITIONS) ||
     kind;
-  return label ? `${label.slice(0, 1).toUpperCase()}${label.slice(1)}` : "";
+  return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
 }
 
 function createFallbackDocumentTypeDefinition(
@@ -154,5 +154,5 @@ export function getDocumentTypeDefinition(
 // and the explorer item list. Falls back to a generic file icon for kinds
 // without a registered definition so callers never have to guard.
 export function getDocumentTypeIcon(kind: StoredDocumentKind): Icon {
-  return documentTypeDefinitionByKind.get(kind)?.createIcon ?? FileIcon;
+  return getDocumentTypeDefinition(kind).createIcon;
 }

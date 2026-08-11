@@ -1,6 +1,5 @@
-import { useId, useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { useId } from "react";
+import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
@@ -8,11 +7,8 @@ import {
   StructuredDocumentFields,
   StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
-import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
+import { useAttachedStructuredDocument } from "../shared/useAttachedStructuredDocument";
 import {
   PASSPORT_ATTACHMENT_SLOTS,
   type PassportDocumentFields,
@@ -154,10 +150,6 @@ export function PassportDocumentFieldsPane(params: {
   );
 }
 
-const PASSPORT_ATTACHMENT_SLOT_IDS = PASSPORT_ATTACHMENT_SLOTS.map(
-  (slot) => slot.slotId,
-);
-
 interface PassportProps {
   containerId: string | null;
   initialEditing?: boolean | undefined;
@@ -165,76 +157,36 @@ interface PassportProps {
 }
 
 export function Passport(params: PassportProps) {
-  const { infra } = useTearleadsRuntime();
-  const {
-    attachments,
-    attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId,
-    canAttach,
-    canWrite,
-    ready,
-    removeAttachment,
-    replaceAttachment,
-    setStructuredFields,
-    structuredFields,
-  } = useDocument();
-  const fields = useMemo(
-    () => readPassportFields(structuredFields),
-    [structuredFields],
-  );
-  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
+  const doc = useAttachedStructuredDocument({
+    containerId: params.containerId,
+    documentLabel: "passport",
+    initialEditing: params.initialEditing,
+    localId: params.localId,
+    readFields: readPassportFields,
+    slots: PASSPORT_ATTACHMENT_SLOTS,
+  });
   const inputIds = {
     expirationDate: useId(),
     fullName: useId(),
     issuingCountry: useId(),
     passportNumber: useId(),
   };
-  const imageUrlBySlotId = useAttachmentImageUrls(
-    attachments,
-    attachmentStorageKeyBySlotId,
-    infra.blobStore,
-  );
-  const handleSelectedAttachment = useDocumentAttachmentSelection({
-    errorMessage: "Failed to handle passport attachment selection",
-    replaceAttachment,
-  });
-  const blobPicker = useBlobPickAttachment({
-    blobStore: infra.blobStore,
-    containerId: params.containerId,
-    errorMessage: "Failed to handle passport blob attachment selection",
-    localId: params.localId,
-    replaceAttachment,
-    slotIds: PASSPORT_ATTACHMENT_SLOT_IDS,
-  });
   return (
     <StructuredDocument
       attachments={
         <div className="passport-attachment-slots">
-          <DocumentAttachmentSlots
-            attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
-            attachmentStatusBySlotId={attachmentStatusBySlotId}
-            attachments={attachments}
-            blobPicker={blobPicker}
-            canAttach={canAttach && isEditing && canWrite}
-            imageUrlBySlotId={imageUrlBySlotId}
-            onClearAttachment={removeAttachment}
-            onSelectedAttachment={handleSelectedAttachment}
-            slots={PASSPORT_ATTACHMENT_SLOTS}
-          />
+          <DocumentAttachmentSlots {...doc.slotsProps} />
         </div>
       }
       fields={
         <PassportDocumentFieldsPane
-          canWrite={canWrite}
-          fields={fields}
+          canWrite={doc.canWrite}
+          fields={doc.fields}
           inputIds={inputIds}
-          isEditing={isEditing}
-          onToggleEditing={toggleEditing}
-          ready={ready}
-          setStructuredFields={setStructuredFields}
+          isEditing={doc.isEditing}
+          onToggleEditing={doc.toggleEditing}
+          ready={doc.ready}
+          setStructuredFields={doc.setStructuredFields}
         />
       }
     />

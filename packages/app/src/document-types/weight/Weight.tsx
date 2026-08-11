@@ -1,22 +1,16 @@
 import { useId } from "react";
-import {
-  MiniAppInput,
-  MiniAppSelect,
-} from "../../components/mini-app/MiniAppLayout";
+import { MiniAppSelect } from "../../components/mini-app/MiniAppLayout";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
   StructuredDocumentField,
-  StructuredDocumentFields,
 } from "../shared/StructuredDocument";
 import { TrackerDocument } from "../shared/TrackerDocument";
+import { TrackerNameEditFields } from "../shared/TrackerNameEditFields";
+import { readStructuredTrackerField } from "../shared/trackerRows";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { useTrackerDocument } from "../shared/useTrackerDocument";
-import {
-  type UpdateEntry,
-  WeightEntryEditRow,
-  type WeightField,
-} from "./WeightEditRow";
+import { type UpdateEntry, WeightEntryEditRow } from "./WeightEditRow";
 import { WeightQuickAdd, type WeightQuickEntry } from "./WeightQuickAdd";
 import { WeightEntryReadRow } from "./WeightReadRow";
 import { WeightReadTable } from "./WeightReadTable";
@@ -32,7 +26,6 @@ import {
   type WeightUnit,
 } from "./weightDocumentDefinition";
 import {
-  readTrackerNameField,
   readTrackerUnitField,
   toWeightEntryRows,
   type WeightEntryRow,
@@ -60,53 +53,33 @@ interface WeightFieldsProps {
   unitInputId: string;
 }
 
-function WeightEditFields(params: {
+function WeightUnitEditField(params: {
   controlsDisabled: boolean;
   onChangeUnit: (unit: WeightUnit) => void;
-  onRenameTracker: (value: string) => void;
-  ready: boolean;
-  trackerName: string;
-  trackerNameInputId: string;
   unit: WeightUnit;
   unitInputId: string;
 }) {
   return (
-    <StructuredDocumentFields>
-      <StructuredDocumentField
-        inputId={params.trackerNameInputId}
-        label="Tracker Name"
+    <StructuredDocumentField
+      inputId={params.unitInputId}
+      label="New Entry Unit"
+    >
+      <MiniAppSelect
+        id={params.unitInputId}
+        aria-label="New entry unit"
+        value={params.unit}
+        onChange={(event) =>
+          params.onChangeUnit(toWeightUnit(event.target.value))
+        }
+        disabled={params.controlsDisabled}
       >
-        <MiniAppInput
-          id={params.trackerNameInputId}
-          aria-label="Weight tracker name"
-          value={params.trackerName}
-          onChange={(event) => params.onRenameTracker(event.target.value)}
-          placeholder={params.ready ? "Morning weigh-ins" : "Loading..."}
-          disabled={params.controlsDisabled}
-          autoComplete="off"
-        />
-      </StructuredDocumentField>
-      <StructuredDocumentField
-        inputId={params.unitInputId}
-        label="New Entry Unit"
-      >
-        <MiniAppSelect
-          id={params.unitInputId}
-          aria-label="New entry unit"
-          value={params.unit}
-          onChange={(event) =>
-            params.onChangeUnit(toWeightUnit(event.target.value))
-          }
-          disabled={params.controlsDisabled}
-        >
-          {WEIGHT_UNITS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </MiniAppSelect>
-      </StructuredDocumentField>
-    </StructuredDocumentFields>
+        {WEIGHT_UNITS.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </MiniAppSelect>
+    </StructuredDocumentField>
   );
 }
 
@@ -125,16 +98,23 @@ export function WeightFields(params: WeightFieldsProps) {
       onToggleEditing={params.onToggleEditing}
       ready={params.ready}
       renderEditFields={(controlsDisabled) => (
-        <WeightEditFields
+        <TrackerNameEditFields
+          ariaLabel="Weight tracker name"
           controlsDisabled={controlsDisabled}
-          onChangeUnit={params.onChangeUnit}
-          onRenameTracker={params.onRenameTracker}
+          inputId={params.trackerNameInputId}
+          label="Tracker Name"
+          onRename={params.onRenameTracker}
+          placeholder="Morning weigh-ins"
           ready={params.ready}
-          trackerName={params.trackerName}
-          trackerNameInputId={params.trackerNameInputId}
-          unit={params.unit}
-          unitInputId={params.unitInputId}
-        />
+          value={params.trackerName}
+        >
+          <WeightUnitEditField
+            controlsDisabled={controlsDisabled}
+            onChangeUnit={params.onChangeUnit}
+            unit={params.unit}
+            unitInputId={params.unitInputId}
+          />
+        </TrackerNameEditFields>
       )}
       renderEditRow={(entry, index, context) => (
         <WeightEntryEditRow
@@ -180,7 +160,10 @@ export function WeightFields(params: WeightFieldsProps) {
 
 export function Weight(params: { initialEditing?: boolean | undefined }) {
   const tracker = useTrackerDocument(params.initialEditing);
-  const trackerName = readTrackerNameField(tracker.structuredFields);
+  const trackerName = readStructuredTrackerField(
+    tracker.structuredFields,
+    WEIGHT_TRACKER_NAME_FIELD,
+  );
   const unit = readTrackerUnitField(tracker.structuredFields);
   const entries = toWeightEntryRows(tracker.rows, tracker.readCell, unit);
   const trackerNameInputId = useId();
@@ -216,9 +199,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
             })
           }
           onToggleEditing={tracker.toggleEditing}
-          onUpdateEntry={(id: string, field: WeightField, value: string) =>
-            tracker.updateRow(id, field, value)
-          }
+          onUpdateEntry={tracker.updateRow}
           ready={tracker.ready}
           resolveRowWriter={tracker.resolveRowWriter}
           trackerName={trackerName}

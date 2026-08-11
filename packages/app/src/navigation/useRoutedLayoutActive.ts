@@ -13,13 +13,6 @@ let navigationModeObserver: MutationObserver | null = null;
  * one observer across all subscribers.
  */
 function subscribeToNavigationMode(onChange: () => void): () => void {
-  if (
-    typeof document === "undefined" ||
-    typeof MutationObserver === "undefined"
-  ) {
-    return () => {};
-  }
-
   navigationModeListeners.add(onChange);
   if (!navigationModeObserver) {
     navigationModeObserver = new MutationObserver(() => {
@@ -43,18 +36,12 @@ function subscribeToNavigationMode(onChange: () => void): () => void {
 }
 
 function isRoutedLayoutSnapshot(): boolean {
-  if (typeof document === "undefined") {
-    return false;
-  }
   return (
     document.documentElement.getAttribute("data-navigation-mode") === "routed"
   );
 }
 
 function isWindowedLayoutSnapshot(): boolean {
-  if (typeof document === "undefined") {
-    return false;
-  }
   return (
     document.documentElement.getAttribute("data-navigation-mode") === "windowed"
   );
@@ -73,8 +60,6 @@ function isWindowedLayoutSnapshot(): boolean {
  * touch.
  */
 export function useRoutedLayoutActive(): boolean {
-  // isRoutedLayoutSnapshot already returns false when there is no document, so
-  // it doubles as the server snapshot the shared helper passes through.
   return useTearleadsExternalValue(
     subscribeToNavigationMode,
     isRoutedLayoutSnapshot,

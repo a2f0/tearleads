@@ -6,18 +6,15 @@ import {
   canAdminContainerNode,
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
-  canDeleteContainerByRules,
-  canDeleteDocumentByRules,
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
-  canMoveDocumentByRules,
   canMoveDocumentOutByRules,
-  canPurgeDocumentByRules,
   canRenameContainerByRules,
   canUploadToContainerByRules,
   canUploadToContainerIdByRules,
   createExplorerContainerRulesContext,
+  isPinnedSelfContact,
   isSelfContactDocument,
 } from "./containerRules";
 
@@ -106,13 +103,6 @@ test("the contacts and trash containers cannot be moved", () => {
   expect(canMoveContainerByRules(rulesContext, trashContainer)).toBe(false);
 });
 
-test("the contacts and trash containers cannot be deleted", () => {
-  expect(canDeleteContainerByRules(rulesContext, contactsContainer)).toBe(
-    false,
-  );
-  expect(canDeleteContainerByRules(rulesContext, trashContainer)).toBe(false);
-});
-
 test("the contacts and trash containers cannot be renamed", () => {
   expect(canRenameContainerByRules(rulesContext, contactsContainer)).toBe(
     false,
@@ -120,9 +110,8 @@ test("the contacts and trash containers cannot be renamed", () => {
   expect(canRenameContainerByRules(rulesContext, trashContainer)).toBe(false);
 });
 
-test("plain user containers stay movable, deletable, and renamable", () => {
+test("plain user containers stay movable and renamable", () => {
   expect(canMoveContainerByRules(rulesContext, userContainer)).toBe(true);
-  expect(canDeleteContainerByRules(rulesContext, userContainer)).toBe(true);
   expect(canRenameContainerByRules(rulesContext, userContainer)).toBe(true);
 });
 
@@ -270,80 +259,33 @@ test("plain containers and contacts accept inbound links by kind", () => {
   ).toBe(true);
 });
 
-test("the self contact in the contacts container cannot be deleted", () => {
-  expect(
-    canDeleteDocumentByRules(
-      rulesContext,
-      documentSummary({ id: "self_contact_v1_abc" }),
-    ),
-  ).toBe(false);
-});
-
-test("non-self contacts can be deleted", () => {
-  expect(
-    canDeleteDocumentByRules(
-      rulesContext,
-      documentSummary({ id: "local-contact-2" }),
-    ),
-  ).toBe(true);
-});
-
-test("the self contact stays protected when viewed via a link in another container", () => {
-  // The self contact can be linked into a user container, where its summary
-  // carries that container's id rather than the contacts container's. Deletion
-  // must still be blocked so the only structural action available is unlink.
-  expect(
-    canDeleteDocumentByRules(
-      rulesContext,
-      documentSummary({
-        id: "self_contact_v1_abc",
-        containerId: "user-container",
-      }),
-    ),
-  ).toBe(false);
-});
-
-test("a peer's self contact is not protected from the viewer's deletion", () => {
-  // A different signing fingerprint yields a different self-contact id, so a
-  // peer's "You" contact surfaced in a shared container is not treated as the
-  // viewer's own and can be removed from view.
-  expect(
-    canDeleteDocumentByRules(
-      rulesContext,
-      documentSummary({
-        id: "self_contact_v1_peer",
-        containerId: "user-container",
-      }),
-    ),
-  ).toBe(true);
-});
-
-test("the self contact cannot be deleted, moved, or purged from any container", () => {
-  // Move and purge share the delete guard's identity check: "delete" is a move
-  // to Trash and a trashed doc can be purged, so all three must be blocked for
-  // the self contact wherever it is viewed.
+test("the self contact is pinned in every container it is viewed from", () => {
+  // Delete (move to Trash), move, and purge all consult this one predicate:
+  // "delete" is a move to Trash and a trashed doc can be purged, so all three
+  // destructive routes must see the pin wherever the contact is viewed — its
+  // summary carries whichever container it is linked into, so the guard follows
+  // the contact by identity, not by container.
   for (const id of ["self_contact_v1_abc", RECOVERED_SELF_CONTACT_ID]) {
     for (const containerId of [CONTACTS_CONTAINER_ID, "user-container"]) {
-      const selfContact = documentSummary({ id, containerId });
-      expect(canDeleteDocumentByRules(rulesContext, selfContact)).toBe(false);
-      expect(canMoveDocumentByRules(rulesContext, selfContact)).toBe(false);
-      expect(canPurgeDocumentByRules(rulesContext, selfContact)).toBe(false);
+      expect(
+        isPinnedSelfContact(rulesContext, documentSummary({ id, containerId })),
+      ).toBe(true);
     }
   }
 });
 
-test("non-self documents can be moved and purged", () => {
+test("only the viewer's own self contact is pinned", () => {
+  // A different signing fingerprint yields a different self-contact id, so a
+  // peer's "You" contact surfaced in a shared container is not treated as the
+  // viewer's own and stays deletable, movable, and purgeable.
   const peerSelfContact = documentSummary({
     id: "self_contact_v1_peer",
     containerId: "user-container",
   });
   const normalDocument = documentSummary({ id: "local-contact-2" });
-  expect(canMoveDocumentByRules(rulesContext, peerSelfContact)).toBe(true);
-  expect(canPurgeDocumentByRules(rulesContext, peerSelfContact)).toBe(true);
-  expect(canMoveDocumentByRules(rulesContext, normalDocument)).toBe(true);
-  expect(canPurgeDocumentByRules(rulesContext, normalDocument)).toBe(true);
-  expect(canMoveDocumentByRules(rulesContext, undefined)).toBe(true);
-  expect(canPurgeDocumentByRules(rulesContext, undefined)).toBe(true);
+  expect(isPinnedSelfContact(rulesContext, peerSelfContact)).toBe(false);
+  expect(isPinnedSelfContact(rulesContext, normalDocument)).toBe(false);
+  expect(isPinnedSelfContact(rulesContext, undefined)).toBe(false);
 });
 
 test("isSelfContactDocument matches only the viewer's own self-contact id", () => {
@@ -385,9 +327,6 @@ test("a peer's shared contacts folder enforces contacts rules by name", () => {
   expect(canMoveContainerByRules(sharedRulesContext, sharedContacts)).toBe(
     false,
   );
-  expect(canDeleteContainerByRules(sharedRulesContext, sharedContacts)).toBe(
-    false,
-  );
   expect(canUploadToContainerByRules(sharedRulesContext, sharedContacts)).toBe(
     false,
   );
@@ -419,9 +358,6 @@ test("a peer's shared trash folder enforces trash rules by name", () => {
     systemSlot: "owner-trash-slot",
   });
   expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(false);
-  expect(canDeleteContainerByRules(sharedRulesContext, sharedTrash)).toBe(
-    false,
-  );
   expect(canUploadToContainerByRules(sharedRulesContext, sharedTrash)).toBe(
     false,
   );
@@ -478,9 +414,6 @@ test("rules are disabled when the configuration flags are absent for a slot", ()
     systemSlot: "mystery-slot",
   });
   expect(canMoveContainerByRules(rulesContext, unknownSlotContainer)).toBe(
-    true,
-  );
-  expect(canDeleteContainerByRules(rulesContext, unknownSlotContainer)).toBe(
     true,
   );
   expect(canRenameContainerByRules(rulesContext, unknownSlotContainer)).toBe(

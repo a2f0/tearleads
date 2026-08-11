@@ -1,11 +1,7 @@
 import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
-import {
-  defineSqlTableSchema,
-  getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
-import { eq } from "drizzle-orm";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readCreditCardFieldsFromRecord } from "../document-types/credit-card/creditCardDocumentDefinition";
+import { createDocumentSqlProjection } from "./createDocumentSqlProjection";
 
 const creditCardProjection = sqliteTable(
   "credit_card_projection",
@@ -23,16 +19,13 @@ const creditCardProjection = sqliteTable(
   ],
 );
 
-const CREDIT_CARD_PROJECTION_TABLE = defineSqlTableSchema(creditCardProjection);
-
-export const creditCardClientProjection: DocumentClientProjectionDefinition = {
-  tables: [CREDIT_CARD_PROJECTION_TABLE],
-  async save(input) {
+export const creditCardClientProjection: DocumentClientProjectionDefinition =
+  createDocumentSqlProjection(creditCardProjection, (input) => {
     const fields = readCreditCardFieldsFromRecord(
       input.structuredFields,
     ).fields;
     const digits = fields.cardNumber.replaceAll(/\D/gu, "");
-    const row = {
+    return {
       localId: input.localId,
       documentId: input.documentId,
       containerId: input.containerId,
@@ -41,24 +34,4 @@ export const creditCardClientProjection: DocumentClientProjectionDefinition = {
       nameOnCard: fields.nameOnCard,
       updatedAt: input.updatedAt,
     };
-
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .insert(creditCardProjection)
-        .values(row)
-        .onConflictDoUpdate({
-          target: creditCardProjection.localId,
-          set: row,
-        })
-        .run();
-    });
-  },
-  async delete(input) {
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .delete(creditCardProjection)
-        .where(eq(creditCardProjection.localId, input.localId))
-        .run();
-    });
-  },
-};
+  });

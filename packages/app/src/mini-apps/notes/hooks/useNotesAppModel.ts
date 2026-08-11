@@ -28,12 +28,6 @@ interface NotesAppModel {
   showCompactListHome: boolean;
 }
 
-function parseNotesSelectionRouteSegments(
-  segments: ReadonlyArray<string>,
-): ActiveNoteSelection | null {
-  return parseNotesRouteSegments(segments).selection;
-}
-
 function useNotesRouteState(props: NotesAppProps) {
   const propSelection = useExplicitNoteSelection(props);
   const { route: routeSelection, setRoute: selectNoteRoute } =
@@ -41,7 +35,7 @@ function useNotesRouteState(props: NotesAppProps) {
       appId: "notes",
       formatRouteSegments: formatNotesRouteSegments,
       localRoute: propSelection,
-      parseRouteSegments: parseNotesSelectionRouteSegments,
+      parseRouteSegments: parseNotesRouteSegments,
     });
 
   return { explicitSelection: routeSelection, selectNoteRoute };

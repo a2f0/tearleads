@@ -25,68 +25,28 @@ import {
 } from "./useContactImport";
 import { useContactsRouteState } from "./useContactsRouteState";
 
-interface ContactsModel {
-  blobStore: ReturnType<typeof useTearleadsRuntime>["infra"]["blobStore"];
-  canCreate: boolean;
-  canImport: boolean;
-  canWrite: boolean;
-  contextMenuState: ContactsContextMenuModel;
-  createDraftContact: () => Promise<void>;
-  currentSigningFingerprint: string | null | undefined;
-  currentUserId: string | null | undefined;
-  draftFirstName: string;
-  draftLastName: string;
-  draftNickname: string;
-  draftUserId: string;
-  entries: ContactEntries;
-  importDraftContact: () => Promise<void>;
-  isAuthenticated: boolean;
-  openImportContactRoute: () => void;
-  openNewContactRoute: () => void;
-  ready: boolean;
-  removeContactAvatar: ReturnType<typeof useContacts>["removeContactAvatar"];
-  route: ContactsRoute;
-  selectContact: (contactId: string) => void;
-  selectedContactId: string | null;
-  setContactAvatar: ReturnType<typeof useContacts>["setContactAvatar"];
-  setDraftFirstName: Dispatch<SetStateAction<string>>;
-  setDraftLastName: Dispatch<SetStateAction<string>>;
-  setDraftNickname: Dispatch<SetStateAction<string>>;
-  setDraftUserId: Dispatch<SetStateAction<string>>;
-  showCompactListHome: boolean;
-  showSelectionRoute: (options?: { replace?: boolean | undefined }) => void;
-  updateContact: ReturnType<typeof useContacts>["updateContact"];
-}
-
 function useContactsSelectionState(
   routeState: ReturnType<typeof useContactsRouteState>,
 ) {
-  const selectContact = useCallback(
-    (contactId: string) => {
-      routeState.selectContactRoute(contactId);
-    },
-    [routeState.selectContactRoute],
-  );
+  const { selectContactRoute, showSelectionRoute } = routeState;
   const setSelectedContactRouteAware = useCallback(
     (contactId: string | null) => {
       if (contactId) {
-        routeState.selectContactRoute(contactId);
+        selectContactRoute(contactId);
         return;
       }
 
-      routeState.showSelectionRoute();
+      showSelectionRoute();
     },
-    [routeState.selectContactRoute, routeState.showSelectionRoute],
+    [selectContactRoute, showSelectionRoute],
   );
   const setSelectedContactId = useCallback(
-    (contactId: string) => {
-      routeState.selectContactRoute(contactId, { replace: true });
-    },
-    [routeState.selectContactRoute],
+    (contactId: string) => selectContactRoute(contactId, { replace: true }),
+    [selectContactRoute],
   );
 
   return {
-    selectContact,
+    selectContact: selectContactRoute,
     selectedContactId: routeState.selectedContactId,
     setSelectedContactId,
     setSelectedContactRouteAware,
@@ -298,9 +258,7 @@ function useContactDrafts(input: {
   };
 }
 
-export function useContactsModel(
-  setSidebar: (sidebar: ReactNode) => void,
-): ContactsModel {
+export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
   const {
@@ -328,7 +286,7 @@ export function useContactsModel(
     setSelectedContactId: routeState.selectCreatedContactRoute,
   });
 
-  const contextMenuState = useContactsContextMenu({
+  const contextMenuState: ContactsContextMenuModel = useContactsContextMenu({
     canWrite,
     entries,
     removeContact,

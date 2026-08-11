@@ -194,9 +194,20 @@ export function resolveAppHostProfile(
 /** @public */
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
+  /**
+   * Build identity for the running bundle. Omitted by tests and by any shell
+   * that does not stamp one; the Environment tab reports it as unknown rather
+   * than hiding the row, so a support report never looks like it was captured
+   * from a build that simply has no version.
+   */
   readonly buildInfo?: AppBuildInfo | undefined;
   readonly createBlobStore?: BlobStoreFactory | undefined;
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
+  /**
+   * In-app purchases capability (RevenueCat) for org sync billing. Platform
+   * shells with a purchases provider inject a real implementation; when
+   * omitted the app falls back to the unavailable stub.
+   */
   readonly createPurchases?: CreatePurchasesFn | undefined;
   readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
   readonly createFileSaver?: CreateFileSaverFn | undefined;
@@ -244,164 +255,45 @@ export interface AppHostConfigOptions {
    * identity. The multi-tab web shell keeps the default cross-tab teardown.
    */
   readonly reuseDatabaseWorker?: boolean | undefined;
+  /**
+   * How the local SQLite database and OPFS blob store are persisted. When
+   * omitted, {@link DatabaseProvider} auto-detects (persistent OPFS-SAHPool
+   * when OPFS is available, in-memory otherwise). Platform shells that always
+   * have OPFS can pass `PERSISTENT_STORAGE_POLICY` explicitly.
+   */
   readonly storagePersistence?: StoragePersistencePolicy | undefined;
   readonly wsUrl: string;
 }
 
-export class AppHostConfig {
-  constructor(
-    readonly apiBaseUrl: string,
-    readonly wsUrl: string,
-    readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn,
-    readonly createBlobStore?: BlobStoreFactory,
-    readonly localIdentityNamespace?: string | undefined,
-    readonly createLocalKeyring?: CreateLocalKeyringFn | undefined,
-    readonly disableLocalIdentityPersistence?: boolean | undefined,
-    readonly navigationMode?: AppNavigationMode | undefined,
-    /**
-     * How the local SQLite database and OPFS blob store are persisted. When
-     * omitted, {@link DatabaseProvider} auto-detects (persistent OPFS-SAHPool
-     * when OPFS is available, in-memory otherwise). Platform shells that always
-     * have OPFS can pass `PERSISTENT_STORAGE_POLICY` explicitly.
-     */
-    readonly storagePersistence?: StoragePersistencePolicy | undefined,
-    readonly profile: AppHostProfile = DEFAULT_APP_HOST_PROFILE,
-    /**
-     * In-app purchases capability (RevenueCat) for org sync billing. Platform
-     * shells with a purchases provider inject a real implementation; when
-     * omitted the app falls back to the unavailable stub.
-     */
-    readonly createPurchases?: CreatePurchasesFn | undefined,
-    /**
-     * Build identity for the running bundle. Omitted by tests and by any shell
-     * that does not stamp one; the Environment tab reports it as unknown rather
-     * than hiding the row, so a support report never looks like it was captured
-     * from a build that simply has no version.
-     */
-    readonly buildInfo?: AppBuildInfo | undefined,
-    readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined,
-    /**
-     * Connectivity source. Capacitor injects one backed by `@capacitor/network`
-     * so Android reads the native connectivity state instead of the WebView's
-     * unreliable `navigator.onLine`; when omitted the app uses the browser
-     * source (see {@link CreateNetworkStatusFn}).
-     */
-    readonly createNetworkStatus?: CreateNetworkStatusFn | undefined,
-    /**
-     * Reads the native build number (Android `versionCode` / iOS
-     * `CFBundleVersion`) for the Environment tab. Only native shells inject one
-     * (see {@link ReadNativeBuildNumberFn}); elsewhere the row stays unknown.
-     */
-    readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined,
-    /**
-     * File-saver capability backing the app's download action. Native WebView
-     * shells inject one because the browser anchor download is a no-op there
-     * (see {@link CreateFileSaverFn}); when omitted the app uses the browser
-     * saver.
-     */
-    readonly createFileSaver?: CreateFileSaverFn | undefined,
-    /**
-     * Reuse one long-lived SQLite worker across identity/database switches
-     * instead of tearing it down and constructing a new one (see
-     * {@link AppHostConfigOptions.reuseDatabaseWorker}). Native WebView shells
-     * set this; the web shell leaves it unset.
-     */
-    readonly reuseDatabaseWorker?: boolean | undefined,
-    /**
-     * Wrapping-key persistence mode for the local keyring (see
-     * {@link AppHostConfigOptions.localKeyringKeyMaterialStorage}). WebView
-     * shells set `"raw-bytes"`; the web shell leaves it unset.
-     */
-    readonly localKeyringKeyMaterialStorage?:
-      | WrappingKeyMaterialStorage
-      | undefined,
-    /**
-     * Native resume/transport-change signal. The events binding uses it to
-     * replace a possibly half-open WebSocket and mint a fresh one-time ticket.
-     */
-    readonly subscribeConnectionRefresh?:
-      | SubscribeConnectionRefreshFn
-      | undefined,
-    /** Native software-keyboard visibility for WebViews resized by the OS. */
-    readonly subscribeKeyboardVisibility?:
-      | SubscribeKeyboardVisibilityFn
-      | undefined,
-    readonly createScanner?: CreateScannerFn | undefined,
-    /** Native document viewer for formats a WebView cannot render itself. */
-    readonly createFileViewer?: CreateFileViewerFn | undefined,
-    /**
-     * Platform-aware subscription management. iOS supplies a StoreKit-backed
-     * implementation for Apple subscriptions, using the account selected by
-     * the device's current StoreKit sandbox or Media & Purchases configuration.
-     */
-    readonly openSubscriptionManagement?:
-      | OpenSubscriptionManagementFn
-      | undefined,
-  ) {}
-
+/**
+ * The app's resolved host configuration: {@link AppHostConfigOptions} with the
+ * profile defaulted. A plain object built by {@link createAppHostConfig}.
+ */
+export interface AppHostConfig extends Omit<AppHostConfigOptions, "profile"> {
+  readonly profile: AppHostProfile;
   /**
    * Returns a copy with key-presence semantics: spread copies explicit
    * `undefined`, letting callers reset fields like `localIdentityNamespace`
-   * without repeating positional reconstruction at clone sites.
+   * without repeating full reconstruction at clone sites.
    */
-  withOverrides(overrides: Partial<AppHostConfigOptions>): AppHostConfig {
-    return createAppHostConfig({
-      apiBaseUrl: this.apiBaseUrl,
-      wsUrl: this.wsUrl,
-      createSQLiteRuntime: this.createSQLiteRuntime,
-      createBlobStore: this.createBlobStore,
-      localIdentityNamespace: this.localIdentityNamespace,
-      createLocalKeyring: this.createLocalKeyring,
-      disableLocalIdentityPersistence: this.disableLocalIdentityPersistence,
-      navigationMode: this.navigationMode,
-      storagePersistence: this.storagePersistence,
-      profile: this.profile,
-      createPurchases: this.createPurchases,
-      buildInfo: this.buildInfo,
-      createDirectCheckout: this.createDirectCheckout,
-      createNetworkStatus: this.createNetworkStatus,
-      readNativeBuildNumber: this.readNativeBuildNumber,
-      createFileSaver: this.createFileSaver,
-      reuseDatabaseWorker: this.reuseDatabaseWorker,
-      localKeyringKeyMaterialStorage: this.localKeyringKeyMaterialStorage,
-      subscribeConnectionRefresh: this.subscribeConnectionRefresh,
-      subscribeKeyboardVisibility: this.subscribeKeyboardVisibility,
-      createScanner: this.createScanner,
-      createFileViewer: this.createFileViewer,
-      openSubscriptionManagement: this.openSubscriptionManagement,
-      ...overrides,
-    });
-  }
+  readonly withOverrides: (
+    overrides: Partial<AppHostConfigOptions>,
+  ) => AppHostConfig;
 }
 
 export function createAppHostConfig(
   options: AppHostConfigOptions,
 ): AppHostConfig {
-  return new AppHostConfig(
-    options.apiBaseUrl,
-    options.wsUrl,
-    options.createSQLiteRuntime,
-    options.createBlobStore,
-    options.localIdentityNamespace,
-    options.createLocalKeyring,
-    options.disableLocalIdentityPersistence,
-    options.navigationMode,
-    options.storagePersistence,
-    options.profile,
-    options.createPurchases,
-    options.buildInfo,
-    options.createDirectCheckout,
-    options.createNetworkStatus,
-    options.readNativeBuildNumber,
-    options.createFileSaver,
-    options.reuseDatabaseWorker,
-    options.localKeyringKeyMaterialStorage,
-    options.subscribeConnectionRefresh,
-    options.subscribeKeyboardVisibility,
-    options.createScanner,
-    options.createFileViewer,
-    options.openSubscriptionManagement,
-  );
+  return {
+    ...options,
+    profile: options.profile ?? DEFAULT_APP_HOST_PROFILE,
+    // Receiver-based on purpose: a spread-composed copy (`{ ...config, extra }`)
+    // carries this method along, and cloning must read the copy's own fields —
+    // a closure over this factory's inputs would silently drop the additions.
+    withOverrides(this: AppHostConfig, overrides) {
+      return createAppHostConfig({ ...this, ...overrides });
+    },
+  };
 }
 
 export function resolveEventsWebSocketUrl(

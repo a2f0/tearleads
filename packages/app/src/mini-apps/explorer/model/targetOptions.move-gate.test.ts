@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { createExplorerContainerRulesContext } from "./containerRules";
-import { getMoveTargetOptions } from "./targetOptions";
+import {
+  createExplorerTargetLookups,
+  getMoveTargetOptions,
+} from "./targetOptions";
 
 const TRASH_SLOT = "trash-slot";
 
@@ -38,7 +41,7 @@ test("container move excludes Trash as a destination (no child containers allowe
   const optionIds = getMoveTargetOptions(
     nodes,
     "folder-a",
-    undefined,
+    createExplorerTargetLookups(nodes, []),
     rulesContext,
   ).map((option) => option.id);
 
@@ -48,14 +51,4 @@ test("container move excludes Trash as a destination (no child containers allowe
   expect(optionIds).not.toContain("trash");
   expect(optionIds).toContain("folder-b");
   expect(optionIds).toContain("root");
-});
-
-test("without a rules context, container move keeps every structural target", () => {
-  // The destination gate only applies when a rules context is provided (the
-  // helper stays permissive for callers that pass none), matching the existing
-  // optional-rulesContext contract.
-  const optionIds = getMoveTargetOptions(nodes, "folder-a").map(
-    (option) => option.id,
-  );
-  expect(optionIds).toContain("trash");
 });

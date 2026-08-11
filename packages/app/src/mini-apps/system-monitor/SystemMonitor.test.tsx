@@ -13,6 +13,7 @@ import {
 } from "../../components/pane/dual-pane";
 import { PaneProvider } from "../../components/pane/runtime/PaneProvider";
 import { Pane } from "../../components/pane/shell/Pane";
+import { SystemMonitorDeveloperModeProvider } from "./systemMonitorDeveloperMode";
 import {
   systemMonitorDeveloperModeStorageKey,
   systemMonitorModeStorageKey,
@@ -49,16 +50,20 @@ function renderRoutedPane({
 } = {}) {
   window.history.replaceState(null, "", "/");
 
+  // Layout mounts the developer-mode provider above the panes in production,
+  // so this routed harness mirrors that composition.
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider
-          hostConfig={createTestHostConfig({ autoProvisionIdentity })}
-        >
-          <Pane className="pane" navigationMode="routed" routedVisible />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider
+            hostConfig={createTestHostConfig({ autoProvisionIdentity })}
+          >
+            <Pane className="pane" navigationMode="routed" routedVisible />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 

@@ -3,10 +3,10 @@ import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWri
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
   type ReadTrackerRowCell,
-  readStructuredTrackerField,
+  readTrackerRowCell,
   type TrackerRow,
+  toTrackerRows,
   trackerDetailFields,
-  trackerRowMetadata,
 } from "../shared/trackerRows";
 import {
   formatTrackerMeasuredAt,
@@ -18,7 +18,6 @@ import {
   BLOOD_PRESSURE_NOTES_FIELD,
   BLOOD_PRESSURE_PULSE_FIELD,
   BLOOD_PRESSURE_SYSTOLIC_FIELD,
-  BLOOD_PRESSURE_TRACKER_NAME_FIELD,
 } from "./bloodPressureDocumentDefinition";
 
 export interface BloodPressureReadingRow extends TrackerRow {
@@ -29,48 +28,25 @@ export interface BloodPressureReadingRow extends TrackerRow {
   notes: string;
 }
 
-export function readTrackerNameField(
-  structuredFields: Readonly<Record<string, string>>,
-): string {
-  return readStructuredTrackerField(
-    structuredFields,
-    BLOOD_PRESSURE_TRACKER_NAME_FIELD,
-  );
-}
-
-// Fold the store's generic rows into typed reading views, applying the caller's
-// optimistic in-flight cell overlay so controlled inputs stay smooth.
+// Fold the store's generic rows into typed reading views.
 export function toBloodPressureReadingRows(
   rows: ReadonlyArray<DocumentRow>,
   readCell: ReadTrackerRowCell,
 ): BloodPressureReadingRow[] {
-  return rows.map((row) => ({
-    ...trackerRowMetadata(row),
-    systolic: readCell(
-      row.id,
-      BLOOD_PRESSURE_SYSTOLIC_FIELD,
-      row.fields[BLOOD_PRESSURE_SYSTOLIC_FIELD] ?? "",
-    ),
-    diastolic: readCell(
-      row.id,
+  return toTrackerRows(rows, (row) => ({
+    diastolic: readTrackerRowCell(
+      row,
+      readCell,
       BLOOD_PRESSURE_DIASTOLIC_FIELD,
-      row.fields[BLOOD_PRESSURE_DIASTOLIC_FIELD] ?? "",
     ),
-    pulse: readCell(
-      row.id,
-      BLOOD_PRESSURE_PULSE_FIELD,
-      row.fields[BLOOD_PRESSURE_PULSE_FIELD] ?? "",
-    ),
-    measuredAt: readCell(
-      row.id,
+    measuredAt: readTrackerRowCell(
+      row,
+      readCell,
       BLOOD_PRESSURE_MEASURED_AT_FIELD,
-      row.fields[BLOOD_PRESSURE_MEASURED_AT_FIELD] ?? "",
     ),
-    notes: readCell(
-      row.id,
-      BLOOD_PRESSURE_NOTES_FIELD,
-      row.fields[BLOOD_PRESSURE_NOTES_FIELD] ?? "",
-    ),
+    notes: readTrackerRowCell(row, readCell, BLOOD_PRESSURE_NOTES_FIELD),
+    pulse: readTrackerRowCell(row, readCell, BLOOD_PRESSURE_PULSE_FIELD),
+    systolic: readTrackerRowCell(row, readCell, BLOOD_PRESSURE_SYSTOLIC_FIELD),
   }));
 }
 
@@ -89,10 +65,6 @@ export function formatMeasurementPair(
 export function formatPulse(reading: BloodPressureReadingRow): string {
   const pulse = reading.pulse.trim();
   return pulse.length > 0 ? `${pulse} bpm` : TRACKER_EMPTY_VALUE;
-}
-
-export function formatMeasuredAt(reading: BloodPressureReadingRow): string {
-  return formatTrackerMeasuredAt(reading.measuredAt);
 }
 
 // The per-field attribution rows for a reading's drill-down. Each cell's
@@ -123,7 +95,7 @@ export function toBloodPressureReadingDetailFields(
       {
         field: BLOOD_PRESSURE_MEASURED_AT_FIELD,
         label: "Measured at",
-        value: formatMeasuredAt,
+        value: (row) => formatTrackerMeasuredAt(row.measuredAt),
       },
       {
         field: BLOOD_PRESSURE_NOTES_FIELD,

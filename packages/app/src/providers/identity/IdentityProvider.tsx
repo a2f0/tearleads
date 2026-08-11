@@ -98,7 +98,7 @@ function useLocalIdentitySwitcherActions(
     readonly generateKey: () => Promise<boolean>;
   },
 ) {
-  const switchIdentity = useSwitchLocalIdentity({
+  const identityTransitionInput = {
     clearDatabase: input.clearDatabaseForIdentitySwitch,
     ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
     generationIdRef: input.generationIdRef,
@@ -110,20 +110,9 @@ function useLocalIdentitySwitcherActions(
     setTransitionInFlight: input.setTransitionInFlight,
     tearleads: input.tearleads,
     transitionInFlightRef: input.transitionInFlightRef,
-  });
-  const importIdentityPackage = useImportLocalIdentity({
-    clearDatabase: input.clearDatabaseForIdentitySwitch,
-    ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
-    generationIdRef: input.generationIdRef,
-    generationInFlight: input.generationInFlight,
-    localPersistence: input.localPersistence,
-    onIdentitiesChanged: input.onIdentitiesChanged,
-    persistSessionBeforeIdentityTransition:
-      input.persistSessionBeforeIdentityTransition,
-    setTransitionInFlight: input.setTransitionInFlight,
-    tearleads: input.tearleads,
-    transitionInFlightRef: input.transitionInFlightRef,
-  });
+  };
+  const switchIdentity = useSwitchLocalIdentity(identityTransitionInput);
+  const importIdentityPackage = useImportLocalIdentity(identityTransitionInput);
   const createIdentity = useCreateLocalIdentity({
     clearDatabase: input.clearDatabaseForIdentitySwitch,
     generateKey: input.generateKey,

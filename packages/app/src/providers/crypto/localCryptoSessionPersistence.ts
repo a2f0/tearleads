@@ -1,14 +1,12 @@
-import {
-  createBrowserLocalKeyring,
-  type LocalKeyring,
-  type LocalKeyringScope,
-} from "@tearleads/client-sdk";
+import type { LocalKeyring, LocalKeyringScope } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { useMemo } from "react";
+import { getLocalStorage } from "../../utils/storedPreference";
 import {
   decryptLocalIdentityPayload,
   encryptLocalIdentityPayload,
 } from "../identity/localIdentityPackageCrypto";
+import { createHostLocalKeyring } from "../local-keyring/localKeyringLockSupport";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 
 const LOCAL_CRYPTO_SESSION_FORMAT = "tearleads.app.crypto-session";
@@ -26,7 +24,7 @@ type LocalCryptoSessionStorage = Pick<
   "getItem" | "removeItem" | "setItem"
 >;
 
-interface PersistedCryptoSessionContext {
+export interface PersistedCryptoSessionContext {
   readonly authToken: string | null;
   readonly containerId: string | null;
   readonly defaultOrganizationId: string | null;
@@ -47,30 +45,6 @@ export interface LocalCryptoSessionPersistence {
   readonly scope: LocalKeyringScope;
   readonly storage: LocalCryptoSessionStorage;
   readonly storageKey: string;
-}
-
-function getDefaultLocalCryptoSessionStorage(): LocalCryptoSessionStorage | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-function createHostLocalKeyring(input: {
-  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
-  readonly localStorage: LocalCryptoSessionStorage | null;
-}): LocalKeyring | null {
-  if (input.createLocalKeyring) {
-    return input.createLocalKeyring();
-  }
-  if (typeof globalThis.indexedDB === "undefined" || !input.localStorage) {
-    return null;
-  }
-
-  return createBrowserLocalKeyring();
 }
 
 export function localCryptoSessionStorageKey(
@@ -156,9 +130,7 @@ export function useLocalCryptoSessionPersistence(input: {
 }): LocalCryptoSessionPersistence | null {
   const localStorage = useMemo(
     () =>
-      input.namespace && input.signingFingerprint
-        ? getDefaultLocalCryptoSessionStorage()
-        : null,
+      input.namespace && input.signingFingerprint ? getLocalStorage() : null,
     [input.namespace, input.signingFingerprint],
   );
   const keyring = useMemo(
@@ -166,7 +138,7 @@ export function useLocalCryptoSessionPersistence(input: {
       input.namespace && input.signingFingerprint
         ? createHostLocalKeyring({
             createLocalKeyring: input.createLocalKeyring,
-            localStorage,
+            storage: localStorage,
           })
         : null,
     [
@@ -334,7 +306,7 @@ export function clearPersistedCryptoSessionForIdentity(input: {
   if (!input.namespace) {
     return;
   }
-  const storage = getDefaultLocalCryptoSessionStorage();
+  const storage = getLocalStorage();
   if (!storage) {
     return;
   }

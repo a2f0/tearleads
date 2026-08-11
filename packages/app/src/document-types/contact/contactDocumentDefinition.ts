@@ -5,18 +5,19 @@ import {
   type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
+import { structuredFieldsProjector } from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const CONTACT_DOCUMENT_KIND = "contact" satisfies StoredDocumentKind;
 
-export interface ContactDocumentFields {
+export type ContactDocumentFields = {
   encapsulationPublicKey: string;
   firstName: string;
   isSelf: string;
   lastName: string;
   nickname: string;
   userId: string;
-}
+};
 
 function deriveContactTitle(fields: ContactDocumentFields): string {
   const nickname = fields.nickname.trim();
@@ -59,13 +60,9 @@ export const contactDocumentProjectorDefinition: AppDocumentProjectorDefinition 
     createLabel: "Contact",
     kind: CONTACT_DOCUMENT_KIND,
     label: "contact",
-    project: ({ structuredFields }) => {
-      const validated = readContactFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveContactTitle(validated.fields),
-      };
-    },
+    project: structuredFieldsProjector(
+      readContactFieldsFromRecord,
+      deriveContactTitle,
+    ),
     untitledTitle: "Untitled contact",
   };

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
   type ContainerDocumentQueries,
   type ContainerItemRow,
@@ -12,10 +12,6 @@ import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { renderExplorerItemCell } from "./explorerItemTableColumns";
 
-const resizeObserverGlobal = globalThis as unknown as {
-  ResizeObserver?: unknown;
-};
-const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
 const originalClientWidthDescriptor = Object.getOwnPropertyDescriptor(
   globalThis.HTMLElement?.prototype ?? {},
   "clientWidth",
@@ -24,7 +20,7 @@ const originalClientWidthDescriptor = Object.getOwnPropertyDescriptor(
 // happy-dom has no layout engine, so every clientWidth is 0 — which the fold
 // predicate reads as "not measured" and ignores. Stand in for the layout a
 // browser would do. The initial measurement is a direct clientWidth read, so
-// this works even with the ResizeObserver disabled above.
+// this works even though the preload's ResizeObserver stub never fires.
 function mockFrameWidth(width: number) {
   Object.defineProperty(HTMLElement.prototype, "clientWidth", {
     configurable: true,
@@ -32,15 +28,8 @@ function mockFrameWidth(width: number) {
   });
 }
 
-// Without a ResizeObserver the virtual window's limit stays fixed, keeping the
-// fetch sequence deterministic (one listContainerItemWindow call per trigger).
-beforeEach(() => {
-  resizeObserverGlobal.ResizeObserver = undefined;
-});
-
 afterEach(() => {
   cleanup();
-  resizeObserverGlobal.ResizeObserver = originalResizeObserver;
   if (originalClientWidthDescriptor) {
     Object.defineProperty(
       HTMLElement.prototype,

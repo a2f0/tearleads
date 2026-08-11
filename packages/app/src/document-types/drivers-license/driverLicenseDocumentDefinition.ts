@@ -5,16 +5,19 @@ import {
   type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
-import { addDateOnlyFormatIssue } from "../shared/documentFieldUtils";
+import {
+  addDateOnlyFormatIssue,
+  structuredFieldsProjector,
+} from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const DRIVER_LICENSE_DOCUMENT_KIND =
   "drivers_license" satisfies StoredDocumentKind;
 
-export interface DriverLicenseDocumentFields {
+export type DriverLicenseDocumentFields = {
   expirationDate: string;
   licenseId: string;
-}
+};
 
 function deriveDriverLicenseTitle(fields: DriverLicenseDocumentFields): string {
   const trimmedLicenseId = fields.licenseId.trim();
@@ -31,9 +34,7 @@ export function readDriverLicenseFieldsFromRecord(
     expirationDate: readStringDocumentField(source, "expirationDate", issues),
     licenseId: readStringDocumentField(source, "licenseId", issues),
   };
-
   addDateOnlyFormatIssue(issues, "expirationDate", fields.expirationDate);
-
   return { fields, issues };
 }
 
@@ -43,13 +44,9 @@ export const driverLicenseDocumentProjectorDefinition: AppDocumentProjectorDefin
     createLabel: "Driver's License",
     kind: DRIVER_LICENSE_DOCUMENT_KIND,
     label: "driver's license",
-    project: ({ structuredFields }) => {
-      const validated = readDriverLicenseFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: deriveDriverLicenseTitle(validated.fields),
-      };
-    },
+    project: structuredFieldsProjector(
+      readDriverLicenseFieldsFromRecord,
+      deriveDriverLicenseTitle,
+    ),
     untitledTitle: "Untitled driver's license",
   };

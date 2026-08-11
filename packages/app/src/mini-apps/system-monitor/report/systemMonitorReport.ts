@@ -222,20 +222,24 @@ function formatLogSection(
  */
 export const MAX_REPORT_WRITE_QUEUE_ITEMS = 100;
 
+function hasText(value: string | null): value is string {
+  return value !== null && value.trim().length > 0;
+}
+
 /** A missing timestamp or free-text value renders as a dash, never a blank cell. */
 function formatMetadataValue(value: string | null): string {
-  return value !== null && value.trim().length > 0 ? value : "-";
+  return hasText(value) ? value : "-";
 }
 
 function formatRedactedPresence(value: string | null): string {
-  return value !== null && value.trim().length > 0 ? "[redacted]" : "-";
+  return hasText(value) ? "[redacted]" : "-";
 }
 
 const OPAQUE_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 function formatOpaqueIdentifier(value: string | null): string {
-  if (value === null || value.trim().length === 0) {
+  if (!hasText(value)) {
     return "-";
   }
   return OPAQUE_UUID_PATTERN.test(value.trim()) ? value.trim() : "[redacted]";

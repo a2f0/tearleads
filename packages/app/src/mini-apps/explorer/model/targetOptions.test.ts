@@ -6,8 +6,12 @@ import {
   EXPLORER_ORPHANED_DOCUMENTS_ID,
 } from "../../../stores/explorer/orphanedDocuments";
 import { deriveBuiltInSystemContainers } from "../../../stores/systemContainers";
-import { createExplorerContainerRulesContext } from "./containerRules";
 import {
+  createExplorerContainerRulesContext,
+  type ExplorerContainerRulesContext,
+} from "./containerRules";
+import {
+  createExplorerTargetLookups,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
@@ -58,19 +62,50 @@ function documentSummary(
   };
 }
 
+const NO_LINKS: ReadonlyMap<string, ReadonlyArray<string>> = new Map();
+
+function moveTargets(
+  testNodes: ReadonlyArray<ContainerNode>,
+  documents: ReadonlyArray<DocumentSummary>,
+  documentLocalId: string,
+  context: ExplorerContainerRulesContext = rulesContext,
+  linkedContainerIdsByDocumentId: ReadonlyMap<
+    string,
+    ReadonlyArray<string>
+  > = NO_LINKS,
+) {
+  return getDocumentMoveTargetOptions(
+    testNodes,
+    documentLocalId,
+    createExplorerTargetLookups(testNodes, documents),
+    context,
+    linkedContainerIdsByDocumentId,
+  );
+}
+
+function linkTargets(
+  testNodes: ReadonlyArray<ContainerNode>,
+  documents: ReadonlyArray<DocumentSummary>,
+  documentLocalId: string,
+  linkedContainerIds: ReadonlyArray<string>,
+  context: ExplorerContainerRulesContext = rulesContext,
+) {
+  return getDocumentLinkTargetOptions(
+    testNodes,
+    documentLocalId,
+    linkedContainerIds,
+    createExplorerTargetLookups(testNodes, documents),
+    context,
+  );
+}
+
 test("a document in trash can be moved out to another container", () => {
   const trashedDocument = documentSummary({
     id: "trashed-doc",
     containerId: TRASH_CONTAINER_ID,
     documentKind: "note",
   });
-  const options = getDocumentMoveTargetOptions(
-    nodes,
-    [trashedDocument],
-    trashedDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const options = moveTargets(nodes, [trashedDocument], trashedDocument.id);
   const optionIds = options.map((option) => option.id);
 
   // The trash container itself is excluded (can't move to current container),
@@ -86,11 +121,10 @@ test("a linked null-container document cannot be moved from recovery", () => {
     id: "linked-document",
     containerId: null,
   });
-  const options = getDocumentMoveTargetOptions(
+  const options = moveTargets(
     nodes,
     [linkedDocument],
     linkedDocument.id,
-    undefined,
     rulesContext,
     new Map([["document-1", ["foreign-container"]]]),
   );
@@ -103,11 +137,10 @@ test("an unlinked null-container document can be moved from recovery", () => {
     id: "orphaned-document",
     containerId: null,
   });
-  const options = getDocumentMoveTargetOptions(
+  const options = moveTargets(
     nodes,
     [orphanedDocument],
     orphanedDocument.id,
-    undefined,
     createExplorerContainerRulesContext({
       contactsContainerId: CONTACTS_CONTAINER_ID,
       contactsSystemSlot: CONTACTS_SLOT,
@@ -127,14 +160,9 @@ test("a document in trash cannot be linked to another container", () => {
     containerId: TRASH_CONTAINER_ID,
     documentKind: "note",
   });
-  const options = getDocumentLinkTargetOptions(
-    nodes,
-    [trashedDocument],
-    trashedDocument.id,
-    [TRASH_CONTAINER_ID],
-    undefined,
-    rulesContext,
-  );
+  const options = linkTargets(nodes, [trashedDocument], trashedDocument.id, [
+    TRASH_CONTAINER_ID,
+  ]);
 
   expect(options).toEqual([]);
 });
@@ -149,14 +177,9 @@ test("the trash container is not offered as a link target", () => {
     containerId: "user-container",
     documentKind: "note",
   });
-  const options = getDocumentLinkTargetOptions(
-    nodes,
-    [userDocument],
-    userDocument.id,
-    ["user-container"],
-    undefined,
-    rulesContext,
-  );
+  const options = linkTargets(nodes, [userDocument], userDocument.id, [
+    "user-container",
+  ]);
   const optionIds = options.map((option) => option.id);
 
   expect(optionIds).not.toContain(TRASH_CONTAINER_ID);
@@ -172,14 +195,9 @@ test("a contact can be linked out of contacts but not into the trash", () => {
     containerId: CONTACTS_CONTAINER_ID,
     documentKind: "contact",
   });
-  const options = getDocumentLinkTargetOptions(
-    nodes,
-    [contactDocument],
-    contactDocument.id,
-    [CONTACTS_CONTAINER_ID],
-    undefined,
-    rulesContext,
-  );
+  const options = linkTargets(nodes, [contactDocument], contactDocument.id, [
+    CONTACTS_CONTAINER_ID,
+  ]);
   const optionIds = options.map((option) => option.id);
 
   expect(optionIds).not.toContain(TRASH_CONTAINER_ID);
@@ -192,13 +210,7 @@ test("document move target options carry folder names and icons", () => {
     containerId: TRASH_CONTAINER_ID,
     documentKind: "note",
   });
-  const options = getDocumentMoveTargetOptions(
-    nodes,
-    [trashedDocument],
-    trashedDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const options = moveTargets(nodes, [trashedDocument], trashedDocument.id);
 
   expect(options.find((option) => option.id === "user-container")).toEqual({
     id: "user-container",
@@ -213,13 +225,7 @@ test("a contact in trash can be moved back into the contacts container", () => {
     containerId: TRASH_CONTAINER_ID,
     documentKind: "contact",
   });
-  const options = getDocumentMoveTargetOptions(
-    nodes,
-    [trashedContact],
-    trashedContact.id,
-    undefined,
-    rulesContext,
-  );
+  const options = moveTargets(nodes, [trashedContact], trashedContact.id);
 
   expect(options.map((option) => option.id)).toContain(CONTACTS_CONTAINER_ID);
 });
@@ -230,13 +236,7 @@ test("a custom contact in contacts can only be moved to trash", () => {
     containerId: CONTACTS_CONTAINER_ID,
     documentKind: "contact",
   });
-  const options = getDocumentMoveTargetOptions(
-    nodes,
-    [contactDocument],
-    contactDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const options = moveTargets(nodes, [contactDocument], contactDocument.id);
 
   expect(options).toEqual([
     {
@@ -260,11 +260,10 @@ test("the self contact in contacts cannot be moved to trash", () => {
     containerId: CONTACTS_CONTAINER_ID,
     documentKind: "contact",
   });
-  const options = getDocumentMoveTargetOptions(
+  const options = moveTargets(
     nodes,
     [contactDocument],
     contactDocument.id,
-    undefined,
     selfContactRulesContext,
   );
 
@@ -287,11 +286,10 @@ test("the self contact cannot be moved out of a linked user container", () => {
     id: "self_contact_v1_abc",
     containerId: "user-container",
   });
-  const options = getDocumentMoveTargetOptions(
+  const options = moveTargets(
     nodes,
     [linkedSelfContact],
     linkedSelfContact.id,
-    undefined,
     selfContactRulesContext,
   );
 
@@ -348,12 +346,11 @@ test("built-in organization system containers are not offered as link targets", 
     documentKind: "note",
   });
 
-  const optionIds = getDocumentLinkTargetOptions(
+  const optionIds = linkTargets(
     builtInNodes,
     [userDocument],
     userDocument.id,
     ["user-container"],
-    undefined,
     builtInRulesContext,
   ).map((option) => option.id);
 
@@ -376,11 +373,10 @@ test("built-in organization system containers remain move targets", async () => 
     documentKind: "note",
   });
 
-  const optionIds = getDocumentMoveTargetOptions(
+  const optionIds = moveTargets(
     builtInNodes,
     [userDocument],
     userDocument.id,
-    undefined,
     builtInRulesContext,
   ).map((option) => option.id);
 
@@ -393,13 +389,7 @@ test("a document in a plain container can be moved out", () => {
     id: "user-doc",
     containerId: "user-container",
   });
-  const options = getDocumentMoveTargetOptions(
-    nodes,
-    [userDocument],
-    userDocument.id,
-    undefined,
-    rulesContext,
-  );
+  const options = moveTargets(nodes, [userDocument], userDocument.id);
 
   const optionIds = options.map((option) => option.id);
   expect(optionIds).toContain(TRASH_CONTAINER_ID);
@@ -415,13 +405,15 @@ test("recovery is never a container, document move, or link target", () => {
   const containerTargetIds = getMoveTargetOptions(
     nodesWithRecovery,
     "user-container",
+    createExplorerTargetLookups(nodesWithRecovery, [userDocument]),
+    rulesContext,
   ).map((option) => option.id);
-  const documentMoveTargetIds = getDocumentMoveTargetOptions(
+  const documentMoveTargetIds = moveTargets(
     nodesWithRecovery,
     [userDocument],
     userDocument.id,
   ).map((option) => option.id);
-  const documentLinkTargetIds = getDocumentLinkTargetOptions(
+  const documentLinkTargetIds = linkTargets(
     nodesWithRecovery,
     [userDocument],
     userDocument.id,

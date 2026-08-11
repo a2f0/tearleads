@@ -46,7 +46,3 @@ export function sessionIsMutating(
     (session.isCurrent && mutatingSessionId === CURRENT_SESSION_MUTATION_ID)
   );
 }
-
-export function isKeyboardActivationKey(key: string): boolean {
-  return key === "Enter" || key === " ";
-}
