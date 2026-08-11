@@ -84,6 +84,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     parentContainerId: input.parentContainerId,
     parentProjection: input.parentProjection,
     parentSecretKey,
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(

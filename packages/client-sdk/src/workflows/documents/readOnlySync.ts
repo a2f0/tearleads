@@ -208,6 +208,8 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
     ) {
       return null;
     }
+    // The document-store `document.sync` boundary owns durable reporting; this
+    // helper only decides whether an ordinary projection miss is retryable.
     rethrowKeyingVerificationError(error);
     if (projectionIntegrityErrorCode(error)) {
       throw error;

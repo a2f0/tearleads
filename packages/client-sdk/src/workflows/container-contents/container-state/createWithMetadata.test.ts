@@ -102,6 +102,7 @@ test("container-with-metadata acknowledgement pins both heads atomically", async
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 
@@ -233,6 +234,7 @@ test("container-with-metadata replans after the parent head advances", async () 
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 
@@ -357,6 +359,7 @@ async function runManifestAlreadyExistsCreate(
     },
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 

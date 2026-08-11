@@ -13,6 +13,7 @@ test("document info propagates attribution identity failures instead of returnin
     "equivocation",
     "trusted attribution identity changed",
   );
+  const reports: Array<{ error: unknown; operation: string }> = [];
 
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
@@ -41,8 +42,17 @@ test("document info propagates attribution identity failures instead of returnin
         },
         execSql,
         localId: "local-document",
+        reportSecurityIncident: async (error, context) => {
+          reports.push({ error, operation: context.operation });
+        },
       }),
     ).rejects.toBe(integrityError);
+    expect(reports).toEqual([
+      {
+        error: integrityError,
+        operation: "document.info.attribution",
+      },
+    ]);
   } finally {
     close();
   }

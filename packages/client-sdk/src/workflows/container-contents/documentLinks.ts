@@ -1,7 +1,7 @@
 import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -247,7 +247,15 @@ export async function relinkRemoteContainerDocument(input: {
 
     return result;
   } catch (error) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: documentId,
+        objectKind: "document",
+        operation: `document.${operation}`,
+      },
+    );
     const message = errorMessage(error);
     runtime.util.log(
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${message}`,
@@ -300,7 +308,15 @@ export async function purgeRemoteContainerDocument(input: {
     );
     return response;
   } catch (error) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: documentId,
+        objectKind: "document",
+        operation: "document.purge",
+      },
+    );
     runtime.util.log(
       `Container contents: failed to purge note ${noteId} (document ${documentId}): ${errorMessage(error)}`,
     );

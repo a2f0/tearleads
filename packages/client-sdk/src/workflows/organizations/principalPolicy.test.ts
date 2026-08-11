@@ -450,5 +450,8 @@ test("group mutation builders reject tampered server policy projections", async 
         signingPublicKey: signingKeyPair.signingPublicKey,
       }),
     }),
-  ).rejects.toThrow("Group policy verification failed");
+  ).rejects.toMatchObject({
+    code: "hash_mismatch",
+    name: "KeyingVerificationError",
+  });
 });

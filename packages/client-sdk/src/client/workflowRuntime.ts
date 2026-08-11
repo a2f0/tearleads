@@ -1,6 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
+import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
+import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
@@ -27,7 +29,15 @@ import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import type { Session } from "./session/sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
-export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
+type HostWorkflowRuntimeUtilInput = Omit<
+  WorkflowRuntimeUtilInput,
+  "reportSecurityIncident"
+>;
+
+export interface WorkflowRuntimeInput
+  extends Omit<WorkflowRuntimeGroups, "util"> {
+  readonly util: HostWorkflowRuntimeUtilInput;
+}
 
 export type RuntimeListener = () => void;
 
@@ -37,7 +47,7 @@ export interface Runtime {
   subscribe(listener: RuntimeListener): () => void;
 }
 
-export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
+export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
   readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -67,6 +77,7 @@ interface WorkflowRuntimeDependencies {
   logError: (message: string | Error, cause?: unknown) => void;
   network: Network;
   peerScope?: string | null;
+  reportSecurityIncident: SecurityIncidentReporter;
   session: Session;
   syncBillingGate?: SyncBillingGate | undefined;
 }
@@ -95,17 +106,37 @@ export function createRuntime(
     identityTrustDomain: dependencies.identityTrustDomain,
     remoteSource: createApiUserIdentitySource(dependencies.api),
   });
+  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
+    runWithSecurityIncidentReporting(
+      dependencies.reportSecurityIncident,
+      {
+        objectId: userId,
+        objectKind: "user",
+        operation: "user.identity.resolve",
+        organizationId: dependencies.session.organizationId,
+      },
+      () => trustedUserIdentityService.resolve(userId),
+    );
   const runtimeSubscription = createRuntimeSubscription(dependencies);
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
-    trustedUserIdentityService.resolve,
+    resolveTrustedUserIdentity,
   );
 
   return {
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
     async pinLocalUserIdentity(userId, candidate) {
-      await trustedUserIdentityService.pinLocal(userId, candidate);
+      await runWithSecurityIncidentReporting(
+        dependencies.reportSecurityIncident,
+        {
+          objectId: userId,
+          objectKind: "user",
+          operation: "user.identity.pin_local",
+          organizationId: dependencies.session.organizationId,
+        },
+        () => trustedUserIdentityService.pinLocal(userId, candidate),
+      );
     },
     publicRuntime: {
       get version() {
@@ -159,6 +190,7 @@ function createRuntimeInputFactory(
   let infra: WorkflowRuntimeInfraInput | undefined;
   let state: WorkflowRuntimeStateInput | undefined;
   let util: WorkflowRuntimeUtilInput | undefined;
+  let hostUtil: HostWorkflowRuntimeUtilInput | undefined;
 
   const workflowInput = (
     containerId?: string | null | undefined,
@@ -207,7 +239,8 @@ function createRuntimeInputFactory(
     if (
       !util ||
       util.log !== dependencies.log ||
-      util.logError !== dependencies.logError
+      util.logError !== dependencies.logError ||
+      util.reportSecurityIncident !== dependencies.reportSecurityIncident
     ) {
       util = {
         isRemoteSyncBlocked: (organizationId) =>
@@ -216,6 +249,7 @@ function createRuntimeInputFactory(
           ) ?? false,
         log: dependencies.log,
         logError: dependencies.logError,
+        reportSecurityIncident: dependencies.reportSecurityIncident,
       };
     }
 
@@ -235,9 +269,15 @@ function createRuntimeInputFactory(
       const {
         apiClient: _apiClient,
         resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
+        util: workflowUtil,
         ...input
       } = workflowInput(containerId);
-      return input;
+      hostUtil = reuseIfShallowEqual(hostUtil, {
+        isRemoteSyncBlocked: workflowUtil.isRemoteSyncBlocked,
+        log: workflowUtil.log,
+        logError: workflowUtil.logError,
+      });
+      return { ...input, util: hostUtil };
     },
     workflowInput,
   };

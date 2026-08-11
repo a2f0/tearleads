@@ -40,7 +40,10 @@ function createRuntime(input: {
       events: [],
       online: false,
     },
-    util: { log: (message) => input.logs.push(message) },
+    util: {
+      log: (message) => input.logs.push(message),
+      reportSecurityIncident: async () => undefined,
+    },
   };
 }
 

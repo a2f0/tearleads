@@ -1,11 +1,11 @@
-import type { ContainerGrantSubjectType } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
+import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
-  addOrganizationGroupUser,
+  type addOrganizationGroupUser,
   cancelStripeSubscription,
   claimNativeOrganizationSubscription,
-  createOrganizationGroup,
+  type createOrganizationGroup,
   createStripeCheckout,
   createStripeCheckoutSession,
   importOrganizationUser,
@@ -15,14 +15,13 @@ import {
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
   loadStripeCheckoutOptions,
-  removeOrganizationGroupUser,
-  revokeOrganizationContainerGrant,
-  rotateOrganizationGroupForAccessSetShrink,
+  type removeOrganizationGroupUser,
+  type revokeOrganizationContainerGrant,
+  type rotateOrganizationGroupForAccessSetShrink,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../../workflows/organizations";
-import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
 import type {
   InternalRuntime,
@@ -33,7 +32,6 @@ import {
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
-import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
@@ -43,7 +41,15 @@ import {
   runForAuthenticatedOrganization,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
-import { preparePrincipalContainerMutations } from "./principalContainerMutations";
+import {
+  type AddOrganizationGroupUserInput,
+  addUserToOrganizationGroup,
+  createGroupForOrganization,
+  type OrganizationGrantRef,
+  type RemoveOrganizationGroupUserInput,
+  removeUserFromOrganizationGroup,
+  revokeOrganizationGrant,
+} from "./principalMutations";
 
 export type {
   ImportedOrganizationUser,
@@ -71,34 +77,11 @@ export type {
   OrganizationUserDetail,
 } from "../../workflows/organizations";
 
-interface OrganizationSigningContext {
-  organizationId: string;
-  signerUserId: string;
-  signingFingerprint: string;
-  signingKeyPair: NonNullable<
-    InternalWorkflowRuntimeInput["crypto"]["signingKeyPair"]
-  >;
-}
-
-export interface OrganizationGrantRef {
-  containerId: string;
-  subjectId: string;
-  subjectType: ContainerGrantSubjectType;
-}
-
-export interface OrganizationGroupUserMutationInput {
-  groupId: string;
-}
-
-export interface AddOrganizationGroupUserInput
-  extends OrganizationGroupUserMutationInput {
-  targetUserId: string;
-}
-
-export interface RemoveOrganizationGroupUserInput
-  extends OrganizationGroupUserMutationInput {
-  removedUserId: string;
-}
+export type {
+  AddOrganizationGroupUserInput,
+  OrganizationGrantRef,
+  RemoveOrganizationGroupUserInput,
+} from "./principalMutations";
 
 export interface Organizations {
   addUserToGroup: (
@@ -184,36 +167,6 @@ export interface Organizations {
   startTrial: () => ReturnType<typeof startOrganizationTrial>;
 }
 
-function requireSigningContext(
-  runtime: InternalWorkflowRuntimeInput,
-): OrganizationSigningContext {
-  if (
-    !runtime.auth.organizationId ||
-    !runtime.auth.userId ||
-    !runtime.crypto.signingFingerprint ||
-    !runtime.crypto.signingKeyPair
-  ) {
-    throw new Error("Organization signing context is unavailable");
-  }
-
-  return {
-    organizationId: runtime.auth.organizationId,
-    signerUserId: runtime.auth.userId,
-    signingFingerprint: runtime.crypto.signingFingerprint,
-    signingKeyPair: runtime.crypto.signingKeyPair,
-  };
-}
-
-function requireEncapsulationKeyPair(
-  runtime: InternalWorkflowRuntimeInput,
-): NonNullable<InternalWorkflowRuntimeInput["crypto"]["encapsulationKeyPair"]> {
-  if (!runtime.crypto.encapsulationKeyPair) {
-    throw new Error("Organization encryption context is unavailable");
-  }
-
-  return runtime.crypto.encapsulationKeyPair;
-}
-
 export function createOrganizations(
   runtime: InternalRuntime,
   containerContents: ContainerContents,
@@ -238,55 +191,18 @@ class OrganizationsService implements Organizations {
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
-    const runtime = this.runtimeService.workflowInput();
-    const signingContext = requireSigningContext(runtime);
-    const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
-    let memberGroupId: string | null = null;
-    const bundle = await addOrganizationGroupUser({
-      apiClient: runtime.apiClient,
-      beforePolicyCommit: (_head, authority) => {
-        memberGroupId = authority.memberGroupId;
-      },
-      currentUserSecretKey,
-      execSql: runtime.infra.execSql,
-      groupId: input.groupId,
-      prepareContainerMutations: ({ nextPolicy }) =>
-        preparePrincipalContainerMutations({
-          groupId: input.groupId,
-          nextPolicy,
-          organizationId: signingContext.organizationId,
-          readModelCoordinator: this.readModelCoordinator,
-          runtime,
-        }),
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      targetUserId: input.targetUserId,
-      ...signingContext,
+    return addUserToOrganizationGroup({
+      ...input,
+      containerContents: this.containerContents,
+      readModelCoordinator: this.readModelCoordinator,
+      runtime: this.runtimeService.workflowInput(),
     });
-    if (input.groupId === memberGroupId) {
-      await syncOrganizationMetadataProfile({
-        containerContents: this.containerContents,
-        log: runtime.util.log,
-        organizationId: signingContext.organizationId,
-      });
-    }
-    await this.readModelCoordinator.reconcileAfterMutation(
-      signingContext.organizationId,
-    );
-    return bundle;
   }
 
   createGroup(name: string) {
-    const runtime = this.runtimeService.workflowInput();
-    const signingContext = requireSigningContext(runtime);
-    const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(runtime);
-
-    return createOrganizationGroup({
-      apiClient: runtime.apiClient,
-      creatorEncapsulationKeyPair,
-      execSql: runtime.infra.execSql,
+    return createGroupForOrganization({
       name,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      ...signingContext,
+      runtime: this.runtimeService.workflowInput(),
     });
   }
 
@@ -389,11 +305,31 @@ class OrganizationsService implements Organizations {
   }
 
   loadDirectoryAndGroups() {
-    return this.readModelCoordinator.reconcile();
+    const runtime = this.runtimeService.workflowInput();
+    return runWithSecurityIncidentReporting(
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: runtime.auth.organizationId,
+        objectKind: "principal",
+        operation: "organization.read_model.reconcile",
+        organizationId: runtime.auth.organizationId,
+      },
+      () => this.readModelCoordinator.reconcile(),
+    );
   }
 
   loadDirectoryAndGroupsAfterMutation() {
-    return this.readModelCoordinator.reconcileAfterMutation();
+    const runtime = this.runtimeService.workflowInput();
+    return runWithSecurityIncidentReporting(
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: runtime.auth.organizationId,
+        objectKind: "principal",
+        operation: "organization.read_model.reconcile_after_mutation",
+        organizationId: runtime.auth.organizationId,
+      },
+      () => this.readModelCoordinator.reconcileAfterMutation(),
+    );
   }
 
   loadLocalDirectoryAndGroups() {
@@ -414,11 +350,22 @@ class OrganizationsService implements Organizations {
   }
 
   loadGroupPresentationDetails(groupId: string) {
-    return loadOrganizationGroupPresentationDetails({
-      groupId,
-      readModelCoordinator: this.readModelCoordinator,
-      runtime: this.runtimeService.workflowInput(),
-    });
+    const runtime = this.runtimeService.workflowInput();
+    return runWithSecurityIncidentReporting(
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: groupId,
+        objectKind: "principal",
+        operation: "group.presentation.load",
+        organizationId: runtime.auth.organizationId,
+      },
+      () =>
+        loadOrganizationGroupPresentationDetails({
+          groupId,
+          readModelCoordinator: this.readModelCoordinator,
+          runtime,
+        }),
+    );
   }
 
   loadGrants() {
@@ -439,7 +386,17 @@ class OrganizationsService implements Organizations {
   }
 
   loadPolicyHistory() {
-    return this.readModelCoordinator.loadOrganizationPolicyHistory();
+    const runtime = this.runtimeService.workflowInput();
+    return runWithSecurityIncidentReporting(
+      runtime.util.reportSecurityIncident,
+      {
+        objectId: runtime.auth.organizationId,
+        objectKind: "principal",
+        operation: "organization.policy_history.load",
+        organizationId: runtime.auth.organizationId,
+      },
+      () => this.readModelCoordinator.loadOrganizationPolicyHistory(),
+    );
   }
 
   loadUserDetail(userId: string) {
@@ -476,90 +433,21 @@ class OrganizationsService implements Organizations {
   }
 
   async removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
-    const runtime = this.runtimeService.workflowInput();
-    const signingContext = requireSigningContext(runtime);
-    let memberGroupId: string | null = null;
-    const bundle = await removeOrganizationGroupUser({
-      apiClient: runtime.apiClient,
-      beforePolicyCommit: (_head, authority) => {
-        memberGroupId = authority.memberGroupId;
-      },
-      execSql: runtime.infra.execSql,
-      groupId: input.groupId,
-      prepareContainerMutations: ({ nextPolicy }) =>
-        preparePrincipalContainerMutations({
-          groupId: input.groupId,
-          nextPolicy,
-          organizationId: signingContext.organizationId,
-          readModelCoordinator: this.readModelCoordinator,
-          runtime,
-        }),
-      removedUserId: input.removedUserId,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      ...signingContext,
+    return removeUserFromOrganizationGroup({
+      ...input,
+      containerContents: this.containerContents,
+      readModelCoordinator: this.readModelCoordinator,
+      runtime: this.runtimeService.workflowInput(),
     });
-    if (input.groupId === memberGroupId) {
-      await syncOrganizationMetadataProfile({
-        containerContents: this.containerContents,
-        log: runtime.util.log,
-        organizationId: signingContext.organizationId,
-      });
-    }
-    await this.readModelCoordinator.reconcileAfterMutation(
-      signingContext.organizationId,
-    );
-    return bundle;
   }
 
   async revokeGrant(grant: OrganizationGrantRef) {
-    const runtime = this.runtimeService.workflowInput();
-    const signingContext = requireSigningContext(runtime);
-    const encapsulationKeyPair = requireEncapsulationKeyPair(runtime);
-    if (runtime.infra.dbStatus !== "ready") {
-      throw new Error("Organization local database is unavailable");
-    }
-
-    if (grant.subjectType === "group") {
-      const response = await rotateOrganizationGroupForAccessSetShrink({
-        apiClient: runtime.apiClient,
-        execSql: runtime.infra.execSql,
-        groupId: grant.subjectId,
-        prepareContainerMutations: ({ nextPolicy }) =>
-          preparePrincipalContainerMutations({
-            groupId: grant.subjectId,
-            nextPolicy,
-            organizationId: signingContext.organizationId,
-            readModelCoordinator: this.readModelCoordinator,
-            revokedContainerId: grant.containerId,
-            runtime,
-          }),
-        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-        ...signingContext,
-      });
-      await this.readModelCoordinator.reconcileAfterMutation(
-        signingContext.organizationId,
-      );
-      return response;
-    }
-
-    const response = await revokeOrganizationContainerGrant({
-      apiClient: runtime.apiClient,
-      containerId: grant.containerId,
-      encapsulationKeyPair,
-      execSql: runtime.infra.execSql,
-      revokedSubject: {
-        subjectId: grant.subjectId,
-        subjectType: grant.subjectType,
-      },
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      warmReferencedPrincipalPolicies:
-        createRuntimePrincipalPolicyWarmer(runtime),
-      ...signingContext,
+    return revokeOrganizationGrant({
+      ...grant,
+      containerContents: this.containerContents,
+      readModelCoordinator: this.readModelCoordinator,
+      runtime: this.runtimeService.workflowInput(),
     });
-    await this.readModelCoordinator.reconcileAfterMutation(
-      signingContext.organizationId,
-    );
-    return response;
   }
 
   startTrial() {

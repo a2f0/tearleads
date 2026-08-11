@@ -51,6 +51,7 @@ function createRuntime(
       log: (message) => {
         logs.push(message);
       },
+      reportSecurityIncident: async () => undefined,
     },
     resolveProjectionUserKey: async () => null,
     resolveTrustedUserIdentity: async () => null,

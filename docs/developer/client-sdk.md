@@ -99,6 +99,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
+| `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
 scope with the active database and identity so document and container/document
@@ -120,9 +121,8 @@ ready snapshot or deciding whether to show an unavailable-storage state.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
-bundle themselves. This host-facing runtime input intentionally does not expose
-the raw API client; SDK namespaces and workflow facades own HTTP transport
-access.
+bundle themselves. This host-facing input omits API access and incident
+reporting; SDK facades own both.
 
 Root exports include built-in organization slot helpers.
 
@@ -138,7 +138,7 @@ Runtime input snapshots are grouped by capability:
 | `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
 | `state` | `containerId`, `domainScope`, `events`, `online` |
-| `util` | `log`, `logError`, `cacheReferencedPrincipalPolicies` |
+| `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
 `auth.defaultOrganizationId` identifies the personal org across active switches.
 Host and workflow integration code should use these grouped fields so a
@@ -216,6 +216,7 @@ const tearleads = new Tearleads({
   identityProvisioning,
   identityTrustDomain,
   logger,
+  onSecurityIncident,
   online,
 });
 ```
@@ -234,6 +235,18 @@ HTTP uses `apiBaseUrl`; the API client is internal. See
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
+
+`onSecurityIncident` is called after a typed keying-verification failure is
+durably appended. The same rows are available through
+`await tearleads.securityIncidents.list()` and detections can be observed with
+`tearleads.securityIncidents.subscribe(listener)`. An incident contains the
+code, operation, first/last timestamps, repeat count, protocol hashes, plus
+object identity and trust domain when known. Equivalent repeat detections are
+coalesced, and the most recently detected 1,000 rows per trust domain are
+retained. It stores no exception messages or content. `list()` returns `null`
+while the local database is unavailable; detections during database startup are
+held in a bounded, redacted memory buffer and flushed once it becomes ready.
+Ordinary transport and database-availability failures do not create incidents.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
 constructor only captures the current database `client`, `execSql`, and `id`,

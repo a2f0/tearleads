@@ -65,6 +65,7 @@ function createMoveIntentSyncState(input: {
       },
       util: {
         log: () => {},
+        reportSecurityIncident: async () => undefined,
       },
     },
   };

@@ -239,6 +239,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
     },
   });
   const store = createDocumentStore(

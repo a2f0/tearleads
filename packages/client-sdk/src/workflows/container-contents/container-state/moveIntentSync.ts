@@ -1,5 +1,5 @@
 import { errorMessage } from "../../../data/errorMessage";
-import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { RemoteContainer } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
@@ -203,7 +203,16 @@ async function trySyncPendingContainerMoveIntent(
     );
     return "moved";
   } catch (error: unknown) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      state.runtime.util.reportSecurityIncident,
+      {
+        objectId: intent.containerId,
+        objectKind: "container",
+        operation: "container.move.replay",
+        organizationId: parentState.container.organizationId,
+      },
+    );
     const message = errorMessage(error);
     await recordPendingMoveIntentError({
       containerId: intent.containerId,

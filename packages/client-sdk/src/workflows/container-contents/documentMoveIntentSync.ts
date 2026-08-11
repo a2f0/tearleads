@@ -1,5 +1,5 @@
 import { errorMessage } from "../../data/errorMessage";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
@@ -323,7 +323,15 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     );
     return "moved";
   } catch (error: unknown) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      state.runtime.util.reportSecurityIncident,
+      {
+        objectId: intent.documentId,
+        objectKind: "document",
+        operation: "document.move.replay",
+      },
+    );
     const message = errorMessage(error);
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,

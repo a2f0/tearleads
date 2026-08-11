@@ -436,6 +436,7 @@ async function createRemoteContainerWithRepairs(input: {
         failure: submitted,
         parentContainerId: input.request.parentContainerId,
         parentProjection,
+        reportSecurityIncident: input.request.reportSecurityIncident,
         resolveTrustedUserIdentity: input.request.resolveTrustedUserIdentity,
         state: repairState,
       });

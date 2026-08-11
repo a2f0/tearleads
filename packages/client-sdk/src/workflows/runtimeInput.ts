@@ -2,6 +2,7 @@ import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import type { BlobStore } from "../data/blobContracts";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
+import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 
 export type WorkflowRuntimeDatabaseStatus =
@@ -57,6 +58,7 @@ export interface WorkflowRuntimeUtilInput {
     | undefined;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
 }
 
 export interface WorkflowRuntimeGroups {

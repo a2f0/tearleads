@@ -214,6 +214,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 
@@ -331,6 +332,7 @@ test("loadDocumentInfo avoids remote calls for local-only documents", async () =
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 
@@ -414,6 +416,7 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 
@@ -529,6 +532,7 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 
@@ -602,6 +606,7 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
       },
       execSql,
       localId: "local-document-1",
+      reportSecurityIncident: async () => undefined,
       remoteInfoMode: "if-synced",
     });
 

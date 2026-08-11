@@ -2,6 +2,7 @@ import type {
   ContainerCreateApi,
   ContainerMutationSubmitFailure,
 } from "../../../data/containers/shared/types";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
@@ -11,6 +12,7 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   readonly execSql: ExecSql | undefined;
   readonly failure: ContainerMutationSubmitFailure;
   readonly organizationId: string;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
@@ -25,6 +27,7 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
     execSql: input.execSql,
     getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy,
     organizationId: input.organizationId,
+    reportSecurityIncident: input.reportSecurityIncident,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   return true;

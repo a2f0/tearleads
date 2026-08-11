@@ -6,6 +6,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
+import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
 import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
@@ -26,6 +27,11 @@ import {
 import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
+import {
+  createSecurityIncidentService,
+  type SecurityIncidentListener,
+  type SecurityIncidents,
+} from "./securityIncidents";
 import { createSession } from "./session";
 import type { Session } from "./session/sessionTypes";
 import { SyncBillingGate } from "./syncBillingGate";
@@ -35,6 +41,27 @@ import {
   type InternalRuntime,
   type Runtime,
 } from "./workflowRuntime";
+
+function createClientSecurityIncidentService(input: {
+  readonly apiBaseUrl: string;
+  readonly database: Database;
+  readonly logError: (message: string | Error, cause?: unknown) => void;
+  readonly options: ClientOptions;
+}) {
+  const identityTrustDomain = resolveIdentityTrustDomain({
+    apiBaseUrl: input.apiBaseUrl,
+    identityTrustDomain: input.options.identityTrustDomain,
+  });
+  return {
+    identityTrustDomain,
+    service: createSecurityIncidentService({
+      database: input.database,
+      logError: input.logError,
+      onIncident: input.options.onSecurityIncident,
+      trustDomain: identityTrustDomain,
+    }),
+  };
+}
 
 export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
 
@@ -54,6 +81,8 @@ export interface ClientOptions {
   identityProvisioning?: "auto" | "manual" | undefined;
   logger?: Logger | undefined;
   online?: boolean | undefined;
+  /** Called after a trust-boundary verification failure is durably recorded. */
+  onSecurityIncident?: SecurityIncidentListener | undefined;
   /**
    * Per-pane discriminator so documents in distinct panes derive distinct Loro
    * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
@@ -81,12 +110,14 @@ export class Tearleads {
   readonly network: Network;
   readonly organizations: Organizations;
   readonly runtime: Runtime;
+  readonly securityIncidents: SecurityIncidents;
   readonly session: Session;
   readonly syncBillingGate: SyncBillingGate;
   readonly userIdentities: UserIdentities;
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
+  private readonly disposeSecurityIncidents: () => void;
   // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
   // Recreated when the storage database or signing identity changes.
@@ -113,6 +144,14 @@ export class Tearleads {
     );
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
+    const security = createClientSecurityIncidentService({
+      apiBaseUrl,
+      database: this.database,
+      logError: this.logError,
+      options,
+    });
+    this.securityIncidents = security.service.incidents;
+    this.disposeSecurityIncidents = security.service.dispose;
     this.network = new Network(options.online);
     this.syncBillingGate = new SyncBillingGate();
     let session: Session | null = null;
@@ -155,7 +194,11 @@ export class Tearleads {
       provisionedSystemContainers: options.provisionedSystemContainers,
     });
     this.session = session;
-    const runtime = this.createWorkflowRuntime(apiBaseUrl, options);
+    const runtime = this.createWorkflowRuntime(
+      security.identityTrustDomain,
+      options,
+      security.service.report,
+    );
     pinLocalUserIdentity = async (userId, candidate) => {
       await runtime.pinLocalUserIdentity(userId, candidate);
     };
@@ -173,12 +216,18 @@ export class Tearleads {
         runtime.workflowInput().resolveTrustedUserIdentity(userId),
     });
 
+    this.configureApiClientCallbacks();
+
+    if (options.identityProvisioning === "auto") {
+      this.startAutomaticIdentityProvisioning();
+    }
+  }
+
+  private configureApiClientCallbacks(): void {
     this.apiClient.setOnError((message) => this.logError(message));
-    // Report request outcomes as connectivity hints rather than forcing them:
-    // when a native shell has bound an authoritative OS connectivity source, a
-    // request that fails to reach the backend means the backend is unreachable,
-    // not that the device is offline, so reportReachability leaves `online`
-    // alone. Without such a source (browser) it drives `online` as before.
+    // An authoritative OS source owns connectivity. Without one, request
+    // outcomes remain browser reachability hints: a failure proves the backend
+    // is unreachable, not that the device itself is offline.
     this.apiClient.setOnNetworkError(() =>
       this.network.reportReachability(false),
     );
@@ -189,15 +238,12 @@ export class Tearleads {
     this.apiClient.setOnPaymentRequired((organizationId) =>
       this.syncBillingGate.notifyPaymentRequired(organizationId),
     );
-
-    if (options.identityProvisioning === "auto") {
-      this.startAutomaticIdentityProvisioning();
-    }
   }
 
   private createWorkflowRuntime(
-    apiBaseUrl: string,
+    identityTrustDomain: string | null,
     options: ClientOptions,
+    reportSecurityIncident: SecurityIncidentReporter,
   ): InternalRuntime {
     return createRuntime({
       api: this.apiClient,
@@ -207,14 +253,12 @@ export class Tearleads {
       events: this.events,
       getDomainScope: () => this.domainScope,
       identity: this.identity,
-      identityTrustDomain: resolveIdentityTrustDomain({
-        apiBaseUrl,
-        identityTrustDomain: options.identityTrustDomain,
-      }),
+      identityTrustDomain,
       log: this.log,
       logError: this.logError,
       network: this.network,
       peerScope: options.peerScope ?? null,
+      reportSecurityIncident,
       session: this.session,
       syncBillingGate: this.syncBillingGate,
     });
@@ -259,6 +303,7 @@ export class Tearleads {
    */
   dispose(): void {
     const domainScope = this.domainScope;
+    this.disposeSecurityIncidents();
     this.deviceFirst.dispose();
     disposeDomainSyncCoordinator(domainScope);
   }

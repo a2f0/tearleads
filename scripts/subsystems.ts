@@ -374,6 +374,17 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
+    name: "Security Incident Detection",
+    package: "client-sdk",
+    responsibility:
+      "Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures.",
+    seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
+    paths: [
+      `${sdk}/client/securityIncidents.ts`,
+      `${sdk}/data/securityIncidents.ts`,
+    ],
+  },
+  {
     name: "SDK Runtime & Composition Root",
     package: "client-sdk",
     responsibility:

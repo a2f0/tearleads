@@ -57,6 +57,7 @@ test("createRemoteContainer replans once after the parent head advances", async 
       execSql,
       parentContainerId: parent.projection.containerId,
       parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
     });
@@ -133,6 +134,7 @@ test("createRemoteContainer does not retry an unrelated conflict", async () => {
       execSql,
       parentContainerId: parent.projection.containerId,
       parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
     });

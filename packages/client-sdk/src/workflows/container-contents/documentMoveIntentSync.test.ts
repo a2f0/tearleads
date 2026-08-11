@@ -261,6 +261,7 @@ async function runQueuedDocumentMoveFixture(input: {
       },
       util: {
         log: () => undefined,
+        reportSecurityIncident: async () => undefined,
       },
     };
 

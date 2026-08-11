@@ -281,6 +281,7 @@ function createShareTestRuntime(input: {
     },
     util: {
       log: (message) => input.logs.push(message),
+      reportSecurityIncident: async () => undefined,
     },
   });
 }

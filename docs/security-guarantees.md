@@ -80,6 +80,10 @@ The access and policy handshake has these layers:
  target hash so stale or forged access views fail verification.
 9. Clients persist exact full-bundle identity pins and monotonic checkpoints for
  principal policy heads and access manifest heads.
+10. Terminal trust-boundary verification failures are appended to a local
+ security-incident ledger before the workflow rethrows them. The ledger is not
+ part of remote-state reset and contains typed codes and object references, not
+ exception text or decrypted data.
 
 ## Security Properties
 
@@ -131,6 +135,21 @@ tampered projection, payload, state hash, chain link, signer, or checkpoint
 raises a typed terminal verification error. It is neither cached nor used for
 decryption, and the policy-warming or recovery workflow that received it
 aborts instead of reporting success.
+
+### Local Security-Incident Detection
+
+The client records typed keying-verification failures from document sync,
+container reconciliation, managed-principal operations, and the trusted-user
+identity gateway. Recording happens before the original terminal error is
+re-thrown, and an exact error object is recorded only once even if it crosses
+several instrumented boundaries. A host callback or subscriber cannot replace
+the verification failure if it throws. Ordinary network and local-database
+availability failures remain retryable operational errors and are not labeled
+as tampering.
+
+An incident proves that the received or stored material failed a local
+verification rule. It does not by itself prove that the server was malicious;
+corruption and implementation defects can produce the same signal.
 
 ### Member Envelope Binding
 

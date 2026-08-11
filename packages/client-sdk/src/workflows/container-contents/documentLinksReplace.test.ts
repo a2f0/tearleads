@@ -218,6 +218,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
         },
         util: {
           log: () => undefined,
+          reportSecurityIncident: async () => undefined,
         },
       },
       targetContainerId: trashProjection.containerId,

@@ -482,34 +482,11 @@ export interface TransparencyTreeCheckpoint {
   readonly rootHash: string;
 }
 
-export type KeyingVerificationCode =
-  | "duplicate_entry"
-  | "equivocation"
-  | "hash_mismatch"
-  | "invalid_domain"
-  | "invalid_shape"
-  | "key_epoch_reuse"
-  | "missing_dependency"
-  | "object_mismatch"
-  | "rollback"
-  | "signature_mismatch"
-  | "signer_mismatch"
-  | "stale_predecessor"
-  | "unauthorized";
-
-export class KeyingVerificationError extends Error {
-  constructor(
-    readonly code: KeyingVerificationCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = "KeyingVerificationError";
-  }
-}
-
-export type KeyingVerificationResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: KeyingVerificationError };
+export {
+  type KeyingVerificationCode,
+  KeyingVerificationError,
+  type KeyingVerificationResult,
+} from "./verificationError";
 
 const verifiedBrandValue = true;
 const verifiedIdentityStateBrand: unique symbol = Symbol(

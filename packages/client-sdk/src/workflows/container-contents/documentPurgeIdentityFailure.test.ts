@@ -38,6 +38,7 @@ test("remote document purge propagates identity failures without deleting local 
         },
         util: {
           log: (message) => logs.push(message),
+          reportSecurityIncident: async () => undefined,
         },
       },
     }),

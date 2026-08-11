@@ -35,6 +35,7 @@ import {
   documentProjectionText,
   documents,
   principalPolicies,
+  securityIncidents,
   trustedUserIdentityPins,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -68,6 +69,18 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     const metadataVersion = encodeVersionVector(metadataDoc);
 
     await db.transaction(async (tx) => {
+      await tx.insert(securityIncidents).values({
+        id: "incident-1",
+        trustDomain: "https://api.example.test",
+        code: "rollback",
+        operation: "document.sync",
+        objectKind: "document",
+        objectId: "doc-remote-old",
+        organizationId: "org-old",
+        evidenceHashes: "{}",
+        detectedAt: stale,
+        lastDetectedAt: stale,
+      });
       await tx.insert(containers).values([
         {
           id: "root",
@@ -384,6 +397,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     ]);
     // The durable history is the only content source and must survive a reset.
     expect(await db.select().from(documentHistoryCheckpoints)).toHaveLength(2);
+    expect(await db.select().from(securityIncidents)).toEqual([
+      expect.objectContaining({ id: "incident-1", code: "rollback" }),
+    ]);
     const pendingUpdates = await db.select().from(documentPendingUpdates);
     expect(pendingUpdates).toHaveLength(2);
     expect(pendingUpdates.every((row) => row.updateData !== "old")).toBe(true);

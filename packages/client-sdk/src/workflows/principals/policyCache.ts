@@ -3,13 +3,17 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { errorMessage } from "../../data/errorMessage";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import {
+  reportAndRethrowKeyingVerificationError,
+  rethrowKeyingVerificationError,
+} from "../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
@@ -27,6 +31,7 @@ export interface CacheReferencedPrincipalPoliciesOptions {
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   log?: (message: string) => void;
   organizationId?: string | null | undefined;
+  reportSecurityIncident: SecurityIncidentReporter;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -171,6 +176,7 @@ async function runPrincipalPolicyCache<Item>(input: {
   readonly items: ReadonlyArray<Item> | undefined;
   readonly log: ((message: string) => void) | undefined;
   readonly organizationId: string | null | undefined;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   if (!input.items || input.items.length === 0) {
@@ -197,7 +203,16 @@ async function runPrincipalPolicyCache<Item>(input: {
         try {
           await input.cacheItem(item, loadExternalAdminPolicy);
         } catch (error) {
-          rethrowKeyingVerificationError(error);
+          await reportAndRethrowKeyingVerificationError(
+            error,
+            input.reportSecurityIncident,
+            {
+              objectId: input.itemKey(item),
+              objectKind: "principal",
+              operation: "principal.policy.cache",
+              organizationId: input.organizationId,
+            },
+          );
           const message = errorMessage(error);
           input.log?.(
             `Principal policy cache: failed to store ${input.itemKey(item)}: ${message}`,
@@ -206,6 +221,8 @@ async function runPrincipalPolicyCache<Item>(input: {
       }),
     );
   } catch (error) {
+    // Per-item verification failures were reported above before reaching this
+    // initialization/aggregation boundary.
     rethrowKeyingVerificationError(error);
     const message = errorMessage(error);
     input.log?.(
@@ -219,6 +236,7 @@ export async function cacheReferencedPrincipalPolicies({
   getCurrentPrincipalPolicy,
   log,
   organizationId,
+  reportSecurityIncident,
   references,
   resolveTrustedUserIdentity,
 }: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
@@ -239,6 +257,7 @@ export async function cacheReferencedPrincipalPolicies({
     items: references,
     log,
     organizationId,
+    reportSecurityIncident,
     resolveTrustedUserIdentity,
   });
 }
@@ -249,6 +268,7 @@ export async function cachePrincipalPolicyBundles({
   getCurrentPrincipalPolicy,
   log,
   organizationId,
+  reportSecurityIncident,
   resolveTrustedUserIdentity,
 }: CachePrincipalPolicyBundlesOptions): Promise<void> {
   return runPrincipalPolicyCache({
@@ -267,6 +287,7 @@ export async function cachePrincipalPolicyBundles({
     items: bundles,
     log,
     organizationId,
+    reportSecurityIncident,
     resolveTrustedUserIdentity,
   });
 }

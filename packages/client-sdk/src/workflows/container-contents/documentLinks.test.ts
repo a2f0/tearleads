@@ -137,6 +137,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
         },
         util: {
           log: () => undefined,
+          reportSecurityIncident: async () => undefined,
         },
       },
       targetContainerId: siblingProjection.containerId,

@@ -322,6 +322,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
       metadataDocumentId: "remote-child-container-metadata-document",
       parentContainerId: parent.projection.containerId,
       parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
@@ -390,6 +391,7 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
         execSql,
         parentContainerId: parent.projection.containerId,
         parentSecretKey: parent.secretKey,
+        reportSecurityIncident: async () => undefined,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity:
           createParentProjectionUserKeyResolver(parent),
@@ -438,6 +440,7 @@ test("createRemoteContainer rejects bad parent projection signatures before send
         execSql,
         parentContainerId: parent.projection.containerId,
         parentSecretKey: parent.secretKey,
+        reportSecurityIncident: async () => undefined,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity:
           createParentProjectionUserKeyResolver(parent),

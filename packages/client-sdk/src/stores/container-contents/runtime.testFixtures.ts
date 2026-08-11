@@ -87,6 +87,7 @@ export function createContainerContentsTestRuntime(input: {
     },
     util: {
       log: input.log ?? (() => {}),
+      reportSecurityIncident: async () => undefined,
     },
   });
 }

@@ -13,6 +13,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
+import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
@@ -34,6 +35,7 @@ export interface RemoteContainerCreateInput {
   parentContainerId: string;
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   parentSecretKey: Uint8Array;
+  reportSecurityIncident: SecurityIncidentReporter;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
@@ -76,6 +78,7 @@ export async function repairContainerCreateFailure(input: {
   readonly failure: ContainerMutationSubmitFailure;
   readonly parentContainerId: string;
   readonly parentProjection: ContainerWriterProjectionResponse;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly state: ContainerCreateRepairState;
 }): Promise<ContainerCreateFailureRepair> {
@@ -86,6 +89,7 @@ export async function repairContainerCreateFailure(input: {
       execSql: input.execSql,
       failure: input.failure,
       organizationId: input.parentProjection.organizationId,
+      reportSecurityIncident: input.reportSecurityIncident,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     }))
   ) {

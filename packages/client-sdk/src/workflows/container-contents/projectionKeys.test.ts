@@ -121,6 +121,7 @@ test("container runtime normalization preserves trusted resolver identity", () =
     },
     util: {
       log: () => {},
+      reportSecurityIncident: async () => undefined,
     },
   };
 

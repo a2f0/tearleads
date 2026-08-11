@@ -219,6 +219,12 @@ export type {
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
 export type {
+  SecurityIncident,
+  SecurityIncidentListener,
+  SecurityIncidentObjectKind,
+  SecurityIncidents,
+} from "./securityIncidents";
+export type {
   CreateOrganizationOptions,
   Session,
   SessionContext,

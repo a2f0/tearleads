@@ -1,6 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { errorMessage } from "../../data/errorMessage";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -26,7 +26,16 @@ export async function probeExistingSystemContainer(input: {
         : [null],
     });
   } catch (error) {
-    rethrowKeyingVerificationError(error);
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      input.state.runtime.util.reportSecurityIncident,
+      {
+        objectId: input.rootState?.container.id ?? null,
+        objectKind: "container",
+        operation: "container.system.hydrate",
+        organizationId: input.rootState?.container.organizationId,
+      },
+    );
     if (!isDatabaseUnavailableError(error)) {
       const reason = errorMessage(error);
       input.state.runtime.util.log(

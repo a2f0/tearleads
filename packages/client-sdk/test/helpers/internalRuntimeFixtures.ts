@@ -63,6 +63,7 @@ export function createWorkflowInputFixture(
     util: {
       log: () => {},
       logError: options.logError ?? (() => {}),
+      reportSecurityIncident: async () => undefined,
     },
   };
 }
