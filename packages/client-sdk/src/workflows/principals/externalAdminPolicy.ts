@@ -136,6 +136,17 @@ async function loadVerifiedAdminsPolicy(input: {
   if (!bundle) {
     return null;
   }
+  if (
+    !principalHeadMatchesReference(
+      principalPolicyReferenceFromBundle(bundle),
+      input.expectedHead,
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "reserved Admins policy does not match the signed organization directory",
+    );
+  }
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
     "group",
@@ -166,17 +177,6 @@ async function loadVerifiedAdminsPolicy(input: {
       "reserved Admins policy target does not match",
     );
   }
-  if (
-    !principalHeadMatchesReference(
-      principalPolicyReferenceFromBundle(bundle),
-      input.expectedHead,
-    )
-  ) {
-    throw new KeyingVerificationError(
-      "hash_mismatch",
-      "reserved Admins policy does not match the signed organization directory",
-    );
-  }
   assertAdminsPolicyShape(verified.value);
   return { bundle, policy: verified.value };
 }
@@ -201,6 +201,15 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     if (!bundle) {
       return null;
     }
+    const policy = await verifyOrganizationPolicy({
+      bundle,
+      execSql: input.execSql,
+      organizationId: input.organizationId,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    });
+    if (!policy) {
+      return null;
+    }
     const descriptor = parseScopedAuthorityDescriptor(
       bundle,
       input.organizationId,
@@ -216,15 +225,6 @@ export async function loadOrganizationExternalAdminPolicy(input: {
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
     if (!admin) {
-      return null;
-    }
-    const policy = await verifyOrganizationPolicy({
-      bundle,
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    if (!policy) {
       return null;
     }
 

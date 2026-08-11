@@ -6,7 +6,10 @@ import { getCurrentPrincipalState } from "../../access/read/principalStateStore"
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
 import { PrincipalPolicyError } from "../principals/shared";
 import { OrganizationManagerError } from "./errors";
-import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
+import {
+  type OrganizationGroupHead,
+  parseOrganizationAuthorityDescriptor,
+} from "./organizationAuthorityDescriptor";
 
 interface OrganizationAccess {
   isOrgAdmin: boolean;
@@ -30,6 +33,21 @@ function requireOrganizationDescriptorScope(input: {
     );
   }
   return input.descriptor;
+}
+
+function principalStateMatchesGroupHead(
+  state: Awaited<ReturnType<typeof getCurrentPrincipalState>>,
+  head: OrganizationGroupHead | undefined,
+): boolean {
+  return (
+    state !== null &&
+    head !== undefined &&
+    state.principalId === head.principalId &&
+    state.version === head.version &&
+    state.keyEpoch === head.keyEpoch &&
+    state.stateHash === head.stateHash &&
+    state.keyFingerprint === head.keyFingerprint
+  );
 }
 
 async function loadVerifiedOrganizationAccessPolicies(input: {
@@ -69,7 +87,7 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
         input.executor,
         organizationState,
       );
-    requireOrganizationDescriptorScope({
+    const descriptor = requireOrganizationDescriptorScope({
       adminGroupId: input.adminGroupId,
       descriptor: parseOrganizationAuthorityDescriptor(
         organizationBundle.currentPayload.ciphertext,
@@ -77,6 +95,25 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
       memberGroupId: input.memberGroupId,
       organizationId: input.organizationId,
     });
+    if (
+      !principalStateMatchesGroupHead(
+        adminState,
+        descriptor.groupHeads.find(
+          (head) => head.principalId === input.adminGroupId,
+        ),
+      ) ||
+      !principalStateMatchesGroupHead(
+        memberState,
+        descriptor.groupHeads.find(
+          (head) => head.principalId === input.memberGroupId,
+        ),
+      )
+    ) {
+      throw new PrincipalPolicyError(
+        "Stored organization access policy does not match its signed directory head",
+        409,
+      );
+    }
     const { policy: adminPolicy } =
       await getVerifiedPrincipalPolicyForStateWithExecutor(
         input.executor,
