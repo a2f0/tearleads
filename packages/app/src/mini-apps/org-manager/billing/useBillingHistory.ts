@@ -55,6 +55,7 @@ export function useBillingHistory(
         : { entries: null, error: null, loading: true },
     organizationId,
     reloadToken,
+    source: tearleads,
   });
 
   return snapshot ?? { entries: null, error: null, loading: enabled };

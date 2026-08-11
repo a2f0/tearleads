@@ -12,6 +12,11 @@ interface ScopedOrganizationLoadInput<Value> {
   organizationId: string;
   /** Re-runs the load when it changes. */
   reloadToken?: unknown;
+  /**
+   * Identity of what `load` reads (the SDK runtime). Re-runs the load when it
+   * is replaced, so a new runtime never serves state fetched by the old one.
+   */
+  source: unknown;
   /** Value recorded while disabled; omit to keep the prior state. */
   whenDisabled?: Value;
 }
@@ -26,7 +31,7 @@ interface ScopedOrganizationLoadInput<Value> {
 export function useScopedOrganizationLoad<Value>(
   input: ScopedOrganizationLoadInput<Value>,
 ): Value | null {
-  const { enabled, organizationId, reloadToken } = input;
+  const { enabled, organizationId, reloadToken, source } = input;
   const inputRef = useRef(input);
   inputRef.current = input;
   const requestIdRef = useRef(0);
@@ -60,7 +65,7 @@ export function useScopedOrganizationLoad<Value>(
     return () => {
       requestIdRef.current++;
     };
-  }, [enabled, organizationId, reloadToken]);
+  }, [enabled, organizationId, reloadToken, source]);
 
   return state && state.organizationId === organizationId ? state.value : null;
 }

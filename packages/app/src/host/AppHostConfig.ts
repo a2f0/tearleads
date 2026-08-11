@@ -284,14 +284,15 @@ export interface AppHostConfig extends Omit<AppHostConfigOptions, "profile"> {
 export function createAppHostConfig(
   options: AppHostConfigOptions,
 ): AppHostConfig {
-  const resolved = {
+  return {
     ...options,
     profile: options.profile ?? DEFAULT_APP_HOST_PROFILE,
-  };
-  return {
-    ...resolved,
-    withOverrides: (overrides) =>
-      createAppHostConfig({ ...resolved, ...overrides }),
+    // Receiver-based on purpose: a spread-composed copy (`{ ...config, extra }`)
+    // carries this method along, and cloning must read the copy's own fields —
+    // a closure over this factory's inputs would silently drop the additions.
+    withOverrides(this: AppHostConfig, overrides) {
+      return createAppHostConfig({ ...this, ...overrides });
+    },
   };
 }
 

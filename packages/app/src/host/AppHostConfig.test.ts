@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import {
   APP_HOST_PROFILES,
+  createAppHostConfig,
   resolveAppHostProfile,
   resolveAppHostRuntimeConfig,
   resolveEventsWebSocketUrl,
@@ -165,4 +166,35 @@ test("resolveAppHostRuntimeConfig trims surrounding whitespace before resolving"
     apiBaseUrl: "https://api.tearleads.com",
     wsUrl: "wss://api.tearleads.com/events",
   });
+});
+
+test("withOverrides clones from a spread-composed copy, not the original", () => {
+  // Callers compose configs by spreading (`{ ...config, extra }`); the carried
+  // withOverrides must then clone from the copy's own fields so the spread
+  // additions survive a later clone (e.g. Layout re-deriving the config).
+  const base = createAppHostConfig({
+    apiBaseUrl: "https://api.example.test",
+    wsUrl: "wss://events.example.test",
+  });
+  const composed = { ...base, localIdentityNamespace: "composed-namespace" };
+
+  const cloned = composed.withOverrides({
+    apiBaseUrl: "https://api2.example.test",
+  });
+
+  expect(cloned.localIdentityNamespace).toBe("composed-namespace");
+  expect(cloned.apiBaseUrl).toBe("https://api2.example.test");
+  expect(cloned.wsUrl).toBe("wss://events.example.test");
+});
+
+test("withOverrides resets a field via an explicit undefined override", () => {
+  const base = createAppHostConfig({
+    apiBaseUrl: "https://api.example.test",
+    localIdentityNamespace: "original",
+    wsUrl: "wss://events.example.test",
+  });
+
+  const cleared = base.withOverrides({ localIdentityNamespace: undefined });
+
+  expect(cleared.localIdentityNamespace).toBeUndefined();
 });

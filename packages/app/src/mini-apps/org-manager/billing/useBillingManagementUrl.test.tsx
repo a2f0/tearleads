@@ -258,3 +258,36 @@ test("management surfaces a native-sheet failure", async () => {
   );
   expect(onNativeManagementClosed).not.toHaveBeenCalled();
 });
+
+test("replacing the SDK runtime re-fetches for the same organization", async () => {
+  stubOrganizations({
+    loadBillingManagementUrl: () =>
+      Promise.resolve({
+        canCancelDirectly: false,
+        managementUrl: "https://rc.example/first",
+        subscriptionSource: "native",
+      }),
+  });
+  const { rerender, result } = renderHook(() =>
+    useBillingManagementUrl("org-1", true),
+  );
+  await waitFor(() =>
+    expect(result.current.managementUrl).toBe("https://rc.example/first"),
+  );
+
+  // A runtime replacement (identity switch / SDK re-init) with the same
+  // organization and reload token must re-fetch instead of serving the old
+  // runtime's state.
+  stubOrganizations({
+    loadBillingManagementUrl: () =>
+      Promise.resolve({
+        canCancelDirectly: false,
+        managementUrl: "https://rc.example/second",
+        subscriptionSource: "native",
+      }),
+  });
+  rerender();
+  await waitFor(() =>
+    expect(result.current.managementUrl).toBe("https://rc.example/second"),
+  );
+});
