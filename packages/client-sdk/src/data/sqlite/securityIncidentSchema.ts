@@ -26,7 +26,10 @@ export const securityIncidents = sqliteTable(
     occurrenceCount: integer("occurrence_count").notNull().default(1),
   },
   (table) => [
-    index("security_incidents_last_detected_at_idx").on(table.lastDetectedAt),
+    index("security_incidents_trust_last_detected_idx").on(
+      table.trustDomain,
+      table.lastDetectedAt,
+    ),
   ],
 );
 

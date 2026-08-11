@@ -77,6 +77,14 @@ test("disposing the incident service cancels a pending append retry", async () =
     "security-incidents-disposed-retry",
   );
   let insertAttempts = 0;
+  let markInsertStarted: (() => void) | undefined;
+  const insertStarted = new Promise<void>((resolve) => {
+    markInsertStarted = resolve;
+  });
+  let releaseInsert: (() => void) | undefined;
+  const insertGate = new Promise<void>((resolve) => {
+    releaseInsert = resolve;
+  });
   async function failingExecSql(
     sqlText: string,
     bind?: SqlBind,
@@ -84,6 +92,8 @@ test("disposing the incident service cancels a pending append retry", async () =
   ): Promise<Array<SqlRow | SqlArrayRow>> {
     if (sqlText.toLowerCase().includes('insert into "security_incidents"')) {
       insertAttempts += 1;
+      markInsertStarted?.();
+      await insertGate;
       throw new Error("persistent SQLite failure");
     }
     return execSql(sqlText, bind, options);
@@ -98,7 +108,7 @@ test("disposing the incident service cancels a pending append retry", async () =
   });
 
   try {
-    await service.report(
+    const report = service.report(
       new KeyingVerificationError("rollback", "stale head"),
       {
         objectId: "principal-disposed",
@@ -106,11 +116,15 @@ test("disposing the incident service cancels a pending append retry", async () =
         operation: "principal.policy.verify",
       },
     );
+    await insertStarted;
     expect(insertAttempts).toBe(1);
     service.dispose();
+    releaseInsert?.();
+    await report;
     await new Promise((resolve) => setTimeout(resolve, 350));
     expect(insertAttempts).toBe(1);
   } finally {
+    releaseInsert?.();
     service.dispose();
     await close();
   }

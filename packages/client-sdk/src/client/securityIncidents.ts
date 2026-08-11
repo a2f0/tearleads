@@ -1,7 +1,4 @@
-import {
-  isKeyingVerificationCode,
-  type KeyingVerificationCode,
-} from "@tearleads/crypto";
+import { isKeyingVerificationCode } from "@tearleads/crypto";
 import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import {
   appendSecurityIncident,
@@ -46,7 +43,7 @@ interface SecurityIncidentServiceResult {
   readonly report: SecurityIncidentReporter;
 }
 
-function verificationCode(error: unknown): KeyingVerificationCode | null {
+function verificationCode(error: unknown): SecurityIncident["code"] | null {
   if (!isKeyingVerificationError(error)) return null;
   const code = Reflect.get(error, "code");
   return isKeyingVerificationCode(code)
@@ -55,7 +52,7 @@ function verificationCode(error: unknown): KeyingVerificationCode | null {
 }
 
 interface RedactedIncident {
-  readonly code: KeyingVerificationCode;
+  readonly code: SecurityIncident["code"];
   readonly context: SecurityIncidentContext;
   readonly detectedAt: string;
   readonly lastDetectedAt: string;
@@ -125,7 +122,7 @@ class SecurityIncidentSink {
   }
 
   async persist(
-    code: KeyingVerificationCode,
+    code: SecurityIncident["code"],
     context: SecurityIncidentContext,
   ): Promise<boolean> {
     if (this.disposed) return false;
@@ -208,6 +205,7 @@ class SecurityIncidentSink {
   }
 
   private buffer(incident: RedactedIncident): boolean {
+    if (this.disposed) return false;
     const key = redactedIncidentKey(incident);
     const existing = this.bufferedIncidents.get(key);
     if (existing) {

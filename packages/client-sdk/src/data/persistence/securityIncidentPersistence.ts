@@ -1,7 +1,4 @@
-import {
-  isKeyingVerificationCode,
-  type KeyingVerificationCode,
-} from "@tearleads/crypto";
+import { isKeyingVerificationCode } from "@tearleads/crypto";
 import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
@@ -16,7 +13,7 @@ import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 
 interface SecurityIncidentWrite {
   readonly trustDomain: string | null;
-  readonly code: KeyingVerificationCode;
+  readonly code: SecurityIncident["code"];
   readonly operation: string;
   readonly objectKind: SecurityIncidentObjectKind;
   readonly objectId: string | null;
@@ -56,7 +53,7 @@ function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
   return evidenceHashes;
 }
 
-function parseVerificationCode(value: string): KeyingVerificationCode {
+function parseVerificationCode(value: string): SecurityIncident["code"] {
   if (isKeyingVerificationCode(value)) return value;
   return "unrecognized_verification_code";
 }
@@ -86,7 +83,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 async function deriveSecurityIncidentId(input: {
-  readonly code: KeyingVerificationCode;
+  readonly code: SecurityIncident["code"];
   readonly evidenceHashes: string;
   readonly objectId: string | null;
   readonly objectKind: SecurityIncidentObjectKind;
@@ -152,6 +149,7 @@ export async function appendSecurityIncident(
       .onConflictDoUpdate({
         target: securityIncidents.id,
         set: {
+          detectedAt: sql`min(${securityIncidents.detectedAt}, ${incident.detectedAt})`,
           lastDetectedAt: sql`max(${securityIncidents.lastDetectedAt}, ${incident.lastDetectedAt})`,
           occurrenceCount: sql`${securityIncidents.occurrenceCount} + ${incident.occurrenceCount}`,
         },

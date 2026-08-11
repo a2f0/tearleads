@@ -48,6 +48,7 @@ test("durable incidents retain at most 1,000 rows per trust domain", async () =>
       await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
     ).toEqual([{ count: 1_000 }]);
   } finally {
+    service.dispose();
     await close();
   }
 });
@@ -95,6 +96,44 @@ test("incident lists stay scoped to their configured trust domain", async () => 
         trustDomain: "https://second-api.example.test",
       }),
     ]);
+  } finally {
+    first.dispose();
+    second.dispose();
+    await close();
+  }
+});
+
+test("coalescing retains the earliest equivalent detection timestamp", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "security-incidents-first-detection",
+  );
+  const baseIncident = {
+    code: "rollback" as const,
+    evidenceHashes: {},
+    objectId: "principal-first-detection",
+    objectKind: "principal" as const,
+    occurrenceCount: 1,
+    operation: "principal.policy.verify",
+    trustDomain: "https://api.example.test",
+  };
+
+  try {
+    await appendSecurityIncident(execSql, {
+      ...baseIncident,
+      detectedAt: "2026-01-01T00:00:00.000Z",
+      lastDetectedAt: "2026-01-01T00:00:00.000Z",
+    });
+    await expect(
+      appendSecurityIncident(execSql, {
+        ...baseIncident,
+        detectedAt: "2025-01-01T00:00:00.000Z",
+        lastDetectedAt: "2025-01-01T00:00:00.000Z",
+      }),
+    ).resolves.toMatchObject({
+      detectedAt: "2025-01-01T00:00:00.000Z",
+      lastDetectedAt: "2026-01-01T00:00:00.000Z",
+      occurrenceCount: 2,
+    });
   } finally {
     await close();
   }

@@ -11,7 +11,7 @@ export type SecurityIncidentObjectKind =
 export interface SecurityIncident {
   readonly id: string;
   readonly trustDomain: string | null;
-  readonly code: KeyingVerificationCode;
+  readonly code: KeyingVerificationCode | "unrecognized_verification_code";
   readonly operation: string;
   readonly objectKind: SecurityIncidentObjectKind;
   readonly objectId: string | null;
