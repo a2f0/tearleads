@@ -287,6 +287,9 @@ test("replacing the SDK runtime re-fetches for the same organization", async () 
       }),
   });
   rerender();
+  // The old runtime's URL must not be visible even while the new runtime's
+  // load is still in flight — its state is scoped out immediately.
+  expect(result.current.managementUrl).not.toBe("https://rc.example/first");
   await waitFor(() =>
     expect(result.current.managementUrl).toBe("https://rc.example/second"),
   );

@@ -6,15 +6,18 @@ interface ScopedOrganizationLoadInput<Value> {
   load: () => Promise<Value>;
   /**
    * Value to show while a load is in flight; receives the previous value when
-   * it was produced for the same organization. Omit to keep the prior state.
+   * it was produced for the same organization and source. Omit to keep the
+   * prior state.
    */
   onBegin?: (previousValue: Value | null) => Value;
   organizationId: string;
   /** Re-runs the load when it changes. */
   reloadToken?: unknown;
   /**
-   * Identity of what `load` reads (the SDK runtime). Re-runs the load when it
-   * is replaced, so a new runtime never serves state fetched by the old one.
+   * Identity of what `load` reads (the SDK runtime). Scopes the state and
+   * re-runs the load when it is replaced, so a new runtime neither serves nor
+   * seeds from state the old runtime fetched — not even while its own first
+   * load is in flight.
    */
   source: unknown;
   /** Value recorded while disabled; omit to keep the prior state. */
@@ -23,10 +26,10 @@ interface ScopedOrganizationLoadInput<Value> {
 
 /**
  * Shared skeleton for the billing panel's per-organization fetches: runs
- * `load` whenever the organization, enabled state, or reload token change,
- * drops stale responses, and only reports a value that was produced for the
- * organization on screen (returning null otherwise) so nothing leaks across
- * an org switch.
+ * `load` whenever the organization, enabled state, source, or reload token
+ * change, drops stale responses, and only reports a value that was produced
+ * for the organization and source on screen (returning null otherwise) so
+ * nothing leaks across an org or identity switch.
  */
 export function useScopedOrganizationLoad<Value>(
   input: ScopedOrganizationLoadInput<Value>,
@@ -37,6 +40,7 @@ export function useScopedOrganizationLoad<Value>(
   const requestIdRef = useRef(0);
   const [state, setState] = useState<{
     organizationId: string;
+    source: unknown;
     value: Value;
   } | null>(null);
 
@@ -45,21 +49,25 @@ export function useScopedOrganizationLoad<Value>(
     const { load, onBegin, whenDisabled } = inputRef.current;
     if (!enabled) {
       if (whenDisabled !== undefined) {
-        setState({ organizationId, value: whenDisabled });
+        setState({ organizationId, source, value: whenDisabled });
       }
       return;
     }
     if (onBegin) {
       setState((previous) => ({
         organizationId,
+        source,
         value: onBegin(
-          previous?.organizationId === organizationId ? previous.value : null,
+          previous?.organizationId === organizationId &&
+            previous.source === source
+            ? previous.value
+            : null,
         ),
       }));
     }
     void load().then((value) => {
       if (requestIdRef.current === requestId) {
-        setState({ organizationId, value });
+        setState({ organizationId, source, value });
       }
     });
     return () => {
@@ -67,5 +75,9 @@ export function useScopedOrganizationLoad<Value>(
     };
   }, [enabled, organizationId, reloadToken, source]);
 
-  return state && state.organizationId === organizationId ? state.value : null;
+  return state &&
+    state.organizationId === organizationId &&
+    state.source === source
+    ? state.value
+    : null;
 }
