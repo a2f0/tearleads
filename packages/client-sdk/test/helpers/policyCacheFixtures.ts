@@ -27,19 +27,23 @@ import { createMockApiTrustedUserIdentityResolver } from "./trustedUserIdentity"
 
 type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
-  "resolveTrustedUserIdentity"
+  "reportSecurityIncident" | "resolveTrustedUserIdentity"
 > & {
   readonly getUserIdentity: (
     userId: string,
   ) => Promise<UserIdentityResponse | null>;
+  readonly reportSecurityIncident?:
+    | CacheReferencedPrincipalPoliciesOptions["reportSecurityIncident"]
+    | undefined;
 };
 
 export function cacheReferencedPolicies(
   options: CacheReferencedPoliciesOptions,
 ): Promise<void> {
-  const { getUserIdentity, ...cacheOptions } = options;
+  const { getUserIdentity, reportSecurityIncident, ...cacheOptions } = options;
   return cacheReferencedPrincipalPolicies({
     ...cacheOptions,
+    reportSecurityIncident: reportSecurityIncident ?? (async () => undefined),
     resolveTrustedUserIdentity:
       createMockApiTrustedUserIdentityResolver(getUserIdentity),
   });

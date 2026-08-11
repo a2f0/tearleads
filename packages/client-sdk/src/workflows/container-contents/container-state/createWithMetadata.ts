@@ -97,6 +97,7 @@ async function cacheStalePrincipalPolicyBundles(input: {
     getCurrentPrincipalPolicy,
     log: input.runtime.util.log,
     organizationId: input.organizationId,
+    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
   });
   return true;

@@ -307,7 +307,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
       targetSecretKey: keyPair.secretKey,
     }),
   ).rejects.toThrow(
-    "Document link-set target container projection verification failed",
+    "Container writer projection path[0] signature verification failed",
   );
   expect(unlinkCalled).toBe(false);
   close();

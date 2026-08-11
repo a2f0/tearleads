@@ -31,7 +31,7 @@ export interface CacheReferencedPrincipalPoliciesOptions {
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   log?: (message: string) => void;
   organizationId?: string | null | undefined;
-  reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  reportSecurityIncident: SecurityIncidentReporter;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -176,7 +176,7 @@ async function runPrincipalPolicyCache<Item>(input: {
   readonly items: ReadonlyArray<Item> | undefined;
   readonly log: ((message: string) => void) | undefined;
   readonly organizationId: string | null | undefined;
-  readonly reportSecurityIncident: SecurityIncidentReporter | undefined;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   if (!input.items || input.items.length === 0) {

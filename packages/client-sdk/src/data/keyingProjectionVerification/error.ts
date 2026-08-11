@@ -12,7 +12,9 @@ import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
  * errors. These failures are terminal: retrying or falling back could continue
  * with an untrusted identity.
  */
-export function isKeyingVerificationError(error: unknown): boolean {
+export function isKeyingVerificationError(
+  error: unknown,
+): error is Error & { readonly code?: unknown } {
   return (
     error instanceof KeyingVerificationError ||
     (error instanceof Error && error.name === "KeyingVerificationError")
@@ -65,12 +67,10 @@ export function throwKeyingVerificationErrorWithContext(
   context: string,
 ): never {
   if (error instanceof KeyingVerificationError) {
-    // Keep this below reporting boundaries: wrapping creates a new object, and
-    // incident deduplication intentionally follows error-object identity.
-    throw new KeyingVerificationError(
-      error.code,
-      `${context}: ${error.message}`,
-    );
+    // Preserve identity so nested reporting boundaries persist one incident.
+    // The incident's operation supplies boundary context without minting a new
+    // verification error that could bypass identity-based deduplication.
+    throw error;
   }
   const message = errorMessage(error);
   throw new Error(`${context}: ${message}`);

@@ -15,7 +15,7 @@ interface PrincipalPolicyWarmRuntime {
   readonly infra: { readonly execSql: ExecSql };
   readonly util: {
     readonly log: (message: string) => void;
-    readonly reportSecurityIncident?: SecurityIncidentReporter | undefined;
+    readonly reportSecurityIncident: SecurityIncidentReporter;
   };
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }

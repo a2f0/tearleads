@@ -38,9 +38,7 @@ interface SecurityIncidentServiceResult {
 }
 
 function verificationCode(error: unknown): KeyingVerificationCode | null {
-  if (!isKeyingVerificationError(error) || !(error instanceof Error)) {
-    return null;
-  }
+  if (!isKeyingVerificationError(error)) return null;
   const code = Reflect.get(error, "code");
   return isKeyingVerificationCode(code) ? code : null;
 }

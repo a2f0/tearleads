@@ -30,7 +30,7 @@ export async function probeExistingSystemContainer(input: {
       error,
       input.state.runtime.util.reportSecurityIncident,
       {
-        objectId: input.rootState?.container.id ?? input.systemSlot,
+        objectId: input.rootState?.container.id ?? null,
         objectKind: "container",
         operation: "container.system.hydrate",
         organizationId: input.rootState?.container.organizationId,

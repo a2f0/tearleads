@@ -25,6 +25,7 @@ test("runtime policy warmer fetches policies for every requested organization", 
     resolveTrustedUserIdentity: async () => null,
     util: {
       log: () => undefined,
+      reportSecurityIncident: async () => undefined,
     },
   });
 

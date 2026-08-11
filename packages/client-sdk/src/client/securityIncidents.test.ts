@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { reportAndRethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
+import {
+  reportAndRethrowKeyingVerificationError,
+  throwKeyingVerificationErrorWithContext,
+} from "../data/keyingProjectionVerification/error";
 import type { SecurityIncidentContext } from "../data/securityIncidents";
 import { Database } from "./database";
 import { createSecurityIncidentService } from "./securityIncidents";
@@ -181,6 +184,14 @@ test("report and rethrow preserves the terminal verification error", async () =>
     ),
   ).rejects.toBe(error);
   expect(reported).toEqual([error]);
+});
+
+test("context boundaries preserve verification error identity", () => {
+  const error = new KeyingVerificationError("rollback", "stale head");
+
+  expect(() =>
+    throwKeyingVerificationErrorWithContext(error, "projection failed"),
+  ).toThrow(error);
 });
 
 test("an incident callback cannot replace the verification failure", async () => {
