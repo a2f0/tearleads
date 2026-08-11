@@ -235,8 +235,10 @@ export async function storeInitialRootContainer(
   );
   assertInitialRootKek(request, keyEpoch);
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
-  const principalPolicies = principalPoliciesFromRequest(request);
-  await assertPrincipalPoliciesCurrent(tx, principalPolicies);
+  const principalPolicies = await assertPrincipalPoliciesCurrent(
+    tx,
+    principalPoliciesFromRequest(request),
+  );
 
   const event = requireRootVerification(
     await verifySignedAccessEvent({

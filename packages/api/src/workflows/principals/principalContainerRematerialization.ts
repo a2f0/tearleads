@@ -360,6 +360,7 @@ export async function applyPrincipalContainerRematerializations(input: {
       ? { mutatingGroupPrincipalId: input.nextHead.principalId }
       : {}),
     manifestHeadByContainerId: new Map(),
+    verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       input.executor,
     ),

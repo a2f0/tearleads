@@ -3,24 +3,16 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import {
-  computeAccessManifestHash,
-  deriveContainerAccessManifest,
-  verifyContainerAccessManifest,
-} from "@tearleads/crypto";
+import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { readProjectionAccessManifest } from "../../../../keyingProjectionRecords";
-import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import { loadContainerManifestBundleByHash } from "../../writerProjection/accessPaths";
-import { verifyStoredContainerManifest } from "../../writerProjection/storedManifestVerification";
-import { ContainerWriterProjectionError } from "../../writerProjection/types";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
-import { readVerifiedContainerManifest } from "./accessManifestRecords";
+import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
 
 interface VerifyContainerManifestFromRequestArtifacts {
   readonly destinationParentContainerPath?:
@@ -34,49 +26,6 @@ interface VerifyContainerManifestFromRequestArtifacts {
     | undefined;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
-}
-
-export async function assertContainerManifestBundleConsistent(
-  bundle: AccessManifestBundleWire,
-  label: string,
-): Promise<VerifiedContainerAccessManifest> {
-  const verified = readVerifiedContainerManifest(bundle, label);
-  const derivedManifest = await deriveContainerAccessManifest(verified.state);
-  const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
-  const suppliedManifestHash = await computeAccessManifestHash(
-    verified.manifest,
-  );
-
-  if (
-    verified.manifestHash !== derivedManifestHash ||
-    verified.manifestHash !== suppliedManifestHash ||
-    !canonicalJsonEquals(derivedManifest, verified.manifest)
-  ) {
-    throw new ContainerMutationError(
-      `${label} manifest bundle is not self-consistent`,
-      409,
-    );
-  }
-
-  if (
-    verified.manifest.objectKind !== "container" ||
-    verified.manifest.objectId !== verified.state.containerId ||
-    verified.manifest.organizationId !== verified.state.organizationId ||
-    verified.manifest.epoch !== verified.state.epoch ||
-    verified.manifest.previousManifestHash !==
-      verified.state.previousManifestHash ||
-    verified.manifest.eventHash !== verified.state.eventHash ||
-    verified.event.eventHash !== verified.state.eventHash ||
-    verified.event.event.objectId !== verified.state.containerId ||
-    verified.event.event.organizationId !== verified.state.organizationId
-  ) {
-    throw new ContainerMutationError(
-      `${label} manifest bundle has inconsistent domains`,
-      409,
-    );
-  }
-
-  return verified;
 }
 
 async function getCachedCurrentAccessManifestHead(
@@ -150,7 +99,8 @@ export async function assertCurrentContainerPath(
 
   const path: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of bundles.entries()) {
-    const manifest = await assertContainerManifestBundleConsistent(
+    const manifest = await resolveVerifiedStoredContainerManifest(
+      context,
       bundle,
       `${label}[${index}]`,
     );
@@ -172,42 +122,13 @@ export async function assertHistoricalContainerManifestsConsistent(
 
   const manifests: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of bundles.entries()) {
-    await assertContainerManifestBundleConsistent(
-      bundle,
-      `containerManifestHistory[${index}]`,
+    manifests.push(
+      await resolveVerifiedStoredContainerManifest(
+        context,
+        bundle,
+        `containerManifestHistory[${index}]`,
+      ),
     );
-    try {
-      const storedBundle = await loadContainerManifestBundleByHash(
-        context.writerProjectionContext,
-        bundle.manifestHash,
-      );
-      // The request bundle was already verified against its manifest hash.
-      // Resolve that hash from storage and verify the authoritative stored
-      // artifact; wrapper-level optional field presence is not cryptographic
-      // evidence and must not make an equivalent wire bundle conflict.
-      manifests.push(
-        await verifyStoredContainerManifest({
-          bundle: storedBundle,
-          context: context.writerProjectionContext,
-          loadBundle: (manifestHash) =>
-            loadContainerManifestBundleByHash(
-              context.writerProjectionContext,
-              manifestHash,
-            ),
-        }),
-      );
-    } catch (error) {
-      if (error instanceof ContainerMutationError) {
-        throw error;
-      }
-      if (!(error instanceof ContainerWriterProjectionError)) {
-        throw error;
-      }
-      throw new ContainerMutationError(
-        `containerManifestHistory[${index}] is not a verified stored manifest: ${error.message}`,
-        409,
-      );
-    }
   }
   return manifests;
 }

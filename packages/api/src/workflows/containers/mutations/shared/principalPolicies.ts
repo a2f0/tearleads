@@ -1,9 +1,14 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicySignedState,
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
+import {
+  normalizePrincipalContainerGrants,
+  normalizePrincipalProjectionMembers,
 } from "@tearleads/crypto";
 import {
   getCurrentPrincipalStates,
@@ -17,6 +22,7 @@ import {
   getVerifiedPrincipalPolicyForStateWithExecutor,
 } from "../../../principals/getCurrentPrincipalPolicy";
 import { ContainerMutationError } from "../errors";
+import type { PrincipalPolicyRequestArtifact } from "./principalPolicyRecords";
 
 function projectionMemberKey(
   member: Pick<PrincipalProjectionMember, "userId" | "role">,
@@ -34,9 +40,26 @@ function projectionMemberFromStored(
 }
 
 function principalPolicyKey(
-  policy: Pick<VerifiedPrincipalPolicy, "principalId" | "principalType">,
+  policy: Pick<PrincipalPolicyRequestArtifact, "principalId" | "principalType">,
 ): string {
   return `${policy.principalType}:${policy.principalId}`;
+}
+
+function principalPolicyArtifactRecord(
+  policy: PrincipalPolicyRequestArtifact,
+  state: PrincipalPolicySignedState = policy.state,
+): Record<string, unknown> {
+  return {
+    checkpoint: policy.checkpoint,
+    grants: normalizePrincipalContainerGrants(policy.grants),
+    keyEpoch: policy.keyEpoch,
+    principalId: policy.principalId,
+    principalType: policy.principalType,
+    projection: normalizePrincipalProjectionMembers(policy.projection),
+    state,
+    stateHash: policy.stateHash,
+    version: policy.version,
+  };
 }
 
 function principalProjectionStateKey(input: {
@@ -56,7 +79,7 @@ interface PrincipalPolicyArtifacts {
 
 async function loadPrincipalPolicyArtifacts(
   executor: DatabaseTransaction,
-  principalPolicies: readonly VerifiedPrincipalPolicy[],
+  principalPolicies: readonly PrincipalPolicyRequestArtifact[],
 ): Promise<PrincipalPolicyArtifacts> {
   const currentStateByPolicyKey = new Map<string, StoredPrincipalState>();
   const projectionByPolicyKey = new Map<
@@ -104,7 +127,7 @@ async function loadPrincipalPolicyArtifacts(
 }
 
 function principalPolicyMatchesReference(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyRequestArtifact,
   reference: ReferencedPrincipalHead,
 ): boolean {
   return (
@@ -118,7 +141,7 @@ function principalPolicyMatchesReference(
 }
 
 function principalPolicyNeedsStoredHistory(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyRequestArtifact,
   referencedPrincipalHeads: readonly ReferencedPrincipalHead[],
 ): boolean {
   return referencedPrincipalHeads.some(
@@ -130,7 +153,7 @@ function principalPolicyNeedsStoredHistory(
 }
 
 function isPrincipalPolicyStateCurrent(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyRequestArtifact,
   currentState: StoredPrincipalState | undefined,
 ): boolean {
   return Boolean(
@@ -143,7 +166,7 @@ function isPrincipalPolicyStateCurrent(
 }
 
 function isPrincipalPolicyProjectionCurrent(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyRequestArtifact,
   storedProjection: readonly StoredPrincipalProjectionMember[],
 ): boolean {
   const storedProjectionKeys = storedProjection
@@ -166,10 +189,10 @@ async function stalePrincipalPolicyError(input: {
   readonly artifacts: PrincipalPolicyArtifacts;
   readonly executor: DatabaseTransaction;
   readonly message: string;
-  readonly policies: readonly VerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyRequestArtifact[];
 }): Promise<ContainerMutationError> {
   const seenPrincipalPolicyKeys = new Set<string>();
-  const policiesToFetch: VerifiedPrincipalPolicy[] = [];
+  const policiesToFetch: PrincipalPolicyRequestArtifact[] = [];
 
   // Stale-policy rejects are repairable: return the server's current signed
   // bundles so the client can verify, cache, rebuild the mutation, and retry.
@@ -206,7 +229,7 @@ async function stalePrincipalPolicyError(input: {
 
 export async function assertPrincipalPoliciesCurrent(
   executor: DatabaseTransaction,
-  principalPolicies: readonly VerifiedPrincipalPolicy[],
+  principalPolicies: readonly PrincipalPolicyRequestArtifact[],
   options: {
     readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
   } = {},
@@ -215,7 +238,7 @@ export async function assertPrincipalPoliciesCurrent(
     executor,
     principalPolicies,
   );
-  const stalePolicies: VerifiedPrincipalPolicy[] = [];
+  const stalePolicies: PrincipalPolicyRequestArtifact[] = [];
   let staleMessage = "Principal policy is stale";
 
   for (const policy of principalPolicies) {
@@ -261,9 +284,14 @@ export async function assertPrincipalPoliciesCurrent(
     );
     const { createdAt: _createdAt, ...storedSignedState } =
       stored.bundle.currentState;
-    if (!canonicalJsonEquals(policy.state, storedSignedState)) {
+    if (
+      !canonicalJsonEquals(
+        principalPolicyArtifactRecord(policy),
+        principalPolicyArtifactRecord(stored.policy, storedSignedState),
+      )
+    ) {
       throw new ContainerMutationError(
-        "Principal policy payload does not match stored policy",
+        "Principal policy artifact does not match verified stored policy",
         409,
       );
     }
