@@ -141,6 +141,15 @@ export type PrincipalPolicyMutationResponse = z.infer<
   typeof PrincipalPolicyMutationResponseSchema
 >;
 
+export const CommitOrganizationGroupPolicyResponseSchema = loosePlainObject({
+  groupPolicy: PrincipalPolicyMutationResponseSchema,
+  organizationPolicy: PrincipalPolicyMutationResponseSchema,
+});
+
+export type CommitOrganizationGroupPolicyResponse = z.infer<
+  typeof CommitOrganizationGroupPolicyResponseSchema
+>;
+
 const BillingErrorCodeSchema = z.literal([
   BILLING_ERROR_CODES.checkoutNoActiveMembers,
   BILLING_ERROR_CODES.rosterOverCapacity,
@@ -199,6 +208,12 @@ export function isPrincipalPolicyMutationResponse(
   value: unknown,
 ): value is PrincipalPolicyMutationResponse {
   return PrincipalPolicyMutationResponseSchema.safeParse(value).success;
+}
+
+export function isCommitOrganizationGroupPolicyResponse(
+  value: unknown,
+): value is CommitOrganizationGroupPolicyResponse {
+  return CommitOrganizationGroupPolicyResponseSchema.safeParse(value).success;
 }
 
 export function isPrincipalPolicyStaleErrorResponse(

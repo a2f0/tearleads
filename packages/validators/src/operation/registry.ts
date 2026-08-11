@@ -70,6 +70,7 @@ import {
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
 import {
+  commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "./principals";
@@ -142,6 +143,7 @@ export const protocolOperations = [
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
   getPrincipalPolicyOperation,
+  commitOrganizationGroupPolicyOperation,
   putPrincipalPolicyOperation,
   documentSyncOperation,
 ] as const;

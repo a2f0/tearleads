@@ -306,8 +306,11 @@ export {
   type OrganizationReadModelSnapshotResponse,
 } from "./organizationReadModel";
 export {
+  type CommitOrganizationGroupPolicyResponse,
+  CommitOrganizationGroupPolicyResponseSchema,
   type CurrentPrincipalMemberEnvelopesResponse,
   CurrentPrincipalMemberEnvelopesResponseSchema,
+  isCommitOrganizationGroupPolicyResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalPolicyMutationResponse,

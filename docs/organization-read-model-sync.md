@@ -10,12 +10,24 @@ The read model contains display and navigation data. It is not an authorization
 or cryptographic input. Signed principal policies, verified access manifests,
 wrapped key envelopes, and anti-rollback checkpoints remain authoritative.
 
-The signed organization-policy payload carries an immutable versioned
-authority descriptor binding the organization to its reserved `Admins` and
-`Members` group IDs. Provisioning and later organization-policy writes must
-match those IDs. The reserved `Admins` policy contains direct `admin` users
-only, so clients can verify its complete chain without consulting roster or
-group-catalog projections.
+The signed organization-policy payload carries a version-2 authority descriptor
+binding the organization to its immutable reserved `Admins` and `Members`
+group IDs and to an exact sorted directory of every current group policy head.
+Provisioning and later organization-policy writes must match the reserved IDs
+and authoritative group set. The reserved `Admins` policy contains direct
+`admin` users only, so clients can verify its complete chain without consulting
+roster or group-catalog projections.
+
+The directory may retain a deleted group's last head only when the API has a
+same-organization durable group tombstone. Such an entry is historical: the ID
+cannot be recreated and no current group bundle exists for recipient use.
+
+Supported group mutations submit the group successor and matching organization
+successor to one atomic API operation. Sharing and key-rotation probes consume
+the signed directory, not the read-model group lane, and reject a current group
+response whose head differs from the committed entry. A newly created group is
+not considered usable by the client until its head has been added by the signed
+organization-policy successor.
 
 Every signed principal-state header has an `externalAuthority` field. Directly
 authorized states use `null`; externally administered organization groups cite

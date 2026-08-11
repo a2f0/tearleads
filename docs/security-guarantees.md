@@ -56,10 +56,11 @@ The access and policy handshake has these layers:
  container, root metadata state, optional roster-profile bootstrap material,
  and initial signed principal policies inside one registration transaction.
 2. The initial `Admins` policy must project the registering user as the sole
- admin. The initial `Members` policy must project the registering user as
- admin and the `Admins` group as a member. The initial organization policy must
- be version `1`, must target the new organization, must be signed by the
- registering user, and must project only the registering user as admin.
+ admin. The initial `Members` policy must project the registering user as an
+ admin. The initial organization policy must be version `1`, must target the
+ new organization, must be signed by the registering user, must project only
+ the registering user as admin, and its version-2 authority descriptor must
+ commit the exact initial `Admins` and `Members` policy heads.
 3. Later group and organization policy states are signed principal states. The
  server verifies the signature, state hash, projection and envelope roots,
  encrypted payload hash, member count, previous-state link, and admin-signer
@@ -352,6 +353,15 @@ access manifest heads. User identity trust currently uses an exact durable
 full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
 or format is rejected.
 
+The organization policy also commits an exact sorted directory of current group
+heads. Group mutations issued by supported clients advance the group and this
+directory atomically. Group share and rotation-staleness workflows verify the
+organization policy and require an exact directory match, so replaying only an
+old group head is detected even before that group has a local checkpoint. A
+server that replays a self-consistent older organization policy, reserved
+Admins policy, and group policy to a device with no organization checkpoint is
+still exercising the cold-start rollback limit above.
+
 ### First-Contact Identity-Key Substitution
 
 The app fetches signer public keys from the server by `userId` and verifies
@@ -506,6 +516,9 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Group membership and access shrink rotate affected KEKs atomically; stale
  group-grant references and organization successors with stale references are
  rejected.
+- Organization policies commit every current group head; supported group
+ mutations atomically advance the group and organization policies, and clients
+ reject served group bundles that do not match that signed directory.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target

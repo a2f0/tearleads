@@ -62,16 +62,16 @@
       "bytes": 22812
     },
     "docs/openapi.json": {
-      "lines": 47299,
-      "bytes": 1938666
+      "lines": 50409,
+      "bytes": 2077505
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 528,
-      "bytes": 27661
+      "lines": 541,
+      "bytes": 28553
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 521,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1801,
-      "bytes": 58258
+      "lines": 1815,
+      "bytes": 58642
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 18670,
-      "bytes": 757045
+      "lines": 19662,
+      "bytes": 803953
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

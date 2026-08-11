@@ -11,7 +11,11 @@ import {
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+  principalPolicyHead,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
@@ -19,6 +23,7 @@ import { defaultDocumentProjectorRegistry } from "../../../data/documents/docume
 import { createDomainScope } from "../../../data/domainScope";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
@@ -349,7 +354,21 @@ async function runGroupShareScenario(input: {
     });
     const keyPair = generateKemSeedAndKeyPair();
     const containerId = `${input.testLabel}-container`;
+    const adminGroupId = "admins-group";
     const groupId = "members-group";
+    const initialAdminPolicy = await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: keyPair,
+      groupId: adminGroupId,
+      name: "Admins",
+      signerUserId: author.signerUserId,
+      signingFingerprint: author.signerKeyFingerprint,
+      signingKeyPair: {
+        signingPrivateKey: author.signerPrivateKey,
+        signingPublicKey,
+      },
+    });
+    const adminPolicy =
+      await policyBundleFromInitialRequest(initialAdminPolicy);
     const initialGroupPolicy = await buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
       groupId,
@@ -371,6 +390,26 @@ async function runGroupShareScenario(input: {
       signedAt: "2026-05-22T12:15:00.000Z",
       userId: author.signerUserId,
     });
+    const initialOrganizationPolicy =
+      await buildInitialOrganizationPolicyRequest({
+        adminGroupId,
+        encapsulationPublicKey: keyPair.publicKey,
+        groupHeads: [
+          principalPolicyHead(adminPolicy),
+          principalPolicyHead(currentGroupPolicy),
+        ],
+        memberGroupId: groupId,
+        organizationId: author.organizationId,
+        signingKeyPair: {
+          signingPrivateKey: author.signerPrivateKey,
+          signingPublicKey,
+        },
+        userId: author.signerUserId,
+      });
+    const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+      author.organizationId,
+      initialOrganizationPolicy,
+    );
     const projection = await createContainerWriterProjectionFixture({
       containerId,
       encapsulationPublicKey: keyPair.publicKey,
@@ -399,6 +438,12 @@ async function runGroupShareScenario(input: {
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => remoteProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          if (principalType === "organization") {
+            return organizationPolicy;
+          }
+          if (principalId === adminGroupId) {
+            return adminPolicy;
+          }
           currentPolicyCalls.push({ principalId, principalType });
           if (input.currentPolicyError) {
             if (input.currentPolicyError instanceof Error) {

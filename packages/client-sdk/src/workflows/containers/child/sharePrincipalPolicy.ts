@@ -4,8 +4,12 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type {
+  CommitOrganizationGroupPolicyRequest,
+  PutPrincipalPolicyRequest,
+} from "@tearleads/validators/request";
+import type {
+  CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
@@ -18,6 +22,10 @@ import {
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
+import {
+  principalHeadMatchesReference,
+  requireOrganizationGroupHead,
+} from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
@@ -35,6 +43,13 @@ import {
 } from "../../principals/policyVerification";
 
 export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
+  commitOrganizationGroupPolicy?:
+    | ((
+        organizationId: string,
+        groupId: string,
+        input: CommitOrganizationGroupPolicyRequest,
+      ) => Promise<CommitOrganizationGroupPolicyResponse | null>)
+    | undefined;
   getCurrentPrincipalPolicy: (
     principalType: ManagedPrincipalKind,
     principalId: string,
@@ -164,6 +179,17 @@ async function loadGroupSharePolicyBundle(input: {
     throw new Error("Container share principal policy could not be loaded");
   }
   assertGroupPolicyTarget(bundle, input.groupId);
+  if (
+    input.expectedGroupHead &&
+    !principalHeadMatchesReference(
+      principalPolicyReferenceFromBundle(bundle),
+      input.expectedGroupHead,
+    )
+  ) {
+    throw new Error(
+      "Container share group policy does not match the signed organization directory",
+    );
+  }
   return bundle;
 }
 
@@ -175,6 +201,28 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedSharePrincipalPolicy> {
+  const organizationAdminPolicy = await loadOrganizationExternalAdminPolicy({
+    execSql: input.execSql,
+    getCurrentPrincipalPolicy: (principalType, principalId) =>
+      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+  if (!organizationAdminPolicy) {
+    throw new Error("Organization admin authority could not be verified");
+  }
+  const committedGroupHead = requireOrganizationGroupHead(
+    organizationAdminPolicy.descriptor,
+    input.groupId,
+  );
+  if (
+    input.expectedGroupHead &&
+    !principalHeadMatchesReference(input.expectedGroupHead, committedGroupHead)
+  ) {
+    throw new Error(
+      "Container share expected group head conflicts with the signed organization directory",
+    );
+  }
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
     "group",
@@ -182,6 +230,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   );
   const bundle = await loadGroupSharePolicyBundle({
     ...input,
+    expectedGroupHead: committedGroupHead,
     localCheckpoint,
   });
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
@@ -192,35 +241,12 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     throw new Error(signerPublicKeyLoadErrorMessage(signerPublicKeys.error));
   }
 
-  let organizationAdminPolicy: Promise<VerifiedExternalAdminPolicy | null> | null =
-    null;
-  let usedOrganizationAdminPolicy = false;
-  const loadOrganizationAdminPolicyOnce = () => {
-    organizationAdminPolicy ??= loadOrganizationExternalAdminPolicy({
-      execSql: input.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        principalType === "group" && principalId === input.groupId
-          ? Promise.resolve(bundle)
-          : input.apiClient.getCurrentPrincipalPolicy(
-              principalType,
-              principalId,
-            ),
-      organizationId: input.organizationId,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    return organizationAdminPolicy;
-  };
   const verified =
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
-      expectedReference:
-        input.expectedGroupHead ?? principalPolicyReferenceFromBundle(bundle),
-      loadExternalAuthority: async () => {
-        usedOrganizationAdminPolicy = true;
-        return (
-          (await loadOrganizationAdminPolicyOnce())?.externalAuthority ?? null
-        );
-      },
+      expectedReference: committedGroupHead,
+      loadExternalAuthority: async () =>
+        organizationAdminPolicy.externalAuthority,
       localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
     });
@@ -231,23 +257,18 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     );
   }
 
-  const verifiedOrganizationPolicy = usedOrganizationAdminPolicy
-    ? await loadOrganizationAdminPolicyOnce()
-    : null;
   const checkpointPolicies = await retainVerifiedSharePolicies({
     bundle,
     execSql: input.execSql,
-    organizationPolicy: verifiedOrganizationPolicy,
+    organizationPolicy: organizationAdminPolicy,
     policy: verified.value,
   });
   return {
     bundle,
     checkpointPolicies,
-    dependencyBundles: verifiedOrganizationPolicy
-      ? externalAdminPolicyPersistenceEntries(verifiedOrganizationPolicy).map(
-          (entry) => entry.bundle,
-        )
-      : [],
+    dependencyBundles: externalAdminPolicyPersistenceEntries(
+      organizationAdminPolicy,
+    ).map((entry) => entry.bundle),
     policy: verified.value,
   };
 }

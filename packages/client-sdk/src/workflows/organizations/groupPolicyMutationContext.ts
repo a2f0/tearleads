@@ -6,10 +6,12 @@ import type {
   SigningKeyPair,
 } from "@tearleads/crypto";
 import type {
+  CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
+  CommitOrganizationGroupPolicyResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
@@ -19,13 +21,15 @@ import {
   advanceKeyingCheckpointsAtomically,
   persistVerifiedPrincipalPolicyBundlesAtomically,
 } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { retainLocallyAcknowledgedPrincipalPolicyBundle } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { requireOrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
+  type VerifiedExternalAdminPolicy,
 } from "../principals/externalAdminPolicy";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import {
@@ -33,7 +37,10 @@ import {
   assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
-import { assertPrincipalPolicyCurrentStateMatchesHead } from "./groupPolicyMutationHead";
+import {
+  assertPrincipalPolicyCurrentStateMatchesHead,
+  groupPolicyMutationHead,
+} from "./groupPolicyMutationHead";
 import {
   collectGroupPolicySignerPublicKeys,
   prepareGroupPolicyVerification,
@@ -42,6 +49,13 @@ import {
 } from "./groupPolicyVerification";
 
 export interface PrincipalPolicyReadWriteApi {
+  commitOrganizationGroupPolicy?:
+    | ((
+        organizationId: string,
+        groupId: string,
+        input: CommitOrganizationGroupPolicyRequest,
+      ) => Promise<CommitOrganizationGroupPolicyResponse | null>)
+    | undefined;
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
@@ -76,7 +90,10 @@ export interface BuildGroupMembershipMutationInput {
 interface LoadedGroupPolicyMutationContext
   extends BuildGroupMembershipMutationInput {
   readonly adminGroupId: string;
+  readonly adminPolicyBundle: PrincipalPolicyBundleResponse;
   readonly currentOrgAdminUserIds: readonly string[];
+  readonly organizationDescriptor: VerifiedExternalAdminPolicy["descriptor"];
+  readonly organizationPolicyBundle: PrincipalPolicyBundleResponse;
   readonly memberGroupId: string;
 }
 
@@ -148,32 +165,36 @@ export async function loadGroupPolicyMutationContext(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<LoadedGroupPolicyMutationContext> {
-  const currentPolicy = await input.apiClient.getCurrentPrincipalPolicy(
-    "group",
-    input.groupId,
-  );
-
-  if (!currentPolicy) {
-    throw new Error("Group policy could not be loaded");
-  }
-
-  const verification = await prepareGroupPolicyVerification({
-    currentPolicy,
-    execSql: input.execSql,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-  });
   const adminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>
-      principalType === "group" && principalId === input.groupId
-        ? Promise.resolve(currentPolicy)
-        : input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
+      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if (!adminPolicy) {
     throw new Error("Organization admin authority could not be verified");
   }
+  const expectedGroupHead = requireOrganizationGroupHead(
+    adminPolicy.descriptor,
+    input.groupId,
+  );
+  const currentPolicy =
+    input.groupId === adminPolicy.adminGroupId
+      ? adminPolicy.adminBundle
+      : await input.apiClient.getCurrentPrincipalPolicy("group", input.groupId);
+  if (!currentPolicy) {
+    throw new Error("Group policy could not be loaded");
+  }
+  assertPrincipalPolicyCurrentStateMatchesHead(
+    currentPolicy.currentState,
+    expectedGroupHead,
+  );
+  const verification = await prepareGroupPolicyVerification({
+    currentPolicy,
+    execSql: input.execSql,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
   const isOrganizationAdminsGroup = adminPolicy.adminGroupId === input.groupId;
   const currentOrgAdminUserIds = adminPolicy.signerUserIds;
   const externalAuthority = adminPolicy.externalAuthority;
@@ -212,11 +233,14 @@ export async function loadGroupPolicyMutationContext(input: {
 
   return {
     adminGroupId: adminPolicy.adminGroupId,
+    adminPolicyBundle: adminPolicy.adminBundle,
     currentPolicy,
     currentOrgAdminUserIds,
     externalAuthority,
     isOrganizationAdminsGroup,
     memberGroupId: adminPolicy.memberGroupId,
+    organizationDescriptor: adminPolicy.descriptor,
+    organizationPolicyBundle: adminPolicy.bundle,
     ...verification,
     localPolicyCheckpoint: verified.checkpoint,
     signerUserId: input.signerUserId,
@@ -231,17 +255,27 @@ export async function commitGroupPolicyMutation(input: {
   readonly execSql: ExecSql;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly groupId: string;
+  readonly organizationId: string;
+  readonly organizationPolicy: PrincipalPolicyBundleResponse;
+  readonly organizationRequest: PutPrincipalPolicyRequest;
   readonly request: PutPrincipalPolicyRequest;
 }): Promise<PrincipalPolicyMutationResponse> {
-  const storedPolicy = await input.apiClient.putPrincipalPolicy(
-    "group",
+  if (!input.apiClient.commitOrganizationGroupPolicy) {
+    throw new Error("Authenticated group policy commit is unavailable");
+  }
+  const stored = await input.apiClient.commitOrganizationGroupPolicy(
+    input.organizationId,
     input.groupId,
-    input.request,
+    {
+      groupPolicy: input.request,
+      organizationPolicy: input.organizationRequest,
+    },
   );
 
-  if (!storedPolicy) {
+  if (!stored) {
     throw new Error("Group policy update failed");
   }
+  const storedPolicy = stored.groupPolicy;
   const acknowledgedPolicy = await acknowledgeGroupPolicyState({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
@@ -254,10 +288,30 @@ export async function commitGroupPolicyMutation(input: {
     request: input.request,
     response: storedPolicy,
   });
-  await retainLocallyAcknowledgedPrincipalPolicyBundle({
-    bundle: storedPolicy,
+  const organizationHead = await groupPolicyMutationHead(
+    input.organizationRequest,
+  );
+  const acknowledgedOrganization = await acknowledgeGroupPolicyState({
+    currentPolicy: input.organizationPolicy,
+    expectedHead: organizationHead,
+    request: input.organizationRequest,
+    response: stored.organizationPolicy.currentState,
+  });
+  assertGroupPolicyBundleMatchesAcknowledgement({
+    currentPolicy: input.organizationPolicy,
+    expectedHead: organizationHead,
+    request: input.organizationRequest,
+    response: stored.organizationPolicy,
+  });
+  await retainLocallyAcknowledgedPrincipalPolicyBundles({
+    entries: [
+      { bundle: storedPolicy, policy: acknowledgedPolicy },
+      {
+        bundle: stored.organizationPolicy,
+        policy: acknowledgedOrganization,
+      },
+    ],
     execSql: input.execSql,
-    policy: acknowledgedPolicy,
     updatedAt: new Date().toISOString(),
   });
   return storedPolicy;

@@ -10,7 +10,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   organizationPolicyBundleFromInitialRequest,
+  policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -144,11 +146,15 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
       signingKeyPair,
     }),
   );
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+  let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
       adminGroupId,
       encapsulationPublicKey: creatorKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(adminPolicy, memberGroupId),
+      ],
       memberGroupId,
       organizationId,
       signingKeyPair,
@@ -215,8 +221,17 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         expect(principalId).toBe(createdPolicyBundle.currentState.principalId);
         return createdPolicyBundle;
       },
-      putPrincipalPolicy: async () => {
-        throw new Error("unexpected policy mutation");
+      putPrincipalPolicy: async (principalType, principalId, mutation) => {
+        expect(principalType).toBe("organization");
+        expect(principalId).toBe(organizationId);
+        const mutationResponse = await policyBundleAfterMutation({
+          mutation,
+          previous: organizationPolicy,
+        });
+        const { containerMutations: _containerMutations, ...nextPolicy } =
+          mutationResponse;
+        organizationPolicy = nextPolicy;
+        return mutationResponse;
       },
     };
 

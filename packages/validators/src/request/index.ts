@@ -93,6 +93,9 @@ export {
   ProvisionedSystemContainerRequestSchema,
 } from "./organizationProvisioning";
 export {
+  type CommitOrganizationGroupPolicyRequest,
+  CommitOrganizationGroupPolicyRequestSchema,
+  isCommitOrganizationGroupPolicyRequest,
   isPutPrincipalPolicyRequest,
   type PrincipalContainerGrantRequest,
   PrincipalContainerGrantRequestSchema,

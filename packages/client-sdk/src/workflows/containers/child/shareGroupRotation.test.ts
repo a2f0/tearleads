@@ -13,7 +13,11 @@ import {
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
-import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+  principalPolicyHead,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import {
@@ -22,6 +26,7 @@ import {
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
@@ -65,6 +70,40 @@ async function setUpAdminGroupRoot() {
     ).toISOString(),
     userId: USER_ID,
   });
+  const initialMembersGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: memberKem,
+    groupId: "members-group",
+    name: "Members",
+    signerUserId: USER_ID,
+    signingFingerprint: author.signerKeyFingerprint,
+    signingKeyPair: {
+      signingPrivateKey: author.signerPrivateKey,
+      signingPublicKey,
+    },
+  });
+  const membersPolicy =
+    await policyBundleFromInitialRequest(initialMembersGroup);
+  const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
+    {
+      adminGroupId: ADMIN_GROUP_ID,
+      encapsulationPublicKey: memberKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(epochTwoPolicy),
+        principalPolicyHead(membersPolicy),
+      ],
+      memberGroupId: "members-group",
+      organizationId: ORGANIZATION_ID,
+      signingKeyPair: {
+        signingPrivateKey: author.signerPrivateKey,
+        signingPublicKey,
+      },
+      userId: USER_ID,
+    },
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    ORGANIZATION_ID,
+    initialOrganizationPolicy,
+  );
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const root = await buildRootContainerCreatePlan({
     adminGroup: initialAdminGroup,
@@ -95,6 +134,7 @@ async function setUpAdminGroupRoot() {
     epochTwoPolicy,
     initialProjection,
     memberKem,
+    organizationPolicy,
     resolveUserIdentity,
   };
 }
@@ -107,6 +147,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     epochTwoPolicy,
     initialProjection,
     memberKem,
+    organizationPolicy,
     resolveUserIdentity,
   } = await setUpAdminGroupRoot();
   const submittedRequests: ContainerMutationRequest[] = [];
@@ -132,7 +173,10 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       apiClient: {
         getContainerWriterProjection: async () => initialProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
-          expect(principalType).toBe("group");
+          if (principalType === "organization") {
+            expect(principalId).toBe(ORGANIZATION_ID);
+            return organizationPolicy;
+          }
           expect(principalId).toBe(ADMIN_GROUP_ID);
           return epochTwoPolicy;
         },

@@ -1,11 +1,26 @@
 import {
+  commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
+  isCommitOrganizationGroupPolicyOperationRequest,
+  isCommitOrganizationGroupPolicyOperationResponse,
   isGetPrincipalPolicyOperationResponse,
   isPutPrincipalPolicyOperationRequest,
   isPutPrincipalPolicyOperationResponse,
   operationRequestPath,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
+
+export const commitOrganizationGroupPolicy = {
+  isRequest: isCommitOrganizationGroupPolicyOperationRequest,
+  isResponse: isCommitOrganizationGroupPolicyOperationResponse,
+  method: commitOrganizationGroupPolicyOperation.method,
+  path(organizationId: string, groupId: string) {
+    return operationRequestPath(commitOrganizationGroupPolicyOperation, {
+      groupId,
+      organizationId,
+    });
+  },
+};
 
 export const getPrincipalPolicy = {
   isResponse: isGetPrincipalPolicyOperationResponse,

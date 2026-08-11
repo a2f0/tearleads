@@ -3,6 +3,7 @@ import {
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
+  type ReferencedPrincipalHead,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -21,6 +22,7 @@ import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/org
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import { resolveDocumentCreateAuthor } from "../documents/author";
+import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -134,6 +136,7 @@ export interface OrganizationProvisioningArtifactsInput {
 
 export async function buildInitialOrganizationPolicyRequest(input: {
   adminGroupId: string;
+  groupHeads: readonly ReferencedPrincipalHead[];
   encapsulationPublicKey: Uint8Array;
   memberGroupId: string;
   organizationId: string;
@@ -154,10 +157,16 @@ export async function buildInitialOrganizationPolicyRequest(input: {
     },
   ];
   const payloadCiphertext = encodeOrganizationAuthorityDescriptor({
-    version: 1,
+    version: 2,
     organizationId: input.organizationId,
     adminGroupId: input.adminGroupId,
     memberGroupId: input.memberGroupId,
+    groupHeads: input.groupHeads.map((head) => {
+      if (head.principalType !== "group") {
+        throw new Error("Organization directory can contain only group heads");
+      }
+      return { ...head, principalType: "group" };
+    }),
   });
   const [memberEnvelope] = await wrapDekForRecipients(
     organizationKem.secretKey,
@@ -247,6 +256,10 @@ async function createOrganizationPrincipalPolicies(input: {
     {
       adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      groupHeads: await Promise.all([
+        groupPolicyMutationHead(initialAdminGroup.initialGroupPolicy),
+        groupPolicyMutationHead(initialMemberGroup.initialGroupPolicy),
+      ]),
       memberGroupId: initialMemberGroup.groupId,
       organizationId,
       signingKeyPair: input.signingKeyPair,

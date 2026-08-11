@@ -65,7 +65,7 @@ export async function runCreateOrganizationWorkflow(
   input: CreateOrganizationRequest,
 ): Promise<ProvisionedOrganization> {
   const signer = await readProvisioningSigner(db, input.userId);
-  validateOrganizationProvisioningInput(input, signer);
+  await validateOrganizationProvisioningInput(input, signer);
   try {
     return await db.transaction((tx) =>
       provisionOrganizationInTransaction(

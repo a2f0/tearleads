@@ -12,6 +12,26 @@ interface OrganizationAccess {
   isOrgAdmin: boolean;
 }
 
+function requireOrganizationDescriptorScope(input: {
+  readonly adminGroupId: string;
+  readonly descriptor: ReturnType<typeof parseOrganizationAuthorityDescriptor>;
+  readonly memberGroupId: string;
+  readonly organizationId: string;
+}) {
+  if (
+    !input.descriptor ||
+    input.descriptor.organizationId !== input.organizationId ||
+    input.descriptor.adminGroupId !== input.adminGroupId ||
+    input.descriptor.memberGroupId !== input.memberGroupId
+  ) {
+    throw new PrincipalPolicyError(
+      "Stored organization authority descriptor is inconsistent",
+      409,
+    );
+  }
+  return input.descriptor;
+}
+
 async function loadVerifiedOrganizationAccessPolicies(input: {
   readonly adminGroupId: string;
   readonly executor: DatabaseSession;
@@ -49,20 +69,14 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
         input.executor,
         organizationState,
       );
-    const authorityDescriptor = parseOrganizationAuthorityDescriptor(
-      organizationBundle.currentPayload.ciphertext,
-    );
-    if (
-      !authorityDescriptor ||
-      authorityDescriptor.organizationId !== input.organizationId ||
-      authorityDescriptor.adminGroupId !== input.adminGroupId ||
-      authorityDescriptor.memberGroupId !== input.memberGroupId
-    ) {
-      throw new PrincipalPolicyError(
-        "Stored organization authority descriptor is inconsistent",
-        409,
-      );
-    }
+    requireOrganizationDescriptorScope({
+      adminGroupId: input.adminGroupId,
+      descriptor: parseOrganizationAuthorityDescriptor(
+        organizationBundle.currentPayload.ciphertext,
+      ),
+      memberGroupId: input.memberGroupId,
+      organizationId: input.organizationId,
+    });
     const { policy: adminPolicy } =
       await getVerifiedPrincipalPolicyForStateWithExecutor(
         input.executor,

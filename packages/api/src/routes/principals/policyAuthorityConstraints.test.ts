@@ -138,7 +138,7 @@ test("PUT policy rejects non-admin roles in the reserved Admins group", async ()
   });
 });
 
-test("PUT policy cannot replace the signed organization authority descriptor", async () => {
+test("PUT policy rejects an organization descriptor with the wrong reserved groups", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -192,7 +192,7 @@ test("PUT policy cannot replace the signed organization authority descriptor", a
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "Organization authority descriptor cannot change",
+    error: "Organization authority descriptor scope is invalid",
   });
 });
 

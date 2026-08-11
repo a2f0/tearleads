@@ -3,6 +3,7 @@ import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
+  CommitOrganizationGroupPolicyRequest,
   CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
@@ -113,6 +114,7 @@ import { getOrganizationReadModel as organizationReadModel } from "./routes/orga
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { organizationStripeCheckout } from "./routes/organizations/stripeCheckout";
 import {
+  commitOrganizationGroupPolicy as organizationGroupPolicyCommit,
   getPrincipalPolicy as principalPolicyGet,
   putPrincipalPolicy as principalPolicyPut,
 } from "./routes/principals/policy";
@@ -825,6 +827,30 @@ export class ApiClient {
       if (principalType === "group") {
         this.clearWriterProjectionCaches();
       }
+    });
+  }
+
+  commitOrganizationGroupPolicy(
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+  ) {
+    const groupRequestKey = JSON.stringify(["group", groupId]);
+    const organizationRequestKey = JSON.stringify([
+      "organization",
+      organizationId,
+    ]);
+    this.principalPolicyRequestsByKey.delete(groupRequestKey);
+    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
+    return this.request(
+      organizationGroupPolicyCommit.path(organizationId, groupId),
+      organizationGroupPolicyCommit.isResponse,
+      organizationGroupPolicyCommit.method,
+      JSON.stringify(input),
+    ).finally(() => {
+      this.principalPolicyRequestsByKey.delete(groupRequestKey);
+      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
+      this.clearWriterProjectionCaches();
     });
   }
 

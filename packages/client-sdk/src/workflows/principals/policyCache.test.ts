@@ -130,17 +130,6 @@ test("principal policy sync authorizes empty group bundles from verified organiz
       signingKeyFingerprint,
       encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
     };
-    const organizationPolicy = await principalPolicyBundleFromInitialPolicy({
-      principalId: organizationId,
-      policy: await buildInitialOrganizationPolicyRequest({
-        adminGroupId,
-        encapsulationPublicKey: encapsulationKeyPair.publicKey,
-        memberGroupId: "members-group-1",
-        organizationId,
-        signingKeyPair,
-        userId: signerUserId,
-      }),
-    });
     const adminPolicy = await principalPolicyBundleFromInitialPolicy({
       principalId: adminGroupId,
       policy: (
@@ -175,6 +164,25 @@ test("principal policy sync authorizes empty group bundles from verified organiz
           signingKeyPair,
         })
       ).initialGroupPolicy,
+    });
+    const organizationPolicy = await principalPolicyBundleFromInitialPolicy({
+      principalId: organizationId,
+      policy: await buildInitialOrganizationPolicyRequest({
+        adminGroupId,
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        groupHeads: [
+          referencedPrincipalStateFromBundle(adminPolicy),
+          {
+            ...referencedPrincipalStateFromBundle(adminPolicy),
+            principalId: "members-group-1",
+          },
+          referencedPrincipalStateFromBundle(groupPolicy),
+        ],
+        memberGroupId: "members-group-1",
+        organizationId,
+        signingKeyPair,
+        userId: signerUserId,
+      }),
     });
     const logs: string[] = [];
 

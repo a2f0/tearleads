@@ -1,5 +1,6 @@
 import {
   buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -17,6 +18,14 @@ import {
 async function createInitialOrganizationPolicy(input: {
   adminGroupId: string;
   encapsulationPublicKey: Uint8Array;
+  groupHeads: readonly {
+    readonly keyEpoch: number;
+    readonly keyFingerprint: string;
+    readonly principalId: string;
+    readonly principalType: "group";
+    readonly stateHash: string;
+    readonly version: number;
+  }[];
   memberGroupId: string;
   organizationId: string;
   signingPrivateKey: Uint8Array;
@@ -33,10 +42,11 @@ async function createInitialOrganizationPolicy(input: {
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(
       JSON.stringify({
-        version: 1,
+        version: 2,
         organizationId: input.organizationId,
         adminGroupId: input.adminGroupId,
         memberGroupId: input.memberGroupId,
+        groupHeads: input.groupHeads,
       }),
     ),
   );
@@ -181,6 +191,20 @@ export async function createRegistrationRequestBody(
     initialOrganizationPolicy: await createInitialOrganizationPolicy({
       adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey,
+      groupHeads: await Promise.all(
+        [initialAdminGroup, initialMemberGroup]
+          .sort((left, right) => left.groupId.localeCompare(right.groupId))
+          .map(async (group) => ({
+            principalType: "group" as const,
+            principalId: group.groupId,
+            version: group.initialGroupPolicy.state.version,
+            keyEpoch: group.initialGroupPolicy.state.keyEpoch,
+            stateHash: await computePrincipalStateHash(
+              group.initialGroupPolicy.state,
+            ),
+            keyFingerprint: group.initialGroupPolicy.state.keyFingerprint,
+          })),
+      ),
       memberGroupId: initialMemberGroup.groupId,
       organizationId,
       signingPrivateKey,

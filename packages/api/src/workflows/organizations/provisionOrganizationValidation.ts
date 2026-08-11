@@ -1,3 +1,4 @@
+import { computePrincipalStateHash } from "@tearleads/crypto";
 import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
@@ -76,10 +77,10 @@ function validateInitialPolicyBundle(input: {
   }
 }
 
-function validateInitialOrganizationPolicyInput(
+async function validateInitialOrganizationPolicyInput(
   input: OrganizationProvisioningRequest,
   signer: ProvisioningValidationSigner,
-): void {
+): Promise<void> {
   const { encryptedPayload, state } = input.initialOrganizationPolicy;
 
   const descriptor = parseOrganizationAuthorityDescriptor(
@@ -93,6 +94,31 @@ function validateInitialOrganizationPolicyInput(
   ) {
     throw new OrganizationProvisioningError(
       "initialOrganizationPolicy authority descriptor must bind the reserved groups",
+      400,
+    );
+  }
+  const expectedGroupHeads = await Promise.all(
+    [input.initialAdminGroup, input.initialMemberGroup].map(async (group) => ({
+      principalType: "group" as const,
+      principalId: group.groupId,
+      version: group.initialGroupPolicy.state.version,
+      keyEpoch: group.initialGroupPolicy.state.keyEpoch,
+      stateHash: await computePrincipalStateHash(
+        group.initialGroupPolicy.state,
+      ),
+      keyFingerprint: group.initialGroupPolicy.state.keyFingerprint,
+    })),
+  );
+  if (
+    JSON.stringify(descriptor.groupHeads) !==
+    JSON.stringify(
+      expectedGroupHeads.sort((left, right) =>
+        left.principalId.localeCompare(right.principalId),
+      ),
+    )
+  ) {
+    throw new OrganizationProvisioningError(
+      "initialOrganizationPolicy authority descriptor must commit the reserved group heads",
       400,
     );
   }
@@ -157,11 +183,11 @@ function validateInitialGroupInput(input: {
  * additional-organization creation; throws {@link OrganizationProvisioningError}
  * (400) on any mismatch.
  */
-export function validateOrganizationProvisioningInput(
+export async function validateOrganizationProvisioningInput(
   input: OrganizationProvisioningRequest,
   signer: ProvisioningValidationSigner,
-): void {
-  validateInitialOrganizationPolicyInput(input, signer);
+): Promise<void> {
+  await validateInitialOrganizationPolicyInput(input, signer);
   validateInitialGroupInput({
     expectedName: ADMIN_GROUP_NAME,
     group: input.initialAdminGroup,

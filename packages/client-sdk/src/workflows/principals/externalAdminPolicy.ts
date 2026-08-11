@@ -10,6 +10,8 @@ import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingChec
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
+  principalHeadMatchesReference,
+  requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
@@ -26,6 +28,7 @@ export interface VerifiedExternalAdminPolicy {
   readonly adminGroupId: string;
   readonly adminPolicy: VerifiedPrincipalPolicy;
   readonly bundle: PrincipalPolicyBundleResponse;
+  readonly descriptor: OrganizationAuthorityDescriptor;
   readonly memberGroupId: string;
   readonly policy: VerifiedPrincipalPolicy;
   readonly externalAuthority: PrincipalPolicyExternalAuthority;
@@ -115,6 +118,7 @@ function parseScopedAuthorityDescriptor(
 
 async function loadVerifiedAdminsPolicy(input: {
   readonly adminGroupId: string;
+  readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
@@ -146,7 +150,7 @@ async function loadVerifiedAdminsPolicy(input: {
   }
   const verified = await verifyPrincipalPolicyBundle({
     bundle,
-    expectedReference: principalPolicyReferenceFromBundle(bundle),
+    expectedReference: input.expectedHead,
     localCheckpoint,
     signerPublicKeys: signerPublicKeys.signerPublicKeys,
   });
@@ -160,6 +164,17 @@ async function loadVerifiedAdminsPolicy(input: {
     throw new KeyingVerificationError(
       "object_mismatch",
       "reserved Admins policy target does not match",
+    );
+  }
+  if (
+    !principalHeadMatchesReference(
+      principalPolicyReferenceFromBundle(bundle),
+      input.expectedHead,
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "reserved Admins policy does not match the signed organization directory",
     );
   }
   assertAdminsPolicyShape(verified.value);
@@ -186,6 +201,23 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     if (!bundle) {
       return null;
     }
+    const descriptor = parseScopedAuthorityDescriptor(
+      bundle,
+      input.organizationId,
+    );
+    const admin = await loadVerifiedAdminsPolicy({
+      adminGroupId: descriptor.adminGroupId,
+      expectedHead: requireOrganizationGroupHead(
+        descriptor,
+        descriptor.adminGroupId,
+      ),
+      execSql: input.execSql,
+      getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    });
+    if (!admin) {
+      return null;
+    }
     const policy = await verifyOrganizationPolicy({
       bundle,
       execSql: input.execSql,
@@ -195,25 +227,13 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     if (!policy) {
       return null;
     }
-    const descriptor = parseScopedAuthorityDescriptor(
-      bundle,
-      input.organizationId,
-    );
-    const admin = await loadVerifiedAdminsPolicy({
-      adminGroupId: descriptor.adminGroupId,
-      execSql: input.execSql,
-      getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    if (!admin) {
-      return null;
-    }
 
     const verified: VerifiedExternalAdminPolicy = {
       adminBundle: admin.bundle,
       adminGroupId: descriptor.adminGroupId,
       adminPolicy: admin.policy,
       bundle,
+      descriptor,
       externalAuthority: organizationAdminExternalAuthority(admin.policy),
       memberGroupId: descriptor.memberGroupId,
       policy,

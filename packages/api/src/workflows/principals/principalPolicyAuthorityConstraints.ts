@@ -2,7 +2,12 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { groups, organizations } from "@tearleads/api-shared/schema";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
+import { listCurrentPrincipalProjectionMembers } from "../../access/read/principalStateStore";
 import { parseOrganizationAuthorityDescriptor } from "../organizations/organizationAuthorityDescriptor";
+import {
+  assertOrganizationGroupDirectoryCurrent,
+  principalProjectionsEqual,
+} from "../organizations/organizationGroupDirectoryValidation";
 import { PrincipalPolicyError } from "./shared";
 
 interface PrincipalPolicyAuthorityConstraintInput
@@ -62,7 +67,7 @@ async function assertOrganizationAuthorityDescriptor(
     .where(eq(organizations.id, input.expectedPrincipalId))
     .limit(1);
   if (!organization) {
-    return;
+    throw new PrincipalPolicyError("Organization not found", 404);
   }
   const descriptor = parseOrganizationAuthorityDescriptor(
     input.encryptedPayload.ciphertext,
@@ -74,10 +79,32 @@ async function assertOrganizationAuthorityDescriptor(
     descriptor.memberGroupId !== organization.memberGroupId
   ) {
     throw new PrincipalPolicyError(
-      "Organization authority descriptor cannot change",
+      "Organization authority descriptor scope is invalid",
       400,
     );
   }
+  if (input.grants.length !== 0) {
+    throw new PrincipalPolicyError(
+      "Organization policy cannot contain container grants",
+      400,
+    );
+  }
+  const adminProjection = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.adminGroupId,
+    tx,
+  );
+  if (!principalProjectionsEqual(input.projection, adminProjection)) {
+    throw new PrincipalPolicyError(
+      "Organization policy projection must match the current Admins policy",
+      400,
+    );
+  }
+  await assertOrganizationGroupDirectoryCurrent({
+    directory: descriptor.groupHeads,
+    executor: tx,
+    organizationId: input.expectedPrincipalId,
+  });
 }
 
 export async function assertPolicyAuthorityConstraints(

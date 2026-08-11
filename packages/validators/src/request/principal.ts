@@ -95,8 +95,23 @@ export type PutPrincipalPolicyRequest = z.infer<
   typeof PutPrincipalPolicyRequestSchema
 >;
 
+export const CommitOrganizationGroupPolicyRequestSchema = loosePlainObject({
+  groupPolicy: PutPrincipalPolicyRequestSchema,
+  organizationPolicy: PutPrincipalPolicyRequestSchema,
+});
+
+export type CommitOrganizationGroupPolicyRequest = z.infer<
+  typeof CommitOrganizationGroupPolicyRequestSchema
+>;
+
 export function isPutPrincipalPolicyRequest(
   value: unknown,
 ): value is PutPrincipalPolicyRequest {
   return PutPrincipalPolicyRequestSchema.safeParse(value).success;
+}
+
+export function isCommitOrganizationGroupPolicyRequest(
+  value: unknown,
+): value is CommitOrganizationGroupPolicyRequest {
+  return CommitOrganizationGroupPolicyRequestSchema.safeParse(value).success;
 }
