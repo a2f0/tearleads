@@ -35,6 +35,7 @@ export async function applyContainerRekeys(input: {
   const context: ContainerMutationContext = {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
+    verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       input.executor,
     ),

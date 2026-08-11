@@ -7,7 +7,6 @@ import type {
   PrincipalStateExternalAuthority,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   readProjectionNullableString,
@@ -240,6 +239,19 @@ type PrincipalPolicyCommonFields = Pick<
   "principalId" | "principalType" | "stateHash" | "version"
 >;
 
+export type PrincipalPolicyRequestArtifact = Pick<
+  VerifiedPrincipalPolicy,
+  | "checkpoint"
+  | "grants"
+  | "keyEpoch"
+  | "principalId"
+  | "principalType"
+  | "projection"
+  | "state"
+  | "stateHash"
+  | "version"
+>;
+
 function principalPolicyCommonFieldsMatch(
   left: PrincipalPolicyCommonFields,
   right: PrincipalPolicyCommonFields,
@@ -252,10 +264,10 @@ function principalPolicyCommonFieldsMatch(
   );
 }
 
-function readVerifiedPrincipalPolicy(
+function readPrincipalPolicyRequestArtifact(
   value: unknown,
   label: string,
-): VerifiedPrincipalPolicy {
+): PrincipalPolicyRequestArtifact {
   const record = readProjectionPlainRecord(value, label, mutationShapeError);
   const principalType = readProjectionValue(record, "principalType");
   if (!isManagedPrincipalKind(principalType)) {
@@ -266,7 +278,7 @@ function readVerifiedPrincipalPolicy(
     readProjectionValue(record, "state"),
     `${label}.state`,
   );
-  const policy = makeVerifiedPrincipalPolicy({
+  const policy: PrincipalPolicyRequestArtifact = {
     principalType,
     principalId: readProjectionString(
       record,
@@ -305,7 +317,7 @@ function readVerifiedPrincipalPolicy(
       readProjectionValue(record, "checkpoint"),
       `${label}.checkpoint`,
     ),
-  });
+  };
 
   if (
     !principalPolicyCommonFieldsMatch(policy, policy.state) ||
@@ -320,8 +332,8 @@ function readVerifiedPrincipalPolicy(
 
 export function principalPoliciesFromRequest(
   request: ContainerMutationRequest,
-): VerifiedPrincipalPolicy[] {
+): PrincipalPolicyRequestArtifact[] {
   return request.principalPolicies.map((policy, index) =>
-    readVerifiedPrincipalPolicy(policy, `principalPolicies[${index}]`),
+    readPrincipalPolicyRequestArtifact(policy, `principalPolicies[${index}]`),
   );
 }

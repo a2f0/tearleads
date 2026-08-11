@@ -58,6 +58,8 @@ export interface ContainerMutationContext {
    */
   readonly mutatingGroupPrincipalId?: string | undefined;
   readonly manifestHeadByContainerId: Map<string, CurrentAccessManifestHead>;
+  /** Independently verified manifests created earlier in the same batch. */
+  readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
   // Shared only with hash/id-addressed projection loaders during this write
   // transaction. Current-by-container lookups can become stale after a mutation
   // and must never consume this context's cache.

@@ -26,7 +26,6 @@ import {
 } from "./events";
 import { assertVerifiedContainerGroupReferencesExist } from "./groupReferences";
 import {
-  assertContainerManifestBundleConsistent,
   assertCurrentContainerPath,
   assertHistoricalContainerManifestsConsistent,
   assertManifestHeadCurrent,
@@ -37,6 +36,7 @@ import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
 import { principalPoliciesFromRequest } from "./principalPolicyRecords";
+import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
 
 function collectReferencedPrincipalHeads(
   paths: readonly (
@@ -78,13 +78,15 @@ async function assertMutationOrganizationCanSync(
 }
 
 async function loadPreviousContainerManifest(
+  context: ContainerMutationContext,
   previousManifest: MutateContainerWithExecutorInput["request"]["previousManifest"],
 ): Promise<VerifiedContainerAccessManifest | null> {
   if (previousManifest === undefined || previousManifest === null) {
     return null;
   }
 
-  return assertContainerManifestBundleConsistent(
+  return resolveVerifiedStoredContainerManifest(
+    context,
     previousManifest,
     "previousManifest",
   );
@@ -220,6 +222,7 @@ async function verifyMutationArtifacts(
       input.request.containerManifestHistory,
     );
   const previousManifest = await loadPreviousContainerManifest(
+    context,
     input.request.previousManifest,
   );
   await assertPreviousManifestHeadCurrent(context, previousManifest);
@@ -272,6 +275,7 @@ function cachePreflightManifestHead(
     manifestHash: manifest.manifestHash,
     updatedAt: new Date(0),
   });
+  context.verifiedManifestByHash.set(manifest.manifestHash, manifest);
 }
 
 async function deriveVerifiedBatchScope(
@@ -282,6 +286,7 @@ async function deriveVerifiedBatchScope(
     executor: context.executor,
     mutatingGroupPrincipalId: context.mutatingGroupPrincipalId,
     manifestHeadByContainerId: new Map(),
+    verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       context.executor,
     ),
@@ -382,6 +387,7 @@ export async function mutateContainerWithExecutor(
   const context: ContainerMutationContext = input.context ?? {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
+    verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(
       input.executor,
     ),
