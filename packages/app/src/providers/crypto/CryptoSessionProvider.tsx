@@ -18,6 +18,7 @@ import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
   type LocalCryptoSessionPersistence,
+  type PersistedCryptoSessionContext,
   queueCryptoSessionPersistence,
   restorePersistedCryptoSession,
   useLocalCryptoSessionPersistence,
@@ -136,20 +137,11 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   );
 }
 
-interface CryptoSessionPersistenceState {
-  readonly authToken: string | null;
-  readonly containerId: string | null;
-  readonly defaultOrganizationId: string | null;
-  readonly isAuthenticated: boolean;
-  readonly organizationId: string | null;
-  readonly userId: string | null;
-}
-
 function useRestorePersistedSession(input: {
   readonly localPersistence: LocalCryptoSessionPersistence | null;
   readonly log: (message: string) => void;
   readonly logError: (message: string, error: unknown) => void;
-  readonly sessionState: CryptoSessionPersistenceState;
+  readonly sessionState: PersistedCryptoSessionContext;
   readonly signingFingerprint: string | null;
   readonly tearleads: ReturnType<typeof useTearleads>;
 }) {
@@ -244,7 +236,7 @@ function usePersistCryptoSession(input: {
   readonly checkedFingerprint: string | null;
   readonly localPersistence: LocalCryptoSessionPersistence | null;
   readonly logError: (message: string, error: unknown) => void;
-  readonly sessionState: CryptoSessionPersistenceState;
+  readonly sessionState: PersistedCryptoSessionContext;
   readonly signingFingerprint: string | null;
 }) {
   const {

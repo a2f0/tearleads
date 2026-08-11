@@ -124,22 +124,16 @@ export function useReducedMotion(): string {
  */
 export function useViewportLabel(): string {
   const subscribe = useCallback((onStoreChange: () => void) => {
-    if (typeof window === "undefined") {
-      return () => {};
-    }
-
     window.addEventListener("resize", onStoreChange);
     return () => {
       window.removeEventListener("resize", onStoreChange);
     };
   }, []);
 
-  const getSnapshot = useCallback(() => {
-    if (typeof window === "undefined") {
-      return UNKNOWN_ENVIRONMENT_VALUE;
-    }
-    return `${window.innerWidth} × ${window.innerHeight}`;
-  }, []);
+  const getSnapshot = useCallback(
+    () => `${window.innerWidth} × ${window.innerHeight}`,
+    [],
+  );
 
   return useTearleadsExternalValue(subscribe, getSnapshot);
 }
@@ -148,7 +142,9 @@ export function useStorageEstimateLabel(): string {
   const [label, setLabel] = useState(UNKNOWN_ENVIRONMENT_VALUE);
 
   useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.storage?.estimate) {
+    // storage.estimate is genuinely absent in insecure contexts and in the
+    // happy-dom test environment; the row simply stays unknown there.
+    if (!navigator.storage?.estimate) {
       return;
     }
 
@@ -221,10 +217,6 @@ export function useHighEntropyHints(): NavigatorUAHighEntropyValues {
   const [hints, setHints] = useState<NavigatorUAHighEntropyValues>({});
 
   useEffect(() => {
-    if (typeof navigator === "undefined") {
-      return;
-    }
-
     const { userAgentData } = navigator;
     if (!userAgentData) {
       return;
@@ -249,16 +241,10 @@ export function useHighEntropyHints(): NavigatorUAHighEntropyValues {
 }
 
 export function readUserAgent(): string {
-  if (typeof navigator === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   return navigator.userAgent;
 }
 
 export function readLanguage(): string {
-  if (typeof navigator === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   return navigator.language || UNKNOWN_ENVIRONMENT_VALUE;
 }
 
@@ -274,20 +260,10 @@ export function readTimeZone(): string {
 }
 
 export function readCpuCores(): string {
-  if (typeof navigator === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
-  const { hardwareConcurrency } = navigator;
-  return hardwareConcurrency === undefined
-    ? UNKNOWN_ENVIRONMENT_VALUE
-    : String(hardwareConcurrency);
+  return String(navigator.hardwareConcurrency);
 }
 
 export function readDeviceMemory(): string {
-  if (typeof navigator === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
-
   const { deviceMemory } = navigator;
   return deviceMemory === undefined
     ? UNKNOWN_ENVIRONMENT_VALUE
@@ -295,27 +271,15 @@ export function readDeviceMemory(): string {
 }
 
 export function readTouchSupport(): string {
-  if (typeof navigator === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   const { maxTouchPoints } = navigator;
-  if (maxTouchPoints === undefined) {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   return maxTouchPoints > 0 ? `yes (${maxTouchPoints} points)` : "no";
 }
 
 export function readScreenLabel(): string {
-  if (typeof window === "undefined" || !window.screen) {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   const { width, height } = window.screen;
   return `${width} × ${height}`;
 }
 
 export function readDevicePixelRatio(): string {
-  if (typeof window === "undefined") {
-    return UNKNOWN_ENVIRONMENT_VALUE;
-  }
   return String(window.devicePixelRatio);
 }

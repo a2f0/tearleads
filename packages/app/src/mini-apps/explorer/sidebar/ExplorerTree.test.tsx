@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
@@ -33,18 +33,8 @@ import {
   getExplorerSidebarWindowRange,
 } from "./explorerTreeModel";
 
-const resizeObserverGlobal = globalThis as unknown as {
-  ResizeObserver?: unknown;
-};
-const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
-
-beforeEach(() => {
-  resizeObserverGlobal.ResizeObserver = undefined;
-});
-
 afterEach(() => {
   cleanup();
-  resizeObserverGlobal.ResizeObserver = originalResizeObserver;
 });
 const defaultNodes: ContainerNode[] = [
   {
@@ -83,7 +73,7 @@ function ExplorerSidebarHarness(params: {
     () => collapsedIdsParam ?? new Set<string>(),
     [collapsedIdsParam],
   );
-  const handleSidebarContextMenu = useCallback(
+  const handleContainerContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => event.preventDefault(),
     [],
   );
@@ -119,7 +109,7 @@ function ExplorerSidebarHarness(params: {
     documentLinkProjectionVersionByContainerId: NO_CONTAINER_VERSIONS,
     documentListRevision,
     documentQueries,
-    handleSidebarContextMenu,
+    handleContainerContextMenu,
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,

@@ -1,7 +1,5 @@
 import type {
   BlobInfo,
-  BlobInfoInput,
-  BlobInfoList,
   BlobStore,
   ContainerDocumentQueries,
   ContainerInfo,
@@ -17,6 +15,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
+import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
@@ -31,7 +30,6 @@ import type { ExplorerRoute } from "../routes";
 import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
-import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerContainerDetail } from "./container/ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./container/ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./document/ExplorerDocumentDetail";
@@ -124,7 +122,7 @@ interface ExplorerDetailPanelProps {
   initialEditingSelectedDocument: boolean;
   isAuthenticated: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  loadBlobInfo: ExplorerBlobInfoLoader;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
@@ -211,20 +209,6 @@ interface ExplorerDetailPanelProps {
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
-function renderExplorerNewStructuredDocumentRoute(
-  params: ExplorerDetailPanelProps,
-  route: ExplorerNewStructuredDocumentRouteState,
-) {
-  return (
-    <ExplorerNewStructuredDocumentRoutePanel
-      nodes={params.nodes}
-      openInlineDocument={params.openInlineDocument}
-      ready={params.ready}
-      route={route}
-    />
-  );
-}
-
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   // A failed SQLite boot makes every detail route non-functional (they all read
   // from the local database), so gate the whole panel on the error — matching
@@ -240,30 +224,10 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
 function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   const { route, selectedDocument, selectedNode } = params;
 
-  // A blob pick in flight (a document's "Choose Blob" flow routed here) keeps the
-  // focused bare Blob Browser — no hub tabs to wander off into mid-pick.
-  if (route.view === "blob-browser" && params.blobPickTarget !== null) {
-    return (
-      <ExplorerBlobBrowserPanel
-        blobStore={params.blobStore}
-        domainScope={params.domainScope}
-        loadBlobInfo={params.loadBlobInfo}
-        nodes={params.nodes}
-        online={params.online}
-        organizationNamesById={params.organizationNamesById}
-        onCancelBlobPick={params.onCancelBlobPick}
-        onPickBlob={params.onPickBlob}
-        openDocumentInfoRoute={params.openDocumentInfoRoute}
-        pickTarget={params.blobPickTarget}
-        route={route}
-        selectDocumentProjection={params.selectDocumentProjection}
-      />
-    );
-  }
-
   // The Sync toolbar action and diagnostics deep links render the full-screen
   // Explorer diagnostics hub in the main pane (the folder tree stays in the
-  // sidebar so a container is always one click away).
+  // sidebar so a container is always one click away). A blob pick in flight
+  // renders the hub's bare Blob Browser (the hub hides its tabs mid-pick).
   if (
     route.view === "sync-lanes" ||
     route.view === "sync-lane-detail" ||
@@ -366,7 +330,14 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   }
 
   if (route.view === "new-structured-document") {
-    return renderExplorerNewStructuredDocumentRoute(params, route);
+    return (
+      <ExplorerNewStructuredDocumentRoutePanel
+        nodes={params.nodes}
+        openInlineDocument={params.openInlineDocument}
+        ready={params.ready}
+        route={route}
+      />
+    );
   }
 
   if (selectedDocument) {

@@ -23,6 +23,7 @@ import { useFileSaver } from "../../../providers/file-saver/FileSaverProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
+import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 
 type RecoveryKeyBusyState = "restore" | null;
 type RecoveryKeyTabId = "backup" | "recovery";
@@ -87,10 +88,6 @@ const RECOVERY_KEY_DISCLOSURES: Record<
 interface RecoveryKeyFeedback {
   readonly setError: (message: string | null) => void;
   readonly setStatus: (message: string | null) => void;
-}
-
-function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Operation failed.";
 }
 
 function RecoveryKeyDisplay({
@@ -316,7 +313,7 @@ function useRecoveryKeyDisclosure(feedback: RecoveryKeyFeedback) {
     } catch (operationError: unknown) {
       logError(disclosureCopy.failureLog, operationError);
       reportIfCurrent(requestedFor, () =>
-        feedback.setError(readErrorMessage(operationError)),
+        feedback.setError(unknownErrorMessage(operationError)),
       );
     }
   };
@@ -380,7 +377,7 @@ function useRecoveryKeyRestore(feedback: RecoveryKeyFeedback) {
       log("Recovery key restored");
     } catch (operationError: unknown) {
       logError("Failed to restore recovery key", operationError);
-      feedback.setError(readErrorMessage(operationError));
+      feedback.setError(unknownErrorMessage(operationError));
     } finally {
       setBusy(null);
     }

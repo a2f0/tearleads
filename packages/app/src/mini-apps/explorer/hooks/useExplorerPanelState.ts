@@ -41,7 +41,10 @@ import { useExplorerSidebarPanel } from "../sidebar/ExplorerTree";
 import type { ExplorerTreeEntry } from "../sidebar/explorerTreeModel";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import type { ExplorerPanelState } from "./explorerPanelStateTypes";
-import { useExplorerContainerTrashActions } from "./useExplorerContainerTrashActions";
+import {
+  resolveExplorerTrashDestination,
+  useExplorerContainerTrashActions,
+} from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { useExplorerRoute } from "./useExplorerRoute";
@@ -241,7 +244,7 @@ export function useExplorerPanelState(params: {
     documentQueries,
     handleSidebarDocumentContextMenu:
       contextMenuState.handleSidebarDocumentContextMenu,
-    handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
+    handleContainerContextMenu: contextMenuState.handleContainerContextMenu,
     nodes: explorer.nodes,
     onRetryDatabase,
     organizationNamesById: sidebarOrganizationNamesById,
@@ -326,21 +329,12 @@ export function useExplorerPanelState(params: {
       try {
         // Resolve the Trash for the document's OWN organization, not a single
         // global one. A document under another org's shared root must land in
-        // that org's Trash — never the viewer's personal Trash. Only the viewer's
-        // own Trash may be lazily created (device-first); a foreign org's Trash is
-        // never substituted, so an absent one aborts the delete rather than
-        // mis-homing the document across orgs.
-        const trashResolution = resolveExplorerDeleteTrashTarget({
+        // that org's Trash — never the viewer's personal Trash.
+        const trashContainerId = await resolveExplorerTrashDestination({
           containerId: currentContainerId,
           currentOrganizationId: appData.auth.organizationId,
-          nodes: explorer.nodes,
-          trashSystemSlot: explorer.trashSystemSlot,
+          explorer,
         });
-        const trashContainerId =
-          trashResolution.trashContainerId ??
-          (trashResolution.canFallBackToOwnTrash
-            ? (await explorer.ensureTrashContainer())?.id
-            : undefined);
         // No-op when the document already lives anywhere under trash (the root
         // or a user-created subfolder of it). Without the subtree check, deleting
         // a document inside a trash subfolder would re-home it to the trash root
@@ -377,9 +371,7 @@ export function useExplorerPanelState(params: {
     [
       appData.auth.organizationId,
       appData.util.logError,
-      explorer.ensureTrashContainer,
-      explorer.nodes,
-      explorer.trashSystemSlot,
+      explorer,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.moveDocument,
     ],

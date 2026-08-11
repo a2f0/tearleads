@@ -1,4 +1,4 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import {
   canCreateChildContainerByRules,
@@ -28,53 +28,9 @@ export function clearExplorerModalState(
   setDraftTargetContainerId("");
 }
 
-function openExplorerTargetModal(params: {
-  nextModalState:
-    | { mode: "link-document"; documentLocalId: string }
-    | { mode: "move"; nodeId: string }
-    | { mode: "move-document"; documentLocalId: string };
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetOptions: ReadonlyArray<MoveTargetOption>;
-}) {
-  const {
-    nextModalState,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetOptions,
-  } = params;
-  if (targetOptions.length === 0) {
-    return;
-  }
-
-  setModalState(nextModalState);
-  setModalError(null);
-  setDraftName("");
-  setDraftTargetContainerId(targetOptions[0]?.id ?? "");
-}
-
-function openExplorerSimpleModal(params: {
-  draftName?: string;
-  nextModalState: ExplorerModalState;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-}) {
-  params.setModalState(params.nextModalState);
-  params.setModalError(null);
-  params.setDraftName(params.draftName ?? "");
-  params.setDraftTargetContainerId("");
-}
-
-// Shared by the three target-choosing openers (move, move-document,
-// link-document); each opener destructures the subset it needs.
-interface ExplorerTargetModalOpenerParams {
-  documentSummaries: ReadonlyArray<DocumentSummary>;
+// Shared by every opener; each builder destructures the subset it needs.
+interface ExplorerModalOpenersParams {
+  canShareWithPeer: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -85,376 +41,182 @@ interface ExplorerTargetModalOpenerParams {
   targetLookups: ExplorerTargetLookups;
 }
 
-interface ExplorerModalOpenersParams extends ExplorerTargetModalOpenerParams {
-  canShareWithPeer: boolean;
+interface ExplorerOpenedModal {
+  draftName?: string;
+  draftTargetContainerId?: string;
+  nextModalState: ExplorerModalState;
 }
 
-function useExplorerTargetModalOpeners(
-  params: ExplorerTargetModalOpenerParams,
+type ExplorerModalBuilder = (
+  params: ExplorerModalOpenersParams,
+  targetId: string,
+) => ExplorerOpenedModal | null;
+
+// One opener body for every modal: the builder resolves the rule/target gates
+// and returns null when the modal must not open.
+function useExplorerModalOpener(
+  params: ExplorerModalOpenersParams,
+  buildModal: ExplorerModalBuilder,
 ) {
-  const openMoveModal = useExplorerMoveModalOpener(params);
-  const openMoveDocumentModal = useExplorerMoveDocumentModalOpener(params);
-  const openLinkDocumentModal = useExplorerLinkDocumentModalOpener(params);
-
-  return {
-    openLinkDocumentModal,
-    openMoveDocumentModal,
-    openMoveModal,
-  };
-}
-
-function useExplorerMoveModalOpener(params: ExplorerTargetModalOpenerParams) {
-  const {
-    nodes,
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
   return useCallback(
-    (containerId: string) => {
-      openExplorerTargetModal({
-        nextModalState: { mode: "move", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-        targetOptions: getMoveTargetOptions(
-          nodes,
-          containerId,
-          targetLookups,
-          rulesContext,
-        ),
-      });
-    },
-    [
-      nodes,
-      rulesContext,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
-
-function useExplorerMoveDocumentModalOpener(
-  params: ExplorerTargetModalOpenerParams,
-) {
-  const {
-    documentSummaries,
-    linkedContainerIdsByDocumentId,
-    nodes,
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (documentLocalId: string) => {
-      openExplorerTargetModal({
-        nextModalState: { mode: "move-document", documentLocalId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-        targetOptions: getDocumentMoveTargetOptions(
-          nodes,
-          documentSummaries,
-          documentLocalId,
-          targetLookups,
-          rulesContext,
-          linkedContainerIdsByDocumentId,
-        ),
-      });
-    },
-    [
-      documentSummaries,
-      linkedContainerIdsByDocumentId,
-      nodes,
-      rulesContext,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
-
-function useExplorerLinkDocumentModalOpener(
-  params: ExplorerTargetModalOpenerParams,
-) {
-  const {
-    documentSummaries,
-    linkedContainerIdsByDocumentId,
-    nodes,
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (documentLocalId: string) => {
-      const linkingDocument =
-        targetLookups.documentSummariesById.get(documentLocalId);
-      openExplorerTargetModal({
-        nextModalState: { mode: "link-document", documentLocalId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-        targetOptions: getDocumentLinkTargetOptions(
-          nodes,
-          documentSummaries,
-          documentLocalId,
-          getDocumentLinkedContainerIds({
-            document: linkingDocument,
-            linkedContainerIdsByDocumentId,
-          }),
-          targetLookups,
-          rulesContext,
-        ),
-      });
-    },
-    [
-      documentSummaries,
-      linkedContainerIdsByDocumentId,
-      nodes,
-      rulesContext,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
-
-interface ExplorerContainerModalOpenerParams {
-  rulesContext: ExplorerContainerRulesContext;
-  setDraftName: (value: string) => void;
-  setDraftTargetContainerId: (value: string) => void;
-  setModalError: (error: string | null) => void;
-  setModalState: (state: ExplorerModalState | null) => void;
-  targetLookups: ExplorerTargetLookups;
-}
-
-function useExplorerCreateChildModalOpener(
-  params: ExplorerContainerModalOpenerParams,
-) {
-  const {
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (parentId: string) => {
-      if (
-        !canCreateChildContainerByRules(
-          rulesContext,
-          targetLookups.nodesById.get(parentId),
-        )
-      ) {
+    (targetId: string) => {
+      const modal = buildModal(params, targetId);
+      if (!modal) {
         return;
       }
 
-      openExplorerSimpleModal({
-        nextModalState: { mode: "create-child", nodeId: parentId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
+      params.setModalState(modal.nextModalState);
+      params.setModalError(null);
+      params.setDraftName(modal.draftName ?? "");
+      params.setDraftTargetContainerId(modal.draftTargetContainerId ?? "");
     },
-    [
-      rulesContext,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
+    [buildModal, params],
   );
 }
 
-function useExplorerRenameModalOpener(
-  params: ExplorerContainerModalOpenerParams,
-) {
-  const {
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
+// A target-choosing modal opens only when at least one destination exists, with
+// the first (alphabetically sorted) target preselected.
+function openedTargetModal(
+  nextModalState: ExplorerModalState,
+  targetOptions: ReadonlyArray<MoveTargetOption>,
+): ExplorerOpenedModal | null {
+  return targetOptions.length === 0
+    ? null
+    : {
+        draftTargetContainerId: targetOptions[0]?.id ?? "",
+        nextModalState,
+      };
+}
 
-  return useCallback(
-    (containerId: string) => {
-      const container = targetLookups.nodesById.get(containerId);
-      if (!container || !canRenameContainerByRules(rulesContext, container)) {
-        return;
-      }
+const buildExplorerMoveModal: ExplorerModalBuilder = (params, containerId) =>
+  openedTargetModal(
+    { mode: "move", nodeId: containerId },
+    getMoveTargetOptions(
+      params.nodes,
+      containerId,
+      params.targetLookups,
+      params.rulesContext,
+    ),
+  );
 
-      openExplorerSimpleModal({
+const buildExplorerMoveDocumentModal: ExplorerModalBuilder = (
+  params,
+  documentLocalId,
+) =>
+  openedTargetModal(
+    { documentLocalId, mode: "move-document" },
+    getDocumentMoveTargetOptions(
+      params.nodes,
+      documentLocalId,
+      params.targetLookups,
+      params.rulesContext,
+      params.linkedContainerIdsByDocumentId,
+    ),
+  );
+
+const buildExplorerLinkDocumentModal: ExplorerModalBuilder = (
+  params,
+  documentLocalId,
+) =>
+  openedTargetModal(
+    { documentLocalId, mode: "link-document" },
+    getDocumentLinkTargetOptions(
+      params.nodes,
+      documentLocalId,
+      getDocumentLinkedContainerIds({
+        document:
+          params.targetLookups.documentSummariesById.get(documentLocalId),
+        linkedContainerIdsByDocumentId: params.linkedContainerIdsByDocumentId,
+      }),
+      params.targetLookups,
+      params.rulesContext,
+    ),
+  );
+
+const buildExplorerCreateChildModal: ExplorerModalBuilder = (
+  params,
+  parentId,
+) =>
+  canCreateChildContainerByRules(
+    params.rulesContext,
+    params.targetLookups.nodesById.get(parentId),
+  )
+    ? { nextModalState: { mode: "create-child", nodeId: parentId } }
+    : null;
+
+const buildExplorerRenameModal: ExplorerModalBuilder = (
+  params,
+  containerId,
+) => {
+  const container = params.targetLookups.nodesById.get(containerId);
+  return container && canRenameContainerByRules(params.rulesContext, container)
+    ? {
         draftName: container.name,
         nextModalState: { mode: "rename", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
-    },
-    [
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-      rulesContext,
-    ],
-  );
-}
-
-function useExplorerPurgeModalOpener(
-  params: ExplorerContainerModalOpenerParams,
-) {
-  const {
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (containerId: string) => {
-      if (!canWriteContainerNode(targetLookups.nodesById.get(containerId))) {
-        return;
       }
+    : null;
+};
 
-      openExplorerSimpleModal({
-        nextModalState: { mode: "purge", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
-    },
-    [
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
+// "Delete Forever", "Empty Trash", and peer sharing share the
+// writable-container gate and differ only in the modal they open.
+function openedWritableContainerModal(
+  params: ExplorerModalOpenersParams,
+  nextModalState: ExplorerModalState & { nodeId: string },
+): ExplorerOpenedModal | null {
+  return canWriteContainerNode(
+    params.targetLookups.nodesById.get(nextModalState.nodeId),
+  )
+    ? { nextModalState }
+    : null;
 }
 
-function useExplorerEmptyTrashModalOpener(
-  params: ExplorerContainerModalOpenerParams,
-) {
-  const {
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
+const buildExplorerPurgeModal: ExplorerModalBuilder = (params, containerId) =>
+  openedWritableContainerModal(params, { mode: "purge", nodeId: containerId });
 
-  return useCallback(
-    (containerId: string) => {
-      if (!canWriteContainerNode(targetLookups.nodesById.get(containerId))) {
-        return;
-      }
+const buildExplorerEmptyTrashModal: ExplorerModalBuilder = (
+  params,
+  containerId,
+) =>
+  openedWritableContainerModal(params, {
+    mode: "empty-trash",
+    nodeId: containerId,
+  });
 
-      openExplorerSimpleModal({
-        nextModalState: { mode: "empty-trash", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
-    },
-    [
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
-
-function useExplorerSharePeerModalOpener(
-  params: ExplorerContainerModalOpenerParams & { canShareWithPeer: boolean },
-) {
-  const {
-    canShareWithPeer,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (containerId: string) => {
-      if (
-        !canShareWithPeer ||
-        !canWriteContainerNode(targetLookups.nodesById.get(containerId))
-      ) {
-        return;
-      }
-
-      openExplorerSimpleModal({
-        nextModalState: { mode: "share-peer", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
-    },
-    [
-      canShareWithPeer,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
+const buildExplorerSharePeerModal: ExplorerModalBuilder = (
+  params,
+  containerId,
+) =>
+  params.canShareWithPeer
+    ? openedWritableContainerModal(params, {
+        mode: "share-peer",
+        nodeId: containerId,
+      })
+    : null;
 
 export function useExplorerModalOpeners(params: ExplorerModalOpenersParams) {
-  const targetOpeners = useExplorerTargetModalOpeners(params);
-  const openCreateChildModal = useExplorerCreateChildModalOpener(params);
-  const openEmptyTrashModal = useExplorerEmptyTrashModalOpener(params);
-  const openRenameModal = useExplorerRenameModalOpener(params);
-  const openPurgeModal = useExplorerPurgeModalOpener(params);
-  const openSharePeerModal = useExplorerSharePeerModalOpener(params);
-
   return {
-    ...targetOpeners,
-    openCreateChildModal,
-    openEmptyTrashModal,
-    openPurgeModal,
-    openRenameModal,
-    openSharePeerModal,
+    openCreateChildModal: useExplorerModalOpener(
+      params,
+      buildExplorerCreateChildModal,
+    ),
+    openEmptyTrashModal: useExplorerModalOpener(
+      params,
+      buildExplorerEmptyTrashModal,
+    ),
+    openLinkDocumentModal: useExplorerModalOpener(
+      params,
+      buildExplorerLinkDocumentModal,
+    ),
+    openMoveDocumentModal: useExplorerModalOpener(
+      params,
+      buildExplorerMoveDocumentModal,
+    ),
+    openMoveModal: useExplorerModalOpener(params, buildExplorerMoveModal),
+    openPurgeModal: useExplorerModalOpener(params, buildExplorerPurgeModal),
+    openRenameModal: useExplorerModalOpener(params, buildExplorerRenameModal),
+    openSharePeerModal: useExplorerModalOpener(
+      params,
+      buildExplorerSharePeerModal,
+    ),
   };
 }

@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { NetworkStatusSource, Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import {
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
@@ -52,10 +55,11 @@ function mountWithSource(
   const state: { tearleads?: Tearleads } = {};
   const view = render(
     <Harness
-      hostConfig={new AppHostConfig(
-        "http://api.example.test",
+      hostConfig={createAppHostConfig({
+        apiBaseUrl: "http://api.example.test",
+        createNetworkStatus: () => source,
         wsUrl,
-      ).withOverrides({ createNetworkStatus: () => source })}
+      })}
       onReady={(nextTearleads) => {
         state.tearleads = nextTearleads;
       }}

@@ -194,16 +194,16 @@
       "bytes": 20521
     },
     "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
-      "lines": 677,
-      "bytes": 19682
+      "lines": 624,
+      "bytes": 18271
     },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
-      "lines": 541,
-      "bytes": 16075
+      "lines": 533,
+      "bytes": 15919
     },
     "packages/app/src/mini-apps/explorer/detail/document/ExplorerDocumentInfoSections.test.tsx": {
-      "lines": 623,
-      "bytes": 18029
+      "lines": 577,
+      "bytes": 17006
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerSyncLanesPanel.test.tsx": {
       "lines": 534,
@@ -214,36 +214,32 @@
       "bytes": 17992
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 551,
-      "bytes": 18152
+      "lines": 550,
+      "bytes": 18114
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 466,
-      "bytes": 21119
+      "lines": 461,
+      "bytes": 20948
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
-      "bytes": 17315
-    },
-    "packages/app/src/mini-apps/org-manager/OrgManager.tsx": {
-      "lines": 509,
-      "bytes": 16145
+      "bytes": 17309
     },
     "packages/app/src/mini-apps/org-manager/billing/BillingPanel.test.tsx": {
-      "lines": 506,
-      "bytes": 15770
+      "lines": 504,
+      "bytes": 15651
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 524,
-      "bytes": 16833
+      "lines": 523,
+      "bytes": 16822
     },
     "packages/app/src/stores/explorer/ExplorerProvider.syncAgent.test.ts": {
       "lines": 503,
       "bytes": 14867
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 1023,
-      "bytes": 30269
+      "lines": 815,
+      "bytes": 24041
     },
     "packages/client-sdk/src/client/Tearleads.test.ts": {
       "lines": 1001,

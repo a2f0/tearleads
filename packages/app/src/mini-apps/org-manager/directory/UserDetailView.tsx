@@ -3,7 +3,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -27,17 +27,11 @@ import {
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
+import { GrantSections } from "../grants/GrantSections";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { UserRosterMetadata } from "./RosterMetadata";
-import { UserGrantSections } from "./UserGrantSections";
-
-export type RenderRosterProfileEditor = (input: {
-  canEdit: boolean;
-  isEditing: boolean;
-  onDisplayNameChange: (displayName: string | null) => void;
-  user: OrganizationUserDetail["user"];
-}) => ReactNode;
+import { RosterProfileEditor } from "./RosterProfileEditor";
 
 function UserGroups({
   groups,
@@ -96,14 +90,13 @@ export function UserDetailView({
   detail,
   pending,
   onRosterProfileDisplayNameChange,
+  organizationId,
   rosterProfileEditRequestKey,
   openGrantRoute,
   openGroupRoute,
   profileDisplayName,
-  renderRosterProfileEditor,
   revokeGrant,
-  selectedUserId,
-  syncSeatAssigned = null,
+  syncSeatAssigned,
   mutating,
 }: {
   canEditRosterProfile: boolean;
@@ -111,41 +104,27 @@ export function UserDetailView({
   detail: OrganizationUserDetail | null;
   pending: boolean;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
-  rosterProfileEditRequestKey?: number | null | undefined;
+  organizationId: string;
+  rosterProfileEditRequestKey: number | null;
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
-  profileDisplayName?: string | undefined;
-  renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
+  profileDisplayName: string | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
-  selectedUserId: string | null;
-  syncSeatAssigned?: boolean | null | undefined;
+  syncSeatAssigned: boolean | null;
 }) {
   const [isRosterProfileEditing, setIsRosterProfileEditing] = useState(false);
 
   useEffect(() => {
     if (
       typeof rosterProfileEditRequestKey !== "number" ||
-      !canEditRosterProfile ||
-      !renderRosterProfileEditor
+      !canEditRosterProfile
     ) {
       return;
     }
 
     setIsRosterProfileEditing(true);
-  }, [
-    canEditRosterProfile,
-    renderRosterProfileEditor,
-    rosterProfileEditRequestKey,
-  ]);
-
-  if (!selectedUserId) {
-    return (
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.selectUser}
-      </MiniAppStatus>
-    );
-  }
+  }, [canEditRosterProfile, rosterProfileEditRequestKey]);
 
   if (!detail) {
     return (
@@ -196,7 +175,7 @@ export function UserDetailView({
               {ORG_MANAGER_LABELS.syncSeatUnavailable}
             </span>
           )}
-          {renderRosterProfileEditor && canEditRosterProfile && (
+          {canEditRosterProfile && (
             <MiniAppButton
               onClick={() =>
                 setIsRosterProfileEditing(
@@ -212,14 +191,13 @@ export function UserDetailView({
         </MiniAppActions>
       </MiniAppHeader>
       <MiniAppSection className="org-manager-roster-detail">
-        {renderRosterProfileEditor
-          ? renderRosterProfileEditor({
-              canEdit: canEditRosterProfile,
-              isEditing: isRosterProfileEditing,
-              onDisplayNameChange: onRosterProfileDisplayNameChange,
-              user: detail.user,
-            })
-          : null}
+        <RosterProfileEditor
+          canEdit={canEditRosterProfile}
+          isEditing={isRosterProfileEditing}
+          onDisplayNameChange={onRosterProfileDisplayNameChange}
+          organizationId={organizationId}
+          user={detail.user}
+        />
         <UserRosterMetadata user={detail.user} />
       </MiniAppSection>
       <MiniAppSection>
@@ -228,12 +206,28 @@ export function UserDetailView({
         </MiniAppSectionHeading>
         <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
       </MiniAppSection>
-      <UserGrantSections
+      <GrantSections
         canRevokeGrants={canRevokeGrants}
-        grants={detail.grants}
         mutating={mutating}
         openGrantRoute={openGrantRoute}
         revokeGrant={revokeGrant}
+        sections={[
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
+            grants: detail.grants.directGrants,
+            label: ORG_MANAGER_LABELS.userContainerLinks,
+          },
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
+            grants: detail.grants.groupGrants,
+            label: ORG_MANAGER_LABELS.groupContainerLinks,
+          },
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noOrganizationContainerLinks,
+            grants: detail.grants.organizationGrants,
+            label: ORG_MANAGER_LABELS.organizationContainerLinks,
+          },
+        ]}
       />
     </>
   );

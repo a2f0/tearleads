@@ -3,11 +3,10 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
-  canDeleteDocumentByRules,
-  canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
+  isPinnedSelfContact,
 } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";
 
@@ -73,7 +72,7 @@ export function getSelectedDocumentMutationState(params: {
       canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
       selectedDocument.containerId !== trashContainerId &&
-      canDeleteDocumentByRules(rulesContext, selectedDocument),
+      !isPinnedSelfContact(rulesContext, selectedDocument),
     canLinkSelectedDocument:
       canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
@@ -85,7 +84,7 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocument.containerId !== null &&
       selectedDocumentWritable &&
       selectedDocumentContainerWritable &&
-      canPurgeDocumentByRules(rulesContext, selectedDocument) &&
+      !isPinnedSelfContact(rulesContext, selectedDocument) &&
       // Purge applies anywhere under trash, not only at the trash root: a
       // document parked in a user-created subfolder of trash is still trashed.
       // Rules-based (org-aware) so it matches the read-only-when-trashed gate —

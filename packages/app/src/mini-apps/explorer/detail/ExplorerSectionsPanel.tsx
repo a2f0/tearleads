@@ -1,7 +1,5 @@
 import type {
   BlobInfo,
-  BlobInfoInput,
-  BlobInfoList,
   BlobStore,
   ContainerDocumentQueries,
   ContainerNode,
@@ -13,6 +11,7 @@ import {
   MiniAppTabList,
   MiniAppTabPanel,
 } from "../../../components/mini-app/MiniAppLayout";
+import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";
@@ -44,7 +43,7 @@ interface ExplorerSectionsPanelProps {
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: () => void;
   blobStore: BlobStore;
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  loadBlobInfo: ExplorerBlobInfoLoader;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   organizationNamesById: ReadonlyMap<string, string>;
@@ -72,7 +71,6 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     return (
       <ExplorerBlobBrowserPanel
         blobStore={params.blobStore}
-        domainScope={params.domainScope}
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
         online={params.online}
@@ -158,7 +156,6 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
     route,
   } = params;
   const activeTab = getActiveExplorerSectionTab(route);
-
   const selectTab = useCallback(
     (tab: ExplorerSectionTabId) => {
       if (tab === "blobs") {
@@ -182,6 +179,12 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
       openWriteQueueRoute,
     ],
   );
+
+  // A blob pick in flight (a document's "Choose Blob" flow routed here) keeps
+  // the focused bare Blob Browser — no hub tabs to wander off into mid-pick.
+  if (params.blobPickTarget !== null && route.view === "blob-browser") {
+    return <ExplorerSectionsActivePanel {...params} />;
+  }
 
   return (
     <div className="explorer-sections-hub">

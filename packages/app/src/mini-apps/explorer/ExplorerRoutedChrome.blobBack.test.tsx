@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import {
@@ -148,7 +147,6 @@ test("list drill-in returns to the list before its navigation origin", async () 
       <BlobBackHarness model={model}>
         <ExplorerBlobBrowserPanel
           blobStore={createBlobStore()}
-          domainScope={createDomainScope()}
           loadBlobInfo={async () => ({ rows: [BLOB], totalCount: 1 })}
           nodes={[]}
           onCancelBlobPick={() => undefined}

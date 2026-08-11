@@ -17,6 +17,18 @@ import { getExplorerContainerToolbarVisibility } from "./toolbar/explorerContain
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
+// Module-level icon elements: the title-bar registry compares registered
+// actions structurally (Object.is per field), so a stable icon element keeps an
+// unchanged action from re-registering every render — no per-action useMemo
+// wrappers needed.
+const CREATE_FOLDER_ICON = <FolderPlusIcon aria-hidden size={18} />;
+const INFO_ICON = <InfoIcon aria-hidden size={18} />;
+const LINK_DOCUMENT_ICON = <LinkSimpleIcon aria-hidden size={18} />;
+const MOVE_DOCUMENT_ICON = <ArrowsOutCardinalIcon aria-hidden size={18} />;
+const NEW_CONTACT_ICON = <NewContactIcon aria-hidden size={18} />;
+const NEW_DOCUMENT_ICON = <FilePlusIcon aria-hidden size={18} />;
+const UPLOAD_ICON = <UploadSimpleIcon aria-hidden size={18} />;
+
 export function useExplorerRoutedChromeActions({
   historyCanGoBack,
   model,
@@ -69,86 +81,156 @@ export function useExplorerRoutedChromeActions({
 
   useExplorerRoutedBackAction({ historyCanGoBack, model, route });
   useExplorerHubToolbarActions({ model, route });
-  useExplorerCreateFolderToolbarAction({
-    activeContainerId,
-    model,
-    show: containerToolbarVisibility.createChild,
-  });
-  useExplorerUploadToolbarAction({
-    activeContainerId,
-    model,
-    show: containerToolbarVisibility.upload,
-    triggerUpload,
-  });
-  useExplorerNewDocumentToolbarAction({
+  useExplorerContainerToolbarActions({
+    containerId: activeContainerId,
     model,
     openStructuredDocumentGrid,
-    show: containerToolbarVisibility.createDocument,
+    show: {
+      ...containerToolbarVisibility,
+      containerInfo: showContainerToolbar,
+    },
+    triggerUpload,
   });
-  useExplorerNewContactToolbarAction({
-    activeContainerId,
-    model,
-    show: containerToolbarVisibility.createContact,
-  });
-  useExplorerContainerInfoToolbarAction({
-    activeContainerId,
-    model,
-    show: showContainerToolbar,
-  });
-  useExplorerDocumentInfoToolbarAction({
-    documentId: selectedDocumentId,
+  useExplorerDocumentToolbarActions({
     containerId: selectedDocumentContainerId,
-    model,
-    show: showDocumentToolbar,
-  });
-  useExplorerLinkDocumentToolbarAction({
-    documentId: selectedDocumentId,
-    model,
-    show: showDocumentToolbar,
-  });
-  useExplorerMoveDocumentToolbarAction({
     documentId: selectedDocumentId,
     model,
     show: showDocumentToolbar,
   });
 }
 
-function useExplorerNewContactToolbarAction({
-  activeContainerId,
-  model,
-  show,
-}: {
-  activeContainerId: string | null;
+// The container-selection toolbar: creation/upload actions plus Get Info. Every
+// visibility flag implies a non-null active container id; the id checks below
+// only narrow the type.
+function useExplorerContainerToolbarActions(params: {
+  containerId: string | null;
+  model: ExplorerModel;
+  openStructuredDocumentGrid: () => void;
+  show: {
+    containerInfo: boolean;
+    createChild: boolean;
+    createContact: boolean;
+    createDocument: boolean;
+    upload: boolean;
+  };
+  triggerUpload: (containerId: string) => void;
+}) {
+  const { containerId, model, show, triggerUpload } = params;
+  const ready = model.explorer.ready;
+  useWindowTitleBarAction(
+    show.createChild && containerId
+      ? {
+          disabled: !ready || !model.canCreateChildInActiveContainer,
+          icon: CREATE_FOLDER_ICON,
+          id: "explorer-create-child-folder",
+          label: EXPLORER_LABELS.createChildFolderAction,
+          onClick: () => model.modalState.openCreateChildModal(containerId),
+          priority: 200,
+        }
+      : null,
+  );
+  useWindowTitleBarAction(
+    show.upload && containerId
+      ? {
+          disabled: !ready || !model.canUploadToActiveContainer,
+          icon: UPLOAD_ICON,
+          id: "explorer-upload",
+          label: EXPLORER_LABELS.uploadAction,
+          onClick: () => triggerUpload(containerId),
+          priority: 300,
+        }
+      : null,
+  );
+  useWindowTitleBarAction(
+    show.createDocument
+      ? {
+          disabled:
+            !ready || !model.canCreateStructuredDocumentInActiveContainer,
+          icon: NEW_DOCUMENT_ICON,
+          id: "explorer-new-structured-document-toolbar",
+          label: EXPLORER_LABELS.newStructuredDocumentAction,
+          onClick: params.openStructuredDocumentGrid,
+          priority: 400,
+        }
+      : null,
+  );
+  useWindowTitleBarAction(
+    show.createContact && containerId
+      ? {
+          disabled: !ready || !model.canCreateContactInActiveContainer,
+          icon: NEW_CONTACT_ICON,
+          id: "explorer-new-contact",
+          label: EXPLORER_LABELS.newContactAction,
+          onClick: () => model.openInlineDocument(containerId, "contact"),
+          priority: 400,
+        }
+      : null,
+  );
+  useWindowTitleBarAction(
+    show.containerInfo && containerId
+      ? {
+          icon: INFO_ICON,
+          id: "explorer-container-info",
+          label: EXPLORER_LABELS.documentInfoGetInfoAction,
+          onClick: () => model.routeState.openContainerInfoRoute(containerId),
+          priority: 100,
+        }
+      : null,
+  );
+}
+
+// The selected-document toolbar. Get Info stays visible (disabled) while the
+// selection's container is still unresolved; Link and Move hide (rather than
+// grey) when not performable — "if you can't do it, you can't see it". Their
+// can-flags already require at least one target, so Link (remote-only) simply
+// stays absent until a brand-new note syncs, while Move remains available for
+// offline/unsynced notes because it only relocates the local containerId.
+function useExplorerDocumentToolbarActions(params: {
+  containerId: string | null;
+  documentId: string | null;
   model: ExplorerModel;
   show: boolean;
 }) {
-  const newContactAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled:
-              !model.explorer.ready || !model.canCreateContactInActiveContainer,
-            icon: <NewContactIcon aria-hidden size={18} />,
-            id: "explorer-new-contact",
-            label: EXPLORER_LABELS.newContactAction,
-            onClick: () => {
-              if (activeContainerId) {
-                model.openInlineDocument(activeContainerId, "contact");
-              }
-            },
-            priority: 400,
-          }
-        : null,
-    [
-      activeContainerId,
-      model.canCreateContactInActiveContainer,
-      model.explorer.ready,
-      model.openInlineDocument,
-      show,
-    ],
+  const { containerId, documentId, model, show } = params;
+  useWindowTitleBarAction(
+    show
+      ? {
+          disabled: !containerId || !documentId,
+          icon: INFO_ICON,
+          id: "explorer-document-info",
+          label: EXPLORER_LABELS.documentInfoGetInfoAction,
+          onClick: () => {
+            if (containerId && documentId) {
+              model.routeState.openDocumentInfoRoute(documentId, containerId);
+            }
+          },
+          placement: "penultimate",
+          priority: 300,
+        }
+      : null,
   );
-
-  useWindowTitleBarAction(newContactAction);
+  useWindowTitleBarAction(
+    show && documentId && model.canLinkSelectedDocument
+      ? {
+          icon: LINK_DOCUMENT_ICON,
+          id: "explorer-link-document",
+          label: EXPLORER_LABELS.documentLinkAction,
+          onClick: () => model.modalState.openLinkDocumentModal(documentId),
+          priority: 200,
+        }
+      : null,
+  );
+  useWindowTitleBarAction(
+    show && documentId && model.canMoveSelectedDocument
+      ? {
+          icon: MOVE_DOCUMENT_ICON,
+          id: "explorer-move-document",
+          label: EXPLORER_LABELS.documentMoveAction,
+          onClick: () => model.modalState.openMoveDocumentModal(documentId),
+          priority: 110,
+        }
+      : null,
+  );
 }
 
 function useExplorerRoutedBackAction({
@@ -237,255 +319,4 @@ function useExplorerRoutedBackAction({
   ]);
 
   useMiniAppDetailBackAction(backAction);
-}
-
-function useExplorerCreateFolderToolbarAction({
-  activeContainerId,
-  model,
-  show,
-}: {
-  activeContainerId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-}) {
-  const createFolderAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled:
-              !model.explorer.ready || !model.canCreateChildInActiveContainer,
-            icon: <FolderPlusIcon aria-hidden size={18} />,
-            id: "explorer-create-child-folder",
-            label: EXPLORER_LABELS.createChildFolderAction,
-            onClick: () => {
-              if (activeContainerId) {
-                model.modalState.openCreateChildModal(activeContainerId);
-              }
-            },
-            priority: 200,
-          }
-        : null,
-    [
-      activeContainerId,
-      model.canCreateChildInActiveContainer,
-      model.explorer.ready,
-      model.modalState.openCreateChildModal,
-      show,
-    ],
-  );
-
-  useWindowTitleBarAction(createFolderAction);
-}
-
-function useExplorerUploadToolbarAction({
-  activeContainerId,
-  model,
-  show,
-  triggerUpload,
-}: {
-  activeContainerId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-  triggerUpload: (containerId: string) => void;
-}) {
-  const uploadAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled:
-              !model.explorer.ready || !model.canUploadToActiveContainer,
-            icon: <UploadSimpleIcon aria-hidden size={18} />,
-            id: "explorer-upload",
-            label: EXPLORER_LABELS.uploadAction,
-            onClick: () => {
-              if (activeContainerId) {
-                triggerUpload(activeContainerId);
-              }
-            },
-            priority: 300,
-          }
-        : null,
-    [
-      activeContainerId,
-      model.canUploadToActiveContainer,
-      model.explorer.ready,
-      show,
-      triggerUpload,
-    ],
-  );
-
-  useWindowTitleBarAction(uploadAction);
-}
-
-function useExplorerNewDocumentToolbarAction({
-  model,
-  openStructuredDocumentGrid,
-  show,
-}: {
-  model: ExplorerModel;
-  openStructuredDocumentGrid: () => void;
-  show: boolean;
-}) {
-  const newDocumentAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled:
-              !model.explorer.ready ||
-              !model.canCreateStructuredDocumentInActiveContainer,
-            icon: <FilePlusIcon aria-hidden size={18} />,
-            id: "explorer-new-structured-document-toolbar",
-            label: EXPLORER_LABELS.newStructuredDocumentAction,
-            onClick: openStructuredDocumentGrid,
-            priority: 400,
-          }
-        : null,
-    [
-      model.canCreateStructuredDocumentInActiveContainer,
-      model.explorer.ready,
-      openStructuredDocumentGrid,
-      show,
-    ],
-  );
-
-  useWindowTitleBarAction(newDocumentAction);
-}
-
-function useExplorerContainerInfoToolbarAction({
-  activeContainerId,
-  model,
-  show,
-}: {
-  activeContainerId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-}) {
-  const containerInfoAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled: !activeContainerId,
-            icon: <InfoIcon aria-hidden size={18} />,
-            id: "explorer-container-info",
-            label: EXPLORER_LABELS.documentInfoGetInfoAction,
-            onClick: () => {
-              if (activeContainerId) {
-                model.routeState.openContainerInfoRoute(activeContainerId);
-              }
-            },
-            priority: 100,
-          }
-        : null,
-    [activeContainerId, model.routeState.openContainerInfoRoute, show],
-  );
-
-  useWindowTitleBarAction(containerInfoAction);
-}
-
-function useExplorerDocumentInfoToolbarAction({
-  containerId,
-  documentId,
-  model,
-  show,
-}: {
-  containerId: string | null;
-  documentId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-}) {
-  const documentInfoAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled: !containerId || !documentId,
-            icon: <InfoIcon aria-hidden size={18} />,
-            id: "explorer-document-info",
-            label: EXPLORER_LABELS.documentInfoGetInfoAction,
-            onClick: () => {
-              if (containerId && documentId) {
-                model.routeState.openDocumentInfoRoute(documentId, containerId);
-              }
-            },
-            placement: "penultimate" as const,
-            priority: 300,
-          }
-        : null,
-    [containerId, documentId, model.routeState.openDocumentInfoRoute, show],
-  );
-
-  useWindowTitleBarAction(documentInfoAction);
-}
-
-function useExplorerLinkDocumentToolbarAction({
-  documentId,
-  model,
-  show,
-}: {
-  documentId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-}) {
-  const linkDocumentAction = useMemo(() => {
-    // Hide the action when it is not performable rather than showing it greyed:
-    // "if you can't do it, you can't see it." canLinkSelectedDocument already
-    // requires at least one link target, and is false until the note syncs (Link
-    // is remote-only), so a brand-new note simply omits Link.
-    if (!show || !documentId || !model.canLinkSelectedDocument) {
-      return null;
-    }
-
-    return {
-      icon: <LinkSimpleIcon aria-hidden size={18} />,
-      id: "explorer-link-document",
-      label: EXPLORER_LABELS.documentLinkAction,
-      onClick: () => {
-        model.modalState.openLinkDocumentModal(documentId);
-      },
-      priority: 200,
-    };
-  }, [
-    documentId,
-    model.canLinkSelectedDocument,
-    model.modalState.openLinkDocumentModal,
-    show,
-  ]);
-
-  useWindowTitleBarAction(linkDocumentAction);
-}
-
-function useExplorerMoveDocumentToolbarAction({
-  documentId,
-  model,
-  show,
-}: {
-  documentId: string | null;
-  model: ExplorerModel;
-  show: boolean;
-}) {
-  const moveDocumentAction = useMemo(() => {
-    // Hide the action when it is not performable rather than showing it greyed:
-    // "if you can't do it, you can't see it." canMoveSelectedDocument already
-    // requires at least one move target. Move only relocates the local
-    // containerId, so it stays available (visible) for offline / unsynced notes.
-    if (!show || !documentId || !model.canMoveSelectedDocument) {
-      return null;
-    }
-
-    return {
-      icon: <ArrowsOutCardinalIcon aria-hidden size={18} />,
-      id: "explorer-move-document",
-      label: EXPLORER_LABELS.documentMoveAction,
-      onClick: () => {
-        model.modalState.openMoveDocumentModal(documentId);
-      },
-      priority: 110,
-    };
-  }, [
-    documentId,
-    model.canMoveSelectedDocument,
-    model.modalState.openMoveDocumentModal,
-    show,
-  ]);
-
-  useWindowTitleBarAction(moveDocumentAction);
 }

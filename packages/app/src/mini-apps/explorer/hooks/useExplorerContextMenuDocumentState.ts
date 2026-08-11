@@ -6,12 +6,8 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";
-import {
-  getDocumentLinkedContainerIds,
-  getDocumentLinkTargetOptions,
-  getDocumentMoveTargetOptions,
-} from "../model/targetOptions";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
+import { useDocumentTargetOptions } from "./useSelectedDocumentStructuralState";
 
 interface ExplorerContextMenuDocumentState {
   canDeleteContextMenuDocument: boolean;
@@ -19,72 +15,6 @@ interface ExplorerContextMenuDocumentState {
   canLinkContextMenuDocument: boolean;
   canMoveContextMenuDocument: boolean;
   canPurgeContextMenuDocument: boolean;
-}
-
-function useContextMenuTargetDocumentOptions(params: {
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  nodes: ReadonlyArray<ContainerNode>;
-  rulesContext: ExplorerContainerRulesContext;
-  targetDocument: DocumentSummary | undefined;
-}) {
-  const {
-    documentSummaries,
-    linkedContainerIdsByDocumentId,
-    nodes,
-    rulesContext,
-    targetDocument,
-  } = params;
-  const linkedContainerIds = useMemo(
-    () =>
-      getDocumentLinkedContainerIds({
-        document: targetDocument,
-        linkedContainerIdsByDocumentId,
-      }),
-    [linkedContainerIdsByDocumentId, targetDocument],
-  );
-  const moveTargetOptions = useMemo(
-    () =>
-      targetDocument
-        ? getDocumentMoveTargetOptions(
-            nodes,
-            documentSummaries,
-            targetDocument.id,
-            undefined,
-            rulesContext,
-            linkedContainerIdsByDocumentId,
-          )
-        : [],
-    [
-      documentSummaries,
-      linkedContainerIdsByDocumentId,
-      nodes,
-      rulesContext,
-      targetDocument,
-    ],
-  );
-  const linkTargetOptions = useMemo(
-    () =>
-      targetDocument
-        ? getDocumentLinkTargetOptions(
-            nodes,
-            documentSummaries,
-            targetDocument.id,
-            linkedContainerIds,
-            undefined,
-            rulesContext,
-          )
-        : [],
-    [
-      documentSummaries,
-      linkedContainerIds,
-      nodes,
-      rulesContext,
-      targetDocument,
-    ],
-  );
-
-  return { linkTargetOptions, linkedContainerIds, moveTargetOptions };
 }
 
 // The detail-pane row context menu opens without selecting (selecting would
@@ -123,12 +53,12 @@ export function useExplorerContextMenuDocumentState(params: {
     [documentSummaries, targetLocalId],
   );
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
-    useContextMenuTargetDocumentOptions({
+    useDocumentTargetOptions({
+      document: targetDocument,
       documentSummaries,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
-      targetDocument,
     });
   const mutationState = useMemo(
     () =>

@@ -26,6 +26,7 @@ import {
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
+import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -102,16 +103,20 @@ function renderSinglePane() {
   const hostConfig = createTestHostConfig();
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
 
+  // Mirrors production composition: Layout mounts the developer-mode provider
+  // above every Pane.
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
-          <AppTestRuntimeScopeProbe />
-          <PaneAutoProvisioner />
-          <Pane className="pane pane-left" />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={hostConfig}>
+            <AppTestRuntimeScopeProbe />
+            <PaneAutoProvisioner />
+            <Pane className="pane pane-left" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 

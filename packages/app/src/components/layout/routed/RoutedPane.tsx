@@ -59,11 +59,9 @@ export function initialRoutedSidebarExpanded(
 export function resolveRoutedActiveMiniAppId(
   routeAppId: MiniAppId | null,
 ): MiniAppId {
-  if (routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId)) {
-    return routeAppId;
-  }
-
-  return ROUTED_ROOT_MINI_APP_ID;
+  // parseAppRoute only produces registered ids, so null (the root route) is the
+  // sole fallback case.
+  return routeAppId ?? ROUTED_ROOT_MINI_APP_ID;
 }
 
 /**

@@ -132,12 +132,8 @@ export function MiniAppClipboardButton({
       }}
       onClick={(event) => {
         onClick?.(event);
-        if (
-          event.defaultPrevented ||
-          !canCopy ||
-          typeof navigator === "undefined" ||
-          !navigator.clipboard
-        ) {
+        // navigator.clipboard is genuinely absent in insecure contexts.
+        if (event.defaultPrevented || !canCopy || !navigator.clipboard) {
           return;
         }
 

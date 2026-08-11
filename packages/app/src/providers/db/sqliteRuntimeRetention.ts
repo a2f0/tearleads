@@ -1,4 +1,5 @@
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 const SQLITE_RUNTIME_RESET_TIMEOUT_MS = 1_000;
 
@@ -10,7 +11,7 @@ export class SQLiteRuntimeResetError extends Error {
     readonly mode: SQLiteRuntimeResetMode | "renew",
     cause: unknown,
   ) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
+    const detail = unknownErrorMessage(cause);
     super(`SQLite runtime ${mode} failed; worker terminated: ${detail}`);
     this.name = "SQLiteRuntimeResetError";
   }

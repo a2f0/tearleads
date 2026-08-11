@@ -9,6 +9,7 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { canDisableRosterUser } from "../permissions";
 import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
 
@@ -42,24 +43,6 @@ function hasDirectUserMember(
   userId: string,
 ): boolean {
   return members.members.some((member) => member.userId === userId);
-}
-
-function canDisableRosterUserRequest(input: {
-  authUserId: string | null;
-  canDisableRosterUsers: boolean;
-  directory: OrganizationDirectory | null;
-  memberGroupId: string | null;
-  targetUser: OrganizationDirectory["users"][number] | null;
-}): boolean {
-  return Boolean(
-    input.canDisableRosterUsers &&
-      input.directory &&
-      input.memberGroupId &&
-      input.targetUser &&
-      input.targetUser.status === "active" &&
-      !input.targetUser.isSelf &&
-      input.targetUser.userId !== input.authUserId,
-  );
 }
 
 function collectRosterDisableMembershipTargets(input: {
@@ -151,15 +134,13 @@ async function disableRosterUser(
     ) ?? null;
   const adminGroupId = findBuiltinAdminGroupId(input.groups);
   if (
-    !canDisableRosterUserRequest({
+    !input.directory ||
+    !input.memberGroupId ||
+    !canDisableRosterUser({
       authUserId: input.appData.auth.userId,
       canDisableRosterUsers: input.canDisableRosterUsers,
-      directory: input.directory,
-      memberGroupId: input.memberGroupId,
       targetUser,
-    }) ||
-    !input.directory ||
-    !input.memberGroupId
+    })
   ) {
     return;
   }

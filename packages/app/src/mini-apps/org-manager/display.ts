@@ -71,7 +71,3 @@ export function getContainerDisplayTitle(
     ? `${displayName} (${container.containerId})`
     : container.containerId;
 }
-
-export function isKeyboardActivationKey(key: string): boolean {
-  return key === "Enter" || key === " ";
-}

@@ -1,7 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import {
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
@@ -57,16 +60,15 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const hostConfig = new AppHostConfig(
-      "http://api.example.test",
-      "ws://events.example.test/refresh",
-    ).withOverrides({
+    const hostConfig = createAppHostConfig({
+      apiBaseUrl: "http://api.example.test",
       subscribeConnectionRefresh: (listener) => {
         refreshConnection = listener;
         return () => {
           refreshConnection = null;
         };
       },
+      wsUrl: "ws://events.example.test/refresh",
     });
     const view = render(
       <Harness

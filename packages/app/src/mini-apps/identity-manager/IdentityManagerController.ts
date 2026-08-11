@@ -5,6 +5,7 @@ import {
   runConfirmedLogout,
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
+import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import {
   type RegisterCurrentIdentityResult,
@@ -24,7 +25,6 @@ import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
-import { useIdentityManagerRefreshMenu } from "./menu/IdentityManagerRefreshMenu";
 import { useIdentitySwitcher } from "./switcher/useIdentitySwitcher";
 import type { IdentityBusyState } from "./toolbar/IdentityManagerActionToolbar";
 
@@ -391,12 +391,17 @@ export function useIdentityManager() {
     logoutBusy ||
     identityMutations.identityBusy !== null;
   const identitySwitcher = useIdentitySwitcher(identity, switcherBusy);
-  useIdentityManagerRefreshMenu({
-    canManageSessions,
-    loadingSessions: sessionList.loadingSessions,
-    mutatingSessionId: sessionMutations.mutatingSessionId,
-    refreshSessions: sessionList.refreshSessions,
-  });
+  useWindowRefreshMenuItem(
+    canManageSessions
+      ? {
+          disabled:
+            sessionList.loadingSessions ||
+            sessionMutations.mutatingSessionId !== null,
+          onRefresh: sessionList.refreshSessions,
+          refreshing: sessionList.loadingSessions,
+        }
+      : null,
+  );
 
   return {
     canAuthenticate,

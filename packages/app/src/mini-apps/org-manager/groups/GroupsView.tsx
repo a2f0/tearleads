@@ -7,7 +7,6 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { useContextMenuState } from "../../../components/shared/useContextMenuState";
-import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { GroupContextMenu } from "./GroupContextMenu";
 import { GroupDetailSection } from "./GroupDetailSection";
@@ -25,7 +24,7 @@ interface GroupsViewProps {
   createGroup: () => void;
   deleteGroup: (groupId: string) => void;
   directory: OrganizationDirectory | null;
-  error?: string | null | undefined;
+  error: string | null;
   groupContainers: OrganizationGroupContainers | null;
   groupNameDraft: string;
   groupPolicyHistory: OrganizationGroupPolicyHistory | null;
@@ -37,7 +36,7 @@ interface GroupsViewProps {
   pending: boolean;
   openCreateGroupDialog: () => void;
   openRosterUser: (userId: string) => void;
-  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
@@ -71,7 +70,7 @@ export function GroupsView({
   pending,
   openCreateGroupDialog,
   openRosterUser,
-  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
+  profileDisplayNamesByUserId,
   removeMember,
   selectedGroup,
   selectedGroupId,
@@ -101,7 +100,7 @@ export function GroupsView({
       canCreateGroup={canCreateGroup}
       closeCreateGroupDialog={closeCreateGroupDialog}
       createGroup={createGroup}
-      error={error ?? null}
+      error={error}
       groupNameDraft={groupNameDraft}
       isOpen={isCreateGroupDialogOpen}
       mutating={mutating}

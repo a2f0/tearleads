@@ -11,11 +11,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { LocalOrganizationsState } from "./orgSwitcherTypes";
-
-const ORGANIZATION_INDEX_RETRY_DELAY_MS = 500;
-const ORGANIZATION_INDEX_RETRY_LIMIT = 40;
 
 type OrganizationsSetter = Dispatch<
   SetStateAction<readonly LocalOrganizationSummary[]>
@@ -87,7 +85,6 @@ interface OrganizationReloadOptions {
   retainedOrganizationsRef: {
     current: Map<string, LocalOrganizationSummary>;
   };
-  scopeKey: DomainScope;
   setOrganizations: OrganizationsSetter;
   setOrganizationsError: Dispatch<SetStateAction<string | null>>;
   setOrganizationsLoading: Dispatch<SetStateAction<boolean>>;
@@ -102,7 +99,6 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
     mountedRef,
     organizationsRef,
     retainedOrganizationsRef,
-    scopeKey,
     setOrganizations,
     setOrganizationsError,
     setOrganizationsLoading,
@@ -155,7 +151,6 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
     mountedRef,
     organizationsRef,
     retainedOrganizationsRef,
-    scopeKey,
     setOrganizations,
     setOrganizationsError,
     setOrganizationsLoading,
@@ -279,40 +274,32 @@ function useOrganizationIndexCatchUpRetry(input: {
       return;
     }
 
-    let attempts = 0;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      timer = setTimeout(() => {
-        const awaitingActiveIndex =
-          activeOrganizationId !== undefined &&
-          input.retainedOrganizationsRef.current.has(activeOrganizationId);
-        if (cancelled || (!awaitingActiveIndex && !hasUnnamedOrganization)) {
-          return;
-        }
-        if (attempts >= ORGANIZATION_INDEX_RETRY_LIMIT) {
-          if (awaitingActiveIndex) {
-            input.setOrganizationsError(
-              ORG_MANAGER_LABELS.failedLoadOrganizations,
-            );
-          }
-          return;
-        }
-        attempts += 1;
-        void input.reload().finally(() => {
-          if (!cancelled) {
-            schedule();
-          }
-        });
-      }, ORGANIZATION_INDEX_RETRY_DELAY_MS);
-    };
-    schedule();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) {
-        clearTimeout(timer);
+    const retry = createBoundedRetrySchedule(() => {
+      const awaitingActiveIndex =
+        activeOrganizationId !== undefined &&
+        input.retainedOrganizationsRef.current.has(activeOrganizationId);
+      if (
+        retry.cancelled ||
+        (!awaitingActiveIndex && !hasUnnamedOrganization)
+      ) {
+        return;
       }
-    };
+      if (retry.exhausted) {
+        if (awaitingActiveIndex) {
+          input.setOrganizationsError(
+            ORG_MANAGER_LABELS.failedLoadOrganizations,
+          );
+        }
+        return;
+      }
+      void input.reload().finally(() => {
+        if (!retry.cancelled) {
+          retry.scheduleNext();
+        }
+      });
+    });
+    retry.start();
+    return () => retry.cancel();
   }, [
     activeOrganizationId,
     hasUnnamedOrganization,

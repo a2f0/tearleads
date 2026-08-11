@@ -1,12 +1,5 @@
 import type { FileSaver } from "@tearleads/client-sdk";
-import {
-  type ChangeEvent,
-  type RefObject,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {
   type BackupProgress,
@@ -16,6 +9,7 @@ import {
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -24,27 +18,7 @@ type ExportLocalBackup = ReturnType<
 type RestoreLocalBackup = ReturnType<
   typeof useLocalBackupOperations
 >["restoreLocalBackup"];
-
-interface BackupRestoreOperationState {
-  readonly resetOperationState: () => void;
-  readonly restoreFileInputRef: RefObject<HTMLInputElement | null>;
-  readonly selectedRestoreFileText: string | null;
-  readonly setBackupPassword: (value: string) => void;
-  readonly setBusy: (value: BackupRestoreBusyState) => void;
-  readonly setConfirmBackupPassword: (value: string) => void;
-  readonly setError: (value: string | null) => void;
-  readonly setLastSummary: (value: BackupSummary | null) => void;
-  readonly setProgress: (value: BackupProgress | null) => void;
-  readonly setRestoreComplete: (value: boolean) => void;
-  readonly setRestorePassword: (value: string) => void;
-  readonly setSelectedRestoreFileName: (value: string | null) => void;
-  readonly setSelectedRestoreFileText: (value: string | null) => void;
-  readonly setStatus: (value: string | null) => void;
-}
-
-function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Operation failed.";
-}
+type BackupRestoreState = ReturnType<typeof useBackupRestoreState>;
 
 function formatSummary(summary: BackupSummary): string {
   const missingBlobText =
@@ -70,7 +44,7 @@ function useExportBackupAction({
   readonly fileSaver: FileSaver;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly state: BackupRestoreOperationState;
+  readonly state: BackupRestoreState;
 }) {
   const {
     resetOperationState,
@@ -112,7 +86,7 @@ function useExportBackupAction({
       log("Local backup exported");
     } catch (operationError: unknown) {
       logError("Failed to export local backup", operationError);
-      setError(readErrorMessage(operationError));
+      setError(unknownErrorMessage(operationError));
     } finally {
       setBusy(null);
       setProgress(null);
@@ -146,7 +120,7 @@ function useRestoreBackupAction({
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly restorePassword: string;
   readonly restoreLocalBackup: RestoreLocalBackup;
-  readonly state: BackupRestoreOperationState;
+  readonly state: BackupRestoreState;
 }) {
   const {
     resetOperationState,
@@ -190,7 +164,7 @@ function useRestoreBackupAction({
       log("Local backup restored");
     } catch (operationError: unknown) {
       logError("Failed to restore local backup", operationError);
-      setError(readErrorMessage(operationError));
+      setError(unknownErrorMessage(operationError));
     } finally {
       setBusy(null);
       setProgress(null);
@@ -220,17 +194,17 @@ function useRestoreBackupAction({
 
 function useRestoreFileSelection({
   logError,
-  resetOperationState,
-  setError,
-  setSelectedRestoreFileName,
-  setSelectedRestoreFileText,
+  state,
 }: {
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly resetOperationState: () => void;
-  readonly setError: (value: string | null) => void;
-  readonly setSelectedRestoreFileName: (value: string | null) => void;
-  readonly setSelectedRestoreFileText: (value: string | null) => void;
+  readonly state: BackupRestoreState;
 }) {
+  const {
+    resetOperationState,
+    setError,
+    setSelectedRestoreFileName,
+    setSelectedRestoreFileText,
+  } = state;
   // Token of the most recent selection, so a slow file.text() from a
   // superseded selection can't clobber the text of the file currently shown.
   const selectionTokenRef = useRef(0);
@@ -262,7 +236,7 @@ function useRestoreFileSelection({
           logError("Failed to read local backup file", fileError);
           setSelectedRestoreFileName(null);
           setSelectedRestoreFileText(null);
-          setError(readErrorMessage(fileError));
+          setError(unknownErrorMessage(fileError));
         });
     },
     [
@@ -299,25 +273,6 @@ function useBackupRestoreState() {
     setProgress(null);
     setRestoreComplete(false);
   }, []);
-  const operationState = useMemo<BackupRestoreOperationState>(
-    () => ({
-      resetOperationState,
-      restoreFileInputRef,
-      selectedRestoreFileText,
-      setBackupPassword,
-      setBusy,
-      setConfirmBackupPassword,
-      setError,
-      setLastSummary,
-      setProgress,
-      setRestoreComplete,
-      setRestorePassword,
-      setSelectedRestoreFileName,
-      setSelectedRestoreFileText,
-      setStatus,
-    }),
-    [resetOperationState, selectedRestoreFileText],
-  );
 
   return {
     backupPassword,
@@ -325,19 +280,24 @@ function useBackupRestoreState() {
     confirmBackupPassword,
     error,
     lastSummary,
-    operationState,
     progress,
     resetOperationState,
     restoreComplete,
     restoreFileInputRef,
     restorePassword,
     selectedRestoreFileName,
+    selectedRestoreFileText,
     setBackupPassword,
+    setBusy,
     setConfirmBackupPassword,
     setError,
+    setLastSummary,
+    setProgress,
+    setRestoreComplete,
     setRestorePassword,
     setSelectedRestoreFileName,
     setSelectedRestoreFileText,
+    setStatus,
     status,
   };
 }
@@ -354,22 +314,16 @@ export function useBackupRestore() {
     fileSaver,
     log,
     logError,
-    state: state.operationState,
+    state,
   });
   const handleRestoreBackup = useRestoreBackupAction({
     log,
     logError,
     restorePassword: state.restorePassword,
     restoreLocalBackup,
-    state: state.operationState,
+    state,
   });
-  const handleRestoreFileChange = useRestoreFileSelection({
-    logError,
-    resetOperationState: state.resetOperationState,
-    setError: state.setError,
-    setSelectedRestoreFileName: state.setSelectedRestoreFileName,
-    setSelectedRestoreFileText: state.setSelectedRestoreFileText,
-  });
+  const handleRestoreFileChange = useRestoreFileSelection({ logError, state });
 
   const handleChooseRestoreFile = useCallback(() => {
     state.restoreFileInputRef.current?.click();

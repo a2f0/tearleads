@@ -3,9 +3,10 @@ import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWri
 import type { RowDetailField } from "../shared/DocumentRowDetail";
 import {
   type ReadTrackerRowCell,
+  readTrackerRowCell,
   type TrackerRow,
+  toTrackerRows,
   trackerDetailFields,
-  trackerRowMetadata,
 } from "../shared/trackerRows";
 import {
   ENV_FILE_VARIABLE_KEY_FIELD,
@@ -21,24 +22,14 @@ const ENV_FILE_EMPTY_VALUE = "None";
 const ENV_FILE_MASKED_VALUE_PREFIX = "********";
 const ENV_FILE_VISIBLE_VALUE_LENGTH = 4;
 
-// Fold the store's generic rows into typed variable views, applying the caller's
-// optimistic in-flight cell overlay so controlled inputs stay smooth.
+// Fold the store's generic rows into typed variable views.
 export function toEnvVariableRows(
   rows: ReadonlyArray<DocumentRow>,
   readCell: ReadTrackerRowCell,
 ): EnvVariableRow[] {
-  return rows.map((row) => ({
-    ...trackerRowMetadata(row),
-    key: readCell(
-      row.id,
-      ENV_FILE_VARIABLE_KEY_FIELD,
-      row.fields[ENV_FILE_VARIABLE_KEY_FIELD] ?? "",
-    ),
-    value: readCell(
-      row.id,
-      ENV_FILE_VARIABLE_VALUE_FIELD,
-      row.fields[ENV_FILE_VARIABLE_VALUE_FIELD] ?? "",
-    ),
+  return toTrackerRows(rows, (row) => ({
+    key: readTrackerRowCell(row, readCell, ENV_FILE_VARIABLE_KEY_FIELD),
+    value: readTrackerRowCell(row, readCell, ENV_FILE_VARIABLE_VALUE_FIELD),
   }));
 }
 

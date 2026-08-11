@@ -8,7 +8,6 @@ import {
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
-  type MoveTargetOption,
 } from "../model/targetOptions";
 import {
   type ExplorerModalSubmitParams,
@@ -111,7 +110,6 @@ function useExplorerModalState(
   }, [clearModal, isSubmittingModal]);
   const openers = useExplorerModalOpeners({
     canShareWithPeer,
-    documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
     rulesContext,
@@ -157,86 +155,7 @@ interface ExplorerModalSubmitControllerParams
   setBackgroundActionError: (error: string | null) => void;
 }
 
-function useExplorerModalActionParams(
-  params: ExplorerModalSubmitControllerParams,
-): ExplorerModalSubmitParams {
-  const {
-    canShareWithPeer,
-    clearModal,
-    createChild,
-    draftName,
-    draftTargetContainerId,
-    expandNode,
-    isSubmittingModal,
-    linkDocument,
-    modalState,
-    moveContainer,
-    moveDocument,
-    nodes,
-    online,
-    peerUserId,
-    startContainerPurge,
-    startEmptyTrash,
-    renameContainer,
-    setBackgroundActionError,
-    setIsSubmittingModal,
-    setModalError,
-    setSelectedId,
-    shareWithUser,
-  } = params;
-
-  return useMemo(
-    () => ({
-      canShareWithPeer,
-      clearModal,
-      createChild,
-      draftName,
-      draftTargetContainerId,
-      expandNode,
-      linkDocument,
-      modalState,
-      moveContainer,
-      moveDocument,
-      nodes,
-      online,
-      peerUserId,
-      startContainerPurge,
-      startEmptyTrash,
-      renameContainer,
-      setBackgroundActionError,
-      setModalError,
-      setSelectedId,
-      shareWithUser,
-    }),
-    [
-      canShareWithPeer,
-      clearModal,
-      createChild,
-      draftName,
-      draftTargetContainerId,
-      expandNode,
-      isSubmittingModal,
-      linkDocument,
-      modalState,
-      moveContainer,
-      moveDocument,
-      nodes,
-      online,
-      peerUserId,
-      startContainerPurge,
-      startEmptyTrash,
-      renameContainer,
-      setBackgroundActionError,
-      setIsSubmittingModal,
-      setModalError,
-      setSelectedId,
-      shareWithUser,
-    ],
-  );
-}
-
 function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
-  const submitParams = useExplorerModalActionParams(params);
   const {
     isSubmittingModal,
     modalState,
@@ -257,7 +176,9 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
       setIsSubmittingModal(true);
 
       try {
-        await submitExplorerModalAction(submitParams);
+        // The controller params are a structural superset of the submit params,
+        // so the dispatcher takes them as-is.
+        await submitExplorerModalAction(params);
       } catch (error: unknown) {
         console.error(getExplorerModalLog(modalState.mode), error);
         setModalError(getExplorerModalError(modalState.mode));
@@ -268,10 +189,10 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
     [
       isSubmittingModal,
       modalState,
+      params,
       setBackgroundActionError,
       setIsSubmittingModal,
       setModalError,
-      submitParams,
     ],
   );
 }
@@ -300,7 +221,6 @@ export function useExplorerModalController(
       const { documentLocalId } = modalState.modalState;
       return getDocumentLinkTargetOptions(
         params.nodes,
-        params.documentSummaries,
         documentLocalId,
         getDocumentLinkedContainerIds({
           document:
@@ -315,7 +235,6 @@ export function useExplorerModalController(
     if (modalState.modalState?.mode === "move-document") {
       return getDocumentMoveTargetOptions(
         params.nodes,
-        params.documentSummaries,
         modalState.modalState.documentLocalId,
         modalState.targetLookups,
         params.rulesContext,
@@ -327,7 +246,6 @@ export function useExplorerModalController(
   }, [
     modalState.modalState,
     modalState.targetLookups,
-    params.documentSummaries,
     params.linkedContainerIdsByDocumentId,
     params.nodes,
     params.rulesContext,
@@ -344,41 +262,9 @@ export function useExplorerModalController(
     setModalError: modalState.setModalError,
   });
 
-  return buildExplorerModalController({
-    handleModalSubmit,
-    modalState,
-    moveTargetOptions,
-  });
-}
-
-function buildExplorerModalController(params: {
-  handleModalSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  modalState: ReturnType<typeof useExplorerModalState>;
-  moveTargetOptions: ReadonlyArray<MoveTargetOption>;
-}): ExplorerModalController {
-  const { handleModalSubmit, modalState, moveTargetOptions } = params;
   return {
-    backgroundActionError: modalState.backgroundActionError,
-    closeModal: modalState.closeModal,
-    draftName: modalState.draftName,
-    draftTargetContainerId: modalState.draftTargetContainerId,
+    ...modalState,
     handleModalSubmit,
-    isSubmittingModal: modalState.isSubmittingModal,
-    modalError: modalState.modalError,
-    modalState: modalState.modalState,
     moveTargetOptions,
-    nameInputRef: modalState.nameInputRef,
-    openCreateChildModal: modalState.openCreateChildModal,
-    openEmptyTrashModal: modalState.openEmptyTrashModal,
-    openLinkDocumentModal: modalState.openLinkDocumentModal,
-    openMoveDocumentModal: modalState.openMoveDocumentModal,
-    openMoveModal: modalState.openMoveModal,
-    openPurgeModal: modalState.openPurgeModal,
-    openRenameModal: modalState.openRenameModal,
-    openSharePeerModal: modalState.openSharePeerModal,
-    setDraftName: modalState.setDraftName,
-    setDraftTargetContainerId: modalState.setDraftTargetContainerId,
-    setModalError: modalState.setModalError,
-    targetSelectRef: modalState.targetSelectRef,
   };
 }

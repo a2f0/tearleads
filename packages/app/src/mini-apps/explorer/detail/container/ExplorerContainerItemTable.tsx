@@ -89,57 +89,24 @@ function isExplorerContainerItemContextTarget(
   );
 }
 
-function ExplorerContainerItemTableRow(params: {
-  columnIds: ReadonlyArray<ExplorerItemColumnId>;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  currentSigningFingerprint: string | null | undefined;
-  currentSelfContactLocalId: string | null | undefined;
-  currentUserId: string | null | undefined;
-  online: boolean;
-  row: ContainerItemRow;
-  onItemContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    row: ContainerItemRow,
-  ) => void;
-  selected: boolean;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
-  setSelectedId: (id: string | null) => void;
-}) {
-  const {
-    columnIds,
-    contactAvatarUrlByLocalId,
-    currentSigningFingerprint,
-    currentSelfContactLocalId,
-    currentUserId,
-    online,
-    onItemContextMenu,
-    row,
-    selected,
-    selectDocumentProjection,
-    setSelectedId,
-  } = params;
-  const cellContext: ExplorerItemCellContext = {
-    contactAvatarUrlByLocalId,
-    currentSigningFingerprint,
-    currentSelfContactLocalId,
-    currentUserId,
-    online,
-    onItemContextMenu,
-    row,
-    selectDocumentProjection,
-    setSelectedId,
-  };
-
+// The row's params are its cell context plus the table-level column list and
+// selection flag, so cells receive the params object directly.
+function ExplorerContainerItemTableRow(
+  params: ExplorerItemCellContext & {
+    columnIds: ReadonlyArray<ExplorerItemColumnId>;
+    selected: boolean;
+  },
+) {
   return (
     <MiniAppTableRow
       className="explorer-item-table-row"
       interactive
-      onActivate={() => openExplorerItem(cellContext)}
-      onContextMenu={(event) => onItemContextMenu(event, row)}
-      selected={selected}
+      onActivate={() => openExplorerItem(params)}
+      onContextMenu={(event) => params.onItemContextMenu(event, params.row)}
+      selected={params.selected}
     >
-      {columnIds.map((columnId) =>
-        renderExplorerItemCell(columnId, cellContext),
+      {params.columnIds.map((columnId) =>
+        renderExplorerItemCell(columnId, params),
       )}
     </MiniAppTableRow>
   );
@@ -156,48 +123,31 @@ function isExplorerItemTableBlankContextTarget(
   );
 }
 
-function ExplorerContainerItemTableBody(params: {
-  columnIds: ReadonlyArray<ExplorerItemColumnId>;
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  contextTarget: ExplorerContextMenuTarget | null;
-  currentSigningFingerprint: string | null | undefined;
-  currentSelfContactLocalId: string | null | undefined;
-  currentUserId: string | null | undefined;
-  emptyLabel: string;
-  error: string | null;
-  isLoading: boolean;
-  online: boolean;
-  onItemContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    row: ContainerItemRow,
-  ) => void;
-  rows: ReadonlyArray<ContainerItemRow>;
-  rowHeight: number;
-  rowOffset: number;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
-  setSelectedId: (id: string | null) => void;
-  totalCount: number;
-}) {
+function ExplorerContainerItemTableBody(
+  params: Omit<ExplorerItemCellContext, "row"> & {
+    columnIds: ReadonlyArray<ExplorerItemColumnId>;
+    columns: ReadonlyArray<MiniAppTableColumn>;
+    contextTarget: ExplorerContextMenuTarget | null;
+    emptyLabel: string;
+    error: string | null;
+    isLoading: boolean;
+    rows: ReadonlyArray<ContainerItemRow>;
+    rowHeight: number;
+    rowOffset: number;
+    totalCount: number;
+  },
+) {
   const {
-    columnIds,
     columns,
-    contactAvatarUrlByLocalId,
     contextTarget,
-    currentSigningFingerprint,
-    currentSelfContactLocalId,
-    currentUserId,
     emptyLabel,
     error,
     isLoading,
-    online,
-    onItemContextMenu,
     rows,
     rowHeight,
     rowOffset,
-    selectDocumentProjection,
-    setSelectedId,
     totalCount,
+    ...rowContext
   } = params;
   const topPadding = rowOffset * rowHeight;
   const bottomPadding =
@@ -215,17 +165,9 @@ function ExplorerContainerItemTableBody(params: {
         rows.map((row) => (
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
-            columnIds={columnIds}
-            contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
-            currentSigningFingerprint={currentSigningFingerprint}
-            currentSelfContactLocalId={currentSelfContactLocalId}
-            currentUserId={currentUserId}
-            online={online}
-            onItemContextMenu={onItemContextMenu}
+            {...rowContext}
             row={row}
             selected={isExplorerContainerItemContextTarget(row, contextTarget)}
-            selectDocumentProjection={selectDocumentProjection}
-            setSelectedId={setSelectedId}
           />
         ))
       ) : isLoading ? (

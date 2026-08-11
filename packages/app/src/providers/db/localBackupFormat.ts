@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { randomBytes } from "../../utils/randomBytes";
 
 const BACKUP_FILE_FORMAT = "tearleads.local-backup.encrypted";
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
@@ -184,12 +185,6 @@ function copyToArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return copy;
-}
-
-function randomBytes(byteLength: number): Uint8Array<ArrayBuffer> {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  return bytes;
 }
 
 async function deriveBackupKey(input: {

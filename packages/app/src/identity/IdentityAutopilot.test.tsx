@@ -26,6 +26,7 @@ import { PaneProvider } from "../components/pane/runtime/PaneProvider";
 import { Pane } from "../components/pane/shell/Pane";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";
 import type { AppHostConfig } from "../host/AppHostConfig";
+import { SystemMonitorDeveloperModeProvider } from "../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -44,18 +45,22 @@ function renderAutopilotPane(options: {
   readonly hostConfig: AppHostConfig;
 }) {
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
+  // Mirrors production composition: Layout mounts the developer-mode provider
+  // above every Pane.
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider
-          autoProvisionEnabled={options.autoProvisionEnabled}
-          hostConfig={options.hostConfig}
-        >
-          <AppTestRuntimeScopeProbe />
-          <Pane className="pane" />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider
+            autoProvisionEnabled={options.autoProvisionEnabled}
+            hostConfig={options.hostConfig}
+          >
+            <AppTestRuntimeScopeProbe />
+            <Pane className="pane" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 

@@ -33,6 +33,32 @@ export function trackerRowMetadata(row: DocumentRow): TrackerRow {
   };
 }
 
+/**
+ * Reads one cell (a document field) through the caller's optimistic in-flight
+ * overlay so controlled inputs stay smooth.
+ */
+export function readTrackerRowCell(
+  row: DocumentRow,
+  readCell: ReadTrackerRowCell,
+  field: string,
+): string {
+  return readCell(row.id, field, row.fields[field] ?? "");
+}
+
+/**
+ * Folds the store's generic rows into typed views: shared row metadata plus
+ * the caller's typed cells (built via {@link readTrackerRowCell}).
+ */
+export function toTrackerRows<Cells extends Record<string, string>>(
+  rows: ReadonlyArray<DocumentRow>,
+  readRowCells: (row: DocumentRow) => Cells,
+): Array<TrackerRow & Cells> {
+  return rows.map((row) => ({
+    ...trackerRowMetadata(row),
+    ...readRowCells(row),
+  }));
+}
+
 export function readStructuredTrackerField(
   structuredFields: Readonly<Record<string, string>>,
   field: string,

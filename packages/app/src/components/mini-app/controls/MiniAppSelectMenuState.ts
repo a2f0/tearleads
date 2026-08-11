@@ -195,40 +195,6 @@ function useCloseOnFocusOut(params: {
   }, [close, open, portalRef, rootRef]);
 }
 
-function useSelectMenuKeyboard(controls: MiniAppSelectMenuKeyControls) {
-  const {
-    close,
-    commitSelection,
-    highlightEdge,
-    moveHighlight,
-    open,
-    openList,
-    options,
-  } = controls;
-
-  return useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>) =>
-      handleSelectMenuKeyDown(event, {
-        close,
-        commitSelection,
-        highlightEdge,
-        moveHighlight,
-        open,
-        openList,
-        options,
-      }),
-    [
-      close,
-      commitSelection,
-      highlightEdge,
-      moveHighlight,
-      open,
-      openList,
-      options,
-    ],
-  );
-}
-
 function useSyncSelectMenuHighlight(params: {
   open: boolean;
   setHighlightedId: (value: string) => void;
@@ -242,21 +208,115 @@ function useSyncSelectMenuHighlight(params: {
   }, [open, setHighlightedId, value]);
 }
 
-function useSelectMenuDismissal(params: {
-  close: () => void;
-  open: boolean;
-  portalRef: RefObject<HTMLDivElement | null>;
-  rootRef: RefObject<HTMLDivElement | null>;
+function useSelectMenuOpenActions(params: {
+  disabled: boolean;
+  hasFooter: boolean;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
+  selectRef: RefObject<HTMLButtonElement | null>;
+  selectedOptionId: string | undefined;
+  setHighlightedId: (value: string) => void;
+  setOpen: (open: boolean) => void;
 }) {
-  useCloseOnOutsideMouseDown(params);
-  useCloseOnFocusOut(params);
+  const { onChange, options, selectRef, setHighlightedId, setOpen } = params;
+
+  const close = useCallback(() => setOpen(false), [setOpen]);
+  const openList = useCallback(() => {
+    if (params.disabled || (options.length === 0 && !params.hasFooter)) {
+      return;
+    }
+
+    setHighlightedId(params.selectedOptionId ?? options[0]?.id ?? "");
+    setOpen(true);
+  }, [
+    params.disabled,
+    params.hasFooter,
+    params.selectedOptionId,
+    options,
+    setHighlightedId,
+    setOpen,
+  ]);
+
+  const selectOption = useCallback(
+    (option: MiniAppSelectMenuOption) => {
+      onChange(option.id);
+      setHighlightedId(option.id);
+      setOpen(false);
+      selectRef.current?.focus();
+    },
+    [onChange, selectRef, setHighlightedId, setOpen],
+  );
+
+  return { close, openList, selectOption };
+}
+
+function useSelectMenuHighlightActions(params: {
+  highlightedId: string;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
+  selectOption: (option: MiniAppSelectMenuOption) => void;
+  selectedOption: MiniAppSelectMenuOption | undefined;
+  setHighlightedId: (value: string) => void;
+  setOpen: (open: boolean) => void;
+  value: string;
+}) {
+  const {
+    highlightedId,
+    options,
+    selectOption,
+    selectedOption,
+    setHighlightedId,
+    setOpen,
+    value,
+  } = params;
+
+  const moveHighlight = useCallback(
+    (direction: -1 | 1) => {
+      const nextIndex = getNextOptionIndex({
+        currentId: highlightedId || value,
+        direction,
+        options,
+      });
+      if (nextIndex >= 0) {
+        setHighlightedId(options[nextIndex]?.id ?? "");
+      }
+      setOpen(true);
+    },
+    [highlightedId, options, setHighlightedId, setOpen, value],
+  );
+
+  const highlightEdge = useCallback(
+    (edge: "end" | "start") => {
+      setHighlightedId(
+        edge === "start" ? (options[0]?.id ?? "") : (options.at(-1)?.id ?? ""),
+      );
+      setOpen(true);
+    },
+    [options, setHighlightedId, setOpen],
+  );
+
+  const commitSelection = useCallback(() => {
+    const option =
+      options[getOptionIndex(options, highlightedId)] ?? selectedOption;
+    if (option) {
+      selectOption(option);
+    }
+  }, [highlightedId, options, selectOption, selectedOption]);
+
+  return { commitSelection, highlightEdge, moveHighlight };
 }
 
 export function useMiniAppSelectMenuController(
   params: MiniAppSelectMenuControllerParams,
 ): MiniAppSelectMenuController {
-  const { disabled, hasFooter, onChange, options, selectRef, value } = params;
-  const portalRef = params.portalRef;
+  const {
+    disabled,
+    hasFooter,
+    onChange,
+    options,
+    portalRef,
+    selectRef,
+    value,
+  } = params;
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -271,60 +331,41 @@ export function useMiniAppSelectMenuController(
       ? getOptionElementId(listboxId, highlightedIndex)
       : undefined;
 
-  const close = useCallback(() => setOpen(false), []);
-  const openList = useCallback(() => {
-    if (disabled || (options.length === 0 && !hasFooter)) {
-      return;
-    }
+  const { close, openList, selectOption } = useSelectMenuOpenActions({
+    disabled,
+    hasFooter,
+    onChange,
+    options,
+    selectRef,
+    selectedOptionId: selectedOption?.id,
+    setHighlightedId,
+    setOpen,
+  });
 
-    setHighlightedId(selectedOption?.id ?? options[0]?.id ?? "");
-    setOpen(true);
-  }, [disabled, hasFooter, options, selectedOption?.id]);
+  const { commitSelection, highlightEdge, moveHighlight } =
+    useSelectMenuHighlightActions({
+      highlightedId,
+      options,
+      selectOption,
+      selectedOption,
+      setHighlightedId,
+      setOpen,
+      value,
+    });
 
-  const selectOption = useCallback(
-    (option: MiniAppSelectMenuOption) => {
-      onChange(option.id);
-      setHighlightedId(option.id);
-      setOpen(false);
-      selectRef.current?.focus();
-    },
-    [onChange, selectRef],
-  );
-
-  const moveHighlight = useCallback(
-    (direction: -1 | 1) => {
-      const nextIndex = getNextOptionIndex({
-        currentId: highlightedId || value,
-        direction,
-        options,
-      });
-      if (nextIndex >= 0) {
-        setHighlightedId(options[nextIndex]?.id ?? "");
-      }
-      setOpen(true);
-    },
-    [highlightedId, options, value],
-  );
-
-  const highlightEdge = useCallback(
-    (edge: "end" | "start") => {
-      setHighlightedId(
-        edge === "start" ? (options[0]?.id ?? "") : (options.at(-1)?.id ?? ""),
-      );
-      setOpen(true);
-    },
-    [options],
-  );
-
-  const commitSelection = useCallback(() => {
-    const option =
-      options[getOptionIndex(options, highlightedId)] ?? selectedOption;
-    if (option) {
-      selectOption(option);
-    }
-  }, [highlightedId, options, selectOption, selectedOption]);
-
-  const onKeyDown = useSelectMenuKeyboard({
+  const onKeyDown = useMemo(() => {
+    const controls: MiniAppSelectMenuKeyControls = {
+      close,
+      commitSelection,
+      highlightEdge,
+      moveHighlight,
+      open,
+      openList,
+      options,
+    };
+    return (event: KeyboardEvent<HTMLButtonElement>) =>
+      handleSelectMenuKeyDown(event, controls);
+  }, [
     close,
     commitSelection,
     highlightEdge,
@@ -332,9 +373,10 @@ export function useMiniAppSelectMenuController(
     open,
     openList,
     options,
-  });
+  ]);
 
-  useSelectMenuDismissal({ close, open, portalRef, rootRef });
+  useCloseOnOutsideMouseDown({ close, open, portalRef, rootRef });
+  useCloseOnFocusOut({ close, open, portalRef, rootRef });
   useSyncSelectMenuHighlight({ open, setHighlightedId, value });
 
   return {

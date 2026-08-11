@@ -104,10 +104,6 @@ export function useMiniAppFrameBox<
 
     setViewportHeight(frame.clientHeight);
     setFrameWidth(frame.clientWidth);
-    if (typeof ResizeObserver !== "function") {
-      return;
-    }
-
     const resizeObserver = new ResizeObserver((entries) => {
       const [entry] = entries;
       if (entry) {

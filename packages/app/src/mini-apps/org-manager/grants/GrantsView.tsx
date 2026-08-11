@@ -21,8 +21,7 @@ import {
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
-import { useGrantContextMenu } from "./GrantContextMenu";
-import { GrantTable } from "./GrantTable";
+import { GrantSections } from "./GrantSections";
 
 function grantsBySubjectType(
   grants: ReadonlyArray<OrganizationContainerGrant>,
@@ -52,13 +51,6 @@ export function GrantsView({
   selectedGrant: OrganizationContainerGrant | null;
   selectedGrantRef: OrgManagerGrantRouteRef | null;
 }) {
-  const { grantContextMenu, openGrantContextMenu } = useGrantContextMenu({
-    canRevokeGrants,
-    mutating,
-    openGrantRoute,
-    revokeGrant,
-  });
-
   if (selectedGrantRef) {
     return (
       <GrantDetailView
@@ -83,58 +75,31 @@ export function GrantsView({
     );
   }
 
-  const groupGrants = grantsBySubjectType(grants.grants, "group");
-  const userGrants = grantsBySubjectType(grants.grants, "user");
-  const organizationGrants = grantsBySubjectType(grants.grants, "organization");
-
   return (
     <div>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.groupContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
-          grants={groupGrants}
-          label={ORG_MANAGER_LABELS.groupContainerLinks}
-          mutating={mutating}
-          openGrantContextMenu={openGrantContextMenu}
-          openGrantRoute={openGrantRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.userContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
-          grants={userGrants}
-          label={ORG_MANAGER_LABELS.userContainerLinks}
-          mutating={mutating}
-          openGrantContextMenu={openGrantContextMenu}
-          openGrantRoute={openGrantRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.organizationContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
-          grants={organizationGrants}
-          label={ORG_MANAGER_LABELS.organizationContainerLinks}
-          mutating={mutating}
-          openGrantContextMenu={openGrantContextMenu}
-          openGrantRoute={openGrantRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
-      {grantContextMenu}
+      <GrantSections
+        canRevokeGrants={canRevokeGrants}
+        mutating={mutating}
+        openGrantRoute={openGrantRoute}
+        revokeGrant={revokeGrant}
+        sections={[
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
+            grants: grantsBySubjectType(grants.grants, "group"),
+            label: ORG_MANAGER_LABELS.groupContainerLinks,
+          },
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
+            grants: grantsBySubjectType(grants.grants, "user"),
+            label: ORG_MANAGER_LABELS.userContainerLinks,
+          },
+          {
+            emptyLabel: ORG_MANAGER_LABELS.noOrganizationContainerLinks,
+            grants: grantsBySubjectType(grants.grants, "organization"),
+            label: ORG_MANAGER_LABELS.organizationContainerLinks,
+          },
+        ]}
+      />
     </div>
   );
 }

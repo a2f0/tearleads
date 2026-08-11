@@ -13,7 +13,6 @@ export const CONTACTS_LABELS = {
   loadingState: "Loading contacts...",
   newContactAction: "New Contact",
   nicknameField: "Nickname",
-  rowActionsButtonPrefix: "Actions for",
   removeContactAction: "Move to Trash",
   selectState: "Select a contact.",
   unauthenticatedImportState: "Authenticate before importing peer keys.",

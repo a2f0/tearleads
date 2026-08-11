@@ -14,73 +14,68 @@ import {
 } from "../model/targetOptions";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
-function useSelectedDocumentTargetOptions(params: {
+// The linked-container set and link/move target options for one document — the
+// selection or a right-clicked row — derived from shared memoized lookups.
+export function useDocumentTargetOptions(params: {
+  document: DocumentSummary | undefined;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
-  selectedDocument: DocumentSummary | undefined;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
 }) {
   const {
+    document,
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
     rulesContext,
-    selectedDocument,
-    selectedDocumentLinkedContainerIds,
   } = params;
   const targetLookups = useMemo(
     () => createExplorerTargetLookups(nodes, documentSummaries),
     [documentSummaries, nodes],
   );
-  const selectedDocumentMoveTargetOptions = useMemo(
+  const linkedContainerIds = useMemo(
     () =>
-      selectedDocument
+      getDocumentLinkedContainerIds({
+        document,
+        linkedContainerIdsByDocumentId,
+      }),
+    [document, linkedContainerIdsByDocumentId],
+  );
+  const moveTargetOptions = useMemo(
+    () =>
+      document
         ? getDocumentMoveTargetOptions(
             nodes,
-            documentSummaries,
-            selectedDocument.id,
+            document.id,
             targetLookups,
             rulesContext,
             linkedContainerIdsByDocumentId,
           )
         : [],
     [
-      documentSummaries,
+      document,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
-      selectedDocument,
       targetLookups,
     ],
   );
-  const selectedDocumentLinkTargetOptions = useMemo(
+  const linkTargetOptions = useMemo(
     () =>
-      selectedDocument
+      document
         ? getDocumentLinkTargetOptions(
             nodes,
-            documentSummaries,
-            selectedDocument.id,
-            selectedDocumentLinkedContainerIds,
+            document.id,
+            linkedContainerIds,
             targetLookups,
             rulesContext,
           )
         : [],
-    [
-      documentSummaries,
-      nodes,
-      rulesContext,
-      selectedDocument,
-      selectedDocumentLinkedContainerIds,
-      targetLookups,
-    ],
+    [document, linkedContainerIds, nodes, rulesContext, targetLookups],
   );
 
-  return {
-    selectedDocumentLinkTargetOptions,
-    selectedDocumentMoveTargetOptions,
-  };
+  return { linkTargetOptions, linkedContainerIds, moveTargetOptions };
 }
 
 export function useSelectedDocumentStructuralState(params: {
@@ -116,10 +111,6 @@ export function useSelectedDocumentStructuralState(params: {
     selectedDocument,
     setLinkedContainerIdsForDocument,
   } = params;
-  const selectedDocumentLinkedContainerIds = getDocumentLinkedContainerIds({
-    document: selectedDocument,
-    linkedContainerIdsByDocumentId,
-  });
   const {
     activateLinkedDocument,
     linkDocument,
@@ -139,26 +130,23 @@ export function useSelectedDocumentStructuralState(params: {
     rulesContext,
     setLinkedContainerIdsForDocument,
   });
-  const {
-    selectedDocumentLinkTargetOptions,
-    selectedDocumentMoveTargetOptions,
-  } = useSelectedDocumentTargetOptions({
-    documentSummaries,
-    linkedContainerIdsByDocumentId,
-    nodes,
-    rulesContext,
-    selectedDocument,
-    selectedDocumentLinkedContainerIds,
-  });
+  const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
+    useDocumentTargetOptions({
+      document: selectedDocument,
+      documentSummaries,
+      linkedContainerIdsByDocumentId,
+      nodes,
+      rulesContext,
+    });
 
   return {
     activateLinkedDocument,
     linkDocument,
     moveDocument,
     purgeDocument,
-    selectedDocumentLinkedContainerIds,
-    selectedDocumentLinkTargetOptions,
-    selectedDocumentMoveTargetOptions,
+    selectedDocumentLinkedContainerIds: linkedContainerIds,
+    selectedDocumentLinkTargetOptions: linkTargetOptions,
+    selectedDocumentMoveTargetOptions: moveTargetOptions,
     unlinkDocument,
   };
 }

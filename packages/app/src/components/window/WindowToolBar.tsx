@@ -1,6 +1,7 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { useState } from "react";
 import "./WindowToolBar.css";
+import { WindowTitleBarActionButtons } from "./WindowChromeActions";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
@@ -98,19 +99,10 @@ export function WindowToolBar({
       <div className="window-toolbar-spacer" />
       {actions.length > 0 && (
         <div className="window-toolbar-actions">
-          {actions.map((action) => (
-            <button
-              aria-label={action.label}
-              className="window-toolbar-button"
-              disabled={action.disabled}
-              key={action.id}
-              title={action.label}
-              type="button"
-              onClick={action.onClick}
-            >
-              {action.icon}
-            </button>
-          ))}
+          <WindowTitleBarActionButtons
+            actions={actions}
+            className="window-toolbar-button"
+          />
         </div>
       )}
     </div>

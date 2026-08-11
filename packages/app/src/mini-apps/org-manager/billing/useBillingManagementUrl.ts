@@ -1,15 +1,21 @@
 import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
-interface ManagementUrlState {
+interface ManagementUrlSnapshot {
   readonly canCancelDirectly: boolean;
-  readonly organizationId: string | null;
   readonly managementUrl: string | null;
   readonly subscriptionSource: OrganizationBillingManagementUrl["subscriptionSource"];
 }
+
+const NO_MANAGEMENT_URL: ManagementUrlSnapshot = {
+  canCancelDirectly: false,
+  managementUrl: null,
+  subscriptionSource: null,
+};
 
 /**
  * Loads the active organization's subscription-management URL through the SDK
@@ -26,79 +32,31 @@ export function useBillingManagementUrl(
   organizationId: string,
   enabled: boolean,
   reloadToken?: unknown,
-): {
-  readonly canCancelDirectly: boolean;
-  readonly managementUrl: string | null;
-  readonly subscriptionSource: OrganizationBillingManagementUrl["subscriptionSource"];
-} {
+): ManagementUrlSnapshot {
   const tearleads = useTearleads();
-  const requestIdRef = useRef(0);
-  const [state, setState] = useState<ManagementUrlState>({
-    canCancelDirectly: false,
-    organizationId: null,
-    managementUrl: null,
-    subscriptionSource: null,
-  });
-
-  useEffect(() => {
-    // Drop any in-flight request from a previous org/enabled state.
-    const requestId = ++requestIdRef.current;
-    if (!enabled) {
-      setState({
-        canCancelDirectly: false,
-        organizationId,
-        managementUrl: null,
-        subscriptionSource: null,
-      });
-      return;
-    }
-    void (async () => {
+  const snapshot = useScopedOrganizationLoad<ManagementUrlSnapshot>({
+    enabled,
+    load: async () => {
       try {
         const result = await tearleads.organizations.loadBillingManagementUrl();
-        if (requestIdRef.current !== requestId) {
-          return;
-        }
-        setState({
+        return {
           canCancelDirectly: result?.canCancelDirectly ?? false,
-          organizationId,
           managementUrl: result?.managementUrl ?? null,
           subscriptionSource: result?.subscriptionSource ?? null,
-        });
+        };
       } catch (loadError) {
-        if (requestIdRef.current !== requestId) {
-          return;
-        }
         console.error("Failed to load billing management URL:", loadError);
-        setState({
-          canCancelDirectly: false,
-          organizationId,
-          managementUrl: null,
-          subscriptionSource: null,
-        });
+        return NO_MANAGEMENT_URL;
       }
-    })();
-    return () => {
-      requestIdRef.current++;
-    };
-  }, [enabled, organizationId, tearleads, reloadToken]);
+    },
+    organizationId,
+    reloadToken,
+    whenDisabled: NO_MANAGEMENT_URL,
+  });
 
   // Scope the URL to the requesting org so a stale value never leaks across an
   // org switch before the new fetch resolves.
-  return useMemo(
-    () =>
-      state.organizationId === organizationId
-        ? {
-            canCancelDirectly: state.canCancelDirectly,
-            managementUrl: state.managementUrl,
-            subscriptionSource: state.subscriptionSource,
-          }
-        : {
-            canCancelDirectly: false,
-            managementUrl: null,
-            subscriptionSource: null,
-          },
-    [organizationId, state],
-  );
+  return snapshot ?? NO_MANAGEMENT_URL;
 }
 
 function openProviderSubscriptionManagement(managementUrl: string): void {

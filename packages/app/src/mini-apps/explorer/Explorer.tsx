@@ -390,57 +390,30 @@ function ExplorerContent() {
         />
       </BlobPickProvider>
       <ExplorerContextMenuLayer
-        canCreateChildContextMenuNode={
-          model.contextMenuState.canCreateChildContextMenuNode
-        }
-        canCreateContactContextMenuNode={
-          model.contextMenuState.canCreateContactContextMenuNode
-        }
-        canCreateStructuredDocumentContextMenuNode={
-          model.contextMenuState.canCreateStructuredDocumentContextMenuNode
-        }
-        canEmptyTrashContextMenuNode={
-          model.contextMenuState.canEmptyTrashContextMenuNode
-        }
-        containerContextMenuVariant={
-          model.contextMenuState.containerContextMenuVariant
-        }
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
+        canDownloadSelectedDocument={model.canDownloadContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}
-        canMoveToTrashContextMenuNode={
-          model.contextMenuState.canMoveToTrashContextMenuNode
-        }
-        canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
-        canPurgeContextMenuNode={model.contextMenuState.canPurgeContextMenuNode}
-        canRenameContextMenuNode={
-          model.contextMenuState.canRenameContextMenuNode
-        }
-        canUploadToContextMenuNode={
-          model.contextMenuState.canUploadToContextMenuNode
-        }
         canMoveSelectedDocument={model.canMoveContextMenuDocument}
         canPurgeSelectedDocument={model.canPurgeContextMenuDocument}
-        canDownloadSelectedDocument={model.canDownloadContextMenuDocument}
-        closeContextMenu={model.contextMenuState.closeContextMenu}
-        contextMenu={model.contextMenuState.contextMenu}
+        contextMenuState={model.contextMenuState}
         deleteDocument={model.deleteDocument}
         downloadDocument={downloadDocument}
-        triggerUpload={toolbarUpload.triggerUpload}
         moveContainerToTrash={model.moveContainerToTrash}
-        openDocumentInfoRoute={routeState.openDocumentInfoRoute}
         openContainerInfoRoute={routeState.openContainerInfoRoute}
         openCreateChildModal={model.modalState.openCreateChildModal}
+        openDocumentInfoRoute={routeState.openDocumentInfoRoute}
+        openEmptyTrashModal={model.modalState.openEmptyTrashModal}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
-        openMoveModal={model.modalState.openMoveModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
+        openMoveModal={model.modalState.openMoveModal}
+        openNewContactDocument={openNewContactDocument}
         openNewStructuredDocumentRoute={
           routeState.openNewStructuredDocumentRoute
         }
-        openNewContactDocument={openNewContactDocument}
-        openEmptyTrashModal={model.modalState.openEmptyTrashModal}
         openPurgeModal={model.modalState.openPurgeModal}
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
+        triggerUpload={toolbarUpload.triggerUpload}
       />
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}

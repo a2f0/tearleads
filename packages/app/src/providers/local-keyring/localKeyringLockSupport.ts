@@ -12,6 +12,7 @@ import {
   type WrappingKeyKeystore,
   type WrappingKeyMaterialStorage,
 } from "@tearleads/client-sdk";
+import { getLocalStorage } from "../../utils/storedPreference";
 
 export type LocalKeyringLockStatus = "unavailable" | "unlocked" | "locked";
 export type BrowserStorage = Pick<
@@ -49,6 +50,25 @@ export interface LocalKeyringLockEnvironment {
   readonly storage: BrowserStorage | null;
 }
 
+type ManageableLockEnvironment = LocalKeyringLockEnvironment & {
+  readonly manifestStore: LocalKeyringManifestStore;
+  readonly pinCodeConfigNamespace: string;
+};
+
+// The gate every PIN action shares: management enabled for this shell, a
+// manifest store and config namespace to act on, and a non-empty PIN.
+export function canRunPinCodeAction(
+  environment: LocalKeyringLockEnvironment,
+  pinCode: string,
+): environment is ManageableLockEnvironment {
+  return Boolean(
+    environment.canManagePinCode &&
+      environment.manifestStore &&
+      environment.pinCodeConfigNamespace &&
+      pinCode,
+  );
+}
+
 const PIN_CODE_CONFIG_PREFIX = "tearleads.local-keyring.pin-code:";
 
 export function pinCodeConfigKey(namespace: string): string {
@@ -56,19 +76,30 @@ export function pinCodeConfigKey(namespace: string): string {
 }
 
 export function getBrowserStorage(): BrowserStorage | null {
-  try {
-    return typeof globalThis.localStorage === "undefined"
-      ? null
-      : globalThis.localStorage;
-  } catch {
-    return null;
-  }
+  return getLocalStorage();
 }
 
 export function isBrowserKeyringSupported(
   storage: BrowserStorage | null,
 ): boolean {
   return typeof globalThis.indexedDB !== "undefined" && storage !== null;
+}
+
+/**
+ * The host-supplied keyring when the shell injects a factory; otherwise the
+ * browser keyring when the environment supports it (IndexedDB plus browser
+ * storage); otherwise null.
+ */
+export function createHostLocalKeyring(input: {
+  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly storage: BrowserStorage | null;
+}): LocalKeyring | null {
+  if (input.createLocalKeyring) {
+    return input.createLocalKeyring();
+  }
+  return isBrowserKeyringSupported(input.storage)
+    ? createBrowserLocalKeyring()
+    : null;
 }
 
 function localSecretContext(

@@ -6,6 +6,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   preflightSecurityAnchorRestore,
+  quoteSqlIdentifier,
   readBackupDatabase,
   restoreBackupDatabase,
 } from "./localBackupDatabase";
@@ -59,10 +60,6 @@ const ATTACHMENT_BLOB_TABLES = [
   "document_pending_attachments",
   "document_attachment_blob_projection",
 ] as const;
-
-function quoteSqlIdentifier(identifier: string): string {
-  return `"${identifier.replaceAll('"', '""')}"`;
-}
 
 function asBlobBytes(bytes: Uint8Array): BlobBytes {
   const copy: BlobBytes = new Uint8Array(bytes.byteLength);

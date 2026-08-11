@@ -102,6 +102,20 @@ assertBuiltWorkspaceDepsFresh();
 
 GlobalRegistrator.register();
 
+// happy-dom registers no ResizeObserver, while every production browser has
+// one — so app code constructs it unguarded. A no-op observer keeps mount
+// effects working; tests that exercise resize behavior install their own mock
+// (which wins by assigning over this stub).
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class NoopResizeObserver {
+    disconnect(): void {}
+    observe(): void {}
+    unobserve(): void {}
+  }
+  globalThis.ResizeObserver =
+    NoopResizeObserver as unknown as typeof ResizeObserver;
+}
+
 interface AppTestProcessState {
   hasLoadedApiRuntimeModule: boolean;
 }

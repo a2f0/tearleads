@@ -4,6 +4,7 @@ import {
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import { type RefObject, useCallback, useMemo } from "react";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   canReuseSQLiteRuntime,
   logSQLiteRuntimeReuseUnavailable,
@@ -111,9 +112,7 @@ function retainRuntimeAfterReset(params: {
         refs.runtimeRef.current = null;
       }
       log(
-        `Failed to ${mode} the reusable database runtime; worker terminated: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Failed to ${mode} the reusable database runtime; worker terminated: ${unknownErrorMessage(error)}`,
       );
       throw error;
     });

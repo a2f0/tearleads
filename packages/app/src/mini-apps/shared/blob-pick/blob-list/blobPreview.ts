@@ -35,10 +35,6 @@ function isTextMimeType(mimeType: string | null): boolean {
   );
 }
 
-function canCreateObjectUrl(): boolean {
-  return typeof URL === "function" && typeof URL.createObjectURL === "function";
-}
-
 function decodePreviewText(bytes: Uint8Array<ArrayBuffer>): {
   text: string;
   truncated: boolean;
@@ -86,9 +82,7 @@ async function readBlobPreview(input: {
   }
 
   const mimeType = input.blob.mimeType ?? "application/octet-stream";
-  const objectUrl = canCreateObjectUrl()
-    ? URL.createObjectURL(new Blob([bytes], { type: mimeType }))
-    : null;
+  const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
 
   try {
     const textPreview = isTextMimeType(input.blob.mimeType)
@@ -106,9 +100,7 @@ async function readBlobPreview(input: {
       },
     };
   } catch (error) {
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-    }
+    URL.revokeObjectURL(objectUrl);
     throw error;
   }
 }
@@ -194,7 +186,7 @@ export function useBlobThumbnailUrl(params: {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isImage || !isPreviewAllowed || !canCreateObjectUrl()) {
+    if (!isImage || !isPreviewAllowed) {
       setUrl(null);
       return;
     }

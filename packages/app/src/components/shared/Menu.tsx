@@ -16,8 +16,6 @@ const MEASUREMENT_MENU_STYLE: CSSProperties = {
   top: MENU_VIEWPORT_MARGIN_PX,
   visibility: "hidden",
 };
-const useBrowserLayoutEffect =
-  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export interface MenuPosition {
   x: number;
@@ -37,17 +35,6 @@ interface MenuPlacement {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-function getViewportSize(): { height: number; width: number } {
-  if (typeof window === "undefined") {
-    return { height: 0, width: 0 };
-  }
-
-  return {
-    height: window.innerHeight || document.documentElement.clientHeight,
-    width: window.innerWidth || document.documentElement.clientWidth,
-  };
 }
 
 function createInitialMenuPlacement(
@@ -120,32 +107,29 @@ export function Menu({
   direction?: "up" | "down";
 }>) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const canMeasureMenu =
-    typeof window !== "undefined" && typeof document !== "undefined";
   const { x, y } = position;
   const [placement, setPlacement] = useState(() =>
     createInitialMenuPlacement(position, direction),
   );
 
-  useBrowserLayoutEffect(() => {
+  useLayoutEffect(() => {
     const menu = menuRef.current;
-    if (!menu || !canMeasureMenu) {
+    if (!menu) {
       return;
     }
 
     const rect = menu.getBoundingClientRect();
-    const viewportSize = getViewportSize();
     setPlacement(
       placeMenuInViewport({
         direction,
         height: rect.height,
         position,
-        viewportHeight: viewportSize.height,
-        viewportWidth: viewportSize.width,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
         width: rect.width,
       }),
     );
-  }, [x, y, direction, canMeasureMenu]);
+  }, [x, y, direction]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -168,31 +152,19 @@ export function Menu({
     placement.anchorX === position.x &&
     placement.anchorY === position.y &&
     placement.anchorDirection === direction;
-  const fallbackMenuStyle: CSSProperties = {
-    left: position.x,
-    top: position.y,
-    ...(direction === "up" && { transform: "translateY(-100%)" }),
-  };
-  const menuStyle: CSSProperties = !canMeasureMenu
-    ? fallbackMenuStyle
-    : placementMatchesAnchor
-      ? {
-          left: placement.left,
-          maxHeight: placement.maxHeight,
-          maxWidth: placement.maxWidth,
-          top: placement.top,
-        }
-      : MEASUREMENT_MENU_STYLE;
+  const menuStyle: CSSProperties = placementMatchesAnchor
+    ? {
+        left: placement.left,
+        maxHeight: placement.maxHeight,
+        maxWidth: placement.maxWidth,
+        top: placement.top,
+      }
+    : MEASUREMENT_MENU_STYLE;
 
-  const menu = (
+  return createPortal(
     <div ref={menuRef} className="menu" style={menuStyle}>
       {children}
-    </div>
+    </div>,
+    document.body,
   );
-
-  if (typeof document === "undefined") {
-    return menu;
-  }
-
-  return createPortal(menu, document.body);
 }

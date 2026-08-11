@@ -160,6 +160,49 @@ export function useExplorerContainerInfo(params: ExplorerContainerInfoParams) {
   };
 }
 
+// The shared submit body of the group and peer share flows: run the share,
+// surface its failure label, and optimistically fold the new grant into the
+// panel's container info on success.
+async function runContainerInfoShare(params: {
+  errorLabel: string;
+  errorLogLabel: string;
+  failureLabel: string;
+  optimisticGrant: NonNullable<
+    ReloadExplorerContainerInfoOptions["optimisticGrant"]
+  >;
+  reloadContainerInfo: ReloadExplorerContainerInfo;
+  setIsSubmitting: (value: boolean) => void;
+  setPanelError: (error: string | null) => void;
+  share: () => Promise<boolean>;
+}): Promise<void> {
+  const {
+    errorLabel,
+    errorLogLabel,
+    failureLabel,
+    optimisticGrant,
+    reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError,
+    share,
+  } = params;
+  setIsSubmitting(true);
+  setPanelError(null);
+  try {
+    const shared = await share();
+    if (!shared) {
+      setPanelError(failureLabel);
+      return;
+    }
+
+    await reloadContainerInfo({ optimisticGrant });
+  } catch (error) {
+    console.error(errorLogLabel, error);
+    setPanelError(errorLabel);
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+
 export function useExplorerContainerInfoGroupShare(
   params: ExplorerContainerInfoGroupShareParams,
 ) {
@@ -187,35 +230,21 @@ export function useExplorerContainerInfoGroupShare(
         return;
       }
 
-      setIsSubmitting(true);
-      setPanelError(null);
-      try {
-        const shared = await shareWithGroup(
-          containerId,
-          draftShareGroupId,
-          draftShareAccessLevel,
-        );
-        if (!shared) {
-          setPanelError(EXPLORER_LABELS.containerInfoShareToGroupFailure);
-          return;
-        }
-
-        await reloadContainerInfo({
-          optimisticGrant: {
-            accessLevel: draftShareAccessLevel,
-            subjectId: draftShareGroupId,
-            subjectType: "group",
-          },
-        });
-      } catch (error) {
-        console.error(
-          EXPLORER_LABELS.containerInfoShareGenericFailureLog,
-          error,
-        );
-        setPanelError(EXPLORER_LABELS.containerInfoShareGenericFailure);
-      } finally {
-        setIsSubmitting(false);
-      }
+      await runContainerInfoShare({
+        errorLabel: EXPLORER_LABELS.containerInfoShareGenericFailure,
+        errorLogLabel: EXPLORER_LABELS.containerInfoShareGenericFailureLog,
+        failureLabel: EXPLORER_LABELS.containerInfoShareToGroupFailure,
+        optimisticGrant: {
+          accessLevel: draftShareAccessLevel,
+          subjectId: draftShareGroupId,
+          subjectType: "group",
+        },
+        reloadContainerInfo,
+        setIsSubmitting,
+        setPanelError,
+        share: () =>
+          shareWithGroup(containerId, draftShareGroupId, draftShareAccessLevel),
+      });
     },
     [
       canShareContainer,
@@ -250,28 +279,20 @@ export function useExplorerContainerInfoPeerShare(
       return;
     }
 
-    setIsSubmitting(true);
-    setPanelError(null);
-    try {
-      const shared = await shareWithUser(containerId, peerUserId);
-      if (!shared) {
-        setPanelError(EXPLORER_LABELS.containerInfoShareToPeerFailure);
-        return;
-      }
-
-      await reloadContainerInfo({
-        optimisticGrant: {
-          accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,
-          subjectId: peerUserId,
-          subjectType: "user",
-        },
-      });
-    } catch (error) {
-      console.error(EXPLORER_LABELS.containerInfoShareToPeerFailureLog, error);
-      setPanelError(EXPLORER_LABELS.containerInfoShareToPeerFailure);
-    } finally {
-      setIsSubmitting(false);
-    }
+    await runContainerInfoShare({
+      errorLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
+      errorLogLabel: EXPLORER_LABELS.containerInfoShareToPeerFailureLog,
+      failureLabel: EXPLORER_LABELS.containerInfoShareToPeerFailure,
+      optimisticGrant: {
+        accessLevel: DEFAULT_SHARE_ACCESS_LEVEL,
+        subjectId: peerUserId,
+        subjectType: "user",
+      },
+      reloadContainerInfo,
+      setIsSubmitting,
+      setPanelError,
+      share: () => shareWithUser(containerId, peerUserId),
+    });
   }, [
     canShareContainer,
     containerId,

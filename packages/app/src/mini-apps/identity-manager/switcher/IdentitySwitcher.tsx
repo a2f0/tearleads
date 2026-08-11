@@ -3,14 +3,8 @@ import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 import type { IdentitySwitcherState } from "./useIdentitySwitcher";
-
-export function compactIdentityFingerprint(signingFingerprint: string): string {
-  if (signingFingerprint.length <= 24) {
-    return signingFingerprint;
-  }
-  return `${signingFingerprint.slice(0, 12)}...${signingFingerprint.slice(-8)}`;
-}
 
 export function IdentitySwitcher({
   switcher,
@@ -30,7 +24,7 @@ export function IdentitySwitcher({
           />
         ),
         id: identity.signingFingerprint,
-        label: compactIdentityFingerprint(identity.signingFingerprint),
+        label: compactIdentifier(identity.signingFingerprint),
       })),
     [switcher.identities],
   );

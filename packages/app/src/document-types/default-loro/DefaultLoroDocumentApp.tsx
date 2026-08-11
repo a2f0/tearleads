@@ -14,26 +14,22 @@ interface DefaultLoroDocumentSnapshot {
 }
 
 function sortedFields(
-  fields: Readonly<Record<string, string>> | null | undefined,
+  fields: Readonly<Record<string, string>>,
 ): Record<string, string> {
-  if (!fields) {
-    return {};
-  }
-
   return Object.fromEntries(
     Object.entries(fields).sort(([left], [right]) => left.localeCompare(right)),
   );
 }
 
 export function serializeDefaultLoroDocument(input: {
-  documentKind?: string | null;
-  structuredFields?: Readonly<Record<string, string>> | null;
-  text?: string | null;
+  documentKind: string;
+  structuredFields: Readonly<Record<string, string>>;
+  text: string;
 }): DefaultLoroDocumentSnapshot {
   return {
-    documentKind: input.documentKind ?? "",
+    documentKind: input.documentKind,
     fields: sortedFields(input.structuredFields),
-    text: input.text ?? "",
+    text: input.text,
   };
 }
 

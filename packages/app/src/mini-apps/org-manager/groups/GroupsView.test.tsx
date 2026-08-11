@@ -165,7 +165,9 @@ function renderGroupsView(input: {
       pending={false}
       openCreateGroupDialog={input.openCreateGroupDialog ?? (() => undefined)}
       openRosterUser={input.openRosterUser ?? (() => undefined)}
-      profileDisplayNamesByUserId={input.profileDisplayNamesByUserId}
+      profileDisplayNamesByUserId={
+        input.profileDisplayNamesByUserId ?? new Map()
+      }
       removeMember={() => undefined}
       selectedGroup={input.selectedGroup}
       selectedGroupId={input.selectedGroupId}

@@ -1,7 +1,7 @@
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import { TrackerReadCard } from "../shared/TrackerReadCard";
+import { formatTrackerMeasuredAt } from "../shared/trackerValues";
 import {
-  formatMeasuredAt,
   formatWeight,
   formatWeightChange,
   toWeightEntryDetailFields,
@@ -34,7 +34,7 @@ export function WeightEntryReadRow(params: {
           label: "Change",
           text: formatWeightChange(entry, previous) ?? "—",
         },
-        { label: "Measured", text: formatMeasuredAt(entry) },
+        { label: "Measured", text: formatTrackerMeasuredAt(entry.measuredAt) },
       ]}
       currentAuthorId={currentAuthorId}
       detailFields={toWeightEntryDetailFields(entry, resolveRowWriter)}

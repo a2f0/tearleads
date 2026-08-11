@@ -5,9 +5,14 @@ import {
   useTearleads,
 } from "../../providers/sdk/TearleadsProvider";
 
+// The one shape every consumer of the blob-info loader shares.
+export type ExplorerBlobInfoLoader = (
+  query?: BlobInfoInput | undefined,
+) => Promise<BlobInfoList>;
+
 export function useExplorerBlobInfoLoader(input: {
   readonly appData: Pick<RuntimeSnapshot, "infra" | "state">;
-}): (query?: BlobInfoInput | undefined) => Promise<BlobInfoList> {
+}): ExplorerBlobInfoLoader {
   const { appData } = input;
   const { containerContents } = useTearleads();
 

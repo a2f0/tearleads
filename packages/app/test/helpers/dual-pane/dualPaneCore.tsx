@@ -17,6 +17,7 @@ import { Pane } from "../../../src/components/pane/shell/Pane";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/panels/IdentityManagerRecoveryKeySection";
+import { SystemMonitorDeveloperModeProvider } from "../../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorDeveloperMode,
   saveSystemMonitorMode,
@@ -190,22 +191,24 @@ export function renderDualPane({
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
-          <AppTestRuntimeScopeProbe />
-          {autoProvisionLeft && <PaneAutoProvisioner />}
-          <Pane className="pane pane-left" />
-        </PaneProvider>
-      </PaneSideProvider>
-      <PaneSideProvider side="right">
-        <PaneProvider hostConfig={hostConfig}>
-          <AppTestRuntimeScopeProbe />
-          {autoProvisionRight && <PaneAutoProvisioner />}
-          <Pane className="pane pane-right" />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={hostConfig}>
+            <AppTestRuntimeScopeProbe />
+            {autoProvisionLeft && <PaneAutoProvisioner />}
+            <Pane className="pane pane-left" />
+          </PaneProvider>
+        </PaneSideProvider>
+        <PaneSideProvider side="right">
+          <PaneProvider hostConfig={hostConfig}>
+            <AppTestRuntimeScopeProbe />
+            {autoProvisionRight && <PaneAutoProvisioner />}
+            <Pane className="pane pane-right" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 
@@ -224,15 +227,17 @@ export function renderSinglePane({
   );
 
   return render(
-    <DualPaneProvider>
-      <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
-          <AppTestRuntimeScopeProbe />
-          {autoProvision && <PaneAutoProvisioner />}
-          <Pane className="pane pane-left" />
-        </PaneProvider>
-      </PaneSideProvider>
-    </DualPaneProvider>,
+    <SystemMonitorDeveloperModeProvider>
+      <DualPaneProvider>
+        <PaneSideProvider side="left">
+          <PaneProvider hostConfig={hostConfig}>
+            <AppTestRuntimeScopeProbe />
+            {autoProvision && <PaneAutoProvisioner />}
+            <Pane className="pane pane-left" />
+          </PaneProvider>
+        </PaneSideProvider>
+      </DualPaneProvider>
+    </SystemMonitorDeveloperModeProvider>,
   );
 }
 

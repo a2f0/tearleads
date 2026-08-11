@@ -149,34 +149,32 @@ export function hasContainerRules(
   return resolveContainerRules(context, container) !== null;
 }
 
+// The shared shape of every per-operation container gate: the container must be
+// writable and its resolved rules (if any) must not raise the given protection
+// flag.
+function allowedByContainerRule(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+  flag: keyof UserSystemContainerRules,
+): boolean {
+  return (
+    canWriteContainerNode(container) &&
+    resolveContainerRules(context, container)?.[flag] !== true
+  );
+}
+
 export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)?.protectFromMove !== true
-  );
-}
-
-export function canDeleteContainerByRules(
-  context: ExplorerContainerRulesContext,
-  container: ContainerRulesNode | undefined,
-): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)?.protectFromDelete !== true
-  );
+  return allowedByContainerRule(context, container, "protectFromMove");
 }
 
 export function canRenameContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)?.protectFromRename !== true
-  );
+  return allowedByContainerRule(context, container, "protectFromRename");
 }
 
 // Files may be uploaded into a container unless it is a protected system folder
@@ -185,10 +183,7 @@ export function canUploadToContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)?.protectFromUpload !== true
-  );
+  return allowedByContainerRule(context, container, "protectFromUpload");
 }
 
 // Child containers are a structural mutation of the parent container. System
@@ -198,10 +193,10 @@ export function canCreateChildContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)
-      ?.protectFromChildContainerCreation !== true
+  return allowedByContainerRule(
+    context,
+    container,
+    "protectFromChildContainerCreation",
   );
 }
 
@@ -212,10 +207,10 @@ export function canCreateStructuredDocumentInContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(container) &&
-    resolveContainerRules(context, container)
-      ?.protectFromStructuredDocumentCreation !== true
+  return allowedByContainerRule(
+    context,
+    container,
+    "protectFromStructuredDocumentCreation",
   );
 }
 
@@ -257,10 +252,10 @@ export function canMoveDocumentOutByRules(
   context: ExplorerContainerRulesContext,
   currentContainer: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(currentContainer) &&
-    resolveContainerRules(context, currentContainer)
-      ?.protectContentsFromLeaving !== true
+  return allowedByContainerRule(
+    context,
+    currentContainer,
+    "protectContentsFromLeaving",
   );
 }
 
@@ -285,7 +280,7 @@ export function canMoveDocumentToContainerByRules(
   document: Pick<DocumentSummary, "documentKind" | "id"> | undefined,
 ): boolean {
   if (
-    !canMoveDocumentByRules(context, document) ||
+    isPinnedSelfContact(context, document) ||
     !canAddDocumentToContainerByRules(context, destinationContainer, document)
   ) {
     return false;
@@ -309,10 +304,10 @@ export function canLinkDocumentOutByRules(
   context: ExplorerContainerRulesContext,
   currentContainer: ContainerRulesNode | undefined,
 ): boolean {
-  return (
-    canWriteContainerNode(currentContainer) &&
-    resolveContainerRules(context, currentContainer)
-      ?.protectContentsFromLinking !== true
+  return allowedByContainerRule(
+    context,
+    currentContainer,
+    "protectContentsFromLinking",
   );
 }
 
@@ -370,10 +365,10 @@ export function canLinkDocumentIntoContainerByRules(
 // not by which container it happens to be viewed from — a document surfaces
 // under each container it is linked into carrying that container's id, so a
 // container-scoped check would miss the linked view. Delete, move, and purge
-// share this one predicate because they are equivalent destructive routes:
-// "delete" is a move to Trash, and a move into Trash re-enables purge, so
-// guarding only delete would leave the self contact destroyable via Move.
-function isPinnedSelfContact(
+// gates all consult this one predicate because they are equivalent destructive
+// routes: "delete" is a move to Trash, and a move into Trash re-enables purge,
+// so guarding only delete would leave the self contact destroyable via Move.
+export function isPinnedSelfContact(
   context: ExplorerContainerRulesContext,
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {
@@ -390,34 +385,4 @@ function isPinnedSelfContact(
     ? context.rulesBySystemSlot.get(context.contactsSystemSlot)
     : null;
   return contactsRules?.protectSelfDocumentFromDelete === true;
-}
-
-// A document may be deleted (moved to Trash) unless it is the pinned self
-// contact.
-export function canDeleteDocumentByRules(
-  context: ExplorerContainerRulesContext,
-  document: Pick<DocumentSummary, "id"> | undefined,
-): boolean {
-  return !isPinnedSelfContact(context, document);
-}
-
-// A document may be relocated to another container unless it is the pinned self
-// contact. Enforced on top of the container-level move rules so the self
-// contact cannot be moved out of a container it is merely linked into — most
-// dangerously into Trash, the delete-equivalent route.
-export function canMoveDocumentByRules(
-  context: ExplorerContainerRulesContext,
-  document: Pick<DocumentSummary, "id"> | undefined,
-): boolean {
-  return !isPinnedSelfContact(context, document);
-}
-
-// A document may be permanently purged unless it is the pinned self contact.
-// Defense in depth on the destructive operation itself, in case a bug path
-// ever parks a self contact under Trash.
-export function canPurgeDocumentByRules(
-  context: ExplorerContainerRulesContext,
-  document: Pick<DocumentSummary, "id"> | undefined,
-): boolean {
-  return !isPinnedSelfContact(context, document);
 }

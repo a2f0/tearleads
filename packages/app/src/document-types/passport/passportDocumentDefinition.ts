@@ -5,17 +5,20 @@ import {
   type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
-import { addDateOnlyFormatIssue } from "../shared/documentFieldUtils";
+import {
+  addDateOnlyFormatIssue,
+  structuredFieldsProjector,
+} from "../shared/documentFieldUtils";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const PASSPORT_DOCUMENT_KIND = "passport" satisfies StoredDocumentKind;
 
-export interface PassportDocumentFields {
+export type PassportDocumentFields = {
   expirationDate: string;
   fullName: string;
   issuingCountry: string;
   passportNumber: string;
-}
+};
 
 function derivePassportTitle(fields: PassportDocumentFields): string {
   const trimmedPassportNumber = fields.passportNumber.trim();
@@ -39,9 +42,7 @@ export function readPassportFieldsFromRecord(
     issuingCountry: readStringDocumentField(source, "issuingCountry", issues),
     passportNumber: readStringDocumentField(source, "passportNumber", issues),
   };
-
   addDateOnlyFormatIssue(issues, "expirationDate", fields.expirationDate);
-
   return { fields, issues };
 }
 
@@ -51,13 +52,9 @@ export const passportDocumentProjectorDefinition: AppDocumentProjectorDefinition
     createLabel: "Passport",
     kind: PASSPORT_DOCUMENT_KIND,
     label: "passport",
-    project: ({ structuredFields }) => {
-      const validated = readPassportFieldsFromRecord(structuredFields);
-      return {
-        fieldValidationIssues: validated.issues,
-        structuredFields: { ...validated.fields },
-        title: derivePassportTitle(validated.fields),
-      };
-    },
+    project: structuredFieldsProjector(
+      readPassportFieldsFromRecord,
+      derivePassportTitle,
+    ),
     untitledTitle: "Untitled passport",
   };

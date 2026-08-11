@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
 import {
   cleanup,
   fireEvent,
@@ -102,7 +101,6 @@ function renderBlobBrowser(input: {
     <WindowMenuProvider>
       <ExplorerBlobBrowserPanel
         blobStore={input.blobStore ?? createBlobStore()}
-        domainScope={createDomainScope()}
         loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
         nodes={[]}
         online={true}

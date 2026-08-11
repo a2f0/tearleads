@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
 
-const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
+export const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 
 interface OrganizationNamesState {
   readonly namesById: ReadonlyMap<string, string>;

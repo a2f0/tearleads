@@ -23,17 +23,3 @@ test("default Loro document serializer preserves kind, fields, and text", () => 
     text: "sidecar text",
   });
 });
-
-test("default Loro document serializer tolerates pending document state", () => {
-  expect(
-    serializeDefaultLoroDocument({
-      documentKind: null,
-      structuredFields: null,
-      text: null,
-    }),
-  ).toEqual({
-    documentKind: "",
-    fields: {},
-    text: "",
-  });
-});

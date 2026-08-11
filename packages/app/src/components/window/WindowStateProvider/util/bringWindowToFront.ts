@@ -1,4 +1,5 @@
 import type { WindowEntry } from "../types";
+import { getMaxWindowZIndex } from "./getMaxWindowZIndex";
 
 export function bringWindowToFront(windows: WindowEntry[], id: string) {
   const target = windows.find((windowEntry) => windowEntry.id === id);
@@ -6,10 +7,7 @@ export function bringWindowToFront(windows: WindowEntry[], id: string) {
     return windows;
   }
 
-  const topZIndex = windows.reduce(
-    (maxZIndex, windowEntry) => Math.max(maxZIndex, windowEntry.zIndex),
-    0,
-  );
+  const topZIndex = getMaxWindowZIndex(windows);
   if (target.zIndex === topZIndex) {
     return windows;
   }

@@ -1,18 +1,13 @@
 import { useId } from "react";
-import { MiniAppInput } from "../../components/mini-app/MiniAppLayout";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
-import {
-  StructuredDocument,
-  StructuredDocumentField,
-  StructuredDocumentFields,
-} from "../shared/StructuredDocument";
+import { StructuredDocument } from "../shared/StructuredDocument";
 import { TrackerDocument } from "../shared/TrackerDocument";
+import { TrackerNameEditFields } from "../shared/TrackerNameEditFields";
 import { readStructuredTrackerField } from "../shared/trackerRows";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { useTrackerDocument } from "../shared/useTrackerDocument";
 import {
   EnvFileVariableEditRow,
-  type EnvVariableField,
   type UpdateEnvVariable,
 } from "./EnvFileEditRow";
 import { EnvFileQuickAdd, type EnvFileQuickVariable } from "./EnvFileQuickAdd";
@@ -45,33 +40,6 @@ interface EnvFileFieldsProps {
   variables: ReadonlyArray<EnvVariableRow>;
 }
 
-function EnvFileEditFields(params: {
-  controlsDisabled: boolean;
-  fileName: string;
-  fileNameInputId: string;
-  onRenameFile: (value: string) => void;
-  ready: boolean;
-}) {
-  return (
-    <StructuredDocumentFields>
-      <StructuredDocumentField
-        inputId={params.fileNameInputId}
-        label="File Name"
-      >
-        <MiniAppInput
-          id={params.fileNameInputId}
-          aria-label=".env file name"
-          value={params.fileName}
-          onChange={(event) => params.onRenameFile(event.target.value)}
-          placeholder={params.ready ? ".env" : "Loading..."}
-          disabled={params.controlsDisabled}
-          autoComplete="off"
-        />
-      </StructuredDocumentField>
-    </StructuredDocumentFields>
-  );
-}
-
 export function EnvFileFields(params: EnvFileFieldsProps) {
   return (
     <TrackerDocument
@@ -87,12 +55,15 @@ export function EnvFileFields(params: EnvFileFieldsProps) {
       onToggleEditing={params.onToggleEditing}
       ready={params.ready}
       renderEditFields={(controlsDisabled) => (
-        <EnvFileEditFields
+        <TrackerNameEditFields
+          ariaLabel=".env file name"
           controlsDisabled={controlsDisabled}
-          fileName={params.fileName}
-          fileNameInputId={params.fileNameInputId}
-          onRenameFile={params.onRenameFile}
+          inputId={params.fileNameInputId}
+          label="File Name"
+          onRename={params.onRenameFile}
+          placeholder=".env"
           ready={params.ready}
+          value={params.fileName}
         />
       )}
       renderEditRow={(variable, index, context) => (
@@ -168,11 +139,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
             })
           }
           onToggleEditing={tracker.toggleEditing}
-          onUpdateVariable={(
-            id: string,
-            field: EnvVariableField,
-            value: string,
-          ) => tracker.updateRow(id, field, value)}
+          onUpdateVariable={tracker.updateRow}
           ready={tracker.ready}
           resolveRowWriter={tracker.resolveRowWriter}
           variables={variables}

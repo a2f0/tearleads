@@ -5,30 +5,18 @@ import type {
   SetStateAction,
 } from "react";
 import { useCallback, useMemo } from "react";
-import type {
-  WindowCreateOptions,
-  WindowEntry,
-  WindowStateActions,
-} from "./types";
+import type { WindowCreateOptions, WindowEntry } from "./types";
 import {
   bringWindowToFront,
   createWindowEntry,
+  getMaxWindowZIndex,
   swapWindowZIndexes,
   updateWindowFlag,
-  updateWindowTitle,
 } from "./util";
 
 interface UseWindowStateActionsParams {
   counter: MutableRefObject<number>;
   setWindows: Dispatch<SetStateAction<WindowEntry[]>>;
-}
-
-function getMaxWindowZIndex(windows: ReadonlyArray<WindowEntry>) {
-  return windows.reduce(
-    (currentMaxZIndex, windowEntry) =>
-      Math.max(currentMaxZIndex, windowEntry.zIndex),
-    0,
-  );
 }
 
 function arePathSegmentsEqual(
@@ -169,6 +157,37 @@ function useWindowMaximizeActions(
   return { maximize, toggleMaximize };
 }
 
+function useWindowZOrderActions(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  const moveForward = useCallback(
+    (id: string) => {
+      setWindows((previousWindows) =>
+        swapWindowZIndexes(previousWindows, id, "forward"),
+      );
+    },
+    [setWindows],
+  );
+
+  const moveBackward = useCallback(
+    (id: string) => {
+      setWindows((previousWindows) =>
+        swapWindowZIndexes(previousWindows, id, "backward"),
+      );
+    },
+    [setWindows],
+  );
+
+  const bringToFront = useCallback(
+    (id: string) => {
+      setWindows((previousWindows) => bringWindowToFront(previousWindows, id));
+    },
+    [setWindows],
+  );
+
+  return { bringToFront, moveBackward, moveForward };
+}
+
 export function useWindowStateActions({
   counter,
   setWindows,
@@ -223,68 +242,14 @@ export function useWindowStateActions({
   const updateTitle = useCallback(
     (id: string, title: string) => {
       setWindows((previousWindows) =>
-        updateWindowTitle(previousWindows, id, title),
+        updateWindowFlag(previousWindows, id, { title }),
       );
     },
     [setWindows],
   );
 
-  const moveForward = useCallback(
-    (id: string) => {
-      setWindows((previousWindows) =>
-        swapWindowZIndexes(previousWindows, id, "forward"),
-      );
-    },
-    [setWindows],
-  );
-
-  const moveBackward = useCallback(
-    (id: string) => {
-      setWindows((previousWindows) =>
-        swapWindowZIndexes(previousWindows, id, "backward"),
-      );
-    },
-    [setWindows],
-  );
-
-  const bringToFront = useCallback(
-    (id: string) => {
-      setWindows((previousWindows) => bringWindowToFront(previousWindows, id));
-    },
-    [setWindows],
-  );
-
-  return useMemoizedWindowActions({
-    bringToFront,
-    close,
-    create,
-    goBackMiniAppRoute,
-    maximize,
-    minimize,
-    moveBackward,
-    moveForward,
-    restore,
-    toggleMaximize,
-    updateMiniAppRoute,
-    updateTitle,
-  });
-}
-
-function useMemoizedWindowActions(actions: WindowStateActions) {
-  const {
-    bringToFront,
-    close,
-    create,
-    goBackMiniAppRoute,
-    maximize,
-    minimize,
-    moveBackward,
-    moveForward,
-    restore,
-    toggleMaximize,
-    updateMiniAppRoute,
-    updateTitle,
-  } = actions;
+  const { bringToFront, moveBackward, moveForward } =
+    useWindowZOrderActions(setWindows);
 
   return useMemo(
     () => ({

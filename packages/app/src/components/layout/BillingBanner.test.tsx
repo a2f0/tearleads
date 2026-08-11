@@ -6,7 +6,7 @@ import {
   useRegisterMiniAppLauncher,
 } from "../../mini-apps/miniAppLauncher";
 import type { AppRouteState } from "../../navigation/AppRoutePaths";
-import { ActiveRouteBillingBanner, BillingBannerView } from "./BillingBanner";
+import { BillingBannerView } from "./BillingBanner";
 
 afterEach(() => cleanup());
 
@@ -76,24 +76,10 @@ test("renders no promotional chrome while trialing", () => {
   expect(container.firstChild).toBe(null);
 });
 
-test("renders no warning on the billing screen", () => {
-  const { container } = render(
-    <BillingBannerView
-      isBillingScreen={true}
-      view={view({
-        status: "disabled",
-        isLocal: false,
-        needsAttention: true,
-      })}
-    />,
-  );
-  expect(container.firstChild).toBe(null);
-});
-
 function BannerAtRoute({ route }: { route: AppRouteState }) {
   useRegisterMiniAppLauncher(noop, true, route);
   return (
-    <ActiveRouteBillingBanner
+    <BillingBannerView
       view={view({
         status: "disabled",
         isLocal: false,

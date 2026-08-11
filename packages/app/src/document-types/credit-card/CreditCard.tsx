@@ -1,6 +1,5 @@
-import { useId, useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { useId } from "react";
+import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
@@ -8,11 +7,8 @@ import {
   StructuredDocumentFields,
   StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
-  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
-import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
+import { useAttachedStructuredDocument } from "../shared/useAttachedStructuredDocument";
 import {
   CREDIT_CARD_CVV_REVEAL_LABEL,
   CREDIT_CARD_NUMBER_REVEAL_LABEL,
@@ -234,10 +230,6 @@ export function CreditCardDocumentFieldsPane(params: {
   );
 }
 
-const CREDIT_CARD_ATTACHMENT_SLOT_IDS = CREDIT_CARD_ATTACHMENT_SLOTS.map(
-  (slot) => slot.slotId,
-);
-
 interface CreditCardProps {
   containerId: string | null;
   initialEditing?: boolean | undefined;
@@ -245,27 +237,14 @@ interface CreditCardProps {
 }
 
 export function CreditCard(params: CreditCardProps) {
-  const { infra } = useTearleadsRuntime();
-  const {
-    attachments,
-    attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId,
-    canAttach,
-    canWrite,
-    ready,
-    removeAttachment,
-    replaceAttachment,
-    setStructuredFields,
-    structuredFields,
-  } = useDocument();
-  const fields = useMemo(
-    () => readCreditCardFields(structuredFields),
-    [structuredFields],
-  );
-  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
-    canWrite,
-    params.initialEditing,
-  );
+  const doc = useAttachedStructuredDocument({
+    containerId: params.containerId,
+    documentLabel: "credit card",
+    initialEditing: params.initialEditing,
+    localId: params.localId,
+    readFields: readCreditCardFields,
+    slots: CREDIT_CARD_ATTACHMENT_SLOTS,
+  });
   const inputIds = {
     cardNumber: useId(),
     cvvCode: useId(),
@@ -273,47 +252,18 @@ export function CreditCard(params: CreditCardProps) {
     issuer: useId(),
     nameOnCard: useId(),
   };
-  const imageUrlBySlotId = useAttachmentImageUrls(
-    attachments,
-    attachmentStorageKeyBySlotId,
-    infra.blobStore,
-  );
-  const handleSelectedAttachment = useDocumentAttachmentSelection({
-    errorMessage: "Failed to handle credit card attachment selection",
-    replaceAttachment,
-  });
-  const blobPicker = useBlobPickAttachment({
-    blobStore: infra.blobStore,
-    containerId: params.containerId,
-    errorMessage: "Failed to handle credit card blob attachment selection",
-    localId: params.localId,
-    replaceAttachment,
-    slotIds: CREDIT_CARD_ATTACHMENT_SLOT_IDS,
-  });
   return (
     <StructuredDocument
-      attachments={
-        <DocumentAttachmentSlots
-          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
-          attachmentStatusBySlotId={attachmentStatusBySlotId}
-          attachments={attachments}
-          blobPicker={blobPicker}
-          canAttach={canAttach && isEditing && canWrite}
-          imageUrlBySlotId={imageUrlBySlotId}
-          onClearAttachment={removeAttachment}
-          onSelectedAttachment={handleSelectedAttachment}
-          slots={CREDIT_CARD_ATTACHMENT_SLOTS}
-        />
-      }
+      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
       fields={
         <CreditCardDocumentFieldsPane
-          canWrite={canWrite}
-          fields={fields}
+          canWrite={doc.canWrite}
+          fields={doc.fields}
           inputIds={inputIds}
-          isEditing={isEditing}
-          onToggleEditing={toggleEditing}
-          ready={ready}
-          setStructuredFields={setStructuredFields}
+          isEditing={doc.isEditing}
+          onToggleEditing={doc.toggleEditing}
+          ready={doc.ready}
+          setStructuredFields={doc.setStructuredFields}
         />
       }
     />

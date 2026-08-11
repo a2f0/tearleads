@@ -38,7 +38,7 @@ export function countPendingWrites(
 }
 
 /** One read of the write queue, reduced to what the indicator needs. */
-interface PendingWriteQueueSummary {
+export interface PendingWriteQueueSummary {
   /** Aggregate unflushed write-operation count (see `countPendingWrites`). */
   readonly count: number;
   /** Queue items whose last submission failed terminally (status `error`). */

@@ -1,15 +1,11 @@
 import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
-import {
-  defineSqlTableSchema,
-  getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
-import { eq } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readContactFieldsFromRecord } from "../document-types/contact/contactDocumentDefinition";
 import {
   isTruthyStructuredField,
   nullableField,
 } from "../document-types/shared/documentFieldUtils";
+import { createDocumentSqlProjection } from "./createDocumentSqlProjection";
 
 export const contactProjection = sqliteTable(
   "contact_projection",
@@ -28,13 +24,10 @@ export const contactProjection = sqliteTable(
   (table) => [index("contact_projection_container_idx").on(table.containerId)],
 );
 
-const CONTACT_PROJECTION_TABLE = defineSqlTableSchema(contactProjection);
-
-export const contactClientProjection: DocumentClientProjectionDefinition = {
-  tables: [CONTACT_PROJECTION_TABLE],
-  async save(input) {
+export const contactClientProjection: DocumentClientProjectionDefinition =
+  createDocumentSqlProjection(contactProjection, (input) => {
     const fields = readContactFieldsFromRecord(input.structuredFields).fields;
-    const row = {
+    return {
       localId: input.localId,
       documentId: input.documentId,
       containerId: input.containerId,
@@ -46,24 +39,4 @@ export const contactClientProjection: DocumentClientProjectionDefinition = {
       isSelf: isTruthyStructuredField(fields.isSelf) ? 1 : 0,
       updatedAt: input.updatedAt,
     };
-
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .insert(contactProjection)
-        .values(row)
-        .onConflictDoUpdate({
-          target: contactProjection.localId,
-          set: row,
-        })
-        .run();
-    });
-  },
-  async delete(input) {
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .delete(contactProjection)
-        .where(eq(contactProjection.localId, input.localId))
-        .run();
-    });
-  },
-};
+  });

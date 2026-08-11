@@ -8,6 +8,8 @@ interface WindowToolbarReservationRegistry {
   unregister: (id: object) => void;
 }
 
+// Module scope on purpose: the registry keys its callback identities on the
+// comparator, so an inline closure here re-registers every render and loops.
 function sameToolbarReservation(
   left: boolean | undefined,
   right: boolean,

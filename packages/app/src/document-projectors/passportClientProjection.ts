@@ -1,11 +1,7 @@
 import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
-import {
-  defineSqlTableSchema,
-  getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
-import { eq } from "drizzle-orm";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readPassportFieldsFromRecord } from "../document-types/passport/passportDocumentDefinition";
+import { createDocumentSqlProjection } from "./createDocumentSqlProjection";
 
 const passportProjection = sqliteTable(
   "passport_projection",
@@ -24,13 +20,10 @@ const passportProjection = sqliteTable(
   ],
 );
 
-const PASSPORT_PROJECTION_TABLE = defineSqlTableSchema(passportProjection);
-
-export const passportClientProjection: DocumentClientProjectionDefinition = {
-  tables: [PASSPORT_PROJECTION_TABLE],
-  async save(input) {
+export const passportClientProjection: DocumentClientProjectionDefinition =
+  createDocumentSqlProjection(passportProjection, (input) => {
     const fields = readPassportFieldsFromRecord(input.structuredFields).fields;
-    const row = {
+    return {
       localId: input.localId,
       documentId: input.documentId,
       containerId: input.containerId,
@@ -40,24 +33,4 @@ export const passportClientProjection: DocumentClientProjectionDefinition = {
       expirationDate: fields.expirationDate,
       updatedAt: input.updatedAt,
     };
-
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .insert(passportProjection)
-        .values(row)
-        .onConflictDoUpdate({
-          target: passportProjection.localId,
-          set: row,
-        })
-        .run();
-    });
-  },
-  async delete(input) {
-    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
-      await db
-        .delete(passportProjection)
-        .where(eq(passportProjection.localId, input.localId))
-        .run();
-    });
-  },
-};
+  });

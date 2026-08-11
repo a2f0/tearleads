@@ -21,7 +21,6 @@ import {
   type DirectoryRefreshOptions,
   type DirectoryRefreshResult,
   directoryLoadOptions,
-  type GrantsRefreshOptions,
   type GroupDetailsEffectKey,
   getRefreshBehavior,
   type RefreshBehaviorOptions,
@@ -382,7 +381,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   );
 
   const refreshGrants = useCallback(
-    (options: GrantsRefreshOptions = {}) =>
+    (options: RefreshBehaviorOptions = {}) =>
       runScopedRefresher({
         apply: (nextGrants) => {
           if (nextGrants === null) {

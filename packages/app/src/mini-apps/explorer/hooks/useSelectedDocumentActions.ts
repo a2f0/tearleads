@@ -18,10 +18,10 @@ import {
 import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
-  canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
+  isPinnedSelfContact,
 } from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";
 import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
@@ -194,7 +194,7 @@ function usePurgeDocumentAction(params: {
       }
       // The pinned self contact can never be purged, even if it is already
       // parked under Trash — purge destroys the document server-side by id.
-      if (!canPurgeDocumentByRules(rulesContext, existingDocument)) {
+      if (isPinnedSelfContact(rulesContext, existingDocument)) {
         return null;
       }
       if (
@@ -417,84 +417,14 @@ function useActivateLinkedDocumentAction(params: {
   );
 }
 
-export function useSelectedDocumentActions(params: {
-  appData: ContainerDocumentLinks;
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  expandNode: (nodeId: string) => void;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  loadDocumentSummary: LoadExplorerDocumentSummary;
-  loadOrphanedDocumentSummary: LoadExplorerDocumentSummary;
-  mergeDocumentSummary: MergeDocumentSummary;
-  nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
-  rulesContext: ExplorerContainerRulesContext;
-  setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
-}) {
-  const {
-    appData,
-    documentSummaries,
-    expandNode,
-    linkedContainerIdsByDocumentId,
-    loadDocumentSummary,
-    loadOrphanedDocumentSummary,
-    mergeDocumentSummary,
-    nodes,
-    onDocumentLinksChanged,
-    rulesContext,
-    setLinkedContainerIdsForDocument,
-  } = params;
-
-  const moveDocument = useMoveDocumentAction({
-    appData,
-    documentSummaries,
-    expandNode,
-    linkedContainerIdsByDocumentId,
-    loadDocumentSummary,
-    loadOrphanedDocumentSummary,
-    mergeDocumentSummary,
-    nodes,
-    onDocumentLinksChanged,
-    rulesContext,
-    setLinkedContainerIdsForDocument,
-  });
-  const purgeDocument = usePurgeDocumentAction({
-    appData,
-    documentSummaries,
-    loadDocumentSummary,
-    nodes,
-    rulesContext,
-  });
-  const activateLinkedDocument = useActivateLinkedDocumentAction({
-    appData,
-    documentSummaries,
-    loadDocumentSummary,
-    mergeDocumentSummary,
-  });
-  const linkDocument = useLinkDocumentAction({
-    appData,
-    documentSummaries,
-    loadDocumentSummary,
-    mergeDocumentSummary,
-    nodes,
-    onDocumentLinksChanged,
-    rulesContext,
-    setLinkedContainerIdsForDocument,
-  });
-  const unlinkDocument = useUnlinkDocumentAction({
-    appData,
-    documentSummaries,
-    loadDocumentSummary,
-    mergeDocumentSummary,
-    nodes,
-    onDocumentLinksChanged,
-    setLinkedContainerIdsForDocument,
-  });
-
+// Each sub-hook's params are a structural subset of these, so the one params
+// object flows through unchanged.
+export function useSelectedDocumentActions(params: MoveDocumentActionParams) {
   return {
-    activateLinkedDocument,
-    linkDocument,
-    moveDocument,
-    purgeDocument,
-    unlinkDocument,
+    activateLinkedDocument: useActivateLinkedDocumentAction(params),
+    linkDocument: useLinkDocumentAction(params),
+    moveDocument: useMoveDocumentAction(params),
+    purgeDocument: usePurgeDocumentAction(params),
+    unlinkDocument: useUnlinkDocumentAction(params),
   };
 }

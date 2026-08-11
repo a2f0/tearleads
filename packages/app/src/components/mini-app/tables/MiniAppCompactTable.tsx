@@ -168,6 +168,23 @@ export function MiniAppCompactTableCell({
   );
 }
 
+/**
+ * The frame-width half of the fold decision as a hook: owns the fold state and
+ * re-evaluates {@link shouldFoldCompactRows} whenever the measured width
+ * changes. Kept internal — the explorer and blob-list tables restate the pair
+ * because their fold state must exist before the virtual window derives the
+ * measured width from it.
+ */
+function useCompactFold(frameWidth: number): boolean {
+  const [narrowFrame, setNarrowFrame] = useState(false);
+
+  useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
+
+  return narrowFrame;
+}
+
 function useCompactTableTier(): boolean {
   // Phone rows fold the visible data columns into two summary lines. Keep the
   // wider desktop/tablet tables at their existing single-line density. Read the
@@ -221,13 +238,9 @@ export function useMiniAppCompactTableFrame(): {
   rowHeight: number;
 } {
   const tierCompact = useCompactTableTier();
-  const [narrowFrame, setNarrowFrame] = useState(false);
   const { frameRef, frameWidth } = useMiniAppFrameBox();
+  const narrowFrame = useCompactFold(frameWidth);
   const compact = tierCompact || narrowFrame;
-
-  useEffect(() => {
-    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
-  }, [frameWidth]);
 
   return {
     compact,
@@ -253,6 +266,9 @@ export function useMiniAppCompactTableRows<TItem>(params: {
   rowHeight: number;
 } {
   const tierCompact = useCompactTableTier();
+  // Not {@link useCompactFold}: the fold state must be readable before the
+  // virtualizer call that produces the width it folds on (the pitch feeds the
+  // virtualization math), so the state-and-effect pair stays split here.
   const [narrowFrame, setNarrowFrame] = useState(false);
   const compact = tierCompact || narrowFrame;
   const rowHeight = getMiniAppCompactTableRowHeight(compact);

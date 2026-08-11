@@ -11,12 +11,9 @@ test("destroy key pair uses the standard button style", () => {
       generateKey={() => undefined}
       handleAuthenticate={async () => undefined}
       handleDestroyKeyPair={() => undefined}
-      handleLogoutCurrentSession={() => undefined}
       handleRegisterIdentity={async () => undefined}
       hasSigningKeyPair
       identityBusy={null}
-      isAuthenticated
-      mutatingSessionId={null}
     />,
   );
 

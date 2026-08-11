@@ -11,12 +11,7 @@
 
 export const UNKNOWN_ENVIRONMENT_VALUE = "unknown";
 
-interface BrowserIdentity {
-  readonly name: string;
-  readonly version: string;
-}
-
-interface OsIdentity {
+interface UserAgentIdentity {
   readonly name: string;
   readonly version: string;
 }
@@ -67,7 +62,9 @@ const IOS_WEB_VIEW_PATTERN = /(?:iPhone|iPad|iPod|Mobile\/)/u;
  * a marketing version, but it tracks the OS release reported one row below and
  * beats leaving the row blank.
  */
-function parseWebViewFromUserAgent(userAgent: string): BrowserIdentity | null {
+function parseWebViewFromUserAgent(
+  userAgent: string,
+): UserAgentIdentity | null {
   const webKitBuild = WEB_KIT_BUILD_PATTERN.exec(userAgent)?.[1];
   if (webKitBuild === undefined) {
     return null;
@@ -81,7 +78,9 @@ function parseWebViewFromUserAgent(userAgent: string): BrowserIdentity | null {
   };
 }
 
-export function parseBrowserFromUserAgent(userAgent: string): BrowserIdentity {
+export function parseBrowserFromUserAgent(
+  userAgent: string,
+): UserAgentIdentity {
   for (const matcher of BROWSER_MATCHERS) {
     const match = matcher.pattern.exec(userAgent);
     if (match?.[1]) {
@@ -100,7 +99,7 @@ export function parseBrowserFromUserAgent(userAgent: string): BrowserIdentity {
   };
 }
 
-export function parseOsFromUserAgent(userAgent: string): OsIdentity {
+export function parseOsFromUserAgent(userAgent: string): UserAgentIdentity {
   // iOS/iPadOS write the version with underscores ("OS 17_5_1").
   const ios = /(?:iPhone|iPad|iPod).*?OS (\d+(?:_\d+)*)/u.exec(userAgent);
   if (ios?.[1]) {
@@ -165,9 +164,9 @@ export function resolveWindowsVersion(platformVersion: string): string {
  * in a support report, so where the hints are available they win.
  */
 export function applyHighEntropyHints(
-  os: OsIdentity,
+  os: UserAgentIdentity,
   hints: { readonly platformVersion?: string | undefined },
-): OsIdentity {
+): UserAgentIdentity {
   const { platformVersion } = hints;
   if (platformVersion === undefined || platformVersion === "") {
     return os;
@@ -180,7 +179,7 @@ export function applyHighEntropyHints(
   return { name: os.name, version: platformVersion };
 }
 
-export function formatIdentity(identity: BrowserIdentity | OsIdentity): string {
+export function formatIdentity(identity: UserAgentIdentity): string {
   if (identity.name === UNKNOWN_ENVIRONMENT_VALUE) {
     return UNKNOWN_ENVIRONMENT_VALUE;
   }

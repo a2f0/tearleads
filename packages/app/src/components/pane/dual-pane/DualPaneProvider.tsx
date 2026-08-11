@@ -1,6 +1,6 @@
 import { type PropsWithChildren, useMemo, useState } from "react";
 
-import { DualPaneContext } from "./context";
+import { dualPaneContext } from "./context";
 
 interface DualPaneProviderProps extends PropsWithChildren {
   peerUserIdsEnabled?: boolean | undefined;
@@ -25,8 +25,8 @@ export function DualPaneProvider({
   );
 
   return (
-    <DualPaneContext.Provider value={value}>
+    <dualPaneContext.context.Provider value={value}>
       {children}
-    </DualPaneContext.Provider>
+    </dualPaneContext.context.Provider>
   );
 }

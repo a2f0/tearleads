@@ -10,7 +10,10 @@ import type {
   Tearleads,
 } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import {
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
@@ -141,6 +144,9 @@ function TearleadsProbe({
   return null;
 }
 
+const testHostConfig = (wsUrl: string): AppHostConfig =>
+  createAppHostConfig({ apiBaseUrl: "http://api.example.test", wsUrl });
+
 function Harness({
   hostConfig,
   onReady,
@@ -151,9 +157,7 @@ function Harness({
   wsUrl: string;
 }) {
   return (
-    <AppHostConfigProvider
-      value={hostConfig ?? new AppHostConfig("http://api.example.test", wsUrl)}
-    >
+    <AppHostConfigProvider value={hostConfig ?? testHostConfig(wsUrl)}>
       <LocalKeyringLockProvider>
         <LogProvider>
           <SyncModeProvider>
@@ -295,10 +299,10 @@ test("seeds and tracks SDK connectivity from an injected network status source",
   const state: { tearleads?: Tearleads } = {};
   const view = render(
     <Harness
-      hostConfig={new AppHostConfig(
-        "http://api.example.test",
-        "ws://events.example.test/network",
-      ).withOverrides({ createNetworkStatus: () => source })}
+      hostConfig={{
+        ...testHostConfig("ws://events.example.test/network"),
+        createNetworkStatus: () => source,
+      }}
       wsUrl="ws://events.example.test/network"
       onReady={(nextTearleads) => {
         state.tearleads = nextTearleads;
@@ -445,16 +449,12 @@ test("derives local keyring blob store keys by namespace without overlapping ses
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <Harness
-        hostConfig={
-          new AppHostConfig(
-            "http://api.example.test",
-            "ws://events.example.test/local-keyring",
-            undefined,
-            undefined,
-            "test-app",
-            () => createSerialTestLocalKeyring(observedEvents),
-          )
-        }
+        hostConfig={{
+          ...testHostConfig("ws://events.example.test/local-keyring"),
+          createLocalKeyring: () =>
+            createSerialTestLocalKeyring(observedEvents),
+          localIdentityNamespace: "test-app",
+        }}
         wsUrl="ws://events.example.test/local-keyring"
         onReady={(nextTearleads) => {
           state.tearleads = nextTearleads;

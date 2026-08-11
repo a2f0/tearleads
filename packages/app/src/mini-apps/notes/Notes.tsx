@@ -2,7 +2,8 @@ import { useCallback } from "react";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NoteEditorFields } from "../../document-types/note/NoteEditorFields";
-import { useNotesModel } from "./hooks/useNotesModel";
+import { useNoteEditorFields } from "../../document-types/note/useNoteEditorFields";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
 import "./Notes.css";
 
 export function Notes({
@@ -14,13 +15,17 @@ export function Notes({
   localId?: string | undefined;
   registerRefreshMenuItem?: boolean;
 }) {
-  const model = useNotesModel({
+  const { requestSync } = useDocument();
+  // The optional container/local ids wire the note editor's blob picker to the
+  // active note; the standalone list home omits them and the "Select Blob"
+  // control stays hidden.
+  const model = useNoteEditorFields({
     containerId,
     ...(localId === undefined ? {} : { localId }),
   });
   const handleRefresh = useCallback(() => {
-    model.requestSync();
-  }, [model.requestSync]);
+    requestSync();
+  }, [requestSync]);
 
   useWindowRefreshMenuItem(
     registerRefreshMenuItem

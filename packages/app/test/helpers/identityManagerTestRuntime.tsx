@@ -2,7 +2,11 @@ import type { Tearleads } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { cleanup } from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
-import { APP_HOST_PROFILES, AppHostConfig } from "../../src/host/AppHostConfig";
+import {
+  APP_HOST_PROFILES,
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../src/host/AppHostConfig";
 import { AppRuntimeProvider } from "../../src/providers/AppRuntimeProvider";
 import { useTearleads } from "../../src/providers/sdk/TearleadsProvider";
 import { withManualIdentity } from "./manualIdentityProfile";
@@ -18,14 +22,15 @@ import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyrin
 export function createIdentityManagerHostConfig(
   options: { readonly browserManagedKeyring?: boolean } = {},
 ): AppHostConfig {
-  const base = new AppHostConfig(
-    "http://localhost:3001",
-    "ws://events.example.test",
-    () =>
+  const base = createAppHostConfig({
+    apiBaseUrl: "http://localhost:3001",
+    createSQLiteRuntime: () =>
       createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
-  ).withOverrides({ profile: withManualIdentity(APP_HOST_PROFILES.app) });
+    profile: withManualIdentity(APP_HOST_PROFILES.app),
+    wsUrl: "ws://events.example.test",
+  });
 
   // A host-supplied keyring marks the keychain host-managed, which disables PIN
   // locking outright (canManagePinCode, LocalKeyringLockProvider.tsx), so PIN

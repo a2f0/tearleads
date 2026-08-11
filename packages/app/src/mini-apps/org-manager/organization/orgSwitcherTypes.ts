@@ -6,15 +6,9 @@ import type {
 } from "@tearleads/client-sdk";
 
 /** Stable view model consumed by the organization switcher UI. */
-export interface OrgSwitcherState {
+export interface OrgSwitcherState extends CreateOrganizationDialogState {
   activeOrganizationId: string | null;
-  closeCreateOrganizationDialog: () => void;
-  createOrganization: (organizationName: string) => Promise<void>;
-  createOrganizationError: string | null;
-  creating: boolean;
   interactionDisabled: boolean;
-  isCreateOrganizationDialogOpen: boolean;
-  openCreateOrganizationDialog: () => void;
   organizations: readonly LocalOrganizationSummary[];
   organizationsError: string | null;
   organizationsLoading: boolean;

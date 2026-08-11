@@ -4,8 +4,9 @@ import type {
   OrganizationDirectoryUser,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useCallback, useEffect, useState } from "react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import type { ContextType } from "react";
+import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { DirectoryView } from "./DirectoryView";
 
@@ -57,77 +58,45 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
-const noopOpenGrantRoute = () => undefined;
+// The inlined RosterProfileEditor only needs the container ensure; resolving
+// null keeps it on its loading status without mounting a document store.
+const orgManagerActionsStub = {
+  ensureRosterProfileContainer: async () => null,
+} as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;
 
-function ProfileDisplayNameReporter({
-  displayName,
-  onDisplayNameChange,
-}: {
-  displayName: string;
-  onDisplayNameChange: (displayName: string | null) => void;
-}) {
-  useEffect(() => {
-    onDisplayNameChange(displayName);
-  }, [displayName, onDisplayNameChange]);
-
-  return <span>{displayName}</span>;
-}
-
-function DirectoryViewDisplayNameHarness({
-  detail,
-  directory,
-  displayName,
-}: {
-  detail: OrganizationUserDetail;
-  directory: OrganizationDirectory;
-  displayName: string;
-}) {
-  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
-    useState<ReadonlyMap<string, string>>(new Map());
-  const setSelectedProfileDisplayName = useCallback(
-    (nextDisplayName: string | null) => {
-      const trimmedDisplayName = nextDisplayName?.trim() ?? "";
-      setProfileDisplayNamesByUserId((current) => {
-        const existing = current.get(detail.user.userId) ?? "";
-        if (existing === trimmedDisplayName) {
-          return current;
-        }
-
-        const next = new Map(current);
-        if (trimmedDisplayName.length > 0) {
-          next.set(detail.user.userId, trimmedDisplayName);
-        } else {
-          next.delete(detail.user.userId);
-        }
-        return next;
-      });
-    },
-    [detail.user.userId],
-  );
-
-  return (
-    <DirectoryView
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry
-      detail={detail}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      profileDisplayNamesByUserId={profileDisplayNamesByUserId}
-      renderRosterProfileEditor={({ onDisplayNameChange }) => (
-        <ProfileDisplayNameReporter
-          displayName={displayName}
-          onDisplayNameChange={onDisplayNameChange}
-        />
-      )}
-      revokeGrant={() => undefined}
-      selectedUserId={detail.user.userId}
-      selectUser={() => undefined}
-      setSelectedProfileDisplayName={setSelectedProfileDisplayName}
-    />
+function renderDirectoryView(
+  props: Partial<Parameters<typeof DirectoryView>[0]> = {},
+) {
+  return render(
+    <OrgManagerContext.Provider value={orgManagerActionsStub}>
+      <DirectoryView
+        canImportRosterUser={false}
+        canRevokeGrants={false}
+        canUpdateSelectedRosterEntry={false}
+        closeImportUserDialog={() => undefined}
+        detail={null}
+        directory={directory}
+        error={null}
+        importRosterUser={() => undefined}
+        importUserIdDraft=""
+        isImportUserDialogOpen={false}
+        loadingUserDetail={false}
+        organizationId={directory.organizationId}
+        pending={false}
+        mutating={false}
+        openGrantRoute={() => undefined}
+        openGroupRoute={() => undefined}
+        profileDisplayNamesByUserId={new Map()}
+        revokeGrant={() => undefined}
+        rosterProfileEditRequest={null}
+        selectedUserId={null}
+        selectUser={() => undefined}
+        setSelectedProfileDisplayName={() => undefined}
+        setImportUserIdDraft={() => undefined}
+        syncSeatUserIds={null}
+        {...props}
+      />
+    </OrgManagerContext.Provider>,
   );
 }
 
@@ -148,21 +117,10 @@ function installClipboardWriteMock(): string[] {
 test("org manager roster view exposes roster metadata", () => {
   // The detail "Back" affordance lives in the shared toolbar (registered by
   // OrgManagerRoutedChrome), not inline in DirectoryView.
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={detail}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={rosterUser.userId}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    detail,
+    selectedUserId: rosterUser.userId,
+  });
 
   expect(
     view.queryByRole("table", { name: ORG_MANAGER_LABELS.directory }),
@@ -182,21 +140,10 @@ test("org manager roster view exposes roster metadata", () => {
 
 test("org manager roster view copies the selected user id", () => {
   const clipboardWrites = installClipboardWriteMock();
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={detail}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={rosterUser.userId}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    detail,
+    selectedUserId: rosterUser.userId,
+  });
 
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.copyUserIdAction }),
@@ -205,92 +152,53 @@ test("org manager roster view copies the selected user id", () => {
   expect(clipboardWrites).toEqual([rosterUser.userId]);
 });
 
-test("org manager roster view can render an editable encrypted profile editor", () => {
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry
-      detail={detail}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      renderRosterProfileEditor={({ isEditing, user }) => (
-        <span>
-          {user.profileDocumentId}:{isEditing ? "editable" : "readonly"}
-        </span>
-      )}
-      revokeGrant={() => undefined}
-      selectedUserId={rosterUser.userId}
-      selectUser={() => undefined}
-    />,
-  );
+test("org manager roster view toggles roster profile editing", () => {
+  const view = renderDirectoryView({
+    canUpdateSelectedRosterEntry: true,
+    detail,
+    selectedUserId: rosterUser.userId,
+  });
 
-  expect(view.queryByText(ORG_MANAGER_LABELS.profileDocument)).toBeNull();
-  expect(view.queryByText(ORG_MANAGER_LABELS.directory)).toBeNull();
+  // The unresolved profile container keeps the editor on its loading status.
   expect(
-    view.getByText(`${rosterUser.profileDocumentId}:readonly`),
+    view.getByText(ORG_MANAGER_LABELS.loadingProfileDocument),
   ).toBeTruthy();
+  expect(view.queryByText(ORG_MANAGER_LABELS.directory)).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.edit }));
 
   expect(
-    view.getByText(`${rosterUser.profileDocumentId}:editable`),
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.done }),
   ).toBeTruthy();
 });
 
 test("org manager roster view opens selected detail in edit mode from edit requests", () => {
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry
-      detail={detail}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      renderRosterProfileEditor={({ isEditing, user }) => (
-        <span>
-          {user.profileDocumentId}:{isEditing ? "editable" : "readonly"}
-        </span>
-      )}
-      revokeGrant={() => undefined}
-      rosterProfileEditRequest={{ key: 1, userId: rosterUser.userId }}
-      selectedUserId={rosterUser.userId}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    canUpdateSelectedRosterEntry: true,
+    detail,
+    rosterProfileEditRequest: { key: 1, userId: rosterUser.userId },
+    selectedUserId: rosterUser.userId,
+  });
 
   expect(
-    view.getByText(`${rosterUser.profileDocumentId}:editable`),
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.done }),
   ).toBeTruthy();
 });
 
-test("org manager roster detail uses profile names before self fallback labels", async () => {
+test("org manager roster detail uses profile names before self fallback labels", () => {
   const selfRosterUser: OrganizationDirectoryUser = {
     ...rosterUser,
     isSelf: true,
   };
-  const selfDetail: OrganizationUserDetail = {
-    ...detail,
-    user: selfRosterUser,
-  };
 
-  const view = render(
-    <DirectoryViewDisplayNameHarness
-      detail={selfDetail}
-      directory={{ ...directory, users: [selfRosterUser] }}
-      displayName="Countess"
-    />,
-  );
-
-  await waitFor(() => {
-    expect(view.getAllByText("Countess").length).toBe(2);
+  const view = renderDirectoryView({
+    detail: { ...detail, user: selfRosterUser },
+    directory: { ...directory, users: [selfRosterUser] },
+    profileDisplayNamesByUserId: new Map([[selfRosterUser.userId, "Countess"]]),
+    selectedUserId: selfRosterUser.userId,
   });
+
+  expect(view.getByText("Countess")).toBeTruthy();
   expect(view.queryByText(ORG_MANAGER_LABELS.self)).toBeNull();
 });
 
@@ -300,21 +208,9 @@ test("org manager roster view labels unnamed self users as You", () => {
     isSelf: true,
   };
 
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={null}
-      directory={{ ...directory, users: [selfRosterUser] }}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    directory: { ...directory, users: [selfRosterUser] },
+  });
 
   expect(view.getByText(ORG_MANAGER_LABELS.self)).toBeTruthy();
   expect(view.queryByText(compactRosterUserId())).toBeNull();
@@ -323,23 +219,11 @@ test("org manager roster view labels unnamed self users as You", () => {
 test("org manager roster view hides user detail until a user is selected", () => {
   const selections: Array<string | null> = [];
 
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={null}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={(userId) => {
-        selections.push(userId);
-      }}
-    />,
-  );
+  const view = renderDirectoryView({
+    selectUser: (userId) => {
+      selections.push(userId);
+    },
+  });
 
   expect(
     view.getByRole("table", { name: ORG_MANAGER_LABELS.directory }),
@@ -353,25 +237,12 @@ test("org manager roster view hides user detail until a user is selected", () =>
 
 test("org manager roster view opens import user from whitespace below users", () => {
   let directoryContextMenuCount = 0;
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={null}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openDirectoryContextMenu={(event) => {
-        event.preventDefault();
-        directoryContextMenuCount += 1;
-      }}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    openDirectoryContextMenu: (event) => {
+      event.preventDefault();
+      directoryContextMenuCount += 1;
+    },
+  });
   const directorySection = view.getByRole("region", {
     name: ORG_MANAGER_LABELS.directory,
   });
@@ -386,24 +257,11 @@ test("org manager roster view opens import user from whitespace below users", ()
 
 test("org manager roster view does not open import user from user rows", () => {
   let directoryContextMenuCount = 0;
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={null}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openDirectoryContextMenu={() => {
-        directoryContextMenuCount += 1;
-      }}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    openDirectoryContextMenu: () => {
+      directoryContextMenuCount += 1;
+    },
+  });
 
   fireEvent.contextMenu(view.getByText(compactRosterUserId()));
 
@@ -413,28 +271,15 @@ test("org manager roster view does not open import user from user rows", () => {
 test("org manager roster view opens row context menus from user rows", () => {
   let directoryContextMenuCount = 0;
   const rowContextMenuUserIds: string[] = [];
-  const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      detail={null}
-      directory={directory}
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openDirectoryContextMenu={() => {
-        directoryContextMenuCount += 1;
-      }}
-      openRosterUserContextMenu={(event, userId) => {
-        event.preventDefault();
-        rowContextMenuUserIds.push(userId);
-      }}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={() => undefined}
-    />,
-  );
+  const view = renderDirectoryView({
+    openDirectoryContextMenu: () => {
+      directoryContextMenuCount += 1;
+    },
+    openRosterUserContextMenu: (event, userId) => {
+      event.preventDefault();
+      rowContextMenuUserIds.push(userId);
+    },
+  });
 
   fireEvent.contextMenu(view.getByText(compactRosterUserId()));
 
@@ -445,28 +290,15 @@ test("org manager roster view opens row context menus from user rows", () => {
 test("org manager roster import dialog submits the user id draft", () => {
   const drafts: string[] = [];
   let importCount = 0;
-  const view = render(
-    <DirectoryView
-      canImportRosterUser
-      canRevokeGrants={false}
-      detail={null}
-      directory={directory}
-      importRosterUser={() => {
-        importCount += 1;
-      }}
-      importUserIdDraft="user-2"
-      isImportUserDialogOpen
-      pending={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGrantRoute={noopOpenGrantRoute}
-      openGroupRoute={() => undefined}
-      revokeGrant={() => undefined}
-      selectedUserId={null}
-      selectUser={() => undefined}
-      setImportUserIdDraft={(userId) => drafts.push(userId)}
-    />,
-  );
+  const view = renderDirectoryView({
+    canImportRosterUser: true,
+    importRosterUser: () => {
+      importCount += 1;
+    },
+    importUserIdDraft: "user-2",
+    isImportUserDialogOpen: true,
+    setImportUserIdDraft: (userId) => drafts.push(userId),
+  });
 
   expect(
     view.getByRole("dialog", { name: ORG_MANAGER_LABELS.importUserAction }),

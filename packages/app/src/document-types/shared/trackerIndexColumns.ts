@@ -1,6 +1,7 @@
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import { formatRowByline } from "./rowAttribution";
 import type { TrackerReadColumn } from "./TrackerReadTable";
+import type { TrackerRow } from "./trackerRows";
 import {
   compareTrackerText,
   formatTrackerMeasuredAt,
@@ -8,14 +9,7 @@ import {
 } from "./trackerValues";
 
 /** The attribution every tracker row model carries, whatever it measures. */
-interface TrackerIndexEntry {
-  createdAt: string;
-  createdBy: string;
-  createdByPeer: string | null;
-  updatedAt: string;
-  updatedBy: string;
-  updatedByPeer: string | null;
-}
+type TrackerIndexEntry = Omit<TrackerRow, "fieldEditors" | "id">;
 
 /**
  * One entry as its index table sees it: the stored row plus the ordinal its

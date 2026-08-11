@@ -10,6 +10,34 @@ import {
 } from "../purge-progress/useExplorerPurgeRun";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
+// Resolve the Trash a delete/trash-move should land in for the source
+// container's OWN organization, lazily creating only the viewer's own Trash
+// (device-first). A foreign org's Trash is never substituted, so an absent one
+// yields undefined and the caller aborts rather than mis-homing the object
+// across orgs.
+export async function resolveExplorerTrashDestination(params: {
+  containerId: string;
+  currentOrganizationId: string | null | undefined;
+  explorer: Pick<
+    ExplorerModelExplorer,
+    "ensureTrashContainer" | "nodes" | "trashSystemSlot"
+  >;
+}): Promise<string | undefined> {
+  const { containerId, currentOrganizationId, explorer } = params;
+  const trashResolution = resolveExplorerDeleteTrashTarget({
+    containerId,
+    currentOrganizationId,
+    nodes: explorer.nodes,
+    trashSystemSlot: explorer.trashSystemSlot,
+  });
+  return (
+    trashResolution.trashContainerId ??
+    (trashResolution.canFallBackToOwnTrash
+      ? (await explorer.ensureTrashContainer())?.id
+      : undefined)
+  );
+}
+
 interface UseExplorerContainerTrashActionsParams {
   appData: RuntimeSnapshot;
   explorer: ExplorerModelExplorer;
@@ -73,20 +101,13 @@ export function useExplorerContainerTrashActions(
         }
 
         // Resolve the Trash for the folder's OWN organization (mirrors the
-        // document delete path), lazily creating only the viewer's own Trash. A
-        // folder under a foreign shared root lands in that org's Trash, never the
-        // viewer's personal one.
-        const trashResolution = resolveExplorerDeleteTrashTarget({
+        // document delete path). A folder under a foreign shared root lands in
+        // that org's Trash, never the viewer's personal one.
+        const trashContainerId = await resolveExplorerTrashDestination({
           containerId: containerNode.parentId,
           currentOrganizationId: appData.auth.organizationId,
-          nodes: explorer.nodes,
-          trashSystemSlot: explorer.trashSystemSlot,
+          explorer,
         });
-        const trashContainerId =
-          trashResolution.trashContainerId ??
-          (trashResolution.canFallBackToOwnTrash
-            ? (await explorer.ensureTrashContainer())?.id
-            : undefined);
         // No-op when the folder IS the resolved Trash or already lives anywhere
         // under it: an already-trashed folder is purged (Delete Forever), never
         // re-trashed, and moving Trash into itself is meaningless.
@@ -124,10 +145,7 @@ export function useExplorerContainerTrashActions(
     [
       appData.auth.organizationId,
       appData.util.logError,
-      explorer.ensureTrashContainer,
-      explorer.moveContainer,
-      explorer.nodes,
-      explorer.trashSystemSlot,
+      explorer,
       selectExplorerItem,
     ],
   );

@@ -1,16 +1,12 @@
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
-import { useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
 interface BillingHistorySnapshot {
   readonly entries: ReadonlyArray<OrganizationBillingHistoryEntry> | null;
   readonly loading: boolean;
   readonly error: string | null;
-}
-
-interface BillingHistoryState extends BillingHistorySnapshot {
-  readonly organizationId: string | null;
 }
 
 /**
@@ -29,68 +25,37 @@ export function useBillingHistory(
   reloadToken?: unknown,
 ): BillingHistorySnapshot {
   const tearleads = useTearleads();
-  const requestIdRef = useRef(0);
-  const [state, setState] = useState<BillingHistoryState>({
-    organizationId: null,
-    entries: null,
-    loading: false,
-    error: null,
-  });
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    const requestId = ++requestIdRef.current;
-    setState((prev) => {
-      // Preserve already-loaded rows across a background reload (a billing
-      // refresh bumps reloadToken) so the list does not flicker; only the first
-      // load for an organization shows the loading state.
-      const reloading =
-        prev.organizationId === organizationId && prev.entries !== null;
-      return {
-        organizationId,
-        entries: reloading ? prev.entries : null,
-        loading: !reloading,
-        error: null,
-      };
-    });
-    void (async () => {
+  const snapshot = useScopedOrganizationLoad<BillingHistorySnapshot>({
+    enabled,
+    load: async () => {
       try {
         const history = await tearleads.organizations.loadBillingHistory();
-        if (requestIdRef.current !== requestId) {
-          return;
-        }
         const scoped =
           history?.organizationId === organizationId ? history : null;
-        setState({
-          organizationId,
+        return {
           entries: scoped?.entries ?? null,
-          loading: false,
           error: scoped ? null : ORG_MANAGER_LABELS.failedLoadBillingHistory,
-        });
-      } catch (loadError) {
-        if (requestIdRef.current !== requestId) {
-          return;
-        }
-        console.error("Failed to load billing history:", loadError);
-        setState({
-          organizationId,
-          entries: null,
           loading: false,
+        };
+      } catch (loadError) {
+        console.error("Failed to load billing history:", loadError);
+        return {
+          entries: null,
           error: ORG_MANAGER_LABELS.failedLoadBillingHistory,
-        });
+          loading: false,
+        };
       }
-    })();
-    return () => {
-      requestIdRef.current++;
-    };
-  }, [enabled, organizationId, tearleads, reloadToken]);
+    },
+    // Preserve already-loaded rows across a background reload (a billing
+    // refresh bumps reloadToken) so the list does not flicker; only the first
+    // load for an organization shows the loading state.
+    onBegin: (previousValue) =>
+      previousValue && previousValue.entries !== null
+        ? { entries: previousValue.entries, error: null, loading: false }
+        : { entries: null, error: null, loading: true },
+    organizationId,
+    reloadToken,
+  });
 
-  const scoped = state.organizationId === organizationId;
-  return {
-    entries: scoped ? state.entries : null,
-    loading: scoped ? state.loading : enabled,
-    error: scoped ? state.error : null,
-  };
+  return snapshot ?? { entries: null, error: null, loading: enabled };
 }

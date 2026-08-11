@@ -1,22 +1,13 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-  useMemo,
-} from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
-  addMiniAppTableHeaderAction,
-  getVisibleMiniAppTableColumnIds,
-  MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
-  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -24,8 +15,6 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-  miniAppRowActionsColumn,
-  useMiniAppColumnVisibility,
   useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
@@ -34,14 +23,15 @@ import {
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
+import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
 import {
   getAccessLabel,
   getContainerDisplayLabel,
   getContainerDisplayTitle,
   getGrantPrincipalLabel,
-  isKeyboardActivationKey,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 import type { OrgManagerGrantRouteRef } from "../routes";
 
 type GrantTableColumnId =
@@ -81,13 +71,7 @@ const GRANT_COLUMN_MENU_OPTIONS: ReadonlyArray<
   { id: "updated", label: ORG_MANAGER_LABELS.updated },
 ];
 
-const GRANT_ACTION_TABLE_COLUMN = {
-  id: "action",
-  header: ORG_MANAGER_LABELS.action,
-  width: "6rem",
-} satisfies MiniAppTableColumn & { id: GrantTableColumnId };
-
-const GRANT_TABLE_COLUMNS = [
+const GRANT_DATA_TABLE_COLUMNS = [
   {
     id: "principal",
     header: ORG_MANAGER_LABELS.principal,
@@ -108,12 +92,7 @@ const GRANT_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
   },
-  GRANT_ACTION_TABLE_COLUMN,
-] satisfies ReadonlyArray<MiniAppTableColumn & { id: GrantTableColumnId }>;
-
-const GRANT_DATA_TABLE_COLUMNS = GRANT_TABLE_COLUMNS.filter(
-  (column) => column.id !== "action",
-);
+] satisfies ReadonlyArray<MiniAppTableColumn & { id: GrantDataColumnId }>;
 
 const GRANT_COLUMN_LABELS: Readonly<Record<GrantTableColumnId, string>> = {
   access: ORG_MANAGER_LABELS.access,
@@ -121,6 +100,24 @@ const GRANT_COLUMN_LABELS: Readonly<Record<GrantTableColumnId, string>> = {
   container: ORG_MANAGER_LABELS.container,
   principal: ORG_MANAGER_LABELS.principal,
   updated: ORG_MANAGER_LABELS.updated,
+};
+
+const GRANT_TABLE_COLUMNS_CONFIG = {
+  // The inline Revoke column trails the data columns whenever the touch kebab
+  // does not replace it.
+  actionColumn: {
+    id: "action",
+    header: ORG_MANAGER_LABELS.action,
+    width: "6rem",
+  } satisfies MiniAppTableColumn & { id: GrantTableColumnId },
+  allColumnIds: GRANT_DATA_COLUMN_IDS,
+  columnLabels: GRANT_COLUMN_LABELS,
+  compactPrimaryColumnIds: GRANT_COMPACT_PRIMARY_COLUMN_IDS,
+  compactSecondaryColumnIds: GRANT_COMPACT_SECONDARY_COLUMN_IDS,
+  dataColumns: GRANT_DATA_TABLE_COLUMNS,
+  menuOptions: GRANT_COLUMN_MENU_OPTIONS,
+  storageKey: "tearleads.org-manager.grants:hidden-columns",
+  toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
 };
 
 function renderGrantCell(
@@ -222,98 +219,6 @@ function getGrantCompactField(
         title: grant.updatedAt,
       };
   }
-}
-
-function useGrantTableColumns(
-  showActions: boolean,
-  compact: boolean,
-): {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GrantTableColumnId>;
-} {
-  const columnVisibility = useMiniAppColumnVisibility<GrantTableColumnId>({
-    storageKey: "tearleads.org-manager.grants:hidden-columns",
-    toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
-  });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        GRANT_DATA_COLUMN_IDS,
-        columnVisibility.hiddenColumns,
-      ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(() => {
-    const columnMenu = (
-      <MiniAppColumnMenuButton
-        ariaLabel={ORG_MANAGER_LABELS.columns}
-        hiddenColumns={columnVisibility.hiddenColumns}
-        options={GRANT_COLUMN_MENU_OPTIONS}
-        stateLabels={{
-          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-        }}
-        toggleColumn={columnVisibility.toggleColumn}
-      />
-    );
-    if (compact) {
-      const compactColumn = {
-        header: (
-          <MiniAppCompactTableHeader
-            primary={GRANT_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
-              visibleColumnIds.includes(id),
-            ).map((id) => ({ id, text: GRANT_COLUMN_LABELS[id] }))}
-            secondary={GRANT_COMPACT_SECONDARY_COLUMN_IDS.filter((id) =>
-              visibleColumnIds.includes(id),
-            ).map((id) => ({ id, text: GRANT_COLUMN_LABELS[id] }))}
-          />
-        ),
-        id: "summary",
-      } satisfies MiniAppTableColumn;
-
-      return showActions
-        ? [
-            compactColumn,
-            miniAppRowActionsColumn(
-              ORG_MANAGER_LABELS.rowActionsColumn,
-              columnMenu,
-            ),
-          ]
-        : addMiniAppTableHeaderAction(
-            [compactColumn, GRANT_ACTION_TABLE_COLUMN],
-            columnMenu,
-          );
-    }
-    if (showActions) {
-      // The kebab column (touch stand-in for the inline Revoke button) is the
-      // trailing edge, so the column-menu trigger rides in its header to stay
-      // flush right — on the last data column it would sit one narrow column
-      // in from the edge.
-      return [
-        ...GRANT_DATA_TABLE_COLUMNS.filter(
-          (column) => !columnVisibility.hiddenColumns.has(column.id),
-        ),
-        miniAppRowActionsColumn(
-          ORG_MANAGER_LABELS.rowActionsColumn,
-          columnMenu,
-        ),
-      ];
-    }
-    return addMiniAppTableHeaderAction(
-      GRANT_TABLE_COLUMNS.filter(
-        (column) => !columnVisibility.hiddenColumns.has(column.id),
-      ),
-      columnMenu,
-    );
-  }, [
-    compact,
-    columnVisibility.hiddenColumns,
-    columnVisibility.toggleColumn,
-    showActions,
-    visibleColumnIds,
-  ]);
-
-  return { columns, visibleColumnIds };
 }
 
 interface GrantTableRowProps {
@@ -431,7 +336,8 @@ export function GrantTable({
   // Touch layouts have no right-click; the kebab replaces the inline Revoke
   // button and opens the same Open / Revoke menu right-click / long-press does.
   const showActions = useRoutedLayoutActive() && Boolean(openGrantContextMenu);
-  const { columns, visibleColumnIds } = useGrantTableColumns(
+  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+    GRANT_TABLE_COLUMNS_CONFIG,
     showActions,
     compact,
   );

@@ -16,17 +16,13 @@ export interface IdentityActionToolbarProps {
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
   readonly handleDestroyKeyPair: () => void;
-  readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
   readonly hasSigningKeyPair: boolean;
   readonly identityBusy: IdentityBusyState;
-  readonly isAuthenticated: boolean;
-  readonly mutatingSessionId: string | null;
 }
 
-// The current-session logout lives in the Identity section's overflow menu
-// (see IdentityManagerActionsMenu), so it is intentionally not rendered here
-// even though the shared props type still carries its handler.
+// The current-session logout intentionally lives in the Identity section's
+// overflow menu (see IdentityManagerActionsMenu), not here.
 export function IdentityActionToolbar({
   canAuthenticate,
   canGenerateKey,

@@ -10,9 +10,9 @@ import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
-import type { ReactNode } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
+import type { ExplorerContextMenuModel } from "../hooks/explorerPanelStateTypes";
 import { EXPLORER_LABELS } from "../labels";
 import type {
   ExplorerContainerContextMenuVariant,
@@ -384,59 +384,60 @@ function ExplorerContainerContextMenu(
   return <ExplorerStandardContainerContextMenu {...params} />;
 }
 
+// The layer takes the whole context-menu model (capability flags, variant, and
+// open-state) plus the document flags and actions resolved outside it.
 export function ExplorerContextMenuLayer(params: {
-  canCreateChildContextMenuNode: boolean;
-  canCreateContactContextMenuNode: boolean;
-  canCreateStructuredDocumentContextMenuNode: boolean;
-  canEmptyTrashContextMenuNode: boolean;
-  containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   canDeleteSelectedDocument: boolean;
   canDownloadSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
-  canMoveToTrashContextMenuNode: boolean;
-  canMoveContextMenuNode: boolean;
-  canPurgeContextMenuNode: boolean;
-  canRenameContextMenuNode: boolean;
-  canUploadToContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
-  closeContextMenu: () => void;
-  contextMenu: ExplorerContextMenuState | null;
+  contextMenuState: ExplorerContextMenuModel;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
-  triggerUpload: (containerId: string) => void;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
-  openEmptyTrashModal: (containerId: string) => void;
+  openContainerInfoRoute: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openEmptyTrashModal: (containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
-  openContainerInfoRoute: (containerId: string) => void;
-  openNewContactDocument: (containerId: string) => void;
-  openMoveModal: (containerId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
+  openMoveModal: (containerId: string) => void;
+  openNewContactDocument: (containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openPurgeModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
+  triggerUpload: (containerId: string) => void;
 }) {
-  let menuElement: ReactNode = null;
-  if (params.contextMenu) {
-    if (isExplorerDocumentContextMenu(params.contextMenu)) {
-      menuElement = (
-        <ExplorerDocumentContextMenu
-          {...params}
-          contextMenu={params.contextMenu}
-        />
-      );
-    } else if (isExplorerContainerContextMenu(params.contextMenu)) {
-      menuElement = (
-        <ExplorerContainerContextMenu
-          {...params}
-          contextMenu={params.contextMenu}
-        />
-      );
-    }
+  const { contextMenuState, ...actions } = params;
+  const { contextMenu } = contextMenuState;
+  if (!contextMenu) {
+    return null;
   }
 
-  return menuElement;
+  if (isExplorerDocumentContextMenu(contextMenu)) {
+    return (
+      <ExplorerDocumentContextMenu
+        {...actions}
+        closeContextMenu={contextMenuState.closeContextMenu}
+        contextMenu={contextMenu}
+      />
+    );
+  }
+
+  // The target union has exactly two kinds, so a non-document context menu
+  // targets a container; TS cannot derive that negative narrowing across the
+  // intersection types, hence the positive guard.
+  if (!isExplorerContainerContextMenu(contextMenu)) {
+    throw new Error("Explorer context menu target has an unknown kind.");
+  }
+
+  return (
+    <ExplorerContainerContextMenu
+      {...actions}
+      {...contextMenuState}
+      contextMenu={contextMenu}
+    />
+  );
 }

@@ -2,7 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import type { NetworkStatusSource, Tearleads } from "@tearleads/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import {
+  type AppHostConfig,
+  createAppHostConfig,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider, useLog } from "../logging/LogProvider";
@@ -72,10 +75,11 @@ test("logs the network source diagnostic snapshot when the source provides one",
   let messages: ReadonlyArray<string> = [];
   const view = render(
     <Harness
-      hostConfig={new AppHostConfig(
-        "http://api.example.test",
-        "ws://events.example.test/diagnose",
-      ).withOverrides({ createNetworkStatus: () => source })}
+      hostConfig={createAppHostConfig({
+        apiBaseUrl: "http://api.example.test",
+        createNetworkStatus: () => source,
+        wsUrl: "ws://events.example.test/diagnose",
+      })}
       onLogEntries={(next) => {
         messages = next;
       }}
@@ -101,10 +105,11 @@ test("logs no diagnostic when the source omits diagnose (browser default)", asyn
   let messages: ReadonlyArray<string> = [];
   const view = render(
     <Harness
-      hostConfig={new AppHostConfig(
-        "http://api.example.test",
-        "ws://events.example.test/no-diagnose",
-      ).withOverrides({ createNetworkStatus: () => source })}
+      hostConfig={createAppHostConfig({
+        apiBaseUrl: "http://api.example.test",
+        createNetworkStatus: () => source,
+        wsUrl: "ws://events.example.test/no-diagnose",
+      })}
       onLogEntries={(next) => {
         messages = next;
       }}

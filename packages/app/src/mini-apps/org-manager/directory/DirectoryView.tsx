@@ -3,7 +3,6 @@ import type {
   OrganizationDirectory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import {
   type DirectoryContextMenuHandler,
@@ -12,73 +11,68 @@ import {
   type RosterUserContextMenuHandler,
 } from "./DirectoryTable";
 import { ImportRosterUserDialog } from "./ImportRosterUserDialog";
-import {
-  type RenderRosterProfileEditor,
-  UserDetailView,
-} from "./UserDetailView";
+import { UserDetailView } from "./UserDetailView";
 
 export function DirectoryView({
-  canImportRosterUser = false,
-  closeImportUserDialog = () => undefined,
-  canUpdateSelectedRosterEntry = false,
+  canImportRosterUser,
+  closeImportUserDialog,
+  canUpdateSelectedRosterEntry,
   canRevokeGrants,
   detail,
   directory,
-  error = null,
-  importRosterUser = () => undefined,
-  importUserIdDraft = "",
-  isImportUserDialogOpen = false,
+  error,
+  importRosterUser,
+  importUserIdDraft,
+  isImportUserDialogOpen,
   loadingUserDetail,
+  organizationId,
   pending,
   mutating,
   openDirectoryContextMenu,
   openRosterUserContextMenu,
   openGrantRoute,
   openGroupRoute,
-  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
-  renderRosterProfileEditor,
+  profileDisplayNamesByUserId,
   revokeGrant,
   rosterProfileEditRequest,
   selectedUserId,
   selectUser,
-  setSelectedProfileDisplayName = () => undefined,
-  setImportUserIdDraft = () => undefined,
-  syncSeatUserIds = null,
+  setSelectedProfileDisplayName,
+  setImportUserIdDraft,
+  syncSeatUserIds,
 }: {
-  canImportRosterUser?: boolean | undefined;
-  canUpdateSelectedRosterEntry?: boolean | undefined;
+  canImportRosterUser: boolean;
+  canUpdateSelectedRosterEntry: boolean;
   canRevokeGrants: boolean;
-  closeImportUserDialog?: (() => void) | undefined;
+  closeImportUserDialog: () => void;
   detail: OrganizationUserDetail | null;
   directory: OrganizationDirectory | null;
-  error?: string | null | undefined;
-  importRosterUser?: (() => void) | undefined;
-  importUserIdDraft?: string | undefined;
-  isImportUserDialogOpen?: boolean | undefined;
+  error: string | null;
+  importRosterUser: () => void;
+  importUserIdDraft: string;
+  isImportUserDialogOpen: boolean;
   loadingUserDetail: boolean;
+  organizationId: string;
   pending: boolean;
   mutating: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
-  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
-  renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
-  rosterProfileEditRequest?: { key: number; userId: string } | null | undefined;
+  rosterProfileEditRequest: { key: number; userId: string } | null;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
-  setSelectedProfileDisplayName?:
-    | ((displayName: string | null) => void)
-    | undefined;
-  setImportUserIdDraft?: ((userId: string) => void) | undefined;
-  syncSeatUserIds?: ReadonlySet<string> | null | undefined;
+  setSelectedProfileDisplayName: (displayName: string | null) => void;
+  setImportUserIdDraft: (userId: string) => void;
+  syncSeatUserIds: ReadonlySet<string> | null;
 }) {
   const importUserDialog = (
     <ImportRosterUserDialog
       canImportRosterUser={canImportRosterUser}
       closeImportUserDialog={closeImportUserDialog}
-      error={error ?? null}
+      error={error}
       importRosterUser={importRosterUser}
       importUserIdDraft={importUserIdDraft}
       isOpen={isImportUserDialogOpen}
@@ -127,15 +121,14 @@ export function DirectoryView({
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
           openGrantRoute={openGrantRoute}
           openGroupRoute={openGroupRoute}
+          organizationId={organizationId}
           profileDisplayName={profileDisplayNamesByUserId.get(selectedUserId)}
-          renderRosterProfileEditor={renderRosterProfileEditor}
           revokeGrant={revokeGrant}
           rosterProfileEditRequestKey={
             rosterProfileEditRequest?.userId === selectedUserId
               ? rosterProfileEditRequest.key
               : null
           }
-          selectedUserId={selectedUserId}
           syncSeatAssigned={
             detail?.user.status === "active" && syncSeatUserIds !== null
               ? syncSeatUserIds.has(detail.user.userId)

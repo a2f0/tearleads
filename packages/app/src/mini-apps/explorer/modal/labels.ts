@@ -1,48 +1,27 @@
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerModalState } from "./types";
 
+// One failure sentence per modal mode; the user-facing error ends with "." and
+// the console log ends with ":" (the thrown error follows it).
+const EXPLORER_MODAL_FAILURES: Record<ExplorerModalState["mode"], string> = {
+  "create-child": "Failed to create child container",
+  "empty-trash": "Failed to empty the Trash",
+  "link-document": "Failed to link document",
+  move: "Failed to move container",
+  "move-document": "Failed to move document",
+  purge: "Failed to delete container forever",
+  rename: "Failed to rename container",
+  "share-peer": "Failed to share container with peer",
+};
+
 export function getExplorerModalError(
   mode: ExplorerModalState["mode"],
 ): string {
-  switch (mode) {
-    case "create-child":
-      return "Failed to create child container.";
-    case "empty-trash":
-      return "Failed to empty the Trash.";
-    case "rename":
-      return "Failed to rename container.";
-    case "link-document":
-      return "Failed to link document.";
-    case "move":
-      return "Failed to move container.";
-    case "move-document":
-      return "Failed to move document.";
-    case "purge":
-      return "Failed to delete container forever.";
-    case "share-peer":
-      return "Failed to share container with peer.";
-  }
+  return `${EXPLORER_MODAL_FAILURES[mode]}.`;
 }
 
 export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
-  switch (mode) {
-    case "create-child":
-      return "Failed to create child container:";
-    case "empty-trash":
-      return "Failed to empty the Trash:";
-    case "rename":
-      return "Failed to rename container:";
-    case "link-document":
-      return "Failed to link document:";
-    case "move":
-      return "Failed to move container:";
-    case "move-document":
-      return "Failed to move document:";
-    case "purge":
-      return "Failed to delete container forever:";
-    case "share-peer":
-      return "Failed to share container with peer:";
-  }
+  return `${EXPLORER_MODAL_FAILURES[mode]}:`;
 }
 
 export function getExplorerModalTitle(modalState: ExplorerModalState): string {

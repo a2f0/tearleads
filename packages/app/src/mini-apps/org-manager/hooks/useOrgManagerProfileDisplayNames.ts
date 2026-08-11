@@ -16,6 +16,7 @@ import {
   getRosterProfileBindingsByLocalId,
   getRosterProfileDocumentBindingKey,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
+import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 
 interface OrgManagerProfileDisplayNamesParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
@@ -37,8 +38,6 @@ interface ProfileDisplayNameScope {
 interface ProfileDisplayNameState extends ProfileDisplayNameScope {
   readonly names: ReadonlyMap<string, string>;
 }
-
-const EMPTY_PROFILE_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map();
 
 function getProfileBindingKey(
   directory: OrganizationDirectory | null,

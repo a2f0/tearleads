@@ -249,7 +249,7 @@ export function JsonFileDocument(params: {
     text,
   } = useDocument();
   const fields = useMemo(
-    () => readJsonFileFields(structuredFields ?? {}),
+    () => readJsonFileFields(structuredFields),
     [structuredFields],
   );
   const fileNameInputId = useId();

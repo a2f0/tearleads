@@ -9,6 +9,7 @@ import {
   useAppNavigationState,
 } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
+import { WindowTitleBarActionButtons } from "../../window/WindowChromeActions";
 import {
   useWindowBackActionValue,
   useWindowRefreshMenuItemValue,
@@ -91,19 +92,10 @@ export function RoutedPaneAppBar({
           className="routed-pane-toolbar"
           role="toolbar"
         >
-          {toolbarActions.map((action) => (
-            <button
-              aria-label={action.label}
-              className="routed-pane-iconbutton"
-              disabled={action.disabled}
-              key={action.id}
-              title={action.label}
-              type="button"
-              onClick={action.onClick}
-            >
-              {action.icon}
-            </button>
-          ))}
+          <WindowTitleBarActionButtons
+            actions={toolbarActions}
+            className="routed-pane-iconbutton"
+          />
           {refreshItem && (
             <button
               aria-label={refreshItem.label}

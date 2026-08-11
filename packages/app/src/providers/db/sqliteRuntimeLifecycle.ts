@@ -4,6 +4,7 @@ import type {
   SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import type { RefObject } from "react";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   bootSQLiteRuntime,
   isBootRoundTripTimeoutError,
@@ -30,7 +31,7 @@ type SQLiteRuntimeStatus = DatabaseStatus;
  * rather than a permanent boot failure.
  */
 function isUnreadableDatabaseError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = unknownErrorMessage(error);
   return (
     message.includes("SQLITE_NOTADB") ||
     message.includes("file is not a database") ||
@@ -198,9 +199,9 @@ function handleSQLiteRuntimeBootFailure(
   ) {
     params.bootingRef.current = false;
     params.log(
-      `Database is unreadable with the resolved cipher key (${
-        error instanceof Error ? error.message : String(error)
-      }); wiping and recreating ${params.dbName}.`,
+      `Database is unreadable with the resolved cipher key (${unknownErrorMessage(
+        error,
+      )}); wiping and recreating ${params.dbName}.`,
     );
     params.onUnreadableDatabase(params.dbName);
     return;

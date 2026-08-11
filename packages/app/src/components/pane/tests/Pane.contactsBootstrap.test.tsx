@@ -22,6 +22,7 @@ import {
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
+import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -49,22 +50,26 @@ test(
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
     const tearleadsRef: { current: Tearleads | null } = { current: null };
+    // Mirrors production composition: Layout mounts the developer-mode
+    // provider above every Pane.
     const view = render(
-      <DualPaneProvider>
-        <PaneSideProvider side="left">
-          <PaneProvider
-            autoProvisionEnabled={false}
-            hostConfig={createTestHostConfig()}
-          >
-            <TearleadsProbe
-              onReady={(nextTearleads) => {
-                tearleadsRef.current = nextTearleads;
-              }}
-            />
-            <Pane className="pane" />
-          </PaneProvider>
-        </PaneSideProvider>
-      </DualPaneProvider>,
+      <SystemMonitorDeveloperModeProvider>
+        <DualPaneProvider>
+          <PaneSideProvider side="left">
+            <PaneProvider
+              autoProvisionEnabled={false}
+              hostConfig={createTestHostConfig()}
+            >
+              <TearleadsProbe
+                onReady={(nextTearleads) => {
+                  tearleadsRef.current = nextTearleads;
+                }}
+              />
+              <Pane className="pane" />
+            </PaneProvider>
+          </PaneSideProvider>
+        </DualPaneProvider>
+      </SystemMonitorDeveloperModeProvider>,
     );
 
     await waitFor(() => expect(tearleadsRef.current).not.toBeNull());
@@ -96,21 +101,23 @@ test(
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
     const tearleadsRef: { current: Tearleads | null } = { current: null };
     const view = render(
-      <DualPaneProvider>
-        <PaneSideProvider side="left">
-          <PaneProvider
-            autoProvisionEnabled
-            hostConfig={createTestHostConfig()}
-          >
-            <TearleadsProbe
-              onReady={(nextTearleads) => {
-                tearleadsRef.current = nextTearleads;
-              }}
-            />
-            <Pane className="pane" />
-          </PaneProvider>
-        </PaneSideProvider>
-      </DualPaneProvider>,
+      <SystemMonitorDeveloperModeProvider>
+        <DualPaneProvider>
+          <PaneSideProvider side="left">
+            <PaneProvider
+              autoProvisionEnabled
+              hostConfig={createTestHostConfig()}
+            >
+              <TearleadsProbe
+                onReady={(nextTearleads) => {
+                  tearleadsRef.current = nextTearleads;
+                }}
+              />
+              <Pane className="pane" />
+            </PaneProvider>
+          </PaneSideProvider>
+        </DualPaneProvider>
+      </SystemMonitorDeveloperModeProvider>,
     );
 
     await waitFor(() => expect(tearleadsRef.current).not.toBeNull());

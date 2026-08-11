@@ -44,56 +44,25 @@ interface WindowProps {
   windowId: string;
 }
 
-interface WindowInnerProps {
-  bringToFront: (id: string) => void;
-  close: (id: string) => void;
-  entry: WindowEntry;
-  minimize: (id: string) => void;
-  moveBackward: (id: string) => void;
-  moveForward: (id: string) => void;
-  toggleMaximize: (id: string) => void;
-}
-
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
 export function Window({ windowId }: WindowProps) {
-  const {
-    close,
-    minimize,
-    moveForward,
-    moveBackward,
-    bringToFront,
-    toggleMaximize,
-  } = useWindowStateActions();
   const { windowMap } = useWindowStateData();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
 
-  return (
-    <WindowInner
-      entry={entry}
-      close={close}
-      minimize={minimize}
-      moveForward={moveForward}
-      moveBackward={moveBackward}
-      bringToFront={bringToFront}
-      toggleMaximize={toggleMaximize}
-    />
-  );
+  return <WindowInner entry={entry} />;
 }
 
 function useWindowActions(
   entry: WindowEntry,
-  close: (id: string) => void,
-  minimize: (id: string) => void,
-  moveBackward: (id: string) => void,
-  moveForward: (id: string) => void,
-  toggleMaximize: (id: string) => void,
   fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
   hasSidebar: boolean,
 ) {
+  const { close, minimize, moveBackward, moveForward, toggleMaximize } =
+    useWindowStateActions();
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [showSidebar, setShowSidebar] = useState(
     entry.initialShowSidebar ?? true,
@@ -250,27 +219,11 @@ function WindowResizeHandles({
   );
 }
 
-function WindowInner({
-  entry,
-  close,
-  minimize,
-  moveForward,
-  moveBackward,
-  bringToFront,
-  toggleMaximize,
-}: WindowInnerProps) {
+function WindowInner({ entry }: { entry: WindowEntry }) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
-        <WindowInnerContent
-          entry={entry}
-          close={close}
-          minimize={minimize}
-          moveForward={moveForward}
-          moveBackward={moveBackward}
-          bringToFront={bringToFront}
-          toggleMaximize={toggleMaximize}
-        />
+        <WindowInnerContent entry={entry} />
       </WindowSidebarProvider>
     </WindowMenuProvider>
   );
@@ -314,15 +267,7 @@ function WindowChrome({
   );
 }
 
-function WindowInnerContent({
-  entry,
-  close,
-  minimize,
-  moveForward,
-  moveBackward,
-  bringToFront,
-  toggleMaximize,
-}: WindowInnerProps) {
+function WindowInnerContent({ entry }: { entry: WindowEntry }) {
   const { maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
@@ -332,11 +277,6 @@ function WindowInnerContent({
   const hasSidebar = hasWindowSidebar(sidebar);
   const actions = useWindowActions(
     entry,
-    close,
-    minimize,
-    moveBackward,
-    moveForward,
-    toggleMaximize,
     fileMenuItems,
     viewMenuItems,
     hasSidebar,
@@ -347,7 +287,7 @@ function WindowInnerContent({
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   // The toolbar renders above the route boundary, so the window's own Back stack
   // is threaded in from here rather than read from context.
-  const { goBackMiniAppRoute } = useWindowStateActions();
+  const { bringToFront, goBackMiniAppRoute } = useWindowStateActions();
   const handleGoBack = useCallback(() => {
     goBackMiniAppRoute(entry.id);
   }, [entry.id, goBackMiniAppRoute]);

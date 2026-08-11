@@ -20,7 +20,7 @@ import {
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
-import { isKeyboardActivationKey } from "../display";
+import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
 import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 

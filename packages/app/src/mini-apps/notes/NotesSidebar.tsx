@@ -3,12 +3,11 @@ import {
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, useMemo } from "react";
+import type { MouseEvent } from "react";
 import {
   MiniAppSidebar,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
-import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import {
   MiniAppRowButton,
   MiniAppRowStack,
@@ -23,12 +22,18 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../components/shared/classNames";
-import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
+import {
+  createAreaContextMenuHandler,
+  type MiniAppListPresentation,
+  MiniAppRowActionsKebab,
+  useMiniAppSidebarPanel,
+} from "../shared/list-panel/MiniAppListPanel";
 import { NOTES_LABELS } from "./labels";
 import { NotesEmptyTile } from "./NotesEmptyTile";
 import type { NotesSetSidebar } from "./types";
+
+const NOTES_ROW_SELECTOR = ".mini-app-row";
 
 interface NotesSidebarProps {
   createNote: () => void;
@@ -43,21 +48,10 @@ interface NotesSidebarProps {
   selectedNoteId: string | null;
 }
 
-interface NotesListProps extends NotesSidebarProps {
-  // Bleed the list to the screen edges on the mobile list home (the narrow
-  // sidebar stays inset).
-  bleed?: boolean | undefined;
-  // Draw divider lines between entries (the mobile list home; the narrow
-  // sidebar leaves them off).
-  divided?: boolean | undefined;
-  rowHeight?: number | undefined;
-  // Render a trailing kebab that opens the row's context menu (the mobile list
-  // home; the sidebar relies on right-click / long-press).
-  showActions?: boolean | undefined;
+interface NotesListProps extends NotesSidebarProps, MiniAppListPresentation {
   // Give the empty-state tile its full sentence. Only the wide list home has
   // room; the sidebar rail (160px by default) truncates it mid-word.
   showFullLabel?: boolean | undefined;
-  showMetadata?: boolean | undefined;
 }
 
 function getNoteTitle(note: DocumentSummary): string {
@@ -68,14 +62,6 @@ function getNoteModifiedLabel(note: DocumentSummary): string {
   return `${NOTES_LABELS.modifiedPrefix} ${formatMiniAppDateTime(
     note.updatedAt,
   )}`;
-}
-
-function isNotesSidebarAreaContextMenuTarget(
-  event: MouseEvent<HTMLElement>,
-): boolean {
-  return (
-    !(event.target instanceof Element) || !event.target.closest(".mini-app-row")
-  );
 }
 
 function NotesList({
@@ -158,17 +144,11 @@ function NotesList({
                     )}
                   </MiniAppRowButton>
                   {showActions ? (
-                    <MiniAppRowActionsButton
-                      aria-label={`${NOTES_LABELS.rowActionsButtonPrefix} ${title}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleNoteContextMenu(event, note.id);
-                      }}
-                      onContextMenu={(event) => {
-                        event.stopPropagation();
-                        handleNoteContextMenu(event, note.id);
-                      }}
-                      title={`${NOTES_LABELS.rowActionsButtonPrefix} ${title}`}
+                    <MiniAppRowActionsKebab
+                      openContextMenu={(event) =>
+                        handleNoteContextMenu(event, note.id)
+                      }
+                      rowName={title}
                     />
                   ) : null}
                 </MiniAppVirtualListRow>
@@ -186,16 +166,10 @@ export function NotesListHome(props: NotesSidebarProps) {
     <section
       aria-label="Notes list"
       className="notes-list-home"
-      onContextMenu={(event) => {
-        if (
-          event.defaultPrevented ||
-          !isNotesSidebarAreaContextMenuTarget(event)
-        ) {
-          return;
-        }
-
-        props.handleAreaContextMenu(event);
-      }}
+      onContextMenu={createAreaContextMenuHandler(
+        NOTES_ROW_SELECTOR,
+        props.handleAreaContextMenu,
+      )}
     >
       <NotesList
         {...props}
@@ -214,16 +188,10 @@ function NotesSidebar(props: NotesSidebarProps & { showActions: boolean }) {
   return (
     <MiniAppSidebar
       className="mini-app-sidebar--virtual"
-      onContextMenu={(event) => {
-        if (
-          event.defaultPrevented ||
-          !isNotesSidebarAreaContextMenuTarget(event)
-        ) {
-          return;
-        }
-
-        props.handleAreaContextMenu(event);
-      }}
+      onContextMenu={createAreaContextMenuHandler(
+        NOTES_ROW_SELECTOR,
+        props.handleAreaContextMenu,
+      )}
     >
       <NotesList {...props} />
     </MiniAppSidebar>
@@ -231,47 +199,8 @@ function NotesSidebar(props: NotesSidebarProps & { showActions: boolean }) {
 }
 
 export function useNotesSidebarPanel(
-  params: NotesSidebarProps & {
-    setSidebar: NotesSetSidebar;
-  },
+  params: NotesSidebarProps & { setSidebar: NotesSetSidebar },
 ) {
-  const {
-    createNote,
-    handleAreaContextMenu,
-    handleNoteContextMenu,
-    notes,
-    ready,
-    selectNote,
-    selectedNoteId,
-    setSidebar,
-  } = params;
-  // Touch layouts (phone + tablet) have no right-click, so surface the row
-  // kebab in the sidebar rail too. The mobile list-home shows its own kebab.
-  const showActions = useRoutedLayoutActive();
-  const sidebar = useMemo(
-    () => (
-      <NotesSidebar
-        createNote={createNote}
-        handleAreaContextMenu={handleAreaContextMenu}
-        handleNoteContextMenu={handleNoteContextMenu}
-        notes={notes}
-        ready={ready}
-        selectNote={selectNote}
-        selectedNoteId={selectedNoteId}
-        showActions={showActions}
-      />
-    ),
-    [
-      createNote,
-      handleAreaContextMenu,
-      handleNoteContextMenu,
-      notes,
-      ready,
-      selectNote,
-      selectedNoteId,
-      showActions,
-    ],
-  );
-
-  useRegisteredWindowSidebar({ setSidebar, sidebar });
+  const { setSidebar, ...props } = params;
+  useMiniAppSidebarPanel({ Sidebar: NotesSidebar, props, setSidebar });
 }

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+  findTopWindow,
   useWindowStateData,
   type WindowEntry,
 } from "../components/window/WindowStateProvider";
@@ -21,15 +22,9 @@ export function resolveActiveAppRoute(
 
   // Shell chrome follows the foremost visible mini-app; utility windows without
   // an app route do not change which mini-app the pane is presenting.
-  const topWindow = windows.reduce<WindowEntry | null>(
-    (top, candidate) =>
-      !candidate.minimized &&
-      candidate.appId &&
-      (!top || candidate.zIndex > top.zIndex)
-        ? candidate
-        : top,
-    null,
-  );
+  const topWindow = findTopWindow(windows, (candidate) => {
+    return !candidate.minimized && candidate.appId !== undefined;
+  });
   return topWindow?.appId
     ? {
         appId: topWindow.appId,

@@ -17,7 +17,7 @@ interface SystemMonitorDeveloperModeValue {
   toggleDeveloperMode: () => void;
 }
 
-export const SystemMonitorDeveloperModeContext =
+const SystemMonitorDeveloperModeContext =
   createContext<SystemMonitorDeveloperModeValue | null>(null);
 
 function usePersistentSystemMonitorDeveloperMode() {

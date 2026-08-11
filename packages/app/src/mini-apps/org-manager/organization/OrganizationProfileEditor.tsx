@@ -4,29 +4,23 @@ import {
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   readOrganizationProfileName,
 } from "@tearleads/client-sdk";
-import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppInput,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
-  MiniAppRow,
-  MiniAppRowStack,
-  MiniAppRowText,
-} from "../../../components/mini-app/rows/MiniAppRow";
-import {
   DocumentsProvider,
   useDocument,
 } from "../../../stores/documents/DocumentsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import {
+  blurOnEnter,
+  ProfileReadOnlyField,
+  useProfileDocumentLink,
+} from "../hooks/profileDocumentEditor";
 import { ORG_MANAGER_LABELS } from "../labels";
-
-function blurOnEnter(event: KeyboardEvent<HTMLInputElement>): void {
-  if (event.key === "Enter") {
-    event.currentTarget.blur();
-  }
-}
 
 function OrganizationProfileDocumentFields({
   canEdit,
@@ -49,8 +43,6 @@ function OrganizationProfileDocumentFields({
     structuredFields,
     syncing,
   } = useDocument();
-  const [profileLinkReady, setProfileLinkReady] = useState(false);
-  const [relinkFailed, setRelinkFailed] = useState(false);
   const name = useMemo(
     () => readOrganizationProfileName(structuredFields),
     [structuredFields],
@@ -64,42 +56,23 @@ function OrganizationProfileDocumentFields({
     onNameChange(name);
   }, [name, onNameChange]);
 
-  useEffect(() => {
-    setProfileLinkReady(false);
-    setRelinkFailed(false);
-    if (!ready || !documentId || documentId !== profileDocumentId) {
-      return;
-    }
-
-    let cancelled = false;
-    void relink({
+  const relinkInput = useMemo(
+    () => ({
       accessEpoch: 1,
       containerId: profileContainerId,
       documentId: profileDocumentId,
       localId,
-    })
-      .then((result) => {
-        if (!cancelled && result !== null) {
-          setProfileLinkReady(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setRelinkFailed(true);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    documentId,
-    localId,
-    profileContainerId,
-    profileDocumentId,
-    ready,
-    relink,
-  ]);
+    }),
+    [localId, profileContainerId, profileDocumentId],
+  );
+  const { linkFailed: relinkFailed, linkReady: profileLinkReady } =
+    useProfileDocumentLink({
+      documentId,
+      profileDocumentId,
+      ready,
+      relink,
+      relinkInput,
+    });
 
   if (relinkFailed) {
     return (
@@ -119,14 +92,10 @@ function OrganizationProfileDocumentFields({
 
   if (!canEdit) {
     return (
-      <MiniAppRow className="org-manager-roster-row" density="roomy">
-        <MiniAppRowStack>
-          <strong>{ORG_MANAGER_LABELS.organizationName}</strong>
-          <MiniAppRowText muted title={name ?? undefined}>
-            {name ?? ORG_MANAGER_LABELS.none}
-          </MiniAppRowText>
-        </MiniAppRowStack>
-      </MiniAppRow>
+      <ProfileReadOnlyField
+        label={ORG_MANAGER_LABELS.organizationName}
+        value={name}
+      />
     );
   }
 

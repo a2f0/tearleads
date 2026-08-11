@@ -1,21 +1,16 @@
 import type { OrganizationGroupContainer } from "@tearleads/client-sdk";
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
-  addMiniAppTableHeaderAction,
-  getVisibleMiniAppTableColumnIds,
-  MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
-  MiniAppCompactTableHeader,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-  useMiniAppColumnVisibility,
   useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
@@ -29,6 +24,7 @@ import {
   getContainerDisplayTitle,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
 type GroupContainerTableColumnId = "container" | "access" | "updated";
 
@@ -69,6 +65,15 @@ const GROUP_CONTAINER_COLUMN_LABELS: Readonly<
   access: ORG_MANAGER_LABELS.access,
   container: ORG_MANAGER_LABELS.container,
   updated: ORG_MANAGER_LABELS.updated,
+};
+
+const GROUP_CONTAINER_TABLE_COLUMNS_CONFIG = {
+  allColumnIds: GROUP_CONTAINER_TABLE_COLUMN_IDS,
+  columnLabels: GROUP_CONTAINER_COLUMN_LABELS,
+  dataColumns: GROUP_CONTAINER_TABLE_COLUMNS,
+  menuOptions: GROUP_CONTAINER_COLUMN_MENU_OPTIONS,
+  storageKey: "tearleads.org-manager.group-containers:hidden-columns",
+  toggleableColumnIds: GROUP_CONTAINER_TOGGLEABLE_COLUMN_IDS,
 };
 
 function renderGroupContainerCell(
@@ -131,75 +136,6 @@ function getGroupContainerCompactField(
   }
 }
 
-function useGroupContainerTableColumns(compact: boolean): {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GroupContainerTableColumnId>;
-} {
-  const columnVisibility =
-    useMiniAppColumnVisibility<GroupContainerTableColumnId>({
-      storageKey: "tearleads.org-manager.group-containers:hidden-columns",
-      toggleableColumnIds: GROUP_CONTAINER_TOGGLEABLE_COLUMN_IDS,
-    });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        GROUP_CONTAINER_TABLE_COLUMN_IDS,
-        columnVisibility.hiddenColumns,
-      ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(() => {
-    const columnMenu = (
-      <MiniAppColumnMenuButton
-        ariaLabel={ORG_MANAGER_LABELS.columns}
-        hiddenColumns={columnVisibility.hiddenColumns}
-        options={GROUP_CONTAINER_COLUMN_MENU_OPTIONS}
-        stateLabels={{
-          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-        }}
-        toggleColumn={columnVisibility.toggleColumn}
-      />
-    );
-    if (!compact) {
-      return addMiniAppTableHeaderAction(
-        GROUP_CONTAINER_TABLE_COLUMNS.filter(
-          (column) => !columnVisibility.hiddenColumns.has(column.id),
-        ),
-        columnMenu,
-      );
-    }
-
-    return addMiniAppTableHeaderAction(
-      [
-        {
-          header: (
-            <MiniAppCompactTableHeader
-              primary={visibleColumnIds.slice(0, 1).map((id) => ({
-                id,
-                text: GROUP_CONTAINER_COLUMN_LABELS[id],
-              }))}
-              secondary={visibleColumnIds.slice(1).map((id) => ({
-                id,
-                text: GROUP_CONTAINER_COLUMN_LABELS[id],
-              }))}
-            />
-          ),
-          id: "summary",
-        },
-      ],
-      columnMenu,
-    );
-  }, [
-    compact,
-    columnVisibility.hiddenColumns,
-    columnVisibility.toggleColumn,
-    visibleColumnIds,
-  ]);
-
-  return { columns, visibleColumnIds };
-}
-
 export function GroupContainers({
   containers,
 }: {
@@ -207,7 +143,11 @@ export function GroupContainers({
 }) {
   const virtualContainers = useMiniAppCompactTableRows({ rows: containers });
   const { compact, rowHeight } = virtualContainers;
-  const { columns, visibleColumnIds } = useGroupContainerTableColumns(compact);
+  const { columns, visibleColumnIds } = useOrgManagerTableColumns(
+    GROUP_CONTAINER_TABLE_COLUMNS_CONFIG,
+    false,
+    compact,
+  );
 
   if (containers.length === 0) {
     return (

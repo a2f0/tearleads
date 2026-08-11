@@ -1,5 +1,5 @@
 import { type PropsWithChildren, useMemo, useRef, useState } from "react";
-import { WindowActionsContext, WindowStateContext } from "./context";
+import { windowActionsContext, windowStateContext } from "./context";
 import type { WindowEntry, WindowStateData } from "./types";
 import { useWindowStateActions } from "./useWindowStateActions";
 
@@ -19,10 +19,10 @@ export function WindowStateProvider({ children }: PropsWithChildren) {
     [windows, windowMap],
   );
   return (
-    <WindowActionsContext.Provider value={actions}>
-      <WindowStateContext.Provider value={state}>
+    <windowActionsContext.context.Provider value={actions}>
+      <windowStateContext.context.Provider value={state}>
         {children}
-      </WindowStateContext.Provider>
-    </WindowActionsContext.Provider>
+      </windowStateContext.context.Provider>
+    </windowActionsContext.context.Provider>
   );
 }

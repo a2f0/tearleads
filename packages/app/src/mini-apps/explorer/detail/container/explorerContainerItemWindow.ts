@@ -13,6 +13,7 @@ import {
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { explorerDocumentQueryContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
+import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 /**
  * The one row pitch for the explorer item list, and whether the row folds into
@@ -129,7 +130,7 @@ function failContainerItemWindowLoad(
 ): ContainerItemWindowState {
   return {
     ...current,
-    error: error instanceof Error ? error.message : String(error),
+    error: unknownErrorMessage(error),
     isLoading: false,
     loadedContainerId: containerId,
   };

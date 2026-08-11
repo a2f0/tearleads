@@ -5,10 +5,10 @@ import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
-  canMoveDocumentByRules,
   canMoveDocumentToContainerByRules,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
+  isPinnedSelfContact,
 } from "./containerRules";
 
 export interface MoveTargetOption {
@@ -32,23 +32,6 @@ export function createExplorerTargetLookups(
     ),
     nodesById: new Map(nodes.map((node) => [node.id, node])),
   };
-}
-
-function getNodesById(
-  nodes: ReadonlyArray<ContainerNode>,
-  lookups?: Pick<ExplorerTargetLookups, "nodesById">,
-): ReadonlyMap<string, ContainerNode> {
-  return lookups?.nodesById ?? new Map(nodes.map((node) => [node.id, node]));
-}
-
-function getDocumentSummariesById(
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-  lookups?: Pick<ExplorerTargetLookups, "documentSummariesById">,
-): ReadonlyMap<string, DocumentSummary> {
-  return (
-    lookups?.documentSummariesById ??
-    new Map(documentSummaries.map((document) => [document.id, document]))
-  );
 }
 
 // Resolve the containers a document is currently linked into, falling back to
@@ -103,16 +86,16 @@ function getSortedTargetOptions(
 export function getMoveTargetOptions(
   nodes: ReadonlyArray<ContainerNode>,
   movingNodeId: string,
-  lookups?: Pick<ExplorerTargetLookups, "nodesById">,
-  rulesContext?: ExplorerContainerRulesContext,
+  lookups: Pick<ExplorerTargetLookups, "nodesById">,
+  rulesContext: ExplorerContainerRulesContext,
 ): ReadonlyArray<MoveTargetOption> {
-  const nodesById = getNodesById(nodes, lookups);
+  const { nodesById } = lookups;
   const movingNode = nodesById.get(movingNodeId);
   if (!movingNode || movingNode.parentId === null) {
     return [];
   }
 
-  if (rulesContext && !canMoveContainerByRules(rulesContext, movingNode)) {
+  if (!canMoveContainerByRules(rulesContext, movingNode)) {
     return [];
   }
 
@@ -130,10 +113,7 @@ export function getMoveTargetOptions(
       // not a valid move target — moving a folder into it would otherwise
       // bypass protectFromChildContainerCreation, the same destination gate
       // document moves already enforce via canAddDocumentToContainerByRules.
-      if (
-        rulesContext &&
-        !canCreateChildContainerByRules(rulesContext, candidateNode)
-      ) {
+      if (!canCreateChildContainerByRules(rulesContext, candidateNode)) {
         return false;
       }
 
@@ -155,17 +135,12 @@ export function getMoveTargetOptions(
 
 export function getDocumentMoveTargetOptions(
   nodes: ReadonlyArray<ContainerNode>,
-  documentSummaries: ReadonlyArray<DocumentSummary>,
   documentLocalId: string,
-  lookups?: ExplorerTargetLookups,
-  rulesContext?: ExplorerContainerRulesContext,
-  linkedContainerIdsByDocumentId?: ReadonlyMap<string, ReadonlyArray<string>>,
+  lookups: ExplorerTargetLookups,
+  rulesContext: ExplorerContainerRulesContext,
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
 ): ReadonlyArray<MoveTargetOption> {
-  const documentSummariesById = getDocumentSummariesById(
-    documentSummaries,
-    lookups,
-  );
-  const nodesById = getNodesById(nodes, lookups);
+  const { documentSummariesById, nodesById } = lookups;
   const movingDocument = documentSummariesById.get(documentLocalId);
   if (!movingDocument || !canWriteDocumentSummary(movingDocument)) {
     return [];
@@ -175,8 +150,7 @@ export function getDocumentMoveTargetOptions(
   // there are no surviving links. Unknown link state fails closed.
   const hasConfirmedNoRemoteLinks =
     movingDocument.documentId === null ||
-    linkedContainerIdsByDocumentId?.get(movingDocument.documentId)?.length ===
-      0;
+    linkedContainerIdsByDocumentId.get(movingDocument.documentId)?.length === 0;
   if (movingDocument.containerId === null && !hasConfirmedNoRemoteLinks) {
     return [];
   }
@@ -185,7 +159,7 @@ export function getDocumentMoveTargetOptions(
   // viewed in. Without this, a self contact linked into a plain user container
   // could be "moved" to Trash — a delete-equivalent that bypasses the
   // delete-protection guard and re-enables purge.
-  if (rulesContext && !canMoveDocumentByRules(rulesContext, movingDocument)) {
+  if (isPinnedSelfContact(rulesContext, movingDocument)) {
     return [];
   }
 
@@ -197,7 +171,7 @@ export function getDocumentMoveTargetOptions(
   }
   const sourceOrganizationId =
     currentContainer?.organizationId ??
-    rulesContext?.currentOrganizationId ??
+    rulesContext.currentOrganizationId ??
     // Empty organization ids are the canonical pre-auth local-only scope.
     "";
 
@@ -207,30 +181,24 @@ export function getDocumentMoveTargetOptions(
         candidateNode.id !== currentContainer?.id &&
         !isExplorerOrphanedDocumentsId(candidateNode.id) &&
         candidateNode.organizationId === sourceOrganizationId &&
-        (rulesContext === undefined ||
-          canMoveDocumentToContainerByRules(
-            rulesContext,
-            currentContainer,
-            candidateNode,
-            movingDocument,
-          )),
+        canMoveDocumentToContainerByRules(
+          rulesContext,
+          currentContainer,
+          candidateNode,
+          movingDocument,
+        ),
     ),
   );
 }
 
 export function getDocumentLinkTargetOptions(
   nodes: ReadonlyArray<ContainerNode>,
-  documentSummaries: ReadonlyArray<DocumentSummary>,
   documentLocalId: string,
   linkedContainerIds: ReadonlyArray<string>,
-  lookups?: ExplorerTargetLookups,
-  rulesContext?: ExplorerContainerRulesContext,
+  lookups: ExplorerTargetLookups,
+  rulesContext: ExplorerContainerRulesContext,
 ): ReadonlyArray<MoveTargetOption> {
-  const documentSummariesById = getDocumentSummariesById(
-    documentSummaries,
-    lookups,
-  );
-  const nodesById = getNodesById(nodes, lookups);
+  const { documentSummariesById, nodesById } = lookups;
   const linkingDocument = documentSummariesById.get(documentLocalId);
   if (
     !linkingDocument?.containerId ||
@@ -244,10 +212,7 @@ export function getDocumentLinkTargetOptions(
     return [];
   }
 
-  if (
-    rulesContext &&
-    !canLinkDocumentOutByRules(rulesContext, currentContainer)
-  ) {
+  if (!canLinkDocumentOutByRules(rulesContext, currentContainer)) {
     return [];
   }
 
@@ -261,12 +226,11 @@ export function getDocumentLinkTargetOptions(
         // Link targets use the inbound-link gate, not the move gate, so a
         // move-only system folder such as Trash is excluded: you can move a
         // document to the Trash but never link it there.
-        (rulesContext === undefined ||
-          canLinkDocumentIntoContainerByRules(
-            rulesContext,
-            candidateNode,
-            linkingDocument,
-          )),
+        canLinkDocumentIntoContainerByRules(
+          rulesContext,
+          candidateNode,
+          linkingDocument,
+        ),
     ),
   );
 }

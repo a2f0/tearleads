@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { formatNotesRouteSegments, parseNotesRouteSegments } from "./routes";
 
 test("notes route segments cover local and linked note selections", () => {
-  expect(parseNotesRouteSegments([])).toEqual({ selection: null });
+  expect(parseNotesRouteSegments([])).toBeNull();
   expect(parseNotesRouteSegments(["note", "note-1"])).toEqual({
-    selection: { noteId: "note-1" },
+    noteId: "note-1",
   });
   expect(
     parseNotesRouteSegments([
@@ -16,15 +16,11 @@ test("notes route segments cover local and linked note selections", () => {
       "document-2",
     ]),
   ).toEqual({
-    selection: {
-      containerId: "container-1",
-      documentId: "document-2",
-      noteId: "note-2",
-    },
+    containerId: "container-1",
+    documentId: "document-2",
+    noteId: "note-2",
   });
-  expect(parseNotesRouteSegments(["unknown", "note-1"])).toEqual({
-    selection: null,
-  });
+  expect(parseNotesRouteSegments(["unknown", "note-1"])).toBeNull();
 
   expect(formatNotesRouteSegments(null)).toEqual([]);
   expect(formatNotesRouteSegments({ noteId: "note-1" })).toEqual([

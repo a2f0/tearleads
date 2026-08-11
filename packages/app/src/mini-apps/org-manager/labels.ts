@@ -228,7 +228,6 @@ export const ORG_MANAGER_LABELS = {
   save: "Save",
   selectGroup: "Select a group.",
   selectOrganization: "Select or create an organization.",
-  selectUser: "Select a user.",
   self: "You",
   syncSeatUnavailable: "Can't sync — no seat",
   signingKey: "Signing key",

@@ -1,10 +1,5 @@
-import {
-  createContext,
-  type PropsWithChildren,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, useMemo, useState } from "react";
+import { createRequiredContext } from "../utils/createRequiredContext";
 import type { AppNavigationMode } from "./AppNavigationMode";
 
 type NavigationModeOverride = AppNavigationMode | null;
@@ -16,8 +11,10 @@ interface NavigationModeOverrideContextValue {
   setOverride: (next: NavigationModeOverride) => void;
 }
 
-const NavigationModeOverrideContext =
-  createContext<NavigationModeOverrideContextValue | null>(null);
+const navigationModeOverrideContext =
+  createRequiredContext<NavigationModeOverrideContextValue>(
+    "useNavigationModeOverride must be used within a NavigationModeOverrideProvider",
+  );
 
 /**
  * Owns the shared windowed/routed override. A single instance mounts above the
@@ -39,25 +36,17 @@ export function NavigationModeOverrideProvider({
   );
 
   return (
-    <NavigationModeOverrideContext.Provider value={value}>
+    <navigationModeOverrideContext.context.Provider value={value}>
       {children}
-    </NavigationModeOverrideContext.Provider>
+    </navigationModeOverrideContext.context.Provider>
   );
 }
 
-export function useNavigationModeOverride(): NavigationModeOverrideContextValue {
-  const context = useContext(NavigationModeOverrideContext);
-  if (!context) {
-    throw new Error(
-      "useNavigationModeOverride must be used within a NavigationModeOverrideProvider",
-    );
-  }
-  return context;
-}
+export const useNavigationModeOverride =
+  navigationModeOverrideContext.useRequired;
 
 // Non-throwing accessor: surfaces that may render outside the provider (e.g. a
 // pane mounted standalone in tests) get null instead of a crash, mirroring
 // useOptionalTheme. A switch rendered there simply hides itself.
-export function useOptionalNavigationModeOverride(): NavigationModeOverrideContextValue | null {
-  return useContext(NavigationModeOverrideContext);
-}
+export const useOptionalNavigationModeOverride =
+  navigationModeOverrideContext.useOptional;

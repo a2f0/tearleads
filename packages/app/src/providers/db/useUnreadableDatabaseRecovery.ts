@@ -1,5 +1,6 @@
 import type { DatabaseStatus } from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useRef } from "react";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -50,9 +51,7 @@ export function useUnreadableDatabaseRecovery(params: {
         })
         .catch((error: unknown) => {
           log(
-            `Failed to wipe the unreadable database; surfacing error: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            `Failed to wipe the unreadable database; surfacing error: ${unknownErrorMessage(error)}`,
           );
           destroyCurrentRuntime("error");
         });

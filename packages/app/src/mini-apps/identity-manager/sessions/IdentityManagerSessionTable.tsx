@@ -10,6 +10,7 @@ import {
   MiniAppTableText,
 } from "../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
 import {
   SESSION_COLUMN_LABELS,
   SESSION_COMPACT_PRIMARY_COLUMN_IDS,
@@ -21,7 +22,6 @@ import {
   compactIdentifier,
   formatSessionIpAddresses,
   getSessionStatusLabel,
-  isKeyboardActivationKey,
   sessionIpAddressesTitle,
   sessionIsMutating,
 } from "./IdentityManagerSessionDisplay";

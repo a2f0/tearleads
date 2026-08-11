@@ -15,11 +15,11 @@ import {
 import { useWindowToolbarReservationRegistry } from "./useWindowToolbarReservationRegistry";
 import {
   createBackAction,
+  createRegisteredBackAction,
+  createRegisteredTitleBarAction,
   createTitleBarActions,
   type RegisteredWindowBackAction,
   type RegisteredWindowTitleBarAction,
-  useRegisteredWindowBackAction,
-  useRegisteredWindowTitleBarAction,
   type WindowBackAction,
   type WindowBackActionInput,
   type WindowTitleBarActionInput,
@@ -224,38 +224,31 @@ export function WindowMenuProvider({ children }: PropsWithChildren) {
 }
 
 export function useWindowFileMenuItems(): WindowMenuItem[] {
-  const { fileMenuItems } = useContext(WindowMenuContext);
-  return fileMenuItems;
+  return useContext(WindowMenuContext).fileMenuItems;
 }
 
 export function useWindowViewMenuItems(): WindowMenuItem[] {
-  const { viewMenuItems } = useContext(WindowMenuContext);
-  return viewMenuItems;
+  return useContext(WindowMenuContext).viewMenuItems;
 }
 
 export function useWindowRefreshMenuItemValue(): WindowMenuItem | null {
-  const { refreshMenuItem } = useContext(WindowMenuContext);
-  return refreshMenuItem;
+  return useContext(WindowMenuContext).refreshMenuItem;
 }
 
 export function useWindowTitleBarActions(): WindowTitleBarAction[] {
-  const { titleBarActions } = useContext(WindowMenuContext);
-  return titleBarActions;
+  return useContext(WindowMenuContext).titleBarActions;
 }
 
 export function useWindowBackActionValue(): WindowBackAction | null {
-  const { backAction } = useContext(WindowMenuContext);
-  return backAction;
+  return useContext(WindowMenuContext).backAction;
 }
 
 export function useWindowToolbarReserved(): boolean {
-  const { toolbarReserved } = useContext(WindowMenuContext);
-  return toolbarReserved;
+  return useContext(WindowMenuContext).toolbarReserved;
 }
 
 export function useWindowToolbarReservationReleased(): boolean {
-  const { toolbarReservationReleased } = useContext(WindowMenuContext);
-  return toolbarReservationReleased;
+  return useContext(WindowMenuContext).toolbarReservationReleased;
 }
 
 function useRegisteredWindowMenuItem(
@@ -307,17 +300,25 @@ export function useWindowTitleBarAction(
 ): void {
   const { registerTitleBarAction, unregisterTitleBarAction } =
     useContext(WindowMenuContext);
-  useRegisteredWindowTitleBarAction(
-    item,
-    registerTitleBarAction,
-    unregisterTitleBarAction,
-  );
+  useWindowItemRegistration({
+    action: item?.onClick ?? null,
+    createRegisteredItem: createRegisteredTitleBarAction,
+    input: item,
+    registerItem: registerTitleBarAction,
+    unregisterItem: unregisterTitleBarAction,
+  });
 }
 
 export function useWindowBackAction(item: WindowBackActionInput | null): void {
   const { registerBackAction, unregisterBackAction } =
     useContext(WindowMenuContext);
-  useRegisteredWindowBackAction(item, registerBackAction, unregisterBackAction);
+  useWindowItemRegistration({
+    action: item?.onClick ?? null,
+    createRegisteredItem: createRegisteredBackAction,
+    input: item,
+    registerItem: registerBackAction,
+    unregisterItem: unregisterBackAction,
+  });
 }
 
 /**
