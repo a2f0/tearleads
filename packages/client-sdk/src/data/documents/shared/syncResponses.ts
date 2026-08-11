@@ -54,8 +54,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
   >;
   plan: DocumentSyncPlan;
   update: DocumentSyncResponse["updates"][number];
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
 }): Promise<void> {
   const { plan, update } = input;
   if (update.documentId !== plan.documentId) {
@@ -79,7 +78,6 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     plan,
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     update,
-    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
 }
 
@@ -204,28 +202,14 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
   contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
   header: WriteHeader;
   plan: DocumentSyncPlan;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   update: DocumentSyncResponse["updates"][number];
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<void> {
   const { header, plan, update } = input;
-  if (!input.writerPublicKeysByFingerprint && !input.resolveWriterPublicKey) {
-    throw new Error(
-      "Document sync response writer public key verification is required",
-    );
-  }
-  // The identity-aware resolver owns TOFU pinning and user-id binding, so it
-  // must outrank the legacy fingerprint-only map when both are supplied.
-  const writerPublicKey =
-    (input.resolveWriterPublicKey
-      ? await input.resolveWriterPublicKey({
-          authorFingerprint: update.authorFingerprint,
-          header,
-          update,
-        })
-      : null) ??
-    input.writerPublicKeysByFingerprint?.get(update.authorFingerprint) ??
-    null;
+  const writerPublicKey = await input.resolveWriterPublicKey({
+    writerSigningKeyFingerprint: header.writerKeyFingerprint,
+    writerUserId: header.writerUserId,
+  });
   if (!writerPublicKey) {
     throw new Error("Document sync response writer public key missing");
   }
@@ -367,9 +351,8 @@ async function persistedDocumentSyncStateFromResponseInternal(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
   options: {
-    resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-  } = {},
+    resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
+  },
 ): Promise<PersistedDocumentSyncState> {
   if (response.documentId !== plan.documentId) {
     throw new Error("Document sync response document id mismatch");
@@ -395,7 +378,6 @@ async function persistedDocumentSyncStateFromResponseInternal(
         plan,
         resolveWriterPublicKey: options.resolveWriterPublicKey,
         update,
-        writerPublicKeysByFingerprint: options.writerPublicKeysByFingerprint,
       }),
     ),
   );
@@ -412,9 +394,8 @@ export async function persistedDocumentSyncStateFromResponse(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
   options: {
-    resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-    writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-  } = {},
+    resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
+  },
 ): Promise<PersistedDocumentSyncState> {
   try {
     return await persistedDocumentSyncStateFromResponseInternal(

@@ -5,7 +5,6 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   DocumentUnlinkAccessEventBody,
-  WriteHeader,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestRef,
@@ -522,9 +521,8 @@ export interface DocumentSyncApi {
 }
 
 export type DocumentWriterPublicKeyResolver = (input: {
-  authorFingerprint: string;
-  header: WriteHeader;
-  update: DocumentSyncResponse["updates"][number];
+  writerSigningKeyFingerprint: string;
+  writerUserId: string;
 }) => Promise<Uint8Array | null>;
 
 export type PersistedDocumentCreateState = Pick<

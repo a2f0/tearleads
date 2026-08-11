@@ -71,7 +71,6 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     response: input.response,
     targetSecretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
-    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
 }
@@ -181,13 +180,12 @@ interface ReadOnlyDocumentSyncCompletionInput {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }
 
 async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
@@ -352,6 +350,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
     const persistedState = await persistedDocumentSyncStateFromResponse(
       plan,
       submitted.response,
+      { resolveWriterPublicKey: input.resolveWriterPublicKey },
     );
 
     return {
@@ -405,12 +404,11 @@ export interface SyncRemoteDocumentInput {
   persistedState?: PersistedDocumentSyncState | null | undefined;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }
 
 export async function tryPersistedReadOnlyDocumentSync(

@@ -23,21 +23,17 @@ export function createDocumentWriterPublicKeyResolver(input: {
   );
   const cache = new Map<string, Promise<Uint8Array | null>>();
 
-  return async ({ authorFingerprint, header }) => {
-    if (header.writerKeyFingerprint !== authorFingerprint) {
-      return null;
-    }
-
-    const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
+  return async ({ writerSigningKeyFingerprint, writerUserId }) => {
+    const cacheKey = `${writerUserId}:${writerSigningKeyFingerprint}`;
     let cached = cache.get(cacheKey);
     if (!cached) {
       cached = resolveWriterPublicKey({
-        authorFingerprint,
+        authorFingerprint: writerSigningKeyFingerprint,
         logPrefix: input.logPrefix,
         resolveTrustedUserIdentity,
         util: input.runtime.util,
         writerKeyLabel: input.writerKeyLabel,
-        writerUserId: header.writerUserId,
+        writerUserId,
       }).catch((error: unknown) => {
         cache.delete(cacheKey);
         throw error;

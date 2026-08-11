@@ -83,7 +83,6 @@ function submittedDocumentSyncResult(input: {
     response: input.response,
     targetSecretKey: input.sync.targetSecretKey,
     writerProjection: input.writerProjection,
-    writerPublicKeysByFingerprint: input.sync.writerPublicKeysByFingerprint,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
 }

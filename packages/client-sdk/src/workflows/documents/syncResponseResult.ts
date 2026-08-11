@@ -32,11 +32,10 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
   const persistedState = await persistedDocumentSyncStateFromResponse(
@@ -44,7 +43,6 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     input.response,
     {
       resolveWriterPublicKey: input.resolveWriterPublicKey,
-      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
     },
   );
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({

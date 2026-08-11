@@ -9,6 +9,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSyncResponse,
+  writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
@@ -67,8 +68,13 @@ test("createRemoteDocument gates writes by the resolved container organization",
 });
 
 test("syncRemoteDocument gates outgoing writes by the verified document plan organization", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const { close, execSql } = await createTestExecSql("blocked-document-sync");
   const checkedOrganizationIds: string[] = [];
   let submissionCount = 0;
@@ -91,6 +97,7 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
     writerProjection,
   });
@@ -102,8 +109,13 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
 });
 
 test("syncRemoteDocument still submits clean read-only probes for a blocked organization", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
   const { close, execSql } = await createTestExecSql(
     "blocked-read-only-document-sync",
   );
@@ -142,6 +154,7 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
       documentManifestBundle: JSON.stringify(writerProjection.documentManifest),
     },
     resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
     targetSecretKey: secretKey,
   });
 

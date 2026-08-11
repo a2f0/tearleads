@@ -16,6 +16,7 @@ export {
   createProjection,
   createUserContainerWrap,
   fixtureHash,
+  writerKeyResolver,
 } from "./documentFixturePrimitives";
 export {
   createLinkSetResponseFromRequest,

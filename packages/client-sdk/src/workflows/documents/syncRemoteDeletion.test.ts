@@ -42,6 +42,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
     },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: async () => null,
     targetSecretKey: secretKey,
     writerProjection,
   });
@@ -89,6 +90,7 @@ test("syncRemoteDocument fails closed on a bare 404 without the deletion code", 
     },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: async () => null,
     targetSecretKey: secretKey,
     writerProjection,
   });
@@ -134,6 +136,7 @@ test("syncRemoteDocument fails closed on a 404 with an unknown code", async () =
     },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: async () => null,
     targetSecretKey: secretKey,
     writerProjection,
   });
@@ -181,6 +184,7 @@ test("syncRemoteDocument notifies when writer projection returns coded document 
     },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: async () => null,
     targetSecretKey: secretKey,
   });
 
@@ -226,6 +230,7 @@ test("syncRemoteDocument fails closed on a bare writer-projection 404", async ()
     },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
+    resolveWriterPublicKey: async () => null,
     targetSecretKey: secretKey,
   });
 

@@ -43,6 +43,7 @@ test("a read-only pass reports a refused projection read durably", async () => {
       },
       pendingUpdates: [],
       resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
       targetSecretKey: secretKey,
     });
 
@@ -106,6 +107,7 @@ test("a write-bearing pass does not use the read-only handler", async () => {
         },
       ],
       resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
       targetSecretKey: secretKey,
     });
 
