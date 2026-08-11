@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { readTableColumns } from "../../../test/helpers/sqlitePragma";
-import { clientSqlTables } from "./schema";
+import { clientSqlTables, principalPolicyTables } from "./schema";
 import type { ExecSql, SqlRow, SqlTableSchema } from "./sqlSchema";
 import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
 
@@ -405,6 +405,32 @@ test("client sqlite schema creates tables and indexes", async () => {
       pk: 0,
       type: "TEXT",
     });
+  } finally {
+    close();
+  }
+});
+
+test("principal policy schema rejects a legacy database that cannot authenticate grants", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-legacy-schema-test",
+  );
+  try {
+    await execSql(`
+      CREATE TABLE principal_policies (
+        principal_type TEXT NOT NULL,
+        principal_id TEXT NOT NULL,
+        PRIMARY KEY (principal_type, principal_id)
+      )
+    `);
+    const currentPolicyTable = principalPolicyTables[0];
+    if (!currentPolicyTable) {
+      throw new Error("Principal policy table schema is missing");
+    }
+    await expect(
+      ensureSqlTables(execSql, [currentPolicyTable]),
+    ).rejects.toThrow(
+      "Local database schema for principal_policies is obsolete; reset the local database before continuing",
+    );
   } finally {
     close();
   }

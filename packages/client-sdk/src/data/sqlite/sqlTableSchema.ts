@@ -18,6 +18,7 @@ export interface SqlTableSchema {
   name: string;
   createSql: string;
   indexes?: ReadonlyArray<string>;
+  requiredColumns?: ReadonlyArray<string>;
 }
 
 const sqliteDialect = new SQLiteSyncDialect();
@@ -155,6 +156,27 @@ function getTableEnsureKey(table: SqlTableSchema): string {
   return `sql-table:${table.name}`;
 }
 
+async function assertRequiredColumns(
+  execSql: ExecSql,
+  table: SqlTableSchema,
+): Promise<void> {
+  if (!table.requiredColumns || table.requiredColumns.length === 0) {
+    return;
+  }
+  const rows = await execSql(
+    `PRAGMA table_info(${renderIdentifier(table.name)})`,
+  );
+  const storedColumns = new Set(rows.map(({ name }) => name));
+  const missingColumns = table.requiredColumns.filter(
+    (column) => !storedColumns.has(column),
+  );
+  if (missingColumns.length > 0) {
+    throw new Error(
+      `Local database schema for ${table.name} is obsolete; reset the local database before continuing`,
+    );
+  }
+}
+
 // Table ensures run on every query path, so completed ones are
 // remembered per connection: a re-ensure of an already-ensured table skips the
 // DDL round-trips AND the serialized mutation lock, keeping diagnostic reads
@@ -178,6 +200,7 @@ export async function ensureSqlTables(
       for (const indexSql of table.indexes ?? []) {
         await lockedExecSql(indexSql);
       }
+      await assertRequiredColumns(lockedExecSql, table);
     }
   });
   for (const table of pendingTables) {

@@ -134,6 +134,12 @@ set of `{containerId, accessLevel}` grants for that principal. Current and
 historical policy bundle entries carry those grant projections, and both the
 client and API recompute the commitment before accepting them.
 
+This grant-index protocol is a greenfield flag-day. Grant commitments are part
+of signed state hashes and cannot be truthfully backfilled. Deployment must
+drop and recreate pre-grant-index API databases and local client databases;
+the client fails startup with a reset-required error if it detects the legacy
+principal-policy table shape.
+
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint
 raises a typed terminal verification error. It is neither cached nor used for

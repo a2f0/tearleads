@@ -1,3 +1,5 @@
+-- Flag-day migration: principal state grant commitments are signed and cannot
+-- be backfilled. Deploy only after dropping the pre-grant-index database.
 CREATE TABLE `principal_container_grant_projection` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,
