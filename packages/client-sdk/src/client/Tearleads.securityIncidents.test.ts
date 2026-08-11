@@ -35,6 +35,7 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
       }),
     ]);
   } finally {
+    sdk.dispose();
     await close();
   }
 });

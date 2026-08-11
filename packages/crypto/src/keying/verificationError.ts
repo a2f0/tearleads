@@ -12,6 +12,7 @@ export const KEYING_VERIFICATION_CODES = [
   "signer_mismatch",
   "stale_predecessor",
   "unauthorized",
+  "unrecognized_verification_code",
 ] as const;
 
 export type KeyingVerificationCode = (typeof KEYING_VERIFICATION_CODES)[number];

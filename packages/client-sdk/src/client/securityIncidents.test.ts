@@ -365,9 +365,18 @@ test("unknown verification codes are logged instead of silently dropped", async 
       objectKind: "unknown",
       operation: "future.operation",
     });
-    expect(await service.incidents.list()).toEqual([]);
+    expect(await service.incidents.list()).toEqual([
+      expect.objectContaining({
+        code: "unrecognized_verification_code",
+        operation: "future.operation",
+      }),
+    ]);
     expect(logMessages).toEqual([
-      "Security incident could not be persisted because its verification code is unrecognized",
+      "Security incident used the fallback code because its verification code is unrecognized",
+    ]);
+    await execSql('UPDATE "security_incidents" SET "code" = \'retired_code\'');
+    expect(await service.incidents.list()).toEqual([
+      expect.objectContaining({ code: "unrecognized_verification_code" }),
     ]);
   } finally {
     await close();

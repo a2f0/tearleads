@@ -58,7 +58,7 @@ function parseEvidenceHashes(value: string): Readonly<Record<string, string>> {
 
 function parseVerificationCode(value: string): KeyingVerificationCode {
   if (isKeyingVerificationCode(value)) return value;
-  throw new Error("Security incident verification code is invalid");
+  return "unrecognized_verification_code";
 }
 
 function parseObjectKind(value: string): SecurityIncidentObjectKind {
@@ -125,9 +125,9 @@ function parseSecurityIncidentRow(
 export async function appendSecurityIncident(
   execSql: ExecSql,
   incident: SecurityIncidentWrite,
-): Promise<SecurityIncident> {
+): Promise<SecurityIncident | null> {
   await ensureSecurityIncidentTable(execSql);
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
   const evidenceHashes = serializeEvidenceHashes(incident.evidenceHashes);
   const organizationId = incident.organizationId ?? null;
   const id = await deriveSecurityIncidentId({
@@ -139,7 +139,7 @@ export async function appendSecurityIncident(
     organizationId,
     trustDomain: incident.trustDomain,
   });
-  const row = await db.transaction(async (tx) => {
+  const row = await runtime.transaction(async (tx) => {
     await tx
       .insert(securityIncidents)
       .values({
@@ -191,8 +191,7 @@ export async function appendSecurityIncident(
       .limit(1);
     return storedRow;
   });
-  if (!row) throw new Error("Persisted security incident is missing");
-  return parseSecurityIncidentRow(row);
+  return row ? parseSecurityIncidentRow(row) : null;
 }
 
 export async function listSecurityIncidents(

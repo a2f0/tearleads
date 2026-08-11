@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { appendSecurityIncident } from "../data/persistence/securityIncidentPersistence";
 import { Database } from "./database";
 import { createSecurityIncidentService } from "./securityIncidents";
 
@@ -27,6 +28,22 @@ test("durable incidents retain at most 1,000 rows per trust domain", async () =>
     }
 
     expect(await service.incidents.list()).toHaveLength(1_000);
+    expect(
+      await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
+    ).toEqual([{ count: 1_000 }]);
+    await expect(
+      appendSecurityIncident(execSql, {
+        code: "rollback",
+        detectedAt: "2020-01-01T00:00:00.000Z",
+        evidenceHashes: {},
+        lastDetectedAt: "2020-01-01T00:00:00.000Z",
+        objectId: "principal-ancient-buffered",
+        objectKind: "principal",
+        occurrenceCount: 1,
+        operation: "principal.policy.verify",
+        trustDomain: "https://api.example.test",
+      }),
+    ).resolves.toBeNull();
     expect(
       await execSql('SELECT COUNT(*) AS "count" FROM "security_incidents"'),
     ).toEqual([{ count: 1_000 }]);

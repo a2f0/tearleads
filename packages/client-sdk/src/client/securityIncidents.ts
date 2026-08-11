@@ -41,6 +41,7 @@ interface SecurityIncidentServiceOptions {
 }
 
 interface SecurityIncidentServiceResult {
+  readonly dispose: () => void;
   readonly incidents: SecurityIncidents;
   readonly report: SecurityIncidentReporter;
 }
@@ -48,7 +49,9 @@ interface SecurityIncidentServiceResult {
 function verificationCode(error: unknown): KeyingVerificationCode | null {
   if (!isKeyingVerificationError(error)) return null;
   const code = Reflect.get(error, "code");
-  return isKeyingVerificationCode(code) ? code : null;
+  return isKeyingVerificationCode(code)
+    ? code
+    : "unrecognized_verification_code";
 }
 
 interface RedactedIncident {
@@ -101,20 +104,31 @@ class SecurityIncidentSink {
   private flushPromise: Promise<boolean> | null = null;
   private retryDelayMs = SECURITY_INCIDENT_RETRY_DELAY_MS;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly unsubscribeDatabase: () => void;
+  private disposed = false;
 
   constructor(
     private readonly options: SecurityIncidentServiceOptions,
     private readonly listeners: SecurityIncidentListeners,
   ) {
-    options.database.subscribe(() => {
+    this.unsubscribeDatabase = options.database.subscribe(() => {
       void this.flush();
     });
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.unsubscribeDatabase();
+    if (this.retryTimeout) clearTimeout(this.retryTimeout);
+    this.retryTimeout = null;
+    this.bufferedIncidents.clear();
   }
 
   async persist(
     code: KeyingVerificationCode,
     context: SecurityIncidentContext,
   ): Promise<boolean> {
+    if (this.disposed) return false;
     const detectedAt = new Date().toISOString();
     const incident: RedactedIncident = {
       code,
@@ -129,7 +143,8 @@ class SecurityIncidentSink {
     }
 
     try {
-      this.notify(await this.append(execSql, incident));
+      const persisted = await this.append(execSql, incident);
+      if (persisted) this.notify(persisted);
       if (this.bufferedIncidents.size === 0) this.resetFlushRetry();
       return true;
     } catch (persistenceError) {
@@ -144,6 +159,7 @@ class SecurityIncidentSink {
   }
 
   async flush(): Promise<void> {
+    if (this.disposed) return;
     for (;;) {
       const activeFlush = this.flushPromise ?? this.startFlushBatch();
       if (!activeFlush) return;
@@ -176,7 +192,7 @@ class SecurityIncidentSink {
   private append(
     execSql: NonNullable<Database["execSql"]>,
     incident: RedactedIncident,
-  ): Promise<SecurityIncident> {
+  ): Promise<SecurityIncident | null> {
     return appendSecurityIncident(execSql, {
       code: incident.code,
       detectedAt: incident.detectedAt,
@@ -219,7 +235,8 @@ class SecurityIncidentSink {
     let succeeded = true;
     for (const incident of pending) {
       try {
-        this.notify(await this.append(execSql, incident));
+        const persisted = await this.append(execSql, incident);
+        if (persisted) this.notify(persisted);
       } catch (persistenceError) {
         succeeded = false;
         if (this.buffer(incident)) this.scheduleFlushRetry();
@@ -233,6 +250,7 @@ class SecurityIncidentSink {
   }
 
   private notify(incident: SecurityIncident): void {
+    if (this.disposed) return;
     this.listeners.notify(incident);
     try {
       this.options.onIncident?.(incident);
@@ -242,7 +260,7 @@ class SecurityIncidentSink {
   }
 
   private scheduleFlushRetry(): void {
-    if (this.retryTimeout) return;
+    if (this.disposed || this.retryTimeout) return;
     const retryDelayMs = this.retryDelayMs;
     this.retryDelayMs = Math.min(
       this.retryDelayMs * 2,
@@ -250,6 +268,7 @@ class SecurityIncidentSink {
     );
     this.retryTimeout = setTimeout(() => {
       this.retryTimeout = null;
+      if (this.disposed) return;
       void this.flush();
     }, retryDelayMs);
   }
@@ -276,13 +295,12 @@ export function createSecurityIncidentService(
   ): Promise<boolean> => {
     const code = verificationCode(error);
     if (!code) {
-      if (isKeyingVerificationError(error)) {
-        options.logError(
-          "Security incident could not be persisted because its verification code is unrecognized",
-        );
-        return true;
-      }
       return false;
+    }
+    if (code === "unrecognized_verification_code") {
+      options.logError(
+        "Security incident used the fallback code because its verification code is unrecognized",
+      );
     }
 
     return sink.persist(code, context);
@@ -310,6 +328,7 @@ export function createSecurityIncidentService(
   };
 
   return {
+    dispose: () => sink.dispose(),
     incidents: {
       async list() {
         await sink.flush();

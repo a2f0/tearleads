@@ -117,6 +117,7 @@ export class Tearleads {
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
+  private readonly disposeSecurityIncidents: () => void;
   // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
   // Recreated when the storage database or signing identity changes.
@@ -150,6 +151,7 @@ export class Tearleads {
       options,
     });
     this.securityIncidents = security.service.incidents;
+    this.disposeSecurityIncidents = security.service.dispose;
     this.network = new Network(options.online);
     this.syncBillingGate = new SyncBillingGate();
     let session: Session | null = null;
@@ -224,7 +226,8 @@ export class Tearleads {
   private configureApiClientCallbacks(): void {
     this.apiClient.setOnError((message) => this.logError(message));
     // An authoritative OS source owns connectivity. Without one, request
-    // outcomes continue to drive the browser's reachability state.
+    // outcomes remain browser reachability hints: a failure proves the backend
+    // is unreachable, not that the device itself is offline.
     this.apiClient.setOnNetworkError(() =>
       this.network.reportReachability(false),
     );
@@ -300,6 +303,7 @@ export class Tearleads {
    */
   dispose(): void {
     const domainScope = this.domainScope;
+    this.disposeSecurityIncidents();
     this.deviceFirst.dispose();
     disposeDomainSyncCoordinator(domainScope);
   }
