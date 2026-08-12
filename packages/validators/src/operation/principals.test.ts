@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   CommitOrganizationGroupPolicyRequestSchema,
-  PutPrincipalPolicyRequestSchema,
+  OrganizationPrincipalPolicyRequestSchema,
 } from "../request";
 import {
   CommitOrganizationGroupPolicyResponseSchema,
@@ -38,7 +38,7 @@ test("principal policy operations own their HTTP contracts", () => {
   });
   expect(putPrincipalPolicyOperation).toMatchObject({
     auth: "session",
-    body: PutPrincipalPolicyRequestSchema,
+    body: OrganizationPrincipalPolicyRequestSchema,
     failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     id: "principals.policy.update",
     method: "PUT",

@@ -84,6 +84,12 @@ valid group policy therefore fails closed even on a device with no prior
 checkpoint for that group. Group deletion requires a signed organization-policy
 successor that removes the deleted group from the directory; the API rejects
 directory entries for groups that are not active organization rows.
+
+The version-2 descriptor is an intentional greenfield state-format flag-day.
+Deployments must drop and recreate pre-v2 API and local client databases and
+reprovision their organizations. Version-1 descriptors are rejected; there is
+no compatibility reader or in-place upgrade path.
+
 The generic principal-policy write route rejects group updates. Group creation
 atomically stores the new row and initial policy with the matching signed
 organization-directory successor, so a failed second artifact cannot leave an

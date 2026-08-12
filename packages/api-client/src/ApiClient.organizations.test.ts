@@ -279,7 +279,7 @@ testApiClient(
     ).not.toBeNull();
     expect(
       await client.putPrincipalPolicy(
-        "group",
+        "organization",
         principalPolicyId,
         policyRequest,
       ),
@@ -324,7 +324,7 @@ testApiClient(
       },
       {
         body: JSON.stringify(policyRequest),
-        input: `${apiBaseUrl}/principals/group/${principalPolicyId}/policy`,
+        input: `${apiBaseUrl}/principals/organization/${principalPolicyId}/policy`,
         method: "PUT",
       },
     ]);

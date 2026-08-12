@@ -123,6 +123,12 @@ export function isPutPrincipalPolicyRequest(
   return PutPrincipalPolicyRequestSchema.safeParse(value).success;
 }
 
+export function isOrganizationPrincipalPolicyRequest(
+  value: unknown,
+): value is OrganizationPrincipalPolicyRequest {
+  return OrganizationPrincipalPolicyRequestSchema.safeParse(value).success;
+}
+
 export function isCommitOrganizationGroupPolicyRequest(
   value: unknown,
 ): value is CommitOrganizationGroupPolicyRequest {

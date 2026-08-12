@@ -3,8 +3,8 @@ import { organizationProvisioningContainerKeyringRefinement } from "../organizat
 import {
   CommitOrganizationGroupPolicyRequestSchema,
   isCommitOrganizationGroupPolicyRequest,
-  isPutPrincipalPolicyRequest,
-  PutPrincipalPolicyRequestSchema,
+  isOrganizationPrincipalPolicyRequest,
+  OrganizationPrincipalPolicyRequestSchema,
 } from "../request";
 import {
   CommitOrganizationGroupPolicyResponseSchema,
@@ -58,7 +58,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
 
 export const putPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
-  body: PutPrincipalPolicyRequestSchema,
+  body: OrganizationPrincipalPolicyRequestSchema,
   failureResponses: {
     400: PrincipalPolicyErrorResponseSchema,
     401: ErrorResponseSchema,
@@ -110,6 +110,7 @@ export const isCommitOrganizationGroupPolicyOperationResponse =
 
 export const isGetPrincipalPolicyOperationResponse =
   isPrincipalPolicyBundleResponse;
-export const isPutPrincipalPolicyOperationRequest = isPutPrincipalPolicyRequest;
+export const isPutPrincipalPolicyOperationRequest =
+  isOrganizationPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =
   isPrincipalPolicyMutationResponse;

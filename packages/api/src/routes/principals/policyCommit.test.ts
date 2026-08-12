@@ -137,15 +137,22 @@ async function prepareCompoundPolicy(input: {
     organization,
     organizationPolicy,
     previousGroupStateHash: groupState.stateHash,
+    previousOrganizationStateHash: organizationState.stateHash,
   };
 }
 
 async function commitPrepared(
   actor: ReturnType<typeof createTestUser>,
   prepared: Awaited<ReturnType<typeof prepareCompoundPolicy>>,
+  overrides: {
+    readonly groupId?: string;
+    readonly groupPolicy?: typeof prepared.groupPolicy;
+    readonly organizationId?: string;
+    readonly organizationPolicy?: typeof prepared.organizationPolicy;
+  } = {},
 ) {
   return routeApp.request(
-    `/organizations/${prepared.organization.organizationId}/groups/${prepared.organization.memberGroupId}/policy-commit`,
+    `/organizations/${overrides.organizationId ?? prepared.organization.organizationId}/groups/${overrides.groupId ?? prepared.organization.memberGroupId}/policy-commit`,
     {
       method: "PUT",
       headers: {
@@ -153,8 +160,9 @@ async function commitPrepared(
         Authorization: `Bearer ${actor.token}`,
       },
       body: JSON.stringify({
-        groupPolicy: prepared.groupPolicy,
-        organizationPolicy: prepared.organizationPolicy,
+        groupPolicy: overrides.groupPolicy ?? prepared.groupPolicy,
+        organizationPolicy:
+          overrides.organizationPolicy ?? prepared.organizationPolicy,
       }),
     },
   );
@@ -236,4 +244,81 @@ test("a stale signed directory rejects and rolls back its paired group successor
     db,
   );
   expect(storedGroup?.stateHash).toBe(prepared.previousGroupStateHash);
+});
+
+test("compound commits reject mismatched group and organization signers", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareCompoundPolicy({
+    actor,
+    commitNextGroupHead: true,
+  });
+
+  const response = await commitPrepared(actor, prepared, {
+    organizationPolicy: {
+      ...prepared.organizationPolicy,
+      state: {
+        ...prepared.organizationPolicy.state,
+        signerUserId: crypto.randomUUID(),
+      },
+    },
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Group and organization policies must have the same signer",
+  });
+  expect(
+    await getCurrentPrincipalState(
+      "group",
+      prepared.organization.memberGroupId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousGroupStateHash });
+  expect(
+    await getCurrentPrincipalState(
+      "organization",
+      prepared.organization.organizationId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousOrganizationStateHash });
+});
+
+test("compound commits reject groups rebound to another organization", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareCompoundPolicy({
+    actor,
+    commitNextGroupHead: true,
+  });
+  const foreignOwner = createTestUser();
+  await registerUser(foreignOwner);
+  const foreignOrganization = await defaultOrganization(foreignOwner.userId);
+  await db
+    .update(groups)
+    .set({ organizationId: foreignOrganization.organizationId })
+    .where(eq(groups.id, prepared.organization.memberGroupId));
+
+  const response = await commitPrepared(actor, prepared);
+
+  expect(response.status).toBe(404);
+  expect(await response.json()).toEqual({
+    error: "Group does not belong to the committed organization",
+  });
+  expect(
+    await getCurrentPrincipalState(
+      "group",
+      prepared.organization.memberGroupId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousGroupStateHash });
+  expect(
+    await getCurrentPrincipalState(
+      "organization",
+      prepared.organization.organizationId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousOrganizationStateHash });
 });

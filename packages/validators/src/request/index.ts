@@ -102,6 +102,7 @@ export {
   type CommitOrganizationGroupPolicyRequest,
   CommitOrganizationGroupPolicyRequestSchema,
   isCommitOrganizationGroupPolicyRequest,
+  isOrganizationPrincipalPolicyRequest,
   isPutPrincipalPolicyRequest,
   type OrganizationPrincipalPolicyRequest,
   OrganizationPrincipalPolicyRequestSchema,

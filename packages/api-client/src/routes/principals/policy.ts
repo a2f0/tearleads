@@ -37,7 +37,7 @@ export const putPrincipalPolicy = {
   isRequest: isPutPrincipalPolicyOperationRequest,
   isResponse: isPutPrincipalPolicyOperationResponse,
   method: putPrincipalPolicyOperation.method,
-  path(principalType: "group" | "organization", principalId: string) {
+  path(principalType: "organization", principalId: string) {
     return operationRequestPath(putPrincipalPolicyOperation, {
       principalId,
       principalType,

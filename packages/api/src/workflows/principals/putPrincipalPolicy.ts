@@ -175,6 +175,15 @@ export function assertPutPrincipalPolicyRouteBinding(
       400,
     );
   }
+  if (
+    input.expectedPrincipalType === "organization" &&
+    (input.containerMutations?.length ?? 0) > 0
+  ) {
+    throw new PrincipalPolicyError(
+      "Organization policies cannot carry container mutations",
+      400,
+    );
+  }
 }
 
 function applyPolicyContainerRematerializations(input: {

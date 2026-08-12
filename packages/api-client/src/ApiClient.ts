@@ -15,7 +15,7 @@ import type {
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
   ListContainerParentLanesRequest,
-  PutPrincipalPolicyRequest,
+  OrganizationPrincipalPolicyRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
@@ -812,9 +812,9 @@ export class ApiClient {
   }
 
   putPrincipalPolicy(
-    principalType: "group" | "organization",
+    principalType: "organization",
     principalId: string,
-    input: PutPrincipalPolicyRequest,
+    input: OrganizationPrincipalPolicyRequest,
   ) {
     const requestKey = JSON.stringify([principalType, principalId]);
     this.principalPolicyRequestsByKey.delete(requestKey);
@@ -825,9 +825,6 @@ export class ApiClient {
       JSON.stringify(input),
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(requestKey);
-      if (principalType === "group") {
-        this.clearWriterProjectionCaches();
-      }
     });
   }
 

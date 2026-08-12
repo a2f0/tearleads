@@ -51741,7 +51741,6 @@
                 "type": "object",
                 "properties": {
                   "containerMutations": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -52042,7 +52041,9 @@
                         "wraps"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 0,
+                    "type": "array"
                   },
                   "encryptedPayload": {
                     "type": "object",
