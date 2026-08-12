@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizations, users } from "@tearleads/api-shared/schema";
+import { groups, organizations, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
@@ -8,6 +8,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -172,12 +173,45 @@ test("group policy commits atomically advance the signed organization directory"
 
   expect(response.status).toBe(200);
   const body = await response.json();
+  invariant(
+    isCommitOrganizationGroupPolicyResponse(body),
+    "expected compound policy response",
+  );
   expect(body.groupPolicy.currentState.stateHash).toBe(
     prepared.nextGroupHead.stateHash,
   );
   expect(body.organizationPolicy.currentState.version).toBe(
     prepared.organizationPolicy.state.version,
   );
+});
+
+test("a stateless group row blocks organization policy commits", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareCompoundPolicy({
+    actor,
+    commitNextGroupHead: true,
+  });
+  await db.insert(groups).values({
+    id: crypto.randomUUID(),
+    name: "Injected without policy",
+    organizationId: prepared.organization.organizationId,
+  });
+
+  const response = await commitPrepared(actor, prepared);
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Organization group policy is missing",
+  });
+  expect(
+    await getCurrentPrincipalState(
+      "group",
+      prepared.organization.memberGroupId,
+      db,
+    ),
+  ).toMatchObject({ stateHash: prepared.previousGroupStateHash });
 });
 
 test("a stale signed directory rejects and rolls back its paired group successor", async () => {

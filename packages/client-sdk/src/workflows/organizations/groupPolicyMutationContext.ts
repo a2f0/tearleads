@@ -48,22 +48,22 @@ import {
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
 
-export interface PrincipalPolicyReadWriteApi {
-  commitOrganizationGroupPolicy?:
-    | ((
-        organizationId: string,
-        groupId: string,
-        input: CommitOrganizationGroupPolicyRequest,
-      ) => Promise<CommitOrganizationGroupPolicyResponse | null>)
-    | undefined;
+export interface PrincipalPolicyReadApi {
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
 }
 
-export interface OrganizationPrincipalPolicyApi
-  extends PrincipalPolicyReadWriteApi {
+export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {
+  commitOrganizationGroupPolicy: (
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+  ) => Promise<CommitOrganizationGroupPolicyResponse | null>;
+}
+
+export interface OrganizationPrincipalPolicyApi extends PrincipalPolicyReadApi {
   createOrganizationGroup: (
     organizationId: string,
     input: CreateOrganizationGroupWithPolicyRequest,
@@ -96,7 +96,7 @@ export async function cacheGroupPolicy(input: {
   readonly acknowledgedMemberEnvelopes?:
     | CurrentPrincipalMemberEnvelopesResponse
     | undefined;
-  readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly apiClient: PrincipalPolicyReadApi;
   readonly externalAuthority?: PrincipalPolicyExternalAuthority | undefined;
   readonly execSql: ExecSql;
   readonly expectedCurrentHead?: ReferencedPrincipalHead | undefined;
@@ -151,7 +151,7 @@ export async function cacheGroupPolicy(input: {
 }
 
 export async function loadGroupPolicyMutationContext(input: {
-  readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly apiClient: PrincipalPolicyReadApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -255,9 +255,6 @@ export async function commitGroupPolicyMutation(input: {
   readonly organizationRequest: PutPrincipalPolicyRequest;
   readonly request: PutPrincipalPolicyRequest;
 }): Promise<PrincipalPolicyMutationResponse> {
-  if (!input.apiClient.commitOrganizationGroupPolicy) {
-    throw new Error("Authenticated group policy commit is unavailable");
-  }
   const stored = await input.apiClient.commitOrganizationGroupPolicy(
     input.organizationId,
     input.groupId,

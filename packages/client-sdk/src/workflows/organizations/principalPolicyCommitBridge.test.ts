@@ -152,9 +152,6 @@ test("remove group user bridges committed policy writes before caching the rotat
   const apiClient: Parameters<
     typeof removeOrganizationGroupUser
   >[0]["apiClient"] = {
-    createOrganizationGroup: async () => {
-      throw new Error("Unexpected group create");
-    },
     getCurrentPrincipalPolicy: async (principalType, principalId) => {
       if (principalType === "organization") {
         expect(principalId).toBe(organizationId);

@@ -103,6 +103,8 @@ export {
   CommitOrganizationGroupPolicyRequestSchema,
   isCommitOrganizationGroupPolicyRequest,
   isPutPrincipalPolicyRequest,
+  type OrganizationPrincipalPolicyRequest,
+  OrganizationPrincipalPolicyRequestSchema,
   type PrincipalContainerGrantRequest,
   PrincipalContainerGrantRequestSchema,
   type PrincipalMemberEnvelopeRequest,

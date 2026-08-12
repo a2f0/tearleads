@@ -139,7 +139,7 @@ async function createMutationApi(
   fixture: GroupPolicyFixture,
   currentPolicy: PrincipalPolicyBundleResponse,
 ) {
-  const calls = {};
+  const calls = { commitPolicy: 0 };
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     fixture.organizationId,
     await buildInitialOrganizationPolicyRequest({
@@ -158,8 +158,9 @@ async function createMutationApi(
   );
   const apiClient: Parameters<typeof addOrganizationGroupUser>[0]["apiClient"] =
     {
-      createOrganizationGroup: async () => {
-        throw new Error("Unexpected group creation");
+      commitOrganizationGroupPolicy: async () => {
+        calls.commitPolicy += 1;
+        throw new Error("Unexpected group policy commit");
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
         if (principalType === "organization") {
@@ -230,7 +231,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
 
   expect(resolvedUserIds).toContain(targetUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({});
+  expect(calls).toEqual({ commitPolicy: 0 });
 });
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
@@ -310,5 +311,5 @@ test("group removal propagates remaining identity equivocation before rekey or m
 
   expect(resolvedUserIds).toContain(remainingUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({});
+  expect(calls).toEqual({ commitPolicy: 0 });
 });

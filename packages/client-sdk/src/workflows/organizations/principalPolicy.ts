@@ -224,7 +224,7 @@ export async function createOrganizationGroup(input: {
 
 export async function addOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentUserSecretKey: Uint8Array;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -300,7 +300,7 @@ export async function addOrganizationGroupUser(input: {
 
 export async function removeOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -421,7 +421,7 @@ export async function setOrganizationGroupContainerGrant(input: {
  * wrap from before the revoke.
  */
 export async function rotateOrganizationGroupForAccessSetShrink(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;

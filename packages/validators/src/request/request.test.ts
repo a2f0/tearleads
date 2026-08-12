@@ -11,6 +11,7 @@ import {
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   isVerifyRequest,
+  OrganizationPrincipalPolicyRequestSchema,
   VerifyRequestSchema,
 } from "./index";
 
@@ -179,6 +180,23 @@ test("isPutPrincipalPolicyRequest", () => {
   expect(
     isPutPrincipalPolicyRequest({ ...request, containerMutations: [] }),
   ).toBe(true);
+  expect(
+    OrganizationPrincipalPolicyRequestSchema.safeParse({
+      ...request,
+      containerMutations: [],
+    }).success,
+  ).toBe(true);
+  const organizationMutation =
+    OrganizationPrincipalPolicyRequestSchema.safeParse({
+      ...request,
+      containerMutations: [{ event: null }],
+    });
+  expect(organizationMutation.success).toBe(false);
+  expect(
+    organizationMutation.success
+      ? []
+      : organizationMutation.error.issues.map((issue) => issue.message),
+  ).toContain("array exceeds 0 items");
   expect(
     isPutPrincipalPolicyRequest({
       ...request,

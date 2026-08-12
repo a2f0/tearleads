@@ -18124,6 +18124,19 @@ export interface operations {
                     };
                 };
             };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     "organizations.groups.members.list": {

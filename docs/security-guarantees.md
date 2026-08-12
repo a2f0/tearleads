@@ -516,9 +516,9 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Group membership and access shrink rotate affected KEKs atomically; stale
  group-grant references and organization successors with stale references are
  rejected.
-- Organization policies commit every current group head; supported group
- mutations atomically advance the group and organization policies, and clients
- reject served group bundles that do not match that signed directory.
+- Organization policies commit every current group head. Group mutations
+  atomically advance group and organization policies; share, membership, and
+  rotation checks reject bundles that do not match that directory.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target

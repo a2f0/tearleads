@@ -9,7 +9,7 @@ import {
   acknowledgeGroupPolicyState,
   assertGroupPolicyBundleMatchesAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
-import type { PrincipalPolicyReadWriteApi } from "./groupPolicyMutationContext";
+import type { PrincipalPolicyReadApi } from "./groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
@@ -21,7 +21,7 @@ import {
 } from "./trustedOrganizationUsers";
 
 export async function deleteOrganizationGroup(input: {
-  readonly apiClient: PrincipalPolicyReadWriteApi & {
+  readonly apiClient: PrincipalPolicyReadApi & {
     deleteOrganizationGroup: (
       organizationId: string,
       groupId: string,

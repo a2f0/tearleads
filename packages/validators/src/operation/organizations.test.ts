@@ -204,12 +204,22 @@ test("organization management operations own their HTTP contracts", () => {
   expect(deleteOrganizationGroupOperation).toMatchObject({
     auth: "session",
     body: DeleteOrganizationGroupRequestSchema,
-    failureStatuses: [400, 401, 402, 403, 404, 409, 500],
+    failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
     id: "organizations.groups.delete",
     method: "DELETE",
     params: OrganizationGroupPathParamsSchema,
     responses: { 200: DeleteOrganizationGroupResponseSchema },
     runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+  });
+  expect(deleteOrganizationGroupOperation.failureResponses).toEqual({
+    400: ErrorResponseSchema,
+    401: ErrorResponseSchema,
+    402: PaymentRequiredErrorResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    409: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: ErrorResponseSchema,
   });
   expect(listOrganizationGroupMembersOperation).toMatchObject({
     auth: "session",

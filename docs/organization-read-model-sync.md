@@ -18,9 +18,9 @@ and authoritative group set. The reserved `Admins` policy contains direct
 `admin` users only, so clients can verify its complete chain without consulting
 roster or group-catalog projections.
 
-The directory may retain a deleted group's last head only when the API has a
-same-organization durable group tombstone. Such an entry is historical: the ID
-cannot be recreated and no current group bundle exists for recipient use.
+Deleting a group requires a signed organization-policy successor that removes
+its directory entry. The durable tombstone prevents the deleted ID from being
+recreated, while the directory remains an exact set of active group heads.
 
 Supported group mutations submit the group successor and matching organization
 successor to one atomic API operation. Group creation likewise commits the row,

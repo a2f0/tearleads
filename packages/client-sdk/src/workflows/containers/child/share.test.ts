@@ -451,6 +451,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
       shareRemoteContainerWithGroup({
         accessLevel: "read",
         apiClient: {
+          commitOrganizationGroupPolicy: async () => null,
           getContainerWriterProjection: async () => parent.projection,
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
             if (principalType === "organization") {

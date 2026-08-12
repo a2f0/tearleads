@@ -140,7 +140,9 @@ test("local admin projections cannot authorize a group membership mutation", asy
     await expect(
       addOrganizationGroupUser({
         apiClient: {
-          createOrganizationGroup: async () => null,
+          commitOrganizationGroupPolicy: async () => {
+            throw new Error("Unexpected group policy commit");
+          },
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
             if (principalType === "organization") {
               calls.organizationPolicy += 1;

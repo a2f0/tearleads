@@ -2719,7 +2719,6 @@
                     "type": "object",
                     "properties": {
                       "containerMutations": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -3020,7 +3019,9 @@
                             "wraps"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 0,
+                        "type": "array"
                       },
                       "encryptedPayload": {
                         "type": "object",
@@ -31573,7 +31574,6 @@
                     "type": "object",
                     "properties": {
                       "containerMutations": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -31874,7 +31874,9 @@
                             "wraps"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 0,
+                        "type": "array"
                       },
                       "encryptedPayload": {
                         "type": "object",
@@ -34147,7 +34149,6 @@
                     "type": "object",
                     "properties": {
                       "containerMutations": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -34448,7 +34449,9 @@
                             "wraps"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 0,
+                        "type": "array"
                       },
                       "encryptedPayload": {
                         "type": "object",
@@ -35760,6 +35763,25 @@
               }
             },
             "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           }
         },
         "security": [
@@ -36376,7 +36398,6 @@
                     "type": "object",
                     "properties": {
                       "containerMutations": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -36677,7 +36698,9 @@
                             "wraps"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 0,
+                        "type": "array"
                       },
                       "encryptedPayload": {
                         "type": "object",
@@ -42326,7 +42349,6 @@
                     "type": "object",
                     "properties": {
                       "containerMutations": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -42627,7 +42649,9 @@
                             "wraps"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 0,
+                        "type": "array"
                       },
                       "encryptedPayload": {
                         "type": "object",

@@ -95,9 +95,22 @@ export type PutPrincipalPolicyRequest = z.infer<
   typeof PutPrincipalPolicyRequestSchema
 >;
 
+export const OrganizationPrincipalPolicyRequestSchema = loosePlainObject({
+  containerMutations: arraySchema(ContainerMutationRequestSchema, 0).optional(),
+  encryptedPayload: PrincipalStateEncryptedPayloadRequestSchema,
+  grants: arraySchema(PrincipalContainerGrantRequestSchema),
+  memberEnvelopes: arraySchema(PrincipalMemberEnvelopeRequestSchema),
+  projection: arraySchema(PrincipalProjectionMemberRequestSchema),
+  state: PrincipalStateRequestSchema,
+});
+
+export type OrganizationPrincipalPolicyRequest = z.infer<
+  typeof OrganizationPrincipalPolicyRequestSchema
+>;
+
 export const CommitOrganizationGroupPolicyRequestSchema = loosePlainObject({
   groupPolicy: PutPrincipalPolicyRequestSchema,
-  organizationPolicy: PutPrincipalPolicyRequestSchema,
+  organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });
 
 export type CommitOrganizationGroupPolicyRequest = z.infer<

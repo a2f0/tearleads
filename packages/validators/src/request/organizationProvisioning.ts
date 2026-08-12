@@ -12,7 +12,7 @@ import {
   documentCreateRequestShape,
 } from "./document";
 import { CreateOrganizationGroupRequestSchema } from "./organization";
-import { PutPrincipalPolicyRequestSchema } from "./principal";
+import { OrganizationPrincipalPolicyRequestSchema } from "./principal";
 
 /**
  * A built-in or app-owned system container whose encrypted initial metadata
@@ -115,7 +115,7 @@ export const organizationProvisioningRequestShape = {
   initialMemberGroup: CreateOrganizationGroupRequestSchema,
   initialOrganizationMetadataContainer:
     ProvisionedSystemContainerRequestSchema.optional(),
-  initialOrganizationPolicy: PutPrincipalPolicyRequestSchema,
+  initialOrganizationPolicy: OrganizationPrincipalPolicyRequestSchema,
   initialOrganizationProfileDocument:
     ProvisionedDocumentRequestSchema.optional(),
   initialRootContainer: ContainerMutationRequestSchema,

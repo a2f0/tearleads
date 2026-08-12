@@ -5,7 +5,10 @@ import {
 } from "../jsonSchema";
 import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
 import { loosePlainObject, uuidV4StringSchema } from "../schema";
-import { PutPrincipalPolicyRequestSchema } from "./principal";
+import {
+  OrganizationPrincipalPolicyRequestSchema,
+  PutPrincipalPolicyRequestSchema,
+} from "./principal";
 
 const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
   registerJsonSchemaView(
@@ -27,7 +30,7 @@ export const CreateOrganizationGroupRequestSchema = loosePlainObject(
 
 export const CreateOrganizationGroupWithPolicyRequestSchema = loosePlainObject({
   ...CreateOrganizationGroupRequestShape,
-  organizationPolicy: PutPrincipalPolicyRequestSchema,
+  organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });
 
 export type CreateOrganizationGroupRequest = z.infer<
@@ -39,7 +42,7 @@ export type CreateOrganizationGroupWithPolicyRequest = z.infer<
 >;
 
 export const DeleteOrganizationGroupRequestSchema = loosePlainObject({
-  organizationPolicy: PutPrincipalPolicyRequestSchema,
+  organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });
 
 export type DeleteOrganizationGroupRequest = z.infer<

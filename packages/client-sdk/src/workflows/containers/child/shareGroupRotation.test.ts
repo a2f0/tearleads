@@ -171,6 +171,9 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     const shared = await shareRemoteContainerWithGroup({
       accessLevel: "admin",
       apiClient: {
+        commitOrganizationGroupPolicy: async () => {
+          throw new Error("Unexpected group policy commit");
+        },
         getContainerWriterProjection: async () => initialProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") {

@@ -134,7 +134,7 @@ function isMaterializedContainerSharePlan(
 async function commitMissingGroupGrant(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult> {
-  if (!input.apiClient.commitOrganizationGroupPolicy || !input.signingKeyPair) {
+  if (!input.signingKeyPair) {
     throw new Error(
       "Container group share requires principal policy signing context",
     );

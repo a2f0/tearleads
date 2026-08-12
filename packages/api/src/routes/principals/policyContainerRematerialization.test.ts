@@ -7,6 +7,8 @@ import {
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
+import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildPrincipalGrantRefreshRequest } from "../../../test/helpers/containerGrantRefresh";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
@@ -195,6 +197,10 @@ test("an exact compound policy replay survives a later container mutation", asyn
   const replayResponse = await putPolicy(prepared);
   expect(replayResponse.status).toBe(200);
   const replay = await replayResponse.json();
+  invariant(
+    isCommitOrganizationGroupPolicyResponse(replay),
+    "expected compound policy response",
+  );
   expect(replay.groupPolicy.containerMutations).toHaveLength(1);
   expect(
     replay.groupPolicy.containerMutations[0]?.accessManifest.manifestHash,

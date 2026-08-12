@@ -39,13 +39,11 @@ import {
 } from "../../principals/policyVerification";
 
 export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
-  commitOrganizationGroupPolicy?:
-    | ((
-        organizationId: string,
-        groupId: string,
-        input: CommitOrganizationGroupPolicyRequest,
-      ) => Promise<CommitOrganizationGroupPolicyResponse | null>)
-    | undefined;
+  commitOrganizationGroupPolicy: (
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+  ) => Promise<CommitOrganizationGroupPolicyResponse | null>;
   getCurrentPrincipalPolicy: (
     principalType: ManagedPrincipalKind,
     principalId: string,
