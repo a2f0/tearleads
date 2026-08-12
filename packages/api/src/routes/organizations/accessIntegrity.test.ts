@@ -3,12 +3,14 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizations,
   principalMembershipProjection,
+  principalStates,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -84,6 +86,45 @@ test("organization access rejects a repointed reserved Admins group", async () =
   const response = await routeApp.request(
     `/organizations/${organizationId}/read-model`,
     { headers: authHeader(outsider) },
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Organization access policy failed integrity verification",
+  });
+});
+
+test("organization access rejects a replayed reserved group policy", async () => {
+  const owner = createTestUser();
+  const organizationId = await registerAndAuthenticate(owner);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  const adminGroupId = await addUserToAdminGroup({
+    actor: owner,
+    member,
+    organizationId,
+  });
+  const currentAdminState = await getCurrentPrincipalState(
+    "group",
+    adminGroupId,
+    db,
+  );
+  invariant(currentAdminState, "expected current Admins policy state");
+  expect(currentAdminState.version).toBeGreaterThan(1);
+
+  await db
+    .delete(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, "group"),
+        eq(principalStates.principalId, adminGroupId),
+        eq(principalStates.version, currentAdminState.version),
+      ),
+    );
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/read-model`,
+    { headers: authHeader(member) },
   );
 
   expect(response.status).toBe(409);

@@ -74,6 +74,27 @@ authority descriptor before trusting the database's reserved `Admins` and
 `Members` identifiers, so repointing either identifier to another valid group
 fails closed.
 
+The version-2 organization authority descriptor also commits the exact current
+head of every organization group. Supported clients pair every group successor
+with an organization-policy successor through one atomic policy commit. Before
+using a group for sharing or rotation-staleness decisions, a client verifies
+the organization policy and reserved `Admins` head, then requires the served
+group bundle to match the directory's exact head. Serving an older, otherwise
+valid group policy therefore fails closed even on a device with no prior
+checkpoint for that group. Group deletion requires a signed organization-policy
+successor that removes the deleted group from the directory; the API rejects
+directory entries for groups that are not active organization rows.
+
+The version-2 descriptor is an intentional greenfield state-format flag-day.
+Deployments must drop and recreate pre-v2 API and local client databases and
+reprovision their organizations. Version-1 descriptors are rejected; there is
+no compatibility reader or in-place upgrade path.
+
+The generic principal-policy write route rejects group updates. Group creation
+atomically stores the new row and initial policy with the matching signed
+organization-directory successor, so a failed second artifact cannot leave an
+active but undiscoverable group.
+
 Container authorization likewise re-verifies every stored manifest on the
 historical authorization path. The API verifies the event signature and signer
 identity, derives the transition from the signed event body, recomputes the
@@ -115,9 +136,9 @@ Organizations also carry two reserved group pointers:
  through this group belong to the organization.
 
 Registration creates both groups atomically, seeding each with the single
-registering user. The `Members` policy used to nest `Admins` so that admins were
-members by reachability; principals contain only users now, so the policy write
-enforces it instead — a managed principal may only name active roster entries.
+registering user, and commits both initial heads in the organization policy.
+Principals contain only users; policy writes enforce that managed principals
+name active roster entries and that every Admins user remains a Members user.
 Org-manager keeps separate roster rows for directory lifecycle state. Active
 roster entries are synchronized from users reachable through `Members`, while
 disabled roster entries can remain visible after access removal. The roster is

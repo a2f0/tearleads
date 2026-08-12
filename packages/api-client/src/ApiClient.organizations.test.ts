@@ -195,17 +195,23 @@ testApiClient(
         }
         if (request.method === "POST") {
           return HttpResponse.json({
-            groupId: "group-1",
-            organizationId: "org-1",
-            name: "Operators",
-            createdAt: "2026-05-12T12:00:00.000Z",
-            isBuiltin: false,
-            currentState: {
-              stateHash: "state-hash",
-              version: 1,
-              keyEpoch: 1,
-              keyFingerprint: "key-fingerprint",
-              memberCount: 1,
+            group: {
+              groupId: "group-1",
+              organizationId: "org-1",
+              name: "Operators",
+              createdAt: "2026-05-12T12:00:00.000Z",
+              isBuiltin: false,
+              currentState: {
+                stateHash: "state-hash",
+                version: 1,
+                keyEpoch: 1,
+                keyFingerprint: "key-fingerprint",
+                memberCount: 1,
+              },
+            },
+            organizationPolicy: {
+              ...createPrincipalPolicyBundleResponse(),
+              containerMutations: [],
             },
           });
         }
@@ -213,6 +219,10 @@ testApiClient(
           return HttpResponse.json({
             deleted: true,
             groupId: "group-1",
+            organizationPolicy: {
+              ...createPrincipalPolicyBundleResponse(),
+              containerMutations: [],
+            },
             organizationId: "org-1",
           });
         }
@@ -228,6 +238,10 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const groupRequest = createOrganizationGroupRequest();
     const policyRequest = createPrincipalPolicyRequest();
+    const authenticatedGroupRequest = {
+      ...groupRequest,
+      organizationPolicy: policyRequest,
+    };
 
     expect(
       (await client.getOrganizationDataUsageResult(dataUsageOrganizationId)).ok,
@@ -247,13 +261,14 @@ testApiClient(
     expect(
       await client.createOrganizationGroup(
         dataUsageOrganizationId,
-        groupRequest,
+        authenticatedGroupRequest,
       ),
     ).not.toBeNull();
     expect(
       await client.deleteOrganizationGroup(
         dataUsageOrganizationId,
         organizationGroupId,
+        { organizationPolicy: policyRequest },
       ),
     ).not.toBeNull();
     expect(
@@ -264,7 +279,7 @@ testApiClient(
     ).not.toBeNull();
     expect(
       await client.putPrincipalPolicy(
-        "group",
+        "organization",
         principalPolicyId,
         policyRequest,
       ),
@@ -293,12 +308,12 @@ testApiClient(
         method: "PUT",
       },
       {
-        body: JSON.stringify(groupRequest),
+        body: JSON.stringify(authenticatedGroupRequest),
         input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups`,
         method: "POST",
       },
       {
-        body: "",
+        body: JSON.stringify({ organizationPolicy: policyRequest }),
         input: `${apiBaseUrl}/organizations/${dataUsageOrganizationId}/groups/${organizationGroupId}`,
         method: "DELETE",
       },
@@ -309,7 +324,7 @@ testApiClient(
       },
       {
         body: JSON.stringify(policyRequest),
-        input: `${apiBaseUrl}/principals/group/${principalPolicyId}/policy`,
+        input: `${apiBaseUrl}/principals/organization/${principalPolicyId}/policy`,
         method: "PUT",
       },
     ]);

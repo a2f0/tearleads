@@ -4,8 +4,8 @@ import {
   operationRoutePath,
 } from "@tearleads/validators/operation";
 import type {
+  CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
-  OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -39,7 +39,7 @@ export function createOrganizationMutationsRoute({
       const { organizationId } = c.req.valid("param");
 
       try {
-        return c.json<OrganizationGroupSummaryResponse>(
+        return c.json<CreateOrganizationGroupResponse>(
           await createOrganizationGroup(
             runtime,
             organizationId,
@@ -66,6 +66,7 @@ export function createOrganizationMutationsRoute({
       deleteOrganizationGroupOperation.params,
       "Invalid organization group route",
     ),
+    jsonRequestValidator(deleteOrganizationGroupOperation.body),
     async (c) => {
       const { groupId, organizationId } = c.req.valid("param");
 
@@ -76,6 +77,7 @@ export function createOrganizationMutationsRoute({
             organizationId,
             groupId,
             c.get("session").userId,
+            c.req.valid("json"),
           ),
         );
       } catch (error) {

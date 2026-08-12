@@ -204,10 +204,15 @@ export {
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
 export {
+  commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
+  isCommitOrganizationGroupPolicyOperationRequest,
+  isCommitOrganizationGroupPolicyOperationResponse,
   isGetPrincipalPolicyOperationResponse,
   isPutPrincipalPolicyOperationRequest,
   isPutPrincipalPolicyOperationResponse,
+  type OrganizationGroupPolicyPathParams,
+  OrganizationGroupPolicyPathParamsSchema,
   type PrincipalPolicyPathParams,
   PrincipalPolicyPathParamsSchema,
   putPrincipalPolicyOperation,

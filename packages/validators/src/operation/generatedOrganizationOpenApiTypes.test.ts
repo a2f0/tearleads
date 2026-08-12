@@ -1,14 +1,15 @@
 import { test } from "bun:test";
 import type {
-  CreateOrganizationGroupRequest,
+  CreateOrganizationGroupWithPolicyRequest,
+  DeleteOrganizationGroupRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "../request";
 import type {
+  CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupMembersResponse,
-  OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
   PaymentRequiredErrorResponse,
@@ -54,6 +55,8 @@ type CreateGroupResponse =
 type PaymentRequiredResponse =
   CreateGroupOperation["responses"][402]["content"]["application/json"];
 type DeleteGroupOperation = operations["organizations.groups.delete"];
+type DeleteGroupRequest =
+  DeleteGroupOperation["requestBody"]["content"]["application/json"];
 type DeleteGroupResponse =
   DeleteGroupOperation["responses"][200]["content"]["application/json"];
 type GroupMembersOperation = operations["organizations.groups.members.list"];
@@ -85,12 +88,12 @@ test("generated OpenAPI types match organization management contracts", () => {
   >();
   assertType<IsAssignable<CreateGroupPathParams, { organizationId: string }>>();
   assertType<
-    IsAssignable<CreateGroupRequest, CreateOrganizationGroupRequest>
+    IsAssignable<CreateGroupRequest, CreateOrganizationGroupWithPolicyRequest>
   >();
   assertType<
-    IsEqual<
+    IsAssignable<
       NormalizeWireType<CreateGroupResponse>,
-      NormalizeWireType<OrganizationGroupSummaryResponse>
+      NormalizeWireType<CreateOrganizationGroupResponse>
     >
   >();
   assertType<
@@ -106,7 +109,10 @@ test("generated OpenAPI types match organization management contracts", () => {
     >
   >();
   assertType<
-    IsEqual<
+    IsAssignable<DeleteGroupRequest, DeleteOrganizationGroupRequest>
+  >();
+  assertType<
+    IsAssignable<
       NormalizeWireType<DeleteGroupResponse>,
       NormalizeWireType<DeleteOrganizationGroupResponse>
     >

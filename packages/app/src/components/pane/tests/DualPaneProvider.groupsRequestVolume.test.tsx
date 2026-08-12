@@ -34,7 +34,7 @@ import {
 // chain for reference-bound checks reduces the mutation to 40 requests in each
 // of ten runs; freshness-sensitive mutation and current-head reads stay remote.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
-// regression. Only the policy PUT and root rewrap POST are writes.
+// regression. Only the atomic group-policy commits are writes.
 // The second read-model GET is the deferred author-echo release: a
 // session-scoped origin flag cannot prove the deferred hint was this client's
 // own echo (a sibling client shares the login session), so the release
@@ -54,20 +54,20 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/groups": 0,
     "GET /principals/organization/:organizationId/policy": 0,
     "POST /containers/:containerId/share": 0,
-    "PUT /principals/group/:groupId/policy": 0,
+    "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 0,
   },
 };
 
 // Adding a brand-new admin requires two signed mutations: Members first, then
 // Admins. The Members mutation establishes the roster and causes one billing
-// refresh. Each policy PUT carries its dependent root rematerialization in the
-// same transaction. Those container changes advance the organization feed, so
-// the two active panes may consume three cursor positions each. The six
-// read-model GETs are confirmation traffic; standalone share POSTs stay pinned
-// at zero because a separately committed repair would reintroduce the recovery
-// gap this flow is meant to close.
+// refresh. Each group successor is paired with its signed organization-policy
+// successor and dependent root rematerialization in one commit. Those container
+// changes advance the organization feed, so the two active panes may consume
+// several cursor positions. Standalone share POSTs stay pinned at zero because
+// a separately committed repair would reintroduce the recovery gap this flow is
+// meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 72,
+  total: 52,
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 13,
@@ -87,7 +87,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/billing": 1,
     "GET /principals/organization/:organizationId/policy": 2,
     "POST /containers/:containerId/share": 0,
-    "PUT /principals/group/:groupId/policy": 2,
+    "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
   },
 };
 function documentSyncIntentCounts(

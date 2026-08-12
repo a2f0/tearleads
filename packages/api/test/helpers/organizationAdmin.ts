@@ -1,4 +1,3 @@
-import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { createTestUser, TestUser } from "@tearleads/bob-and-alice";
@@ -16,10 +15,10 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
-import { routeApp } from "../../src/routeApp";
 import { buildRootContainerRekeyMutation } from "./containerRekey";
 import { bootstrapRoot } from "./keyingWriterProjectionKit";
 import { addOrganizationMember } from "./organizationMembership";
+import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
 import {
   signPrincipalStateBundle,
   toPrincipalStateExternalAuthority,
@@ -212,17 +211,16 @@ export async function addUserToAdminGroup(input: {
 }): Promise<string> {
   const prepared = await prepareUserForAdminGroup(input);
 
-  const response = await routeApp.request(
-    `/principals/group/${prepared.adminGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.actor.token}`,
-      },
-      body: JSON.stringify(prepared.request),
-    },
-  );
-  expect(response.status).toBe(200);
+  const response = await submitOrganizationGroupPolicyCommit({
+    actor: input.actor,
+    groupId: prepared.adminGroupId,
+    groupPolicy: prepared.request,
+    organizationId: input.organizationId,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to update organization Admins: ${response.status} ${await response.text()}`,
+    );
+  }
   return prepared.adminGroupId;
 }

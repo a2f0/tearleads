@@ -178,10 +178,11 @@ reserved groups, root container, initial principal policies, root container KEK
 state, root metadata document, and optional encrypted roster-profile bootstrap
 material in one transaction, then returns a login challenge. The initial
 `Admins` policy must project the registering user as the sole admin. The
-initial `Members` policy must project the registering user as admin and the
-`Admins` group as a member. The initial organization policy must target the new
-organization, be version `1`, use key epoch `1`, be signed by the registering
-user, and project only the registering user as admin.
+initial `Members` policy must project the registering user as admin. The
+initial organization policy must target the new organization, be version `1`,
+use key epoch `1`, be signed by the registering user, project only the
+registering user as admin, and carry a version-2 authority descriptor committing
+the exact initial heads of both reserved groups.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
@@ -207,9 +208,16 @@ mutations and content records to cryptographic authority.
 
 ## Principal Policy Protocol
 
-Groups and organizations are managed by a signed principal-state chain exposed
-through one atomic `PUT /principals/:principalType/:principalId/policy` and the
-corresponding `GET`.
+Groups and organizations are managed by signed principal-state chains. The
+generic policy `PUT` accepts organization successors only; standalone group
+writes fail closed because they cannot advance the signed group directory.
+Organization-group successors use
+`PUT /organizations/:organizationId/groups/:groupId/policy-commit`, which
+atomically stores the group successor and an organization-policy successor
+whose authority descriptor commits the new exact group head.
+Group creation uses the same rule: `POST /organizations/:organizationId/groups`
+stores the group row, initial group policy, and matching organization-policy
+successor in one transaction, or stores none of them.
 
 A state commits the principal identity, version and predecessor, key epoch and
 encapsulation key, membership/projection/envelope roots, payload hash, member

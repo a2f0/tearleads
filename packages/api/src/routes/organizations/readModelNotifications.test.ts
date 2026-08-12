@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationRosterEntries, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { isOrganizationGroupSummaryResponse } from "@tearleads/validators/response";
+import { isCreateOrganizationGroupResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import invariant from "invariant";
@@ -76,7 +76,7 @@ test("publishes one committed hint to the active roster audience", async () => {
   );
 
   expect(response.status).toBe(200);
-  expect(isOrganizationGroupSummaryResponse(await response.json())).toBe(true);
+  expect(isCreateOrganizationGroupResponse(await response.json())).toBe(true);
   const hints = organizationReadModelEvents(publishedEvents);
   expect(hints).toHaveLength(1);
   expect(Reflect.get(hints[0] ?? {}, "organizationId")).toBe(organizationId);
@@ -142,9 +142,7 @@ test("a hint transport failure does not fail the committed mutation", async () =
     );
 
     expect(response.status).toBe(200);
-    expect(isOrganizationGroupSummaryResponse(await response.json())).toBe(
-      true,
-    );
+    expect(isCreateOrganizationGroupResponse(await response.json())).toBe(true);
     expect(errorSpy).toHaveBeenCalledTimes(1);
   } finally {
     errorSpy.mockRestore();

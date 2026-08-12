@@ -38,7 +38,11 @@ import {
   type PutPrincipalPolicyInput,
 } from "./principalPolicyMutationAuthorization";
 import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
-import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
+import {
+  assertStandalonePrincipalPolicyWrite,
+  PrincipalPolicyError,
+  toPrincipalPolicyError,
+} from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
 
 export type { PutPrincipalPolicyInput } from "./principalPolicyMutationAuthorization";
@@ -141,7 +145,7 @@ async function appendPolicyReadModelChanges(input: {
   }
 }
 
-function assertPutPrincipalPolicyRouteBinding(
+export function assertPutPrincipalPolicyRouteBinding(
   input: PutPrincipalPolicyInput,
 ): void {
   if (input.state.signerUserId !== input.requesterUserId) {
@@ -168,6 +172,15 @@ function assertPutPrincipalPolicyRouteBinding(
   ) {
     throw new PrincipalPolicyError(
       "Organization policies cannot cite external authority",
+      400,
+    );
+  }
+  if (
+    input.expectedPrincipalType === "organization" &&
+    (input.containerMutations?.length ?? 0) > 0
+  ) {
+    throw new PrincipalPolicyError(
+      "Organization policies cannot carry container mutations",
       400,
     );
   }
@@ -198,7 +211,7 @@ function applyPolicyContainerRematerializations(input: {
   });
 }
 
-async function putPrincipalPolicyInTransaction(
+export async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
@@ -381,6 +394,7 @@ export async function runPutPrincipalPolicyWorkflow(
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
   assertPutPrincipalPolicyRouteBinding(input);
+  assertStandalonePrincipalPolicyWrite(input.expectedPrincipalType);
 
   try {
     return await db.transaction((tx) =>

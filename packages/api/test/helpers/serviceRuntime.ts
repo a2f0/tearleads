@@ -2,6 +2,7 @@ import { db as defaultDb } from "@tearleads/api-shared/postgres";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   signPrincipalState,
@@ -115,10 +116,24 @@ export async function createRegistrationRequest(
   const organizationPayloadCiphertext = bytesToBase64(
     new TextEncoder().encode(
       JSON.stringify({
-        version: 1,
+        version: 2,
         organizationId,
         adminGroupId: initialAdminGroup.groupId,
         memberGroupId: initialMemberGroup.groupId,
+        groupHeads: await Promise.all(
+          [initialAdminGroup, initialMemberGroup]
+            .sort((left, right) => left.groupId.localeCompare(right.groupId))
+            .map(async (group) => ({
+              principalType: "group" as const,
+              principalId: group.groupId,
+              version: group.initialGroupPolicy.state.version,
+              keyEpoch: group.initialGroupPolicy.state.keyEpoch,
+              stateHash: await computePrincipalStateHash(
+                group.initialGroupPolicy.state,
+              ),
+              keyFingerprint: group.initialGroupPolicy.state.keyFingerprint,
+            })),
+        ),
       }),
     ),
   );

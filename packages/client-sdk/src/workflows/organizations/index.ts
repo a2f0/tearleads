@@ -33,6 +33,7 @@ export {
   type ReconcileOrganizationDataUsageInput,
   reconcileOrganizationDataUsage,
 } from "./dataUsageReadModel";
+export { deleteOrganizationGroup } from "./deleteOrganizationGroup";
 export {
   type LocalOrganizationSummary,
   listLocalOrganizations,

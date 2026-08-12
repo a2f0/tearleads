@@ -24,6 +24,15 @@ export async function lockPrincipalMutationInTransaction(
   );
 }
 
+export async function lockOrganizationGroupMutationInTransaction(
+  tx: DatabaseTransaction,
+  organizationId: string,
+  groupId: string,
+): Promise<void> {
+  await lockPrincipalMutationInTransaction(tx, "organization", organizationId);
+  await lockPrincipalMutationInTransaction(tx, "group", groupId);
+}
+
 export async function derivePrincipalMutationLockKeys(
   principalType: LockablePrincipalType,
   principalId: string,

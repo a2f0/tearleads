@@ -71,7 +71,7 @@ export async function runRegistrationWorkflow(
     fingerprint: keyMaterial.fingerprint,
     signingPublicKey: keyMaterial.signingKeyBytes,
   };
-  validateOrganizationProvisioningInput(input, signer);
+  await validateOrganizationProvisioningInput(input, signer);
   try {
     const provisioned = await db.transaction((tx) =>
       provisionOrganizationInTransaction(tx, input, signer, {

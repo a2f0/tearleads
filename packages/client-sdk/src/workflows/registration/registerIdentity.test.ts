@@ -109,9 +109,20 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   const adminGroupId = crypto.randomUUID();
   const memberGroupId = crypto.randomUUID();
   const userId = crypto.randomUUID();
+  const groupHeads = [adminGroupId, memberGroupId].map((principalId) => ({
+    principalType: "group" as const,
+    principalId,
+    version: 1,
+    keyEpoch: 1,
+    stateHash: `state-${principalId}`,
+    keyFingerprint: `key-${principalId}`,
+  }));
 
   const policy = await buildInitialOrganizationPolicyRequest({
     adminGroupId,
+    groupHeads: [...groupHeads].sort((left, right) =>
+      left.principalId.localeCompare(right.principalId),
+    ),
     encapsulationPublicKey: encapsulationKeyPair.publicKey,
     memberGroupId,
     organizationId,
@@ -131,7 +142,15 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   expect(policy.encryptedPayload.cipherSuite).toBe("aes-256-gcm");
   expect(
     parseOrganizationAuthorityDescriptor(policy.encryptedPayload.ciphertext),
-  ).toEqual({ version: 1, organizationId, adminGroupId, memberGroupId });
+  ).toEqual({
+    version: 2,
+    organizationId,
+    adminGroupId,
+    memberGroupId,
+    groupHeads: [...groupHeads].sort((left, right) =>
+      left.principalId.localeCompare(right.principalId),
+    ),
+  });
   expect(policy.projection).toEqual([
     {
       userId: userId,

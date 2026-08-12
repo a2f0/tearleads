@@ -1,5 +1,5 @@
 import { test } from "bun:test";
-import type { PutPrincipalPolicyRequest } from "../request";
+import type { OrganizationPrincipalPolicyRequest } from "../request";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyErrorResponse,
@@ -79,7 +79,7 @@ test("generated OpenAPI types match principal policy contracts", () => {
   assertType<
     IsAssignable<
       NormalizeWireType<PutPolicyRequest>,
-      NormalizeWireType<PutPrincipalPolicyRequest>
+      NormalizeWireType<OrganizationPrincipalPolicyRequest>
     >
   >();
   // Nested loose response records intentionally use the same one-way

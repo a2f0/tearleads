@@ -6,10 +6,48 @@ import { getCurrentPrincipalState } from "../../access/read/principalStateStore"
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
 import { PrincipalPolicyError } from "../principals/shared";
 import { OrganizationManagerError } from "./errors";
-import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
+import {
+  type OrganizationGroupHead,
+  parseOrganizationAuthorityDescriptor,
+} from "./organizationAuthorityDescriptor";
 
 interface OrganizationAccess {
   isOrgAdmin: boolean;
+}
+
+function requireOrganizationDescriptorScope(input: {
+  readonly adminGroupId: string;
+  readonly descriptor: ReturnType<typeof parseOrganizationAuthorityDescriptor>;
+  readonly memberGroupId: string;
+  readonly organizationId: string;
+}) {
+  if (
+    !input.descriptor ||
+    input.descriptor.organizationId !== input.organizationId ||
+    input.descriptor.adminGroupId !== input.adminGroupId ||
+    input.descriptor.memberGroupId !== input.memberGroupId
+  ) {
+    throw new PrincipalPolicyError(
+      "Stored organization authority descriptor is inconsistent",
+      409,
+    );
+  }
+  return input.descriptor;
+}
+
+function principalStateMatchesGroupHead(
+  state: Awaited<ReturnType<typeof getCurrentPrincipalState>>,
+  head: OrganizationGroupHead | undefined,
+): boolean {
+  return (
+    state !== null &&
+    head !== undefined &&
+    state.principalId === head.principalId &&
+    state.version === head.version &&
+    state.keyEpoch === head.keyEpoch &&
+    state.stateHash === head.stateHash &&
+    state.keyFingerprint === head.keyFingerprint
+  );
 }
 
 async function loadVerifiedOrganizationAccessPolicies(input: {
@@ -49,17 +87,30 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
         input.executor,
         organizationState,
       );
-    const authorityDescriptor = parseOrganizationAuthorityDescriptor(
-      organizationBundle.currentPayload.ciphertext,
-    );
+    const descriptor = requireOrganizationDescriptorScope({
+      adminGroupId: input.adminGroupId,
+      descriptor: parseOrganizationAuthorityDescriptor(
+        organizationBundle.currentPayload.ciphertext,
+      ),
+      memberGroupId: input.memberGroupId,
+      organizationId: input.organizationId,
+    });
     if (
-      !authorityDescriptor ||
-      authorityDescriptor.organizationId !== input.organizationId ||
-      authorityDescriptor.adminGroupId !== input.adminGroupId ||
-      authorityDescriptor.memberGroupId !== input.memberGroupId
+      !principalStateMatchesGroupHead(
+        adminState,
+        descriptor.groupHeads.find(
+          (head) => head.principalId === input.adminGroupId,
+        ),
+      ) ||
+      !principalStateMatchesGroupHead(
+        memberState,
+        descriptor.groupHeads.find(
+          (head) => head.principalId === input.memberGroupId,
+        ),
+      )
     ) {
       throw new PrincipalPolicyError(
-        "Stored organization authority descriptor is inconsistent",
+        "Stored organization access policy does not match its signed directory head",
         409,
       );
     }

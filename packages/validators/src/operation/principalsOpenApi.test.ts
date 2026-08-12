@@ -50,6 +50,13 @@ test("principal policy OpenAPI documents both shared operations", () => {
     "projection",
     "state",
   ]);
+  expect(
+    Reflect.get(
+      putPolicy.requestBody.content["application/json"]?.schema.properties ??
+        {},
+      "containerMutations",
+    ),
+  ).toMatchObject({ maxItems: 0, type: "array" });
   expect(getPolicy.security).toEqual([{ bearerAuth: [] }]);
   expect(putPolicy.security).toEqual([{ bearerAuth: [] }]);
 });

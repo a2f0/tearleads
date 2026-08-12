@@ -1,13 +1,18 @@
 import { z } from "zod";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import {
-  isPutPrincipalPolicyRequest,
-  PutPrincipalPolicyRequestSchema,
+  CommitOrganizationGroupPolicyRequestSchema,
+  isCommitOrganizationGroupPolicyRequest,
+  isOrganizationPrincipalPolicyRequest,
+  OrganizationPrincipalPolicyRequestSchema,
 } from "../request";
 import {
+  CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
+  isCommitOrganizationGroupPolicyResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalPolicyMutationResponse,
+  PaymentRequiredErrorResponseSchema,
   PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
@@ -22,6 +27,15 @@ export const PrincipalPolicyPathParamsSchema = z.strictObject({
 
 export type PrincipalPolicyPathParams = z.infer<
   typeof PrincipalPolicyPathParamsSchema
+>;
+
+export const OrganizationGroupPolicyPathParamsSchema = z.strictObject({
+  organizationId: uuidV4StringSchema,
+  groupId: uuidV4StringSchema,
+});
+
+export type OrganizationGroupPolicyPathParams = z.infer<
+  typeof OrganizationGroupPolicyPathParamsSchema
 >;
 
 export const getPrincipalPolicyOperation = defineJsonOperation({
@@ -44,7 +58,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
 
 export const putPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
-  body: PutPrincipalPolicyRequestSchema,
+  body: OrganizationPrincipalPolicyRequestSchema,
   failureResponses: {
     400: PrincipalPolicyErrorResponseSchema,
     401: ErrorResponseSchema,
@@ -65,8 +79,38 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
   runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
 
+export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
+  auth: "session",
+  body: CommitOrganizationGroupPolicyRequestSchema,
+  failureResponses: {
+    400: PrincipalPolicyErrorResponseSchema,
+    401: ErrorResponseSchema,
+    402: PaymentRequiredErrorResponseSchema,
+    403: PrincipalPolicyErrorResponseSchema,
+    404: PrincipalPolicyErrorResponseSchema,
+    409: PrincipalPolicyErrorResponseSchema,
+    500: ErrorResponseSchema,
+    503: PrincipalPolicyErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
+  id: "organizations.groups.policy.commit",
+  method: "PUT",
+  params: OrganizationGroupPolicyPathParamsSchema,
+  path: "/organizations/{organizationId}/groups/{groupId}/policy-commit",
+  responses: {
+    200: CommitOrganizationGroupPolicyResponseSchema,
+  },
+  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+});
+
+export const isCommitOrganizationGroupPolicyOperationRequest =
+  isCommitOrganizationGroupPolicyRequest;
+export const isCommitOrganizationGroupPolicyOperationResponse =
+  isCommitOrganizationGroupPolicyResponse;
+
 export const isGetPrincipalPolicyOperationResponse =
   isPrincipalPolicyBundleResponse;
-export const isPutPrincipalPolicyOperationRequest = isPutPrincipalPolicyRequest;
+export const isPutPrincipalPolicyOperationRequest =
+  isOrganizationPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =
   isPrincipalPolicyMutationResponse;

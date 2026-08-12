@@ -15,14 +15,10 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { persistLocallyAcknowledgedPrincipalPolicyBundle } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
-import {
-  acknowledgeInitialGroupPolicy,
-  prepareAuthoredGroupPolicy,
-} from "./groupPolicyMutationAcknowledgement";
+import { prepareAuthoredGroupPolicy } from "./groupPolicyMutationAcknowledgement";
 import {
   cacheGroupPolicy,
   commitGroupPolicyMutation,
@@ -37,6 +33,11 @@ import {
   buildRemoveGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
 } from "./groupPolicyRequests";
+import {
+  buildOrganizationGroupDirectoryPolicyRequest,
+  commitCreatedGroupToDirectory,
+  replaceOrganizationGroupHead,
+} from "./organizationGroupDirectory";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -72,6 +73,10 @@ async function commitAndCacheGroupPolicyMutation(input: {
   readonly execSql: ExecSql;
   readonly externalAuthority: PrincipalPolicyExternalAuthority | undefined;
   readonly groupId: string;
+  readonly organizationId: string;
+  readonly policyContext: Awaited<
+    ReturnType<typeof loadGroupPolicyMutationContext>
+  >;
   readonly prepareContainerMutations?:
     | PrepareGroupContainerMutations
     | undefined;
@@ -99,12 +104,36 @@ async function commitAndCacheGroupPolicyMutation(input: {
       input.request.containerMutations = [...prepared];
     }
   }
+  const nextAdminProjection = input.policyContext.isOrganizationAdminsGroup
+    ? input.request.projection
+    : input.policyContext.adminPolicyBundle.currentProjection;
+  const adminUsers = await resolveRequiredUserIdentities({
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    userIds: projectionUserIds(nextAdminProjection),
+  });
+  const organizationRequest =
+    await buildOrganizationGroupDirectoryPolicyRequest({
+      adminProjection: nextAdminProjection,
+      adminUsers,
+      currentPolicy: input.policyContext.organizationPolicyBundle,
+      descriptor: input.policyContext.organizationDescriptor,
+      groupHeads: replaceOrganizationGroupHead({
+        descriptor: input.policyContext.organizationDescriptor,
+        nextHead: expectedHead,
+      }),
+      signerUserId: input.policyContext.signerUserId,
+      signingFingerprint: input.policyContext.signingFingerprint,
+      signingKeyPair: input.policyContext.signingKeyPair,
+    });
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     currentPolicy: input.currentPolicy,
     execSql: input.execSql,
     expectedHead,
     groupId: input.groupId,
+    organizationId: input.organizationId,
+    organizationPolicy: input.policyContext.organizationPolicyBundle,
+    organizationRequest,
     request: input.request,
   });
   if (acknowledgeContainerMutations) {
@@ -163,38 +192,31 @@ export async function createOrganizationGroup(input: {
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-  const group = await input.apiClient.createOrganizationGroup(
-    input.organizationId,
+  const { group, head: expectedHead } = await commitCreatedGroupToDirectory({
+    ...input,
+    externalAdminPolicy,
     request,
-  );
-
-  if (!group) {
-    throw new Error("Group could not be created");
-  }
-  const expectedHead = await groupPolicyMutationHead(
-    request.initialGroupPolicy,
-  );
-  const acknowledged = await acknowledgeInitialGroupPolicy({
-    organizationId: input.organizationId,
-    request,
-    response: group,
-    stateHash: expectedHead.stateHash,
-  });
-  await persistLocallyAcknowledgedPrincipalPolicyBundle({
-    bundle: acknowledged.bundle,
-    execSql: input.execSql,
-    policy: acknowledged.policy,
-    updatedAt: new Date().toISOString(),
   });
 
   await cacheGroupPolicy({
-    acknowledgedMemberEnvelopes: acknowledged.bundle.currentMemberEnvelopes,
+    acknowledgedMemberEnvelopes: {
+      envelopes: request.initialGroupPolicy.memberEnvelopes,
+      epoch: request.initialGroupPolicy.state.keyEpoch,
+      principalId: request.groupId,
+      principalType: "group",
+      stateHash: expectedHead.stateHash,
+    },
     apiClient: input.apiClient,
     execSql: input.execSql,
     expectedCurrentHead: expectedHead,
     externalAuthority: externalAdminPolicy.externalAuthority,
     groupId: group.groupId,
-    localPolicyCheckpoint: acknowledged.policy.checkpoint,
+    localPolicyCheckpoint: {
+      principalId: request.groupId,
+      principalType: "group",
+      stateHash: expectedHead.stateHash,
+      version: expectedHead.version,
+    },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   return group;
@@ -202,7 +224,7 @@ export async function createOrganizationGroup(input: {
 
 export async function addOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentUserSecretKey: Uint8Array;
   readonly execSql: ExecSql;
   readonly groupId: string;
@@ -270,13 +292,15 @@ export async function addOrganizationGroupUser(input: {
     groupId: input.groupId,
     prepareContainerMutations: input.prepareContainerMutations,
     request,
+    organizationId: input.organizationId,
+    policyContext,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }
 
 export async function removeOrganizationGroupUser(input: {
   readonly afterPolicyCommitBeforeCache?: (() => Promise<void>) | undefined;
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -338,6 +362,8 @@ export async function removeOrganizationGroupUser(input: {
     groupId: input.groupId,
     prepareContainerMutations: input.prepareContainerMutations,
     request,
+    organizationId: input.organizationId,
+    policyContext,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }
@@ -382,6 +408,8 @@ export async function setOrganizationGroupContainerGrant(input: {
     groupId: input.groupId,
     prepareContainerMutations: input.prepareContainerMutations,
     request,
+    organizationId: input.organizationId,
+    policyContext,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }
@@ -393,7 +421,7 @@ export async function setOrganizationGroupContainerGrant(input: {
  * wrap from before the revoke.
  */
 export async function rotateOrganizationGroupForAccessSetShrink(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly organizationId: string;
@@ -431,6 +459,8 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
     groupId: input.groupId,
     prepareContainerMutations: input.prepareContainerMutations,
     request,
+    organizationId: input.organizationId,
+    policyContext,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
 }

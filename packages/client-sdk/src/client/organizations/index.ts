@@ -1,5 +1,4 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
-import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   type addOrganizationGroupUser,
@@ -45,6 +44,7 @@ import {
   type AddOrganizationGroupUserInput,
   addUserToOrganizationGroup,
   createGroupForOrganization,
+  deleteGroupForOrganization,
   type OrganizationGrantRef,
   type RemoveOrganizationGroupUserInput,
   removeUserFromOrganizationGroup,
@@ -90,7 +90,7 @@ export interface Organizations {
   createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
   deleteGroup: (
     groupId: string,
-  ) => Promise<DeleteOrganizationGroupResponse | null>;
+  ) => ReturnType<typeof deleteGroupForOrganization>;
   importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
   loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
   /** Billing for an organization the session is not currently switched to. */
@@ -207,13 +207,10 @@ class OrganizationsService implements Organizations {
   }
 
   deleteGroup(groupId: string) {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId || groupId.length === 0) {
-      return Promise.resolve(null);
-    }
-
-    return runtime.apiClient.deleteOrganizationGroup(organizationId, groupId);
+    return deleteGroupForOrganization({
+      groupId,
+      runtime: this.runtimeService.workflowInput(),
+    });
   }
 
   importUserById(userId: string) {

@@ -249,17 +249,13 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
   });
 }
 
-/** Pins an acknowledged head while retaining its bundle for a commit bridge. */
-export function retainLocallyAcknowledgedPrincipalPolicyBundle(
-  input: LocallyAcknowledgedPrincipalPolicyBundle & {
-    readonly execSql: ExecSql;
-    readonly updatedAt: string;
-  },
-): Promise<void> {
+export function retainLocallyAcknowledgedPrincipalPolicyBundles(input: {
+  readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
+  readonly execSql: ExecSql;
+  readonly updatedAt: string;
+}): Promise<void> {
   return storeAcknowledgedPrincipalPolicyBundles({
-    entries: [input],
-    execSql: input.execSql,
+    ...input,
     placement: "history",
-    updatedAt: input.updatedAt,
   });
 }

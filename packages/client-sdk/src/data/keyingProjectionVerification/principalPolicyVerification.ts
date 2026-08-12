@@ -15,7 +15,11 @@ import {
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import { principalPolicyBundleStates } from "../principalPolicyStates";
-import { parseOrganizationAuthorityDescriptor } from "../principals/organizationAuthorityDescriptor";
+import {
+  parseOrganizationAuthorityDescriptor,
+  principalHeadMatchesReference,
+  requireOrganizationGroupHead,
+} from "../principals/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
@@ -183,6 +187,7 @@ function assertReservedAdminsPolicyShape(
 async function verifyOrganizationAdminsPolicy(input: {
   adminGroupId: string;
   execSql: ProjectionCheckpointContext["execSql"];
+  expectedHead: ReferencedPrincipalHead;
   resolveUserKey: ProjectionUserKeyResolver;
 }): Promise<VerifiedPrincipalPolicy | undefined> {
   const adminBundle = await loadPrincipalPolicyBundle(
@@ -192,6 +197,17 @@ async function verifyOrganizationAdminsPolicy(input: {
   );
   if (!adminBundle) {
     return undefined;
+  }
+  if (
+    !principalHeadMatchesReference(
+      principalPolicyReferenceFromBundle(adminBundle),
+      input.expectedHead,
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Admins policy does not match the signed organization directory",
+    );
   }
   const adminCheckpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
@@ -205,7 +221,7 @@ async function verifyOrganizationAdminsPolicy(input: {
   });
   const verified = await verifyPrincipalPolicyBundle({
     bundle: adminBundle,
-    expectedReference: principalPolicyReferenceFromBundle(adminBundle),
+    expectedReference: input.expectedHead,
     localCheckpoint: adminCheckpoint,
     signerPublicKeys,
   });
@@ -251,6 +267,10 @@ async function loadOrganizationExternalAuthority(
     const verifiedAdmins = await verifyOrganizationAdminsPolicy({
       adminGroupId: descriptor.adminGroupId,
       execSql: input.checkpointContext.execSql,
+      expectedHead: requireOrganizationGroupHead(
+        descriptor,
+        descriptor.adminGroupId,
+      ),
       resolveUserKey: input.resolveUserKey,
     });
     if (!verifiedAdmins) {

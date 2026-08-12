@@ -13,7 +13,10 @@ import {
   summarizeProxiedApiRequests,
   truncateText,
 } from "../dualPaneRequestSummary";
-import { listProxiedApiRequests } from "../mswServer";
+import {
+  getProxiedApiNetworkActivitySnapshot,
+  listProxiedApiRequests,
+} from "../mswServer";
 import { summarizeProxiedApiRequestVolume } from "../proxiedApiRequestBudget";
 import { waitForCondition } from "../waitForCondition";
 import {
@@ -215,10 +218,11 @@ export async function shareContainerWithGroup(
             request.status === 200 &&
             ((request.method === "POST" && path.endsWith("/share")) ||
               (request.method === "PUT" &&
-                path === `/principals/group/${selectedGroupId}/policy`))
+                (path === `/principals/group/${selectedGroupId}/policy` ||
+                  path.endsWith(`/groups/${selectedGroupId}/policy-commit`))))
           );
         }),
-    `Container group share did not finish.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
+    `Container group share did not finish.\nnetwork=${JSON.stringify(getProxiedApiNetworkActivitySnapshot())}\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
     15_000,
   );
 

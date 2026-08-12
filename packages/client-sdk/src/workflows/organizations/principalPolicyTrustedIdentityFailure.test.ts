@@ -11,6 +11,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
@@ -28,6 +29,7 @@ interface GroupPolicyFixture {
   readonly creatorKem: ReturnType<typeof generateKemSeedAndKeyPair>;
   readonly groupId: string;
   readonly initialPolicy: PrincipalPolicyBundleResponse;
+  readonly memberGroupId: string;
   readonly organizationId: string;
   readonly organizationPolicy: PrincipalPolicyBundleResponse;
   readonly signerIdentity: TrustedUserIdentity;
@@ -70,6 +72,13 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
     await buildInitialOrganizationPolicyRequest({
       adminGroupId,
       encapsulationPublicKey: creatorKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(adminPolicy, memberGroupId),
+        principalPolicyHead(
+          await policyBundleFromInitialRequest(initialRequest),
+        ),
+      ],
       memberGroupId,
       organizationId,
       signingKeyPair,
@@ -83,6 +92,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
     creatorKem,
     groupId,
     initialPolicy: await policyBundleFromInitialRequest(initialRequest),
+    memberGroupId,
     organizationId,
     organizationPolicy,
     signerIdentity: createTestTrustedUserIdentity({
@@ -125,20 +135,37 @@ async function appendGroupMember(input: {
   return policyBundleAfterMutation({ mutation, previous: input.currentPolicy });
 }
 
-function createMutationApi(
+async function createMutationApi(
   fixture: GroupPolicyFixture,
   currentPolicy: PrincipalPolicyBundleResponse,
 ) {
-  const calls = { putPolicy: 0 };
+  const calls = { commitPolicy: 0 };
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    fixture.organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId: fixture.adminGroupId,
+      encapsulationPublicKey: fixture.creatorKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(fixture.adminPolicy),
+        principalPolicyHead(fixture.adminPolicy, fixture.memberGroupId),
+        principalPolicyHead(currentPolicy),
+      ],
+      memberGroupId: fixture.memberGroupId,
+      organizationId: fixture.organizationId,
+      signingKeyPair: fixture.signingKeyPair,
+      userId: fixture.signerUserId,
+    }),
+  );
   const apiClient: Parameters<typeof addOrganizationGroupUser>[0]["apiClient"] =
     {
-      createOrganizationGroup: async () => {
-        throw new Error("Unexpected group creation");
+      commitOrganizationGroupPolicy: async () => {
+        calls.commitPolicy += 1;
+        throw new Error("Unexpected group policy commit");
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
         if (principalType === "organization") {
           expect(principalId).toBe(fixture.organizationId);
-          return fixture.organizationPolicy;
+          return organizationPolicy;
         }
         expect(principalType).toBe("group");
         if (principalId === fixture.adminGroupId) {
@@ -146,10 +173,6 @@ function createMutationApi(
         }
         expect(principalId).toBe(currentPolicy.currentState.principalId);
         return currentPolicy;
-      },
-      putPrincipalPolicy: async () => {
-        calls.putPolicy += 1;
-        throw new Error("Unexpected principal policy mutation");
       },
     };
 
@@ -163,7 +186,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
     "equivocation",
     "Trusted target identity changed",
   );
-  const { apiClient, calls } = createMutationApi(
+  const { apiClient, calls } = await createMutationApi(
     fixture,
     fixture.initialPolicy,
   );
@@ -208,7 +231,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
 
   expect(resolvedUserIds).toContain(targetUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putPolicy: 0 });
+  expect(calls).toEqual({ commitPolicy: 0 });
 });
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
@@ -247,7 +270,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
     "equivocation",
     "Trusted remaining identity changed",
   );
-  const { apiClient, calls } = createMutationApi(fixture, currentPolicy);
+  const { apiClient, calls } = await createMutationApi(fixture, currentPolicy);
   const resolvedUserIds: string[] = [];
   let policyRequestBuilt = 0;
   const { close, execSql } = await createTestExecSql(
@@ -288,5 +311,5 @@ test("group removal propagates remaining identity equivocation before rekey or m
 
   expect(resolvedUserIds).toContain(remainingUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putPolicy: 0 });
+  expect(calls).toEqual({ commitPolicy: 0 });
 });

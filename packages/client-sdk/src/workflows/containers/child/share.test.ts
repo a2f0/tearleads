@@ -27,6 +27,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
@@ -43,7 +44,6 @@ test("shareRemoteContainer rejects tampered projected container state before sen
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const database = await createTestExecSql("container-share-tampered-state");
   let shareCalled = false;
-
   await expect(
     shareRemoteContainer({
       accessLevel: "read",
@@ -94,7 +94,6 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
     "container-share-tampered-signature",
   );
   let shareCalled = false;
-
   await expect(
     shareRemoteContainer({
       accessLevel: "read",
@@ -133,7 +132,6 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const database = await createTestExecSql("container-share-user");
   const submittedRequests: ContainerMutationRequest[] = [];
-
   const shared = await shareRemoteContainer({
     accessLevel: "write",
     apiClient: {
@@ -166,7 +164,6 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     targetSecretKey: parent.secretKey,
   });
   database.close();
-
   expect(shared).not.toBeNull();
   if (!shared) {
     throw new Error("Expected share result");
@@ -181,7 +178,6 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     "user-1",
     "user-2",
   ]);
-
   const verifiedEvent = await verifySignedAccessEvent({
     body: shared.plan.body as unknown as KeyingCanonicalJson,
     event: shared.plan.event,
@@ -191,7 +187,6 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
   if (!verifiedEvent.ok) {
     throw verifiedEvent.error;
   }
-
   const previousManifest = parent.projection
     .path[0] as unknown as VerifiedContainerAccessManifest;
   const verifiedManifest = await verifyContainerAccessManifest({
@@ -258,11 +253,15 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     signingKeyPair: groupSigningKeyPair,
   });
   let groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+  let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     parent.projection.organizationId,
     await buildInitialOrganizationPolicyRequest({
       adminGroupId: groupId,
       encapsulationPublicKey: parent.encapsulationPublicKey,
+      groupHeads: [
+        principalPolicyHead(groupPolicy),
+        principalPolicyHead(groupPolicy, "members-group"),
+      ],
       memberGroupId: "members-group",
       organizationId: parent.projection.organizationId,
       signingKeyPair: groupSigningKeyPair,
@@ -275,6 +274,37 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     shareRemoteContainerWithGroup({
       accessLevel: "read",
       apiClient: {
+        commitOrganizationGroupPolicy: async (
+          _organizationId,
+          _groupId,
+          mutation,
+        ) => {
+          submittedRequests.push(
+            ...(mutation.groupPolicy.containerMutations ?? []),
+          );
+          groupPolicy = await policyBundleAfterMutation({
+            mutation: mutation.groupPolicy,
+            previous: groupPolicy,
+          });
+          organizationPolicy = await policyBundleAfterMutation({
+            mutation: mutation.organizationPolicy,
+            previous: organizationPolicy,
+          });
+          return {
+            groupPolicy: {
+              ...groupPolicy,
+              containerMutations: await Promise.all(
+                submittedRequests.map((request) =>
+                  createMutationResponseFromRequest(request),
+                ),
+              ),
+            },
+            organizationPolicy: {
+              ...organizationPolicy,
+              containerMutations: [],
+            },
+          };
+        },
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") {
@@ -283,21 +313,6 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
           expect(principalType).toBe("group");
           expect(principalId).toBe(groupId);
           return groupPolicy;
-        },
-        putPrincipalPolicy: async (_principalType, _principalId, request) => {
-          submittedRequests.push(...(request.containerMutations ?? []));
-          groupPolicy = await policyBundleAfterMutation({
-            mutation: request,
-            previous: groupPolicy,
-          });
-          return {
-            ...groupPolicy,
-            containerMutations: await Promise.all(
-              submittedRequests.map((submittedRequest) =>
-                createMutationResponseFromRequest(submittedRequest),
-              ),
-            ),
-          };
         },
         shareContainer: async () => {
           throw new Error("Compound group share must use the policy PUT");
@@ -375,20 +390,6 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   const groupSigningFingerprint = await toFingerprint(
     groupSigningKeyPair.signingPublicKey,
   );
-  const organizationPolicyRequest = await buildInitialOrganizationPolicyRequest(
-    {
-      adminGroupId,
-      encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
-      memberGroupId: "members-group",
-      organizationId: parent.projection.organizationId,
-      signingKeyPair: groupSigningKeyPair,
-      userId: groupSignerUserId,
-    },
-  );
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
-    parent.projection.organizationId,
-    organizationPolicyRequest,
-  );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
@@ -423,6 +424,25 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
     signingKeyPair: groupSigningKeyPair,
   });
   const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
+  const organizationPolicyRequest = await buildInitialOrganizationPolicyRequest(
+    {
+      adminGroupId,
+      encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(adminPolicy, "members-group"),
+        principalPolicyHead(groupPolicy),
+      ],
+      memberGroupId: "members-group",
+      organizationId: parent.projection.organizationId,
+      signingKeyPair: groupSigningKeyPair,
+      userId: groupSignerUserId,
+    },
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    parent.projection.organizationId,
+    organizationPolicyRequest,
+  );
   const submittedRequests: ContainerMutationRequest[] = [];
 
   const shared = await withTestExecSql(
@@ -431,6 +451,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
       shareRemoteContainerWithGroup({
         accessLevel: "read",
         apiClient: {
+          commitOrganizationGroupPolicy: async () => null,
           getContainerWriterProjection: async () => parent.projection,
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
             if (principalType === "organization") {

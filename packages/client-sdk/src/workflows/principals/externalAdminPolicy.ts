@@ -10,6 +10,8 @@ import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingChec
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
+  principalHeadMatchesReference,
+  requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import {
   organizationAdminExternalAuthority,
@@ -26,6 +28,7 @@ export interface VerifiedExternalAdminPolicy {
   readonly adminGroupId: string;
   readonly adminPolicy: VerifiedPrincipalPolicy;
   readonly bundle: PrincipalPolicyBundleResponse;
+  readonly descriptor: OrganizationAuthorityDescriptor;
   readonly memberGroupId: string;
   readonly policy: VerifiedPrincipalPolicy;
   readonly externalAuthority: PrincipalPolicyExternalAuthority;
@@ -115,6 +118,7 @@ function parseScopedAuthorityDescriptor(
 
 async function loadVerifiedAdminsPolicy(input: {
   readonly adminGroupId: string;
+  readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
@@ -132,6 +136,17 @@ async function loadVerifiedAdminsPolicy(input: {
   if (!bundle) {
     return null;
   }
+  if (
+    !principalHeadMatchesReference(
+      principalPolicyReferenceFromBundle(bundle),
+      input.expectedHead,
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "reserved Admins policy does not match the signed organization directory",
+    );
+  }
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
     "group",
@@ -146,7 +161,7 @@ async function loadVerifiedAdminsPolicy(input: {
   }
   const verified = await verifyPrincipalPolicyBundle({
     bundle,
-    expectedReference: principalPolicyReferenceFromBundle(bundle),
+    expectedReference: input.expectedHead,
     localCheckpoint,
     signerPublicKeys: signerPublicKeys.signerPublicKeys,
   });
@@ -201,6 +216,10 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     );
     const admin = await loadVerifiedAdminsPolicy({
       adminGroupId: descriptor.adminGroupId,
+      expectedHead: requireOrganizationGroupHead(
+        descriptor,
+        descriptor.adminGroupId,
+      ),
       execSql: input.execSql,
       getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -214,6 +233,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
       adminGroupId: descriptor.adminGroupId,
       adminPolicy: admin.policy,
       bundle,
+      descriptor,
       externalAuthority: organizationAdminExternalAuthority(admin.policy),
       memberGroupId: descriptor.memberGroupId,
       policy,

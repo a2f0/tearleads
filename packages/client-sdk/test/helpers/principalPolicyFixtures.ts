@@ -1,3 +1,4 @@
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
@@ -15,6 +16,20 @@ type BundleState = Omit<
   PrincipalPolicyBundleResponse["currentState"],
   "createdAt" | "stateHash"
 >;
+
+export function principalPolicyHead(
+  bundle: PrincipalPolicyBundleResponse,
+  principalId = bundle.currentState.principalId,
+): ReferencedPrincipalHead {
+  return {
+    principalType: bundle.currentState.principalType,
+    principalId,
+    version: bundle.currentState.version,
+    keyEpoch: bundle.currentState.keyEpoch,
+    stateHash: bundle.currentState.stateHash,
+    keyFingerprint: bundle.currentState.keyFingerprint,
+  };
+}
 
 /**
  * The one bundle-assembly core: hashes the signed state and expands it into

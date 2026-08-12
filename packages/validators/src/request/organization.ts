@@ -5,7 +5,10 @@ import {
 } from "../jsonSchema";
 import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
 import { loosePlainObject, uuidV4StringSchema } from "../schema";
-import { PutPrincipalPolicyRequestSchema } from "./principal";
+import {
+  OrganizationPrincipalPolicyRequestSchema,
+  PutPrincipalPolicyRequestSchema,
+} from "./principal";
 
 const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
   registerJsonSchemaView(
@@ -15,14 +18,35 @@ const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
   [organizationProvisioningGroupNameRefinement],
 );
 
-export const CreateOrganizationGroupRequestSchema = loosePlainObject({
+const CreateOrganizationGroupRequestShape = {
   groupId: uuidV4StringSchema,
   initialGroupPolicy: PutPrincipalPolicyRequestSchema,
   name: NonBlankGroupNameSchema,
+};
+
+export const CreateOrganizationGroupRequestSchema = loosePlainObject(
+  CreateOrganizationGroupRequestShape,
+);
+
+export const CreateOrganizationGroupWithPolicyRequestSchema = loosePlainObject({
+  ...CreateOrganizationGroupRequestShape,
+  organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });
 
 export type CreateOrganizationGroupRequest = z.infer<
   typeof CreateOrganizationGroupRequestSchema
+>;
+
+export type CreateOrganizationGroupWithPolicyRequest = z.infer<
+  typeof CreateOrganizationGroupWithPolicyRequestSchema
+>;
+
+export const DeleteOrganizationGroupRequestSchema = loosePlainObject({
+  organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
+});
+
+export type DeleteOrganizationGroupRequest = z.infer<
+  typeof DeleteOrganizationGroupRequestSchema
 >;
 
 export const OrganizationReadModelQuerySchema = loosePlainObject({
@@ -53,6 +77,19 @@ export function isCreateOrganizationGroupRequest(
   value: unknown,
 ): value is CreateOrganizationGroupRequest {
   return CreateOrganizationGroupRequestSchema.safeParse(value).success;
+}
+
+export function isCreateOrganizationGroupWithPolicyRequest(
+  value: unknown,
+): value is CreateOrganizationGroupWithPolicyRequest {
+  return CreateOrganizationGroupWithPolicyRequestSchema.safeParse(value)
+    .success;
+}
+
+export function isDeleteOrganizationGroupRequest(
+  value: unknown,
+): value is DeleteOrganizationGroupRequest {
+  return DeleteOrganizationGroupRequestSchema.safeParse(value).success;
 }
 
 export function isUpdateOrganizationRosterEntryRequest(

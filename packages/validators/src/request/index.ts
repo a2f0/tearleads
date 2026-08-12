@@ -69,7 +69,13 @@ export {
 export {
   type CreateOrganizationGroupRequest,
   CreateOrganizationGroupRequestSchema,
+  type CreateOrganizationGroupWithPolicyRequest,
+  CreateOrganizationGroupWithPolicyRequestSchema,
+  type DeleteOrganizationGroupRequest,
+  DeleteOrganizationGroupRequestSchema,
   isCreateOrganizationGroupRequest,
+  isCreateOrganizationGroupWithPolicyRequest,
+  isDeleteOrganizationGroupRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   type OrganizationReadModelQuery,
@@ -93,7 +99,13 @@ export {
   ProvisionedSystemContainerRequestSchema,
 } from "./organizationProvisioning";
 export {
+  type CommitOrganizationGroupPolicyRequest,
+  CommitOrganizationGroupPolicyRequestSchema,
+  isCommitOrganizationGroupPolicyRequest,
+  isOrganizationPrincipalPolicyRequest,
   isPutPrincipalPolicyRequest,
+  type OrganizationPrincipalPolicyRequest,
+  OrganizationPrincipalPolicyRequestSchema,
   type PrincipalContainerGrantRequest,
   PrincipalContainerGrantRequestSchema,
   type PrincipalMemberEnvelopeRequest,

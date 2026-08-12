@@ -5,7 +5,7 @@ import { createSignedPrincipalState } from "../../../test/helpers/principalPolic
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
-test("PUT principal policy rejects a principal without a backing group", async () => {
+test("PUT principal policy rejects standalone group updates", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -37,8 +37,9 @@ test("PUT principal policy rejects a principal without a backing group", async (
     },
   );
 
-  expect(response.status).toBe(404);
+  expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: "Principal policy target not found",
+    error:
+      "Organization group policy updates require an authenticated organization commit",
   });
 });

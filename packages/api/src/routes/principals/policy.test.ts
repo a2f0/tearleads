@@ -11,7 +11,10 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import {
+  isCommitOrganizationGroupPolicyResponse,
+  isPrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -23,6 +26,7 @@ import {
   createPolicyTestGroup,
   createSignedPrincipalState,
   getDefaultOrganizationId,
+  submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { createProjectionWithAdminSigner } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -31,6 +35,41 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
+
+function toPolicyRequest(
+  signedState: Awaited<ReturnType<typeof createSignedPrincipalState>>,
+) {
+  return {
+    state: signedState.state,
+    encryptedPayload: signedState.encryptedPayload,
+    projection: signedState.projection,
+    grants: signedState.grants,
+    memberEnvelopes: signedState.memberEnvelopes,
+  };
+}
+
+function putGroupPolicy(input: {
+  actor: ReturnType<typeof createTestUser>;
+  organizationId: string;
+  principalId: string;
+  signedState: Awaited<ReturnType<typeof createSignedPrincipalState>>;
+}) {
+  return submitOrganizationGroupPolicyCommit({
+    actor: input.actor,
+    groupId: input.principalId,
+    groupPolicy: toPolicyRequest(input.signedState),
+    organizationId: input.organizationId,
+  });
+}
+
+async function readCommittedGroupPolicy(response: Response) {
+  const body = await response.json();
+  invariant(
+    isCommitOrganizationGroupPolicyResponse(body),
+    "expected compound principal policy response",
+  );
+  return body.groupPolicy;
+}
 
 async function addOrganizationMember(input: {
   actor: ReturnType<typeof createTestUser>;
@@ -79,23 +118,12 @@ async function addOrganizationMember(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor: input.actor,
+    organizationId: input.organizationId,
+    principalId: organization.memberGroupId,
+    signedState,
+  });
   expect(response.status).toBe(200);
 }
 
@@ -106,6 +134,7 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -116,31 +145,15 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
   const projection = signedState.projection;
-
-  const putPolicyResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const putPolicyResponse = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId,
+    signedState,
+  });
 
   expect(putPolicyResponse.status).toBe(200);
-  const storedPolicy = await putPolicyResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(storedPolicy),
-    "expected principal policy bundle response",
-  );
+  const storedPolicy = await readCommittedGroupPolicy(putPolicyResponse);
   const storedState = storedPolicy.currentState;
   expect(storedState.stateHash.length).toBeGreaterThan(0);
   expect(storedState.memberCount).toBe(1);
@@ -225,23 +238,12 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId: organization.memberGroupId,
+    signedState,
+  });
 
   expect(response.status).toBe(200);
   const rosterEntries = await db
@@ -296,23 +298,12 @@ test("PUT /principals/:principalType/:principalId/policy rejects Admins users wh
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.adminGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId: organization.adminGroupId,
+    signedState,
+  });
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
@@ -360,23 +351,12 @@ test("PUT /principals/:principalType/:principalId/policy rejects a Members remov
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${organization.memberGroupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId: organization.memberGroupId,
+    signedState,
+  });
 
   // The removal disables their roster entry in the same transaction, so Admins
   // is now holding a disabled user and that rule reports first. Either way the
@@ -434,23 +414,12 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${groupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId: groupId,
+    signedState,
+  });
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
@@ -466,6 +435,7 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const members = [{ userId: actor.userId }];
   const principalKem = generateKemSeedAndKeyPair();
   const projection = createProjectionWithAdminSigner(actor.userId, members);
@@ -481,30 +451,16 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const initialPutResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: initialSignedState.state,
-        encryptedPayload: initialSignedState.encryptedPayload,
-        projection,
-        grants: initialSignedState.grants,
-        memberEnvelopes: initialSignedState.memberEnvelopes,
-      }),
-    },
-  );
+  const initialPutResponse = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId,
+    signedState: initialSignedState,
+  });
 
   expect(initialPutResponse.status).toBe(200);
-  const initialStoredPolicy = await initialPutResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(initialStoredPolicy),
-    "expected initial principal policy bundle response",
-  );
+  const initialStoredPolicy =
+    await readCommittedGroupPolicy(initialPutResponse);
   const initialStoredState = initialStoredPolicy.currentState;
 
   const successorSignedState = await createSignedPrincipalState({
@@ -521,30 +477,16 @@ test("GET /principals/:principalType/:principalId/policy returns previous states
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
 
-  const successorPutResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: successorSignedState.state,
-        encryptedPayload: successorSignedState.encryptedPayload,
-        projection,
-        grants: successorSignedState.grants,
-        memberEnvelopes: successorSignedState.memberEnvelopes,
-      }),
-    },
-  );
+  const successorPutResponse = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId,
+    signedState: successorSignedState,
+  });
 
   expect(successorPutResponse.status).toBe(200);
-  const successorStoredPolicy = await successorPutResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(successorStoredPolicy),
-    "expected successor principal policy bundle response",
-  );
+  const successorStoredPolicy =
+    await readCommittedGroupPolicy(successorPutResponse);
   const successorStoredState = successorStoredPolicy.currentState;
 
   const getPolicyResponse = await routeApp.request(
@@ -580,6 +522,7 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
 
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -589,32 +532,16 @@ test("PUT /principals/:principalType/:principalId/policy stores signed current m
     signerUserKeyFingerprint: actor.fingerprint,
     signingPrivateKey: actor.signing.signingPrivateKey,
   });
-  const projection = signedState.projection;
 
-  const putPolicyResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const putPolicyResponse = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId,
+    signedState,
+  });
 
   expect(putPolicyResponse.status).toBe(200);
-  const storedPolicy = await putPolicyResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(storedPolicy),
-    "expected principal policy bundle response",
-  );
+  const storedPolicy = await readCommittedGroupPolicy(putPolicyResponse);
   const storedState = storedPolicy.currentState;
   const storedMemberEnvelopes = storedPolicy.currentMemberEnvelopes;
   expect(storedMemberEnvelopes.stateHash).toBe(storedState.stateHash);
@@ -658,6 +585,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(owner.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
   const principalKem = generateKemSeedAndKeyPair();
   const signedState = await createSignedPrincipalState({
     principalType: "group",
@@ -668,29 +596,14 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
     signerUserKeyFingerprint: owner.fingerprint,
     signingPrivateKey: owner.signing.signingPrivateKey,
   });
-  const seedResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${owner.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const seedResponse = await putGroupPolicy({
+    actor: owner,
+    organizationId,
+    principalId,
+    signedState,
+  });
   expect(seedResponse.status).toBe(200);
-  const storedPolicy = await seedResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(storedPolicy),
-    "expected principal policy bundle response",
-  );
+  await readCommittedGroupPolicy(seedResponse);
   const legitimateEnvelope = signedState.memberEnvelopes[0];
   invariant(legitimateEnvelope, "expected legitimate member envelope");
 
@@ -716,23 +629,15 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
     wrappedKey: bytesToBase64(alternateWrappedKey.wrappedKey),
   };
 
-  const attackResponse = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${outsider.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        grants: signedState.grants,
-        memberEnvelopes: [alternateEnvelope],
-      }),
+  const attackResponse = await submitOrganizationGroupPolicyCommit({
+    actor: outsider,
+    groupId: principalId,
+    groupPolicy: {
+      ...toPolicyRequest(signedState),
+      memberEnvelopes: [alternateEnvelope],
     },
-  );
+    organizationId,
+  });
 
   expect(attackResponse.status).toBe(403);
   expect(await attackResponse.json()).toEqual({
@@ -765,6 +670,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
 
   const principalId = crypto.randomUUID();
   await createPolicyTestGroup(actor.userId, principalId);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
   const signedState = await createSignedPrincipalState({
     principalType: "group",
     principalId,
@@ -780,28 +686,12 @@ test("PUT /principals/:principalType/:principalId/policy rejects signers who are
     ],
   });
 
-  const response = await routeApp.request(
-    `/principals/group/${principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${actor.token}`,
-      },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        grants: signedState.grants,
-        projection: [
-          {
-            userId: actor.userId,
-            role: "member",
-          },
-        ],
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+  const response = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId,
+    signedState,
+  });
 
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
@@ -845,29 +735,14 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     signerUserKeyFingerprint: orgAdmin.fingerprint,
     signingPrivateKey: orgAdmin.signing.signingPrivateKey,
   });
-  const initialResponse = await routeApp.request(
-    `/principals/group/${groupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${orgAdmin.token}`,
-      },
-      body: JSON.stringify({
-        state: initialState.state,
-        encryptedPayload: initialState.encryptedPayload,
-        projection: initialState.projection,
-        grants: initialState.grants,
-        memberEnvelopes: initialState.memberEnvelopes,
-      }),
-    },
-  );
+  const initialResponse = await putGroupPolicy({
+    actor: orgAdmin,
+    organizationId,
+    principalId: groupId,
+    signedState: initialState,
+  });
   expect(initialResponse.status).toBe(200);
-  const initialStoredPolicy = await initialResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(initialStoredPolicy),
-    "expected initial principal policy bundle response",
-  );
+  const initialStoredPolicy = await readCommittedGroupPolicy(initialResponse);
   const initialStoredState = initialStoredPolicy.currentState;
   const successorProjection = [
     {
@@ -895,30 +770,16 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     signingPrivateKey: orgAdmin.signing.signingPrivateKey,
   });
 
-  const successorResponse = await routeApp.request(
-    `/principals/group/${groupId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${orgAdmin.token}`,
-      },
-      body: JSON.stringify({
-        state: successorState.state,
-        encryptedPayload: successorState.encryptedPayload,
-        projection: successorProjection,
-        grants: successorState.grants,
-        memberEnvelopes: successorState.memberEnvelopes,
-      }),
-    },
-  );
+  const successorResponse = await putGroupPolicy({
+    actor: orgAdmin,
+    organizationId,
+    principalId: groupId,
+    signedState: successorState,
+  });
 
   expect(successorResponse.status).toBe(200);
-  const successorStoredPolicy = await successorResponse.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(successorStoredPolicy),
-    "expected successor principal policy bundle response",
-  );
+  const successorStoredPolicy =
+    await readCommittedGroupPolicy(successorResponse);
   const successorStoredState = successorStoredPolicy.currentState;
   expect(successorStoredState.signerUserId).toBe(orgAdmin.userId);
   expect(successorStoredState.version).toBe(2);

@@ -11,6 +11,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -63,17 +64,6 @@ test("remove group user bridges committed policy writes before caching the rotat
     signingKeyPair,
   });
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
-    organizationId,
-    await buildInitialOrganizationPolicyRequest({
-      adminGroupId,
-      encapsulationPublicKey: remainingUserKem.publicKey,
-      memberGroupId,
-      organizationId,
-      signingKeyPair,
-      userId: signerUserId,
-    }),
-  );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: remainingUserKem,
@@ -111,6 +101,22 @@ test("remove group user bridges committed policy writes before caching the rotat
     mutation: addedMutation,
     previous: initialPolicy,
   });
+  let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId,
+      encapsulationPublicKey: remainingUserKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(adminPolicy, memberGroupId),
+        principalPolicyHead(previousPolicy),
+      ],
+      memberGroupId,
+      organizationId,
+      signingKeyPair,
+      userId: signerUserId,
+    }),
+  );
   const { close, execSql } = await createTestExecSql(
     "organization-principal-policy-commit-bridge",
   );
@@ -146,9 +152,6 @@ test("remove group user bridges committed policy writes before caching the rotat
   const apiClient: Parameters<
     typeof removeOrganizationGroupUser
   >[0]["apiClient"] = {
-    createOrganizationGroup: async () => {
-      throw new Error("Unexpected group create");
-    },
     getCurrentPrincipalPolicy: async (principalType, principalId) => {
       if (principalType === "organization") {
         expect(principalId).toBe(organizationId);
@@ -162,16 +165,29 @@ test("remove group user bridges committed policy writes before caching the rotat
       calls.push(policyReadCount === 1 ? "read-previous" : "read-current");
       return currentPolicy;
     },
-    putPrincipalPolicy: async (principalType, principalId, input) => {
-      expect(principalType).toBe("group");
+    commitOrganizationGroupPolicy: async (
+      _organizationId,
+      principalId,
+      input,
+    ) => {
       expect(principalId).toBe(groupId);
       calls.push("put-policy");
       const previousPolicy = currentPolicy;
       currentPolicy = await policyBundleAfterMutation({
-        mutation: input,
+        mutation: input.groupPolicy,
         previous: previousPolicy,
       });
-      return currentPolicy;
+      organizationPolicy = await policyBundleAfterMutation({
+        mutation: input.organizationPolicy,
+        previous: organizationPolicy,
+      });
+      return {
+        groupPolicy: { ...currentPolicy, containerMutations: [] },
+        organizationPolicy: {
+          ...organizationPolicy,
+          containerMutations: [],
+        },
+      };
     },
   };
 

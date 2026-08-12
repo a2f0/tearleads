@@ -849,6 +849,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{organizationId}/groups/{groupId}/policy-commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["organizations.groups.policy.commit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{organizationId}/profile": {
         parameters: {
             query?: never;
@@ -16992,6 +17008,187 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     name: string;
+                    organizationPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            grantCount: number;
+                            grantRoot: string;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
                 } & {
                     [key: string]: unknown;
                 };
@@ -17005,20 +17202,264 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        createdAt: string;
-                        currentState: ({
-                            keyEpoch: number;
-                            keyFingerprint: string;
-                            memberCount: number;
-                            stateHash: string;
-                            version: number;
+                        group: {
+                            createdAt: string;
+                            currentState: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            groupId: string;
+                            isBuiltin: boolean;
+                            name: string;
+                            organizationId: string;
                         } & {
                             [key: string]: unknown;
-                        }) | null;
-                        groupId: string;
-                        isBuiltin: boolean;
-                        name: string;
-                        organizationId: string;
+                        };
+                        organizationPolicy: {
+                            containerMutations: ({
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     };
@@ -17143,7 +17584,195 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    organizationPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            grantCount: number;
+                            grantRoot: string;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
         responses: {
             /** @description Successful JSON response */
             200: {
@@ -17156,6 +17785,246 @@ export interface operations {
                         deleted: true;
                         groupId: string;
                         organizationId: string;
+                        organizationPolicy: {
+                            containerMutations: ({
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     };
@@ -17244,6 +18113,19 @@ export interface operations {
             };
             /** @description Failure JSON response */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17353,6 +18235,998 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizations.groups.policy.commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                groupId: string;
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    groupPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            grantCount: number;
+                            grantRoot: string;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                    organizationPolicy: {
+                        containerMutations?: ({
+                            body: unknown;
+                            containerManifestHistory?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: ({
+                                containerId: string;
+                                containerKeyEpochId: string;
+                                iv: string;
+                                sealed: string;
+                                sealingSuite: string;
+                                /** @constant */
+                                version: 1;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPath?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifest?: ({
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        encryptedPayload: {
+                            /** @constant */
+                            cipherSuite: "aes-256-gcm";
+                            ciphertext: string;
+                            ciphertextHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        grants: ({
+                            /** @enum {string} */
+                            accessLevel: "admin" | "read" | "write";
+                            containerId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        memberEnvelopes: ({
+                            kemCipherText: string;
+                            memberKeyFingerprint: string;
+                            userId: string;
+                            wrappedKey: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        projection: ({
+                            /** @enum {string} */
+                            role: "member" | "admin";
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        state: {
+                            encapsulationPublicKey: string;
+                            externalAuthority: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            grantCount: number;
+                            grantRoot: string;
+                            keyEpoch: number;
+                            keyFingerprint: string;
+                            memberCount: number;
+                            memberEnvelopesRoot: string;
+                            /** @constant */
+                            membershipMode: "projection";
+                            membershipRoot: string;
+                            payloadCiphertextHash: string;
+                            prevStateHash: string | null;
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            projectionRoot: string;
+                            signature: string;
+                            signedAt: string;
+                            signerUserId: string;
+                            signerUserKeyFingerprint: string;
+                            version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groupPolicy: {
+                            containerMutations: ({
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        organizationPolicy: {
+                            containerMutations: ({
+                                accessManifest: {
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                containerId: string;
+                                containerKek: {
+                                    accessManifestHash: string;
+                                    containerId: string;
+                                    containerKeyEpoch: number;
+                                    containerKeyEpochId: string;
+                                    containerManifestHistory: ({
+                                        event: {
+                                            body: unknown;
+                                            event: {
+                                                [key: string]: unknown;
+                                            };
+                                            eventHash: string;
+                                        } & {
+                                            [key: string]: unknown;
+                                        };
+                                        manifest: {
+                                            [key: string]: unknown;
+                                        };
+                                        manifestHash: string;
+                                        state: {
+                                            [key: string]: unknown;
+                                        };
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    keyEpoch: {
+                                        [key: string]: unknown;
+                                    };
+                                    keyEpochHash: string;
+                                    keyring: ({
+                                        containerId: string;
+                                        containerKeyEpochId: string;
+                                        iv: string;
+                                        sealed: string;
+                                        sealingSuite: string;
+                                        /** @constant */
+                                        version: 1;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    keyTargetHash: string;
+                                    parentContainerKeyEpochId: string | null;
+                                    recipientTargets: {
+                                        [key: string]: unknown;
+                                    }[];
+                                    wraps: {
+                                        [key: string]: unknown;
+                                    }[];
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                createdAt: string;
+                                manifestHead: {
+                                    epoch: number;
+                                    manifestHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                organizationId: string;
+                                parentId: string | null;
+                                referencedPrincipalHeads: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                systemSlot?: string | null;
+                                updatedAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentGrants: ({
+                                /** @enum {string} */
+                                accessLevel: "admin" | "read" | "write";
+                                containerId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentMemberEnvelopes: {
+                                envelopes: ({
+                                    kemCipherText: string;
+                                    memberKeyFingerprint: string;
+                                    userId: string;
+                                    wrappedKey: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                epoch: number;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentPayload: {
+                                /** @constant */
+                                cipherSuite: "aes-256-gcm";
+                                ciphertext: string;
+                                ciphertextHash: string;
+                                createdAt: string;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            currentProjection: ({
+                                /** @enum {string} */
+                                role: "member" | "admin";
+                                userId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            currentState: {
+                                createdAt: string;
+                                encapsulationPublicKey: string;
+                                externalAuthority: ({
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @constant */
+                                    principalType: "group";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                grantCount: number;
+                                grantRoot: string;
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                memberCount: number;
+                                memberEnvelopesRoot: string;
+                                /** @constant */
+                                membershipMode: "projection";
+                                membershipRoot: string;
+                                payloadCiphertextHash: string;
+                                prevStateHash: string | null;
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                projectionRoot: string;
+                                signature: string;
+                                signedAt: string;
+                                signerUserId: string;
+                                signerUserKeyFingerprint: string;
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            previousStates: ({
+                                grants: ({
+                                    /** @enum {string} */
+                                    accessLevel: "admin" | "read" | "write";
+                                    containerId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                projection: ({
+                                    /** @enum {string} */
+                                    role: "member" | "admin";
+                                    userId: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                state: {
+                                    createdAt: string;
+                                    encapsulationPublicKey: string;
+                                    externalAuthority: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @constant */
+                                        principalType: "group";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    }) | null;
+                                    grantCount: number;
+                                    grantRoot: string;
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    memberCount: number;
+                                    memberEnvelopesRoot: string;
+                                    /** @constant */
+                                    membershipMode: "projection";
+                                    membershipRoot: string;
+                                    payloadCiphertextHash: string;
+                                    prevStateHash: string | null;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    projectionRoot: string;
+                                    signature: string;
+                                    signedAt: string;
+                                    signerUserId: string;
+                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                        organizationId: string;
+                        /** @enum {string} */
+                        reason: "billing_inactive" | "sync_seat_unassigned";
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;

@@ -1,14 +1,21 @@
 import {
+  commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
   operationRoutePath,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  CommitOrganizationGroupPolicyResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
-import { putPrincipalPolicy } from "../../services/principals/putPrincipalPolicy";
+import {
+  commitOrganizationGroupPolicy,
+  putPrincipalPolicy,
+} from "../../services/principals/putPrincipalPolicy";
 import { PrincipalPolicyError } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { publishBestEffort } from "../../utils/publishBestEffort";
@@ -75,6 +82,37 @@ export function createPrincipalPolicyRoute({
   runtime,
 }: PrincipalPolicyRouteDeps) {
   const principalPolicyRoute = new Hono<SessionEnv>();
+
+  principalPolicyRoute.on(
+    commitOrganizationGroupPolicyOperation.method,
+    operationRoutePath(commitOrganizationGroupPolicyOperation),
+    requireAuth,
+    jsonRequestValidator(commitOrganizationGroupPolicyOperation.body),
+    pathParamsValidator(
+      commitOrganizationGroupPolicyOperation.params,
+      "Invalid organization group policy route",
+    ),
+    async (c) => {
+      const { groupId, organizationId } = c.req.valid("param");
+      try {
+        const result = await commitOrganizationGroupPolicy(runtime, {
+          groupId,
+          organizationId,
+          request: c.req.valid("json"),
+          requesterUserId: c.get("session").userId,
+        });
+        await publishMembershipShareNotifications(
+          publish,
+          result.sharedWithYouUserIds,
+        );
+        return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);
+      } catch (error) {
+        const response = toPrincipalPolicyErrorResponse(error);
+        if (response) return response;
+        throw error;
+      }
+    },
+  );
 
   principalPolicyRoute.on(
     getPrincipalPolicyOperation.method,

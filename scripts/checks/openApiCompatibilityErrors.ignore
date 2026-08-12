@@ -1,0 +1,15 @@
+# Intentional greenfield flag-day: group creation now atomically commits its
+# signed organization-directory successor and returns both verified policies.
+# Remove these entries after this contract reaches the default branch.
+POST /organizations/{organizationId}/groups added the new required request property `organizationPolicy`
+POST /organizations/{organizationId}/groups removed the required property `createdAt` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the required property `currentState` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the required property `groupId` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the required property `isBuiltin` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the required property `name` from the response with the `200` status
+POST /organizations/{organizationId}/groups removed the required property `organizationId` from the response with the `200` status
+
+# Intentional greenfield flag-day: group deletion now requires and atomically
+# commits a signed organization-directory removal successor. Remove this entry
+# after the new deletion contract reaches the default branch.
+DELETE /organizations/{organizationId}/groups/{groupId} added required request body

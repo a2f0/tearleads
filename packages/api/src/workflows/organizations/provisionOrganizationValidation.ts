@@ -1,8 +1,10 @@
+import { computePrincipalStateHash } from "@tearleads/crypto";
 import type {
   OrganizationProvisioningRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
+import { groupHeadsEqual } from "./organizationGroupDirectoryValidation";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
 export const ADMIN_GROUP_NAME = "Admins";
@@ -76,10 +78,10 @@ function validateInitialPolicyBundle(input: {
   }
 }
 
-function validateInitialOrganizationPolicyInput(
+async function validateInitialOrganizationPolicyInput(
   input: OrganizationProvisioningRequest,
   signer: ProvisioningValidationSigner,
-): void {
+): Promise<void> {
   const { encryptedPayload, state } = input.initialOrganizationPolicy;
 
   const descriptor = parseOrganizationAuthorityDescriptor(
@@ -93,6 +95,39 @@ function validateInitialOrganizationPolicyInput(
   ) {
     throw new OrganizationProvisioningError(
       "initialOrganizationPolicy authority descriptor must bind the reserved groups",
+      400,
+    );
+  }
+  if (input.initialOrganizationPolicy.grants.length !== 0) {
+    throw new OrganizationProvisioningError(
+      "initialOrganizationPolicy cannot contain container grants",
+      400,
+    );
+  }
+  const expectedGroupHeads = await Promise.all(
+    [input.initialAdminGroup, input.initialMemberGroup].map(async (group) => ({
+      principalType: "group" as const,
+      principalId: group.groupId,
+      version: group.initialGroupPolicy.state.version,
+      keyEpoch: group.initialGroupPolicy.state.keyEpoch,
+      stateHash: await computePrincipalStateHash(
+        group.initialGroupPolicy.state,
+      ),
+      keyFingerprint: group.initialGroupPolicy.state.keyFingerprint,
+    })),
+  );
+  expectedGroupHeads.sort((left, right) =>
+    left.principalId.localeCompare(right.principalId),
+  );
+  const commitsExpectedGroupHeads =
+    descriptor.groupHeads.length === expectedGroupHeads.length &&
+    descriptor.groupHeads.every((head, index) => {
+      const expectedHead = expectedGroupHeads[index];
+      return Boolean(expectedHead && groupHeadsEqual(head, expectedHead));
+    });
+  if (!commitsExpectedGroupHeads) {
+    throw new OrganizationProvisioningError(
+      "initialOrganizationPolicy authority descriptor must commit the reserved group heads",
       400,
     );
   }
@@ -157,11 +192,11 @@ function validateInitialGroupInput(input: {
  * additional-organization creation; throws {@link OrganizationProvisioningError}
  * (400) on any mismatch.
  */
-export function validateOrganizationProvisioningInput(
+export async function validateOrganizationProvisioningInput(
   input: OrganizationProvisioningRequest,
   signer: ProvisioningValidationSigner,
-): void {
-  validateInitialOrganizationPolicyInput(input, signer);
+): Promise<void> {
+  await validateInitialOrganizationPolicyInput(input, signer);
   validateInitialGroupInput({
     expectedName: ADMIN_GROUP_NAME,
     group: input.initialAdminGroup,

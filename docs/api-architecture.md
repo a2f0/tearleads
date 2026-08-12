@@ -47,8 +47,9 @@ Write surfaces:
 | Register identity and bootstrap root state | `POST /auth/register` | `RegistrationRequest` |
 | Destroy current session | `POST /auth/logout` | n/a |
 | Destroy a user session | `DELETE /auth/sessions/:sessionId` | n/a |
-| Store signed principal policy and member envelopes atomically | `PUT /principals/:principalType/:principalId/policy` | `PutPrincipalPolicyRequest` |
-| Create organization group | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupRequest` |
+| Store signed organization policy and member envelopes atomically | `PUT /principals/organization/:principalId/policy` | `PutPrincipalPolicyRequest` |
+| Atomically advance a group policy and its signed organization-directory head | `PUT /organizations/:organizationId/groups/:groupId/policy-commit` | `CommitOrganizationGroupPolicyRequest` |
+| Atomically create an organization group and advance its signed directory | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupWithPolicyRequest` |
 | Bind encrypted roster profile document | `PUT /organizations/:organizationId/roster/:userId` | `UpdateOrganizationRosterEntryRequest` |
 | Create container with metadata document | `POST /containers/with-metadata-document` | `ContainerCreateWithMetadataDocumentRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |

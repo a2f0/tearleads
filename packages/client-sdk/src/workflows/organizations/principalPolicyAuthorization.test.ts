@@ -9,6 +9,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type {
@@ -67,17 +68,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
       signingKeyPair: groupAdminKeys,
     }),
   );
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
-    organizationId,
-    await buildInitialOrganizationPolicyRequest({
-      adminGroupId,
-      encapsulationPublicKey: organizationAdminKem.publicKey,
-      memberGroupId,
-      organizationId,
-      signingKeyPair: organizationAdminKeys,
-      userId: organizationAdminUserId,
-    }),
-  );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
       creatorEncapsulationKeyPair: organizationAdminKem,
@@ -88,6 +78,22 @@ test("local admin projections cannot authorize a group membership mutation", asy
         organizationAdminKeys.signingPublicKey,
       ),
       signingKeyPair: organizationAdminKeys,
+    }),
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId,
+      encapsulationPublicKey: organizationAdminKem.publicKey,
+      groupHeads: [
+        principalPolicyHead(adminPolicy),
+        principalPolicyHead(adminPolicy, memberGroupId),
+        principalPolicyHead(groupPolicy),
+      ],
+      memberGroupId,
+      organizationId,
+      signingKeyPair: organizationAdminKeys,
+      userId: organizationAdminUserId,
     }),
   );
   const identities = new Map<
@@ -125,7 +131,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
     adminPolicy: 0,
     beforeCommit: 0,
     organizationPolicy: 0,
-    putPolicy: 0,
   };
   const { close, execSql } = await createTestExecSql(
     "organization-group-mutation-projected-admin-boundary",
@@ -135,7 +140,9 @@ test("local admin projections cannot authorize a group membership mutation", asy
     await expect(
       addOrganizationGroupUser({
         apiClient: {
-          createOrganizationGroup: async () => null,
+          commitOrganizationGroupPolicy: async () => {
+            throw new Error("Unexpected group policy commit");
+          },
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
             if (principalType === "organization") {
               calls.organizationPolicy += 1;
@@ -146,10 +153,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
               return adminPolicy;
             }
             return groupPolicy;
-          },
-          putPrincipalPolicy: async () => {
-            calls.putPolicy += 1;
-            return null;
           },
         },
         beforePolicyCommit: () => {
@@ -171,7 +174,6 @@ test("local admin projections cannot authorize a group membership mutation", asy
       adminPolicy: 1,
       beforeCommit: 0,
       organizationPolicy: 1,
-      putPolicy: 0,
     });
     await expect(
       loadPrincipalPolicyCheckpoint(execSql, "organization", organizationId),
@@ -194,7 +196,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   }
 });
 
-test("a verified Admins member absent from organization policy can mutate another group", async () => {
+test("a verified Admins member can mutate another group after the signed directory advances", async () => {
   const founderKeys = generateSigningSeedAndKeyPair();
   const founderKem = generateKemSeedAndKeyPair();
   const signerKeys = generateSigningSeedAndKeyPair();
@@ -256,17 +258,23 @@ test("a verified Admins member absent from organization policy can mutate anothe
       signingKeyPair: founderKeys,
     }),
   );
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
-    organizationId,
-    await buildInitialOrganizationPolicyRequest({
-      adminGroupId,
-      encapsulationPublicKey: founderKem.publicKey,
-      memberGroupId,
+  let currentOrganizationPolicy =
+    await organizationPolicyBundleFromInitialRequest(
       organizationId,
-      signingKeyPair: founderKeys,
-      userId: founderUserId,
-    }),
-  );
+      await buildInitialOrganizationPolicyRequest({
+        adminGroupId,
+        encapsulationPublicKey: founderKem.publicKey,
+        groupHeads: [
+          principalPolicyHead(initialAdminPolicy),
+          principalPolicyHead(initialAdminPolicy, memberGroupId),
+          principalPolicyHead(initialGroupPolicy),
+        ],
+        memberGroupId,
+        organizationId,
+        signingKeyPair: founderKeys,
+        userId: founderUserId,
+      }),
+    );
   const identities = new Map<
     string,
     ReturnType<typeof createTestTrustedUserIdentity>
@@ -302,7 +310,7 @@ test("a verified Admins member absent from organization policy can mutate anothe
       ) => {
         if (principalType === "organization") {
           organizationPolicyReads += 1;
-          return organizationPolicy;
+          return currentOrganizationPolicy;
         }
         if (principalId === adminGroupId) {
           adminPolicyReads += 1;
@@ -310,28 +318,45 @@ test("a verified Admins member absent from organization policy can mutate anothe
         }
         return { ...currentGroupPolicy, containerMutations: [] };
       },
-      putPrincipalPolicy: async (
-        _principalType: "group" | "organization",
+      commitOrganizationGroupPolicy: async (
+        _organizationId: string,
         principalId: string,
         mutation: Parameters<
-          Parameters<
-            typeof addOrganizationGroupUser
-          >[0]["apiClient"]["putPrincipalPolicy"]
+          NonNullable<
+            Parameters<
+              typeof addOrganizationGroupUser
+            >[0]["apiClient"]["commitOrganizationGroupPolicy"]
+          >
         >[2],
       ) => {
         policyPutCount += 1;
         if (principalId === adminGroupId) {
           currentAdminPolicy = await policyBundleAfterMutation({
-            mutation,
+            mutation: mutation.groupPolicy,
             previous: currentAdminPolicy,
           });
-          return { ...currentAdminPolicy, containerMutations: [] };
+        } else {
+          currentGroupPolicy = await policyBundleAfterMutation({
+            mutation: mutation.groupPolicy,
+            previous: currentGroupPolicy,
+          });
         }
-        currentGroupPolicy = await policyBundleAfterMutation({
-          mutation,
-          previous: currentGroupPolicy,
+        currentOrganizationPolicy = await policyBundleAfterMutation({
+          mutation: mutation.organizationPolicy,
+          previous: currentOrganizationPolicy,
         });
-        return { ...currentGroupPolicy, containerMutations: [] };
+        return {
+          groupPolicy: {
+            ...(principalId === adminGroupId
+              ? currentAdminPolicy
+              : currentGroupPolicy),
+            containerMutations: [],
+          },
+          organizationPolicy: {
+            ...currentOrganizationPolicy,
+            containerMutations: [],
+          },
+        };
       },
     };
     await addOrganizationGroupUser({
@@ -380,12 +405,10 @@ test("a verified Admins member absent from organization policy can mutate anothe
     expect(cachedPolicy?.currentState.stateHash).toBe(
       result.currentState.stateHash,
     );
-    expect(organizationPolicy.currentProjection).toEqual([
-      {
-        userId: founderUserId,
-        role: "admin",
-      },
-    ]);
+    expect(currentOrganizationPolicy.currentProjection).toContainEqual({
+      userId: signerUserId,
+      role: "admin",
+    });
     expect(currentAdminPolicy.currentProjection).toContainEqual({
       userId: signerUserId,
       role: "admin",

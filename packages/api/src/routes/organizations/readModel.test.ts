@@ -1,16 +1,19 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { groups as groupsTable, users } from "@tearleads/api-shared/schema";
+import { users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
-  isOrganizationGroupSummaryResponse,
+  isCreateOrganizationGroupResponse,
   isOrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
-import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import {
+  createGroupRequest,
+  deleteGroupRequest,
+} from "../../../test/helpers/organizationGroup";
 import {
   addMemberGroupUser,
   removeMemberGroupUser,
@@ -42,12 +45,6 @@ function readModelPath(organizationId: string, cursor?: string): string {
 test("organization read-model route snapshots and coalesces group changes", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
-  const statelessGroupId = crypto.randomUUID();
-  await db.insert(groupsTable).values({
-    id: statelessGroupId,
-    name: "Catalog only",
-    organizationId,
-  });
 
   const snapshotResponse = await routeApp.request(
     readModelPath(organizationId),
@@ -71,7 +68,6 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(Reflect.has(snapshot.lanes.directory, "currentUser")).toBe(false);
   expect(snapshot.lanes.groups.groups.map((group) => group.name)).toEqual([
     "Admins",
-    "Catalog only",
   ]);
   expect(snapshot.version).toBe(5);
   expect(snapshot.lanes.organizationPolicy).toEqual({
@@ -91,9 +87,6 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(
     snapshot.lanes.groupMemberships.groups.map((group) => group.groupId),
   ).toContain(snapshot.lanes.groups.memberGroupId);
-  expect(
-    snapshot.lanes.groupMemberships.groups.map((group) => group.groupId),
-  ).not.toContain(statelessGroupId);
   const adminGroupId = snapshot.lanes.groups.groups[0]?.groupId;
   invariant(adminGroupId, "expected Admins group");
   expect(snapshot.lanes.groups.groups[0]?.currentState?.keyFingerprint).toEqual(
@@ -132,7 +125,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   const created = await createResponse.json();
   invariant(
-    isOrganizationGroupSummaryResponse(created),
+    isCreateOrganizationGroupResponse(created),
     "expected created organization group",
   );
 
@@ -149,14 +142,13 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(changed.lanes.grants).toBeUndefined();
   expect(changed.lanes.groups?.groups.map((group) => group.name)).toEqual([
     "Admins",
-    "Catalog only",
     "Operators",
   ]);
   expect(changed.lanes.groupMemberships?.deletedGroupIds).toEqual([]);
   expect(changed.lanes.groupMemberships?.groups).toHaveLength(1);
   expect(changed.lanes.groupMemberships?.groups[0]?.groupId).toBe(groupId);
   expect(changed.lanes.groupMemberships?.groups[0]?.stateHash).toBe(
-    created.currentState?.stateHash,
+    created.group.currentState?.stateHash,
   );
   // The creator is the group's only member. This used to also assert a nested
   // Admins group member; principals contain only users now.
@@ -199,7 +191,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
       body: JSON.stringify(groupRequest.initialGroupPolicy),
     },
   );
-  expect(exactPolicyReplayResponse.status).toBe(200);
+  expect(exactPolicyReplayResponse.status).toBe(409);
   const afterExactReplayResponse = await routeApp.request(
     readModelPath(organizationId, changed.nextCursor),
     { headers: { Authorization: `Bearer ${actor.token}` } },
@@ -212,10 +204,11 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   expect(afterExactReplay.lanes).toEqual({});
 
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${groupId}`,
-    { method: "DELETE", headers: { Authorization: `Bearer ${actor.token}` } },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor,
+    groupId,
+    organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
   const deletedDeltaResponse = await routeApp.request(
     readModelPath(organizationId, changed.nextCursor),
@@ -229,7 +222,6 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   expect(deletedDelta.lanes.groups?.groups.map((group) => group.name)).toEqual([
     "Admins",
-    "Catalog only",
   ]);
   expect(deletedDelta.lanes.groupMemberships).toEqual({
     organizationId,
@@ -371,13 +363,11 @@ test("membership deltas coalesce transitions to final entity state", async () =>
     },
   );
   expect(createResponse.status).toBe(200);
-  const deleteResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${deletedGroupId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${owner.token}` },
-    },
-  );
+  const deleteResponse = await deleteGroupRequest({
+    actor: owner,
+    groupId: deletedGroupId,
+    organizationId,
+  });
   expect(deleteResponse.status).toBe(200);
 
   const deltaResponse = await routeApp.request(
