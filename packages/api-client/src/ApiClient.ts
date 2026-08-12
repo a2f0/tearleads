@@ -1010,12 +1010,23 @@ export class ApiClient {
     organizationId: string,
     input: CreateOrganizationGroupWithPolicyRequest,
   ) {
+    const groupRequestKey = JSON.stringify(["group", input.groupId]);
+    const organizationRequestKey = JSON.stringify([
+      "organization",
+      organizationId,
+    ]);
+    this.principalPolicyRequestsByKey.delete(groupRequestKey);
+    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
     return this.request(
       groupCreate.path(organizationId),
       groupCreate.isResponse,
       groupCreate.method,
       JSON.stringify(input),
-    );
+    ).finally(() => {
+      this.principalPolicyRequestsByKey.delete(groupRequestKey);
+      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
+      this.clearWriterProjectionCaches();
+    });
   }
 
   deleteOrganizationGroup(
@@ -1023,12 +1034,23 @@ export class ApiClient {
     groupId: string,
     input: DeleteOrganizationGroupRequest,
   ) {
+    const groupRequestKey = JSON.stringify(["group", groupId]);
+    const organizationRequestKey = JSON.stringify([
+      "organization",
+      organizationId,
+    ]);
+    this.principalPolicyRequestsByKey.delete(groupRequestKey);
+    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
     return this.request(
       groupDelete.path(organizationId, groupId),
       groupDelete.isResponse,
       groupDelete.method,
       JSON.stringify(input),
-    ).finally(() => this.clearWriterProjectionCaches());
+    ).finally(() => {
+      this.principalPolicyRequestsByKey.delete(groupRequestKey);
+      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
+      this.clearWriterProjectionCaches();
+    });
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {

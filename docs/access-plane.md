@@ -81,9 +81,9 @@ using a group for sharing or rotation-staleness decisions, a client verifies
 the organization policy and reserved `Admins` head, then requires the served
 group bundle to match the directory's exact head. Serving an older, otherwise
 valid group policy therefore fails closed even on a device with no prior
-checkpoint for that group. A descriptor may retain the last head of a durably
-tombstoned group so an unsigned hard deletion cannot poison later active-group
-commits; tombstoned IDs cannot be reused or resolved as active recipients.
+checkpoint for that group. Group deletion requires a signed organization-policy
+successor that removes the deleted group from the directory; the API rejects
+directory entries for groups that are not active organization rows.
 The generic principal-policy write route rejects group updates. Group creation
 atomically stores the new row and initial policy with the matching signed
 organization-directory successor, so a failed second artifact cannot leave an
