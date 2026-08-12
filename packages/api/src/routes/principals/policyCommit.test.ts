@@ -246,7 +246,7 @@ test("a stale signed directory rejects and rolls back its paired group successor
   expect(storedGroup?.stateHash).toBe(prepared.previousGroupStateHash);
 });
 
-test("compound commits reject mismatched group and organization signers", async () => {
+test("compound commits reject organization policies signed by another user", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -265,9 +265,9 @@ test("compound commits reject mismatched group and organization signers", async 
     },
   });
 
-  expect(response.status).toBe(400);
+  expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
-    error: "Group and organization policies must have the same signer",
+    error: "Principal policy signer does not match authenticated requester",
   });
   expect(
     await getCurrentPrincipalState(

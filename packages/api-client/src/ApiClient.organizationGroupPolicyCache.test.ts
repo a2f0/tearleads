@@ -49,7 +49,7 @@ function groupMutationResponse(
 }
 
 async function assertMutationEvictsInFlightPolicyReads(
-  mutation: "create" | "delete",
+  mutation: "commit" | "create" | "delete",
 ) {
   const groupRequest = createOrganizationGroupRequest();
   const groupId = groupRequest.groupId;
@@ -104,6 +104,14 @@ async function assertMutationEvictsInFlightPolicyReads(
           organizationPolicy: { ...fresh, containerMutations: [] },
         }),
     ),
+    http.put(
+      `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy-commit`,
+      () =>
+        HttpResponse.json({
+          groupPolicy: { ...fresh, containerMutations: [] },
+          organizationPolicy: { ...fresh, containerMutations: [] },
+        }),
+    ),
   );
 
   const client = new ApiClient(apiBaseUrl);
@@ -117,13 +125,20 @@ async function assertMutationEvictsInFlightPolicyReads(
     groupReadStarted.promise,
   ]);
 
-  if (mutation === "create") {
+  if (mutation === "create" || mutation === "commit") {
     await client.getContainerWriterProjection("container-1");
     await client.getDocumentWriterProjection("document-1");
-    await client.createOrganizationGroup(organizationId, {
-      ...groupRequest,
-      organizationPolicy: policyRequest,
-    });
+    if (mutation === "create") {
+      await client.createOrganizationGroup(organizationId, {
+        ...groupRequest,
+        organizationPolicy: policyRequest,
+      });
+    } else {
+      await client.commitOrganizationGroupPolicy(organizationId, groupId, {
+        groupPolicy: policyRequest,
+        organizationPolicy: policyRequest,
+      });
+    }
   } else {
     await client.deleteOrganizationGroup(organizationId, groupId, {
       organizationPolicy: policyRequest,
@@ -150,7 +165,7 @@ async function assertMutationEvictsInFlightPolicyReads(
     ]),
   );
 
-  if (mutation === "create") {
+  if (mutation === "create" || mutation === "commit") {
     await client.getContainerWriterProjection("container-1");
     await client.getDocumentWriterProjection("document-1");
     expect(containerProjectionReads).toBe(2);
@@ -161,6 +176,11 @@ async function assertMutationEvictsInFlightPolicyReads(
 testApiClient(
   "group creation evicts in-flight policy reads and writer projections",
   () => assertMutationEvictsInFlightPolicyReads("create"),
+);
+
+testApiClient(
+  "group policy commits evict in-flight policy reads and writer projections",
+  () => assertMutationEvictsInFlightPolicyReads("commit"),
 );
 
 testApiClient("group deletion evicts in-flight policy reads", () =>

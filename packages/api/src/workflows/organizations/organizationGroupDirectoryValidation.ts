@@ -51,7 +51,7 @@ export function principalProjectionsEqual(
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
 }
 
-function groupHeadsEqual(
+export function groupHeadsEqual(
   left: OrganizationGroupHead,
   right: OrganizationGroupHead,
 ): boolean {

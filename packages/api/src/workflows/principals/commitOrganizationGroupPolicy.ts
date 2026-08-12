@@ -40,12 +40,6 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
     expectedPrincipalType: "organization",
     requesterUserId: input.requesterUserId,
   };
-  if (groupInput.state.signerUserId !== organizationInput.state.signerUserId) {
-    throw new PrincipalPolicyError(
-      "Group and organization policies must have the same signer",
-      400,
-    );
-  }
   assertPutPrincipalPolicyRouteBinding(groupInput);
   assertPutPrincipalPolicyRouteBinding(organizationInput);
 

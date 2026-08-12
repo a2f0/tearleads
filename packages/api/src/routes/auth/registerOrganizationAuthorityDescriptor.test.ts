@@ -61,3 +61,37 @@ test("POST /auth/register rejects an authority descriptor for other reserved gro
       "initialOrganizationPolicy authority descriptor must bind the reserved groups",
   });
 });
+
+test("POST /auth/register rejects organization policies with container grants", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  fingerprint = await toFingerprint(signingPublicKey);
+  const body = await createRegistrationRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+  );
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...body,
+      initialOrganizationPolicy: {
+        ...body.initialOrganizationPolicy,
+        grants: [
+          {
+            accessLevel: "admin",
+            containerId: body.rootContainerId,
+          },
+        ],
+      },
+    }),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "initialOrganizationPolicy cannot contain container grants",
+  });
+});

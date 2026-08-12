@@ -4,6 +4,7 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
+import { groupHeadsEqual } from "./organizationGroupDirectoryValidation";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
 export const ADMIN_GROUP_NAME = "Admins";
@@ -97,6 +98,12 @@ async function validateInitialOrganizationPolicyInput(
       400,
     );
   }
+  if (input.initialOrganizationPolicy.grants.length !== 0) {
+    throw new OrganizationProvisioningError(
+      "initialOrganizationPolicy cannot contain container grants",
+      400,
+    );
+  }
   const expectedGroupHeads = await Promise.all(
     [input.initialAdminGroup, input.initialMemberGroup].map(async (group) => ({
       principalType: "group" as const,
@@ -109,14 +116,16 @@ async function validateInitialOrganizationPolicyInput(
       keyFingerprint: group.initialGroupPolicy.state.keyFingerprint,
     })),
   );
-  if (
-    JSON.stringify(descriptor.groupHeads) !==
-    JSON.stringify(
-      expectedGroupHeads.sort((left, right) =>
-        left.principalId.localeCompare(right.principalId),
-      ),
-    )
-  ) {
+  expectedGroupHeads.sort((left, right) =>
+    left.principalId.localeCompare(right.principalId),
+  );
+  const commitsExpectedGroupHeads =
+    descriptor.groupHeads.length === expectedGroupHeads.length &&
+    descriptor.groupHeads.every((head, index) => {
+      const expectedHead = expectedGroupHeads[index];
+      return Boolean(expectedHead && groupHeadsEqual(head, expectedHead));
+    });
+  if (!commitsExpectedGroupHeads) {
     throw new OrganizationProvisioningError(
       "initialOrganizationPolicy authority descriptor must commit the reserved group heads",
       400,

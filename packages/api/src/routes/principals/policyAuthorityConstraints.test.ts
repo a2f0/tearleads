@@ -4,6 +4,7 @@ import { organizations, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
+  type PrincipalContainerGrant,
   type PrincipalProjectionMember,
   type PrincipalStateExternalAuthority,
   toFingerprint,
@@ -23,6 +24,7 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
+import { getPrincipalPolicyForStateWithExecutor } from "../../workflows/principals/getCurrentPrincipalPolicy";
 
 async function getDefaultOrganizationId(userId: string): Promise<string> {
   const [user] = await db
@@ -42,6 +44,7 @@ async function createSignedSuccessor(input: {
     readonly version: number;
   };
   readonly externalAuthority?: PrincipalStateExternalAuthority | null;
+  readonly grants?: readonly PrincipalContainerGrant[];
   readonly payloadCiphertext?: string;
   readonly principalId: string;
   readonly principalType: "group" | "organization";
@@ -63,6 +66,7 @@ async function createSignedSuccessor(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection: input.projection,
+    grants: [...(input.grants ?? [])],
     externalAuthority: input.externalAuthority ?? null,
     payloadCiphertext:
       input.payloadCiphertext ??
@@ -73,6 +77,55 @@ async function createSignedSuccessor(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
     memberEnvelopes,
   });
+}
+
+async function prepareOrganizationPolicySuccessor(input: {
+  readonly actor: ReturnType<typeof createTestUser>;
+  readonly grants?: readonly PrincipalContainerGrant[];
+  readonly projection?: PrincipalProjectionMember[];
+}) {
+  const organizationId = await getDefaultOrganizationId(input.actor.userId);
+  const currentState = await getCurrentPrincipalState(
+    "organization",
+    organizationId,
+    db,
+  );
+  invariant(currentState, "expected organization policy");
+  const currentPolicy = await getPrincipalPolicyForStateWithExecutor(
+    db,
+    currentState,
+  );
+  const projection =
+    input.projection ??
+    currentPolicy.currentProjection.map((member) => ({ ...member }));
+  const successor = await createSignedSuccessor({
+    actor: input.actor,
+    currentState,
+    ...(input.grants === undefined ? {} : { grants: input.grants }),
+    payloadCiphertext: currentPolicy.currentPayload.ciphertext,
+    principalId: organizationId,
+    principalType: "organization",
+    projection,
+  });
+  return { currentState, organizationId, successor };
+}
+
+function putOrganizationPolicy(input: {
+  readonly actor: ReturnType<typeof createTestUser>;
+  readonly organizationId: string;
+  readonly successor: Awaited<ReturnType<typeof createSignedSuccessor>>;
+}) {
+  return routeApp.request(
+    `/principals/organization/${input.organizationId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.actor.token}`,
+      },
+      body: JSON.stringify(input.successor),
+    },
+  );
 }
 
 async function postGroup(
@@ -190,6 +243,47 @@ test("PUT policy rejects an organization descriptor with the wrong reserved grou
   expect(await response.json()).toEqual({
     error: "Organization authority descriptor scope is invalid",
   });
+});
+
+test("PUT policy rejects organization container grants and preserves its head", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareOrganizationPolicySuccessor({
+    actor,
+    grants: [{ accessLevel: "admin", containerId: crypto.randomUUID() }],
+  });
+
+  const response = await putOrganizationPolicy({ actor, ...prepared });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Organization policy cannot contain container grants",
+  });
+  expect(
+    await getCurrentPrincipalState("organization", prepared.organizationId, db),
+  ).toMatchObject({ stateHash: prepared.currentState.stateHash });
+});
+
+test("PUT policy rejects projections that diverge from Admins and preserves its head", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const prepared = await prepareOrganizationPolicySuccessor({
+    actor,
+    projection: [{ role: "member", userId: actor.userId }],
+  });
+
+  const response = await putOrganizationPolicy({ actor, ...prepared });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error:
+      "Organization policy projection must match the current Admins policy",
+  });
+  expect(
+    await getCurrentPrincipalState("organization", prepared.organizationId, db),
+  ).toMatchObject({ stateHash: prepared.currentState.stateHash });
 });
 
 test("PUT policy rejects a stale signed Admins authority head", async () => {
