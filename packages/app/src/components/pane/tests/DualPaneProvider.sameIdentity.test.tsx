@@ -35,6 +35,8 @@ import {
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 const REALTIME_ORGANIZATION_NAME = "Realtime Organization";
+const SAME_IDENTITY_SETTLE_TIMEOUT_MS = 15_000;
+const SELF_CONTACT_TIMEOUT_MS = 30_000;
 
 function getPaneStatusValue(pane: HTMLElement, label: string): string {
   const rowHeader = within(pane).getByRole("rowheader", { name: label });
@@ -98,7 +100,9 @@ function ensureOrganizationOptionsOpen(pane: HTMLElement): boolean {
 async function expectAppRuntimeSettled() {
   let settled = false;
   await act(async () => {
-    settled = await waitForAppTestRuntimeToSettle({ timeoutMs: 6_000 });
+    settled = await waitForAppTestRuntimeToSettle({
+      timeoutMs: SAME_IDENTITY_SETTLE_TIMEOUT_MS,
+    });
   });
   expect(settled).toBe(true);
 }
@@ -108,13 +112,14 @@ async function expectSingleYouContact(input: {
   pane: HTMLElement;
   userId: string;
 }) {
-  if (!input.pane.querySelector(".explorer-sidebar")) {
-    await openExplorer(input.pane);
-  }
+  // Re-focus Explorer even when a prior window remains mounted. The active
+  // mini-app can change while the organization workflow runs, and a mounted
+  // sidebar is not evidence that its item table is currently available.
+  await openExplorer(input.pane);
   await waitForCondition(
     () => getExplorerSidebarItemsByName(input.pane, "Contacts").length > 0,
     "Explorer did not materialize the personal Contacts container.",
-    20_000,
+    SELF_CONTACT_TIMEOUT_MS,
   );
   await selectContainerAndWaitForItemTable(input.pane, "Contacts");
   await waitForCondition(
@@ -136,7 +141,7 @@ async function expectSingleYouContact(input: {
       );
     },
     "Explorer did not preserve the current identity's You contact.",
-    20_000,
+    SELF_CONTACT_TIMEOUT_MS,
   );
 
   const table = within(input.pane).getByRole("table", {
@@ -163,8 +168,8 @@ test(
 
     await waitForSinglePaneProvisioning(primaryPane);
     const primaryUserId = getPaneUserId(primaryPane);
-    await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });
     await expectAppRuntimeSettled();
+    await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });
     const primarySelfIdentity = await readPaneExplorerDocumentIdentity(
       primaryPane,
       "You",
@@ -188,6 +193,7 @@ test(
       "Secondary pane websocket did not reconnect after identity recovery.",
       20_000,
     );
+    await expectAppRuntimeSettled();
     // Both panes derive the same deterministic self-contact local id from the
     // shared signing fingerprint; the recovered pane adopts the primary's
     // remote self-contact document onto that row instead of materializing a

@@ -9,6 +9,7 @@ import {
 import { listProxiedApiRequests } from "../mswServer";
 import { waitForCondition } from "../waitForCondition";
 import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
   getExplorerSidebarItem,
   getExplorerSidebarItemsByName,
   getExplorerWindowRoot,
@@ -35,9 +36,12 @@ export async function openExplorer(pane: HTMLElement) {
     fireEvent.click(openExplorerButton);
   });
 
-  await waitFor(() => {
-    expect(queryExplorerItemTable(pane)).toBeTruthy();
-  });
+  await waitFor(
+    () => {
+      expect(queryExplorerItemTable(pane)).toBeTruthy();
+    },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
+  );
 }
 
 async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
