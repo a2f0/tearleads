@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  blobContentKeyTargets,
+  documents,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
@@ -18,6 +22,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../access/read/documentKekTargets";
 import { routeApp } from "../../routeApp";
+import { errorCauseChain } from "../../utils/databaseErrors";
 import { lockSyncDocumentWriteFrontier } from "../../workflows/documents/mutations/syncWriteFrontier";
 
 // These races only exist on a multi-connection backend: the default pglite
@@ -131,6 +136,38 @@ test.skipIf(databaseKind !== "turso")(
       commitLsn: "0/0",
       commitLsnMode: "untracked",
     });
+  },
+  concurrencyTimeoutMs,
+);
+
+test.skipIf(databaseKind !== "turso")(
+  "remote Turso sessions enforce foreign key constraints",
+  async () => {
+    let insertionError: unknown;
+    try {
+      await db.insert(blobContentKeyTargets).values({
+        bindingId: crypto.randomUUID(),
+        blobContentKeyEpochId: crypto.randomUUID(),
+        containerId: crypto.randomUUID(),
+        containerKeyEpoch: 1,
+        containerKeyEpochId: crypto.randomUUID(),
+        containerManifestHash: "foreign-key-test-manifest",
+        documentId: crypto.randomUUID(),
+        wrappedKey: "foreign-key-test-wrapped-key",
+        wrappingMetadata: {},
+      });
+    } catch (error) {
+      insertionError = error;
+    }
+
+    expect(
+      errorCauseChain(insertionError).some(
+        (candidate) =>
+          candidate.message.includes("FOREIGN KEY constraint failed") ||
+          Reflect.get(candidate, "extendedCode") ===
+            "SQLITE_CONSTRAINT_FOREIGNKEY",
+      ),
+    ).toBe(true);
   },
   concurrencyTimeoutMs,
 );

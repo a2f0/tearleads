@@ -103,6 +103,7 @@ export function isLockContention(error: unknown): boolean {
 export function isTransientDatabaseFailure(error: unknown): boolean {
   return (
     isLibsqlTransactionContention(error) ||
+    isLockContention(error) ||
     hasDatabaseCode(error, (code) =>
       LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
     ) ||

@@ -18,6 +18,16 @@ test("classifies libSQL transaction interruption as transient, not conflict", ()
   }
 });
 
+test("classifies remote SQLite lock contention as transient", () => {
+  for (const code of ["SQLITE_BUSY", "SQLITE_BUSY_TIMEOUT", "SQLITE_LOCKED"]) {
+    const driverError = Object.assign(new Error("database is busy"), { code });
+    const wrappedError = new Error("Failed query", { cause: driverError });
+
+    expect(isLockContention(wrappedError)).toBe(true);
+    expect(isTransientDatabaseFailure(wrappedError)).toBe(true);
+  }
+});
+
 test("classifies transient libSQL transport failures without masking config errors", () => {
   for (const code of [
     "HRANA_CLOSED_ERROR",

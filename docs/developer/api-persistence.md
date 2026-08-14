@@ -87,8 +87,10 @@ bun run --filter=@tearleads/api db:migrate
 ```
 
 Start the API with the same variables after migration. Turso transactions are
-opened explicitly in write mode. Because this configuration always reads the
-remote primary, the API bypasses replica-watermark waiting and emits the
+opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
+enables and verifies SQLite foreign-key enforcement on every remote statement
+session before application SQL runs. Because this configuration always reads
+the remote primary, the API bypasses replica-watermark waiting and emits the
 wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"` when a
 request advertises `supportsUntrackedCommitLsn: true`. Clients use that
 negotiated mode to replace a checkpoint from a previous backend without

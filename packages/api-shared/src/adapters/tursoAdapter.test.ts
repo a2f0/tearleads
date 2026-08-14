@@ -1,10 +1,17 @@
 import { expect, test } from "bun:test";
-import type { Client, ResultSet, Row, Transaction } from "@libsql/client/ws";
+import type {
+  Client,
+  InStatement,
+  ResultSet,
+  Row,
+  Transaction,
+} from "@libsql/client/ws";
 import { sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import {
   attachTursoDatabaseBridge,
+  enforceTursoForeignKeys,
   forceTursoWriteTransactions,
   normalizeTursoResultIntegers,
   readTursoConnectionConfig,
@@ -33,6 +40,21 @@ test("Turso connection config requires authentication", () => {
   ).toThrow("TURSO_AUTH_TOKEN is required when API_DATABASE=turso");
 });
 
+test("Turso connection config requires TLS and separate authentication", () => {
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL: "libsql://localhost:8080?tls=0",
+    }),
+  ).toThrow("TURSO_DATABASE_URL must not disable TLS");
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL: "libsql://test-database.turso.io?authToken=url-token",
+    }),
+  ).toThrow("TURSO_DATABASE_URL must not contain authToken");
+});
+
 test("Turso connection config trims remote credentials", () => {
   expect(
     readTursoConnectionConfig({
@@ -42,6 +64,7 @@ test("Turso connection config trims remote credentials", () => {
   ).toEqual({
     authToken: "test-token",
     intMode: "bigint",
+    tls: true,
     url: "libsql://test-database.turso.io",
   });
 });
@@ -64,6 +87,82 @@ function resultSet(values: readonly bigint[]): ResultSet {
   const row = unsafeCoerce<Row>([...values]);
   return unsafeCoerce<ResultSet>({ rows: [row] });
 }
+
+test("Turso enables foreign keys on every statement transaction", async () => {
+  const calls: string[] = [];
+  let applicationStatement: InStatement | undefined;
+  const createTransaction = (): Transaction => {
+    let foreignKeysEnabled = false;
+    return unsafeCoerce<Transaction>({
+      close: () => calls.push("close"),
+      commit: async () => {
+        calls.push("commit");
+      },
+      execute: async (statement: InStatement) => {
+        const query = typeof statement === "string" ? statement : statement.sql;
+        calls.push(`execute:${query}`);
+        if (query !== "PRAGMA foreign_keys") {
+          applicationStatement = statement;
+        }
+        return query === "PRAGMA foreign_keys"
+          ? resultSet([foreignKeysEnabled ? 1n : 0n])
+          : resultSet([1n]);
+      },
+      executeMultiple: async (statement: string) => {
+        calls.push(`executeMultiple:${statement}`);
+        foreignKeysEnabled = statement.includes("PRAGMA foreign_keys = ON");
+      },
+      rollback: async () => {
+        calls.push("rollback");
+      },
+    });
+  };
+  const client = enforceTursoForeignKeys(
+    unsafeCoerce<Client>({
+      transaction: async (mode: string) => {
+        calls.push(`transaction:${mode}`);
+        return createTransaction();
+      },
+    }),
+  );
+
+  expect((await client.execute("select ?", [1n])).rows[0]?.[0]).toBe(1n);
+  expect(applicationStatement).toEqual({ args: [1n], sql: "select ?" });
+  expect(calls).toEqual([
+    "transaction:write",
+    "executeMultiple:ROLLBACK; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE",
+    "execute:PRAGMA foreign_keys",
+    "execute:select ?",
+    "commit",
+    "close",
+  ]);
+});
+
+test("Turso fails closed when foreign keys cannot be enabled", async () => {
+  let rolledBack = false;
+  let closed = false;
+  const client = enforceTursoForeignKeys(
+    unsafeCoerce<Client>({
+      transaction: async () =>
+        unsafeCoerce<Transaction>({
+          close: () => {
+            closed = true;
+          },
+          execute: async () => resultSet([0n]),
+          executeMultiple: async () => undefined,
+          rollback: async () => {
+            rolledBack = true;
+          },
+        }),
+    }),
+  );
+
+  await expect(client.transaction()).rejects.toThrow(
+    "Turso connection did not enable foreign key enforcement",
+  );
+  expect(rolledBack).toBe(true);
+  expect(closed).toBe(true);
+});
 
 test("Turso preserves wide integers while normalizing safe values", async () => {
   const wide = BigInt(Number.MAX_SAFE_INTEGER) + 1n;

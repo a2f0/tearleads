@@ -2,6 +2,8 @@ import {
   type Client,
   type Config,
   createClient,
+  type InArgs,
+  type InStatement,
   type ResultSet,
   type Row,
   type Transaction,
@@ -30,6 +32,7 @@ interface TursoAdapterEnv {
 interface TursoConnectionConfig {
   readonly authToken: string;
   readonly intMode: "bigint";
+  readonly tls: true;
   readonly url: string;
 }
 
@@ -53,12 +56,24 @@ export function readTursoConnectionConfig(
       "TURSO_DATABASE_URL must use libsql://; local files and embedded replicas are not supported",
     );
   }
+  const parsedUrl = new URL(url);
+  if (parsedUrl.searchParams.getAll("tls").includes("0")) {
+    throw new Error(
+      "TURSO_DATABASE_URL must not disable TLS; plaintext remote connections are not supported",
+    );
+  }
+  if (parsedUrl.searchParams.has("authToken")) {
+    throw new Error(
+      "TURSO_DATABASE_URL must not contain authToken; use TURSO_AUTH_TOKEN",
+    );
+  }
 
   return {
     authToken: requireEnvValue(env, "TURSO_AUTH_TOKEN"),
     // Decode losslessly first; normalize safe values back to numbers before
     // Drizzle applies per-column codecs below.
     intMode: "bigint",
+    tls: true,
     url,
   };
 }
@@ -165,6 +180,113 @@ export function normalizeTursoResultIntegers(client: Client): Client {
   });
 }
 
+const FOREIGN_KEY_TRANSACTION_SETUP =
+  "ROLLBACK; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE";
+
+async function openForeignKeyTransaction(client: Client): Promise<Transaction> {
+  const transaction = await client.transaction("write");
+  try {
+    // @libsql/client starts BEGIN before a transaction's first statement, but
+    // SQLite ignores changes to foreign_keys inside a transaction. Restart the
+    // same remote stream so the PRAGMA runs in autocommit mode, then verify the
+    // load-bearing setting before exposing the transaction to Drizzle.
+    await transaction.executeMultiple(FOREIGN_KEY_TRANSACTION_SETUP);
+    const result = await transaction.execute("PRAGMA foreign_keys");
+    const enabled = result.rows[0]?.[0];
+    if (enabled !== 1 && enabled !== 1n) {
+      throw new Error(
+        "Turso connection did not enable foreign key enforcement",
+      );
+    }
+    return transaction;
+  } catch (error) {
+    try {
+      await transaction.rollback();
+    } catch {
+      // Preserve the setup failure.
+    }
+    transaction.close();
+    throw error;
+  }
+}
+
+async function withForeignKeyTransaction<T>(
+  client: Client,
+  operation: (transaction: Transaction) => Promise<T>,
+): Promise<T> {
+  const transaction = await openForeignKeyTransaction(client);
+  try {
+    const result = await operation(transaction);
+    await transaction.commit();
+    return result;
+  } catch (error) {
+    try {
+      await transaction.rollback();
+    } catch {
+      // Preserve the operation or commit failure.
+    }
+    throw error;
+  } finally {
+    transaction.close();
+  }
+}
+
+function executeStatementFromArgs(args: unknown[]): InStatement {
+  const statement = args[0];
+  if (typeof statement === "string" && args.length > 1) {
+    return { args: unsafeCoerce<InArgs>(args[1]), sql: statement };
+  }
+  return unsafeCoerce<InStatement>(statement);
+}
+
+function transactionBatchStatements(args: unknown[]): InStatement[] {
+  return unsafeCoerce<Array<InStatement | [string, InArgs?]>>(args[0]).map(
+    (statement) =>
+      Array.isArray(statement)
+        ? {
+            ...(statement[1] === undefined ? {} : { args: statement[1] }),
+            sql: statement[0],
+          }
+        : statement,
+  );
+}
+
+// Turso follows SQLite's default of disabling foreign-key enforcement for each
+// remote session. Route every normal root statement and interactive transaction
+// through a stream that enables and verifies the PRAGMA first. The dedicated
+// `migrate` method remains untouched because @libsql/client deliberately
+// disables constraints around schema migrations and reenables them afterward.
+export function enforceTursoForeignKeys(client: Client): Client {
+  return new Proxy(client, {
+    get(target, property) {
+      if (property === "transaction") {
+        return () => openForeignKeyTransaction(target);
+      }
+      if (property === "execute") {
+        return (...args: unknown[]) =>
+          withForeignKeyTransaction(target, (transaction) =>
+            transaction.execute(executeStatementFromArgs(args)),
+          );
+      }
+      if (property === "batch") {
+        return (...args: unknown[]) =>
+          withForeignKeyTransaction(target, (transaction) =>
+            transaction.batch(transactionBatchStatements(args)),
+          );
+      }
+      if (property === "executeMultiple") {
+        return (...args: unknown[]) =>
+          withForeignKeyTransaction(target, (transaction) =>
+            transaction.executeMultiple(unsafeCoerce<string>(args[0])),
+          );
+      }
+
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 // Turso uses the SQLite dialect, so SELECT FOR UPDATE intentionally degrades to
 // a plain select. Every API transaction must therefore reserve the remote writer
 // up front: BEGIN IMMEDIATE is the load-bearing isolation boundary for mutation
@@ -243,7 +365,9 @@ export function createTursoApiDatabase(
   const config: Config = readTursoConnectionConfig(env);
   const client = createClient(config);
   const libsqlDb = drizzleLibsql({
-    client: normalizeTursoResultIntegers(forceTursoWriteTransactions(client)),
+    client: normalizeTursoResultIntegers(
+      enforceTursoForeignKeys(forceTursoWriteTransactions(client)),
+    ),
     schema,
   });
 

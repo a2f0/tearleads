@@ -104,26 +104,28 @@ describe("createRouteApp", () => {
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });
   });
 
-  test("maps transient libSQL transport failures to 503", async () => {
+  test("maps transient libSQL transport and lock failures to 503", async () => {
     const errorLog = spyOn(console, "error").mockImplementation(() => {});
-    const transportError = Object.assign(new Error("socket closed"), {
-      code: "HRANA_WEBSOCKET_ERROR",
-    });
-    const requireAuth: MiddlewareHandler<SessionEnv> = async () => {
-      throw new Error("Failed query", { cause: transportError });
-    };
 
     try {
-      const app = createRouteApp({ requireAuth });
-      const response = await app.request("/containers/parent-lanes/query", {
-        method: "POST",
-      });
+      for (const code of ["HRANA_WEBSOCKET_ERROR", "SQLITE_BUSY"]) {
+        const driverError = Object.assign(new Error("database unavailable"), {
+          code,
+        });
+        const requireAuth: MiddlewareHandler<SessionEnv> = async () => {
+          throw new Error("Failed query", { cause: driverError });
+        };
+        const app = createRouteApp({ requireAuth });
+        const response = await app.request("/containers/parent-lanes/query", {
+          method: "POST",
+        });
 
-      expect(response.status).toBe(503);
-      expect(await response.json()).toEqual({
-        error: "Database temporarily unavailable",
-      });
-      expect(errorLog).toHaveBeenCalledTimes(1);
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({
+          error: "Database temporarily unavailable",
+        });
+      }
+      expect(errorLog).toHaveBeenCalledTimes(2);
     } finally {
       errorLog.mockRestore();
     }
