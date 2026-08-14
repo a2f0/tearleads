@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { type DatabaseSession, db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   createDocument,
@@ -10,6 +10,7 @@ import {
 } from "@tearleads/loro";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
+  assertMinLsnSatisfied,
   DocumentUpdateReadError,
   listMissingDocumentUpdates,
 } from "./documentUpdateStore";
@@ -136,6 +137,18 @@ test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => 
   expect(error.message).toBe(
     "Requested minimum commit LSN has not been reached",
   );
+});
+
+test("Turso minLsn checks bypass replica watermark queries", async () => {
+  const executor = {
+    execute: () => {
+      throw new Error("Turso minLsn check must not execute a query");
+    },
+  } as unknown as DatabaseSession;
+
+  await expect(
+    assertMinLsnSatisfied(executor, "FFFFFFFF/FFFFFFFF", "turso"),
+  ).resolves.toBeUndefined();
 });
 
 test("listMissingDocumentUpdates rejects malformed local version vectors", async () => {

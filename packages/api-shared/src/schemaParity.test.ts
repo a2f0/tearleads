@@ -118,7 +118,7 @@ function normalizeSchema(snapshot: SchemaSnapshot) {
   );
 }
 
-test("Postgres and SQLite migrations expose the same logical API schema", async () => {
+test("Postgres and SQLite migrations match table constraints and columns", async () => {
   const [postgres, sqlite] = await Promise.all([
     latestSnapshot("postgres"),
     latestSnapshot("sqlite"),

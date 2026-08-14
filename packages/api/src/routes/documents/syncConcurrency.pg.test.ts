@@ -117,7 +117,10 @@ test.skipIf(databaseKind !== "turso")(
     });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ commitLsn: "0/0" });
+    expect(await response.json()).toMatchObject({
+      commitLsn: "0/0",
+      commitLsnMode: "untracked",
+    });
   },
   concurrencyTimeoutMs,
 );

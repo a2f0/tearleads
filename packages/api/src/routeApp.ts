@@ -201,6 +201,7 @@ export function createRouteApp(
       return error.getResponse();
     }
     if (isTransientDatabaseFailure(error)) {
+      console.error(error);
       return c.json({ error: "Database temporarily unavailable" }, 503);
     }
     console.error(error);

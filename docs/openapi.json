@@ -24856,6 +24856,18 @@
                         }
                       ]
                     },
+                    "commitLsnMode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "tracked"
+                        },
+                        {
+                          "type": "string",
+                          "const": "untracked"
+                        }
+                      ]
+                    },
                     "contentKeyBundle": {
                       "type": "object",
                       "properties": {

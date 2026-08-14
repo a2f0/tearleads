@@ -13,7 +13,10 @@ import {
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
-import { readCurrentCommitLsn } from "../../../documents/commitLsn";
+import {
+  readCommitLsnMode,
+  readCurrentCommitLsn,
+} from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
@@ -394,6 +397,7 @@ export async function runDocumentSyncWorkflow(
       response: {
         acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
         commitLsn: await readCurrentCommitLsn(db),
+        commitLsnMode: readCommitLsnMode(),
         contentKeyBundle,
         contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
           toContentKeyBundleResponse(bundle),

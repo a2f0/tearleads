@@ -6,10 +6,6 @@ export function isSqliteApiDatabase(): boolean {
   return kind === "sqlite" || kind === "turso";
 }
 
-export function isTursoApiDatabase(): boolean {
-  return getDefaultApiDatabaseKind() === "turso";
-}
-
 interface RowLockQuery<TResult> extends PromiseLike<TResult> {
   for(strength: "update"): PromiseLike<TResult>;
 }

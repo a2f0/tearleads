@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import type { MiddlewareHandler } from "hono";
 import { readApiCorsOrigins } from "./corsOrigins";
 import type { SessionEnv } from "./middleware/session";
@@ -105,6 +105,7 @@ describe("createRouteApp", () => {
   });
 
   test("maps transient libSQL transport failures to 503", async () => {
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
     const transportError = Object.assign(new Error("socket closed"), {
       code: "HRANA_WEBSOCKET_ERROR",
     });
@@ -112,15 +113,20 @@ describe("createRouteApp", () => {
       throw new Error("Failed query", { cause: transportError });
     };
 
-    const app = createRouteApp({ requireAuth });
-    const response = await app.request("/containers/parent-lanes/query", {
-      method: "POST",
-    });
+    try {
+      const app = createRouteApp({ requireAuth });
+      const response = await app.request("/containers/parent-lanes/query", {
+        method: "POST",
+      });
 
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({
-      error: "Database temporarily unavailable",
-    });
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        error: "Database temporarily unavailable",
+      });
+      expect(errorLog).toHaveBeenCalledTimes(1);
+    } finally {
+      errorLog.mockRestore();
+    }
   });
 
   test("uses the injected destroySession implementation for logout", async () => {

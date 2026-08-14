@@ -38,7 +38,6 @@ const LIBSQL_TRANSIENT_TRANSPORT_CODES = new Set([
   "HRANA_CLOSED_ERROR",
   "HRANA_PROTO_ERROR",
   "HRANA_WEBSOCKET_ERROR",
-  "SERVER_ERROR",
 ]);
 
 function hasDatabaseCode(
@@ -49,6 +48,25 @@ function hasDatabaseCode(
     const code = Reflect.get(candidate, "code");
     return typeof code === "string" && predicate(code);
   });
+}
+
+function isTransientHttpStatus(status: unknown): boolean {
+  return (
+    typeof status === "number" &&
+    (status === 408 || status === 429 || (status >= 500 && status <= 599))
+  );
+}
+
+function isTransientLibsqlServerError(error: unknown): boolean {
+  const chain = errorCauseChain(error);
+  return (
+    chain.some(
+      (candidate) => Reflect.get(candidate, "code") === "SERVER_ERROR",
+    ) &&
+    chain.some((candidate) =>
+      isTransientHttpStatus(Reflect.get(candidate, "status")),
+    )
+  );
 }
 
 /**
@@ -67,18 +85,18 @@ export function isLockContention(error: unknown): boolean {
   return hasDatabaseCode(
     error,
     (code) =>
-      code.startsWith("SQLITE_BUSY") ||
-      code.startsWith("SQLITE_LOCKED") ||
-      LIBSQL_TRANSACTION_CONTENTION_CODES.has(code),
+      code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED"),
   );
 }
 
 /** Remote database transport failures for which a later request may succeed. */
 export function isTransientDatabaseFailure(error: unknown): boolean {
-  return hasDatabaseCode(
-    error,
-    (code) =>
-      LIBSQL_TRANSACTION_CONTENTION_CODES.has(code) ||
-      LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
+  return (
+    hasDatabaseCode(
+      error,
+      (code) =>
+        LIBSQL_TRANSACTION_CONTENTION_CODES.has(code) ||
+        LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
+    ) || isTransientLibsqlServerError(error)
   );
 }

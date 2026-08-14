@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
-import type { Client, Transaction } from "@libsql/client/web";
+import type { Client, Transaction } from "@libsql/client/ws";
 import { sql } from "drizzle-orm";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import {
   attachTursoDatabaseBridge,
   forceTursoWriteTransactions,
   readTursoConnectionConfig,
 } from "./tursoAdapter";
+import type { ApiSchema } from "./types";
 
 test("Turso connection config requires a remote database URL", () => {
   expect(() =>
@@ -80,7 +82,9 @@ test("Turso database bridge shapes execute results across nested transactions", 
       return callback(createTransaction(1));
     },
   };
-  const database = attachTursoDatabaseBridge(rawDatabase);
+  const database = attachTursoDatabaseBridge(
+    unsafeCoerce<LibSQLDatabase<ApiSchema>>(rawDatabase),
+  );
 
   const rootResult = await database.execute(sql`select 1`);
   expect(rootResult.rows).toEqual([{ depth: "root" }]);

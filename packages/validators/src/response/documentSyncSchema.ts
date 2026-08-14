@@ -102,6 +102,9 @@ export type DocumentSyncUpdateResponse = z.infer<
 export const DocumentSyncResponseSchema = loosePlainObject({
   acceptedOutgoingUpdateIds: arraySchema(z.string()),
   commitLsn: z.string().nullable(),
+  commitLsnMode: z
+    .union([z.literal("tracked"), z.literal("untracked")])
+    .optional(),
   contentKeyBundle: DocumentContentKeyBundleResponseSchema,
   contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
   documentId: z.string(),

@@ -1,4 +1,8 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  type ApiDatabaseKind,
+  type DatabaseSession,
+  getDefaultApiDatabaseKind,
+} from "@tearleads/api-shared/postgres";
 import {
   documentUpdateSpans,
   documentUpdates,
@@ -9,7 +13,6 @@ import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import {
   isSqliteApiDatabase,
-  isTursoApiDatabase,
   readDateValue,
   textExpression,
   uuidValue,
@@ -138,16 +141,17 @@ function buildFrontierRecordset(clientFrontierJson: string) {
   };
 }
 
-async function assertMinLsnSatisfied(
+export async function assertMinLsnSatisfied(
   executor: DatabaseSession,
   minLsn: string | undefined,
+  databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
 ): Promise<void> {
   if (!minLsn) {
     return;
   }
   // Turso is configured as a remote primary only. With no read replica in the
   // request path, every successful read has already reached the current store.
-  if (isTursoApiDatabase()) {
+  if (databaseKind === "turso") {
     return;
   }
 

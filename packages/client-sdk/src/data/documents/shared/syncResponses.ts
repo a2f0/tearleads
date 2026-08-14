@@ -32,9 +32,9 @@ import type {
 } from "./types";
 
 // Remote-primary databases without a portable WAL position use the zero LSN
-// as an explicit "checkpoint not tracked" sentinel. Accepting it lets a local
-// record carrying a checkpoint from another backend move to that primary; the
-// response is then persisted and resets subsequent minLsn requests to 0/0.
+// as an explicit "checkpoint not tracked" sentinel. It is accepted only when
+// the response declares that mode, letting a local record carrying a checkpoint
+// from another backend move to that primary without weakening tracked checks.
 const UNTRACKED_COMMIT_LSN = "0/0";
 
 function assertAcceptedOutgoingUpdateIdsMatchPlan(
@@ -267,7 +267,10 @@ function assertDocumentSyncCommitCheckpointMatchesPlan(
     throw new Error("Document sync response commit LSN is missing");
   }
   if (
-    response.commitLsn !== UNTRACKED_COMMIT_LSN &&
+    !(
+      response.commitLsn === UNTRACKED_COMMIT_LSN &&
+      response.commitLsnMode === "untracked"
+    ) &&
     parseWalLsn(response.commitLsn, "Document sync response commit LSN") <
       minLsn
   ) {

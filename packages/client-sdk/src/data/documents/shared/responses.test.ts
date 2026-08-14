@@ -320,6 +320,7 @@ test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async 
       {
         ...response,
         commitLsn: "0/0",
+        commitLsnMode: "untracked",
       },
       { resolveWriterPublicKey },
     ),
@@ -329,6 +330,17 @@ test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async 
     documentKekTargets: JSON.stringify(response.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/0",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("commit LSN is stale");
 
   await expect(
     persistedDocumentSyncStateFromResponse(

@@ -10982,6 +10982,7 @@ export interface operations {
                     "application/json": {
                         acceptedOutgoingUpdateIds: string[];
                         commitLsn: string | null;
+                        commitLsnMode?: "tracked" | "untracked";
                         contentKeyBundle: {
                             contentKeyEpoch: number;
                             documentId: string;

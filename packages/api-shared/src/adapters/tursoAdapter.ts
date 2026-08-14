@@ -1,5 +1,8 @@
-import { type Client, type Config, createClient } from "@libsql/client/web";
-import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
+import { type Client, type Config, createClient } from "@libsql/client/ws";
+import {
+  drizzle as drizzleLibsql,
+  type LibSQLDatabase,
+} from "drizzle-orm/libsql";
 import { migrate as migrateLibsql } from "drizzle-orm/libsql/migrator";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
@@ -101,11 +104,9 @@ function attachTransactionExecute(transaction: unknown): DatabaseTransaction {
 }
 
 export function attachTursoDatabaseBridge(
-  libsqlDatabase: unknown,
+  libsqlDatabase: LibSQLDatabase<ApiSchema>,
 ): ApiDatabase {
-  const libsqlDb =
-    unsafeCoerce<ReturnType<typeof drizzleLibsql<ApiSchema>>>(libsqlDatabase);
-  const bridge = attachExecute(libsqlDb);
+  const bridge = attachExecute(libsqlDatabase);
   const rawTransaction = bridge.transaction.bind(bridge);
   const apiBridge = unsafeCoerce<ApiDatabase>(bridge);
   apiBridge.transaction = unsafeCoerce<ApiDatabase["transaction"]>(
