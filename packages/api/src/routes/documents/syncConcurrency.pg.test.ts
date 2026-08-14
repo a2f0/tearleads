@@ -172,6 +172,47 @@ test.skipIf(databaseKind !== "turso")(
   concurrencyTimeoutMs,
 );
 
+test.skipIf(databaseKind !== "turso")(
+  "remote Turso root reads do not wait for a writer reservation",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    await bootstrapRoot(owner);
+
+    let markHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      markHeld = resolve;
+    });
+    let releaseHold!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const writer = db.transaction(async (tx) => {
+      await tx.select({ id: documents.id }).from(documents).limit(1);
+      markHeld();
+      await hold;
+    });
+
+    await held;
+    let readerSettled = false;
+    const reader = db
+      .select({ id: documents.id })
+      .from(documents)
+      .limit(1)
+      .then(() => {
+        readerSettled = true;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const settledWhileWriterHeld = readerSettled;
+    releaseHold();
+    await Promise.all([reader, writer]);
+
+    expect(settledWhileWriterHeld).toBe(true);
+  },
+  concurrencyTimeoutMs,
+);
+
 test("sync rejects a plaintext hash not committed by signed metadata", async () => {
   const owner = createTestUser();
   await registerUser(owner);

@@ -88,7 +88,7 @@ function resultSet(values: readonly bigint[]): ResultSet {
   return unsafeCoerce<ResultSet>({ rows: [row] });
 }
 
-test("Turso enables foreign keys on every statement transaction", async () => {
+test("Turso enables foreign keys on deferred root reads", async () => {
   const calls: string[] = [];
   let applicationStatement: InStatement | undefined;
   const createTransaction = (): Transaction => {
@@ -129,10 +129,111 @@ test("Turso enables foreign keys on every statement transaction", async () => {
   expect((await client.execute("select ?", [1n])).rows[0]?.[0]).toBe(1n);
   expect(applicationStatement).toEqual({ args: [1n], sql: "select ?" });
   expect(calls).toEqual([
+    "transaction:deferred",
+    "executeMultiple:ROLLBACK; PRAGMA foreign_keys = ON; BEGIN DEFERRED",
+    "execute:PRAGMA foreign_keys",
+    "execute:select ?",
+    "commit",
+    "close",
+  ]);
+});
+
+test("Turso root reads can overlap without reserving the writer", async () => {
+  let activeReads = 0;
+  let maxActiveReads = 0;
+  let releaseReads!: () => void;
+  const readsStarted = new Promise<void>((resolve) => {
+    releaseReads = resolve;
+  });
+  const requestedModes: string[] = [];
+  const setups: string[] = [];
+  const client = forceTursoWriteTransactions(
+    enforceTursoForeignKeys(
+      unsafeCoerce<Client>({
+        transaction: async (mode: string) => {
+          requestedModes.push(mode);
+          let foreignKeysEnabled = false;
+          return unsafeCoerce<Transaction>({
+            close: () => undefined,
+            commit: async () => undefined,
+            execute: async (statement: InStatement) => {
+              const query =
+                typeof statement === "string" ? statement : statement.sql;
+              if (query === "PRAGMA foreign_keys") {
+                return resultSet([foreignKeysEnabled ? 1n : 0n]);
+              }
+              activeReads += 1;
+              maxActiveReads = Math.max(maxActiveReads, activeReads);
+              if (activeReads === 2) {
+                releaseReads();
+              }
+              await readsStarted;
+              activeReads -= 1;
+              return resultSet([1n]);
+            },
+            executeMultiple: async (statement: string) => {
+              setups.push(statement);
+              foreignKeysEnabled = statement.includes(
+                "PRAGMA foreign_keys = ON",
+              );
+            },
+            rollback: async () => undefined,
+          });
+        },
+      }),
+    ),
+  );
+
+  await Promise.all([
+    client.execute("SELECT 1"),
+    client.execute({ sql: "  select 2" }),
+  ]);
+
+  expect(requestedModes).toEqual(["deferred", "deferred"]);
+  expect(setups).toEqual([
+    "ROLLBACK; PRAGMA foreign_keys = ON; BEGIN DEFERRED",
+    "ROLLBACK; PRAGMA foreign_keys = ON; BEGIN DEFERRED",
+  ]);
+  expect(maxActiveReads).toBe(2);
+});
+
+test("Turso root writes reserve the writer immediately", async () => {
+  const calls: string[] = [];
+  let foreignKeysEnabled = false;
+  const client = enforceTursoForeignKeys(
+    unsafeCoerce<Client>({
+      transaction: async (mode: string) => {
+        calls.push(`transaction:${mode}`);
+        return unsafeCoerce<Transaction>({
+          close: () => calls.push("close"),
+          commit: async () => {
+            calls.push("commit");
+          },
+          execute: async (statement: InStatement) => {
+            const query =
+              typeof statement === "string" ? statement : statement.sql;
+            calls.push(`execute:${query}`);
+            return query === "PRAGMA foreign_keys"
+              ? resultSet([foreignKeysEnabled ? 1n : 0n])
+              : resultSet([1n]);
+          },
+          executeMultiple: async (statement: string) => {
+            calls.push(`executeMultiple:${statement}`);
+            foreignKeysEnabled = statement.includes("PRAGMA foreign_keys = ON");
+          },
+          rollback: async () => undefined,
+        });
+      },
+    }),
+  );
+
+  await client.execute("INSERT INTO example VALUES (1)");
+
+  expect(calls).toEqual([
     "transaction:write",
     "executeMultiple:ROLLBACK; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE",
     "execute:PRAGMA foreign_keys",
-    "execute:select ?",
+    "execute:INSERT INTO example VALUES (1)",
     "commit",
     "close",
   ]);

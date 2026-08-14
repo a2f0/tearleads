@@ -7,6 +7,7 @@ import {
   type ResultSet,
   type Row,
   type Transaction,
+  type TransactionMode,
 } from "@libsql/client/ws";
 import {
   drizzle as drizzleLibsql,
@@ -180,17 +181,24 @@ export function normalizeTursoResultIntegers(client: Client): Client {
   });
 }
 
-const FOREIGN_KEY_TRANSACTION_SETUP =
-  "ROLLBACK; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE";
+type ForeignKeyTransactionMode = Extract<TransactionMode, "deferred" | "write">;
 
-async function openForeignKeyTransaction(client: Client): Promise<Transaction> {
-  const transaction = await client.transaction("write");
+function foreignKeyTransactionSetup(mode: ForeignKeyTransactionMode): string {
+  const begin = mode === "deferred" ? "BEGIN DEFERRED" : "BEGIN IMMEDIATE";
+  return `ROLLBACK; PRAGMA foreign_keys = ON; ${begin}`;
+}
+
+async function openForeignKeyTransaction(
+  client: Client,
+  mode: ForeignKeyTransactionMode = "write",
+): Promise<Transaction> {
+  const transaction = await client.transaction(mode);
   try {
     // @libsql/client starts BEGIN before a transaction's first statement, but
     // SQLite ignores changes to foreign_keys inside a transaction. Restart the
     // same remote stream so the PRAGMA runs in autocommit mode, then verify the
     // load-bearing setting before exposing the transaction to Drizzle.
-    await transaction.executeMultiple(FOREIGN_KEY_TRANSACTION_SETUP);
+    await transaction.executeMultiple(foreignKeyTransactionSetup(mode));
     const result = await transaction.execute("PRAGMA foreign_keys");
     const enabled = result.rows[0]?.[0];
     if (enabled !== 1 && enabled !== 1n) {
@@ -212,9 +220,10 @@ async function openForeignKeyTransaction(client: Client): Promise<Transaction> {
 
 async function withForeignKeyTransaction<T>(
   client: Client,
+  mode: ForeignKeyTransactionMode,
   operation: (transaction: Transaction) => Promise<T>,
 ): Promise<T> {
-  const transaction = await openForeignKeyTransaction(client);
+  const transaction = await openForeignKeyTransaction(client, mode);
   try {
     const result = await operation(transaction);
     await transaction.commit();
@@ -237,6 +246,14 @@ function executeStatementFromArgs(args: unknown[]): InStatement {
     return { args: unsafeCoerce<InArgs>(args[1]), sql: statement };
   }
   return unsafeCoerce<InStatement>(statement);
+}
+
+function statementSql(statement: InStatement): string {
+  return typeof statement === "string" ? statement : statement.sql;
+}
+
+function isReadStatement(statement: InStatement): boolean {
+  return /^\s*SELECT\b/iu.test(statementSql(statement));
 }
 
 function transactionBatchStatements(args: unknown[]): InStatement[] {
@@ -263,20 +280,28 @@ export function enforceTursoForeignKeys(client: Client): Client {
         return () => openForeignKeyTransaction(target);
       }
       if (property === "execute") {
-        return (...args: unknown[]) =>
-          withForeignKeyTransaction(target, (transaction) =>
-            transaction.execute(executeStatementFromArgs(args)),
+        return (...args: unknown[]) => {
+          const statement = executeStatementFromArgs(args);
+          return withForeignKeyTransaction(
+            target,
+            isReadStatement(statement) ? "deferred" : "write",
+            (transaction) => transaction.execute(statement),
           );
+        };
       }
       if (property === "batch") {
-        return (...args: unknown[]) =>
-          withForeignKeyTransaction(target, (transaction) =>
-            transaction.batch(transactionBatchStatements(args)),
+        return (...args: unknown[]) => {
+          const statements = transactionBatchStatements(args);
+          return withForeignKeyTransaction(
+            target,
+            statements.every(isReadStatement) ? "deferred" : "write",
+            (transaction) => transaction.batch(statements),
           );
+        };
       }
       if (property === "executeMultiple") {
         return (...args: unknown[]) =>
-          withForeignKeyTransaction(target, (transaction) =>
+          withForeignKeyTransaction(target, "write", (transaction) =>
             transaction.executeMultiple(unsafeCoerce<string>(args[0])),
           );
       }
@@ -366,7 +391,7 @@ export function createTursoApiDatabase(
   const client = createClient(config);
   const libsqlDb = drizzleLibsql({
     client: normalizeTursoResultIntegers(
-      enforceTursoForeignKeys(forceTursoWriteTransactions(client)),
+      forceTursoWriteTransactions(enforceTursoForeignKeys(client)),
     ),
     schema,
   });
