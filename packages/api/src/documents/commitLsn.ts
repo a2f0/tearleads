@@ -99,6 +99,16 @@ export async function readCurrentCommitLsn(
 
 export function readCommitLsnMode(
   databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
-): "tracked" | "untracked" {
-  return databaseKind === "turso" ? "untracked" : "tracked";
+  options: {
+    readonly clientSupportsUntracked?: boolean | undefined;
+  } = {},
+): "tracked" | "untracked" | undefined {
+  if (databaseKind !== "turso") {
+    return "tracked";
+  }
+
+  // A legacy Turso response echoes the request's compatibility token rather
+  // than claiming it is a real watermark. Omitting the additive mode keeps
+  // that nonzero token from being mislabeled as an untracked checkpoint.
+  return options.clientSupportsUntracked ? "untracked" : undefined;
 }

@@ -19,7 +19,10 @@ test("Turso negotiates untracked LSNs without querying the database", async () =
     await readCurrentCommitLsn(executor, "turso", { minimumLsn: "0/20" }),
   ).toBe("0/20");
   expect(await readCurrentCommitLsn(executor, "turso")).toBe("0/0");
-  expect(readCommitLsnMode("turso")).toBe("untracked");
+  expect(readCommitLsnMode("turso")).toBeUndefined();
+  expect(readCommitLsnMode("turso", { clientSupportsUntracked: true })).toBe(
+    "untracked",
+  );
   expect(readCommitLsnMode("postgres")).toBe("tracked");
 });
 
