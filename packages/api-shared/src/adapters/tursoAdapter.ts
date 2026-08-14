@@ -9,11 +9,9 @@ import {
   type Transaction,
   type TransactionMode,
 } from "@libsql/client/ws";
-import {
-  drizzle as drizzleLibsql,
-  type LibSQLDatabase,
-} from "drizzle-orm/libsql";
+import type { LibSQLDatabase } from "drizzle-orm/libsql/driver-core";
 import { migrate as migrateLibsql } from "drizzle-orm/libsql/migrator";
+import { drizzle as drizzleLibsql } from "drizzle-orm/libsql/ws";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import { isTursoReadStatement } from "./tursoStatementMode";

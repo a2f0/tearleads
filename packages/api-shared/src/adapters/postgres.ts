@@ -137,17 +137,24 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
   return user ? { ...defaults, user } : defaults;
 }
 
-function isInMemorySqlitePath(sqlitePath: string): boolean {
+function isNonPersistentSqlitePath(sqlitePath: string): boolean {
   if (sqlitePath.toLowerCase() === ":memory:") {
     return true;
   }
   if (!sqlitePath.toLowerCase().startsWith("file:")) {
     return false;
   }
+  const fileUriPath = sqlitePath.slice("file:".length).split(/[?#]/u, 1)[0];
+  if (!fileUriPath) {
+    return true;
+  }
 
   try {
     const parsed = new URL(sqlitePath);
     const pathname = decodeURIComponent(parsed.pathname).toLowerCase();
+    if (pathname.length === 0) {
+      return true;
+    }
     if (pathname === "/:memory:" || pathname === ":memory:") {
       return true;
     }
@@ -165,7 +172,7 @@ function readSqlitePath(env: ApiDatabaseEnv): string {
   if (sqlitePath) {
     if (
       env.NODE_ENV?.trim() === "production" &&
-      isInMemorySqlitePath(sqlitePath)
+      isNonPersistentSqlitePath(sqlitePath)
     ) {
       throw new Error(
         "API_SQLITE_PATH or SQLITE_PATH must reference persistent storage in production",

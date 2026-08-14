@@ -101,6 +101,7 @@ export function readCommitLsnMode(
   databaseKind: ApiDatabaseKind = getDefaultApiDatabaseKind(),
   options: {
     readonly clientSupportsUntracked?: boolean | undefined;
+    readonly minimumLsn?: string | undefined;
   } = {},
 ): "tracked" | "untracked" | undefined {
   if (databaseKind !== "turso") {
@@ -109,6 +110,9 @@ export function readCommitLsnMode(
 
   // A legacy Turso response echoes the request's compatibility token rather
   // than claiming it is a real watermark. Omitting the additive mode keeps
-  // that nonzero token from being mislabeled as an untracked checkpoint.
-  return options.clientSupportsUntracked ? "untracked" : undefined;
+  // that nonzero token from being mislabeled as an untracked checkpoint. A
+  // requested 0/0 already is the sentinel, so declaring it remains valid.
+  return options.clientSupportsUntracked || options.minimumLsn === "0/0"
+    ? "untracked"
+    : undefined;
 }

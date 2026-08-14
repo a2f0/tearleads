@@ -396,15 +396,20 @@ export async function runDocumentSyncWorkflow(
       input.request.supportsUntrackedCommitLsn === true;
     const commitLsnMode = readCommitLsnMode(undefined, {
       clientSupportsUntracked,
+      minimumLsn: input.request.minLsn,
     });
+    const commitLsn =
+      commitLsnMode === undefined && input.request.minLsn === undefined
+        ? null
+        : await readCurrentCommitLsn(db, undefined, {
+            clientSupportsUntracked,
+            minimumLsn: input.request.minLsn,
+          });
     return {
       insertedUpdateIds: transactionResult.insertedUpdateIds,
       response: {
         acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
-        commitLsn: await readCurrentCommitLsn(db, undefined, {
-          clientSupportsUntracked,
-          minimumLsn: input.request.minLsn,
-        }),
+        commitLsn,
         ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
         contentKeyBundle,
         contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>

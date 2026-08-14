@@ -116,6 +116,16 @@ test.skipIf(databaseKind !== "turso")(
       root,
     });
 
+    const initialLegacyResponse = await postDocumentSync(
+      owner,
+      created.id,
+      request,
+    );
+    expect(initialLegacyResponse.status).toBe(200);
+    const initialLegacyBody = await initialLegacyResponse.json();
+    expect(initialLegacyBody).toMatchObject({ commitLsn: null });
+    expect(initialLegacyBody).not.toHaveProperty("commitLsnMode");
+
     const legacyResponse = await postDocumentSync(owner, created.id, {
       ...request,
       minLsn: "FFFFFFFF/FFFFFFFF",

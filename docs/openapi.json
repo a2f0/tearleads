@@ -25317,6 +25317,10 @@
           {
             "description": "commitLsnMode \"untracked\" requires the commitLsn \"0/0\" sentinel",
             "id": "response.untracked-commit-lsn-sentinel"
+          },
+          {
+            "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
+            "id": "response.untracked-commit-lsn-mode"
           }
         ]
       }

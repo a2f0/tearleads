@@ -38,7 +38,14 @@ export const documentSyncResponseCommitLsnModeRefinement = {
   id: "response.untracked-commit-lsn-sentinel",
 } as const;
 
+export const documentSyncResponseCommitLsnSentinelRefinement = {
+  description:
+    'commitLsn "0/0" requires commitLsnMode "untracked" in the same response',
+  id: "response.untracked-commit-lsn-mode",
+} as const;
+
 export const documentSyncResponseRuntimeRefinements = [
   documentSyncResponseRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
+  documentSyncResponseCommitLsnSentinelRefinement,
 ] as const;

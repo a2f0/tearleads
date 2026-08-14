@@ -27,4 +27,13 @@ test("document sync responses declare only supported commit LSN modes", () => {
       }),
     ).toBe(false);
   }
+  for (const commitLsnMode of [undefined, "tracked"]) {
+    expect(
+      isDocumentSyncResponse({
+        ...response,
+        commitLsn: "0/0",
+        commitLsnMode,
+      }),
+    ).toBe(false);
+  }
 });

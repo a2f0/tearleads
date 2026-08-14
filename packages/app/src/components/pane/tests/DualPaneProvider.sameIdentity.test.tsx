@@ -112,10 +112,20 @@ async function expectSingleYouContact(input: {
   pane: HTMLElement;
   userId: string;
 }) {
-  // Re-focus Explorer even when a prior window remains mounted. The active
-  // mini-app can change while the organization workflow runs, and a mounted
-  // sidebar is not evidence that its item table is currently available.
-  await openExplorer(input.pane);
+  // Re-focus the existing Explorer after another mini-app comes to the front.
+  // The pane context menu deliberately creates a new window, so use it only
+  // for the first launch to keep pane-wide queries unambiguous.
+  const explorerWindow = within(input.pane)
+    .queryAllByText("Explorer")
+    .map((element) => element.closest<HTMLElement>(".window"))
+    .find((windowRoot) => windowRoot !== null);
+  if (explorerWindow) {
+    await interact(() => {
+      fireEvent.mouseDown(explorerWindow);
+    });
+  } else {
+    await openExplorer(input.pane);
+  }
   await waitForCondition(
     () => getExplorerSidebarItemsByName(input.pane, "Contacts").length > 0,
     "Explorer did not materialize the personal Contacts container.",

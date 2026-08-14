@@ -7,6 +7,7 @@ import {
 } from "../documentSyncCheckpoint";
 import {
   documentSyncResponseCommitLsnModeRefinement,
+  documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
@@ -125,8 +126,21 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
         path: ["commitLsn"],
       });
     }
+    if (
+      response.commitLsn === "0/0" &&
+      response.commitLsnMode !== "untracked"
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "0/0 commit LSN must be declared untracked",
+        path: ["commitLsnMode"],
+      });
+    }
   }),
-  [documentSyncResponseCommitLsnModeRefinement],
+  [
+    documentSyncResponseCommitLsnModeRefinement,
+    documentSyncResponseCommitLsnSentinelRefinement,
+  ],
 );
 
 export type DocumentSyncResponse = z.infer<typeof DocumentSyncResponseSchema>;

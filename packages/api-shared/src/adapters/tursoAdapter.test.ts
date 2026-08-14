@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type {
   Client,
   InStatement,
@@ -7,7 +11,7 @@ import type {
   Transaction,
 } from "@libsql/client/ws";
 import { sql } from "drizzle-orm";
-import type { LibSQLDatabase } from "drizzle-orm/libsql";
+import type { LibSQLDatabase } from "drizzle-orm/libsql/driver-core";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import {
   attachTursoDatabaseBridge,
@@ -386,3 +390,43 @@ test("Turso database bridge shapes execute results across nested transactions", 
     "execute:2",
   ]);
 });
+
+test.skipIf(
+  process.platform !== "linux" ||
+    (process.arch !== "x64" && process.arch !== "arm64"),
+)(
+  "Turso adapter runs from a compiled API binary without native libSQL",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tearleads-turso-binary-"));
+    const outfile = join(directory, "turso-adapter-smoke");
+    try {
+      const target: Bun.Build.CompileTarget =
+        process.arch === "arm64" ? "bun-linux-arm64" : "bun-linux-x64";
+      const result = await Bun.build({
+        compile: { outfile, target },
+        entrypoints: [
+          fileURLToPath(new URL("./tursoAdapter.ts", import.meta.url)),
+        ],
+        target: "bun",
+      });
+      if (!result.success) {
+        throw new Error(result.logs.map((log) => log.message).join("\n"));
+      }
+
+      const child = Bun.spawn([outfile], { stderr: "pipe", stdout: "pipe" });
+      const [exitCode, stderr, stdout] = await Promise.all([
+        child.exited,
+        new Response(child.stderr).text(),
+        new Response(child.stdout).text(),
+      ]);
+      expect({ exitCode, stderr, stdout }).toEqual({
+        exitCode: 0,
+        stderr: "",
+        stdout: "",
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  },
+  60_000,
+);

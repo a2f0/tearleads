@@ -4,6 +4,7 @@ import {
   documentSyncRequestEnvelopeRefinements,
   documentSyncRequestRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
+  documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
 import { DocumentSyncRequestSchema } from "../request";
@@ -96,6 +97,15 @@ const witnesses = {
       commitLsnMode: "untracked",
     }),
     expectedMessage: "untracked commit LSN must use the 0/0 sentinel",
+    kind: "response",
+  },
+  [documentSyncResponseCommitLsnSentinelRefinement.id]: {
+    createInput: () => ({
+      ...createSyncResponse(),
+      commitLsn: "0/0",
+      commitLsnMode: "tracked",
+    }),
+    expectedMessage: "0/0 commit LSN must be declared untracked",
     kind: "response",
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;

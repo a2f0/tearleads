@@ -169,6 +169,8 @@ test("default API database requires a persistent SQLite path in production", () 
 
   for (const sqlitePath of [
     ":memory:",
+    "file:",
+    "file:?cache=shared",
     "file::memory:?cache=shared",
     "file:ephemeral?mode=memory&cache=shared",
     "file:ephemeral?mo%64e=memory",
