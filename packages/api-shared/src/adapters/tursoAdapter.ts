@@ -16,6 +16,7 @@ import {
 import { migrate as migrateLibsql } from "drizzle-orm/libsql/migrator";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
+import { isTursoReadStatement } from "./tursoStatementMode";
 import type {
   ApiDatabase,
   ApiDatabaseSurface,
@@ -282,7 +283,7 @@ function statementSql(statement: InStatement): string {
 }
 
 function isReadStatement(statement: InStatement): boolean {
-  return /^\s*SELECT\b/iu.test(statementSql(statement));
+  return isTursoReadStatement(statementSql(statement));
 }
 
 function transactionBatchStatements(args: unknown[]): InStatement[] {

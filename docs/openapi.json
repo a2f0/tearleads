@@ -25313,6 +25313,10 @@
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "response.rotation-checkpoint-fields"
+          },
+          {
+            "description": "commitLsnMode \"untracked\" requires the commitLsn \"0/0\" sentinel",
+            "id": "response.untracked-commit-lsn-sentinel"
           }
         ]
       }

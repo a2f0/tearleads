@@ -217,8 +217,14 @@ test("Turso root reads can overlap without reserving the writer", async () => {
   );
 
   await Promise.all([
-    client.execute("SELECT 1"),
-    client.execute({ sql: "  select 2" }),
+    client.execute("/* root read */ SELECT 1"),
+    client.execute({
+      sql: `-- Direct membership lookup
+        WITH RECURSIVE reachable_principals AS (
+          SELECT 2 AS value
+        )
+        SELECT value FROM reachable_principals`,
+    }),
   ]);
 
   expect(requestedModes).toEqual(["deferred", "deferred"]);
@@ -259,13 +265,16 @@ test("Turso root writes reserve the writer immediately", async () => {
     }),
   );
 
-  await client.execute("INSERT INTO example VALUES (1)");
+  const statement = `-- CTE writes must not be classified by their inner SELECT
+    WITH payload AS (SELECT 1 AS value)
+    INSERT INTO example SELECT value FROM payload`;
+  await client.execute(statement);
 
   expect(calls).toEqual([
     "transaction:write",
     "executeMultiple:ROLLBACK; PRAGMA foreign_keys = ON; BEGIN IMMEDIATE",
     "execute:PRAGMA foreign_keys",
-    "execute:INSERT INTO example VALUES (1)",
+    `execute:${statement}`,
     "commit",
     "close",
   ]);

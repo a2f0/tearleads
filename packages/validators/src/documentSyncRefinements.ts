@@ -32,6 +32,13 @@ export const documentSyncResponseRotationRefinement = {
   id: "response.rotation-checkpoint-fields",
 } as const;
 
+export const documentSyncResponseCommitLsnModeRefinement = {
+  description:
+    'commitLsnMode "untracked" requires the commitLsn "0/0" sentinel',
+  id: "response.untracked-commit-lsn-sentinel",
+} as const;
+
 export const documentSyncResponseRuntimeRefinements = [
   documentSyncResponseRotationRefinement,
+  documentSyncResponseCommitLsnModeRefinement,
 ] as const;
