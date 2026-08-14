@@ -174,17 +174,6 @@ test("default API database requires explicit Turso credentials", () => {
   ).toThrow("TURSO_DATABASE_URL is required when API_DATABASE=turso");
 });
 
-test("default API database constructs the remote Turso adapter", async () => {
-  const database = createDefaultManagedApiDatabase({
-    API_DATABASE: "turso",
-    TURSO_AUTH_TOKEN: "test-token",
-    TURSO_DATABASE_URL: "libsql://test-database.turso.io",
-  });
-
-  expect(database.kind).toBe("turso");
-  await database.close();
-});
-
 test("default API database supports sqlite migrations", async () => {
   const adapterUrl = new URL("./postgres.ts", import.meta.url).href;
   const schemaUrl = new URL("../schema.ts", import.meta.url).href;

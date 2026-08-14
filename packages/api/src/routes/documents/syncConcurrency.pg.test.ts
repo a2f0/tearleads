@@ -218,7 +218,9 @@ test("sync rejects a malformed authorizing container id with 400", async () => {
 // advance that head under an in-flight write it no longer authorizes. The
 // stand-in ancestor here is a second root container that is not in the
 // document's target set; before the fix the contender acquires its head
-// immediately and the blocked assertion fails.
+// immediately and the blocked assertion fails. On Turso, BEGIN IMMEDIATE's
+// database-wide writer reservation supplies the blocking instead; that run is
+// an adapter isolation smoke test, not a test of frontier-lock specificity.
 test.skipIf(!onConcurrencyBackend)(
   "sync write frontier blocks head updates on authorizing ancestors",
   async () => {

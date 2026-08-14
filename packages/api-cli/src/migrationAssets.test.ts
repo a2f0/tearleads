@@ -28,6 +28,12 @@ test("embedded migrations are selected only from the active dialect", () => {
   );
   expect(embeddedMigrationPath(sqliteName, "postgres")).toBeUndefined();
   expect(embeddedMigrationPath(postgresName, "sqlite")).toBeUndefined();
+  expect(
+    embeddedMigrationPath(
+      "/build/drizzle/not-an-api-migration.sql",
+      "postgres",
+    ),
+  ).toBeUndefined();
 });
 
 test("SQLite and Turso select the SQLite migration bundle", () => {

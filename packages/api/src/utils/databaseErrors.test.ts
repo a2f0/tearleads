@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { isLockContention, isTransientDatabaseFailure } from "./databaseErrors";
+import {
+  isLibsqlTransactionContention,
+  isLockContention,
+  isTransientDatabaseFailure,
+} from "./databaseErrors";
 
 test("classifies libSQL transaction interruption as transient, not conflict", () => {
   for (const code of ["STREAM_EXPIRED", "TRANSACTION_TIMEOUT"]) {
@@ -9,6 +13,7 @@ test("classifies libSQL transaction interruption as transient, not conflict", ()
     const wrappedError = new Error("Failed query", { cause: driverError });
 
     expect(isLockContention(wrappedError)).toBe(false);
+    expect(isLibsqlTransactionContention(wrappedError)).toBe(true);
     expect(isTransientDatabaseFailure(wrappedError)).toBe(true);
   }
 });
@@ -58,5 +63,11 @@ test("retries only transient libSQL HTTP server statuses", () => {
     );
 
     expect(isTransientDatabaseFailure(serverError)).toBe(false);
+
+    const unrelatedStatusWrapper = Object.assign(
+      new Error("Application request failed", { cause: serverError }),
+      { status: 503 },
+    );
+    expect(isTransientDatabaseFailure(unrelatedStatusWrapper)).toBe(false);
   }
 });

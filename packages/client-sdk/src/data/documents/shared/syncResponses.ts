@@ -35,6 +35,8 @@ import type {
 // as an explicit "checkpoint not tracked" sentinel. It is accepted only when
 // the response declares that mode, letting a local record carrying a checkpoint
 // from another backend move to that primary without weakening tracked checks.
+// This protects against replica lag, not a server that falsely declares its own
+// consistency capability; the authenticated server remains the source of data.
 const UNTRACKED_COMMIT_LSN = "0/0";
 
 function assertAcceptedOutgoingUpdateIdsMatchPlan(

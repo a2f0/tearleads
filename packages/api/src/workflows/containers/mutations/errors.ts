@@ -3,6 +3,7 @@ import type { PrincipalPolicyStaleErrorResponse } from "@tearleads/validators/re
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
   errorCauseChain,
+  isLibsqlTransactionContention,
   isLockContention,
   isSerializationFailure,
   isUniqueViolation,
@@ -37,6 +38,13 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     return new ContainerMutationError(
       error.message,
       keyingVerificationHttpStatus(error),
+    );
+  }
+
+  if (isLibsqlTransactionContention(error)) {
+    return new ContainerMutationError(
+      "Container mutation transaction conflicted; retry",
+      409,
     );
   }
 
@@ -83,6 +91,7 @@ export async function runConflictBoundary<T>(
 
     if (
       isUniqueViolation(error) ||
+      isLibsqlTransactionContention(error) ||
       isSerializationFailure(error) ||
       isLockContention(error)
     ) {

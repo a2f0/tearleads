@@ -58,14 +58,24 @@ function isTransientHttpStatus(status: unknown): boolean {
 }
 
 function isTransientLibsqlServerError(error: unknown): boolean {
-  const chain = errorCauseChain(error);
-  return (
-    chain.some(
-      (candidate) => Reflect.get(candidate, "code") === "SERVER_ERROR",
-    ) &&
-    chain.some((candidate) =>
-      isTransientHttpStatus(Reflect.get(candidate, "status")),
-    )
+  return errorCauseChain(error).some((candidate) => {
+    if (Reflect.get(candidate, "code") !== "SERVER_ERROR") {
+      return false;
+    }
+    if (isTransientHttpStatus(Reflect.get(candidate, "status"))) {
+      return true;
+    }
+    return (
+      candidate.cause instanceof Error &&
+      isTransientHttpStatus(Reflect.get(candidate.cause, "status"))
+    );
+  });
+}
+
+/** A libSQL transaction lost its writer reservation and is safe to retry. */
+export function isLibsqlTransactionContention(error: unknown): boolean {
+  return hasDatabaseCode(error, (code) =>
+    LIBSQL_TRANSACTION_CONTENTION_CODES.has(code),
   );
 }
 
@@ -92,11 +102,10 @@ export function isLockContention(error: unknown): boolean {
 /** Remote database transport failures for which a later request may succeed. */
 export function isTransientDatabaseFailure(error: unknown): boolean {
   return (
-    hasDatabaseCode(
-      error,
-      (code) =>
-        LIBSQL_TRANSACTION_CONTENTION_CODES.has(code) ||
-        LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
-    ) || isTransientLibsqlServerError(error)
+    isLibsqlTransactionContention(error) ||
+    hasDatabaseCode(error, (code) =>
+      LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
+    ) ||
+    isTransientLibsqlServerError(error)
   );
 }

@@ -52,14 +52,17 @@ export function readTursoConnectionConfig(
   };
 }
 
-// Drizzle 0.45 does not forward its SQLite transaction config to libSQL. Keep
-// the selection explicit here so a future @libsql/client default change cannot
-// silently turn API write transactions into deferred transactions.
+// Turso uses the SQLite dialect, so SELECT FOR UPDATE intentionally degrades to
+// a plain select. Every API transaction must therefore reserve the remote writer
+// up front: BEGIN IMMEDIATE is the load-bearing isolation boundary for mutation
+// workflows. Drizzle 0.45 does not forward its SQLite transaction config, so
+// force write mode here. This also means today's read-only transactions reserve
+// the writer; introducing read transactions requires a distinct API surface.
 export function forceTursoWriteTransactions(client: Client): Client {
   return new Proxy(client, {
     get(target, property) {
       if (property === "transaction") {
-        return () => target.transaction("write");
+        return (_mode?: unknown) => target.transaction("write");
       }
 
       const value = Reflect.get(target, property, target);
@@ -91,6 +94,8 @@ function attachTransactionExecute(transaction: unknown): DatabaseTransaction {
   const transactionBridge = unsafeCoerce<DatabaseTransaction>(
     attachExecute(transaction),
   );
+  // Drizzle currently allocates a fresh LibSQLTransaction for every callback;
+  // this in-place wrapper relies on that and must not be applied twice.
   const rawNestedTransaction =
     transactionBridge.transaction.bind(transactionBridge);
   transactionBridge.transaction = unsafeCoerce<

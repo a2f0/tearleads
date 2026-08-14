@@ -68,3 +68,15 @@ test("container 404s do not become document-deletion 404s", () => {
     ),
   ).toMatchObject({ message: "Container not found", status: 409 });
 });
+
+test("libSQL transaction interruption becomes a coded retryable conflict", () => {
+  const transactionError = Object.assign(new Error("transaction timed out"), {
+    code: "TRANSACTION_TIMEOUT",
+  });
+
+  expect(toMutationError(transactionError)).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    message: "Document mutation transaction conflicted; retry",
+    status: 409,
+  });
+});

@@ -1,8 +1,8 @@
 export type ApiMigrationDialect = "postgres" | "sqlite";
 
 const migrationPathSegments: Record<ApiMigrationDialect, string> = {
-  postgres: "drizzle/",
-  sqlite: "drizzle-sqlite/",
+  postgres: "packages/api-shared/drizzle/",
+  sqlite: "packages/api-shared/drizzle-sqlite/",
 };
 
 export const migrationAssetPatterns = [
@@ -24,7 +24,7 @@ export function embeddedMigrationPath(
   dialect: ApiMigrationDialect,
 ): string | undefined {
   const pathSegment = migrationPathSegments[dialect];
-  const markerIndex = name.indexOf(pathSegment);
+  const markerIndex = name.lastIndexOf(pathSegment);
   if (markerIndex < 0) {
     return undefined;
   }

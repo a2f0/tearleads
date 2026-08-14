@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { ContainerMutationError, runConflictBoundary } from "./errors";
+import {
+  ContainerMutationError,
+  runConflictBoundary,
+  toMutationError,
+} from "./errors";
 
 test("runConflictBoundary hides predecessor fork constraint details", async () => {
   const databaseError = Object.assign(new Error("duplicate key"), {
@@ -56,4 +60,20 @@ test("runConflictBoundary maps coded unique violations to a 409", async () => {
   await expect(rejection).rejects.toEqual(
     new ContainerMutationError("Failed query", 409),
   );
+});
+
+test("libSQL transaction interruption maps to a retryable conflict", async () => {
+  const transactionError = Object.assign(new Error("transaction expired"), {
+    code: "STREAM_EXPIRED",
+  });
+
+  expect(toMutationError(transactionError)).toEqual(
+    new ContainerMutationError(
+      "Container mutation transaction conflicted; retry",
+      409,
+    ),
+  );
+  await expect(
+    runConflictBoundary(() => Promise.reject(transactionError)),
+  ).rejects.toEqual(new ContainerMutationError("transaction expired", 409));
 });
