@@ -136,9 +136,26 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
   return user ? { ...defaults, user } : defaults;
 }
 
+function isInMemorySqlitePath(sqlitePath: string): boolean {
+  const normalized = sqlitePath.toLowerCase();
+  return (
+    normalized === ":memory:" ||
+    /^file::memory:(?:[?#]|$)/u.test(normalized) ||
+    /[?&]mode=memory(?:&|$)/u.test(normalized)
+  );
+}
+
 function readSqlitePath(env: ApiDatabaseEnv): string {
   const sqlitePath = getEnvValue(env, sqlitePathKeys);
   if (sqlitePath) {
+    if (
+      env.NODE_ENV?.trim() === "production" &&
+      isInMemorySqlitePath(sqlitePath)
+    ) {
+      throw new Error(
+        "API_SQLITE_PATH or SQLITE_PATH must reference persistent storage in production",
+      );
+    }
     return sqlitePath;
   }
 

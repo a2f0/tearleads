@@ -166,6 +166,22 @@ test("default API database requires a persistent SQLite path in production", () 
   ).toThrow(
     "API_SQLITE_PATH or SQLITE_PATH is required when API_DATABASE=sqlite in production",
   );
+
+  for (const sqlitePath of [
+    ":memory:",
+    "file::memory:?cache=shared",
+    "file:ephemeral?mode=memory&cache=shared",
+  ]) {
+    expect(() =>
+      createDefaultManagedApiDatabase({
+        API_DATABASE: "sqlite",
+        API_SQLITE_PATH: sqlitePath,
+        NODE_ENV: "production",
+      }),
+    ).toThrow(
+      "API_SQLITE_PATH or SQLITE_PATH must reference persistent storage in production",
+    );
+  }
 });
 
 test("default API database requires explicit Turso credentials", () => {

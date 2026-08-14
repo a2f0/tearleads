@@ -68,6 +68,11 @@ export function readTursoConnectionConfig(
       "TURSO_DATABASE_URL must not contain authToken; use TURSO_AUTH_TOKEN",
     );
   }
+  if (parsedUrl.username || parsedUrl.password) {
+    throw new Error(
+      "TURSO_DATABASE_URL must not contain userinfo credentials; use TURSO_AUTH_TOKEN",
+    );
+  }
 
   return {
     authToken: requireEnvValue(env, "TURSO_AUTH_TOKEN"),

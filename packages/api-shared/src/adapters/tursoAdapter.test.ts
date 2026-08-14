@@ -53,6 +53,13 @@ test("Turso connection config requires TLS and separate authentication", () => {
       TURSO_DATABASE_URL: "libsql://test-database.turso.io?authToken=url-token",
     }),
   ).toThrow("TURSO_DATABASE_URL must not contain authToken");
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL:
+        "libsql://url-user:url-password@test-database.turso.io",
+    }),
+  ).toThrow("TURSO_DATABASE_URL must not contain userinfo credentials");
 });
 
 test("Turso connection config trims remote credentials", () => {
