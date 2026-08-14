@@ -255,6 +255,22 @@ function assertDocumentSyncCommitCheckpointMatchesPlan(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
 ): void {
+  if (
+    response.commitLsnMode === "untracked" &&
+    response.commitLsn !== UNTRACKED_COMMIT_LSN
+  ) {
+    throw new Error(
+      "Document sync response untracked commit LSN must use the 0/0 sentinel",
+    );
+  }
+  if (
+    response.commitLsn === UNTRACKED_COMMIT_LSN &&
+    response.commitLsnMode !== "untracked"
+  ) {
+    throw new Error(
+      "Document sync response 0/0 commit LSN must be declared untracked",
+    );
+  }
   if (response.commitLsn !== null) {
     parseWalLsn(response.commitLsn, "Document sync response commit LSN");
   }

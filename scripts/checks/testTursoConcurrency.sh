@@ -16,6 +16,8 @@ cd "$REPO_ROOT"
   fail "TURSO_TEST_DATABASE_URL must identify a dedicated remote test database."
 [ -n "${TURSO_TEST_AUTH_TOKEN:-}" ] ||
   fail "TURSO_TEST_AUTH_TOKEN is required for the dedicated test database."
+[ -n "${TURSO_TEST_PRIMARY_INSTANCE_ID:-}" ] ||
+  fail "TURSO_TEST_PRIMARY_INSTANCE_ID is required for primary-only reads."
 
 case "$TURSO_TEST_DATABASE_URL" in
   libsql://*) ;;
@@ -27,7 +29,8 @@ esac
 API_DATABASE=turso
 TURSO_DATABASE_URL=$TURSO_TEST_DATABASE_URL
 TURSO_AUTH_TOKEN=$TURSO_TEST_AUTH_TOKEN
-export API_DATABASE TURSO_AUTH_TOKEN TURSO_DATABASE_URL
+TURSO_PRIMARY_INSTANCE_ID=$TURSO_TEST_PRIMARY_INSTANCE_ID
+export API_DATABASE TURSO_AUTH_TOKEN TURSO_DATABASE_URL TURSO_PRIMARY_INSTANCE_ID
 
 # The test database is migrated in the API test preload. Use a disposable or
 # dedicated Turso database because the parity and concurrency cases retain

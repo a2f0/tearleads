@@ -53,6 +53,7 @@ interface ApiDatabaseEnv {
   readonly SQLITE_PATH?: string | undefined;
   readonly TURSO_AUTH_TOKEN?: string | undefined;
   readonly TURSO_DATABASE_URL?: string | undefined;
+  readonly TURSO_PRIMARY_INSTANCE_ID?: string | undefined;
   readonly USER?: string | undefined;
   readonly LOGNAME?: string | undefined;
   readonly [key: string]: string | undefined;
@@ -137,12 +138,26 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
 }
 
 function isInMemorySqlitePath(sqlitePath: string): boolean {
-  const normalized = sqlitePath.toLowerCase();
-  return (
-    normalized === ":memory:" ||
-    /^file::memory:(?:[?#]|$)/u.test(normalized) ||
-    /[?&]mode=memory(?:&|$)/u.test(normalized)
-  );
+  if (sqlitePath.toLowerCase() === ":memory:") {
+    return true;
+  }
+  if (!sqlitePath.toLowerCase().startsWith("file:")) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(sqlitePath);
+    const pathname = decodeURIComponent(parsed.pathname).toLowerCase();
+    if (pathname === "/:memory:" || pathname === ":memory:") {
+      return true;
+    }
+    return [...parsed.searchParams].some(
+      ([key, value]) =>
+        key.toLowerCase() === "mode" && value.toLowerCase() === "memory",
+    );
+  } catch {
+    return false;
+  }
 }
 
 function readSqlitePath(env: ApiDatabaseEnv): string {

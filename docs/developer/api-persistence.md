@@ -64,7 +64,8 @@ The reset script only drops `tearleads_development`.
 
 SQLite uses an in-memory database by default outside production. Set
 `API_SQLITE_PATH` or `SQLITE_PATH` to persist it to a file; one of them is
-required in production:
+required in production. Development startup applies SQLite migrations in the
+same process, so the in-memory default is initialized before the API serves:
 
 ```sh
 API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api dev
@@ -76,13 +77,17 @@ Migrate the persistent database before starting the API:
 API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api db:migrate
 ```
 
-Turso requires a remote `libsql://` URL and auth token. Local file URLs and
-embedded replicas are rejected intentionally:
+Turso requires a remote `libsql://` URL, auth token, and the UUID of the
+database's primary instance. Retrieve the instance list from Turso's Platform
+API and use the UUID of the entry whose `type` is `primary`. The adapter builds
+Turso's primary-instance hostname from that UUID; generic libSQL endpoints,
+local file URLs, and embedded replicas are rejected intentionally:
 
 ```sh
 API_DATABASE=turso \
 TURSO_DATABASE_URL=libsql://database-name.turso.io \
 TURSO_AUTH_TOKEN=secret \
+TURSO_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
 bun run --filter=@tearleads/api db:migrate
 ```
 
@@ -106,6 +111,7 @@ names, which reduces the chance of accidentally testing against production:
 ```sh
 TURSO_TEST_DATABASE_URL=libsql://test-database.turso.io \
 TURSO_TEST_AUTH_TOKEN=secret \
+TURSO_TEST_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
 bun run test:turso-concurrency
 ```
 

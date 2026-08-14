@@ -36,6 +36,7 @@ test("Turso connection config requires authentication", () => {
   expect(() =>
     readTursoConnectionConfig({
       TURSO_DATABASE_URL: "libsql://test-database.turso.io",
+      TURSO_PRIMARY_INSTANCE_ID: "0be90471-6906-11ee-8553-eaa7715aeaf2",
     }),
   ).toThrow("TURSO_AUTH_TOKEN is required when API_DATABASE=turso");
 });
@@ -67,13 +68,37 @@ test("Turso connection config trims remote credentials", () => {
     readTursoConnectionConfig({
       TURSO_AUTH_TOKEN: " test-token ",
       TURSO_DATABASE_URL: " libsql://test-database.turso.io ",
+      TURSO_PRIMARY_INSTANCE_ID: " 0be90471-6906-11ee-8553-eaa7715aeaf2 ",
     }),
   ).toEqual({
     authToken: "test-token",
     intMode: "bigint",
     tls: true,
-    url: "libsql://test-database.turso.io",
+    url: "libsql://0be90471-6906-11ee-8553-eaa7715aeaf2-test-database.turso.io",
   });
+});
+
+test("Turso connection config requires a managed primary instance", () => {
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL: "libsql://libsql.example.com",
+      TURSO_PRIMARY_INSTANCE_ID: "0be90471-6906-11ee-8553-eaa7715aeaf2",
+    }),
+  ).toThrow("must identify a managed Turso database");
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL: "libsql://test-database.turso.io",
+    }),
+  ).toThrow("TURSO_PRIMARY_INSTANCE_ID is required when API_DATABASE=turso");
+  expect(() =>
+    readTursoConnectionConfig({
+      TURSO_AUTH_TOKEN: "test-token",
+      TURSO_DATABASE_URL: "libsql://test-database.turso.io",
+      TURSO_PRIMARY_INSTANCE_ID: "not-an-instance-id",
+    }),
+  ).toThrow("must be the UUID of the database's primary instance");
 });
 
 test("Turso transactions always request write mode", async () => {

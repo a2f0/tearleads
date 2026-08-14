@@ -171,6 +171,9 @@ test("default API database requires a persistent SQLite path in production", () 
     ":memory:",
     "file::memory:?cache=shared",
     "file:ephemeral?mode=memory&cache=shared",
+    "file:ephemeral?mo%64e=memory",
+    "file:ephemeral?mode=memory#fragment",
+    "file:ephemeral?mode=%6demor%79",
   ]) {
     expect(() =>
       createDefaultManagedApiDatabase({

@@ -28,6 +28,7 @@ import type {
 interface TursoAdapterEnv {
   readonly TURSO_AUTH_TOKEN?: string | undefined;
   readonly TURSO_DATABASE_URL?: string | undefined;
+  readonly TURSO_PRIMARY_INSTANCE_ID?: string | undefined;
 }
 
 interface TursoConnectionConfig {
@@ -36,6 +37,9 @@ interface TursoConnectionConfig {
   readonly tls: true;
   readonly url: string;
 }
+
+const tursoInstanceIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 
 function requireEnvValue(
   env: TursoAdapterEnv,
@@ -73,6 +77,22 @@ export function readTursoConnectionConfig(
       "TURSO_DATABASE_URL must not contain userinfo credentials; use TURSO_AUTH_TOKEN",
     );
   }
+  if (!parsedUrl.hostname.endsWith(".turso.io")) {
+    throw new Error(
+      "TURSO_DATABASE_URL must identify a managed Turso database; arbitrary libSQL replicas are not supported",
+    );
+  }
+
+  const primaryInstanceId = requireEnvValue(env, "TURSO_PRIMARY_INSTANCE_ID");
+  if (!tursoInstanceIdPattern.test(primaryInstanceId)) {
+    throw new Error(
+      "TURSO_PRIMARY_INSTANCE_ID must be the UUID of the database's primary instance",
+    );
+  }
+  const primaryPrefix = `${primaryInstanceId}-`;
+  if (!parsedUrl.hostname.startsWith(primaryPrefix)) {
+    parsedUrl.hostname = `${primaryPrefix}${parsedUrl.hostname}`;
+  }
 
   return {
     authToken: requireEnvValue(env, "TURSO_AUTH_TOKEN"),
@@ -80,7 +100,11 @@ export function readTursoConnectionConfig(
     // Drizzle applies per-column codecs below.
     intMode: "bigint",
     tls: true,
-    url,
+    // Turso's ordinary database hostname may route legacy Data Edge users to
+    // a lagging replica. Prefixing the primary instance UUID selects the
+    // primary directly, preserving the API's linearizable read contract
+    // without turning every SELECT into a writer-reserving transaction.
+    url: parsedUrl.toString(),
   };
 }
 
