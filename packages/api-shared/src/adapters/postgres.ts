@@ -163,7 +163,7 @@ function isNonPersistentSqlitePath(sqlitePath: string): boolean {
         key.toLowerCase() === "mode" && value.toLowerCase() === "memory",
     );
   } catch {
-    return false;
+    return true;
   }
 }
 
