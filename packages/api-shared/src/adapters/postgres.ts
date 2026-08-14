@@ -158,10 +158,14 @@ function isNonPersistentSqlitePath(sqlitePath: string): boolean {
     if (pathname === "/:memory:" || pathname === ":memory:") {
       return true;
     }
-    return [...parsed.searchParams].some(
-      ([key, value]) =>
-        key.toLowerCase() === "mode" && value.toLowerCase() === "memory",
-    );
+    return [...parsed.searchParams].some(([key, value]) => {
+      const normalizedKey = key.toLowerCase();
+      const normalizedValue = value.toLowerCase();
+      return (
+        (normalizedKey === "mode" && normalizedValue === "memory") ||
+        (normalizedKey === "vfs" && normalizedValue === "memdb")
+      );
+    });
   } catch {
     return true;
   }

@@ -176,6 +176,7 @@ test("default API database requires a persistent SQLite path in production", () 
     "file:ephemeral?mo%64e=memory",
     "file:ephemeral?mode=memory#fragment",
     "file:ephemeral?mode=%6demor%79",
+    "file:ephemeral?vfs=memdb",
     "file:%ZZ?mode=memory",
   ]) {
     expect(() =>
