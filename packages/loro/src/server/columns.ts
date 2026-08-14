@@ -26,9 +26,8 @@ interface LoroServerSchemaDialectEnv {
 
 function readLoroServerSchemaDialect(): LoroServerSchemaDialect {
   const env: LoroServerSchemaDialectEnv = process.env;
-  return env.API_DATABASE?.trim().toLowerCase() === "sqlite"
-    ? "sqlite"
-    : "postgres";
+  const database = env.API_DATABASE?.trim().toLowerCase();
+  return database === "sqlite" || database === "turso" ? "sqlite" : "postgres";
 }
 
 export const loroServerSchemaDialect = readLoroServerSchemaDialect();

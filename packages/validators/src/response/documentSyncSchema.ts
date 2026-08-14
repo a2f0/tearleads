@@ -5,7 +5,11 @@ import {
   DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
   DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
 } from "../documentSyncCheckpoint";
-import { documentSyncResponseRotationRefinement } from "../documentSyncRefinements";
+import {
+  documentSyncResponseCommitLsnModeRefinement,
+  documentSyncResponseCommitLsnSentinelRefinement,
+  documentSyncResponseRotationRefinement,
+} from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
@@ -99,14 +103,44 @@ export type DocumentSyncUpdateResponse = z.infer<
   typeof DocumentSyncUpdateResponseSchema
 >;
 
-export const DocumentSyncResponseSchema = loosePlainObject({
-  acceptedOutgoingUpdateIds: arraySchema(z.string()),
-  commitLsn: z.string().nullable(),
-  contentKeyBundle: DocumentContentKeyBundleResponseSchema,
-  contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
-  documentId: z.string(),
-  documentKekTargets: DocumentKekTargetsResponseSchema,
-  updates: arraySchema(DocumentSyncUpdateResponseSchema),
-});
+export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject({
+    acceptedOutgoingUpdateIds: arraySchema(z.string()),
+    commitLsn: z.string().nullable(),
+    commitLsnMode: z
+      .union([z.literal("tracked"), z.literal("untracked")])
+      .optional(),
+    contentKeyBundle: DocumentContentKeyBundleResponseSchema,
+    contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
+    documentId: z.string(),
+    documentKekTargets: DocumentKekTargetsResponseSchema,
+    updates: arraySchema(DocumentSyncUpdateResponseSchema),
+  }).superRefine((response, context) => {
+    if (
+      response.commitLsnMode === "untracked" &&
+      response.commitLsn !== "0/0"
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "untracked commit LSN must use the 0/0 sentinel",
+        path: ["commitLsn"],
+      });
+    }
+    if (
+      response.commitLsn === "0/0" &&
+      response.commitLsnMode !== "untracked"
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "0/0 commit LSN must be declared untracked",
+        path: ["commitLsnMode"],
+      });
+    }
+  }),
+  [
+    documentSyncResponseCommitLsnModeRefinement,
+    documentSyncResponseCommitLsnSentinelRefinement,
+  ],
+);
 
 export type DocumentSyncResponse = z.infer<typeof DocumentSyncResponseSchema>;

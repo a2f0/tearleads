@@ -390,10 +390,14 @@ For accepted writes, the API verifies:
 - duplicate update ids are idempotent only when the encrypted content and write
  header match the already accepted update
 
-The sync response returns accepted outgoing ids, a `commitLsn`, the active
-content-key bundle, a required array of any additional returned epoch bundles,
-document KEK targets, and encrypted updates missing from the client-supplied
-frontier.
+The sync response returns accepted outgoing ids, a `commitLsn`, an optional
+`commitLsnMode`, the active content-key bundle, a required array of any
+additional returned epoch bundles, document KEK targets, and encrypted updates
+missing from the client-supplied frontier. Tracked checkpoints are durable
+backend positions and must satisfy a requested `minLsn`. A client advertises
+`supportsUntrackedCommitLsn: true` to accept an untracked backend's `0/0` reset
+sentinel; legacy clients instead receive their `minLsn` echoed as a compatibility
+token, which is not a durability claim.
 
 ### Document Sync Conflict Codes
 

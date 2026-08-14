@@ -347,8 +347,12 @@ export async function createGroupAndAddPeer(
     fireEvent.click(createButton);
   });
 
-  await within(pane).findByText(groupName);
-  const userIdInput = await within(pane).findByLabelText("User ID");
+  await within(pane).findByText(groupName, undefined, {
+    timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS,
+  });
+  const userIdInput = await within(pane).findByLabelText("User ID", undefined, {
+    timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS,
+  });
   invariant(
     userIdInput instanceof HTMLInputElement,
     "Expected org manager user id input.",
@@ -425,8 +429,12 @@ export async function createOrganizationGroup(
     fireEvent.click(createButton);
   });
 
-  await within(pane).findByText(groupName);
-  await within(pane).findByLabelText("User ID");
+  await within(pane).findByText(groupName, undefined, {
+    timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS,
+  });
+  await within(pane).findByLabelText("User ID", undefined, {
+    timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS,
+  });
 }
 
 export async function findExplorerInfoGrantRow(

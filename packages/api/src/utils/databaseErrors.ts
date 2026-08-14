@@ -29,6 +29,56 @@ export function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+const LIBSQL_TRANSACTION_CONTENTION_CODES = new Set([
+  "STREAM_EXPIRED",
+  "TRANSACTION_TIMEOUT",
+]);
+
+const LIBSQL_TRANSIENT_TRANSPORT_CODES = new Set([
+  "HRANA_CLOSED_ERROR",
+  "HRANA_PROTO_ERROR",
+  "HRANA_WEBSOCKET_ERROR",
+]);
+
+function hasDatabaseCode(
+  error: unknown,
+  predicate: (code: string) => boolean,
+): boolean {
+  return errorCauseChain(error).some((candidate) => {
+    const code = Reflect.get(candidate, "code");
+    return typeof code === "string" && predicate(code);
+  });
+}
+
+function isTransientHttpStatus(status: unknown): boolean {
+  return (
+    typeof status === "number" &&
+    (status === 408 || status === 429 || (status >= 500 && status <= 599))
+  );
+}
+
+function isTransientLibsqlServerError(error: unknown): boolean {
+  return errorCauseChain(error).some((candidate) => {
+    if (Reflect.get(candidate, "code") !== "SERVER_ERROR") {
+      return false;
+    }
+    if (isTransientHttpStatus(Reflect.get(candidate, "status"))) {
+      return true;
+    }
+    return (
+      candidate.cause instanceof Error &&
+      isTransientHttpStatus(Reflect.get(candidate.cause, "status"))
+    );
+  });
+}
+
+/** A libSQL transaction lost its writer reservation and is safe to retry. */
+export function isLibsqlTransactionContention(error: unknown): boolean {
+  return hasDatabaseCode(error, (code) =>
+    LIBSQL_TRANSACTION_CONTENTION_CODES.has(code),
+  );
+}
+
 /**
  * Serialization failure or deadlock: the database rolled back the losing
  * transaction and a retry is expected to succeed.
@@ -42,11 +92,21 @@ export function isSerializationFailure(error: unknown): boolean {
 
 /** SQLite busy/locked contention, the SQLite analog of a serialization race. */
 export function isLockContention(error: unknown): boolean {
-  return errorCauseChain(error).some((candidate) => {
-    const code = Reflect.get(candidate, "code");
-    return (
-      typeof code === "string" &&
-      (code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED"))
-    );
-  });
+  return hasDatabaseCode(
+    error,
+    (code) =>
+      code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED"),
+  );
+}
+
+/** Remote database transport failures for which a later request may succeed. */
+export function isTransientDatabaseFailure(error: unknown): boolean {
+  return (
+    isLibsqlTransactionContention(error) ||
+    isLockContention(error) ||
+    hasDatabaseCode(error, (code) =>
+      LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
+    ) ||
+    isTransientLibsqlServerError(error)
+  );
 }

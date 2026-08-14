@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  blobContentKeyTargets,
+  documents,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
@@ -18,14 +22,18 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../access/read/documentKekTargets";
 import { routeApp } from "../../routeApp";
+import { errorCauseChain } from "../../utils/databaseErrors";
 import { lockSyncDocumentWriteFrontier } from "../../workflows/documents/mutations/syncWriteFrontier";
 
 // These races only exist on a multi-connection backend: the default pglite
 // test database serializes every transaction, so every concurrency finding in
 // the #1613 scrub (H2, H3, L2, L7) was invisible to the regular suite. The
-// test:postgres-concurrency lane runs this file against a real server; under
-// pglite the tests skip.
-const onPostgres = getDefaultApiDatabaseKind() === "postgres";
+// dedicated Postgres and remote Turso lanes run this file against their real
+// services; under pglite and local SQLite the tests skip.
+const databaseKind = getDefaultApiDatabaseKind();
+const onConcurrencyBackend =
+  databaseKind === "postgres" || databaseKind === "turso";
+const concurrencyTimeoutMs = databaseKind === "turso" ? 120_000 : 30_000;
 
 const syncErrorCodes: readonly string[] = Object.values(
   DOCUMENT_SYNC_ERROR_CODES,
@@ -53,7 +61,7 @@ function postDocumentSync(
 // update id surfaced the raw unique-violation as an unmapped 500. The fix
 // inserts with onConflictDoNothing and byte-compares skipped ids, so identical
 // retries settle idempotently and only genuine byte conflicts 409.
-test.skipIf(!onPostgres)(
+test.skipIf(!onConcurrencyBackend)(
   "concurrent identical sync submissions settle without server errors",
   async () => {
     const owner = createTestUser();
@@ -91,7 +99,129 @@ test.skipIf(!onPostgres)(
       expect(storedUpdates).toHaveLength(1);
     }
   },
-  30_000,
+  concurrencyTimeoutMs,
+);
+
+test.skipIf(databaseKind !== "turso")(
+  "remote Turso sync reads do not wait on replica watermarks",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const created = await createDocument({ owner, root });
+    const { request } = await createSignedDocumentSyncRequest({
+      created,
+      owner,
+      root,
+    });
+
+    const initialLegacyResponse = await postDocumentSync(
+      owner,
+      created.id,
+      request,
+    );
+    expect(initialLegacyResponse.status).toBe(200);
+    const initialLegacyBody = await initialLegacyResponse.json();
+    expect(initialLegacyBody).toMatchObject({ commitLsn: null });
+    expect(initialLegacyBody).not.toHaveProperty("commitLsnMode");
+
+    const legacyResponse = await postDocumentSync(owner, created.id, {
+      ...request,
+      minLsn: "FFFFFFFF/FFFFFFFF",
+    });
+    expect(legacyResponse.status).toBe(200);
+    const legacyBody = await legacyResponse.json();
+    expect(legacyBody).toMatchObject({
+      commitLsn: "FFFFFFFF/FFFFFFFF",
+    });
+    expect(legacyBody).not.toHaveProperty("commitLsnMode");
+
+    const response = await postDocumentSync(owner, created.id, {
+      ...request,
+      minLsn: "FFFFFFFF/FFFFFFFF",
+      supportsUntrackedCommitLsn: true,
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      commitLsn: "0/0",
+      commitLsnMode: "untracked",
+    });
+  },
+  concurrencyTimeoutMs,
+);
+
+test.skipIf(databaseKind !== "turso")(
+  "remote Turso sessions enforce foreign key constraints",
+  async () => {
+    let insertionError: unknown;
+    try {
+      await db.insert(blobContentKeyTargets).values({
+        bindingId: crypto.randomUUID(),
+        blobContentKeyEpochId: crypto.randomUUID(),
+        containerId: crypto.randomUUID(),
+        containerKeyEpoch: 1,
+        containerKeyEpochId: crypto.randomUUID(),
+        containerManifestHash: "foreign-key-test-manifest",
+        documentId: crypto.randomUUID(),
+        wrappedKey: "foreign-key-test-wrapped-key",
+        wrappingMetadata: {},
+      });
+    } catch (error) {
+      insertionError = error;
+    }
+
+    expect(
+      errorCauseChain(insertionError).some(
+        (candidate) =>
+          candidate.message.includes("FOREIGN KEY constraint failed") ||
+          Reflect.get(candidate, "extendedCode") ===
+            "SQLITE_CONSTRAINT_FOREIGNKEY",
+      ),
+    ).toBe(true);
+  },
+  concurrencyTimeoutMs,
+);
+
+test.skipIf(databaseKind !== "turso")(
+  "remote Turso root reads do not wait for a writer reservation",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    await bootstrapRoot(owner);
+
+    let markHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      markHeld = resolve;
+    });
+    let releaseHold!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const writer = db.transaction(async (tx) => {
+      await tx.select({ id: documents.id }).from(documents).limit(1);
+      markHeld();
+      await hold;
+    });
+
+    await held;
+    let readerSettled = false;
+    const reader = db
+      .select({ id: documents.id })
+      .from(documents)
+      .limit(1)
+      .then(() => {
+        readerSettled = true;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    const settledWhileWriterHeld = readerSettled;
+    releaseHold();
+    await Promise.all([reader, writer]);
+
+    expect(settledWhileWriterHeld).toBe(true);
+  },
+  concurrencyTimeoutMs,
 );
 
 test("sync rejects a plaintext hash not committed by signed metadata", async () => {
@@ -187,8 +317,10 @@ test("sync rejects a malformed authorizing container id with 400", async () => {
 // advance that head under an in-flight write it no longer authorizes. The
 // stand-in ancestor here is a second root container that is not in the
 // document's target set; before the fix the contender acquires its head
-// immediately and the blocked assertion fails.
-test.skipIf(!onPostgres)(
+// immediately and the blocked assertion fails. On Turso, BEGIN IMMEDIATE's
+// database-wide writer reservation supplies the blocking instead; that run is
+// an adapter isolation smoke test, not a test of frontier-lock specificity.
+test.skipIf(!onConcurrencyBackend)(
   "sync write frontier blocks head updates on authorizing ancestors",
   async () => {
     const owner = createTestUser();
@@ -244,7 +376,7 @@ test.skipIf(!onPostgres)(
     await contender;
     expect(contenderSettled).toBe(true);
   },
-  30_000,
+  concurrencyTimeoutMs,
 );
 
 // H2 regression (#1613, fixed in #1616): purge without the manifest-head lock
@@ -253,7 +385,7 @@ test.skipIf(!onPostgres)(
 // serializes, the document row and every update row must be gone afterwards,
 // and neither side may surface a server error (a deadlock's 503 backstop
 // fails this too — consistent lock ordering must prevent it).
-test.skipIf(!onPostgres)(
+test.skipIf(!onConcurrencyBackend)(
   "concurrent purge and sync leave no orphan document rows",
   async () => {
     const owner = createTestUser();
@@ -298,5 +430,5 @@ test.skipIf(!onPostgres)(
       expect(updateRows).toHaveLength(0);
     }
   },
-  30_000,
+  concurrencyTimeoutMs,
 );

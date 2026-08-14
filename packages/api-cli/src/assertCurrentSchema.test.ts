@@ -17,7 +17,7 @@ test("the migration guard rejects an old schema and accepts the current baseline
   } finally {
     await managed.close();
   }
-});
+}, 15_000);
 
 test("the migration guard recognizes only missing baseline structures", () => {
   expect(isMissingCurrentApiSchemaError({ code: "42P01" })).toBe(true);

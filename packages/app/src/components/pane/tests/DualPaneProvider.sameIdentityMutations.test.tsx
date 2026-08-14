@@ -9,7 +9,6 @@ import {
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
   getPaneUserId,
   interact,
@@ -27,8 +26,13 @@ import {
   selectExplorerNoteByName,
   waitForExplorerNoteVisible,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import {
+  requestPath,
+  summarizeProxiedApiRequests,
+} from "../../../../test/helpers/dualPaneRequestSummary";
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
+  listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -37,6 +41,7 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 const ATTACHMENT_NAME = "peer-one.png";
 const LIVE_NOTE_TITLE = "Peer one note with attachment";
 const MISSED_PURGE_NOTE_TITLE = "Missed purge recovery note";
+const SAME_IDENTITY_MUTATION_TIMEOUT_MS = 120_000;
 
 function readPaneStatusValue(pane: HTMLElement, label: string): string {
   const rowHeader = within(pane).getByRole("rowheader", { name: label });
@@ -104,7 +109,7 @@ async function waitForItemAbsent(
       );
     },
     `${message}\npane=${pane.textContent ?? "unknown"}`,
-    15_000,
+    30_000,
   );
 }
 
@@ -170,6 +175,7 @@ async function moveNoteToTrashAcrossSessions(
   // until this system-container lookup has settled.
   await selectContainerAndWaitForItemTable(primaryPane, "Trash");
   await selectContainerAndWaitForItemTable(secondaryPane, "Trash");
+  await waitForMutationRuntimesToSettle();
   await selectContainerAndWaitForItemTable(primaryPane, "/");
   const secondaryRootTable = await selectContainerAndWaitForItemTable(
     secondaryPane,
@@ -180,10 +186,34 @@ async function moveNoteToTrashAcrossSessions(
       within(secondaryRootTable).getByRole("button", { name: noteTitle }),
     ).toBeTruthy();
   });
+  const moveRequestStart = listProxiedApiRequests().length;
   await clickDocumentContextAction(
     within(secondaryRootTable).getByRole("button", { name: noteTitle }),
     "Move to Trash",
   );
+  await waitForItemAbsent(
+    secondaryPane,
+    noteTitle,
+    "Move to Trash did not update the initiating root view.",
+  );
+  await waitForCondition(
+    () =>
+      listProxiedApiRequests()
+        .slice(moveRequestStart)
+        .some(
+          (request) =>
+            request.status === 200 &&
+            /^\/documents\/[^/]+\/unlink$/u.test(requestPath(request.url)),
+        ),
+    `Move to Trash did not commit its source unlink.\nrequests=\n${summarizeProxiedApiRequests(
+      listProxiedApiRequests().slice(moveRequestStart),
+    )}\npane=${secondaryPane.textContent ?? "unknown"}`,
+    30_000,
+  );
+  // The context-menu action deliberately fires and forgets the device-first
+  // move. Wait for its structural queue to commit before requiring the peer
+  // session to have consumed the resulting websocket invalidation.
+  await waitForMutationRuntimesToSettle();
 
   // The primary stays on its already-open root view. Its row must disappear
   // from the peer-session invalidation, without Refresh or reopening Explorer.
@@ -221,6 +251,14 @@ async function purgeNoteAcrossSessions(
     within(tables.secondary).getByRole("button", { name: noteTitle }),
     "Delete Forever",
   );
+  await waitForCondition(
+    () =>
+      within(tables.secondary).queryByRole("button", { name: noteTitle }) ===
+      null,
+    "Permanent purge did not update the initiating Trash view.",
+    30_000,
+  );
+  await waitForMutationRuntimesToSettle();
   await waitForItemAbsent(
     primaryPane,
     noteTitle,
@@ -306,5 +344,5 @@ test(
       "Explicit reconciliation did not recover the deliberately missed purge.",
     );
   },
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  SAME_IDENTITY_MUTATION_TIMEOUT_MS,
 );

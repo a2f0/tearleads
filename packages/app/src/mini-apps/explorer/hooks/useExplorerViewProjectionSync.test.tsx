@@ -142,6 +142,23 @@ test("content-only bootstrap churn bumps the link projection only once", () => {
   expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
 });
 
+test("an empty bootstrap apply preserves the initial population bump", () => {
+  const { view, emit } = createFakeView(new Map());
+  const { onDocumentLinksChanged } = renderSync(view);
+
+  expect(onDocumentLinksChanged).not.toHaveBeenCalled();
+
+  act(() => {
+    emit(contactsMap([createSummary("you")]));
+  });
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    emit(contactsMap([createSummary("you", { title: "You (synced)" })]));
+  });
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
+});
+
 test("membership changes each bump the link projection exactly once", () => {
   const { view, emit } = createFakeView(contactsMap([createSummary("you")]));
   const { onDocumentLinksChanged } = renderSync(view);

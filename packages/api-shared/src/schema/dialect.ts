@@ -1,4 +1,4 @@
-export type ApiDatabaseKind = "memory" | "postgres" | "sqlite";
+export type ApiDatabaseKind = "memory" | "postgres" | "sqlite" | "turso";
 
 interface ApiDatabaseKindEnv {
   readonly API_DATABASE?: string | undefined;
@@ -22,7 +22,7 @@ export function readApiDatabaseKind(
   if (value === "memory" || value === "pglite") {
     return "memory";
   }
-  if (value === "postgres" || value === "sqlite") {
+  if (value === "postgres" || value === "sqlite" || value === "turso") {
     return value;
   }
 
@@ -32,5 +32,6 @@ export function readApiDatabaseKind(
 export function isSqliteSchemaDialect(
   env: ApiDatabaseKindEnv = process.env,
 ): boolean {
-  return readApiDatabaseKind(env) === "sqlite";
+  const kind = readApiDatabaseKind(env);
+  return kind === "sqlite" || kind === "turso";
 }

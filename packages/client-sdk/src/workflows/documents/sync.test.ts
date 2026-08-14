@@ -186,8 +186,8 @@ test("buildDocumentSyncPlan signs document write headers with the current access
   });
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
-  // The signed manifest bundle is no longer echoed; the server resolves it from
-  // its own store via this hash.
+  expect(plan.request.supportsUntrackedCommitLsn).toBe(true);
+  // The server resolves the signed manifest bundle by hash.
   expect(plan.request.expectedLinkSetManifestHash).toBe(
     createResponse.accessManifest.manifestHash,
   );

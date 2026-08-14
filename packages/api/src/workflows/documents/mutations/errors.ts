@@ -10,6 +10,7 @@ import { DocumentContentKeyBundleError } from "../../../access/write/documentCon
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
+  isLibsqlTransactionContention,
   isSerializationFailure,
   isUniqueViolation,
 } from "../../../utils/databaseErrors";
@@ -134,6 +135,12 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     // concurrent request committed the same row between our read and write.
     // Surface it as a conflict rather than letting the driver error 500.
     return new DocumentMutationError("Document sync write conflict", 409);
+  }
+
+  if (isLibsqlTransactionContention(error)) {
+    return documentSyncStateStale(
+      "Document mutation transaction conflicted; retry",
+    );
   }
 
   if (isSerializationFailure(error)) {

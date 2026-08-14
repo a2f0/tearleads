@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { Glob } from "bun";
+import { migrationAssetPatterns } from "../src/migrationAssets";
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 process.chdir(repoRoot);
@@ -28,10 +29,9 @@ function readExecutableTarget(): Bun.Build.CompileTarget {
 
 const executableTarget = readExecutableTarget();
 
-const drizzleFiles = [
-  ...new Glob("packages/api-shared/drizzle/**/*.sql").scanSync("."),
-  ...new Glob("packages/api-shared/drizzle/**/*.json").scanSync("."),
-].sort();
+const drizzleFiles = migrationAssetPatterns
+  .flatMap((pattern) => Array.from(new Glob(pattern).scanSync(".")))
+  .sort();
 
 const result = await Bun.build({
   entrypoints: ["packages/api-cli/src/index.ts", ...drizzleFiles],

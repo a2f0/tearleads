@@ -169,6 +169,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     localVersionVector: z.string().nullable(),
     minLsn: WalLsnSchema.optional(),
     outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
+    supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
       return;

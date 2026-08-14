@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import type { MiddlewareHandler } from "hono";
 import { readApiCorsOrigins } from "./corsOrigins";
 import type { SessionEnv } from "./middleware/session";
@@ -102,6 +102,33 @@ describe("createRouteApp", () => {
 
     expect(res.status).toBe(418);
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });
+  });
+
+  test("maps transient libSQL transport and lock failures to 503", async () => {
+    const errorLog = spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      for (const code of ["HRANA_WEBSOCKET_ERROR", "SQLITE_BUSY"]) {
+        const driverError = Object.assign(new Error("database unavailable"), {
+          code,
+        });
+        const requireAuth: MiddlewareHandler<SessionEnv> = async () => {
+          throw new Error("Failed query", { cause: driverError });
+        };
+        const app = createRouteApp({ requireAuth });
+        const response = await app.request("/containers/parent-lanes/query", {
+          method: "POST",
+        });
+
+        expect(response.status).toBe(503);
+        expect(await response.json()).toEqual({
+          error: "Database temporarily unavailable",
+        });
+      }
+      expect(errorLog).toHaveBeenCalledTimes(2);
+    } finally {
+      errorLog.mockRestore();
+    }
   });
 
   test("uses the injected destroySession implementation for logout", async () => {

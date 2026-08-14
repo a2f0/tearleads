@@ -13,7 +13,10 @@ import {
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
-import { readCurrentCommitLsn } from "../../../documents/commitLsn";
+import {
+  readCommitLsnMode,
+  readCurrentCommitLsn,
+} from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
@@ -389,11 +392,25 @@ export async function runDocumentSyncWorkflow(
     const contentKeyBundle = toContentKeyBundleResponse(
       transactionResult.contentKeyBundle,
     );
+    const clientSupportsUntracked =
+      input.request.supportsUntrackedCommitLsn === true;
+    const commitLsnMode = readCommitLsnMode(undefined, {
+      clientSupportsUntracked,
+      minimumLsn: input.request.minLsn,
+    });
+    const commitLsn =
+      commitLsnMode === undefined && input.request.minLsn === undefined
+        ? null
+        : await readCurrentCommitLsn(db, undefined, {
+            clientSupportsUntracked,
+            minimumLsn: input.request.minLsn,
+          });
     return {
       insertedUpdateIds: transactionResult.insertedUpdateIds,
       response: {
         acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
-        commitLsn: await readCurrentCommitLsn(db),
+        commitLsn,
+        ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
         contentKeyBundle,
         contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
           toContentKeyBundleResponse(bundle),

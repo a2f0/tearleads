@@ -31,6 +31,14 @@ import type {
   PersistedDocumentSyncState,
 } from "./types";
 
+// Remote-primary databases without a portable WAL position use the zero LSN
+// as an explicit "checkpoint not tracked" sentinel. It is accepted only when
+// the response declares that mode, letting a local record carrying a checkpoint
+// from another backend move to that primary without weakening tracked checks.
+// This protects against replica lag, not a server that falsely declares its own
+// consistency capability; the authenticated server remains the source of data.
+const UNTRACKED_COMMIT_LSN = "0/0";
+
 function assertAcceptedOutgoingUpdateIdsMatchPlan(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
@@ -247,6 +255,22 @@ function assertDocumentSyncCommitCheckpointMatchesPlan(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
 ): void {
+  if (
+    response.commitLsnMode === "untracked" &&
+    response.commitLsn !== UNTRACKED_COMMIT_LSN
+  ) {
+    throw new Error(
+      "Document sync response untracked commit LSN must use the 0/0 sentinel",
+    );
+  }
+  if (
+    response.commitLsn === UNTRACKED_COMMIT_LSN &&
+    response.commitLsnMode !== "untracked"
+  ) {
+    throw new Error(
+      "Document sync response 0/0 commit LSN must be declared untracked",
+    );
+  }
   if (response.commitLsn !== null) {
     parseWalLsn(response.commitLsn, "Document sync response commit LSN");
   }
@@ -261,8 +285,12 @@ function assertDocumentSyncCommitCheckpointMatchesPlan(
     throw new Error("Document sync response commit LSN is missing");
   }
   if (
+    !(
+      response.commitLsn === UNTRACKED_COMMIT_LSN &&
+      response.commitLsnMode === "untracked"
+    ) &&
     parseWalLsn(response.commitLsn, "Document sync response commit LSN") <
-    minLsn
+      minLsn
   ) {
     throw new Error("Document sync response commit LSN is stale");
   }

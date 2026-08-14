@@ -1761,6 +1761,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -2410,6 +2412,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -2843,6 +2847,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3135,6 +3141,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3603,6 +3611,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -3895,6 +3905,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -10967,6 +10979,8 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    /** @constant */
+                    supportsUntrackedCommitLsn?: true;
                 } & {
                     [key: string]: unknown;
                 };
@@ -10982,6 +10996,7 @@ export interface operations {
                     "application/json": {
                         acceptedOutgoingUpdateIds: string[];
                         commitLsn: string | null;
+                        commitLsnMode?: "tracked" | "untracked";
                         contentKeyBundle: {
                             contentKeyEpoch: number;
                             documentId: string;
@@ -12447,6 +12462,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -13096,6 +13113,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -13529,6 +13548,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -13821,6 +13842,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -14289,6 +14312,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };
@@ -14581,6 +14606,8 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            /** @constant */
+                            supportsUntrackedCommitLsn?: true;
                         } & {
                             [key: string]: unknown;
                         };

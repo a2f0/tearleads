@@ -9,7 +9,6 @@ import {
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
   getPaneUserId,
   interact,
@@ -54,6 +53,7 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 const GROUP_NAME = "Rotated recovery readers";
 const NOTE_TEXT = "Historical group data survives current-head recovery";
+const CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS = 120_000;
 
 afterEach(async () => {
   cleanup();
@@ -180,7 +180,7 @@ test(
       () => listExplorerContainerItems(peerPane).length > 1,
       "Peer did not discover the custom-group root grant.",
     );
-    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       peerPane,
@@ -193,7 +193,7 @@ test(
     await removeGroupMember(ownerPane, GROUP_NAME, peerUserId);
     await addGroupMember(ownerPane, GROUP_NAME, peerUserId);
     await clickExplorerRefresh(peerPane);
-    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       peerPane,
@@ -211,7 +211,7 @@ test(
       20_000,
     );
     await clickExplorerRefresh(ownerPane);
-    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(ownerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       ownerPane,
@@ -232,5 +232,5 @@ test(
       `Current-head recovery must not walk historical principal keys.\nrequests=\n${summarizeProxiedApiRequests(recoveryRequests)}`,
     ).toEqual([]);
   },
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS,
 );

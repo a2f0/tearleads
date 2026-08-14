@@ -96,6 +96,40 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
 
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: null,
+        commitLsnMode: "untracked",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("untracked commit LSN must use the 0/0 sentinel");
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsnMode: "untracked",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("untracked commit LSN must use the 0/0 sentinel");
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/0",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("0/0 commit LSN must be declared untracked");
+
   const databaseUnavailable = new DatabaseUnavailableError(
     "Writer trust store was released",
   );
@@ -283,7 +317,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   ).rejects.toThrow("writer public key missing");
 });
 
-test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", async () => {
+test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async () => {
   const { author, secretKey, signingPublicKey, writerProjection } =
     await createMaterializedSyncFixture();
   const materialized = await buildMaterializedDocumentSyncPlan({
@@ -313,6 +347,34 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
     documentKekTargets: JSON.stringify(response.documentKekTargets),
     documentManifestBundle: JSON.stringify(plan.documentManifest),
   });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/0",
+        commitLsnMode: "untracked",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).resolves.toEqual({
+    documentId: plan.documentId,
+    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
+    documentKekTargets: JSON.stringify(response.documentKekTargets),
+    documentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/0",
+      },
+      { resolveWriterPublicKey },
+    ),
+  ).rejects.toThrow("0/0 commit LSN must be declared untracked");
 
   await expect(
     persistedDocumentSyncStateFromResponse(

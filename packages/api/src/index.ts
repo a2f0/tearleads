@@ -9,7 +9,11 @@ import type { WebSocketTicketIdentity } from "./realtime/wsIdentity";
 import { consumeWebSocketTicket } from "./realtime/wsTicket";
 import { routeApp } from "./routeApp";
 
-if (getDefaultApiDatabaseKind() === "memory") {
+const defaultDatabaseKind = getDefaultApiDatabaseKind();
+if (
+  defaultDatabaseKind === "memory" ||
+  (defaultDatabaseKind === "sqlite" && process.env.NODE_ENV !== "production")
+) {
   await initializeApiDatabase();
 }
 

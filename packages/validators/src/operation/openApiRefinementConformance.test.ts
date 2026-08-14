@@ -3,6 +3,8 @@ import Ajv2020 from "ajv/dist/2020";
 import {
   documentSyncRequestEnvelopeRefinements,
   documentSyncRequestRotationRefinement,
+  documentSyncResponseCommitLsnModeRefinement,
+  documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
 import { DocumentSyncRequestSchema } from "../request";
@@ -86,6 +88,24 @@ const witnesses = {
     }),
     expectedMessage:
       "checkpoint fields must be absent or form a rotation baseline",
+    kind: "response",
+  },
+  [documentSyncResponseCommitLsnModeRefinement.id]: {
+    createInput: () => ({
+      ...createSyncResponse(),
+      commitLsn: "0/1",
+      commitLsnMode: "untracked",
+    }),
+    expectedMessage: "untracked commit LSN must use the 0/0 sentinel",
+    kind: "response",
+  },
+  [documentSyncResponseCommitLsnSentinelRefinement.id]: {
+    createInput: () => ({
+      ...createSyncResponse(),
+      commitLsn: "0/0",
+      commitLsnMode: "tracked",
+    }),
+    expectedMessage: "0/0 commit LSN must be declared untracked",
     kind: "response",
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;

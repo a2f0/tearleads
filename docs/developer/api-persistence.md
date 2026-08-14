@@ -8,9 +8,12 @@ Use `API_DATABASE` to select the database adapter:
 
 - `memory` or unset outside production: in-memory PGlite with the API Drizzle
   migrations applied at startup.
-- `postgres`: node-postgres with the API Drizzle migrations applied at startup.
+- `postgres`: node-postgres with the API Postgres Drizzle migrations applied by
+  the deployment migration command.
 - `sqlite`: Bun's native SQLite driver with the API SQLite Drizzle migrations
-  applied at startup.
+  applied by the deployment migration command.
+- `turso`: remote-only libSQL with the API SQLite Drizzle migrations applied by
+  the deployment migration command.
 
 Each dialect keeps a single greenfield baseline migration. Pre-reset databases
 are not upgraded; reset and provision a fresh database instead. The deployment
@@ -59,12 +62,62 @@ sh scripts/postgres/reset.sh
 
 The reset script only drops `tearleads_development`.
 
-SQLite uses an in-memory database by default. Set `API_SQLITE_PATH` or
-`SQLITE_PATH` to persist it to a file:
+SQLite uses an in-memory database by default outside production. Set
+`API_SQLITE_PATH` or `SQLITE_PATH` to persist it to a file; one of them is
+required in production. Development startup applies SQLite migrations in the
+same process, so the in-memory default is initialized before the API serves:
 
 ```sh
 API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api dev
 ```
+
+Migrate the persistent database before starting the API:
+
+```sh
+API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api db:migrate
+```
+
+Turso requires a remote `libsql://` URL, auth token, and the UUID of the
+database's primary instance. Retrieve the instance list from Turso's Platform
+API and use the UUID of the entry whose `type` is `primary`. The adapter builds
+Turso's primary-instance hostname from that UUID; generic libSQL endpoints,
+local file URLs, and embedded replicas are rejected intentionally:
+
+```sh
+API_DATABASE=turso \
+TURSO_DATABASE_URL=libsql://database-name.turso.io \
+TURSO_AUTH_TOKEN=secret \
+TURSO_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
+bun run --filter=@tearleads/api db:migrate
+```
+
+Start the API with the same variables after migration. Turso transactions are
+opened explicitly in write mode. The adapter rejects TLS opt-out URLs and
+enables and verifies SQLite foreign-key enforcement on every remote statement
+session before application SQL runs. Because this configuration always reads
+the remote primary, the API bypasses replica-watermark waiting and emits the
+wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"` when a
+request advertises `supportsUntrackedCommitLsn: true`. Clients use that
+negotiated mode to replace a checkpoint from a previous backend without
+weakening tracked-LSN validation when they later return to Postgres or SQLite.
+For older clients that omit the capability, Turso echoes a supplied `minLsn` as
+a compatibility token so they do not reject the response as stale; the echoed
+value is not a Turso durability watermark.
+
+The opt-in integration lane runs the multi-connection sync races against a
+dedicated remote test database. It does not accept the production variable
+names, which reduces the chance of accidentally testing against production:
+
+```sh
+TURSO_TEST_DATABASE_URL=libsql://test-database.turso.io \
+TURSO_TEST_AUTH_TOKEN=secret \
+TURSO_TEST_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
+bun run test:turso-concurrency
+```
+
+The lane applies migrations, checks lossless 64-bit read-model cursors, runs the
+multi-connection sync races, and retains randomized test rows. The target must
+be disposable or dedicated to integration tests.
 
 API package tests run against both in-memory PGlite and SQLite:
 

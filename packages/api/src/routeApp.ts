@@ -21,6 +21,7 @@ import {
   resolveCommittedOrganizationReadModelChanges,
 } from "./services/organizations/readModelNotifications";
 import type { ApiServiceRuntime } from "./services/runtime";
+import { isTransientDatabaseFailure } from "./utils/databaseErrors";
 import { OrganizationSyncDisabledError } from "./workflows/billing/organizationSyncEligibility";
 import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
@@ -198,6 +199,10 @@ export function createRouteApp(
     }
     if (error instanceof HTTPException) {
       return error.getResponse();
+    }
+    if (isTransientDatabaseFailure(error)) {
+      console.error(error);
+      return c.json({ error: "Database temporarily unavailable" }, 503);
     }
     console.error(error);
     return c.json({ error: "Internal Server Error" }, 500);

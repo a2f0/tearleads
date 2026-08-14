@@ -2,6 +2,7 @@ import {
   errorCauseChain,
   isLockContention,
   isSerializationFailure,
+  isTransientDatabaseFailure,
   isUniqueViolationCode,
 } from "../utils/databaseErrors";
 
@@ -30,6 +31,7 @@ export function isNativeSubscriptionMoveConflict(error: unknown): boolean {
   return (
     isProviderSubscriptionOwnershipConflict(error) ||
     isSerializationFailure(error) ||
-    isLockContention(error)
+    isLockContention(error) ||
+    isTransientDatabaseFailure(error)
   );
 }

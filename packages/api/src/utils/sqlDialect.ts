@@ -2,7 +2,8 @@ import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { type SQL, sql } from "drizzle-orm";
 
 export function isSqliteApiDatabase(): boolean {
-  return getDefaultApiDatabaseKind() === "sqlite";
+  const kind = getDefaultApiDatabaseKind();
+  return kind === "sqlite" || kind === "turso";
 }
 
 interface RowLockQuery<TResult> extends PromiseLike<TResult> {

@@ -67,8 +67,8 @@ Document write routes:
     the domain-separated, record-key-derived plaintext HMAC, which is opaque to
     the server
   - response shape: `DocumentSyncResponse`
-  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
-    `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
+  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`, optional
+    `commitLsnMode`, `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
     `documentKekTargets`, and encrypted `updates[]`
   - `contentKeyBundles[]` covers every served update's signed content-key epoch
   - each returned update includes its stored `accessEpoch`, visible causal
@@ -124,7 +124,12 @@ application memory. Sync responses include a `commitLsn`: accepted
 current-epoch writes return the append LSN, and read-only syncs return the
 current WAL LSN observed after the missing-update read. Sync requests may
 include `minLsn` as a consistency hook for
-replica-safe read-after-write behavior.
+replica-safe read-after-write behavior. A request may also advertise
+`supportsUntrackedCommitLsn: true`; a remote-primary backend without a portable
+WAL position then returns `commitLsnMode: "untracked"` and the `0/0` reset
+sentinel. Without that capability, an untracked backend echoes `minLsn` only as
+a legacy compatibility token, not as a durability watermark. Tracked mode
+retains the normal `commitLsn >= minLsn` requirement.
 
 The sync response no longer tells the client to `rewrap` or `rotate` through a
 dedicated action field. Clients derive that decision from the signed link-set

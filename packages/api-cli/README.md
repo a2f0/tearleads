@@ -24,15 +24,17 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 
 ### `migrate`
 
-Runs the Drizzle migrations for the API's Postgres database. Defaults
-`API_DATABASE` to `postgres` when unset, then calls `initializeApiDatabase` from
-`@tearleads/api-shared/postgres`.
+Runs the Drizzle migrations for the API's Postgres, local SQLite, or remote
+Turso database. Defaults `API_DATABASE` to `postgres` when unset, then calls
+`initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso uses the
+SQLite migration bundle.
 
-In the compiled executable the migration files are **embedded** — the build
-bundles `packages/api-shared/drizzle/**/*.{sql,json}` as assets, and the command
-materializes them into a temp directory (`tearleads-api-migrations-*`), passes it
-as `migrationsFolder`, and removes it afterwards. Run from source, no files are
-embedded and `initializeApiDatabase` uses its own default folder.
+In the compiled executable both dialects' migration files are **embedded** — the
+build bundles `packages/api-shared/{drizzle,drizzle-sqlite}/**/*.{sql,json}` as
+assets. The command materializes only the selected dialect into a temp directory
+(`tearleads-api-migrations-*`), passes it as `migrationsFolder`, and removes it
+afterwards. Run from source, no files are embedded and `initializeApiDatabase`
+uses its own dialect-specific default folder.
 
 Once the migration starts, both the success and failure paths attempt to close
 the database and remove the temp folder; each attempt is guarded, so a failing

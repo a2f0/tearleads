@@ -9,6 +9,7 @@ import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
+import { createTursoApiDatabase } from "./tursoAdapter";
 import type {
   ApiDatabaseKind,
   ManagedApiDatabase,
@@ -50,6 +51,9 @@ interface ApiDatabaseEnv {
   readonly POSTGRES_USER?: string | undefined;
   readonly API_SQLITE_PATH?: string | undefined;
   readonly SQLITE_PATH?: string | undefined;
+  readonly TURSO_AUTH_TOKEN?: string | undefined;
+  readonly TURSO_DATABASE_URL?: string | undefined;
+  readonly TURSO_PRIMARY_INSTANCE_ID?: string | undefined;
   readonly USER?: string | undefined;
   readonly LOGNAME?: string | undefined;
   readonly [key: string]: string | undefined;
@@ -131,6 +135,63 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
   };
 
   return user ? { ...defaults, user } : defaults;
+}
+
+function isNonPersistentSqlitePath(sqlitePath: string): boolean {
+  if (sqlitePath.toLowerCase() === ":memory:") {
+    return true;
+  }
+  if (!sqlitePath.toLowerCase().startsWith("file:")) {
+    return false;
+  }
+  const fileUriPath = sqlitePath.slice("file:".length).split(/[?#]/u, 1)[0];
+  if (!fileUriPath) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(sqlitePath);
+    const pathname = decodeURIComponent(parsed.pathname).toLowerCase();
+    if (pathname.length === 0) {
+      return true;
+    }
+    if (pathname === "/:memory:" || pathname === ":memory:") {
+      return true;
+    }
+    return [...parsed.searchParams].some(([key, value]) => {
+      const normalizedKey = key.toLowerCase();
+      const normalizedValue = value.toLowerCase();
+      return (
+        (normalizedKey === "mode" && normalizedValue === "memory") ||
+        (normalizedKey === "vfs" && normalizedValue === "memdb")
+      );
+    });
+  } catch {
+    return true;
+  }
+}
+
+function readSqlitePath(env: ApiDatabaseEnv): string {
+  const sqlitePath = getEnvValue(env, sqlitePathKeys);
+  if (sqlitePath) {
+    if (
+      env.NODE_ENV?.trim() === "production" &&
+      isNonPersistentSqlitePath(sqlitePath)
+    ) {
+      throw new Error(
+        "API_SQLITE_PATH or SQLITE_PATH must reference persistent storage in production",
+      );
+    }
+    return sqlitePath;
+  }
+
+  if (env.NODE_ENV?.trim() === "production") {
+    throw new Error(
+      "API_SQLITE_PATH or SQLITE_PATH is required when API_DATABASE=sqlite in production",
+    );
+  }
+
+  return ":memory:";
 }
 
 function readPostgresSslConfig(
@@ -264,9 +325,12 @@ export function createDefaultManagedApiDatabase(
   }
   if (kind === "sqlite") {
     return createSqliteApiDatabase({
-      sqlitePath: getEnvValue(env, sqlitePathKeys) ?? ":memory:",
+      sqlitePath: readSqlitePath(env),
       migrationsFolder: sqliteMigrationsFolder,
     });
+  }
+  if (kind === "turso") {
+    return createTursoApiDatabase(env, sqliteMigrationsFolder);
   }
 
   return createPostgresApiDatabase(env);
