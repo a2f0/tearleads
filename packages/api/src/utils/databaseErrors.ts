@@ -29,6 +29,28 @@ export function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+const LIBSQL_TRANSACTION_CONTENTION_CODES = new Set([
+  "STREAM_EXPIRED",
+  "TRANSACTION_TIMEOUT",
+]);
+
+const LIBSQL_TRANSIENT_TRANSPORT_CODES = new Set([
+  "HRANA_CLOSED_ERROR",
+  "HRANA_PROTO_ERROR",
+  "HRANA_WEBSOCKET_ERROR",
+  "SERVER_ERROR",
+]);
+
+function hasDatabaseCode(
+  error: unknown,
+  predicate: (code: string) => boolean,
+): boolean {
+  return errorCauseChain(error).some((candidate) => {
+    const code = Reflect.get(candidate, "code");
+    return typeof code === "string" && predicate(code);
+  });
+}
+
 /**
  * Serialization failure or deadlock: the database rolled back the losing
  * transaction and a retry is expected to succeed.
@@ -42,11 +64,21 @@ export function isSerializationFailure(error: unknown): boolean {
 
 /** SQLite busy/locked contention, the SQLite analog of a serialization race. */
 export function isLockContention(error: unknown): boolean {
-  return errorCauseChain(error).some((candidate) => {
-    const code = Reflect.get(candidate, "code");
-    return (
-      typeof code === "string" &&
-      (code.startsWith("SQLITE_BUSY") || code.startsWith("SQLITE_LOCKED"))
-    );
-  });
+  return hasDatabaseCode(
+    error,
+    (code) =>
+      code.startsWith("SQLITE_BUSY") ||
+      code.startsWith("SQLITE_LOCKED") ||
+      LIBSQL_TRANSACTION_CONTENTION_CODES.has(code),
+  );
+}
+
+/** Remote database transport failures for which a later request may succeed. */
+export function isTransientDatabaseFailure(error: unknown): boolean {
+  return hasDatabaseCode(
+    error,
+    (code) =>
+      LIBSQL_TRANSACTION_CONTENTION_CODES.has(code) ||
+      LIBSQL_TRANSIENT_TRANSPORT_CODES.has(code),
+  );
 }

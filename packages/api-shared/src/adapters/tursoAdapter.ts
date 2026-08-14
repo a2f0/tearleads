@@ -100,9 +100,11 @@ function attachTransactionExecute(transaction: unknown): DatabaseTransaction {
   return transactionBridge;
 }
 
-function attachDatabaseBridge(
-  libsqlDb: ReturnType<typeof drizzleLibsql<ApiSchema>>,
+export function attachTursoDatabaseBridge(
+  libsqlDatabase: unknown,
 ): ApiDatabase {
+  const libsqlDb =
+    unsafeCoerce<ReturnType<typeof drizzleLibsql<ApiSchema>>>(libsqlDatabase);
   const bridge = attachExecute(libsqlDb);
   const rawTransaction = bridge.transaction.bind(bridge);
   const apiBridge = unsafeCoerce<ApiDatabase>(bridge);
@@ -127,7 +129,7 @@ export function createTursoApiDatabase(
   });
 
   return {
-    db: attachDatabaseBridge(libsqlDb),
+    db: attachTursoDatabaseBridge(libsqlDb),
     kind: "turso",
     close: async () => client.close(),
     migrate: (options) =>

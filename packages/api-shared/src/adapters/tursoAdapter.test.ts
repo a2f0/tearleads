@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import type { Client, Transaction } from "@libsql/client/web";
+import { sql } from "drizzle-orm";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import {
+  attachTursoDatabaseBridge,
   forceTursoWriteTransactions,
   readTursoConnectionConfig,
 } from "./tursoAdapter";
@@ -52,4 +54,50 @@ test("Turso transactions always request write mode", async () => {
   await forceTursoWriteTransactions(client).transaction();
 
   expect(requestedMode).toBe("write");
+});
+
+test("Turso database bridge shapes execute results across nested transactions", async () => {
+  const calls: string[] = [];
+  const createTransaction = (depth: number) => ({
+    all: async () => {
+      calls.push(`execute:${depth}`);
+      return [{ depth }];
+    },
+    transaction: async (callback: (nested: unknown) => Promise<unknown>) => {
+      calls.push(`transaction:${depth + 1}`);
+      return callback(createTransaction(depth + 1));
+    },
+  });
+  const rawDatabase = {
+    all: async () => {
+      calls.push("execute:root");
+      return [{ depth: "root" }];
+    },
+    transaction: async (
+      callback: (transaction: unknown) => Promise<unknown>,
+    ) => {
+      calls.push("transaction:1");
+      return callback(createTransaction(1));
+    },
+  };
+  const database = attachTursoDatabaseBridge(rawDatabase);
+
+  const rootResult = await database.execute(sql`select 1`);
+  expect(rootResult.rows).toEqual([{ depth: "root" }]);
+  await database.transaction(async (transaction) => {
+    const transactionResult = await transaction.execute(sql`select 2`);
+    expect(transactionResult.rows).toEqual([{ depth: 1 }]);
+    await transaction.transaction(async (nested) => {
+      const nestedResult = await nested.execute(sql`select 3`);
+      expect(nestedResult.rows).toEqual([{ depth: 2 }]);
+    });
+  });
+
+  expect(calls).toEqual([
+    "execute:root",
+    "transaction:1",
+    "execute:1",
+    "transaction:2",
+    "execute:2",
+  ]);
 });

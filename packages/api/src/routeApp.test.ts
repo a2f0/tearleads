@@ -104,6 +104,25 @@ describe("createRouteApp", () => {
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });
   });
 
+  test("maps transient libSQL transport failures to 503", async () => {
+    const transportError = Object.assign(new Error("socket closed"), {
+      code: "HRANA_WEBSOCKET_ERROR",
+    });
+    const requireAuth: MiddlewareHandler<SessionEnv> = async () => {
+      throw new Error("Failed query", { cause: transportError });
+    };
+
+    const app = createRouteApp({ requireAuth });
+    const response = await app.request("/containers/parent-lanes/query", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Database temporarily unavailable",
+    });
+  });
+
   test("uses the injected destroySession implementation for logout", async () => {
     const destroySession = mock(async () => {});
     const requireAuth: MiddlewareHandler<SessionEnv> = async (_c, next) => {

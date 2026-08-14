@@ -283,7 +283,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   ).rejects.toThrow("writer public key missing");
 });
 
-test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", async () => {
+test("persistedDocumentSyncStateFromResponse validates sync checkpoints", async () => {
   const { author, secretKey, signingPublicKey, writerProjection } =
     await createMaterializedSyncFixture();
   const materialized = await buildMaterializedDocumentSyncPlan({
@@ -307,6 +307,22 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
     persistedDocumentSyncStateFromResponse(plan, response, {
       resolveWriterPublicKey,
     }),
+  ).resolves.toEqual({
+    documentId: plan.documentId,
+    contentKeyBundle: JSON.stringify(response.contentKeyBundle),
+    documentKekTargets: JSON.stringify(response.documentKekTargets),
+    documentManifestBundle: JSON.stringify(plan.documentManifest),
+  });
+
+  await expect(
+    persistedDocumentSyncStateFromResponse(
+      plan,
+      {
+        ...response,
+        commitLsn: "0/0",
+      },
+      { resolveWriterPublicKey },
+    ),
   ).resolves.toEqual({
     documentId: plan.documentId,
     contentKeyBundle: JSON.stringify(response.contentKeyBundle),
