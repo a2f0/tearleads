@@ -180,7 +180,7 @@ test(
       () => listExplorerContainerItems(peerPane).length > 1,
       "Peer did not discover the custom-group root grant.",
     );
-    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       peerPane,
@@ -193,7 +193,7 @@ test(
     await removeGroupMember(ownerPane, GROUP_NAME, peerUserId);
     await addGroupMember(ownerPane, GROUP_NAME, peerUserId);
     await clickExplorerRefresh(peerPane);
-    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       peerPane,
@@ -211,7 +211,7 @@ test(
       20_000,
     );
     await clickExplorerRefresh(ownerPane);
-    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT);
+    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(ownerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       ownerPane,

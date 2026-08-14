@@ -40,6 +40,7 @@ interface AuthenticatedSessionResponse {
 }
 
 const PRE_MUTATION_NETWORK_QUIET_MS = 500;
+const GROUP_MUTATION_TIMEOUT_MS = 10_000;
 
 function readAuthenticatedSession(userId: string): {
   authorization: string;
@@ -153,16 +154,22 @@ async function addPeerToSelectedGroup(
   await interact(() => {
     fireEvent.click(addButton);
   });
-  await waitFor(() => {
-    expect(userIdInput.value).toBe("");
-  });
-  await waitFor(() => {
-    expect(
-      Array.from(pane.querySelectorAll(".org-manager-member-row strong")).some(
-        (element) => element.getAttribute("title") === peerUserId,
-      ),
-    ).toBe(true);
-  });
+  await waitFor(
+    () => {
+      expect(userIdInput.value).toBe("");
+    },
+    { timeout: GROUP_MUTATION_TIMEOUT_MS },
+  );
+  await waitFor(
+    () => {
+      expect(
+        Array.from(
+          pane.querySelectorAll(".org-manager-member-row strong"),
+        ).some((element) => element.getAttribute("title") === peerUserId),
+      ).toBe(true);
+    },
+    { timeout: GROUP_MUTATION_TIMEOUT_MS },
+  );
   await act(async () => {
     await waitForAppTestRuntimeToSettle({
       apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,

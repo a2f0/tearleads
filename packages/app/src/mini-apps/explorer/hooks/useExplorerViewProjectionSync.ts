@@ -30,6 +30,13 @@ function primedSummaryListsForView(
   return primed;
 }
 
+function trackContainerSignatures(
+  previous: ReadonlyMap<string, string> | null,
+  next: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> | null {
+  return previous === null && next.size === 0 ? null : next;
+}
+
 /**
  * Sync the local projection view into the explorer view model.
  *
@@ -138,7 +145,14 @@ export function useExplorerViewProjectionSync(params: {
         lastContainerSignaturesRef.current,
         nextSignatures,
       );
-      lastContainerSignaturesRef.current = nextSignatures;
+      // An empty cache is not the initial population. Cold bootstrap commonly
+      // applies once before the first container key arrives; consuming the
+      // `null` sentinel there makes the real population look like an additive
+      // lazy-load and suppresses its one required refresh.
+      lastContainerSignaturesRef.current = trackContainerSignatures(
+        lastContainerSignaturesRef.current,
+        nextSignatures,
+      );
       if (changedContainerIds.length > 0) {
         onDocumentLinksChanged(changedContainerIds);
       }

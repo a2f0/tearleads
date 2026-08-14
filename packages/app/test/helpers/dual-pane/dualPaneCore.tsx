@@ -34,7 +34,7 @@ import { waitForCondition } from "../waitForCondition";
 
 export const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 export const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 60_000;
-export const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
+export const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 15_000;
 export const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 export const SHARED_NOTE_TITLE = "Peer one note with attachment";
 

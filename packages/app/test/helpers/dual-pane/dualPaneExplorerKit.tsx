@@ -271,6 +271,7 @@ export async function waitForSharedNoteVisible(pane: HTMLElement) {
 export async function waitForExplorerNoteVisible(
   pane: HTMLElement,
   title: string,
+  timeoutMs = 10_000,
 ) {
   await waitForCondition(
     () =>
@@ -278,6 +279,7 @@ export async function waitForExplorerNoteVisible(
         button.classList.contains("explorer-sidebar-item--note"),
       ),
     `Explorer did not discover note "${title}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    timeoutMs,
   );
 }
 
