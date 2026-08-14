@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
-import type { Client, Transaction } from "@libsql/client/ws";
+import type { Client, ResultSet, Row, Transaction } from "@libsql/client/ws";
 import { sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { unsafeCoerce } from "../unsafeCoerce.js";
 import {
   attachTursoDatabaseBridge,
   forceTursoWriteTransactions,
+  normalizeTursoResultIntegers,
   readTursoConnectionConfig,
 } from "./tursoAdapter";
 import type { ApiSchema } from "./types";
@@ -40,6 +41,7 @@ test("Turso connection config trims remote credentials", () => {
     }),
   ).toEqual({
     authToken: "test-token",
+    intMode: "bigint",
     url: "libsql://test-database.turso.io",
   });
 });
@@ -56,6 +58,44 @@ test("Turso transactions always request write mode", async () => {
   await forceTursoWriteTransactions(client).transaction();
 
   expect(requestedMode).toBe("write");
+});
+
+function resultSet(values: readonly bigint[]): ResultSet {
+  const row = unsafeCoerce<Row>([...values]);
+  return unsafeCoerce<ResultSet>({ rows: [row] });
+}
+
+test("Turso preserves wide integers while normalizing safe values", async () => {
+  const wide = BigInt(Number.MAX_SAFE_INTEGER) + 1n;
+  const transaction = unsafeCoerce<Transaction>({
+    batch: async () => [resultSet([2n, wide])],
+    execute: async () => resultSet([3n, wide]),
+  });
+  const client = normalizeTursoResultIntegers(
+    unsafeCoerce<Client>({
+      batch: async () => [resultSet([1n, wide])],
+      execute: async () => resultSet([1n, wide]),
+      migrate: async () => [resultSet([1n, wide])],
+      transaction: async () => transaction,
+    }),
+  );
+
+  for (const result of [
+    await client.execute("select 1"),
+    ...(await client.batch(["select 1"])),
+    ...(await client.migrate(["select 1"])),
+  ]) {
+    expect(result.rows[0]?.[0]).toBe(1);
+    expect(result.rows[0]?.[1]).toBe(wide);
+  }
+
+  const wrappedTransaction = await client.transaction("write");
+  const transactionResult = await wrappedTransaction.execute("select 1");
+  expect(transactionResult.rows[0]?.[0]).toBe(3);
+  expect(transactionResult.rows[0]?.[1]).toBe(wide);
+  const [batchResult] = await wrappedTransaction.batch(["select 1"]);
+  expect(batchResult?.rows[0]?.[0]).toBe(2);
+  expect(batchResult?.rows[0]?.[1]).toBe(wide);
 });
 
 test("Turso database bridge shapes execute results across nested transactions", async () => {

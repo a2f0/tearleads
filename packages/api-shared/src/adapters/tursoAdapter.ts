@@ -1,4 +1,11 @@
-import { type Client, type Config, createClient } from "@libsql/client/ws";
+import {
+  type Client,
+  type Config,
+  createClient,
+  type ResultSet,
+  type Row,
+  type Transaction,
+} from "@libsql/client/ws";
 import {
   drizzle as drizzleLibsql,
   type LibSQLDatabase,
@@ -22,6 +29,7 @@ interface TursoAdapterEnv {
 
 interface TursoConnectionConfig {
   readonly authToken: string;
+  readonly intMode: "bigint";
   readonly url: string;
 }
 
@@ -48,8 +56,113 @@ export function readTursoConnectionConfig(
 
   return {
     authToken: requireEnvValue(env, "TURSO_AUTH_TOKEN"),
+    // Decode losslessly first; normalize safe values back to numbers before
+    // Drizzle applies per-column codecs below.
+    intMode: "bigint",
     url,
   };
+}
+
+const MIN_SAFE_INTEGER_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+
+function normalizeSafeInteger(value: unknown): unknown {
+  if (
+    typeof value === "bigint" &&
+    value >= MIN_SAFE_INTEGER_BIGINT &&
+    value <= MAX_SAFE_INTEGER_BIGINT
+  ) {
+    return Number(value);
+  }
+  return value;
+}
+
+function normalizeResultRow(row: Row): Row {
+  return new Proxy(row, {
+    get(target, property, receiver) {
+      return normalizeSafeInteger(Reflect.get(target, property, receiver));
+    },
+  });
+}
+
+function normalizeResultSet(result: ResultSet): ResultSet {
+  const normalizedRows = result.rows.map(normalizeResultRow);
+  return new Proxy(result, {
+    get(target, property, receiver) {
+      return property === "rows"
+        ? normalizedRows
+        : Reflect.get(target, property, receiver);
+    },
+  });
+}
+
+type AsyncClientMethod = (...args: unknown[]) => Promise<unknown>;
+
+function bindAsyncMethod(target: object, property: string): AsyncClientMethod {
+  const method = Reflect.get(target, property);
+  if (typeof method !== "function") {
+    throw new Error(`Turso client method ${property} is unavailable`);
+  }
+  return unsafeCoerce<AsyncClientMethod>(method.bind(target));
+}
+
+function normalizeTursoTransactionIntegers(
+  transaction: Transaction,
+): Transaction {
+  return new Proxy(transaction, {
+    get(target, property) {
+      if (property === "execute") {
+        const execute = bindAsyncMethod(target, "execute");
+        return async (...args: unknown[]) =>
+          normalizeResultSet(unsafeCoerce<ResultSet>(await execute(...args)));
+      }
+      if (property === "batch") {
+        const batch = bindAsyncMethod(target, "batch");
+        return async (...args: unknown[]) =>
+          unsafeCoerce<ResultSet[]>(await batch(...args)).map(
+            normalizeResultSet,
+          );
+      }
+
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
+// libSQL exposes one global integer mode, while the API schema mixes ordinary
+// JS numbers with true 64-bit bigint cursors. Decode every integer as bigint to
+// avoid range failures, then convert only safe values back to number before
+// Drizzle's column codecs run. Bigint columns still receive bigint (or convert
+// a safe number back with their codec), while timestamps and counters retain
+// their established number behavior.
+export function normalizeTursoResultIntegers(client: Client): Client {
+  return new Proxy(client, {
+    get(target, property) {
+      if (property === "execute") {
+        const execute = bindAsyncMethod(target, "execute");
+        return async (...args: unknown[]) =>
+          normalizeResultSet(unsafeCoerce<ResultSet>(await execute(...args)));
+      }
+      if (property === "batch" || property === "migrate") {
+        const batch = bindAsyncMethod(target, property);
+        return async (...args: unknown[]) =>
+          unsafeCoerce<ResultSet[]>(await batch(...args)).map(
+            normalizeResultSet,
+          );
+      }
+      if (property === "transaction") {
+        const transaction = bindAsyncMethod(target, "transaction");
+        return async (...args: unknown[]) =>
+          normalizeTursoTransactionIntegers(
+            unsafeCoerce<Transaction>(await transaction(...args)),
+          );
+      }
+
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
 
 // Turso uses the SQLite dialect, so SELECT FOR UPDATE intentionally degrades to
@@ -130,7 +243,7 @@ export function createTursoApiDatabase(
   const config: Config = readTursoConnectionConfig(env);
   const client = createClient(config);
   const libsqlDb = drizzleLibsql({
-    client: forceTursoWriteTransactions(client),
+    client: normalizeTursoResultIntegers(forceTursoWriteTransactions(client)),
     schema,
   });
 

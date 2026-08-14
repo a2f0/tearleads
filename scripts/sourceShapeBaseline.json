@@ -58,12 +58,12 @@
       "bytes": 47194
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 538,
-      "bytes": 22812
+      "lines": 543,
+      "bytes": 23230
     },
     "docs/openapi.json": {
-      "lines": 53381,
-      "bytes": 2212770
+      "lines": 53433,
+      "bytes": 2215042
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -354,8 +354,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20545,
-      "bytes": 847407
+      "lines": 20571,
+      "bytes": 848795
     },
     "packages/validators/src/response/organizationReadModel.test.ts": {
       "lines": 502,

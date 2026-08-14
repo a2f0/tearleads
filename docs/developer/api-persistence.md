@@ -89,9 +89,13 @@ bun run --filter=@tearleads/api db:migrate
 Start the API with the same variables after migration. Turso transactions are
 opened explicitly in write mode. Because this configuration always reads the
 remote primary, the API bypasses replica-watermark waiting and emits the
-wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"`. Clients
-use that declared mode to replace a checkpoint from a previous backend without
+wire-compatible `0/0` LSN sentinel with `commitLsnMode: "untracked"` when a
+request advertises `supportsUntrackedCommitLsn: true`. Clients use that
+negotiated mode to replace a checkpoint from a previous backend without
 weakening tracked-LSN validation when they later return to Postgres or SQLite.
+For older clients that omit the capability, Turso echoes a supplied `minLsn` as
+a compatibility token so they do not reject the response as stale; the echoed
+value is not a Turso durability watermark.
 
 The opt-in integration lane runs the multi-connection sync races against a
 dedicated remote test database. It does not accept the production variable
@@ -103,8 +107,9 @@ TURSO_TEST_AUTH_TOKEN=secret \
 bun run test:turso-concurrency
 ```
 
-The lane applies migrations and retains randomized test rows, so the target
-must be disposable or dedicated to integration tests.
+The lane applies migrations, checks lossless 64-bit read-model cursors, runs the
+multi-connection sync races, and retains randomized test rows. The target must
+be disposable or dedicated to integration tests.
 
 API package tests run against both in-memory PGlite and SQLite:
 

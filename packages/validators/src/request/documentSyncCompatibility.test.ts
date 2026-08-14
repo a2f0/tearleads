@@ -130,6 +130,12 @@ test("document sync request guard preserves permissive envelope behavior", () =>
     }),
   ).toBe(true);
   expect(isDocumentSyncRequest({ ...valid, minLsn: undefined })).toBe(true);
+  expect(
+    isDocumentSyncRequest({ ...valid, supportsUntrackedCommitLsn: true }),
+  ).toBe(true);
+  expect(
+    isDocumentSyncRequest({ ...valid, supportsUntrackedCommitLsn: false }),
+  ).toBe(false);
   expect(isDocumentSyncRequest(classEnvelope)).toBe(false);
 });
 

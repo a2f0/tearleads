@@ -2696,6 +2696,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -4210,6 +4214,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -5460,6 +5468,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -6734,6 +6746,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -7680,6 +7696,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -8956,6 +8976,10 @@
                                 ],
                                 "additionalProperties": {}
                               }
+                            },
+                            "supportsUntrackedCommitLsn": {
+                              "type": "boolean",
+                              "const": true
                             }
                           },
                           "required": [
@@ -24818,6 +24842,10 @@
                       ],
                       "additionalProperties": {}
                     }
+                  },
+                  "supportsUntrackedCommitLsn": {
+                    "type": "boolean",
+                    "const": true
                   }
                 },
                 "required": [
@@ -42338,6 +42366,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -43852,6 +43884,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -45102,6 +45138,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -46376,6 +46416,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -47322,6 +47366,10 @@
                               ],
                               "additionalProperties": {}
                             }
+                          },
+                          "supportsUntrackedCommitLsn": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [
@@ -48598,6 +48646,10 @@
                                 ],
                                 "additionalProperties": {}
                               }
+                            },
+                            "supportsUntrackedCommitLsn": {
+                              "type": "boolean",
+                              "const": true
                             }
                           },
                           "required": [

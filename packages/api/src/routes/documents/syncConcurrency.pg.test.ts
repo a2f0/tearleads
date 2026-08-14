@@ -111,11 +111,21 @@ test.skipIf(databaseKind !== "turso")(
       root,
     });
 
-    const response = await postDocumentSync(owner, created.id, {
+    const legacyResponse = await postDocumentSync(owner, created.id, {
       ...request,
       minLsn: "FFFFFFFF/FFFFFFFF",
     });
+    expect(legacyResponse.status).toBe(200);
+    expect(await legacyResponse.json()).toMatchObject({
+      commitLsn: "FFFFFFFF/FFFFFFFF",
+      commitLsnMode: "untracked",
+    });
 
+    const response = await postDocumentSync(owner, created.id, {
+      ...request,
+      minLsn: "FFFFFFFF/FFFFFFFF",
+      supportsUntrackedCommitLsn: true,
+    });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       commitLsn: "0/0",

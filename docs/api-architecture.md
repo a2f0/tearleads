@@ -93,10 +93,12 @@ The document sync request names protocol fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, optional
 `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`, and
-`outgoingUpdates[]` with per-update `writeHeader`. The path references identify
+optional `supportsUntrackedCommitLsn`, plus `outgoingUpdates[]` with per-update
+`writeHeader`. The path references identify
 signed container manifests already held by the API; the expected link-set hash
 pins the server-resolved document manifest.
-Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, `contentKeyBundle`,
+Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, optional
+`commitLsnMode`, `contentKeyBundle`,
 the required `contentKeyBundles` array (empty when no additional epoch bundle is
 needed), `documentKekTargets`, and encrypted `updates[]`.
 
