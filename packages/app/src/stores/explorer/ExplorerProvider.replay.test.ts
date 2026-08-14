@@ -363,9 +363,14 @@ test("explorer sync creates queued local containers parent before child", async 
     createdStore.updateRuntime(authenticatedRuntime);
 
     await waitForCondition(
-      () =>
+      async () =>
         harness.containerCreateCalls.length === 3 &&
-        harness.documentCreateCalls.length === 3,
+        harness.documentCreateCalls.length === 3 &&
+        (
+          await defaultExplorerPersistence.listPendingCreateIntents(
+            runtime.infra.execSql,
+          )
+        ).length === 0,
       `Queued local containers were not synced.\ncreateContainerCalls=${JSON.stringify(
         harness.containerCreateCalls,
       )}`,

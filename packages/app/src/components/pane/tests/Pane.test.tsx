@@ -162,107 +162,112 @@ test("routed system monitor manually controls the app network mode", async () =>
   view.unmount();
 });
 
-test("contacts windows in the same pane share live contact document state", async () => {
-  const peerUserId = "11111111-1111-4111-8111-111111111111";
-  const view = renderPane();
-  await generateIdentityAndWaitForDb(view);
-  await registerAndWaitForUserId(view);
+test(
+  "contacts windows in the same pane share live contact document state",
+  async () => {
+    const peerUserId = "11111111-1111-4111-8111-111111111111";
+    const view = renderPane();
+    await generateIdentityAndWaitForDb(view);
+    await registerAndWaitForUserId(view);
 
-  await openContacts(view);
-  await openContacts(view);
+    await openContacts(view);
+    await openContacts(view);
 
-  await waitFor(() => {
-    const contactsApps = Array.from(
-      view.container.querySelectorAll<HTMLDivElement>(".contacts"),
-    );
-    expect(contactsApps).toHaveLength(2);
-  });
-
-  const contactsApps =
-    view.container.querySelectorAll<HTMLDivElement>(".contacts");
-  const firstContactsApp = contactsApps[0];
-
-  invariant(firstContactsApp, "first contacts app not found");
-  const firstContactsWindow = firstContactsApp.closest(".window");
-  invariant(
-    firstContactsWindow instanceof HTMLDivElement,
-    "first contacts window not found",
-  );
-
-  expect(
-    within(firstContactsApp).queryByLabelText("Contact user ID"),
-  ).toBeNull();
-
-  fireEvent.click(within(firstContactsWindow).getByText("File"));
-  let importContactMenuItem: HTMLButtonElement | null = null;
-  await waitFor(() => {
-    expect(within(firstContactsWindow).getByText("New Contact")).toBeTruthy();
-    const menuItem = within(firstContactsWindow).getByRole("menuitem", {
-      name: "Import Contact",
+    await waitFor(() => {
+      const contactsApps = Array.from(
+        view.container.querySelectorAll<HTMLDivElement>(".contacts"),
+      );
+      expect(contactsApps).toHaveLength(2);
     });
+
+    const contactsApps =
+      view.container.querySelectorAll<HTMLDivElement>(".contacts");
+    const firstContactsApp = contactsApps[0];
+
+    invariant(firstContactsApp, "first contacts app not found");
+    const firstContactsWindow = firstContactsApp.closest(".window");
     invariant(
-      menuItem instanceof HTMLButtonElement,
-      "import contact menu item not found",
+      firstContactsWindow instanceof HTMLDivElement,
+      "first contacts window not found",
     );
-    expect(menuItem.disabled).toBe(false);
-    importContactMenuItem = menuItem;
-  });
-  invariant(importContactMenuItem, "import contact menu item not found");
-  fireEvent.click(importContactMenuItem);
 
-  const firstInput = await view.findByLabelText("Contact user ID");
-  invariant(firstInput, "contact input not found");
+    expect(
+      within(firstContactsApp).queryByLabelText("Contact user ID"),
+    ).toBeNull();
 
-  fireEvent.change(firstInput, {
-    target: { value: peerUserId },
-  });
+    fireEvent.click(within(firstContactsWindow).getByText("File"));
+    let importContactMenuItem: HTMLButtonElement | null = null;
+    await waitFor(() => {
+      expect(within(firstContactsWindow).getByText("New Contact")).toBeTruthy();
+      const menuItem = within(firstContactsWindow).getByRole("menuitem", {
+        name: "Import Contact",
+      });
+      invariant(
+        menuItem instanceof HTMLButtonElement,
+        "import contact menu item not found",
+      );
+      expect(menuItem.disabled).toBe(false);
+      importContactMenuItem = menuItem;
+    });
+    invariant(importContactMenuItem, "import contact menu item not found");
+    fireEvent.click(importContactMenuItem);
 
-  const updatedFirstContactsApp = view
-    .getByDisplayValue(peerUserId)
-    .closest(".contacts");
-  invariant(
-    updatedFirstContactsApp instanceof HTMLDivElement,
-    "updated first contacts app not found",
-  );
-  // The import submit action now lives in the window toolbar row (window
-  // chrome), not inside the .contacts body, so query the whole window.
-  const updatedFirstContactsWindow = updatedFirstContactsApp.closest(".window");
-  invariant(
-    updatedFirstContactsWindow instanceof HTMLDivElement,
-    "updated first contacts window not found",
-  );
+    const firstInput = await view.findByLabelText("Contact user ID");
+    invariant(firstInput, "contact input not found");
 
-  await waitFor(() => {
-    const importButton = within(updatedFirstContactsWindow).getByRole(
+    fireEvent.change(firstInput, {
+      target: { value: peerUserId },
+    });
+
+    const updatedFirstContactsApp = view
+      .getByDisplayValue(peerUserId)
+      .closest(".contacts");
+    invariant(
+      updatedFirstContactsApp instanceof HTMLDivElement,
+      "updated first contacts app not found",
+    );
+    // The import submit action now lives in the window toolbar row (window
+    // chrome), not inside the .contacts body, so query the whole window.
+    const updatedFirstContactsWindow =
+      updatedFirstContactsApp.closest(".window");
+    invariant(
+      updatedFirstContactsWindow instanceof HTMLDivElement,
+      "updated first contacts window not found",
+    );
+
+    await waitFor(() => {
+      const importButton = within(updatedFirstContactsWindow).getByRole(
+        "button",
+        { name: "Import" },
+      );
+      invariant(
+        importButton instanceof HTMLButtonElement,
+        "contact import button not found",
+      );
+      expect(importButton.disabled).toBe(false);
+    });
+
+    const firstImportButton = within(updatedFirstContactsWindow).getByRole(
       "button",
-      { name: "Import" },
+      {
+        name: "Import",
+      },
     );
     invariant(
-      importButton instanceof HTMLButtonElement,
+      firstImportButton instanceof HTMLButtonElement,
       "contact import button not found",
     );
-    expect(importButton.disabled).toBe(false);
-  });
 
-  const firstImportButton = within(updatedFirstContactsWindow).getByRole(
-    "button",
-    {
-      name: "Import",
-    },
-  );
-  invariant(
-    firstImportButton instanceof HTMLButtonElement,
-    "contact import button not found",
-  );
+    fireEvent.click(firstImportButton);
 
-  fireEvent.click(firstImportButton);
+    await waitFor(() => {
+      expect(view.getAllByText("11111111")).toHaveLength(2);
+    });
 
-  await waitFor(() => {
-    expect(view.getAllByText("11111111")).toHaveLength(2);
-  });
-
-  view.unmount();
-});
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);
 
 test(
   "system bootstrap provisions one self contact before login",

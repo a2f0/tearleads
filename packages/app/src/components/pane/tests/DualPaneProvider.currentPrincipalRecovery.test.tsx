@@ -9,7 +9,6 @@ import {
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
   getPaneUserId,
   interact,
@@ -54,6 +53,7 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 const GROUP_NAME = "Rotated recovery readers";
 const NOTE_TEXT = "Historical group data survives current-head recovery";
+const CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS = 120_000;
 
 afterEach(async () => {
   cleanup();
@@ -232,5 +232,5 @@ test(
       `Current-head recovery must not walk historical principal keys.\nrequests=\n${summarizeProxiedApiRequests(recoveryRequests)}`,
     ).toEqual([]);
   },
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS,
 );

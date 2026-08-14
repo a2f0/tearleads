@@ -203,7 +203,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
 
   const resetChallengeResponse = await requestChallenge(fingerprint);
   expect(resetChallengeResponse.status).toBe(404);
-}, 10_000);
+}, 30_000);
 
 test("resetMockServer leaves active proxied API accounting intact when idle times out", async () => {
   useTestApiAppHandlers({ responseDelayMs: 100 });

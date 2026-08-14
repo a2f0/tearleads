@@ -45,24 +45,37 @@ export async function openExplorer(pane: HTMLElement) {
 }
 
 async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
-  const explorerWindow = getExplorerWindowRoot(pane);
-  await interact(() => {
-    fireEvent.click(
-      within(explorerWindow).getByRole("menuitem", { name: "File" }),
-    );
-  });
-  const newStructuredDocumentItem = within(explorerWindow).getByRole(
-    "menuitem",
-    {
-      name: "New Document",
-    },
-  );
-  await interact(() => {
-    fireEvent.click(newStructuredDocumentItem);
-  });
-  await waitFor(() => {
-    expect(within(pane).getByRole("button", { name: "Note" })).toBeTruthy();
-  });
+  const deadline = Date.now() + DUAL_PANE_TEST_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (within(pane).queryByRole("button", { name: "Note" })) {
+      return;
+    }
+
+    const explorerWindow = getExplorerWindowRoot(pane);
+    const fileMenu = within(explorerWindow).queryByRole("menuitem", {
+      name: "File",
+    });
+    if (fileMenu) {
+      await interact(() => {
+        fireEvent.click(fileMenu);
+      });
+      const newDocumentItem = within(explorerWindow).queryByRole("menuitem", {
+        name: "New Document",
+      });
+      if (
+        newDocumentItem instanceof HTMLButtonElement &&
+        !newDocumentItem.disabled
+      ) {
+        await interact(() => {
+          fireEvent.click(newDocumentItem);
+        });
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error("Explorer did not open the new document route.");
 }
 
 export async function createChildContainer(pane: HTMLElement, name: string) {
