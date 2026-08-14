@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.4.1",
+    "@libsql/client": "0.17.4",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "drizzle-orm": "0.45.1",

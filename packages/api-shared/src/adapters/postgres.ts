@@ -9,6 +9,7 @@ import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
+import { createTursoApiDatabase } from "./tursoAdapter";
 import type {
   ApiDatabaseKind,
   ManagedApiDatabase,
@@ -50,6 +51,8 @@ interface ApiDatabaseEnv {
   readonly POSTGRES_USER?: string | undefined;
   readonly API_SQLITE_PATH?: string | undefined;
   readonly SQLITE_PATH?: string | undefined;
+  readonly TURSO_AUTH_TOKEN?: string | undefined;
+  readonly TURSO_DATABASE_URL?: string | undefined;
   readonly USER?: string | undefined;
   readonly LOGNAME?: string | undefined;
   readonly [key: string]: string | undefined;
@@ -131,6 +134,21 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
   };
 
   return user ? { ...defaults, user } : defaults;
+}
+
+function readSqlitePath(env: ApiDatabaseEnv): string {
+  const sqlitePath = getEnvValue(env, sqlitePathKeys);
+  if (sqlitePath) {
+    return sqlitePath;
+  }
+
+  if (env.NODE_ENV?.trim() === "production") {
+    throw new Error(
+      "API_SQLITE_PATH or SQLITE_PATH is required when API_DATABASE=sqlite in production",
+    );
+  }
+
+  return ":memory:";
 }
 
 function readPostgresSslConfig(
@@ -264,9 +282,12 @@ export function createDefaultManagedApiDatabase(
   }
   if (kind === "sqlite") {
     return createSqliteApiDatabase({
-      sqlitePath: getEnvValue(env, sqlitePathKeys) ?? ":memory:",
+      sqlitePath: readSqlitePath(env),
       migrationsFolder: sqliteMigrationsFolder,
     });
+  }
+  if (kind === "turso") {
+    return createTursoApiDatabase(env, sqliteMigrationsFolder);
   }
 
   return createPostgresApiDatabase(env);

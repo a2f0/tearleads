@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
-import { isSqliteApiDatabase } from "../utils/sqlDialect";
+import { isSqliteApiDatabase, isTursoApiDatabase } from "../utils/sqlDialect";
 
 let sqliteCommitLsnValue = 0n;
 // Memoized so concurrent first calls all await the same seed query rather than a
@@ -57,6 +57,12 @@ function readCurrentSqliteCommitLsn(): string {
 export async function readCurrentCommitLsn(
   executor: DatabaseSession,
 ): Promise<string> {
+  // Remote-only Turso always serves reads from the primary, so there is no
+  // replica watermark to wait for. A zero sentinel remains compatible with the
+  // existing WAL-LSN wire format and is satisfiable after a later Postgres move.
+  if (isTursoApiDatabase()) {
+    return "0/0";
+  }
   if (isSqliteApiDatabase()) {
     await ensureSqliteCommitLsnSeeded(executor);
     return readCurrentSqliteCommitLsn();

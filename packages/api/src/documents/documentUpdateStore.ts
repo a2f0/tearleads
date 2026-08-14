@@ -9,6 +9,7 @@ import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import {
   isSqliteApiDatabase,
+  isTursoApiDatabase,
   readDateValue,
   textExpression,
   uuidValue,
@@ -142,6 +143,11 @@ async function assertMinLsnSatisfied(
   minLsn: string | undefined,
 ): Promise<void> {
   if (!minLsn) {
+    return;
+  }
+  // Turso is configured as a remote primary only. With no read replica in the
+  // request path, every successful read has already reached the current store.
+  if (isTursoApiDatabase()) {
     return;
   }
 

@@ -157,6 +157,34 @@ test("default API database requires explicit production adapter", () => {
   ).toThrow("API_DATABASE is required when NODE_ENV=production");
 });
 
+test("default API database requires a persistent SQLite path in production", () => {
+  expect(() =>
+    createDefaultManagedApiDatabase({
+      API_DATABASE: "sqlite",
+      NODE_ENV: "production",
+    }),
+  ).toThrow(
+    "API_SQLITE_PATH or SQLITE_PATH is required when API_DATABASE=sqlite in production",
+  );
+});
+
+test("default API database requires explicit Turso credentials", () => {
+  expect(() =>
+    createDefaultManagedApiDatabase({ API_DATABASE: "turso" }),
+  ).toThrow("TURSO_DATABASE_URL is required when API_DATABASE=turso");
+});
+
+test("default API database constructs the remote Turso adapter", async () => {
+  const database = createDefaultManagedApiDatabase({
+    API_DATABASE: "turso",
+    TURSO_AUTH_TOKEN: "test-token",
+    TURSO_DATABASE_URL: "libsql://test-database.turso.io",
+  });
+
+  expect(database.kind).toBe("turso");
+  await database.close();
+});
+
 test("default API database supports sqlite migrations", async () => {
   const adapterUrl = new URL("./postgres.ts", import.meta.url).href;
   const schemaUrl = new URL("../schema.ts", import.meta.url).href;

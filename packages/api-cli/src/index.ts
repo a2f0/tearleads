@@ -1,9 +1,13 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import {
+  type ApiMigrationDialect,
+  embeddedMigrationPath,
+  migrationDialectForDatabase,
+} from "./migrationAssets";
 
 const apiDatabaseEnvKey = "API_DATABASE";
-const drizzlePathSegment = "drizzle/";
 
 function usage(): string {
   return [
@@ -19,15 +23,6 @@ function isHelpArg(arg: string | undefined): boolean {
   return arg === "-h" || arg === "--help";
 }
 
-function embeddedMigrationPath(name: string): string | undefined {
-  const markerIndex = name.indexOf(drizzlePathSegment);
-  if (markerIndex < 0) {
-    return undefined;
-  }
-
-  return name.slice(markerIndex + drizzlePathSegment.length);
-}
-
 function embeddedFileName(file: Blob): string | undefined {
   if (!("name" in file)) {
     return undefined;
@@ -36,11 +31,16 @@ function embeddedFileName(file: Blob): string | undefined {
   return typeof file.name === "string" ? file.name : undefined;
 }
 
-async function materializeEmbeddedMigrations(): Promise<string | undefined> {
+async function materializeEmbeddedMigrations(
+  dialect: ApiMigrationDialect,
+): Promise<string | undefined> {
   const migrationFiles = Bun.embeddedFiles
     .map((file) => {
       const name = embeddedFileName(file);
-      return { file, path: name ? embeddedMigrationPath(name) : undefined };
+      return {
+        file,
+        path: name ? embeddedMigrationPath(name, dialect) : undefined,
+      };
     })
     .filter((entry) => entry.path !== undefined);
 
@@ -98,7 +98,11 @@ async function cleanupApiDatabase(
 async function runMigrations(): Promise<void> {
   process.env[apiDatabaseEnvKey] ??= "postgres";
 
-  const migrationsFolder = await materializeEmbeddedMigrations();
+  const migrationDialect = migrationDialectForDatabase(
+    process.env[apiDatabaseEnvKey],
+  );
+  const migrationsFolder =
+    await materializeEmbeddedMigrations(migrationDialect);
   const { closeApiDatabase, db, initializeApiDatabase } = await import(
     "@tearleads/api-shared/postgres"
   );
