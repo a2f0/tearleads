@@ -62,10 +62,10 @@ function isContainerGrantSubjectType(
   return value === "group" || value === "user";
 }
 
-function isManagedPrincipalKind(
+function isContainerGrantPrincipalType(
   value: unknown,
 ): value is ContainerAccessManifestState["referencedPrincipalHeads"][number]["principalType"] {
-  return value === "group" || value === "organization";
+  return value === "group";
 }
 
 function readContainerDirectGrant(
@@ -107,7 +107,7 @@ function readReferencedPrincipalHead(
 ): ContainerAccessManifestState["referencedPrincipalHeads"][number] {
   const record = readCanonicalRecord(value, label);
   const principalType = readRecordValue(record, "principalType");
-  if (!isManagedPrincipalKind(principalType)) {
+  if (!isContainerGrantPrincipalType(principalType)) {
     throw new Error(`${label}.principalType is invalid`);
   }
 
