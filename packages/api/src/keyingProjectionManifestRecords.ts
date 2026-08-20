@@ -39,7 +39,14 @@ export function containerAccessManifestStateRecord(
       subjectType: grant.subjectType,
     })),
     referencedPrincipalHeads: state.referencedPrincipalHeads.map(
-      projectionReferencedPrincipalHeadRecord,
+      (principalHead) => ({
+        principalType: principalHead.principalType,
+        principalId: principalHead.principalId,
+        version: principalHead.version,
+        keyEpoch: principalHead.keyEpoch,
+        stateHash: principalHead.stateHash,
+        keyFingerprint: principalHead.keyFingerprint,
+      }),
     ),
   };
 }

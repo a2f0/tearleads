@@ -21,6 +21,7 @@ import type {
   AccessEvent,
   ContainerAccessEventBody,
   ContainerAccessManifestState,
+  ContainerGrantPrincipalHead,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -30,7 +31,6 @@ import type {
   PrincipalContainerGrant,
   PrincipalProjectionMember,
   PrincipalStateMember,
-  ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
@@ -321,7 +321,7 @@ async function putGroupPrincipalPolicy(input: {
   readonly principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   readonly prepareContainerMutations?: (input: {
     readonly policy: VerifiedPrincipalPolicy;
-    readonly reference: ReferencedPrincipalHead;
+    readonly reference: ContainerGrantPrincipalHead;
   }) => Promise<readonly ContainerMutationRequest[]>;
   readonly projection?: readonly PrincipalProjectionMember[];
   readonly signedAt?: string;
@@ -329,7 +329,7 @@ async function putGroupPrincipalPolicy(input: {
 }): Promise<{
   readonly containerMutations: readonly ContainerMutationResponse[];
   readonly policy: VerifiedPrincipalPolicy;
-  readonly reference: ReferencedPrincipalHead;
+  readonly reference: ContainerGrantPrincipalHead;
   readonly stateHash: string;
 }> {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
@@ -415,7 +415,7 @@ async function putGroupPrincipalPolicy(input: {
     preparedContainerMutations = await input.prepareContainerMutations({
       policy: nextPolicy,
       reference: {
-        principalType: nextPolicy.principalType,
+        principalType: "group",
         principalId: nextPolicy.principalId,
         version: nextPolicy.version,
         keyEpoch: nextPolicy.keyEpoch,
@@ -486,7 +486,7 @@ async function putGroupPrincipalPolicy(input: {
     input.principalId,
   );
   expect(policy.stateHash).toBe(stateHash);
-  const reference: ReferencedPrincipalHead = {
+  const reference: ContainerGrantPrincipalHead = {
     principalType: "group",
     principalId: input.principalId,
     version: policy.version,
@@ -508,7 +508,7 @@ async function commitGroupGrant(input: {
   readonly actor: TestUser;
   readonly buildMutation: (input: {
     readonly policy: VerifiedPrincipalPolicy;
-    readonly reference: ReferencedPrincipalHead;
+    readonly reference: ContainerGrantPrincipalHead;
   }) => Promise<ContainerMutationRequest>;
   readonly containerId: string;
   readonly current: Awaited<ReturnType<typeof putGroupPrincipalPolicy>>;
@@ -962,7 +962,7 @@ async function buildGroupGrantRequest(input: {
   readonly previousKekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly principalPolicy: VerifiedPrincipalPolicy;
-  readonly principalReference: ReferencedPrincipalHead;
+  readonly principalReference: ContainerGrantPrincipalHead;
   readonly signer: TestUser;
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }): Promise<ContainerMutationRequest> {

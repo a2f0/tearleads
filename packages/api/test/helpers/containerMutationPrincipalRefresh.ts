@@ -1,6 +1,6 @@
 import type {
+  ContainerGrantPrincipalHead,
   ContainerKekRecipientTarget,
-  ReferencedPrincipalHead,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -8,9 +8,12 @@ import { derivePrincipalRecipientKeyEpochId } from "@tearleads/crypto";
 
 function replacementHead(
   policy: VerifiedPrincipalPolicy,
-): ReferencedPrincipalHead {
+): ContainerGrantPrincipalHead {
+  if (policy.principalType !== "group") {
+    throw new Error("Container grants cannot target organizations");
+  }
   return {
-    principalType: policy.principalType,
+    principalType: "group",
     principalId: policy.principalId,
     version: policy.version,
     keyEpoch: policy.keyEpoch,
@@ -41,7 +44,7 @@ function isReplacementRecipient(
 
 export function refreshContainerMutationPrincipal(input: {
   readonly currentPrincipalPolicies: readonly VerifiedPrincipalPolicy[];
-  readonly currentReferencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+  readonly currentReferencedPrincipalHeads: readonly ContainerGrantPrincipalHead[];
   readonly currentRecipientTargets: VerifiedContainerKekState["recipientTargets"];
   readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
 }) {

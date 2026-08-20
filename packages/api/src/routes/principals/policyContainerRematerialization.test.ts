@@ -162,7 +162,7 @@ test("policy rotation and dependent container rekey commit atomically", async ()
     asVerifiedContainerManifest(prepared.rootRekey.bundle).state
       .referencedPrincipalHeads,
   ).toContainEqual({
-    principalType: prepared.nextPolicy.principalType,
+    principalType: "group",
     principalId: prepared.nextPolicy.principalId,
     version: prepared.nextPolicy.version,
     keyEpoch: prepared.nextPolicy.keyEpoch,

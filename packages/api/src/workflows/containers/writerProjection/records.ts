@@ -3,11 +3,11 @@ import type {
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  ContainerGrantPrincipalHead,
   ContainerGrantSubjectType,
   ContainerKekKeyring,
   ContainerKekRecipientTarget,
   KeyingCanonicalJson,
-  ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -101,7 +101,25 @@ interface ContainerAccessStateFields {
   readonly parentContainerId: string | null;
   readonly parentManifestHash: string | null;
   readonly previousManifestHash: string | null;
-  readonly referencedPrincipalHeads: ReferencedPrincipalHead[];
+  readonly referencedPrincipalHeads: ContainerGrantPrincipalHead[];
+}
+
+function isContainerGrantPrincipalHead(
+  principalHead: ReturnType<typeof readReferencedPrincipalHeads>[number],
+): principalHead is ContainerGrantPrincipalHead {
+  return principalHead.principalType === "group";
+}
+
+function readContainerGrantPrincipalHeads(
+  value: unknown,
+  label: string,
+): ContainerGrantPrincipalHead[] {
+  const principalHeads = readReferencedPrincipalHeads(value, label);
+  if (!principalHeads.every(isContainerGrantPrincipalHead)) {
+    throw projectionError(`${label} may reference only group principals`);
+  }
+
+  return principalHeads;
 }
 
 function readContainerAccessStateFields(
@@ -147,7 +165,7 @@ function readContainerAccessStateFields(
       readValue(record, "directGrants"),
       "Container manifest state.directGrants",
     ),
-    referencedPrincipalHeads: readReferencedPrincipalHeads(
+    referencedPrincipalHeads: readContainerGrantPrincipalHeads(
       readValue(record, "referencedPrincipalHeads"),
       "Container manifest state.referencedPrincipalHeads",
     ),

@@ -1,13 +1,15 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   computeAccessManifestHash,
-  normalizeReferencedPrincipalHead,
-  normalizeReferencedPrincipalHeads,
   referencedPrincipalKey,
   verifyAccessManifest,
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
+import {
+  normalizeContainerGrantPrincipalHead,
+  normalizeContainerGrantPrincipalHeads,
+} from "./containerGrantPrincipalHead";
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -33,6 +35,7 @@ import type {
   ContainerCreateAccessEventBody,
   ContainerDirectGrant,
   ContainerGrantAccessEventBody,
+  ContainerGrantPrincipalHead,
   ContainerMoveAccessEventBody,
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
@@ -208,7 +211,7 @@ function managedGrantReferenceKey(grant: ContainerDirectGrant): string | null {
 
 function assertReferencedPrincipalHeadsMatchDirectGrants(input: {
   readonly directGrants: readonly ContainerDirectGrant[];
-  readonly referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+  readonly referencedPrincipalHeads: readonly ContainerGrantPrincipalHead[];
 }): void {
   const managedGrantKeys = new Set<string>();
   for (const grant of input.directGrants) {
@@ -265,7 +268,7 @@ function normalizeContainerAccessGrantState(input: {
   }
 
   const directGrants = normalizeContainerDirectGrants(input.directGrants);
-  const referencedPrincipalHeads = normalizeReferencedPrincipalHeads(
+  const referencedPrincipalHeads = normalizeContainerGrantPrincipalHeads(
     input.referencedPrincipalHeads,
   );
 
@@ -457,9 +460,8 @@ function normalizeContainerCreateAccessEventBody(
     metadataDocumentId: record.metadataDocumentId,
   });
   const normalizedDirectGrants = normalizeContainerDirectGrants(directGrants);
-  const normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
-    referencedPrincipalHeads,
-  );
+  const normalizedReferencedPrincipalHeads =
+    normalizeContainerGrantPrincipalHeads(referencedPrincipalHeads);
 
   assertReferencedPrincipalHeadsMatchDirectGrants({
     directGrants: normalizedDirectGrants,
@@ -488,7 +490,7 @@ function normalizeContainerGrantAccessEventBody(
   const referencedPrincipalHead =
     record.referencedPrincipalHead === null
       ? null
-      : normalizeReferencedPrincipalHead(record.referencedPrincipalHead);
+      : normalizeContainerGrantPrincipalHead(record.referencedPrincipalHead);
   const managedGrantKey = managedGrantReferenceKey(grant);
 
   if (managedGrantKey === null && referencedPrincipalHead !== null) {
@@ -660,28 +662,28 @@ function removeContainerDirectGrant(
 }
 
 function upsertReferencedPrincipalHead(
-  principalHeads: readonly ReferencedPrincipalHead[],
-  principalHead: ReferencedPrincipalHead,
-): ReferencedPrincipalHead[] {
+  principalHeads: readonly ContainerGrantPrincipalHead[],
+  principalHead: ContainerGrantPrincipalHead,
+): ContainerGrantPrincipalHead[] {
   const nextPrincipalHeads = principalHeads.filter(
     (existingHead) =>
       referencedPrincipalKey(existingHead) !==
       referencedPrincipalKey(principalHead),
   );
   nextPrincipalHeads.push(principalHead);
-  return normalizeReferencedPrincipalHeads(nextPrincipalHeads);
+  return normalizeContainerGrantPrincipalHeads(nextPrincipalHeads);
 }
 
 function removeReferencedPrincipalHead(
-  principalHeads: readonly ReferencedPrincipalHead[],
+  principalHeads: readonly ContainerGrantPrincipalHead[],
   revokedGrant: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-): ReferencedPrincipalHead[] {
+): ContainerGrantPrincipalHead[] {
   if (revokedGrant.subjectType === "user") {
-    return normalizeReferencedPrincipalHeads(principalHeads);
+    return normalizeContainerGrantPrincipalHeads(principalHeads);
   }
 
   const revokedReferenceKey = `${revokedGrant.subjectType}:${revokedGrant.subjectId}`;
-  return normalizeReferencedPrincipalHeads(
+  return normalizeContainerGrantPrincipalHeads(
     principalHeads.filter(
       (principalHead) =>
         referencedPrincipalKey(principalHead) !== revokedReferenceKey,

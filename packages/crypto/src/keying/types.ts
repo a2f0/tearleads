@@ -171,7 +171,7 @@ export interface ContainerAccessManifestState
   previousManifestHash: string | null;
   eventHash: string;
   directGrants: ContainerDirectGrant[];
-  referencedPrincipalHeads: ReferencedPrincipalHead[];
+  referencedPrincipalHeads: ContainerGrantPrincipalHead[];
 }
 
 export interface ContainerCreateAccessEventBody
@@ -180,13 +180,13 @@ export interface ContainerCreateAccessEventBody
     ContainerAccessMetadata {
   eventType: "container.create";
   directGrants: ContainerDirectGrant[];
-  referencedPrincipalHeads: ReferencedPrincipalHead[];
+  referencedPrincipalHeads: ContainerGrantPrincipalHead[];
 }
 
 export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
   eventType: "container.grant";
   grant: ContainerDirectGrant;
-  referencedPrincipalHead: ReferencedPrincipalHead | null;
+  referencedPrincipalHead: ContainerGrantPrincipalHead | null;
 }
 
 export interface ContainerRevokeAccessEventBody
@@ -203,7 +203,7 @@ export interface ContainerRekeyAccessEventBody {
   containerKeyEpochId: string;
   keyringHash: string;
   predecessorBridgeHash: string;
-  referencedPrincipalHeads?: ReferencedPrincipalHead[];
+  referencedPrincipalHeads?: ContainerGrantPrincipalHead[];
 }
 
 export interface ContainerMoveAccessEventBody

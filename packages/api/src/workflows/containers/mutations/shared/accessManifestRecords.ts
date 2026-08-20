@@ -11,10 +11,10 @@ import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,
   readProjectionAccessManifest,
+  readProjectionContainerGrantPrincipalHeads,
   readProjectionNullableString,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
-  readProjectionReferencedPrincipalHeads,
   readProjectionString,
   readProjectionValue,
   readProjectionVerifiedAccessEvent,
@@ -138,7 +138,7 @@ function readContainerAccessState(
       readProjectionValue(record, "directGrants"),
       `${label}.directGrants`,
     ),
-    referencedPrincipalHeads: readProjectionReferencedPrincipalHeads(
+    referencedPrincipalHeads: readProjectionContainerGrantPrincipalHeads(
       readProjectionValue(record, "referencedPrincipalHeads"),
       `${label}.referencedPrincipalHeads`,
       mutationShapeError,

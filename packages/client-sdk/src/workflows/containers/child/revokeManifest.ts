@@ -1,7 +1,7 @@
 import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
-  ReferencedPrincipalHead,
+  ContainerGrantPrincipalHead,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -26,7 +26,7 @@ function isSameContainerGrantSubject(
 }
 
 function isSameReferencedPrincipalSubject(
-  head: ReferencedPrincipalHead,
+  head: ContainerGrantPrincipalHead,
   revokedSubject: ContainerRevokeSubject,
 ): boolean {
   return (
@@ -45,9 +45,9 @@ function removeContainerGrant(
 }
 
 function removeReferencedPrincipalHead(
-  principalHeads: ReferencedPrincipalHead[],
+  principalHeads: ContainerGrantPrincipalHead[],
   revokedSubject: ContainerRevokeSubject,
-): ReferencedPrincipalHead[] {
+): ContainerGrantPrincipalHead[] {
   if (revokedSubject.subjectType === "user") {
     return principalHeads;
   }

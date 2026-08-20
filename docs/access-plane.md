@@ -116,17 +116,17 @@ which to detect it. A client that has persisted a newer checkpoint rejects the
 rollback. Cold-client rollback and truncation require an external transparency
 source, witness, or gossip peer to detect reliably.
 
-Organization grants remain valid cross-organization sharing subjects. Group
-grants stay within their owning organization so the reserved `Admins` actor can
-always materialize every required rekey during a group rotation. The grant's
-`read`, `write`, or `admin` level is separate from authority to manage the
-principal itself.
+Container grants accept active users and groups from the container's
+organization only. Cross-organization sharing first adds the recipient user to
+the owning organization's reserved `Members` group; a container can then grant
+that user directly or grant one of that organization's groups. The grant's
+`read`, `write`, or `admin` level is separate from authority to manage the group
+itself.
 
 Each signed group policy commits its complete container-grant projection with
-`grantRoot` and `grantCount`. Organization grant lanes are presentation and
-discovery indexes only. Membership and key rotations enumerate the verified
-signed projection, while the API verifies the exact required container batch
-against current signed manifests before committing either side.
+`grantRoot` and `grantCount`. Membership and key rotations enumerate the
+verified signed projection, while the API verifies the exact required container
+batch against current signed manifests before committing either side.
 
 Organizations also carry two reserved group pointers:
 

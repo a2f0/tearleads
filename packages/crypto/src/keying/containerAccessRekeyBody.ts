@@ -1,5 +1,5 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { normalizeReferencedPrincipalHeads } from "./accessEvent";
+import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
 import {
   assertExactKeys,
   readHashString,
@@ -7,9 +7,9 @@ import {
   throwVerification,
 } from "./shared";
 import type {
+  ContainerGrantPrincipalHead,
   ContainerRekeyAccessEventBody,
   KeyingCanonicalJson,
-  ReferencedPrincipalHead,
 } from "./types";
 
 /** Legacy rekeys omit principal heads and inherit them from the predecessor. */
@@ -45,7 +45,9 @@ export function normalizeContainerRekeyAccessEventBody(
     "container.rekey event body",
   );
   const referencedPrincipalHeads = record.referencedPrincipalHeads;
-  let normalizedReferencedPrincipalHeads: ReferencedPrincipalHead[] | undefined;
+  let normalizedReferencedPrincipalHeads:
+    | ContainerGrantPrincipalHead[]
+    | undefined;
   if (hasReferencedPrincipalHeads && !Array.isArray(referencedPrincipalHeads)) {
     throwVerification(
       "invalid_shape",
@@ -53,7 +55,7 @@ export function normalizeContainerRekeyAccessEventBody(
     );
   }
   if (Array.isArray(referencedPrincipalHeads)) {
-    normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
+    normalizedReferencedPrincipalHeads = normalizeContainerGrantPrincipalHeads(
       referencedPrincipalHeads,
     );
   }
