@@ -5,17 +5,40 @@ import {
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
-import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../src/workflows/organizations/readModelChanges";
-import { assertOrganizationUsersHaveNoCurrentDirectContainerGrants } from "../../src/workflows/organizations/roster";
 import { authenticate } from "./authenticate";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "./keyingWriterProjectionKit";
+import { removeMemberGroupUser } from "./organizationMember";
 import { getDefaultOrganizationId } from "./organizationMembership";
 import { registerUser } from "./registerUser";
+
+const LOCK_WAIT_TIMEOUT_MS = 10_000;
+
+async function waitForPostgresLockWait(queryFragment: string): Promise<void> {
+  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const result = await db.execute(sql`
+      select exists (
+        select 1
+        from pg_stat_activity
+        where datname = current_database()
+          and pid <> pg_backend_pid()
+          and wait_event_type = 'Lock'
+          and query like ${`%${queryFragment}%`}
+      ) as "waiting"
+    `);
+    const [row] = result.rows as { waiting: boolean }[];
+    if (row?.waiting === true) {
+      return;
+    }
+    await Bun.sleep(10);
+  }
+  throw new Error(`Timed out waiting for Postgres lock: ${queryFragment}`);
+}
 
 export async function runDirectGrantRosterRemovalRace(): Promise<void> {
   const owner = createTestUser();
@@ -33,67 +56,73 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
     signer: owner,
   });
 
-  let markRemovalHeld: () => void = () => undefined;
-  const removalHeld = new Promise<void>((resolve) => {
-    markRemovalHeld = resolve;
+  let markRosterLockHeld: () => void = () => undefined;
+  const rosterLockHeld = new Promise<void>((resolve) => {
+    markRosterLockHeld = resolve;
   });
-  let releaseRemoval: () => void = () => undefined;
-  const removalRelease = new Promise<void>((resolve) => {
-    releaseRemoval = resolve;
+  let releaseRosterLock: () => void = () => undefined;
+  const rosterLockRelease = new Promise<void>((resolve) => {
+    releaseRosterLock = resolve;
   });
 
-  const removal = db.transaction(async (tx) => {
-    const headLocked =
-      await lockOrganizationReadModelHeadForUpdateInTransaction(
-        tx,
-        organizationId,
-      );
-    expect(headLocked).toBe(true);
-    await assertOrganizationUsersHaveNoCurrentDirectContainerGrants({
-      executor: tx,
-      organizationId,
-      userIds: [member.userId],
-    });
-    const now = new Date();
-    await tx
-      .update(organizationRosterEntries)
-      .set({
-        disabledAt: now,
-        disabledByUserId: owner.userId,
-        status: "disabled",
-        updatedAt: now,
-      })
+  const rosterLock = db.transaction(async (tx) => {
+    const [entry] = await tx
+      .select({ userId: organizationRosterEntries.userId })
+      .from(organizationRosterEntries)
       .where(
         and(
           eq(organizationRosterEntries.organizationId, organizationId),
           eq(organizationRosterEntries.userId, member.userId),
         ),
-      );
-    markRemovalHeld();
-    await removalRelease;
+      )
+      .limit(1)
+      .for("update");
+    expect(entry?.userId).toBe(member.userId);
+    markRosterLockHeld();
+    await rosterLockRelease;
   });
 
-  await removalHeld;
-  let grantSettled = false;
-  const grant = Promise.resolve(
-    routeApp.request(`/containers/${root.kekState.containerId}/share`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(grantRequest),
-    }),
-  ).then((response) => {
-    grantSettled = true;
-    return response;
+  await rosterLockHeld;
+  const removal = removeMemberGroupUser({
+    actor: owner,
+    memberUserId: member.userId,
+    organizationId,
   });
+  let grant: Promise<Response> | undefined;
+  let synchronizationError: unknown;
+  try {
+    // The signed Members-policy route now holds the organization mutation lock
+    // and is blocked only on its final roster update.
+    await waitForPostgresLockWait("organization_roster_entries");
+    grant = Promise.resolve(
+      routeApp.request(`/containers/${root.kekState.containerId}/share`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(grantRequest),
+      }),
+    );
 
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  expect(grantSettled).toBe(false);
+    // Observing the grant route waiting on the same organization head proves
+    // both production mutations overlap in the intended serialization order.
+    await waitForPostgresLockWait("organization_read_model_heads");
+  } catch (error) {
+    synchronizationError = error;
+  } finally {
+    releaseRosterLock();
+    await rosterLock;
+  }
 
-  releaseRemoval();
+  if (synchronizationError) {
+    await Promise.allSettled([removal, ...(grant ? [grant] : [])]);
+    throw synchronizationError;
+  }
   await removal;
+  if (!grant) {
+    throw new Error("Expected the container grant request to start");
+  }
   const response = await grant;
   expect(response.status).toBe(409);
   await expect(response.json()).resolves.toEqual({

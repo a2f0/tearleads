@@ -357,10 +357,6 @@
       "lines": 20571,
       "bytes": 848795
     },
-    "packages/validators/src/response/organizationReadModel.test.ts": {
-      "lines": 502,
-      "bytes": 12271
-    },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,
       "bytes": 33895

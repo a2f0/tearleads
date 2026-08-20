@@ -43,8 +43,8 @@ const syncErrorCodes: readonly string[] = Object.values(
 const RACE_ROUNDS = 4;
 const CONCURRENT_SUBMISSIONS = 6;
 
-test.skipIf(!onConcurrencyBackend)(
-  "a direct grant cannot commit after its roster member is disabled",
+test.skipIf(databaseKind !== "postgres")(
+  "a direct grant cannot commit after a Members policy removes its user",
   runDirectGrantRosterRemovalRace,
   concurrencyTimeoutMs,
 );

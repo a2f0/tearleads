@@ -9352,10 +9352,7 @@
                                   },
                                   "principalType": {
                                     "type": "string",
-                                    "enum": [
-                                      "group",
-                                      "organization"
-                                    ]
+                                    "const": "group"
                                   },
                                   "stateHash": {
                                     "type": "string"
@@ -10277,10 +10274,7 @@
                                   },
                                   "principalType": {
                                     "type": "string",
-                                    "enum": [
-                                      "group",
-                                      "organization"
-                                    ]
+                                    "const": "group"
                                   },
                                   "stateHash": {
                                     "type": "string"
@@ -11000,10 +10994,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -16658,10 +16649,7 @@
                               },
                               "principalType": {
                                 "type": "string",
-                                "enum": [
-                                  "group",
-                                  "organization"
-                                ]
+                                "const": "group"
                               },
                               "stateHash": {
                                 "type": "string"
@@ -18325,10 +18313,7 @@
                           },
                           "principalType": {
                             "type": "string",
-                            "enum": [
-                              "group",
-                              "organization"
-                            ]
+                            "const": "group"
                           },
                           "stateHash": {
                             "type": "string"
@@ -19142,10 +19127,7 @@
                           },
                           "principalType": {
                             "type": "string",
-                            "enum": [
-                              "group",
-                              "organization"
-                            ]
+                            "const": "group"
                           },
                           "stateHash": {
                             "type": "string"
@@ -19959,10 +19941,7 @@
                           },
                           "principalType": {
                             "type": "string",
-                            "enum": [
-                              "group",
-                              "organization"
-                            ]
+                            "const": "group"
                           },
                           "stateHash": {
                             "type": "string"
@@ -20776,10 +20755,7 @@
                           },
                           "principalType": {
                             "type": "string",
-                            "enum": [
-                              "group",
-                              "organization"
-                            ]
+                            "const": "group"
                           },
                           "stateHash": {
                             "type": "string"
@@ -22170,10 +22146,7 @@
                           },
                           "principalType": {
                             "type": "string",
-                            "enum": [
-                              "group",
-                              "organization"
-                            ]
+                            "const": "group"
                           },
                           "stateHash": {
                             "type": "string"
@@ -33004,10 +32977,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -33870,10 +33840,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -35585,10 +35552,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -37901,10 +37865,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -48984,10 +48945,7 @@
                                   },
                                   "principalType": {
                                     "type": "string",
-                                    "enum": [
-                                      "group",
-                                      "organization"
-                                    ]
+                                    "const": "group"
                                   },
                                   "stateHash": {
                                     "type": "string"
@@ -49909,10 +49867,7 @@
                                   },
                                   "principalType": {
                                     "type": "string",
-                                    "enum": [
-                                      "group",
-                                      "organization"
-                                    ]
+                                    "const": "group"
                                   },
                                   "stateHash": {
                                     "type": "string"
@@ -50632,10 +50587,7 @@
                                     },
                                     "principalType": {
                                       "type": "string",
-                                      "enum": [
-                                        "group",
-                                        "organization"
-                                      ]
+                                      "const": "group"
                                     },
                                     "stateHash": {
                                       "type": "string"
@@ -53161,10 +53113,7 @@
                                 },
                                 "principalType": {
                                   "type": "string",
-                                  "enum": [
-                                    "group",
-                                    "organization"
-                                  ]
+                                  "const": "group"
                                 },
                                 "stateHash": {
                                   "type": "string"

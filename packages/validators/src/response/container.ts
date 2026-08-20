@@ -20,8 +20,16 @@ import {
 } from "../util";
 import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
-import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
+import {
+  ReferencedPrincipalStateResponseSchema,
+  ReferencedPrincipalStateResponseShape,
+} from "./principalReference";
 import { SyncWatermarkSchema } from "./syncWatermark";
+
+const ContainerGrantPrincipalStateResponseSchema = loosePlainObject({
+  ...ReferencedPrincipalStateResponseShape,
+  principalType: z.literal("group"),
+});
 
 /**
  * The container's sealed predecessor key history. Opening it under the
@@ -131,7 +139,9 @@ export const ContainerMutationResponseSchema = loosePlainObject({
   }),
   organizationId: z.string(),
   parentId: z.string().nullable(),
-  referencedPrincipalHeads: arraySchema(ReferencedPrincipalStateResponseSchema),
+  referencedPrincipalHeads: arraySchema(
+    ContainerGrantPrincipalStateResponseSchema,
+  ),
   systemSlot: ContainerSystemSlotSchema.nullable().optional(),
   updatedAt: z.string(),
 });

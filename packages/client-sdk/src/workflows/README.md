@@ -82,10 +82,12 @@ decrypted values, and remote-state reset does not erase them.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
-the strict version 4 organization read-model feed and keeps the opaque cursor in
-the same SQLite transaction as each applied page. Local storage contains only
-the current projection schema; there is no projection upgrade or alternate HTTP
-path.
+the strict version 6 organization read-model feed and keeps the opaque cursor in
+the same SQLite transaction as each applied page. Version changes are flag-day
+resets that discard the old projection instead of upgrading it; a retained-log
+cursor gap atomically replaces the affected organization's projection from a
+new snapshot. Local storage contains only the current projection schema, with no
+alternate HTTP path.
 
 Organization data usage stays outside that feed because content and blob
 writes do not share its administrative cursor. The SDK stores the strict

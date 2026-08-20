@@ -1,14 +1,18 @@
 import { z } from "zod";
 import { loosePlainObject } from "../schema";
 
-export const ReferencedPrincipalStateResponseSchema = loosePlainObject({
+export const ReferencedPrincipalStateResponseShape = {
   keyEpoch: z.number(),
   keyFingerprint: z.string(),
   principalId: z.string(),
   principalType: z.literal(["group", "organization"]),
   stateHash: z.string(),
   version: z.number(),
-});
+};
+
+export const ReferencedPrincipalStateResponseSchema = loosePlainObject(
+  ReferencedPrincipalStateResponseShape,
+);
 
 export type ReferencedPrincipalStateResponse = z.infer<
   typeof ReferencedPrincipalStateResponseSchema
