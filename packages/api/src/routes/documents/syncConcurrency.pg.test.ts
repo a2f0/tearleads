@@ -13,6 +13,7 @@ import {
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { runDirectGrantRosterRemovalRace } from "../../../test/helpers/containerGrantConcurrency";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -41,6 +42,12 @@ const syncErrorCodes: readonly string[] = Object.values(
 
 const RACE_ROUNDS = 4;
 const CONCURRENT_SUBMISSIONS = 6;
+
+test.skipIf(!onConcurrencyBackend)(
+  "a direct grant cannot commit after its roster member is disabled",
+  runDirectGrantRosterRemovalRace,
+  concurrencyTimeoutMs,
+);
 
 function postDocumentSync(
   owner: TestUser,

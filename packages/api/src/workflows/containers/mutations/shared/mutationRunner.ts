@@ -420,13 +420,13 @@ export async function mutateContainerWithExecutor(
   await assertGroupGrantSetChangesAreAtomic(context, artifacts);
   if (prelockedBatchScope) {
     assertMutationWithinPrelockedScope(prelockedBatchScope, artifacts.manifest);
-    await assertVerifiedContainerGrantReferencesValid({
-      executor: context.executor,
-      manifest: artifacts.manifest,
-    });
   } else if (artifacts.manifest.state.organizationId !== organizationId) {
     throw new ContainerMutationError("Container organization mismatch", 409);
   }
+  await assertVerifiedContainerGrantReferencesValid({
+    executor: context.executor,
+    manifest: artifacts.manifest,
+  });
   await assertContainerBuiltinGrantPolicyPreserved({
     executor: context.executor,
     manifest: artifacts.manifest,
