@@ -25,10 +25,10 @@ import {
   throwVerification,
 } from "./shared";
 import type {
-  AccessManifest,
   ContainerAccessEventBody,
   ContainerAccessKeyState,
   ContainerAccessLevel,
+  ContainerAccessManifest,
   ContainerAccessManifestState,
   ContainerAccessMetadata,
   ContainerAccessStructural,
@@ -390,7 +390,7 @@ export async function computeContainerAccessKeyTargetHash(
 
 export async function deriveContainerAccessManifest(
   state: ContainerAccessManifestState,
-): Promise<AccessManifest> {
+): Promise<ContainerAccessManifest> {
   const normalizedState = normalizeContainerAccessManifestState(state);
 
   return {
@@ -1282,7 +1282,7 @@ export async function verifyContainerAccessManifest({
     }
 
     return makeVerifiedContainerAccessManifest({
-      manifest: verifiedManifest.value.manifest,
+      manifest: derivedManifest,
       manifestHash: verifiedManifest.value.manifestHash,
       event,
       state,

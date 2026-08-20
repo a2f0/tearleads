@@ -141,6 +141,11 @@ export interface AccessManifest {
   keyTargetHash: string;
 }
 
+export interface ContainerAccessManifest extends AccessManifest {
+  objectKind: "container";
+  referencedPrincipalHeads: ContainerGrantPrincipalHead[];
+}
+
 export interface ContainerDirectGrant {
   accessLevel: ContainerAccessLevel;
   subjectId: string;
@@ -575,7 +580,7 @@ export interface VerifiedAccessManifest {
 }
 
 export interface VerifiedContainerAccessManifest {
-  readonly manifest: AccessManifest;
+  readonly manifest: ContainerAccessManifest;
   readonly manifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly state: ContainerAccessManifestState;

@@ -53,6 +53,7 @@ export type {
   ContainerAccessEventBody,
   ContainerAccessKeyState,
   ContainerAccessLevel,
+  ContainerAccessManifest,
   ContainerAccessManifestState,
   ContainerAccessStructural,
   ContainerCreateAccessEventBody,
