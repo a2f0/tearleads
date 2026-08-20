@@ -104,7 +104,7 @@ const OrganizationReadModelResponseBaseShape = {
   hasMore: z.boolean(),
   nextCursor: z.string().min(1),
   organizationId: z.string(),
-  version: z.literal(5),
+  version: z.literal(6),
 };
 
 export const OrganizationReadModelSnapshotResponseSchema = z.strictObject({

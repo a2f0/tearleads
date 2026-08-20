@@ -86,7 +86,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
     }),
   ];
   return {
-    version: 5,
+    version: 6,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: "cursor-local-details",

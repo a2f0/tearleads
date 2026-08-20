@@ -19497,7 +19497,7 @@ export interface operations {
                         nextCursor: string;
                         organizationId: string;
                         /** @constant */
-                        version: 5;
+                        version: 6;
                     } | {
                         currentUser: {
                             isOrgAdmin: boolean;
@@ -19599,7 +19599,7 @@ export interface operations {
                         nextCursor: string;
                         organizationId: string;
                         /** @constant */
-                        version: 5;
+                        version: 6;
                     };
                 };
             };

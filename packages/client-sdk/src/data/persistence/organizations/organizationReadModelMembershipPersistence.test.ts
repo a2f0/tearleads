@@ -152,7 +152,7 @@ function snapshot(
   } = {},
 ): OrganizationReadModelSnapshotResponse {
   return {
-    version: 5,
+    version: 6,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-1",
@@ -180,7 +180,7 @@ function delta(input: {
   profileDocumentId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 5,
+    version: 6,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.nextCursor ?? "cursor-2",
@@ -225,7 +225,7 @@ function loadMembers(execSql: ExecSql, groupId: string) {
   );
 }
 
-test("v4 snapshots persist visible, hidden Members, and empty group memberships", async () => {
+test("v6 snapshots persist visible, hidden Members, and empty group memberships", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-memberships-snapshot-v4",
   );

@@ -69,7 +69,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(snapshot.lanes.groups.groups.map((group) => group.name)).toEqual([
     "Admins",
   ]);
-  expect(snapshot.version).toBe(5);
+  expect(snapshot.version).toBe(6);
   expect(snapshot.lanes.organizationPolicy).toEqual({
     organizationId,
     currentState: expect.objectContaining({

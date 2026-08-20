@@ -38427,7 +38427,7 @@
                         },
                         "version": {
                           "type": "number",
-                          "const": 5
+                          "const": 6
                         },
                         "lanes": {
                           "type": "object",
@@ -38984,7 +38984,7 @@
                         },
                         "version": {
                           "type": "number",
-                          "const": 5
+                          "const": 6
                         },
                         "lanes": {
                           "type": "object",
