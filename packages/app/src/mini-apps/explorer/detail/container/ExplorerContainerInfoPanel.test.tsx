@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { createElement } from "react";
+import { type ComponentProps, createElement } from "react";
 import type { MiniAppWindowPosition } from "../../types";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 
@@ -109,14 +109,9 @@ type ContainerInfoPanelInput = {
   canManageIcon?: boolean;
   containerIcon?: string | null;
   loadContainerInfo?: (containerId: string) => Promise<ContainerInfo>;
-  onOpenGrant?: (
-    grant: {
-      containerId: string;
-      subjectId: string;
-      subjectType: "group" | "organization" | "user";
-    },
-    position?: MiniAppWindowPosition,
-  ) => void;
+  onOpenGrant?: ComponentProps<
+    typeof ExplorerContainerInfoPanel
+  >["onOpenGrant"];
   setContainerIcon?: (
     containerId: string,
     icon: string | null,
@@ -210,11 +205,9 @@ test("container info tabs split general, sharing, security, and sync details", a
 
 test("container info sharing grant rows open grant detail targets", async () => {
   const openedGrants: Array<{
-    grant: {
-      containerId: string;
-      subjectId: string;
-      subjectType: "group" | "organization" | "user";
-    };
+    grant: Parameters<
+      ComponentProps<typeof ExplorerContainerInfoPanel>["onOpenGrant"]
+    >[0];
     position: MiniAppWindowPosition | undefined;
   }> = [];
   const view = renderContainerInfoPanel({

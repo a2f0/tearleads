@@ -18,7 +18,6 @@ const grant: OrganizationContainerGrant = {
   metadataAccessEpoch: 1,
   metadataAccessStateHash: "access-state-hash",
   metadataDocumentId: null,
-  organizationName: null,
   parentId: null,
   signingKeyFingerprint: null,
   subjectId: "group-1",

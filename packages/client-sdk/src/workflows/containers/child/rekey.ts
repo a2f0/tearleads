@@ -1,8 +1,8 @@
 import type {
+  ContainerGrantPrincipalHead,
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
   ContainerRekeyAccessEventBody,
-  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
@@ -132,7 +132,7 @@ async function deriveRekeyManifestArtifacts(input: {
   >;
   previousProjection: ContainerWriterProjectionResponse;
   previousState: ReturnType<typeof readContainerState>;
-  referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+  referencedPrincipalHeads: readonly ContainerGrantPrincipalHead[];
   signedAt: string | undefined;
   target: ReturnType<typeof getTargetContainerContext>;
 }) {

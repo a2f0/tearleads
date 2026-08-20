@@ -30,6 +30,7 @@ import {
   selectPeerSharedContainer,
   waitForSharedNoteVisible,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import {
   clickShareWithPeer,
   shareContainerWithPeer,
@@ -86,7 +87,7 @@ afterEach(async () => {
 });
 
 test(
-  "dual panes can share a container and refresh peer discovery",
+  "an active roster peer can receive a direct container grant",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
@@ -94,6 +95,7 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    await importPeerIntoRoster(leftPane, getPaneUserId(rightPane));
 
     await openExplorer(leftPane);
     await openExplorer(rightPane);
@@ -108,7 +110,7 @@ test(
 );
 
 test(
-  "peer sees the owner self contact in a shared contacts folder without the You label",
+  "an active roster peer sees the owner contact without the You label",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
@@ -117,6 +119,7 @@ test(
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
     const ownerUserId = getPaneUserId(leftPane);
+    await importPeerIntoRoster(leftPane, getPaneUserId(rightPane));
 
     await openExplorer(leftPane);
     await openExplorer(rightPane);
@@ -208,7 +211,7 @@ test(
 );
 
 test(
-  "dual pane explorer treats a duplicate peer share as a no-op",
+  "a duplicate direct grant to an active roster peer is a no-op",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
@@ -216,6 +219,7 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    await importPeerIntoRoster(leftPane, getPaneUserId(rightPane));
 
     await openExplorer(leftPane);
 
@@ -241,18 +245,17 @@ test(
 );
 
 test(
-  "dual panes can share an owner-granted root container after an empty folder and note attachment",
+  "an active roster peer can receive a root grant after attachment writes",
   async () => {
     useTestApiAppHandlers();
-    const testRequestStartIndex = listProxiedApiRequests().length;
-    let requestPhaseStartIndex = testRequestStartIndex;
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-    profileProxiedApiRequests("provisioning", requestPhaseStartIndex);
-    requestPhaseStartIndex = listProxiedApiRequests().length;
+    await importPeerIntoRoster(leftPane, getPaneUserId(rightPane));
+    const testRequestStartIndex = listProxiedApiRequests().length;
+    let requestPhaseStartIndex = testRequestStartIndex;
 
     await openExplorer(leftPane);
     profileProxiedApiRequests("open left explorer", requestPhaseStartIndex);
@@ -308,7 +311,7 @@ test(
     expect(shareRequest?.status).toBe(200);
     profileProxiedApiRequests("test total", testRequestStartIndex);
     expectProxiedApiRequestBudget(
-      "owner-granted root attachment share",
+      "active-roster-user root attachment share",
       listProxiedApiRequests().slice(testRequestStartIndex),
       OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET,
     );

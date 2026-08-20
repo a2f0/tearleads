@@ -55,6 +55,11 @@ export async function addOrganizationMember(input: {
     organization.memberGroupId,
     db,
   );
+  if (
+    currentProjection.some((member) => member.userId === input.member.userId)
+  ) {
+    return;
+  }
   const nextProjection = [
     ...currentProjection.map((projectionMember) => ({
       userId: projectionMember.userId,
@@ -103,4 +108,12 @@ export async function addOrganizationMember(input: {
     organizationId: input.organizationId,
   });
   expect(response.status, await response.clone().text()).toBe(200);
+}
+
+export async function joinOrg(
+  organizationId: string,
+  actor: ReturnType<typeof createTestUser>,
+  member: TestUser,
+): Promise<void> {
+  return addOrganizationMember({ actor, member, organizationId });
 }

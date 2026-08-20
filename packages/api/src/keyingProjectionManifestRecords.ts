@@ -6,9 +6,13 @@ import type {
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 
-export function projectionReferencedPrincipalHeadRecord(
-  principalHead: ReferencedPrincipalHead,
-) {
+export function projectionReferencedPrincipalHeadRecord<
+  PrincipalHead extends ReferencedPrincipalHead,
+>(
+  principalHead: PrincipalHead,
+): Omit<ReferencedPrincipalHead, "principalType"> & {
+  principalType: PrincipalHead["principalType"];
+} {
   return {
     principalType: principalHead.principalType,
     principalId: principalHead.principalId,
@@ -39,7 +43,14 @@ export function containerAccessManifestStateRecord(
       subjectType: grant.subjectType,
     })),
     referencedPrincipalHeads: state.referencedPrincipalHeads.map(
-      projectionReferencedPrincipalHeadRecord,
+      (principalHead) => ({
+        principalType: principalHead.principalType,
+        principalId: principalHead.principalId,
+        version: principalHead.version,
+        keyEpoch: principalHead.keyEpoch,
+        stateHash: principalHead.stateHash,
+        keyFingerprint: principalHead.keyFingerprint,
+      }),
     ),
   };
 }

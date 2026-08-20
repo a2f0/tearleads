@@ -17,7 +17,6 @@ const OrganizationGroupContainerAccessLevelSchema = z.literal([
 ]);
 const OrganizationContainerGrantSubjectTypeSchema = z.literal([
   "group",
-  "organization",
   "user",
 ]);
 
@@ -209,7 +208,6 @@ export const OrganizationContainerGrantResponseShape = {
   ...OrganizationGroupContainerResponseShape,
   groupId: z.string().nullable(),
   groupName: z.string().nullable(),
-  organizationName: z.string().nullable(),
   signingKeyFingerprint: z.string().nullable(),
   subjectId: z.string(),
   subjectType: OrganizationContainerGrantSubjectTypeSchema,
@@ -236,7 +234,6 @@ export type OrganizationContainerGrantsResponse = z.infer<
 export const OrganizationUserDetailGrantsResponseSchema = loosePlainObject({
   directGrants: arraySchema(OrganizationContainerGrantResponseSchema),
   groupGrants: arraySchema(OrganizationContainerGrantResponseSchema),
-  organizationGrants: arraySchema(OrganizationContainerGrantResponseSchema),
 });
 
 export type OrganizationUserDetailGrantsResponse = z.infer<

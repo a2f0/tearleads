@@ -32,7 +32,7 @@ function isCanonicalRecord(
 function isContainerGrantSubjectType(
   value: unknown,
 ): value is ContainerGrantSubjectType {
-  return value === "group" || value === "organization" || value === "user";
+  return value === "group" || value === "user";
 }
 
 function isContainerAccessLevel(

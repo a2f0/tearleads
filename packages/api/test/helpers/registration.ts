@@ -6,6 +6,7 @@ import {
   buildPrincipalStateSigningInput,
   type ContainerAccessManifestState,
   type ContainerCreateAccessEventBody,
+  type ContainerGrantPrincipalHead,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
@@ -28,7 +29,6 @@ import {
   encryptWithDek,
   generateKemSeedAndKeyPair,
   type PrincipalContainerGrant,
-  type ReferencedPrincipalHead,
   signAccessEvent,
   signPrincipalState,
   toFingerprint,
@@ -61,7 +61,7 @@ interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
   includeTrashSystemContainer?: boolean | undefined;
-  // Gives org metadata a production-matching Members read grant.
+  // Gives org metadata a Members read grant.
   memberGroup?: CreateOrganizationGroupRequest | undefined;
   organizationId: string;
   organizationMetadataContainerId?: string | undefined;
@@ -326,7 +326,7 @@ async function signRegistrationEvent(
 
 async function principalHeadFromInitialGroupPolicy(input: {
   adminGroup: CreateOrganizationGroupRequest;
-}): Promise<ReferencedPrincipalHead> {
+}): Promise<ContainerGrantPrincipalHead> {
   const { initialGroupPolicy } = input.adminGroup;
 
   return {
@@ -420,7 +420,7 @@ async function wrapRootContainerKeyForManagedPrincipal(input: {
   containerKeyEpochId: string;
   manifestHash: string;
   principalEncapsulationPublicKey: string;
-  principalHead: ReferencedPrincipalHead;
+  principalHead: ContainerGrantPrincipalHead;
 }): Promise<{
   recipientTarget: ContainerKekRecipientTarget;
   wrap: ContainerKeyWrap;

@@ -11,10 +11,10 @@ import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,
   readProjectionAccessManifest,
+  readProjectionContainerGrantPrincipalHeads,
   readProjectionNullableString,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
-  readProjectionReferencedPrincipalHeads,
   readProjectionString,
   readProjectionValue,
   readProjectionVerifiedAccessEvent,
@@ -29,7 +29,7 @@ function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
 function isContainerGrantSubjectType(
   value: unknown,
 ): value is ContainerGrantSubjectType {
-  return value === "group" || value === "organization" || value === "user";
+  return value === "group" || value === "user";
 }
 
 function readContainerDirectGrant(
@@ -138,7 +138,7 @@ function readContainerAccessState(
       readProjectionValue(record, "directGrants"),
       `${label}.directGrants`,
     ),
-    referencedPrincipalHeads: readProjectionReferencedPrincipalHeads(
+    referencedPrincipalHeads: readProjectionContainerGrantPrincipalHeads(
       readProjectionValue(record, "referencedPrincipalHeads"),
       `${label}.referencedPrincipalHeads`,
       mutationShapeError,

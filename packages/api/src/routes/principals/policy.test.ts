@@ -13,11 +13,16 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isCommitOrganizationGroupPolicyResponse,
+  isContainerMutationResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  bootstrapRoot,
+  buildRootGrantRequest,
+} from "../../../test/helpers/keyingWriterProjectionKit";
 import {
   addUserToAdminGroup,
   getCurrentOrganizationAdminAuthority,
@@ -369,6 +374,87 @@ test("PUT /principals/:principalType/:principalId/policy rejects a Members remov
     (await getCurrentPrincipalState("group", organization.memberGroupId, db))
       ?.version,
   ).toBe(currentMembers.version);
+});
+
+test("PUT Members policy rejects direct-grant removal and rolls back", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const member = createTestUser();
+  await registerUser(member);
+  const root = await bootstrapRoot(actor);
+  const grantRequest = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient: member,
+    signer: actor,
+  });
+  const grantResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${actor.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(grantResponse.status, await grantResponse.clone().text()).toBe(200);
+  expect(isContainerMutationResponse(await grantResponse.json())).toBe(true);
+
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
+  const currentMembers = await getCurrentPrincipalState(
+    "group",
+    organization.memberGroupId,
+    db,
+  );
+  invariant(currentMembers, "expected current Members state");
+  const projection = [{ userId: actor.userId, role: "admin" as const }];
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId: organization.memberGroupId,
+    version: currentMembers.version + 1,
+    prevStateHash: currentMembers.stateHash,
+    keyEpoch: currentMembers.keyEpoch + 1,
+    members: projection.map(({ userId }) => ({ userId })),
+    projection,
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+  });
+
+  const removalResponse = await putGroupPolicy({
+    actor,
+    organizationId,
+    principalId: organization.memberGroupId,
+    signedState,
+  });
+
+  expect(removalResponse.status).toBe(409);
+  expect(await removalResponse.json()).toEqual({
+    error:
+      "Members with direct container grants must be unshared before removal",
+  });
+  expect(
+    (await getCurrentPrincipalState("group", organization.memberGroupId, db))
+      ?.stateHash,
+  ).toBe(currentMembers.stateHash);
+  expect(
+    await db
+      .select({
+        status: organizationRosterEntries.status,
+        userId: organizationRosterEntries.userId,
+      })
+      .from(organizationRosterEntries)
+      .where(eq(organizationRosterEntries.organizationId, organizationId)),
+  ).toContainEqual({ status: "active", userId: member.userId });
 });
 
 test("PUT /principals/:principalType/:principalId/policy rejects disabled roster users in non-Members groups", async () => {

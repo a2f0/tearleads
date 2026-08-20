@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
+  type ContainerGrantPrincipalHead,
   type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -181,7 +182,7 @@ test("uploadDocumentAttachment warms managed policies for the projection owner b
   if (!projectionKek) {
     throw new Error("Expected projection KEK fixture");
   }
-  const groupHead: ReferencedPrincipalHead = {
+  const groupHead: ContainerGrantPrincipalHead = {
     keyEpoch: 1,
     keyFingerprint: await toFingerprint(
       new TextEncoder().encode("attachment-upload-group-key"),

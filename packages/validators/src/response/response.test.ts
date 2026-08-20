@@ -577,7 +577,6 @@ test("organization manager responses", () => {
           signingKeyFingerprint: null,
           groupId: "group-1",
           groupName: "Admins",
-          organizationName: null,
         },
       ],
     }),
@@ -637,10 +636,8 @@ test("organization manager responses", () => {
             signingKeyFingerprint: null,
             groupId: "group-1",
             groupName: "Admins",
-            organizationName: null,
           },
         ],
-        organizationGrants: [],
       },
     }),
   ).toBe(true);
@@ -652,7 +649,6 @@ test("organization manager responses", () => {
       grants: {
         directGrants: [],
         groupGrants: [],
-        organizationGrants: [],
       },
     }),
   ).toBe(false);

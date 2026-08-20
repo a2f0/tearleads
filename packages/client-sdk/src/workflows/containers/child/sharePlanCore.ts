@@ -4,14 +4,13 @@ import {
   type ContainerAccessManifestState,
   type ContainerDirectGrant,
   type ContainerGrantAccessEventBody,
+  type ContainerGrantPrincipalHead,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
-  type ManagedPrincipalKind,
-  type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
@@ -58,7 +57,7 @@ export type ContainerShareRecipient =
   | {
       readonly principalPolicy: VerifiedPrincipalPolicy;
       readonly subjectId: string;
-      readonly subjectType: ManagedPrincipalKind;
+      readonly subjectType: "group";
     };
 
 function grantKey(
@@ -81,16 +80,19 @@ function upsertContainerGrant(
 
 function referencedPrincipalKey(reference: {
   readonly principalId: string;
-  readonly principalType: ManagedPrincipalKind;
+  readonly principalType: "group";
 }): string {
   return `${reference.principalType}:${reference.principalId}`;
 }
 
 export function referencedPrincipalHeadFromPolicy(
   policy: VerifiedPrincipalPolicy,
-): ReferencedPrincipalHead {
+): ContainerGrantPrincipalHead {
+  if (policy.principalType !== "group") {
+    throw new Error("Container grants can reference only group policies");
+  }
   return {
-    principalType: policy.principalType,
+    principalType: "group",
     principalId: policy.principalId,
     version: policy.version,
     keyEpoch: policy.keyEpoch,
@@ -100,9 +102,9 @@ export function referencedPrincipalHeadFromPolicy(
 }
 
 function upsertReferencedPrincipalHead(
-  references: readonly ReferencedPrincipalHead[],
-  reference: ReferencedPrincipalHead,
-): ReferencedPrincipalHead[] {
+  references: readonly ContainerGrantPrincipalHead[],
+  reference: ContainerGrantPrincipalHead,
+): ContainerGrantPrincipalHead[] {
   return [
     ...references.filter(
       (existingReference) =>
@@ -122,7 +124,7 @@ function upsertReferencedPrincipalHead(
 export function refreshedPrincipalReferences(input: {
   readonly previousState: ContainerAccessManifestState;
   readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
-}): ReferencedPrincipalHead[] {
+}): ContainerGrantPrincipalHead[] {
   const replacement = input.replacementPrincipalPolicy;
   if (!replacement) {
     return [...input.previousState.referencedPrincipalHeads];
@@ -159,7 +161,7 @@ export async function deriveContainerShareManifest(input: {
   eventHash: string;
   grant: ContainerDirectGrant;
   previousManifest: ContainerWriterProjectionResponse["path"][number];
-  referencedPrincipalHead: ReferencedPrincipalHead | null;
+  referencedPrincipalHead: ContainerGrantPrincipalHead | null;
 }): Promise<Pick<ContainerSharePlan, "manifest" | "manifestHash" | "state">> {
   const previousState = readContainerState(input.previousManifest);
   const state: ContainerAccessManifestState = {

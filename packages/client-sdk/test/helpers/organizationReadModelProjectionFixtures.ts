@@ -167,7 +167,6 @@ function organizationReadModelGrants(
             signingKeyFingerprint: null,
             groupId: group.groupId,
             groupName: group.name,
-            organizationName: null,
           },
         ]
       : [],
@@ -190,7 +189,7 @@ export function organizationReadModelSnapshot(
     organizationId,
   });
   return {
-    version: 5,
+    version: 6,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -225,7 +224,7 @@ export function organizationReadModelGroupsDelta(input: {
     organizationId,
   });
   return {
-    version: 5,
+    version: 6,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,

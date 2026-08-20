@@ -45,7 +45,6 @@ const CONTAINER_INFO_PERMISSION_LABELS = {
 
 const CONTAINER_INFO_SUBJECT_TYPE_LABELS = {
   group: EXPLORER_LABELS.containerInfoSubjectTypeGroup,
-  organization: EXPLORER_LABELS.containerInfoSubjectTypeOrganization,
   user: EXPLORER_LABELS.containerInfoSubjectTypeUser,
 } satisfies Record<ExplorerContainerInfoGrantSubjectType, string>;
 

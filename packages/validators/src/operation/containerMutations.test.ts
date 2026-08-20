@@ -78,6 +78,21 @@ test("container mutation operation guards derive from canonical schemas", () => 
   expect(
     isContainerMutationOperationResponse(createContainerMutationResponse()),
   ).toBe(true);
+  expect(
+    isContainerMutationOperationResponse({
+      ...createContainerMutationResponse(),
+      referencedPrincipalHeads: [
+        {
+          keyEpoch: 1,
+          keyFingerprint: "organization-key-fingerprint",
+          principalId: "organization-1",
+          principalType: "organization",
+          stateHash: "organization-state-hash",
+          version: 1,
+        },
+      ],
+    }),
+  ).toBe(false);
 
   const metadataRequest = createContainerWithMetadataDocumentRequest();
   expect(

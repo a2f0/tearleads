@@ -98,12 +98,7 @@ test("organization read model schema stores exact policy heads and access lanes"
       pk: 0,
       type: "INTEGER",
     });
-    expect(requireColumn(grants, "organization_name")).toEqual({
-      defaultValue: null,
-      notNull: 0,
-      pk: 0,
-      type: "TEXT",
-    });
+    expect("organization_name" in grants).toBe(false);
   } finally {
     close();
   }

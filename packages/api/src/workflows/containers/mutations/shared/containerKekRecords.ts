@@ -30,12 +30,7 @@ export {
 export function isKekRecipientKind(
   value: unknown,
 ): value is ContainerKeyWrap["recipientKind"] {
-  return (
-    value === "container" ||
-    value === "group" ||
-    value === "organization" ||
-    value === "user"
-  );
+  return value === "container" || value === "group" || value === "user";
 }
 
 function readContainerUserRecipientKey(

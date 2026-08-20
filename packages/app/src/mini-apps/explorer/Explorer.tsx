@@ -50,7 +50,7 @@ const catchupCompletedScopes = new WeakSet<DomainScope>();
 interface ExplorerGrantOrgManagerTarget {
   containerId: string;
   subjectId: string;
-  subjectType: "group" | "organization" | "user";
+  subjectType: "group" | "user";
 }
 
 function useOpenGrantInOrgManager() {

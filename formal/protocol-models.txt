@@ -1,3 +1,4 @@
+formal/container-keying/ContainerGrantScope.tla|formal/container-keying/ContainerGrantScope.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg

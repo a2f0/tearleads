@@ -180,7 +180,6 @@ export const organizationReadModelContainerGrants = sqliteTable(
     signingKeyFingerprint: text("signing_key_fingerprint"),
     groupId: text("group_id"),
     groupName: text("group_name"),
-    organizationName: text("organization_name"),
   },
   (table) => [
     primaryKey({

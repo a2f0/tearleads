@@ -156,7 +156,7 @@ export function organizationReadModelSnapshot(
 ): OrganizationReadModelSnapshotResponse {
   const groups = organizationReadModelGroups(organizationId, suffix);
   return {
-    version: 5,
+    version: 6,
     mode: "snapshot",
     organizationId,
     nextCursor,
@@ -190,7 +190,7 @@ export function organizationReadModelDelta(input: {
       ? organizationReadModelMemberships(input.groups, false)
       : undefined);
   return {
-    version: 5,
+    version: 6,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,

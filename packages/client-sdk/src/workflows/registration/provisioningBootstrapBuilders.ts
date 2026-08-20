@@ -1,4 +1,4 @@
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { ContainerGrantPrincipalHead } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
@@ -302,8 +302,12 @@ export async function buildInitialSystemContainerBootstrap(input: {
 
 async function referencedPrincipalHeadFromInitialGroupRequest(
   input: CreateOrganizationGroupRequest,
-): Promise<ReferencedPrincipalHead> {
-  return groupPolicyMutationHead(input.initialGroupPolicy);
+): Promise<ContainerGrantPrincipalHead> {
+  const head = await groupPolicyMutationHead(input.initialGroupPolicy);
+  if (head.principalType !== "group") {
+    throw new Error("Initial container grant policy must target a group");
+  }
+  return { ...head, principalType: "group" };
 }
 
 function stableOrganizationProfileId(organizationId: string): Promise<string> {

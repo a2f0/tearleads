@@ -81,7 +81,7 @@ test("organization read-model snapshots persist normalized requester-safe projec
           memberCount: 1,
         },
       ],
-      protocolVersion: 5,
+      protocolVersion: 6,
       requester: { isOrgAdmin: true },
       updatedAt: expect.any(String),
     });

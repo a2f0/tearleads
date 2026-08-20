@@ -35,7 +35,7 @@ export type MiniAppMessage =
       appId: "org-manager";
       containerId: string;
       subjectId: string;
-      subjectType: "group" | "organization" | "user";
+      subjectType: "group" | "user";
       type: "open-grant";
     };
 

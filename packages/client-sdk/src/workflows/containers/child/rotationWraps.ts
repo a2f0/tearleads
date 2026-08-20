@@ -1,6 +1,7 @@
 import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  ContainerGrantPrincipalHead,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
@@ -37,18 +38,18 @@ function referenceForManagedGrant(input: {
   grant: ContainerDirectGrant;
   operationLabel: string;
   state: ContainerAccessManifestState;
-}): ReferencedPrincipalHead {
+}): ContainerGrantPrincipalHead {
   const reference = input.state.referencedPrincipalHeads.find(
     (candidate) =>
       candidate.principalType === input.grant.subjectType &&
       candidate.principalId === input.grant.subjectId,
   );
-  if (!reference) {
+  if (!reference || reference.principalType !== "group") {
     throw new Error(
       `${input.operationLabel} referenced principal head is missing`,
     );
   }
-  return reference;
+  return { ...reference, principalType: "group" };
 }
 
 export async function buildContainerRotationWraps(input: {

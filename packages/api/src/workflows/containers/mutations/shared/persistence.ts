@@ -646,7 +646,7 @@ export async function persistVerifiedMutation(
       containerManifestHistory,
       keyring,
     ),
-    referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
+    referencedPrincipalHeads: manifest.state.referencedPrincipalHeads.map(
       projectionReferencedPrincipalHeadRecord,
     ),
   };

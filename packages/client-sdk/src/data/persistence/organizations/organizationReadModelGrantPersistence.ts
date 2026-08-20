@@ -31,21 +31,13 @@ function hasValidGrantSubjectBinding(
     grant.subjectType === "user" &&
     grant.userId === grant.subjectId &&
     grant.groupId === null &&
-    grant.groupName === null &&
-    grant.organizationName === null;
+    grant.groupName === null;
   const validGroup =
     grant.subjectType === "group" &&
     grant.userId === null &&
     grant.signingKeyFingerprint === null &&
-    grant.groupId === grant.subjectId &&
-    grant.organizationName === null;
-  const validOrganization =
-    grant.subjectType === "organization" &&
-    grant.userId === null &&
-    grant.signingKeyFingerprint === null &&
-    grant.groupId === null &&
-    grant.groupName === null;
-  return validUser || validGroup || validOrganization;
+    grant.groupId === grant.subjectId;
+  return validUser || validGroup;
 }
 
 function assertGrantsLane(input: {
@@ -125,7 +117,6 @@ function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
     signingKeyFingerprint: row.signingKeyFingerprint,
     groupId: row.groupId,
     groupName: row.groupName,
-    organizationName: row.organizationName,
   };
   if (!hasValidGrantSubjectBinding(grant)) {
     throw new OrganizationReadModelIntegrityError(

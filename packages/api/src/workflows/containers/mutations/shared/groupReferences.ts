@@ -1,17 +1,31 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { groups } from "@tearleads/api-shared/schema";
+import {
+  groups,
+  organizationRosterEntries,
+} from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { ContainerMutationError } from "../errors";
 
-export async function assertVerifiedContainerGroupReferencesExist(input: {
+function grantSubjectIds(
+  manifest: VerifiedContainerAccessManifest,
+  subjectType: "group" | "user",
+): string[] {
+  return [
+    ...new Set(
+      manifest.state.directGrants.flatMap((grant) =>
+        grant.subjectType === subjectType ? [grant.subjectId] : [],
+      ),
+    ),
+  ];
+}
+
+async function assertGroupReferencesValid(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
 }): Promise<void> {
-  const groupIds = input.manifest.state.directGrants.flatMap((grant) =>
-    grant.subjectType === "group" ? [grant.subjectId] : [],
-  );
+  const groupIds = grantSubjectIds(input.manifest, "group");
   const missingGroupIds = await lockAndFindMissingGroupReferencesInTransaction(
     input.executor,
     groupIds,
@@ -39,4 +53,41 @@ export async function assertVerifiedContainerGroupReferencesExist(input: {
       409,
     );
   }
+}
+
+async function assertUserReferencesValid(input: {
+  readonly executor: DatabaseTransaction;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): Promise<void> {
+  const userIds = grantSubjectIds(input.manifest, "user");
+  if (userIds.length === 0) {
+    return;
+  }
+  const activeMembers = await input.executor
+    .select({ userId: organizationRosterEntries.userId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(
+          organizationRosterEntries.organizationId,
+          input.manifest.state.organizationId,
+        ),
+        eq(organizationRosterEntries.status, "active"),
+        inArray(organizationRosterEntries.userId, userIds),
+      ),
+    );
+  if (activeMembers.length !== userIds.length) {
+    throw new ContainerMutationError(
+      "Container user grants require active organization members",
+      409,
+    );
+  }
+}
+
+export async function assertVerifiedContainerGrantReferencesValid(input: {
+  readonly executor: DatabaseTransaction;
+  readonly manifest: VerifiedContainerAccessManifest;
+}): Promise<void> {
+  await assertGroupReferencesValid(input);
+  await assertUserReferencesValid(input);
 }

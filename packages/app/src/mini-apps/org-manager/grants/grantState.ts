@@ -78,10 +78,6 @@ export function removeRevokedGrantFromUserDetail(
             userDetail.grants.groupGrants,
             revokedGrant,
           ),
-          organizationGrants: removeRevokedGrantRows(
-            userDetail.grants.organizationGrants,
-            revokedGrant,
-          ),
         },
       }
     : userDetail;

@@ -213,7 +213,6 @@ const grants: OrganizationContainerGrantsResponse = {
       signingKeyFingerprint: null,
       groupId,
       groupName: "Operators",
-      organizationName: null,
     },
   ],
 };
@@ -274,6 +273,5 @@ export const userDetail: OrganizationUserDetailResponse = {
   grants: {
     directGrants: [],
     groupGrants: grants.grants,
-    organizationGrants: [],
   },
 };

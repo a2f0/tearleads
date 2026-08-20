@@ -45,12 +45,7 @@ function isAccessObjectKind(
 function isRecipientKind(
   value: unknown,
 ): value is ContainerKekRecipientTarget["recipientKind"] {
-  return (
-    value === "container" ||
-    value === "group" ||
-    value === "organization" ||
-    value === "user"
-  );
+  return value === "container" || value === "group" || value === "user";
 }
 
 export function readAccessEvent(value: unknown, label: string): AccessEvent {

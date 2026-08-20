@@ -37,7 +37,6 @@ function groupGrant(
     signingKeyFingerprint: null,
     groupId,
     groupName: `Group ${groupId}`,
-    organizationName: null,
   };
 }
 
@@ -61,7 +60,7 @@ function grantsDelta(input: {
   readonly organizationId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 5,
+    version: 6,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-2",

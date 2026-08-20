@@ -46,6 +46,7 @@ import {
   listContainerKeyWraps,
 } from "../../src/access/read/containerKekStore";
 import { routeApp } from "../../src/routeApp";
+import { joinOrg } from "./organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
 interface RootContainerFixture {
@@ -470,6 +471,7 @@ export async function buildRootGrantRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
+  await joinOrg(previous.state.organizationId, input.signer, input.recipient);
   const recipientKey = await userRecipientKey(input.recipient);
   const principalPolicies = await loadPrincipalPoliciesForContainerPath([
     input.previous,
@@ -519,28 +521,22 @@ export async function buildRootGrantRequest(input: {
   ];
 
   return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
+    event: event.event,
+    body,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     previousManifest: input.previous,
     previousContainerPath: [input.previous],
     containerManifestHistory: [input.previous],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
-      string,
-      unknown
-    >,
+    principalPolicies,
+    keyEpoch: input.previousKekState.keyEpoch,
     predecessorBridge: null,
     keyring: null,
-    wraps: wraps as unknown as Record<string, unknown>[],
+    wraps,
     parentKekState: null,
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),
-      recipientKey as unknown as Record<string, unknown>,
-    ] as unknown as Record<string, unknown>[],
-  };
+      recipientKey,
+    ],
+  } as unknown as ContainerMutationRequest;
 }

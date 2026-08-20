@@ -173,7 +173,7 @@ server still cannot create a valid new wrap without the principal secret key.
 ### Revocation Depends On Principal Key Rotation
 
 `keyEpoch` and the principal key fingerprint are signed and participate in
-object references to group and organization policy state. That lets clients
+object references to group policy state. That lets clients
 detect mismatches between an object reference and the policy/key epoch used to
 decrypt it.
 
@@ -187,12 +187,12 @@ member envelopes for the remaining members.
 
 ### Managed Grants Fail Closed
 
-Group and organization grants require an active signed principal state. If a
+Group container grants require an active signed group state. If a
 managed principal grant cannot be resolved to active signed state, recipient
 resolution fails rather than degrading to unsigned expanded users.
 
-This prevents unsigned group or organization membership rows from being enough
-to create crypto recipients.
+This prevents unsigned group rows from creating crypto recipients. Organization
+policies commit authority, not container grants.
 
 ### Signed Access Manifests
 
@@ -401,8 +401,8 @@ therefore cause only a failed transaction, not a falsely successful rotation.
 A cold client needs only current policy and container state. Group grant revoke
 rotates the group and its remaining grants; standalone group revokes are
 rejected, while grant-level `read`/`write`/`admin` remains unchanged.
-Cross-organization organization grants remain supported, but organization
-successors with stale container references fail closed.
+Organizations cannot receive container grants. Reserved groups provide broad
+access; all grants stay in-organization.
 
 ### Transparency Requires A Pinned View Or Witnessing
 

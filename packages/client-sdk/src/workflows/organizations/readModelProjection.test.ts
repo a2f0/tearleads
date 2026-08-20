@@ -112,7 +112,7 @@ test("a missing requester reconciles from the shared global cursor", async () =>
   );
   const requestedCursors: Array<string | undefined> = [];
   const response: OrganizationReadModelResponse = {
-    version: 5,
+    version: 6,
     mode: "delta",
     organizationId,
     nextCursor: "cursor-1",

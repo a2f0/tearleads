@@ -1,6 +1,7 @@
 import type {
   AccessEvent,
   AccessManifest,
+  ContainerGrantPrincipalHead,
   KeyingCanonicalJson,
   KeyingVerificationError,
   ManagedPrincipalKind,
@@ -320,7 +321,7 @@ function readProjectionReferencedPrincipalHead(
   };
 }
 
-export function readProjectionReferencedPrincipalHeads(
+function readProjectionReferencedPrincipalHeads(
   value: unknown,
   label: string,
   error: ProjectionErrorFactory,
@@ -331,6 +332,29 @@ export function readProjectionReferencedPrincipalHeads(
   return value.map((entry, index) =>
     readProjectionReferencedPrincipalHead(entry, `${label}[${index}]`, error),
   );
+}
+
+function isContainerGrantPrincipalHead(
+  principalHead: ReferencedPrincipalHead,
+): principalHead is ContainerGrantPrincipalHead {
+  return principalHead.principalType === "group";
+}
+
+export function readProjectionContainerGrantPrincipalHeads(
+  value: unknown,
+  label: string,
+  error: ProjectionErrorFactory,
+): ContainerGrantPrincipalHead[] {
+  const principalHeads = readProjectionReferencedPrincipalHeads(
+    value,
+    label,
+    error,
+  );
+  if (!principalHeads.every(isContainerGrantPrincipalHead)) {
+    throw error(`${label} may reference only group principals`);
+  }
+
+  return principalHeads;
 }
 
 export function projectionAccessManifestRecord(

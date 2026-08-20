@@ -1,5 +1,6 @@
 import type {
-  ReferencedPrincipalHead,
+  ContainerGrantPrincipalHead,
+  ContainerKekRecipientTarget,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -7,9 +8,12 @@ import { derivePrincipalRecipientKeyEpochId } from "@tearleads/crypto";
 
 function replacementHead(
   policy: VerifiedPrincipalPolicy,
-): ReferencedPrincipalHead {
+): ContainerGrantPrincipalHead {
+  if (policy.principalType !== "group") {
+    throw new Error("Container grants cannot target organizations");
+  }
   return {
-    principalType: policy.principalType,
+    principalType: "group",
     principalId: policy.principalId,
     version: policy.version,
     keyEpoch: policy.keyEpoch,
@@ -40,11 +44,14 @@ function isReplacementRecipient(
 
 export function refreshContainerMutationPrincipal(input: {
   readonly currentPrincipalPolicies: readonly VerifiedPrincipalPolicy[];
-  readonly currentReferencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+  readonly currentReferencedPrincipalHeads: readonly ContainerGrantPrincipalHead[];
   readonly currentRecipientTargets: VerifiedContainerKekState["recipientTargets"];
   readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
 }) {
   const replacement = input.replacementPrincipalPolicy;
+  if (replacement?.principalType === "organization") {
+    throw new Error("Container grants cannot target organizations");
+  }
   const principalPolicies = replacement
     ? [
         ...input.currentPrincipalPolicies.filter(
@@ -60,11 +67,11 @@ export function refreshContainerMutationPrincipal(input: {
           : head,
       )
     : [...input.currentReferencedPrincipalHeads];
-  const recipientTargets = replacement
+  const recipientTargets: ContainerKekRecipientTarget[] = replacement
     ? input.currentRecipientTargets.map((target) =>
         isReplacementRecipient(target, replacement)
           ? {
-              recipientKind: replacement.principalType,
+              recipientKind: "group" as const,
               recipientId: replacement.principalId,
               recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
                 replacementHead(replacement),

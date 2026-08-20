@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { groups } from "@tearleads/api-shared/schema";
+import {
+  groups,
+  organizationRosterEntries,
+} from "@tearleads/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
-import { assertVerifiedContainerGroupReferencesExist } from "./groupReferences";
+import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
 
 function manifestWithGroupGrant(input: {
   readonly groupId: string;
@@ -27,7 +30,7 @@ test("verified container grants reject missing groups after locking references",
 
   await expect(
     db.transaction((executor) =>
-      assertVerifiedContainerGroupReferencesExist({
+      assertVerifiedContainerGrantReferencesValid({
         executor,
         manifest: manifestWithGroupGrant({ groupId: missingGroupId }),
       }),
@@ -49,7 +52,7 @@ test("verified container grants reject a group from another organization", async
 
   await expect(
     db.transaction((executor) =>
-      assertVerifiedContainerGroupReferencesExist({
+      assertVerifiedContainerGrantReferencesValid({
         executor,
         manifest: manifestWithGroupGrant({
           groupId,
@@ -63,17 +66,18 @@ test("verified container grants reject a group from another organization", async
   });
 });
 
-test("verified container grants preserve cross-organization organization grants", async () => {
-  const containerOrganizationId = crypto.randomUUID();
-  const recipientOrganizationId = crypto.randomUUID();
+test("verified container grants accept active users in the organization", async () => {
+  const organizationId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  await db.insert(organizationRosterEntries).values({ organizationId, userId });
   const manifest = {
     state: {
-      organizationId: containerOrganizationId,
+      organizationId,
       directGrants: [
         {
           accessLevel: "read",
-          subjectId: recipientOrganizationId,
-          subjectType: "organization",
+          subjectId: userId,
+          subjectType: "user",
         },
       ],
     },
@@ -81,9 +85,61 @@ test("verified container grants preserve cross-organization organization grants"
 
   await expect(
     db.transaction((executor) =>
-      assertVerifiedContainerGroupReferencesExist({ executor, manifest }),
+      assertVerifiedContainerGrantReferencesValid({ executor, manifest }),
     ),
   ).resolves.toBeUndefined();
+});
+
+test("verified container grants reject users outside the organization", async () => {
+  const userId = crypto.randomUUID();
+  await db.insert(organizationRosterEntries).values({
+    organizationId: crypto.randomUUID(),
+    userId,
+  });
+  const manifest = {
+    state: {
+      organizationId: crypto.randomUUID(),
+      directGrants: [
+        { accessLevel: "read", subjectId: userId, subjectType: "user" },
+      ],
+    },
+  } as VerifiedContainerAccessManifest;
+
+  await expect(
+    db.transaction((executor) =>
+      assertVerifiedContainerGrantReferencesValid({ executor, manifest }),
+    ),
+  ).rejects.toMatchObject({
+    message: "Container user grants require active organization members",
+    status: 409,
+  });
+});
+
+test("verified container grants reject disabled organization users", async () => {
+  const organizationId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  await db.insert(organizationRosterEntries).values({
+    organizationId,
+    status: "disabled",
+    userId,
+  });
+  const manifest = {
+    state: {
+      organizationId,
+      directGrants: [
+        { accessLevel: "read", subjectId: userId, subjectType: "user" },
+      ],
+    },
+  } as VerifiedContainerAccessManifest;
+
+  await expect(
+    db.transaction((executor) =>
+      assertVerifiedContainerGrantReferencesValid({ executor, manifest }),
+    ),
+  ).rejects.toMatchObject({
+    message: "Container user grants require active organization members",
+    status: 409,
+  });
 });
 
 test("verified container grants reject non-canonical group IDs", async () => {
@@ -96,7 +152,7 @@ test("verified container grants reject non-canonical group IDs", async () => {
 
   await expect(
     db.transaction((executor) =>
-      assertVerifiedContainerGroupReferencesExist({
+      assertVerifiedContainerGrantReferencesValid({
         executor,
         manifest: manifestWithGroupGrant({ groupId: groupId.toUpperCase() }),
       }),

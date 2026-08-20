@@ -21,6 +21,7 @@ import type {
   AccessEvent,
   ContainerAccessEventBody,
   ContainerAccessManifestState,
+  ContainerGrantPrincipalHead,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -30,7 +31,6 @@ import type {
   PrincipalContainerGrant,
   PrincipalProjectionMember,
   PrincipalStateMember,
-  ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
@@ -95,6 +95,7 @@ import * as grants from "../../../test/helpers/organizationGrantChanges";
 import {
   addOrganizationMember,
   getDefaultOrganizationId,
+  joinOrg,
 } from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
@@ -320,7 +321,7 @@ async function putGroupPrincipalPolicy(input: {
   readonly principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   readonly prepareContainerMutations?: (input: {
     readonly policy: VerifiedPrincipalPolicy;
-    readonly reference: ReferencedPrincipalHead;
+    readonly reference: ContainerGrantPrincipalHead;
   }) => Promise<readonly ContainerMutationRequest[]>;
   readonly projection?: readonly PrincipalProjectionMember[];
   readonly signedAt?: string;
@@ -328,7 +329,7 @@ async function putGroupPrincipalPolicy(input: {
 }): Promise<{
   readonly containerMutations: readonly ContainerMutationResponse[];
   readonly policy: VerifiedPrincipalPolicy;
-  readonly reference: ReferencedPrincipalHead;
+  readonly reference: ContainerGrantPrincipalHead;
   readonly stateHash: string;
 }> {
   const principalKem = input.principalKem ?? generateKemSeedAndKeyPair();
@@ -414,7 +415,7 @@ async function putGroupPrincipalPolicy(input: {
     preparedContainerMutations = await input.prepareContainerMutations({
       policy: nextPolicy,
       reference: {
-        principalType: nextPolicy.principalType,
+        principalType: "group",
         principalId: nextPolicy.principalId,
         version: nextPolicy.version,
         keyEpoch: nextPolicy.keyEpoch,
@@ -471,7 +472,7 @@ async function putGroupPrincipalPolicy(input: {
     });
   }
 
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   const responseBody = isInitialState
     ? null
     : (
@@ -485,7 +486,7 @@ async function putGroupPrincipalPolicy(input: {
     input.principalId,
   );
   expect(policy.stateHash).toBe(stateHash);
-  const reference: ReferencedPrincipalHead = {
+  const reference: ContainerGrantPrincipalHead = {
     principalType: "group",
     principalId: input.principalId,
     version: policy.version,
@@ -507,7 +508,7 @@ async function commitGroupGrant(input: {
   readonly actor: TestUser;
   readonly buildMutation: (input: {
     readonly policy: VerifiedPrincipalPolicy;
-    readonly reference: ReferencedPrincipalHead;
+    readonly reference: ContainerGrantPrincipalHead;
   }) => Promise<ContainerMutationRequest>;
   readonly containerId: string;
   readonly current: Awaited<ReturnType<typeof putGroupPrincipalPolicy>>;
@@ -881,6 +882,7 @@ async function buildGrantRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
+  await joinOrg(previous.state.organizationId, input.signer, input.recipient);
   const recipientKey = await userRecipientKey(input.recipient);
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
     input.previousContainerPath,
@@ -931,30 +933,24 @@ async function buildGrantRequest(input: {
   ];
 
   return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
+    event: event.event,
+    body,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     previousManifest: input.previous,
     previousContainerPath: [...input.previousContainerPath],
     containerManifestHistory: [input.previous],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
-      string,
-      unknown
-    >,
+    principalPolicies,
+    keyEpoch: input.previousKekState.keyEpoch,
     keyring: null,
     predecessorBridge: null,
-    wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    wraps,
+    parentKekState: input.parentKekState,
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),
       recipientKey,
-    ] as unknown as Record<string, unknown>[],
-  };
+    ],
+  } as unknown as ContainerMutationRequest;
 }
 
 async function buildGroupGrantRequest(input: {
@@ -966,7 +962,7 @@ async function buildGroupGrantRequest(input: {
   readonly previousKekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly principalPolicy: VerifiedPrincipalPolicy;
-  readonly principalReference: ReferencedPrincipalHead;
+  readonly principalReference: ContainerGrantPrincipalHead;
   readonly signer: TestUser;
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }): Promise<ContainerMutationRequest> {
@@ -1832,6 +1828,7 @@ test("POST /containers/:containerId/share rejects grants signed without admin ac
     parentKekState: root.kekState,
     signer: owner,
   });
+  await joinOrg(created.organizationId, owner, recipient);
   const childBundle = accessManifestFromResponse(created);
   const childKek = kekStateFromResponse(created);
   const request = await buildGrantRequest({

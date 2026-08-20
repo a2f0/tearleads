@@ -1,11 +1,13 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
+  accessManifestContainerGrantProjection,
   accessManifestHeads,
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
+import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
 import type { UserKeyRow } from "./users";
@@ -158,6 +160,48 @@ async function disableOrganizationRosterEntries(input: {
   return changedRows.map((row) => row.userId).sort();
 }
 
+export async function assertOrganizationUsersHaveNoCurrentDirectContainerGrants(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly userIds: readonly string[];
+}): Promise<void> {
+  const userIds = uniqueSortedStrings(input.userIds);
+  if (userIds.length === 0) {
+    return;
+  }
+  const [grant] = await input.executor
+    .select({ id: accessManifestContainerGrantProjection.id })
+    .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        eq(
+          accessManifestHeads.objectId,
+          accessManifestContainerGrantProjection.containerId,
+        ),
+        eq(
+          accessManifestHeads.manifestHash,
+          accessManifestContainerGrantProjection.manifestHash,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.organizationId, input.organizationId),
+        eq(accessManifestContainerGrantProjection.subjectType, "user"),
+        inArray(accessManifestContainerGrantProjection.subjectId, userIds),
+      ),
+    )
+    .limit(1);
+  if (grant) {
+    throw new OrganizationManagerError(
+      "Members with direct container grants must be unshared before removal",
+      409,
+    );
+  }
+}
+
 export async function syncOrganizationRosterFromMemberReachability(input: {
   readonly disabledByUserId: string | null;
   readonly executor: DatabaseSession;
@@ -186,6 +230,12 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   const disabledUserIds = previousActiveEntries
     .filter((entry) => !activeUserIdSet.has(entry.userId))
     .map((entry) => entry.userId);
+
+  await assertOrganizationUsersHaveNoCurrentDirectContainerGrants({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    userIds: disabledUserIds,
+  });
 
   const disabledUserIdsChanged = await disableOrganizationRosterEntries({
     disabledByUserId: input.disabledByUserId,

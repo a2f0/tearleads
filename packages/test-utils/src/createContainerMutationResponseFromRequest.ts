@@ -3,12 +3,12 @@ import {
   type ContainerAccessEventBody,
   type ContainerAccessManifestState,
   type ContainerDirectGrant,
+  type ContainerGrantPrincipalHead,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   computeAccessEventHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-  type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
@@ -98,7 +98,7 @@ function deriveMutationState(input: {
         body.grant,
       ),
       referencedPrincipalHeads: body.referencedPrincipalHead
-        ? sortedUpsert<ReferencedPrincipalHead>(
+        ? sortedUpsert<ContainerGrantPrincipalHead>(
             previous.referencedPrincipalHeads,
             body.referencedPrincipalHead,
           )

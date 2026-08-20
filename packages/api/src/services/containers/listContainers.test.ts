@@ -11,13 +11,13 @@ import {
   type AccessEvent,
   type ContainerAccessManifestState,
   type ContainerCreateAccessEventBody,
+  type ContainerGrantPrincipalHead,
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
-  type ReferencedPrincipalHead,
   signAccessEvent,
   toFingerprint,
   type UnsignedAccessEvent,
@@ -40,9 +40,12 @@ const SIGNED_AT = "2026-04-30T00:00:00.000Z";
 
 function principalReference(
   state: StoredPrincipalState,
-): ReferencedPrincipalHead {
+): ContainerGrantPrincipalHead {
+  if (state.principalType !== "group") {
+    throw new Error("Container grants cannot target organizations");
+  }
   return {
-    principalType: state.principalType,
+    principalType: "group",
     principalId: state.principalId,
     version: state.version,
     keyEpoch: state.keyEpoch,
@@ -163,7 +166,7 @@ async function storeContainerManifest(input: {
   organizationId: string;
   parentContainerId?: string | null;
   parentManifestHash?: string | null;
-  referencedPrincipalHeads: ReferencedPrincipalHead[];
+  referencedPrincipalHeads: ContainerGrantPrincipalHead[];
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
   signerUserId: string;
@@ -230,7 +233,7 @@ async function storeContainerManifest(input: {
 
 function storeContainerWithReferencedGroup(input: {
   containerId: string;
-  groupReference: ReferencedPrincipalHead;
+  groupReference: ContainerGrantPrincipalHead;
   metadataDocumentId: string;
   organizationId: string;
   signerKeyFingerprint: string;

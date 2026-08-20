@@ -21,7 +21,6 @@ import type {
 } from "@tearleads/validators/response";
 import {
   createManagedContainerWrap,
-  createOrganizationPolicy,
   createRotatedGroupPolicy,
 } from "../../../../test/helpers/coldGrantPolicyFixtures";
 import {
@@ -47,7 +46,6 @@ import {
 } from "../../persistence/principalPolicyPersistence";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
-type GrantKind = "user" | "group" | "organization";
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
 const DOCUMENT_ID = "550e8400-e29b-41d4-a716-446655440090";
@@ -242,35 +240,23 @@ async function createMultiEpochDocumentFixture(input: {
   };
 }
 
-async function managedGrantFixture(
-  grantKind: Exclude<GrantKind, "user">,
-  input: {
-    author: Awaited<ReturnType<typeof createAuthor>>["author"];
-    rotated: Awaited<ReturnType<typeof rotateRootKekKeyringFixture>>;
-    signingPublicKey: Uint8Array;
-  },
-) {
-  const bundle =
-    grantKind === "group"
-      ? (
-          await createRotatedGroupPolicy({
-            author: input.author,
-            containerId: input.rotated.successor.containerId,
-            memberKem: {
-              publicKey: input.rotated.fixture.publicKey,
-              secretKey: input.rotated.fixture.secretKey,
-            },
-            signingPublicKey: input.signingPublicKey,
-            userId: USER_ID,
-          })
-        ).current
-      : await createOrganizationPolicy({
-          author: input.author,
-          memberPublicKey: input.rotated.fixture.publicKey,
-          organizationId: ORGANIZATION_ID,
-          signingPublicKey: input.signingPublicKey,
-          userId: USER_ID,
-        });
+async function managedGrantFixture(input: {
+  author: Awaited<ReturnType<typeof createAuthor>>["author"];
+  rotated: Awaited<ReturnType<typeof rotateRootKekKeyringFixture>>;
+  signingPublicKey: Uint8Array;
+}) {
+  const bundle = (
+    await createRotatedGroupPolicy({
+      author: input.author,
+      containerId: input.rotated.successor.containerId,
+      memberKem: {
+        publicKey: input.rotated.fixture.publicKey,
+        secretKey: input.rotated.fixture.secretKey,
+      },
+      signingPublicKey: input.signingPublicKey,
+      userId: USER_ID,
+    })
+  ).current;
   const wrap = await createManagedContainerWrap({
     bundle,
     containerKey: input.rotated.currentKey,
@@ -281,10 +267,8 @@ async function managedGrantFixture(
   return { bundle, wrap };
 }
 
-for (const grantKind of ["user", "group", "organization"] as const) {
-  const grantLabel =
-    grantKind === "organization" ? "a current organization" : `a ${grantKind}`;
-  test(`a fresh client rematerializes multi-epoch document state through ${grantLabel} grant`, async () => {
+for (const grantKind of ["user", "group"] as const) {
+  test(`a fresh client rematerializes multi-epoch document state through a ${grantKind} grant`, async () => {
     const rotated = await rotateRootKekKeyringFixture();
     const { author, signingPublicKey } = await createAuthor({
       organizationId: ORGANIZATION_ID,
@@ -299,7 +283,7 @@ for (const grantKind of ["user", "group", "organization"] as const) {
       await ensurePrincipalPolicyTables(execSql);
       let wraps = rotated.successor.wraps;
       if (grantKind !== "user") {
-        const managed = await managedGrantFixture(grantKind, {
+        const managed = await managedGrantFixture({
           author,
           rotated,
           signingPublicKey,
