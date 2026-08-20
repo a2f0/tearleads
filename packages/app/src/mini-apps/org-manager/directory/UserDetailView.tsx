@@ -222,11 +222,6 @@ export function UserDetailView({
             grants: detail.grants.groupGrants,
             label: ORG_MANAGER_LABELS.groupContainerLinks,
           },
-          {
-            emptyLabel: ORG_MANAGER_LABELS.noOrganizationContainerLinks,
-            grants: detail.grants.organizationGrants,
-            label: ORG_MANAGER_LABELS.organizationContainerLinks,
-          },
         ]}
       />
     </>

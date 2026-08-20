@@ -35,8 +35,7 @@ function partitionAnchorWraps(
     (wrap) => wrap.recipientKind === "user" && wrap.recipientId === userId,
   );
   const principalWraps = forEpoch.filter(
-    (wrap) =>
-      wrap.recipientKind === "group" || wrap.recipientKind === "organization",
+    (wrap) => wrap.recipientKind === "group",
   );
   const parentWraps = forEpoch.filter(
     (wrap) => wrap.recipientKind === "container",

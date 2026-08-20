@@ -38626,16 +38626,6 @@
                                           }
                                         ]
                                       },
-                                      "organizationName": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
                                       "signingKeyFingerprint": {
                                         "anyOf": [
                                           {
@@ -38653,7 +38643,6 @@
                                         "type": "string",
                                         "enum": [
                                           "group",
-                                          "organization",
                                           "user"
                                         ]
                                       },
@@ -38681,7 +38670,6 @@
                                       "updatedAt",
                                       "groupId",
                                       "groupName",
-                                      "organizationName",
                                       "signingKeyFingerprint",
                                       "subjectId",
                                       "subjectType",
@@ -39195,16 +39183,6 @@
                                           }
                                         ]
                                       },
-                                      "organizationName": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
                                       "signingKeyFingerprint": {
                                         "anyOf": [
                                           {
@@ -39222,7 +39200,6 @@
                                         "type": "string",
                                         "enum": [
                                           "group",
-                                          "organization",
                                           "user"
                                         ]
                                       },
@@ -39250,7 +39227,6 @@
                                       "updatedAt",
                                       "groupId",
                                       "groupName",
-                                      "organizationName",
                                       "signingKeyFingerprint",
                                       "subjectId",
                                       "subjectType",

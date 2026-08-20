@@ -1,4 +1,5 @@
 import type {
+  ContainerKekRecipientTarget,
   ReferencedPrincipalHead,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
@@ -45,6 +46,9 @@ export function refreshContainerMutationPrincipal(input: {
   readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
 }) {
   const replacement = input.replacementPrincipalPolicy;
+  if (replacement?.principalType === "organization") {
+    throw new Error("Container grants cannot target organizations");
+  }
   const principalPolicies = replacement
     ? [
         ...input.currentPrincipalPolicies.filter(
@@ -60,11 +64,11 @@ export function refreshContainerMutationPrincipal(input: {
           : head,
       )
     : [...input.currentReferencedPrincipalHeads];
-  const recipientTargets = replacement
+  const recipientTargets: ContainerKekRecipientTarget[] = replacement
     ? input.currentRecipientTargets.map((target) =>
         isReplacementRecipient(target, replacement)
           ? {
-              recipientKind: replacement.principalType,
+              recipientKind: "group" as const,
               recipientId: replacement.principalId,
               recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
                 replacementHead(replacement),

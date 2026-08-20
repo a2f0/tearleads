@@ -158,24 +158,17 @@ function hasValidGrantSubjectFields(
     return (
       grant.userId === grant.subjectId &&
       grant.groupId === null &&
-      grant.groupName === null &&
-      grant.organizationName === null
+      grant.groupName === null
     );
   }
   if (grant.subjectType === "group") {
     return (
       grant.userId === null &&
       grant.signingKeyFingerprint === null &&
-      grant.groupId === grant.subjectId &&
-      grant.organizationName === null
+      grant.groupId === grant.subjectId
     );
   }
-  return (
-    grant.userId === null &&
-    grant.signingKeyFingerprint === null &&
-    grant.groupId === null &&
-    grant.groupName === null
-  );
+  return false;
 }
 
 function hasValidGrants(

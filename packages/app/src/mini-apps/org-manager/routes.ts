@@ -35,7 +35,7 @@ const MENU_ORG_MANAGER_ROUTE: OrgManagerRoute = {
   view: "menu",
 };
 
-export type OrgManagerGrantSubjectType = "group" | "organization" | "user";
+export type OrgManagerGrantSubjectType = "group" | "user";
 
 export interface OrgManagerGrantRouteRef {
   containerId: string;
@@ -179,11 +179,7 @@ export function areOrgManagerRoutesEqual(
 function isOrgManagerGrantSubjectType(
   subjectType: string | undefined,
 ): subjectType is OrgManagerGrantSubjectType {
-  return (
-    subjectType === "group" ||
-    subjectType === "organization" ||
-    subjectType === "user"
-  );
+  return subjectType === "group" || subjectType === "user";
 }
 
 function areOrgManagerGrantRouteRefsEqual(

@@ -54,7 +54,6 @@ const grant = {
   signingKeyFingerprint: null,
   groupId: "group-1",
   groupName: "Admins",
-  organizationName: null,
 };
 const grants = { organizationId, grants: [grant] };
 const groupMemberships = {

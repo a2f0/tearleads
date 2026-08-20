@@ -161,7 +161,7 @@ async function selectQuotaLimitedWrapIds(
 interface ContainerKekRecipientScope {
   readonly authorizedPrincipals: readonly {
     readonly principalId: string;
-    readonly principalType: "group" | "organization";
+    readonly principalType: "group";
   }[];
   readonly parentContainerIds: readonly string[];
   readonly userId: string;
@@ -194,8 +194,8 @@ function buildWrapScopeFilter(
       eq(containerKeyWraps.recipientKind, "user"),
       eq(containerKeyWraps.recipientId, scope.userId),
     ),
-    // (kind, id) identity: a group and an organization may share an id, and
-    // only the exact principal that authorizes this requester counts.
+    // Preserve (kind, id) identity even though container principal grants are
+    // currently group-only.
     ...scope.authorizedPrincipals
       .slice(0, CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT)
       .map((principal) =>

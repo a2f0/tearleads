@@ -213,7 +213,6 @@ async function assertProvisionedGroupGrantIndex(
   const actual = await listCurrentPrincipalContainerGrants({
     executor: tx,
     principalId: policy.state.principalId,
-    principalType: "group",
   });
   if (
     actual.length !== expected.length ||

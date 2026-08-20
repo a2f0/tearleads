@@ -58,6 +58,7 @@ export type {
   ContainerCreateAccessEventBody,
   ContainerDirectGrant,
   ContainerGrantAccessEventBody,
+  ContainerGrantPrincipalHead,
   ContainerGrantSubjectType,
   ContainerKekKeyring,
   ContainerKekKeyringEntry,

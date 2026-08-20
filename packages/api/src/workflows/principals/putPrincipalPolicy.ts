@@ -192,12 +192,15 @@ function applyPolicyContainerRematerializations(input: {
   readonly previousState: StoredPrincipalState | null;
   readonly tx: DatabaseTransaction;
 }) {
+  if (input.nextState.principalType === "organization") {
+    return Promise.resolve([]);
+  }
   return applyPrincipalContainerRematerializations({
     executor: input.tx,
     fingerprint: input.policy.state.signerUserKeyFingerprint,
     isExactReplay: input.previousState?.stateHash === input.nextState.stateHash,
     nextHead: {
-      principalType: input.nextState.principalType,
+      principalType: "group",
       principalId: input.nextState.principalId,
       version: input.nextState.version,
       keyEpoch: input.nextState.keyEpoch,

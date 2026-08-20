@@ -53,7 +53,6 @@ export interface OrganizationUserDetail
   readonly grants: {
     readonly directGrants: OrganizationContainerGrant[];
     readonly groupGrants: OrganizationContainerGrant[];
-    readonly organizationGrants: OrganizationContainerGrant[];
   };
 }
 export type OrganizationGroupMember = OrganizationGroupMemberResponse;

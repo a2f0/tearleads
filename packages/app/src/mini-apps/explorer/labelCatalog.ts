@@ -115,7 +115,6 @@ export const EXPLORER_LABELS = {
   containerInfoSourceColumn: "Source",
   containerInfoSourceDirect: "Direct",
   containerInfoSubjectTypeGroup: "group",
-  containerInfoSubjectTypeOrganization: "organization",
   containerInfoSubjectTypeUser: "user",
   containerInfoSyncCursorsHeading: "Sync Cursors",
   containerInfoSyncTab: "Sync",

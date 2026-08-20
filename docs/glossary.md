@@ -312,7 +312,7 @@ Related docs:
 
 A signed access assignment on a container or managed principal. Container
 grants are direct manifest inputs and may be inherited along container paths.
-Group and organization grants require verified principal policy state.
+Group grants require policy; organization access uses reserved groups.
 
 Related docs:
 

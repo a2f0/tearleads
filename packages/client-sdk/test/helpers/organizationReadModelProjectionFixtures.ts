@@ -167,7 +167,6 @@ function organizationReadModelGrants(
             signingKeyFingerprint: null,
             groupId: group.groupId,
             groupName: group.name,
-            organizationName: null,
           },
         ]
       : [],

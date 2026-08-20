@@ -24,7 +24,7 @@ import {
   assertAccessEventDependenciesMatchRequest,
   verifyMutationEvent,
 } from "./events";
-import { assertVerifiedContainerGroupReferencesExist } from "./groupReferences";
+import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
 import {
   assertCurrentContainerPath,
   assertHistoricalContainerManifestsConsistent,
@@ -397,7 +397,7 @@ export async function mutateContainerWithExecutor(
 
   if (!prelockedBatchScope) {
     const initialArtifacts = await verifyMutationArtifacts(context, input);
-    await assertVerifiedContainerGroupReferencesExist({
+    await assertVerifiedContainerGrantReferencesValid({
       executor: context.executor,
       manifest: initialArtifacts.manifest,
     });
@@ -420,7 +420,7 @@ export async function mutateContainerWithExecutor(
   await assertGroupGrantSetChangesAreAtomic(context, artifacts);
   if (prelockedBatchScope) {
     assertMutationWithinPrelockedScope(prelockedBatchScope, artifacts.manifest);
-    await assertVerifiedContainerGroupReferencesExist({
+    await assertVerifiedContainerGrantReferencesValid({
       executor: context.executor,
       manifest: artifacts.manifest,
     });

@@ -306,12 +306,7 @@ function isManagedPrincipalKind(value: string): value is ManagedPrincipalKind {
 }
 
 function isKekRecipientKind(value: string): value is KekRecipientKind {
-  return (
-    value === "container" ||
-    value === "group" ||
-    value === "organization" ||
-    value === "user"
-  );
+  return value === "container" || value === "group" || value === "user";
 }
 
 function isContentObjectKind(value: string): value is ContentObjectKind {
@@ -325,7 +320,7 @@ function isContainerAccessLevel(value: string): value is ContainerAccessLevel {
 function isContainerGrantSubjectType(
   value: string,
 ): value is ContainerGrantSubjectType {
-  return value === "group" || value === "organization" || value === "user";
+  return value === "group" || value === "user";
 }
 
 export function expectedObjectKindForEventType(

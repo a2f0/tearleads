@@ -93,11 +93,6 @@ export function GrantsView({
             grants: grantsBySubjectType(grants.grants, "user"),
             label: ORG_MANAGER_LABELS.userContainerLinks,
           },
-          {
-            emptyLabel: ORG_MANAGER_LABELS.noOrganizationContainerLinks,
-            grants: grantsBySubjectType(grants.grants, "organization"),
-            label: ORG_MANAGER_LABELS.organizationContainerLinks,
-          },
         ]}
       />
     </div>
@@ -295,9 +290,6 @@ function getGrantSubjectTypeLabel(
 ): string {
   if (subjectType === "group") {
     return ORG_MANAGER_LABELS.group;
-  }
-  if (subjectType === "organization") {
-    return ORG_MANAGER_LABELS.organization;
   }
 
   return ORG_MANAGER_LABELS.user;

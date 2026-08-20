@@ -153,7 +153,7 @@ interface ExplorerDetailPanelProps {
     grant: {
       containerId: string;
       subjectId: string;
-      subjectType: "group" | "organization" | "user";
+      subjectType: "group" | "user";
     },
     position?: MiniAppWindowPosition,
   ) => void;

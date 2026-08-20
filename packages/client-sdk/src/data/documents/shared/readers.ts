@@ -160,7 +160,6 @@ export function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrap {
   if (
     recipientKind !== "user" &&
     recipientKind !== "group" &&
-    recipientKind !== "organization" &&
     recipientKind !== "container"
   ) {
     throw new Error(

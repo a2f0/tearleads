@@ -8,10 +8,8 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
 import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import {
-  organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
@@ -23,6 +21,9 @@ export async function createManagedContainerWrap(input: {
   wrapManifestHash: string;
 }) {
   const head = principalPolicyHead(input.bundle);
+  if (head.principalType !== "group") {
+    throw new Error("Container grants cannot target organizations");
+  }
   const [wrapped] = await wrapDekForRecipients(input.containerKey, [
     base64ToBytes(input.bundle.currentState.encapsulationPublicKey),
   ]);
@@ -32,7 +33,7 @@ export async function createManagedContainerWrap(input: {
 
   return {
     containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: head.principalType,
+    recipientKind: "group" as const,
     recipientId: head.principalId,
     recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(head),
     recipientKeyFingerprint: wrapped.keyFingerprint,
@@ -76,29 +77,4 @@ export async function createRotatedGroupPolicy(input: {
   });
 
   return { current, initial };
-}
-
-export async function createOrganizationPolicy(input: {
-  author: DocumentCreateAuthor;
-  memberPublicKey: Uint8Array;
-  organizationId: string;
-  signingPublicKey: Uint8Array;
-  userId: string;
-}) {
-  const request = await buildInitialOrganizationPolicyRequest({
-    adminGroupId: "cold-login-admins",
-    encapsulationPublicKey: input.memberPublicKey,
-    groupHeads: [],
-    memberGroupId: "cold-login-members",
-    organizationId: input.organizationId,
-    signingKeyPair: {
-      signingPrivateKey: input.author.signerPrivateKey,
-      signingPublicKey: input.signingPublicKey,
-    },
-    userId: input.userId,
-  });
-  return organizationPolicyBundleFromInitialRequest(
-    input.organizationId,
-    request,
-  );
 }

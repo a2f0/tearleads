@@ -46,7 +46,7 @@ interface Props {
     grant: {
       containerId: string;
       subjectId: string;
-      subjectType: "group" | "organization" | "user";
+      subjectType: "group" | "user";
     },
     position?: MiniAppWindowPosition,
   ) => void;
@@ -172,7 +172,7 @@ function ExplorerContainerInfoSharingSections(params: {
     grant: {
       containerId: string;
       subjectId: string;
-      subjectType: "group" | "organization" | "user";
+      subjectType: "group" | "user";
     },
     position?: MiniAppWindowPosition,
   ) => void;
@@ -235,7 +235,7 @@ function ExplorerContainerInfoTabPanel(params: {
     grant: {
       containerId: string;
       subjectId: string;
-      subjectType: "group" | "organization" | "user";
+      subjectType: "group" | "user";
     },
     position?: MiniAppWindowPosition,
   ) => void;

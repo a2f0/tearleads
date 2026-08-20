@@ -343,14 +343,6 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
     stateHash: await fixtureHash("group-state"),
     keyFingerprint: await fixtureHash("group-key"),
   };
-  const organizationHead = {
-    principalType: "organization" as const,
-    principalId: "organization-1",
-    version: 1,
-    keyEpoch: 1,
-    stateHash: await fixtureHash("organization-state"),
-    keyFingerprint: await fixtureHash("organization-key"),
-  };
   const childManifest = await createContainerManifestFixture({
     containerId: "child-container",
     containerKeyEpochId: await kekId("child-key-epoch-1"),
@@ -365,15 +357,10 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
         subjectId: groupHead.principalId,
         accessLevel: "write",
       },
-      {
-        subjectType: "organization",
-        subjectId: organizationHead.principalId,
-        accessLevel: "read",
-      },
     ],
     parentContainerId: parentManifest.state.containerId,
     parentManifestHash: parentManifest.manifestHash,
-    referencedPrincipalHeads: [groupHead, organizationHead],
+    referencedPrincipalHeads: [groupHead],
   });
   const aliceKey: ContainerUserRecipientKey = {
     userId: "alice",
@@ -403,14 +390,6 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
     }),
     await createContainerKeyWrap({
       containerKeyEpochId: childKeyEpoch.id,
-      recipientKind: "organization",
-      recipientId: organizationHead.principalId,
-      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(organizationHead),
-      recipientKeyFingerprint: organizationHead.keyFingerprint,
-      wrapManifestHash: childManifest.manifestHash,
-    }),
-    await createContainerKeyWrap({
-      containerKeyEpochId: childKeyEpoch.id,
       recipientKind: "container",
       recipientId: parentKekState.value.containerId,
       recipientKeyEpochId: parentKekState.value.containerKeyEpochId,
@@ -422,10 +401,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
     containerManifest: childManifest,
     keyEpoch: childKeyEpoch,
     parentKekState: parentKekState.value,
-    principalPolicies: [
-      createPrincipalPolicyFixture(groupHead),
-      createPrincipalPolicyFixture(organizationHead),
-    ],
+    principalPolicies: [createPrincipalPolicyFixture(groupHead)],
     userRecipientKeys: [aliceKey],
     wraps: childWraps,
   });
@@ -444,13 +420,6 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
         recipientId: groupHead.principalId,
         recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(groupHead),
         recipientKeyFingerprint: groupHead.keyFingerprint,
-      },
-      {
-        recipientKind: "organization",
-        recipientId: organizationHead.principalId,
-        recipientKeyEpochId:
-          derivePrincipalRecipientKeyEpochId(organizationHead),
-        recipientKeyFingerprint: organizationHead.keyFingerprint,
       },
       {
         recipientKind: "user",

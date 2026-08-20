@@ -37,7 +37,6 @@ function groupGrant(
     signingKeyFingerprint: null,
     groupId,
     groupName: `Group ${groupId}`,
-    organizationName: null,
   };
 }
 

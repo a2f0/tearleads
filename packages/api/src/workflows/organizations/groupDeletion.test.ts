@@ -6,22 +6,21 @@ import {
 } from "@tearleads/api-shared/schema";
 import { requireOrganizationGroupWithoutDeleteBlockers } from "./groupDeletion";
 
-test("group deletion is blocked by a current container grant in another organization", async () => {
+test("group deletion is blocked by a current container grant", async () => {
   const groupId = crypto.randomUUID();
   const groupOrganizationId = crypto.randomUUID();
-  const foreignContainerId = crypto.randomUUID();
-  const foreignOrganizationId = crypto.randomUUID();
-  const manifestHash = `foreign-current:${crypto.randomUUID()}`;
+  const containerId = crypto.randomUUID();
+  const manifestHash = `current:${crypto.randomUUID()}`;
   await db.insert(accessManifestHeads).values({
     epoch: 1,
     manifestHash,
-    objectId: foreignContainerId,
+    objectId: containerId,
     objectKind: "container",
-    organizationId: foreignOrganizationId,
+    organizationId: groupOrganizationId,
   });
   await db.insert(accessManifestContainerGrantProjection).values({
     accessLevel: "read",
-    containerId: foreignContainerId,
+    containerId,
     manifestHash,
     subjectId: groupId,
     subjectType: "group",

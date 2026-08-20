@@ -249,7 +249,7 @@ function requirePrincipalRecipientTarget(input: {
   }
 
   return {
-    recipientKind: referencedHead.principalType,
+    recipientKind: "group",
     recipientId: referencedHead.principalId,
     recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(referencedHead),
     recipientKeyFingerprint: referencedHead.keyFingerprint,

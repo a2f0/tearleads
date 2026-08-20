@@ -28,6 +28,30 @@ appear exactly once. Keep registered bounds small enough for `check:fast`;
 broader configurations should use a separate scheduled suite rather than
 silently increasing pull-request check time.
 
+## Container Grant Scope
+
+[`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)
+models the accepted container-grant domain. TLC checks that every reachable
+grant names either a group in the container's organization or an active direct
+user in that organization; an organization principal is never a container
+grant subject. It also models roster removal as a guarded transition: a user
+must first be unshared from every directly granted container, whose revoke is a
+container KEK rotation in the runtime and in the keyring model below.
+
+The production seams are the container grant grammar, the locked group/user
+reference checks in `groupReferences.ts`, and the direct-grant blocker in
+`roster.ts`. The bounded configuration includes same- and foreign-organization
+users, groups, and organization principals so TLC explores every accepted
+grant/revoke and roster transition over those categories.
+
+## Container Keyring Reachability
+
+[`container-keying/KeyringReachability.tla`](./container-keying/KeyringReachability.tla)
+models cold recovery from persisted user/group recipient wraps, immutable
+predecessor bridges, and sealed historical keyrings. Its `Members` abstraction
+is the set of users authorized by active direct-user or same-organization group
+grants; organization principals are not recovery recipients.
+
 ## Document Baseline Dominance
 
 [`document-sync/BaselineDominance.tla`](./document-sync/BaselineDominance.tla)

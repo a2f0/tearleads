@@ -1,8 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import {
-  groups as groupsTable,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import {
   isOrganizationContainerGrantSubjectType,
   type OrganizationContainerGrantResponse,
@@ -42,29 +39,8 @@ async function loadGroupNamesById(input: {
   return new Map(rows.map((row) => [row.groupId, row.groupName]));
 }
 
-async function loadOrganizationNamesById(input: {
-  executor: DatabaseSession;
-  organizationIds: readonly string[];
-}): Promise<Map<string, string>> {
-  const organizationIds = uniqueSortedStrings(input.organizationIds);
-  if (organizationIds.length === 0) {
-    return new Map();
-  }
-
-  const rows = await input.executor
-    .select({
-      organizationId: organizations.id,
-      organizationName: organizations.name,
-    })
-    .from(organizations)
-    .where(inArray(organizations.id, organizationIds));
-
-  return new Map(rows.map((row) => [row.organizationId, row.organizationName]));
-}
-
 function toOrganizationContainerGrantResponse(input: {
   groupNamesById: ReadonlyMap<string, string>;
-  organizationNamesById: ReadonlyMap<string, string>;
   row: OrganizationContainerGrantRow;
   usersById: ReadonlyMap<string, UserKeyRow>;
 }): OrganizationContainerGrantResponse {
@@ -87,10 +63,6 @@ function toOrganizationContainerGrantResponse(input: {
     groupName:
       row.subjectType === "group"
         ? (input.groupNamesById.get(row.subjectId) ?? null)
-        : null,
-    organizationName:
-      row.subjectType === "organization"
-        ? (input.organizationNamesById.get(row.subjectId) ?? null)
         : null,
   };
 }
@@ -118,17 +90,9 @@ export async function listOrganizationContainerGrantResponsesInTransaction(input
     userIds.length > 0
       ? await loadUsersById(input.executor, userIds)
       : new Map<string, UserKeyRow>();
-  const organizationNamesById = await loadOrganizationNamesById({
-    executor: input.executor,
-    organizationIds: rows.flatMap((row) =>
-      row.subjectType === "organization" ? [row.subjectId] : [],
-    ),
-  });
-
   return rows.map((row) =>
     toOrganizationContainerGrantResponse({
       groupNamesById,
-      organizationNamesById,
       row,
       usersById,
     }),

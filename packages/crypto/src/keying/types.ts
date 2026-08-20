@@ -65,10 +65,10 @@ export type AccessEventType =
 
 export type AccessObjectKind = "blob" | "container" | "document";
 export type ManagedPrincipalKind = "group" | "organization";
-export type KekRecipientKind = "container" | "group" | "organization" | "user";
+export type KekRecipientKind = "container" | "group" | "user";
 export type ContentObjectKind = "blob" | "document";
 export type ContainerAccessLevel = "admin" | "read" | "write";
-export type ContainerGrantSubjectType = "group" | "organization" | "user";
+export type ContainerGrantSubjectType = "group" | "user";
 export const CONTENT_RECORD_ENCRYPTION_SUITE =
   "aes-256-gcm-hkdf-sha256-record-key" as const;
 export type ContentRecordEncryptionSuite =
@@ -122,6 +122,10 @@ export interface ReferencedPrincipalHead {
   stateHash: string;
   keyFingerprint: string;
 }
+
+export type ContainerGrantPrincipalHead = ReferencedPrincipalHead & {
+  principalType: "group";
+};
 
 export interface AccessManifest {
   version: 1;

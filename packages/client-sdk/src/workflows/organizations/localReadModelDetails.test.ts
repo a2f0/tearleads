@@ -41,10 +41,9 @@ function userMember(userId: string): OrganizationGroupMemberResponse {
 function grant(input: {
   readonly containerId: string;
   readonly subjectId: string;
-  readonly subjectType: "group" | "organization" | "user";
+  readonly subjectType: "group" | "user";
 }): OrganizationContainerGrantResponse {
   const isGroup = input.subjectType === "group";
-  const isOrganization = input.subjectType === "organization";
   const isUser = input.subjectType === "user";
   return {
     accessLevel: "read",
@@ -65,7 +64,6 @@ function grant(input: {
       : null,
     groupId: isGroup ? input.subjectId : null,
     groupName: isGroup ? `Group ${input.subjectId}` : null,
-    organizationName: isOrganization ? `Organization ${input.subjectId}` : null,
   };
 }
 
@@ -85,16 +83,6 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
       containerId: "container-unrelated-group",
       subjectId: "unrelated-group",
       subjectType: "group",
-    }),
-    grant({
-      containerId: "container-organization",
-      subjectId: ORGANIZATION_ID,
-      subjectType: "organization",
-    }),
-    grant({
-      containerId: "container-other-organization",
-      subjectId: "other-organization",
-      subjectType: "organization",
     }),
   ];
   return {
@@ -244,8 +232,8 @@ test("local organization detail derives a user's groups and effective grants", a
   // This replaces a test that also exercised group-in-group reachability and
   // membership cycles. Groups hold only users now, so the walk is gone — but
   // the derivation it wrapped is not, and this keeps it covered: which groups a
-  // user belongs to, which grants reach them by group, directly, and through
-  // the organization, and that a requester outside the projection sees nothing.
+  // user belongs to, which grants reach them by group or directly, and that a
+  // requester outside the projection sees nothing.
   const { close, execSql } = await createTestExecSql(
     "organization-local-read-model-details",
   );
@@ -294,10 +282,6 @@ test("local organization detail derives a user's groups and effective grants", a
     expect(detail?.grants.directGrants.map((item) => item.subjectId)).toEqual([
       TARGET_USER_ID,
     ]);
-    expect(
-      detail?.grants.organizationGrants.map((item) => item.subjectId),
-    ).toEqual([ORGANIZATION_ID]);
-
     const groupContainers = await loadLocalOrganizationGroupContainers({
       ...common,
       groupId: MEMBERS_GROUP_ID,
@@ -318,7 +302,7 @@ test("local organization detail derives a user's groups and effective grants", a
       }),
     ).resolves.toBeNull();
     const allGrants = await loadLocalOrganizationContainerGrants(common);
-    expect(allGrants?.grants).toHaveLength(5);
+    expect(allGrants?.grants).toHaveLength(3);
 
     // A requester with no projection row reads nothing at all.
     const otherRequester = {

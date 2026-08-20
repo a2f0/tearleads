@@ -19436,12 +19436,11 @@ export interface operations {
                                     metadataAccessEpoch: number;
                                     metadataAccessStateHash: string;
                                     metadataDocumentId: string | null;
-                                    organizationName: string | null;
                                     parentId: string | null;
                                     signingKeyFingerprint: string | null;
                                     subjectId: string;
                                     /** @enum {string} */
-                                    subjectType: "group" | "organization" | "user";
+                                    subjectType: "group" | "user";
                                     updatedAt: string;
                                     userId: string | null;
                                 }[];
@@ -19539,12 +19538,11 @@ export interface operations {
                                     metadataAccessEpoch: number;
                                     metadataAccessStateHash: string;
                                     metadataDocumentId: string | null;
-                                    organizationName: string | null;
                                     parentId: string | null;
                                     signingKeyFingerprint: string | null;
                                     subjectId: string;
                                     /** @enum {string} */
-                                    subjectType: "group" | "organization" | "user";
+                                    subjectType: "group" | "user";
                                     updatedAt: string;
                                     userId: string | null;
                                 }[];

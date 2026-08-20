@@ -95,6 +95,7 @@ import * as grants from "../../../test/helpers/organizationGrantChanges";
 import {
   addOrganizationMember,
   getDefaultOrganizationId,
+  joinOrg,
 } from "../../../test/helpers/organizationMembership";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
@@ -471,7 +472,7 @@ async function putGroupPrincipalPolicy(input: {
     });
   }
 
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   const responseBody = isInitialState
     ? null
     : (
@@ -881,6 +882,7 @@ async function buildGrantRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
+  await joinOrg(previous.state.organizationId, input.signer, input.recipient);
   const recipientKey = await userRecipientKey(input.recipient);
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
     input.previousContainerPath,
@@ -931,30 +933,24 @@ async function buildGrantRequest(input: {
   ];
 
   return {
-    event: event.event as unknown as Record<string, unknown>,
-    body: body as unknown,
+    event: event.event,
+    body,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     previousManifest: input.previous,
     previousContainerPath: [...input.previousContainerPath],
     containerManifestHistory: [input.previous],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
-    keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
-      string,
-      unknown
-    >,
+    principalPolicies,
+    keyEpoch: input.previousKekState.keyEpoch,
     keyring: null,
     predecessorBridge: null,
-    wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    wraps,
+    parentKekState: input.parentKekState,
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),
       recipientKey,
-    ] as unknown as Record<string, unknown>[],
-  };
+    ],
+  } as unknown as ContainerMutationRequest;
 }
 
 async function buildGroupGrantRequest(input: {
@@ -1832,6 +1828,7 @@ test("POST /containers/:containerId/share rejects grants signed without admin ac
     parentKekState: root.kekState,
     signer: owner,
   });
+  await joinOrg(created.organizationId, owner, recipient);
   const childBundle = accessManifestFromResponse(created);
   const childKek = kekStateFromResponse(created);
   const request = await buildGrantRequest({

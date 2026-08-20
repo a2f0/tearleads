@@ -96,7 +96,7 @@ function readContainerMutationPreviousParentId(
 // recipient hasn't declared interest in this container yet (they don't know it
 // exists), so the container-scoped access_changed below never reaches them; the
 // recipient id lets us additionally route a user-scoped resync to their own
-// sockets. Group/organization grants fan out to members and are left to the
+// sockets. Group grants fan out to members and are left to the
 // next manual/periodic resync.
 function readGrantUserRecipientId(
   request: ContainerMutationRequest,

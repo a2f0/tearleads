@@ -59,7 +59,7 @@ function isContainerAccessLevel(
 function isContainerGrantSubjectType(
   value: unknown,
 ): value is ContainerDirectGrant["subjectType"] {
-  return value === "group" || value === "organization" || value === "user";
+  return value === "group" || value === "user";
 }
 
 function isManagedPrincipalKind(

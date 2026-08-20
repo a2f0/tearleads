@@ -58,7 +58,7 @@ are managed principals with signed policy state:
 - `principal_epoch_keys`
 - `principal_member_envelopes`
 
-Group and organization grants require referenced signed principal heads.
+Group container grants require referenced signed group-policy heads.
 Managed-principal access fails closed when the referenced policy state or member
 envelopes are missing or stale.
 

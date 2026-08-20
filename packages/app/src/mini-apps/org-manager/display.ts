@@ -37,9 +37,6 @@ export function getGrantPrincipalLabel(
   if (grant.subjectType === "group") {
     return grant.groupName ?? compactFingerprint(grant.subjectId);
   }
-  if (grant.subjectType === "organization") {
-    return grant.organizationName ?? compactFingerprint(grant.subjectId);
-  }
 
   return grant.userId
     ? compactFingerprint(grant.userId)

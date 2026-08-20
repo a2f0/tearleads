@@ -97,12 +97,14 @@ export async function runContainerKekLogWorkflow(
     // covers them, is not an anchor they could use, so serving its retained
     // envelopes would disclose history for nothing.
     const authorizedPrincipals = access.principalPolicies
-      .filter((policy) =>
-        policy.projection.some((member) => member.userId === input.userId),
+      .filter(
+        (policy) =>
+          policy.principalType === "group" &&
+          policy.projection.some((member) => member.userId === input.userId),
       )
       .map((policy) => ({
         principalId: policy.principalId,
-        principalType: policy.principalType,
+        principalType: "group" as const,
       }));
 
     // One indexed lookup proves the container has key history at all; the

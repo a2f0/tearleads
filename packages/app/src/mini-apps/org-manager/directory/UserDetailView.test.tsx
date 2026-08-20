@@ -29,7 +29,6 @@ const detail: OrganizationUserDetail = {
   grants: {
     directGrants: [],
     groupGrants: [],
-    organizationGrants: [],
   },
   groups: [],
   organizationId: "organization-1",

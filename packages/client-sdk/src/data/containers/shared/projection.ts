@@ -1,10 +1,10 @@
 import {
+  type ContainerGrantPrincipalHead,
   type ContainerKekRecipientTarget,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
   derivePrincipalRecipientKeyEpochId,
   encryptWithDek,
-  type ReferencedPrincipalHead,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -193,7 +193,7 @@ export async function wrapContainerKeyToManagedPrincipal(input: {
   containerKeyEpochId: string;
   manifestHash: string;
   principalEncapsulationPublicKey: string;
-  principalHead: ReferencedPrincipalHead;
+  principalHead: ContainerGrantPrincipalHead;
 }): Promise<{
   recipientTarget: ContainerKekRecipientTarget;
   wrap: ContainerKeyWrap;

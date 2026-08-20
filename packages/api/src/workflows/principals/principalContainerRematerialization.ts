@@ -5,8 +5,8 @@ import {
   accessManifestPrincipalHeadProjection,
 } from "@tearleads/api-shared/schema";
 import type {
+  ContainerGrantPrincipalHead,
   PrincipalContainerGrant,
-  ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
@@ -67,7 +67,7 @@ function principalHeadMatches(
     readonly stateHash: string | null;
     readonly version: number | null;
   },
-  head: ReferencedPrincipalHead,
+  head: ContainerGrantPrincipalHead,
 ): boolean {
   return (
     row.version === head.version &&
@@ -80,7 +80,6 @@ function principalHeadMatches(
 export async function listCurrentPrincipalContainerGrants(input: {
   readonly executor: DatabaseTransaction;
   readonly principalId: string;
-  readonly principalType: "group" | "organization";
 }): Promise<CurrentPrincipalContainerGrant[]> {
   const rows = await input.executor
     .select({
@@ -113,10 +112,7 @@ export async function listCurrentPrincipalContainerGrants(input: {
           accessManifestPrincipalHeadProjection.manifestHash,
           accessManifestContainerGrantProjection.manifestHash,
         ),
-        eq(
-          accessManifestPrincipalHeadProjection.principalType,
-          input.principalType,
-        ),
+        eq(accessManifestPrincipalHeadProjection.principalType, "group"),
         eq(
           accessManifestPrincipalHeadProjection.principalId,
           input.principalId,
@@ -125,10 +121,7 @@ export async function listCurrentPrincipalContainerGrants(input: {
     )
     .where(
       and(
-        eq(
-          accessManifestContainerGrantProjection.subjectType,
-          input.principalType,
-        ),
+        eq(accessManifestContainerGrantProjection.subjectType, "group"),
         eq(accessManifestContainerGrantProjection.subjectId, input.principalId),
       ),
     );
@@ -144,13 +137,12 @@ export async function listCurrentPrincipalContainerGrants(input: {
 async function listRequiredContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly nextGrants: readonly PrincipalContainerGrant[];
-  readonly nextHead: ReferencedPrincipalHead;
+  readonly nextHead: ContainerGrantPrincipalHead;
 }): Promise<RequiredContainerRematerialization[]> {
   const head = input.nextHead;
   const rows = await listCurrentPrincipalContainerGrants({
     executor: input.executor,
     principalId: head.principalId,
-    principalType: head.principalType,
   });
   const currentByContainerId = new Map(
     rows.map((row) => [row.containerId, row] as const),
@@ -210,7 +202,7 @@ function requestEvent(
 }
 
 function isRotatingPrincipalRevoke(input: {
-  readonly nextHead: ReferencedPrincipalHead;
+  readonly nextHead: ContainerGrantPrincipalHead;
   readonly previousKeyEpoch: number | null;
   readonly request: ContainerMutationRequest;
 }): boolean {
@@ -250,7 +242,7 @@ function isRotatingPrincipalRevoke(input: {
 
 function rematerializationInputs(input: {
   readonly fingerprint: string;
-  readonly nextHead: ReferencedPrincipalHead;
+  readonly nextHead: ContainerGrantPrincipalHead;
   readonly previousKeyEpoch: number | null;
   readonly requests: readonly ContainerMutationRequest[];
   readonly required: readonly RequiredContainerRematerialization[];
@@ -309,7 +301,7 @@ export async function applyPrincipalContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly isExactReplay: boolean;
-  readonly nextHead: ReferencedPrincipalHead;
+  readonly nextHead: ContainerGrantPrincipalHead;
   readonly nextGrants: readonly PrincipalContainerGrant[];
   readonly previousKeyEpoch: number | null;
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
@@ -327,21 +319,6 @@ export async function applyPrincipalContainerRematerializations(input: {
       requests: input.requests ?? [],
     });
   }
-  if (input.nextHead.principalType === "organization") {
-    if (required.length > 0) {
-      throw new PrincipalPolicyError(
-        "Organization principal changes with existing container grants are not supported",
-        409,
-      );
-    }
-    if ((input.requests?.length ?? 0) > 0) {
-      throw new PrincipalPolicyError(
-        "Organization principal policies cannot include container rematerializations",
-        409,
-      );
-    }
-    return [];
-  }
   const mutationInputs = rematerializationInputs({
     fingerprint: input.fingerprint,
     nextHead: input.nextHead,
@@ -356,9 +333,7 @@ export async function applyPrincipalContainerRematerializations(input: {
 
   const context: ContainerMutationContext = {
     executor: input.executor,
-    ...(input.nextHead.principalType === "group"
-      ? { mutatingGroupPrincipalId: input.nextHead.principalId }
-      : {}),
+    mutatingGroupPrincipalId: input.nextHead.principalId,
     manifestHeadByContainerId: new Map(),
     verifiedManifestByHash: new Map(),
     writerProjectionContext: createContainerWriterProjectionContext(

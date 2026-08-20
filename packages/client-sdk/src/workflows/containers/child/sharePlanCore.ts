@@ -4,6 +4,7 @@ import {
   type ContainerAccessManifestState,
   type ContainerDirectGrant,
   type ContainerGrantAccessEventBody,
+  type ContainerGrantPrincipalHead,
   type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
@@ -58,7 +59,7 @@ export type ContainerShareRecipient =
   | {
       readonly principalPolicy: VerifiedPrincipalPolicy;
       readonly subjectId: string;
-      readonly subjectType: ManagedPrincipalKind;
+      readonly subjectType: "group";
     };
 
 function grantKey(
@@ -88,9 +89,12 @@ function referencedPrincipalKey(reference: {
 
 export function referencedPrincipalHeadFromPolicy(
   policy: VerifiedPrincipalPolicy,
-): ReferencedPrincipalHead {
+): ContainerGrantPrincipalHead {
+  if (policy.principalType !== "group") {
+    throw new Error("Container grants can reference only group policies");
+  }
   return {
-    principalType: policy.principalType,
+    principalType: "group",
     principalId: policy.principalId,
     version: policy.version,
     keyEpoch: policy.keyEpoch,

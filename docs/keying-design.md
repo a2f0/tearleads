@@ -400,7 +400,7 @@ this material commitment.
 ```ts
 type ContainerKeyWrap = {
  containerKeyEpochId: string;
- recipientKind: "user" | "group" | "organization" | "container";
+ recipientKind: "user" | "group" | "container";
  recipientId: string;
  recipientKeyEpochId: string;
  recipientKeyFingerprint: string;
@@ -955,7 +955,7 @@ is viable if these constraints hold:
 - Most blobs have a small number of active bindings.
 - Container KEKs inherit through parent KEK edges so ancestor additive shares do
  not require descendant key rewrites.
-- Group/organization grants target principal KEKs, not every user directly.
+- Group grants target principal KEKs, not every user directly.
 - The API maintains projection indexes for listing and search, but encryption
  decisions are made from verified manifests.
 

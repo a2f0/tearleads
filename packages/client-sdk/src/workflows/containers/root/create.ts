@@ -2,6 +2,7 @@ import type {
   AccessEvent,
   AccessManifest,
   ContainerCreateAccessEventBody,
+  ContainerGrantPrincipalHead,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -48,7 +49,7 @@ interface RootManagedPrincipalGrantInput {
 
 async function principalHeadFromInitialGroupPolicy(
   input: RootManagedPrincipalGrantInput,
-): Promise<ReferencedPrincipalHead> {
+): Promise<ContainerGrantPrincipalHead> {
   return {
     principalType: "group",
     principalId: input.principalId,
@@ -93,7 +94,7 @@ function buildRootContainerCreateBody(input: {
   author: ContainerMutationAuthor;
   managedPrincipalGrant?: {
     readonly accessLevel: "admin";
-    readonly principalHead: ReferencedPrincipalHead;
+    readonly principalHead: ContainerGrantPrincipalHead;
   };
   containerKeyEpochId: string;
   metadataDocumentId: string;
@@ -171,7 +172,7 @@ function buildRootContainerCreateRequest(input: {
 async function buildRootManagedPrincipalContext(
   adminGroup: CreateOrganizationGroupRequest | null,
 ): Promise<{
-  managedPrincipalHead: ReferencedPrincipalHead | null;
+  managedPrincipalHead: ContainerGrantPrincipalHead | null;
   managedPrincipalPolicies: Record<string, unknown>[];
 }> {
   if (!adminGroup) {
@@ -244,7 +245,7 @@ async function wrapRootContainerKeyForPlan(input: {
   containerKey: Uint8Array;
   containerKeyEpochId: string;
   manifestHash: string;
-  managedPrincipalHead: ReferencedPrincipalHead | null;
+  managedPrincipalHead: ContainerGrantPrincipalHead | null;
   recipientEncapsulationPublicKey: Uint8Array;
   userId: string;
 }) {

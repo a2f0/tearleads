@@ -324,9 +324,7 @@ export async function loadLocalOrganizationUserDetail(
       const relevantGrants = projection.grants.grants.filter(
         (grant) =>
           (grant.subjectType === "user" && grant.subjectId === input.userId) ||
-          (grant.subjectType === "group" && reachable.has(grant.subjectId)) ||
-          (grant.subjectType === "organization" &&
-            grant.subjectId === input.organizationId),
+          (grant.subjectType === "group" && reachable.has(grant.subjectId)),
       );
       const grants = await enrichGrants(input.execSql, relevantGrants);
       return {
@@ -341,11 +339,6 @@ export async function loadLocalOrganizationUserDetail(
           groupGrants: grants.filter(
             (grant) =>
               grant.subjectType === "group" && reachable.has(grant.subjectId),
-          ),
-          organizationGrants: grants.filter(
-            (grant) =>
-              grant.subjectType === "organization" &&
-              grant.subjectId === input.organizationId,
           ),
         },
       };
