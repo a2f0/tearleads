@@ -34,6 +34,7 @@ end
 def with_ios_signing_keychain
   return yield unless ENV['MATCH_KEYCHAIN_NAME'].to_s.empty?
 
+  ENV.delete('MATCH_KEYCHAIN_NAME')
   keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
   setup_ci(force: true, keychain_name: keychain_name, timeout: 0)
   yield
@@ -259,10 +260,9 @@ def ensure_ios_codesign_key_access!
   profile_path = installed_ios_appstore_profile_path
   return if system(ios_codesign_keychain_environment, 'sh', IOS_CODESIGN_AUTHORIZATION_SCRIPT, profile_path)
 
-  UI.user_error!(
-    'The iOS signing key needs interactive keychain authorization. Run ' \
-    '`scripts/keychain/authorizeCodesignPartitionList.sh` in a Terminal, then retry.'
-  )
+  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
+  keychain_description = keychain_name.empty? ? 'the login keychain' : "Match keychain #{keychain_name}"
+  UI.user_error!("codesign could not use the required signing key in #{keychain_description} after authorization.")
 end
 
 def ios_export_options(team_id, profile_name)

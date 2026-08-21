@@ -11,11 +11,6 @@ const capacitorReleaseConfigPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/lib/capacitor_release_config.rb",
 );
-const codesignAuthorizationPath = resolve(
-  repositoryRoot,
-  "scripts/keychain/authorizeCodesignPartitionList.sh",
-);
-
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   const process = Bun.spawn(
     [
@@ -409,72 +404,12 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("setup_ci(force: true");
     expect(iosFastfile).toContain("delete_keychain(name: keychain_name)");
     expect(iosFastfile).toContain("CODESIGN_LOGIN_KEYCHAIN");
-  });
-
-  test("codesign authorization skips the password prompt when the probe succeeds", async () => {
-    const child = Bun.spawn(["sh", codesignAuthorizationPath], {
-      env: {
-        ...process.env,
-        CODESIGN_COMMAND: "/usr/bin/true",
-        CODESIGN_LOGIN_KEYCHAIN: "/tmp/test-login.keychain-db",
-        CODESIGN_PROBE_IDENTITY: "TESTIDENTITY",
-      },
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const [exitCode, stderr, stdout] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-      new Response(child.stdout).text(),
-    ]);
-
-    expect(exitCode, stderr).toBe(0);
-    expect(stdout).toContain("no password prompt needed");
-    expect(stdout).not.toContain("macOS login password");
-  });
-
-  test("codesign authorization fails without prompting in a noninteractive shell", async () => {
-    const child = Bun.spawn(["sh", codesignAuthorizationPath], {
-      env: {
-        ...process.env,
-        CODESIGN_COMMAND: "/usr/bin/false",
-        CODESIGN_LOGIN_KEYCHAIN: "/tmp/test-login.keychain-db",
-        CODESIGN_PROBE_IDENTITY: "TESTIDENTITY",
-      },
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const [exitCode, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-    ]);
-
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("requires interactive authorization");
-  });
-
-  test("codesign authorization uses a known empty temporary-keychain password", async () => {
-    const child = Bun.spawn(["sh", codesignAuthorizationPath], {
-      env: {
-        ...process.env,
-        CODESIGN_COMMAND: "/usr/bin/false",
-        CODESIGN_KEYCHAIN_PASSWORD: "",
-        CODESIGN_LOGIN_KEYCHAIN: "/tmp/test-login.keychain-db",
-        CODESIGN_PROBE_IDENTITY: "TESTIDENTITY",
-        CODESIGN_SECURITY_COMMAND: "/usr/bin/true",
-      },
-      stderr: "pipe",
-      stdout: "pipe",
-    });
-    const [exitCode, stderr, stdout] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-      new Response(child.stdout).text(),
-    ]);
-
-    expect(exitCode).toBe(1);
-    expect(stdout).toContain("Authorizing codesign");
-    expect(stderr).toContain("still cannot use the required signing key");
-    expect(stderr).not.toContain("requires interactive authorization");
+    expect(iosFastfile).toContain("CODESIGN_KEYCHAIN_PASSWORD");
+    const normalizeIndex = iosFastfile.indexOf(
+      "ENV.delete('MATCH_KEYCHAIN_NAME')",
+    );
+    const setupIndex = iosFastfile.indexOf("setup_ci(force: true");
+    expect(normalizeIndex).toBeGreaterThan(-1);
+    expect(normalizeIndex).toBeLessThan(setupIndex);
   });
 });

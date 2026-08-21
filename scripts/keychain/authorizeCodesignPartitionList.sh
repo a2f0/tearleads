@@ -73,7 +73,7 @@ codesign_profile_identity() {
 }
 
 codesign_distribution_identities() {
-  "$SECURITY_COMMAND" find-identity -v -p codesigning |
+  "$SECURITY_COMMAND" find-identity -v -p codesigning "$LOGIN_KEYCHAIN" |
     awk '/"Apple Distribution:/{print $2}'
 }
 
