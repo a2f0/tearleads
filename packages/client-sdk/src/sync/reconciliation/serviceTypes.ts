@@ -60,7 +60,11 @@ export interface ReconciliationService {
     priority: ReconcilePriority,
     force?: boolean,
   ) => void;
-  /** Queue known containers at idle priority, including settled ones if forced. */
+  /**
+   * Queue known containers at idle priority. A forced call records a global
+   * invalidation so containers materialized by later tree hydration are also
+   * force-reconciled exactly once.
+   */
   enqueueIdleBackfill: (force?: boolean) => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of

@@ -77,3 +77,28 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
   );
   expect(discovered).toEqual(["candidate"]);
 });
+
+test("forced backfill retains force while a container is ineligible", async () => {
+  const contentPulls: boolean[] = [];
+  let remoteBacked = false;
+  const host = createReconciliationTestHost({
+    canDiscoverContainerDocuments: () => remoteBacked,
+    listKnownContainerIds: () => ["candidate"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  remoteBacked = true;
+  service.enqueueIdleBackfill();
+  await waitFor(
+    () => contentPulls.length === 1,
+    "Expected the promoted container to retain forced content pull",
+  );
+
+  expect(contentPulls).toEqual([true]);
+});

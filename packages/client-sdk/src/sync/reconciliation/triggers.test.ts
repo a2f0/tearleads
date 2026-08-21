@@ -96,11 +96,11 @@ test("hydrated trigger reconciles only the active container", () => {
 });
 
 test("remote container growth queues one idle backfill", () => {
-  let idleBackfills = 0;
+  const idleBackfills: Array<boolean | undefined> = [];
   const reconcileListener = connectListener(
     stubService({
-      enqueueIdleBackfill: () => {
-        idleBackfills += 1;
+      enqueueIdleBackfill: (force) => {
+        idleBackfills.push(force);
       },
     }),
   );
@@ -109,7 +109,7 @@ test("remote container growth queues one idle backfill", () => {
     reason: "remote-containers-added",
   });
 
-  expect(idleBackfills).toBe(1);
+  expect(idleBackfills).toEqual([undefined]);
 });
 
 test("event triggers enqueue the named container at active priority", () => {

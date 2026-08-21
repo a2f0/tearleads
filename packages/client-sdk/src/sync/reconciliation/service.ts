@@ -3,15 +3,12 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import {
-  createInitialDocumentProbe,
-  type InitialDocumentProbe,
-} from "./initialDocumentProbe";
+  enqueueKnownContainersForIdleBackfill,
+  type IdleBackfillState,
+} from "./idleBackfill";
+import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
-import {
-  createReconcileQueue,
-  type ReconcilePriority,
-  type ReconcileQueue,
-} from "./queue";
+import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import type {
   ReconciliationHost,
   ReconciliationRuntimeStatus,
@@ -22,15 +19,11 @@ function canReconcile(status: ReconciliationRuntimeStatus): boolean {
   return status.dbStatus === "ready" && status.isAuthenticated && status.online;
 }
 
-interface ReconciliationState {
+interface ReconciliationState extends IdleBackfillState {
   active: boolean;
   activeContainerId: string | null;
-  discoveredContainerIds: Set<string>;
-  forcedContainerIds: Set<string>;
-  initialDocumentProbe: InitialDocumentProbe;
   lane: SyncLane | null;
   probeContinuationCancel: (() => void) | null;
-  queue: ReconcileQueue;
   /**
    * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
    * clears the queue/forced set and mutates the discovered set non-atomically,
@@ -108,13 +101,18 @@ async function sweepKnownContainers(
   let firstError: unknown;
   for (const containerId of containerIds) {
     try {
-      await reconcileMarkedContainer(
+      const shouldForce =
+        forceAllDocumentContentPulls ||
+        state.forcedContainerIds.has(containerId);
+      const reconciled = await reconcileMarkedContainer(
         host,
         state,
         containerId,
-        forceAllDocumentContentPulls ||
-          state.forcedContainerIds.delete(containerId),
+        shouldForce,
       );
+      if (reconciled) {
+        state.forcedContainerIds.delete(containerId);
+      }
     } catch (error) {
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
@@ -134,7 +132,7 @@ async function reconcileMarkedContainer(
   state: ReconciliationState,
   containerId: string,
   forceDocumentContentPull: boolean,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const reconciled = await reconcileOneContainer(host, containerId, {
       forceDocumentContentPull,
@@ -142,6 +140,7 @@ async function reconcileMarkedContainer(
     if (!reconciled) {
       state.discoveredContainerIds.delete(containerId);
     }
+    return reconciled;
   } catch (error) {
     state.discoveredContainerIds.delete(containerId);
     throw error;
@@ -167,10 +166,18 @@ async function runReconcileLane(
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
   // discovered up front to collapse concurrent re-enqueues into one fetch, but
   // roll the mark back on failure so a transient error can be retried later.
-  const shouldForce = state.forcedContainerIds.delete(containerId);
+  const shouldForce = state.forcedContainerIds.has(containerId);
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
-    await reconcileMarkedContainer(host, state, containerId, shouldForce);
+    const reconciled = await reconcileMarkedContainer(
+      host,
+      state,
+      containerId,
+      shouldForce,
+    );
+    if (reconciled) {
+      state.forcedContainerIds.delete(containerId);
+    }
   }
 
   // Keep draining: schedule another pass while the queue holds work.
@@ -345,6 +352,8 @@ function createReconciliationState(
     queue: createReconcileQueue(),
     refreshPromise: null,
     refreshType: null,
+    unscopedInvalidationActive: false,
+    unscopedInvalidatedContainerIds: new Set(),
   };
 }
 
@@ -364,36 +373,11 @@ function stopReconciliationService(
   // reconciler is being torn down (scope/identity change) or paused across
   // a prerequisite loss, after which every container must be re-validated.
   state.discoveredContainerIds.clear();
+  state.unscopedInvalidationActive = false;
+  state.unscopedInvalidatedContainerIds.clear();
   // Drop pending self-echo originations too — they are session-scoped and a
   // teardown invalidates them.
   clearOriginatedDocuments(host.domainScope);
-}
-
-function enqueueKnownContainersForIdleBackfill(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-  scheduleDrain: () => void,
-  force: boolean,
-): void {
-  const knownContainerIds = host.listKnownContainerIds();
-  const eligibleContainerIds = knownContainerIds.filter((id) =>
-    host.canDiscoverContainerDocuments(id),
-  );
-  state.initialDocumentProbe.arm(eligibleContainerIds);
-  for (const containerId of knownContainerIds) {
-    if (!force && state.discoveredContainerIds.has(containerId)) {
-      continue;
-    }
-    if (force) {
-      state.forcedContainerIds.add(containerId);
-    }
-    // Queue dedupe already collapses an active+idle enqueue of the same id.
-    // Do not skip the active id here: a local-first active container may have
-    // been dropped as ineligible, then become remote-backed under the same id
-    // and rely on a remote-containers-added backfill to re-arm it.
-    state.queue.enqueue(containerId, "idle");
-  }
-  scheduleDrain();
 }
 
 export function createReconciliationService(
@@ -438,7 +422,12 @@ export function createReconciliationService(
   };
 
   const enqueueIdleBackfill = (force = false) => {
-    enqueueKnownContainersForIdleBackfill(host, state, scheduleDrain, force);
+    enqueueKnownContainersForIdleBackfill({
+      force,
+      host,
+      scheduleDrain,
+      state,
+    });
   };
 
   return {

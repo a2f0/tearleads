@@ -84,8 +84,11 @@ a remote-revalidation signal. The following signals require a probe:
 A scoped remote event force-reconciles its known containers. If a valid legacy
 event has no container scope, the client instead queues every known container at
 idle priority, including containers already settled in this session. That
-fallback also propagates forced content revalidation to registered ordinary
-documents, so the lossy hint cannot be discarded by discovery suppression.
+global invalidation remains active for containers materialized by later tree
+hydration and propagates forced content revalidation to registered ordinary
+documents. Force is acknowledged only after successful reconciliation, so the
+lossy hint cannot be discarded by discovery suppression, temporary
+ineligibility, or a transient request failure.
 
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced
