@@ -244,9 +244,16 @@ def installed_ios_appstore_profile_path
   end
 end
 
+def ios_codesign_keychain_environment
+  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
+  return {} if keychain_name.empty?
+
+  { 'CODESIGN_LOGIN_KEYCHAIN' => FastlaneCore::Helper.keychain_path(keychain_name) }
+end
+
 def ensure_ios_codesign_key_access!
   profile_path = installed_ios_appstore_profile_path
-  return if system('sh', IOS_CODESIGN_AUTHORIZATION_SCRIPT, profile_path)
+  return if system(ios_codesign_keychain_environment, 'sh', IOS_CODESIGN_AUTHORIZATION_SCRIPT, profile_path)
 
   UI.user_error!(
     'The iOS signing key needs interactive keychain authorization. Run ' \
@@ -307,12 +314,10 @@ platform :ios do
   desc 'Install the App Store distribution cert and provisioning profile via match'
   lane :fetch_appstore_profile do
     load_ios_release_secrets_env
-    with_ios_signing_keychain do
-      profile_name = install_ios_appstore_signing_assets!
-      ensure_ios_codesign_key_access!
-      UI.success("Installed App Store provisioning profile: #{profile_name}")
-      profile_name
-    end
+    profile_name = install_ios_appstore_signing_assets!
+    ensure_ios_codesign_key_access!
+    UI.success("Installed App Store provisioning profile: #{profile_name}")
+    profile_name
   end
 
   desc 'Build signed iOS IPA for TestFlight'

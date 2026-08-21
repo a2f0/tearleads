@@ -372,26 +372,43 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
   });
 
-  test("iOS signing access is probed after Match installs each profile", async () => {
+  test("iOS signing access is probed after Match in both profile lanes", async () => {
     const iosFastfile = await Bun.file(
       resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
     ).text();
-    const matchIndex = iosFastfile.indexOf(
-      "    profile_name = install_ios_appstore_signing_assets!",
+    const fetchLaneIndex = iosFastfile.indexOf("lane :fetch_appstore_profile");
+    const buildLaneIndex = iosFastfile.indexOf(
+      "lane :build_testflight_release",
     );
-    const authorizationIndex = iosFastfile.indexOf(
+    const fetchMatchIndex = iosFastfile.indexOf(
+      "    profile_name = install_ios_appstore_signing_assets!",
+      fetchLaneIndex,
+    );
+    const fetchAuthorizationIndex = iosFastfile.indexOf(
       "    ensure_ios_codesign_key_access!",
-      matchIndex,
+      fetchMatchIndex,
+    );
+    const buildMatchIndex = iosFastfile.indexOf(
+      "      profile_name = install_ios_appstore_signing_assets!",
+      buildLaneIndex,
+    );
+    const buildAuthorizationIndex = iosFastfile.indexOf(
+      "      ensure_ios_codesign_key_access!",
+      buildMatchIndex,
     );
 
-    expect(matchIndex).toBeGreaterThan(-1);
-    expect(authorizationIndex).toBeGreaterThan(matchIndex);
+    expect(fetchMatchIndex).toBeGreaterThan(fetchLaneIndex);
+    expect(fetchAuthorizationIndex).toBeGreaterThan(fetchMatchIndex);
+    expect(fetchAuthorizationIndex).toBeLessThan(buildLaneIndex);
+    expect(buildMatchIndex).toBeGreaterThan(buildLaneIndex);
+    expect(buildAuthorizationIndex).toBeGreaterThan(buildMatchIndex);
     expect(iosFastfile).toContain(
       "scripts/keychain/authorizeCodesignPartitionList.sh",
     );
     expect(iosFastfile).toContain("with_ios_signing_keychain do");
     expect(iosFastfile).toContain("setup_ci(force: true");
     expect(iosFastfile).toContain("delete_keychain(name: keychain_name)");
+    expect(iosFastfile).toContain("CODESIGN_LOGIN_KEYCHAIN");
   });
 
   test("codesign authorization skips the password prompt when the probe succeeds", async () => {
