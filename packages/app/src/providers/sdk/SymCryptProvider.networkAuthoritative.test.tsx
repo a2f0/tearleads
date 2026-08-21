@@ -1,5 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { NetworkStatusSource, SymCrypt } from "@symcrypt/client-sdk";
+import {
+  createBrowserNetworkStatusSource,
+  type NetworkStatusSource,
+  type SymCrypt,
+} from "@symcrypt/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
 import {
   type AppHostConfig,
@@ -91,9 +95,40 @@ test("treats an authoritative injected source as the sole governor of connectivi
   unmount();
 });
 
+test("browser connectivity keeps backend recovery retries live", () => {
+  const { symcrypt, unmount } = mountWithSource(
+    createBrowserNetworkStatusSource(),
+    "ws://events.example.test/browser-authoritative",
+  );
+
+  expect(symcrypt.network.online).toBe(true);
+  act(() => {
+    symcrypt.network.reportReachability(false);
+  });
+  expect(symcrypt.network.online).toBe(true);
+
+  act(() => {
+    window.dispatchEvent(new Event("offline"));
+  });
+  expect(symcrypt.network.online).toBe(false);
+
+  act(() => {
+    symcrypt.network.reportReachability(true);
+  });
+  expect(symcrypt.network.online).toBe(true);
+
+  act(() => {
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(symcrypt.network.online).toBe(true);
+
+  unmount();
+});
+
 test("leaves a failed request able to drive offline when the source is not authoritative", () => {
-  // A source without the authoritative flag (the browser fallback's shape)
-  // leaves the SDK non-authoritative, so a failed fetch still drives offline.
+  // A custom/headless source without the authoritative flag leaves the SDK
+  // non-authoritative, so a failed fetch still acts as a connectivity hint.
   const source: NetworkStatusSource = {
     getOnline: () => true,
     subscribe: () => () => {},

@@ -84,20 +84,12 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
   }
 
   return {
-    // Authoritative only on a real native platform, where getStatus() reads the
-    // OS connectivity API (ConnectivityManager / NWPathMonitor) — the device's
-    // true connectivity, more trustworthy than any request outcome. Marking it
-    // authoritative stops a failed backend request from flipping the SDK offline
-    // (which a native shell can never recover from: no OS `online` event fires
-    // because the device never disconnected); an unreachable backend surfaces as
-    // a sync/request failure instead. This holds even when the native plugin is
-    // absent and this source pins the optimistic "online" seed (see above) —
-    // that seed must not be undone by a request failure either. Not authoritative
-    // in the Capacitor web dev target (getPlatform() === "web"): there this
-    // factory is still injected but @capacitor/network's web implementation just
-    // reads navigator.onLine, which is no better than the browser source, so a
-    // failed fetch should still drive offline as it does on the web shell.
-    authoritative: Capacitor.isNativePlatform(),
+    // This source continuously owns connectivity on every Capacitor target. On
+    // native it reads ConnectivityManager / NWPathMonitor; on web it subscribes
+    // to the browser implementation. In either case, a backend failure must not
+    // overwrite the source and disable recovery until a device `online` event
+    // that may never come.
+    authoritative: true,
     getOnline: () => online,
     subscribe(listener: NetworkListener): () => void {
       listeners.add(listener);
