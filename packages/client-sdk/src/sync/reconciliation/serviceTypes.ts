@@ -60,7 +60,8 @@ export interface ReconciliationService {
     priority: ReconcilePriority,
     force?: boolean,
   ) => void;
-  enqueueIdleBackfill: () => void;
+  /** Queue known containers at idle priority, including settled ones if forced. */
+  enqueueIdleBackfill: (force?: boolean) => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the

@@ -369,6 +369,33 @@ function stopReconciliationService(
   clearOriginatedDocuments(host.domainScope);
 }
 
+function enqueueKnownContainersForIdleBackfill(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  scheduleDrain: () => void,
+  force: boolean,
+): void {
+  const knownContainerIds = host.listKnownContainerIds();
+  const eligibleContainerIds = knownContainerIds.filter((id) =>
+    host.canDiscoverContainerDocuments(id),
+  );
+  state.initialDocumentProbe.arm(eligibleContainerIds);
+  for (const containerId of knownContainerIds) {
+    if (!force && state.discoveredContainerIds.has(containerId)) {
+      continue;
+    }
+    if (force) {
+      state.forcedContainerIds.add(containerId);
+    }
+    // Queue dedupe already collapses an active+idle enqueue of the same id.
+    // Do not skip the active id here: a local-first active container may have
+    // been dropped as ineligible, then become remote-backed under the same id
+    // and rely on a remote-containers-added backfill to re-arm it.
+    state.queue.enqueue(containerId, "idle");
+  }
+  scheduleDrain();
+}
+
 export function createReconciliationService(
   host: ReconciliationHost,
 ): ReconciliationService {
@@ -410,23 +437,8 @@ export function createReconciliationService(
     scheduleDrain();
   };
 
-  const enqueueIdleBackfill = () => {
-    const knownContainerIds = host.listKnownContainerIds();
-    const eligibleContainerIds = knownContainerIds.filter((id) =>
-      host.canDiscoverContainerDocuments(id),
-    );
-    state.initialDocumentProbe.arm(eligibleContainerIds);
-    for (const containerId of knownContainerIds) {
-      if (state.discoveredContainerIds.has(containerId)) {
-        continue;
-      }
-      // Queue dedupe already collapses an active+idle enqueue of the same id.
-      // Do not skip the active id here: a local-first active container may have
-      // been dropped as ineligible, then become remote-backed under the same id
-      // and rely on a remote-containers-added backfill to re-arm it.
-      state.queue.enqueue(containerId, "idle");
-    }
-    scheduleDrain();
+  const enqueueIdleBackfill = (force = false) => {
+    enqueueKnownContainersForIdleBackfill(host, state, scheduleDrain, force);
   };
 
   return {

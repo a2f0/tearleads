@@ -66,8 +66,8 @@ export function connectReconciliationTriggers(input: {
 /**
  * Translate a batch of server events into reconciler work. Containers named by
  * document content or structural mutation events are reconciled at active
- * priority; an unscoped content update triggers an idle backfill across known
- * containers.
+ * priority; an unscoped content update force-reconciles every known container
+ * at idle priority because no narrower invalidation scope is available.
  *
  * `domainScope`, when provided, suppresses self-echoes: a `document_update_created`
  * whose documentId this client just originated (created/uploaded) is dropped
@@ -109,7 +109,9 @@ export function enqueueReconciliationForEvents(input: {
       continue;
     }
     if (event.containerIds === undefined) {
-      // An update with no container scope could touch any container.
+      // An update with no container scope could touch any container, including
+      // one already settled this session. Force both document discovery and
+      // ordinary content pulls so the lossy hint cannot be suppressed.
       needsIdleBackfill = true;
       continue;
     }
@@ -123,6 +125,6 @@ export function enqueueReconciliationForEvents(input: {
   }
 
   if (needsIdleBackfill) {
-    service.enqueueIdleBackfill();
+    service.enqueueIdleBackfill(true);
   }
 }

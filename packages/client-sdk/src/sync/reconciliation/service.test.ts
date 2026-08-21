@@ -210,6 +210,33 @@ test("service force-reconciles a discovered container", async () => {
   expect(contentPulls).toEqual([false, true]);
 });
 
+test("forced idle backfill retries every settled container", async () => {
+  const attempts: string[] = [];
+  const contentPulls: boolean[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1", "c-2"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+    },
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueIdleBackfill();
+  await waitFor(() => attempts.length === 2, "Expected the initial backfill");
+
+  service.enqueueIdleBackfill(true);
+  await waitFor(
+    () => attempts.length === 4,
+    "Expected forced backfill to retry every settled container",
+  );
+  expect(attempts).toEqual(["c-1", "c-2", "c-1", "c-2"]);
+  expect(contentPulls).toEqual([false, false, true, true]);
+});
+
 test("service retries a container that failed during explicit refresh", async () => {
   const attempts: string[] = [];
   let failNext = true;

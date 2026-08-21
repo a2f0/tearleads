@@ -314,18 +314,21 @@ test("self-echo suppression is single-use", () => {
 });
 
 test("event triggers backfill when an update has no container scope", () => {
-  let idleBackfills = 0;
+  const idleBackfills: Array<boolean | undefined> = [];
   const service = stubService({
-    enqueueIdleBackfill: () => {
-      idleBackfills += 1;
+    enqueueIdleBackfill: (force) => {
+      idleBackfills.push(force);
     },
   });
 
   enqueueReconciliationForEvents({
-    events: [{ type: "document_update_created", documentId: "d-1" }],
+    events: [
+      { type: "document_update_created", documentId: "d-1" },
+      { type: "document_update_created", documentId: "d-2" },
+    ],
     knownContainerIds: ["c-1"],
     service,
   });
 
-  expect(idleBackfills).toBe(1);
+  expect(idleBackfills).toEqual([true]);
 });
