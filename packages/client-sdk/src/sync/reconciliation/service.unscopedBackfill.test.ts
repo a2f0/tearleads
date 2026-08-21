@@ -62,8 +62,10 @@ test("forced backfill retains force until a transient retry succeeds", async () 
     failNext = true;
     service.enqueueIdleBackfill(true);
     await waitFor(() => attempts.length === 2, "Expected forced failure");
-    service.enqueueIdleBackfill();
-    await waitFor(() => attempts.length === 3, "Expected forced retry");
+    await waitFor(
+      () => attempts.length === 3,
+      "Expected automatic forced retry",
+    );
 
     expect(contentPulls).toEqual([false, true]);
   } finally {

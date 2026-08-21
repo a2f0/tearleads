@@ -172,11 +172,14 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
   if (state.activeContainerId) {
     loadActiveContainerSummaries(state, state.activeContainerId);
   }
+  return true;
+}
+
+function notifyHydrated(state: LocalProjectionStoreState): void {
   notifyReconcile(state, {
     reason: "hydrated",
     activeContainerId: state.activeContainerId,
   });
-  return true;
 }
 
 function flushPendingPrerequisitesRegained(
@@ -269,6 +272,9 @@ export function createLocalProjectionStore(input: {
     const previousContainers = state.snapshot.containers;
     const didMarkHydrated = markHydratedIfReady(state);
     emit(state);
+    if (didMarkHydrated) {
+      notifyHydrated(state);
+    }
     // Flush only after emit has recomputed the snapshot: the backfill the
     // signal triggers enumerates known containers from getSnapshot(), so
     // flushing earlier would run it over the stale pre-hydration list.
@@ -345,9 +351,12 @@ export function createLocalProjectionStore(input: {
 
       // Reload the active container's summaries when the local store becomes
       // ready (e.g. first DB attach) so first paint reflects cached contents.
-      markHydratedIfReady(state);
+      const didMarkHydrated = markHydratedIfReady(state);
       emit(state);
-      // After emit, so the triggered backfill reads the refreshed snapshot.
+      if (didMarkHydrated) {
+        notifyHydrated(state);
+      }
+      // After emit, so triggered backfills read the refreshed snapshot.
       flushPendingPrerequisitesRegained(state);
     },
     onReconcileSignal: (listener) => {

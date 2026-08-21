@@ -172,14 +172,22 @@ async function runReconcileLane(
   const shouldForce = forceGeneration !== undefined;
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
-    const reconciled = await reconcileMarkedContainer(
-      host,
-      state,
-      containerId,
-      shouldForce,
-    );
-    if (reconciled) {
-      acknowledgeContainerForce(state, containerId, forceGeneration);
+    try {
+      const reconciled = await reconcileMarkedContainer(
+        host,
+        state,
+        containerId,
+        shouldForce,
+      );
+      if (reconciled) {
+        acknowledgeContainerForce(state, containerId, forceGeneration);
+      }
+    } catch (error) {
+      if (state.active) {
+        state.queue.enqueue(containerId, "idle");
+        state.lane?.requestSync();
+      }
+      throw error;
     }
   }
 

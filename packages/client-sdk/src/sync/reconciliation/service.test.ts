@@ -163,18 +163,17 @@ test("service retries a container after a failed reconciliation", async () => {
     const service = createReconciliationService(host);
     service.start();
 
-    // First attempt fails; the container must not be permanently marked
-    // discovered, so a fresh enqueue retries it.
+    // First attempt fails; the lane retains and re-arms its own work. The
+    // coordinator backs failed self-retries off to avoid a tight loop.
     service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 1,
       "Expected the first (failing) attempt",
     );
 
-    service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 2,
-      "Expected a retry after the failed reconciliation",
+      "Expected an automatic retry after the failed reconciliation",
     );
   } finally {
     restoreConsoleError();
