@@ -16,6 +16,7 @@ export async function createSuccessorGroupPolicyBundle(input: {
   readonly memberPublicKey: Uint8Array;
   readonly previousBundle: PrincipalPolicyBundleResponse;
   readonly signedAt: string;
+  readonly signerUserId?: string | undefined;
   readonly userId: string;
 }): Promise<PrincipalPolicyBundleResponse> {
   const previousState = input.previousBundle.currentState;
@@ -57,7 +58,7 @@ export async function createSuccessorGroupPolicyBundle(input: {
       keyFingerprint: await toFingerprint(input.groupKem.publicKey),
       externalAuthority: null,
       signedAt: input.signedAt,
-      signerUserId: input.userId,
+      signerUserId: input.signerUserId ?? input.userId,
       signerUserKeyFingerprint: input.author.signerKeyFingerprint,
       grants: input.previousBundle.currentGrants,
     },

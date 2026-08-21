@@ -46,17 +46,20 @@ export async function createManagedContainerWrap(input: {
 export async function createRotatedGroupPolicy(input: {
   author: DocumentCreateAuthor;
   containerId: string;
+  initialMemberKem?: EncapsulationKeyPair | undefined;
+  initialUserId?: string | undefined;
   memberKem: EncapsulationKeyPair;
   signingPublicKey: Uint8Array;
   userId: string;
 }) {
   const groupId = "cold-login-group";
+  const initialUserId = input.initialUserId ?? input.userId;
   const initialRequest = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: input.memberKem,
+    creatorEncapsulationKeyPair: input.initialMemberKem ?? input.memberKem,
     grants: [{ accessLevel: "read", containerId: input.containerId }],
     groupId,
     name: "Cold login readers",
-    signerUserId: input.userId,
+    signerUserId: initialUserId,
     signingFingerprint: input.author.signerKeyFingerprint,
     signingKeyPair: {
       signingPrivateKey: input.author.signerPrivateKey,
@@ -73,6 +76,7 @@ export async function createRotatedGroupPolicy(input: {
     signedAt: new Date(
       Date.parse(initial.currentState.signedAt) + 1_000,
     ).toISOString(),
+    signerUserId: initialUserId,
     userId: input.userId,
   });
 

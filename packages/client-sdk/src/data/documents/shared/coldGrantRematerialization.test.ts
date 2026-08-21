@@ -3,6 +3,7 @@ import {
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
+  generateKemSeedAndKeyPair,
 } from "@symcrypt/crypto";
 import { bytesToBase64 } from "@symcrypt/encoding";
 import {
@@ -12,6 +13,8 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
+  listTextCharOpIds,
+  listVersionVectorSpans,
 } from "@symcrypt/loro";
 import type {
   ContainerWriterProjectionResponse,
@@ -44,6 +47,7 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "../../persistence/principalPolicyPersistence";
+import { summarizeDocumentBlame } from "../editAttribution";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
@@ -241,19 +245,24 @@ async function createMultiEpochDocumentFixture(input: {
 }
 
 async function managedGrantFixture(input: {
-  author: Awaited<ReturnType<typeof createAuthor>>["author"];
   rotated: Awaited<ReturnType<typeof rotateRootKekKeyringFixture>>;
-  signingPublicKey: Uint8Array;
 }) {
+  const previousMemberId = "previous-group-member";
+  const previousMember = await createAuthor({
+    organizationId: ORGANIZATION_ID,
+    userId: previousMemberId,
+  });
   const bundle = (
     await createRotatedGroupPolicy({
-      author: input.author,
+      author: previousMember.author,
       containerId: input.rotated.successor.containerId,
+      initialMemberKem: generateKemSeedAndKeyPair(),
+      initialUserId: previousMemberId,
       memberKem: {
         publicKey: input.rotated.fixture.publicKey,
         secretKey: input.rotated.fixture.secretKey,
       },
-      signingPublicKey: input.signingPublicKey,
+      signingPublicKey: previousMember.signingPublicKey,
       userId: USER_ID,
     })
   ).current;
@@ -270,7 +279,7 @@ async function managedGrantFixture(input: {
 for (const grantKind of ["user", "group"] as const) {
   test(`a fresh client rematerializes multi-epoch document state through a ${grantKind} grant`, async () => {
     const rotated = await rotateRootKekKeyringFixture();
-    const { author, signingPublicKey } = await createAuthor({
+    const { author } = await createAuthor({
       organizationId: ORGANIZATION_ID,
       userId: USER_ID,
     });
@@ -283,11 +292,13 @@ for (const grantKind of ["user", "group"] as const) {
       await ensurePrincipalPolicyTables(execSql);
       let wraps = rotated.successor.wraps;
       if (grantKind !== "user") {
-        const managed = await managedGrantFixture({
-          author,
-          rotated,
-          signingPublicKey,
-        });
+        const managed = await managedGrantFixture({ rotated });
+        expect(managed.bundle.currentState.keyEpoch).toBeGreaterThan(
+          managed.bundle.previousStates[0]?.state.keyEpoch ?? 0,
+        );
+        expect(managed.bundle.currentProjection).toEqual([
+          { role: "admin", userId: USER_ID },
+        ]);
         await savePrincipalPolicyBundle(
           execSql,
           managed.bundle,
@@ -322,6 +333,28 @@ for (const grantKind of ["user", "group"] as const) {
         decrypted.map((update) => update.updateData),
       );
       expect(getTextValue(recovered)).toBe("after container rotation");
+      const attributionSegments = document.response.updates.flatMap((update) =>
+        listVersionVectorSpans(update).map((span) => ({
+          ...span,
+          authorityKind: "direct" as const,
+          writerKeyFingerprint: author.signerKeyFingerprint,
+          writerUserId: USER_ID,
+        })),
+      );
+      const blame = summarizeDocumentBlame(
+        {
+          codePoints: [...getTextValue(recovered)],
+          opIds: listTextCharOpIds(recovered),
+        },
+        attributionSegments,
+      );
+      expect(blame.characterBlame.unattributedCharacterCount).toBe(0);
+      expect(blame.characterBlame.writers).toEqual([
+        expect.objectContaining({
+          writerKeyFingerprint: author.signerKeyFingerprint,
+          writerUserId: USER_ID,
+        }),
+      ]);
     });
   });
 }
