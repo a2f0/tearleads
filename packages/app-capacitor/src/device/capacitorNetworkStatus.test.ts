@@ -67,7 +67,7 @@ function flushAsync(): Promise<void> {
   });
 }
 
-test("is authoritative on a native platform but not in the web dev target", () => {
+test("owns connectivity on native and web targets", () => {
   // On a real device getStatus() reads the OS connectivity API — the device's
   // connectivity truth — so a failed backend request must never override it (see
   // reportReachability). Authoritative regardless of native plugin availability;
@@ -77,12 +77,11 @@ test("is authoritative on a native platform but not in the web dev target", () =
   fixture.pluginAvailable = false;
   expect(createCapacitorNetworkStatus().authoritative).toBe(true);
 
-  // In the Capacitor web dev target the source is just navigator.onLine (the
-  // plugin's web implementation), no better than the browser source, so it must
-  // not be authoritative — a failed fetch should still drive offline.
+  // The web implementation also provides an independent connectivity
+  // subscription. Backend failures must not overwrite it and strand retries.
   fixture.nativePlatform = false;
   fixture.pluginAvailable = true;
-  expect(createCapacitorNetworkStatus().authoritative).toBe(false);
+  expect(createCapacitorNetworkStatus().authoritative).toBe(true);
 });
 
 test("holds online and never binds the plugin when the native plugin is absent", async () => {

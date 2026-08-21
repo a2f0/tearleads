@@ -225,9 +225,9 @@ export class SymCrypt {
 
   private configureApiClientCallbacks(): void {
     this.apiClient.setOnError((message) => this.logError(message));
-    // An authoritative OS source owns connectivity. Without one, request
-    // outcomes remain browser reachability hints: a failure proves the backend
-    // is unreachable, not that the device itself is offline.
+    // An authoritative host source owns connectivity. Without one, request
+    // outcomes remain reachability hints. Browser and native app bindings both
+    // install authoritative sources so a backend outage cannot stop retries.
     this.apiClient.setOnNetworkError(() =>
       this.network.reportReachability(false),
     );

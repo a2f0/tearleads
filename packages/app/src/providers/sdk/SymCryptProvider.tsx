@@ -135,11 +135,10 @@ function useNetworkStatusBinding(
       })
       .catch(() => {});
 
-    // Tell the SDK whether this source is the authoritative connectivity truth.
-    // A native OS-backed source (Capacitor) is: once bound, a failed backend
-    // request must not flip connectivity offline, because the OS — not a request
-    // outcome — knows whether the device is connected. The browser source omits
-    // the flag, keeping the fetch-failure-drives-offline behavior it relies on.
+    // Tell the SDK whether this source continuously governs connectivity. Both
+    // the browser source and native OS-backed sources do: a backend failure must
+    // not flip connectivity and disable their recovery loops while the device's
+    // connection itself has not changed.
     symcrypt.network.setConnectivityAuthoritative(
       source.authoritative ?? false,
     );

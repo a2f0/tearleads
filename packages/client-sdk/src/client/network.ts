@@ -16,7 +16,7 @@ function defaultOnline(): boolean {
  * Capacitor Android WebView, where `navigator.onLine` is unreliable and often
  * reports offline while the device is genuinely connected.
  *
- * The contract is deliberately small so a native adapter can satisfy it: a
+ * The contract is deliberately small so a host adapter can satisfy it: a
  * synchronous best-known read for seeding, plus a push subscription for
  * changes. A source that can only read connectivity asynchronously returns an
  * optimistic value from {@link getOnline} and corrects it through the first
@@ -24,15 +24,14 @@ function defaultOnline(): boolean {
  */
 export interface NetworkStatusSource {
   /**
-   * Whether this source is the authoritative device-connectivity signal. A
-   * native OS-backed source (Capacitor's `@capacitor/network`, reading
-   * `ConnectivityManager` / `NWPathMonitor`) sets this so the SDK treats it as
-   * the sole truth for `online`: a backend request that fails to reach the
-   * server then means the backend is unreachable, not that the device is
-   * offline, and must not flip connectivity (see {@link Network.reportReachability}).
-   * The browser fallback omits it — there `navigator.onLine` is coarse and a
-   * failed fetch is the best available offline proxy, so request outcomes are
-   * allowed to drive connectivity as before.
+   * Whether this source continuously governs device connectivity. Browser
+   * `online`/`offline` events and native OS-backed sources set this so the SDK
+   * treats them as the sole truth for `online`: a backend request that fails to
+   * reach the server then means the backend is unreachable, not that the device
+   * went offline, and must not stop recovery retries (see
+   * {@link Network.reportReachability}). Sources that omit this flag let request
+   * outcomes act as connectivity hints, which is useful for headless hosts that
+   * have no independent connectivity signal.
    */
   readonly authoritative?: boolean;
   /**
@@ -65,6 +64,11 @@ export interface NetworkStatusSource {
  */
 export function createBrowserNetworkStatusSource(): NetworkStatusSource {
   return {
+    // Keep backend failures distinct from device connectivity. If a failed
+    // request flipped this source offline while the browser remained connected,
+    // no later `online` event would fire and the WebSocket retry loop would stay
+    // disabled after the backend recovered.
+    authoritative: true,
     getOnline: defaultOnline,
     subscribe(listener: NetworkListener): () => void {
       if (typeof window === "undefined") {
@@ -138,11 +142,10 @@ export class Network {
   }
 
   /**
-   * Declares whether an authoritative device-connectivity source (a native
-   * OS-backed {@link NetworkStatusSource}) is governing connectivity. When set,
-   * request-outcome reachability signals ({@link reportReachability}) no longer
-   * touch `online` — the source is the sole truth. The host sets this from the
-   * source it injects; the browser fallback leaves it false.
+   * Declares whether an independent {@link NetworkStatusSource} is governing
+   * connectivity. When set, request-outcome reachability signals
+   * ({@link reportReachability}) no longer touch `online` — the host source is
+   * the sole truth.
    */
   setConnectivityAuthoritative(authoritative: boolean): void {
     this.connectivityAuthoritativeValue = authoritative;
@@ -150,14 +153,11 @@ export class Network {
 
   /**
    * Reports the outcome of a backend request as a connectivity hint. Without an
-   * authoritative source (the browser) a failed fetch is the best offline
-   * signal available, so it drives `online` exactly like a detected change.
-   * With an authoritative OS source, a failed request means the backend is
-   * unreachable — not that the device lost its network — so this is a no-op and
-   * the OS source keeps `online` truthful; the unreachable backend still
-   * surfaces downstream as a sync/request failure rather than a false "offline"
-   * that a native shell can never recover from (no OS `online` event fires
-   * because the device never actually disconnected).
+   * authoritative source, it drives `online` exactly like a detected change.
+   * With an authoritative browser or OS source, a failed request means the
+   * backend is unreachable — not that the device lost its network — so this is a
+   * no-op. The unreachable backend still surfaces downstream as a request/sync
+   * failure while connection retries remain live.
    */
   reportReachability(online: boolean): void {
     if (this.connectivityAuthoritativeValue) {

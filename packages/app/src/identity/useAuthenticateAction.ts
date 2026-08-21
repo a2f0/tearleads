@@ -5,15 +5,11 @@ import { useSymCrypt } from "../providers/sdk/SymCryptProvider";
 
 /**
  * Human-facing reason for a failed authentication attempt. A lost connection is
- * the one cause worth calling out on its own: on a browser shell the API client
- * flips the network store offline the moment a request fails to reach the server
- * (its `kind: "network"` path), so an offline store after a failed login means
- * the request never landed rather than that the server rejected the identity.
- * Everything else is reported as a plain authentication failure. Native shells
- * bind an authoritative OS connectivity source, so a login that fails to reach a
- * reachable-device's backend keeps the store online and reports the generic
- * reason — the device genuinely has a network, so "no network connection" would
- * be misleading; the unreachable backend is a server problem, not the device's.
+ * the one cause worth calling out on its own: browser and native shells bind a
+ * live connectivity source, so an offline store means that source observed a
+ * device connectivity loss. A backend request failure alone keeps the store
+ * online and reports the generic reason — an unreachable backend is a server
+ * problem, not proof that the device has no network.
  */
 export function describeAuthenticationFailure(input: {
   readonly online: boolean;
@@ -52,11 +48,8 @@ export function useAuthenticateAction(): AuthenticateAction {
     try {
       const authenticated = await login();
       if (!authenticated) {
-        // Read the network store now, not a render-time snapshot. The API
-        // client's network-error handler runs within the failed request's async
-        // chain (before login() resolves), so the store already reflects this
-        // attempt; a future async hop in that handler would regress this to the
-        // generic reason.
+        // Read the network store now, not a render-time snapshot, so a source
+        // event that arrived during the authentication attempt is reflected.
         setError(
           describeAuthenticationFailure({ online: symcrypt.network.online }),
         );
