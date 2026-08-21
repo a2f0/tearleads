@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const helperPath = resolve(
   import.meta.dir,
@@ -55,6 +57,34 @@ puts JSON.generate(
 )
 `;
 
+const contentionScript = `
+require "json"
+require ARGV.fetch(0)
+
+lock_path = ARGV.fetch(1)
+event_path = ARGV.fetch(2)
+identifier = ARGV.fetch(3)
+record = proc do |event|
+  File.open(event_path, "a") do |file|
+    file.flock(File::LOCK_EX)
+    file.puts(JSON.generate([identifier, event]))
+  end
+end
+
+IosSigningKeychain.with_temporary(
+  environment: {},
+  lock_path: lock_path,
+  setup: proc do |_name, _password|
+    record.call("setup")
+    sleep 0.15
+  end,
+  cleanup: proc { |_name| record.call("cleanup") }
+) do
+  record.call("yield")
+  sleep 0.15
+end
+`;
+
 test("temporary signing keychain lifecycle preserves caller state", async () => {
   const child = Bun.spawn(["ruby", "-e", lifecycleScript, helperPath], {
     stderr: "pipe",
@@ -107,4 +137,64 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
     MATCH_KEYCHAIN_NAME: "caller-keychain",
     MATCH_KEYCHAIN_PASSWORD: "caller-secret",
   });
+});
+
+test("temporary signing keychains serialize their global lifecycle", async () => {
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), "symcrypt-keychain-lock-"),
+  );
+  const lockPath = join(temporaryDirectory, "release.lock");
+  const eventPath = join(temporaryDirectory, "events.jsonl");
+  const children = ["first", "second"].map((identifier) =>
+    Bun.spawn(
+      [
+        "ruby",
+        "-e",
+        contentionScript,
+        helperPath,
+        lockPath,
+        eventPath,
+        identifier,
+      ],
+      { stderr: "pipe", stdout: "pipe" },
+    ),
+  );
+
+  try {
+    const results = await Promise.all(
+      children.map(async (child) => {
+        const [exitCode, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stderr).text(),
+          new Response(child.stdout).text(),
+        ]);
+        return { exitCode, stderr };
+      }),
+    );
+    for (const result of results) {
+      expect(result.exitCode, result.stderr).toBe(0);
+    }
+
+    const events: [string, string][] = (await Bun.file(eventPath).text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(events.map(([, event]) => event)).toEqual([
+      "setup",
+      "yield",
+      "cleanup",
+      "setup",
+      "yield",
+      "cleanup",
+    ]);
+    expect(
+      new Set(events.slice(0, 3).map(([identifier]) => identifier)).size,
+    ).toBe(1);
+    expect(
+      new Set(events.slice(3).map(([identifier]) => identifier)).size,
+    ).toBe(1);
+    expect(events[0]?.[0]).not.toBe(events[3]?.[0]);
+  } finally {
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
 });

@@ -4,28 +4,41 @@ require 'securerandom'
 
 # Owns an ephemeral Fastlane Match keychain without disturbing caller state.
 class IosSigningKeychain
+  DEFAULT_LOCK_PATH = File.join(Dir.home, 'Library', 'Keychains', '.symcrypt-release.lock').freeze
   PRESERVED_ENVIRONMENT_KEYS = %w[MATCH_KEYCHAIN_PASSWORD MATCH_READONLY].freeze
 
-  def self.with_temporary(environment:, setup:, cleanup:, &)
-    new(environment, setup, cleanup).run(&)
+  def self.with_temporary(environment:, setup:, cleanup:, lock_path: DEFAULT_LOCK_PATH, &)
+    new(environment, setup, cleanup, lock_path).run(&)
   end
 
-  def initialize(environment, setup, cleanup)
+  def initialize(environment, setup, cleanup, lock_path)
     @environment = environment
     @setup = setup
     @cleanup = cleanup
+    @lock_path = lock_path
   end
 
-  def run
-    return yield if caller_keychain?
+  def run(&block)
+    return block.call if caller_keychain?
 
+    with_release_lock { run_temporary(&block) }
+  end
+
+  private
+
+  def with_release_lock(&)
+    File.open(@lock_path, File::RDWR | File::CREAT, 0o600) do |lock|
+      lock.flock(File::LOCK_EX)
+      yield
+    end
+  end
+
+  def run_temporary
     prepare
     yield
   ensure
     finish if @ready
   end
-
-  private
 
   def caller_keychain?
     !@environment['MATCH_KEYCHAIN_NAME'].to_s.empty?
