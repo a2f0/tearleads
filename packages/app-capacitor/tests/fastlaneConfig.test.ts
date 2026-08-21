@@ -167,3 +167,40 @@ test("Fastlane lane files resolve paths outside their directory", async () => {
     ),
   });
 });
+
+const iosXcargsScript = [
+  'require "json"',
+  'require "fastlane"',
+  "Fastlane.load_actions",
+  'fastfile = Fastlane::FastFile.new("fastlane/Fastfile")',
+  'FastlaneCore::Helper.singleton_class.define_method(:keychain_path) { |_name| "/tmp/Signing Keys/署名 keychain-db" }',
+  'ENV["MATCH_KEYCHAIN_NAME"] = "release keychain"',
+  'xcargs = fastfile.send(:ios_build_xcargs, { build_number: 2, version: "1.0" }, "TEAM")',
+  "puts JSON.generate(Shellwords.split(xcargs))",
+].join("; ");
+
+test("iOS build flags preserve a keychain path containing whitespace and Unicode", async () => {
+  await requireRubyBundle();
+  const child = Bun.spawn(["bundle", "exec", "ruby", "-e", iosXcargsScript], {
+    cwd: packageRoot,
+    env: {
+      ...process.env,
+      FASTLANE_OPT_OUT_USAGE: "1",
+      FASTLANE_SKIP_UPDATE_CHECK: "1",
+      NATIVE_RELEASE_TIER: "production",
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  expect(exitCode, stderr).toBe(0);
+
+  const xcargs = JSON.parse(stdout.trim().split("\n").at(-1) ?? "null");
+  expect(xcargs).toContain(
+    "OTHER_CODE_SIGN_FLAGS=--keychain /tmp/Signing\\ Keys/\\署\\名\\ keychain-db",
+  );
+});

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'shellwords'
+require_relative '../lib/ios_signing_keychain'
 require_relative '../lib/native_release_target'
 
 IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
@@ -15,8 +16,36 @@ IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
 IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
+IOS_SIGNING_KEYCHAIN_OPTIONS = {
+  add_to_search_list: true,
+  # Xcode 26 still resolves nested-framework signing through the default
+  # keychain. Keeping this false caused a real archive to fail with
+  # errSecInternalComponent even though OTHER_CODE_SIGN_FLAGS was pinned below.
+  # IosSigningKeychain serializes this global state and restores it on failure or
+  # termination signals as well as on a normal exit.
+  default_keychain: true,
+  lock_when_sleeps: true,
+  require_create: true,
+  timeout: 0,
+  unlock: true
+}.freeze
 def load_ios_release_secrets_env
   load_native_release_secrets_env
+end
+
+def create_ios_signing_keychain(name, password)
+  create_keychain(name: name, password: password, **IOS_SIGNING_KEYCHAIN_OPTIONS)
+end
+
+def with_ios_signing_keychain(&)
+  setup = method(:create_ios_signing_keychain)
+  cleanup = proc { |name| delete_keychain(name: name) if ios_signing_keychain_exists?(name) }
+  IosSigningKeychain.with_temporary(environment: ENV, setup: setup, cleanup: cleanup, &)
+end
+
+def ios_signing_keychain_exists?(keychain_name)
+  base_path = File.join(Dir.home, 'Library', 'Keychains', keychain_name)
+  ["#{base_path}-db", "#{base_path}.keychain-db", base_path, "#{base_path}.keychain"].any? { |path| File.file?(path) }
 end
 
 def explicit_ios_release_build_number(options)
@@ -174,12 +203,24 @@ def ios_xcodebuild_setting(name, value)
   "#{name}=#{Shellwords.escape(value.to_s)}"
 end
 
+def active_match_keychain_path
+  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
+  return nil if keychain_name.empty?
+
+  FastlaneCore::Helper.keychain_path(keychain_name)
+end
+
 def ios_build_xcargs(release_build, team_id)
-  [
+  settings = [
     ios_xcodebuild_setting('CURRENT_PROJECT_VERSION', release_build.fetch(:build_number)),
     ios_xcodebuild_setting('MARKETING_VERSION', release_build.fetch(:version)),
     ios_xcodebuild_setting('DEVELOPMENT_TEAM', team_id)
-  ].join(' ')
+  ]
+  keychain_path = active_match_keychain_path
+  unless keychain_path.nil?
+    settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{Shellwords.escape(keychain_path)}")
+  end
+  settings.join(' ')
 end
 
 # Pin manual App Store signing on the App target's Release configuration only.
@@ -291,26 +332,28 @@ platform :ios do
     end
     ensure_release_ios_capacitor_sync!
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
-    profile_name = install_ios_appstore_signing_assets!
-    pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
-    original_pbxproj = File.read(pbxproj_path)
-    begin
-      configure_ios_manual_signing!(profile_name, team_id)
-      ipa_path = build_app(
-        archive_path: IOS_ARCHIVE_PATH,
-        clean: true,
-        configuration: IOS_CONFIGURATION,
-        export_method: 'app-store',
-        export_options: ios_export_options(team_id, profile_name),
-        include_symbols: true,
-        output_directory: IOS_OUTPUT_DIR,
-        output_name: IOS_IPA_NAME,
-        project: IOS_PROJECT_PATH,
-        scheme: IOS_SCHEME,
-        xcargs: ios_build_xcargs(release_build, team_id)
-      )
-    ensure
-      File.write(pbxproj_path, original_pbxproj)
+    ipa_path = with_ios_signing_keychain do
+      profile_name = install_ios_appstore_signing_assets!
+      pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
+      original_pbxproj = File.read(pbxproj_path)
+      begin
+        configure_ios_manual_signing!(profile_name, team_id)
+        ipa_path = build_app(
+          archive_path: IOS_ARCHIVE_PATH,
+          clean: true,
+          configuration: IOS_CONFIGURATION,
+          export_method: 'app-store',
+          export_options: ios_export_options(team_id, profile_name),
+          include_symbols: true,
+          output_directory: IOS_OUTPUT_DIR,
+          output_name: IOS_IPA_NAME,
+          project: IOS_PROJECT_PATH,
+          scheme: IOS_SCHEME,
+          xcargs: ios_build_xcargs(release_build, team_id)
+        )
+      ensure
+        File.write(pbxproj_path, original_pbxproj)
+      end
     end
     assets = require_ios_testflight_assets!(ipa_path)
     print_ios_testflight_assets(assets)

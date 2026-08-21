@@ -7,9 +7,8 @@
 #   3. Staging deploy, application artifacts only (--skip-infra)
 #   4. Production deploy, application artifacts only (--skip-infra)
 #
-# The iOS step prompts for your macOS login password (keychain unlock and
-# codesign partition list), so run this from a real Terminal in a GUI login
-# session.
+# The iOS steps isolate Match signing assets in random-password keychains that
+# are deleted after each archive, so they do not need the login keychain password.
 #
 # On success it prints the TestFlight build number and Google Play version code
 # the two upload steps reported, followed by a per-step timing summary.

@@ -11,7 +11,6 @@ const capacitorReleaseConfigPath = resolve(
   repositoryRoot,
   "packages/app-capacitor/fastlane/lib/capacitor_release_config.rb",
 );
-
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   const process = Bun.spawn(
     [
@@ -366,5 +365,31 @@ describe("RevenueCat store-release safety", () => {
     );
     expect(iosFastfile).toContain("production_value:");
     expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
+  });
+
+  test("iOS release signing uses an isolated Match keychain", async () => {
+    const iosFastfile = await Bun.file(
+      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
+    ).text();
+    const buildLaneIndex = iosFastfile.indexOf(
+      "lane :build_testflight_release",
+    );
+    const keychainIndex = iosFastfile.indexOf(
+      "    ipa_path = with_ios_signing_keychain do",
+      buildLaneIndex,
+    );
+    const buildMatchIndex = iosFastfile.indexOf(
+      "      profile_name = install_ios_appstore_signing_assets!",
+      keychainIndex,
+    );
+
+    expect(keychainIndex).toBeGreaterThan(buildLaneIndex);
+    expect(buildMatchIndex).toBeGreaterThan(keychainIndex);
+    expect(iosFastfile).toContain("with_ios_signing_keychain do");
+    expect(iosFastfile).toContain("create_keychain(");
+    expect(iosFastfile).toContain("password: password");
+    expect(iosFastfile).toContain("default_keychain: true");
+    expect(iosFastfile).toContain("delete_keychain(name: name)");
+    expect(iosFastfile).toContain("OTHER_CODE_SIGN_FLAGS");
   });
 });
