@@ -70,9 +70,10 @@ async function sweepKnownContainers(
   // Reconcile every container independently: one failing container must not
   // block refreshing the rest. Surface the first real error after the sweep.
   let firstError: unknown;
+  const lifecycleGeneration = state.lifecycleGeneration;
   for (const containerId of containerIds) {
+    const forceGeneration = state.forcedContainerGenerations.get(containerId);
     try {
-      const forceGeneration = state.forcedContainerGenerations.get(containerId);
       const shouldForce =
         forceAllDocumentContentPulls || forceGeneration !== undefined;
       const reconciled = await reconcileMarkedContainer(
@@ -85,6 +86,12 @@ async function sweepKnownContainers(
         acknowledgeContainerForce(state, containerId, forceGeneration);
       }
     } catch (error) {
+      rearmFailedContainer(
+        state,
+        containerId,
+        forceGeneration,
+        lifecycleGeneration,
+      );
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
       }

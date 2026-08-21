@@ -339,3 +339,40 @@ test("a failed full refresh preserves pending forced reconciliation", async () =
 
   expect(contentPulls).toEqual([true]);
 });
+
+test("full refresh failure automatically retries a pending force", async () => {
+  const contentPulls: boolean[] = [];
+  let attempts = 0;
+  let failNext = true;
+  let online = false;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async () => {
+      attempts += 1;
+      if (failNext) {
+        failNext = false;
+        throw new Error("transient refresh failure");
+      }
+      return [];
+    },
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    listKnownContainerIds: () => ["c-1"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  online = true;
+
+  await expect(service.reconcileNow()).rejects.toThrow(
+    "transient refresh failure",
+  );
+  await waitFor(() => attempts === 2, "Expected automatic forced retry");
+
+  expect(contentPulls).toEqual([true]);
+});
