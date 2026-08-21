@@ -18,7 +18,7 @@ IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
 IOS_SIGNING_KEYCHAIN_OPTIONS = {
   add_to_search_list: true,
-  default_keychain: true,
+  default_keychain: false,
   lock_when_sleeps: true,
   require_create: true,
   timeout: 0,

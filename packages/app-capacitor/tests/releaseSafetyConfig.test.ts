@@ -388,6 +388,7 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("with_ios_signing_keychain do");
     expect(iosFastfile).toContain("create_keychain(");
     expect(iosFastfile).toContain("password: password");
+    expect(iosFastfile).toContain("default_keychain: false");
     expect(iosFastfile).toContain("delete_keychain(name: name)");
     expect(iosFastfile).toContain("OTHER_CODE_SIGN_FLAGS");
   });
