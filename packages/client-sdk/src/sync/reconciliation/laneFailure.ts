@@ -7,6 +7,7 @@ interface FailedLaneState {
   lane: { requestSync: () => void } | null;
   lifecycleGeneration: number;
   queue: ReconcileQueue;
+  retryNotBeforeByContainerId: Map<string, number>;
 }
 
 export interface FailedForcedContainer {
@@ -38,16 +39,17 @@ export function rearmFailedContainer(
   }
 }
 
-export async function rearmFailedSweepContainers(
+export function rearmFailedSweepContainers(
   state: FailedLaneState,
   failures: ReadonlyArray<FailedForcedContainer>,
   lifecycleGeneration: number,
-): Promise<void> {
+): void {
   if (failures.length === 0) {
     return;
   }
-  await new Promise((resolve) => setTimeout(resolve, SWEEP_RETRY_BACKOFF_MS));
+  const retryNotBefore = Date.now() + SWEEP_RETRY_BACKOFF_MS;
   for (const failure of failures) {
+    state.retryNotBeforeByContainerId.set(failure.containerId, retryNotBefore);
     rearmFailedContainer(
       state,
       failure.containerId,
@@ -55,4 +57,20 @@ export async function rearmFailedSweepContainers(
       lifecycleGeneration,
     );
   }
+}
+
+export async function waitForContainerRetryBackoff(
+  state: FailedLaneState,
+  containerId: string,
+  lifecycleGeneration: number,
+): Promise<boolean> {
+  const retryNotBefore = state.retryNotBeforeByContainerId.get(containerId);
+  if (retryNotBefore !== undefined) {
+    const remainingMs = Math.max(0, retryNotBefore - Date.now());
+    await new Promise((resolve) => setTimeout(resolve, remainingMs));
+    if (state.retryNotBeforeByContainerId.get(containerId) === retryNotBefore) {
+      state.retryNotBeforeByContainerId.delete(containerId);
+    }
+  }
+  return state.active && state.lifecycleGeneration === lifecycleGeneration;
 }

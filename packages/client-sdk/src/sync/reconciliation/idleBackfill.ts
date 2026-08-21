@@ -10,6 +10,7 @@ export interface IdleBackfillState {
   initialDocumentProbe: InitialDocumentProbe;
   nextForceGeneration: number;
   queue: ReconcileQueue;
+  retryNotBeforeByContainerId: Map<string, number>;
   unscopedInvalidationActive: boolean;
   unscopedInvalidatedContainerIds: Set<string>;
 }
@@ -20,6 +21,7 @@ export function markContainerForced(
 ): void {
   state.nextForceGeneration += 1;
   state.automaticRetryGenerations.delete(containerId);
+  state.retryNotBeforeByContainerId.delete(containerId);
   state.forcedContainerGenerations.set(containerId, state.nextForceGeneration);
 }
 
@@ -31,6 +33,7 @@ export function acknowledgeContainerForce(
   if (state.forcedContainerGenerations.get(containerId) === generation) {
     state.forcedContainerGenerations.delete(containerId);
     state.automaticRetryGenerations.delete(containerId);
+    state.retryNotBeforeByContainerId.delete(containerId);
   }
 }
 

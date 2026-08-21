@@ -372,7 +372,12 @@ test("full refresh failure automatically retries a pending force", async () => {
   await expect(service.reconcileNow()).rejects.toThrow(
     "transient refresh failure",
   );
-  await waitFor(() => attempts === 2, "Expected automatic forced retry");
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(host.domainScope, {
+      timeoutMs: 100,
+    }),
+  ).toBe(false);
+  await waitFor(() => attempts === 2, "Expected automatic forced retry", 2_000);
 
   expect(contentPulls).toEqual([true]);
 });
@@ -414,7 +419,11 @@ test("full refresh defers forced retry until every container settles", async () 
   expect(attempts).toEqual(["c-1", "c-2"]);
   finishSecond.open();
   await expect(refresh).rejects.toThrow("transient refresh failure");
-  await waitFor(() => attempts.length === 3, "Expected deferred forced retry");
+  await waitFor(
+    () => attempts.length === 3,
+    "Expected deferred forced retry",
+    2_000,
+  );
 
   expect(attempts).toEqual(["c-1", "c-2", "c-1"]);
 });

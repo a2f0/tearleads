@@ -14,6 +14,7 @@ import {
   type FailedForcedContainer,
   rearmFailedContainer,
   rearmFailedSweepContainers,
+  waitForContainerRetryBackoff,
 } from "./laneFailure";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
@@ -99,7 +100,7 @@ async function sweepKnownContainers(
       }
     }
   }
-  await rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
+  rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
   if (firstError !== undefined) {
     throw firstError;
   }
@@ -143,6 +144,15 @@ async function runReconcileLane(
     return;
   }
   const lifecycleGeneration = state.lifecycleGeneration;
+  if (
+    !(await waitForContainerRetryBackoff(
+      state,
+      containerId,
+      lifecycleGeneration,
+    ))
+  ) {
+    return;
+  }
 
   // Double-check at run time: a container may have been discovered (by an
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
@@ -348,6 +358,7 @@ function createReconciliationState(
     queue: createReconcileQueue(),
     refreshPromise: null,
     refreshType: null,
+    retryNotBeforeByContainerId: new Map(),
     unscopedInvalidationActive: false,
     unscopedInvalidatedContainerIds: new Set(),
   };
@@ -363,6 +374,7 @@ function stopReconciliationService(
   state.queue.clear();
   state.automaticRetryGenerations.clear();
   state.forcedContainerGenerations.clear();
+  state.retryNotBeforeByContainerId.clear();
   state.refreshPromise = null;
   state.refreshType = null;
   state.initialDocumentProbe.resetPending();
