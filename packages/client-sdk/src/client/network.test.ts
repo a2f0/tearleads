@@ -30,7 +30,7 @@ describe("Network reachability", () => {
     expect(network.online).toBe(source.getOnline());
   });
 
-  test("an authoritative source makes reportReachability a no-op so a failed request cannot strand the app offline", () => {
+  test("an authoritative source ignores failures but accepts proven recovery", () => {
     const network = new Network(true);
     const snapshots: boolean[] = [];
     network.subscribe((online) => snapshots.push(online));
@@ -45,7 +45,7 @@ describe("Network reachability", () => {
     // The OS source itself still governs connectivity through setOnline.
     network.setOnline(false);
     expect(network.online).toBe(false);
-    network.setOnline(true);
+    network.reportReachability(true);
     expect(network.online).toBe(true);
     expect(snapshots).toEqual([false, true]);
   });

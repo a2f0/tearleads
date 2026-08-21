@@ -115,9 +115,10 @@ test("browser connectivity keeps backend recovery retries live", () => {
   act(() => {
     symcrypt.network.reportReachability(true);
   });
-  expect(symcrypt.network.online).toBe(false);
+  expect(symcrypt.network.online).toBe(true);
 
   act(() => {
+    window.dispatchEvent(new Event("offline"));
     window.dispatchEvent(new Event("online"));
   });
   expect(symcrypt.network.online).toBe(true);
