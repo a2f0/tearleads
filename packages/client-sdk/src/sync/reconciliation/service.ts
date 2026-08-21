@@ -10,7 +10,11 @@ import {
   markContainerForced,
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
-import { rearmFailedContainer } from "./laneFailure";
+import {
+  type FailedForcedContainer,
+  rearmFailedContainer,
+  rearmFailedSweepContainers,
+} from "./laneFailure";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import { reconcileOneContainer } from "./reconcileContainer";
@@ -70,6 +74,7 @@ async function sweepKnownContainers(
   // Reconcile every container independently: one failing container must not
   // block refreshing the rest. Surface the first real error after the sweep.
   let firstError: unknown;
+  const failedForces: FailedForcedContainer[] = [];
   const lifecycleGeneration = state.lifecycleGeneration;
   for (const containerId of containerIds) {
     const forceGeneration = state.forcedContainerGenerations.get(containerId);
@@ -86,17 +91,15 @@ async function sweepKnownContainers(
         acknowledgeContainerForce(state, containerId, forceGeneration);
       }
     } catch (error) {
-      rearmFailedContainer(
-        state,
-        containerId,
-        forceGeneration,
-        lifecycleGeneration,
-      );
+      if (forceGeneration !== undefined) {
+        failedForces.push({ containerId, forceGeneration });
+      }
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
       }
     }
   }
+  await rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
   if (firstError !== undefined) {
     throw firstError;
   }

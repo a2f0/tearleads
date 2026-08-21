@@ -376,3 +376,45 @@ test("full refresh failure automatically retries a pending force", async () => {
 
   expect(contentPulls).toEqual([true]);
 });
+
+test("full refresh defers forced retry until every container settles", async () => {
+  const secondStarted = createGate();
+  const finishSecond = createGate();
+  const attempts: string[] = [];
+  let failFirst = true;
+  let online = false;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+      if (containerId === "c-1" && failFirst) {
+        failFirst = false;
+        throw new Error("transient refresh failure");
+      }
+      if (containerId === "c-2") {
+        secondStarted.open();
+        await finishSecond.wait;
+      }
+      return [];
+    },
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    listKnownContainerIds: () => ["c-1", "c-2"],
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  online = true;
+
+  const refresh = service.reconcileNow();
+  await secondStarted.wait;
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(attempts).toEqual(["c-1", "c-2"]);
+  finishSecond.open();
+  await expect(refresh).rejects.toThrow("transient refresh failure");
+  await waitFor(() => attempts.length === 3, "Expected deferred forced retry");
+
+  expect(attempts).toEqual(["c-1", "c-2", "c-1"]);
+});

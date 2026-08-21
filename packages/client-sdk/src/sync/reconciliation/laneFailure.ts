@@ -9,6 +9,13 @@ interface FailedLaneState {
   queue: ReconcileQueue;
 }
 
+export interface FailedForcedContainer {
+  containerId: string;
+  forceGeneration: number;
+}
+
+const SWEEP_RETRY_BACKOFF_MS = 1_000;
+
 export function rearmFailedContainer(
   state: FailedLaneState,
   containerId: string,
@@ -28,5 +35,24 @@ export function rearmFailedContainer(
   }
   if (state.queue.size > 0) {
     state.lane?.requestSync();
+  }
+}
+
+export async function rearmFailedSweepContainers(
+  state: FailedLaneState,
+  failures: ReadonlyArray<FailedForcedContainer>,
+  lifecycleGeneration: number,
+): Promise<void> {
+  if (failures.length === 0) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, SWEEP_RETRY_BACKOFF_MS));
+  for (const failure of failures) {
+    rearmFailedContainer(
+      state,
+      failure.containerId,
+      failure.forceGeneration,
+      lifecycleGeneration,
+    );
   }
 }
