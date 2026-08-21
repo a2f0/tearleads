@@ -66,6 +66,8 @@ export interface ReconciliationService {
    * force-reconciled exactly once.
    */
   enqueueIdleBackfill: (force?: boolean) => void;
+  /** Flush a recorded unscoped invalidation after tree hydration, if any. */
+  flushPendingUnscopedInvalidation: () => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the

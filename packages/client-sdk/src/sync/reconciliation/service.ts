@@ -23,7 +23,6 @@ function canReconcile(status: ReconciliationRuntimeStatus): boolean {
 
 interface ReconciliationState extends IdleBackfillState {
   active: boolean;
-  activeContainerId: string | null;
   lane: SyncLane | null;
   probeContinuationCancel: (() => void) | null;
   /**
@@ -73,7 +72,7 @@ async function reconcileOneContainer(
     return true;
   } catch (error) {
     if (host.isIgnorableError(error)) {
-      return true;
+      return false;
     }
     throw error;
   }
@@ -449,6 +448,11 @@ export function createReconciliationService(
     },
     enqueueContainer,
     enqueueIdleBackfill,
+    flushPendingUnscopedInvalidation: () => {
+      if (state.unscopedInvalidationActive) {
+        enqueueIdleBackfill();
+      }
+    },
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
       state.initialDocumentProbe.resetSkippedListings();

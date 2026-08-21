@@ -102,3 +102,29 @@ test("forced backfill retains force while a container is ineligible", async () =
 
   expect(contentPulls).toEqual([true]);
 });
+
+test("forced backfill includes an eligible active write-only container", async () => {
+  const contentPulls: boolean[] = [];
+  let online = false;
+  const host = createReconciliationTestHost({
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  service.enqueueIdleBackfill(true);
+
+  online = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected active force");
+
+  expect(contentPulls).toEqual([true]);
+});

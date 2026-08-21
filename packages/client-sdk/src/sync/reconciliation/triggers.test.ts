@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import type {
   LocalProjectionReconcileListener,
@@ -6,6 +7,8 @@ import type {
   LocalProjectionStore,
 } from "../../stores/local-projection/localProjectionStore";
 import { markOriginatedDocuments } from "./originatedDocuments";
+import { createReconciliationService } from "./service";
+import { createReconciliationTestHost } from "./service.testFixtures";
 import type { ReconciliationService } from "./serviceTypes";
 import {
   connectReconciliationTriggers,
@@ -19,6 +22,7 @@ function stubService(
   return {
     enqueueContainer: () => {},
     enqueueIdleBackfill: () => {},
+    flushPendingUnscopedInvalidation: () => {},
     setActiveContainer: () => {},
     ...overrides,
   } as ReconciliationService;
@@ -75,6 +79,7 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
 test("hydrated trigger reconciles only the active container", () => {
   const calls: Array<{ containerId: string; priority: string }> = [];
   let idleBackfills = 0;
+  let invalidationFlushes = 0;
   const reconcileListener = connectListener(
     stubService({
       enqueueContainer: (containerId, priority) => {
@@ -82,6 +87,9 @@ test("hydrated trigger reconciles only the active container", () => {
       },
       enqueueIdleBackfill: () => {
         idleBackfills += 1;
+      },
+      flushPendingUnscopedInvalidation: () => {
+        invalidationFlushes += 1;
       },
     }),
   );
@@ -93,6 +101,7 @@ test("hydrated trigger reconciles only the active container", () => {
 
   expect(calls).toEqual([{ containerId: "c-1", priority: "active" }]);
   expect(idleBackfills).toBe(0);
+  expect(invalidationFlushes).toBe(1);
 });
 
 test("remote container growth queues one idle backfill", () => {
@@ -331,4 +340,36 @@ test("event triggers backfill when an update has no container scope", () => {
   });
 
   expect(idleBackfills).toEqual([true]);
+});
+
+test("hydration flushes an unscoped event received before the tree", async () => {
+  const contentPulls: Array<{ containerId: string; force: boolean }> = [];
+  const knownContainerIds: string[] = [];
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      listKnownContainerIds: () => knownContainerIds,
+      requestDocumentContentPull: (containerId, _documents, force) => {
+        contentPulls.push({ containerId, force });
+      },
+    }),
+  );
+  const reconcileListener = connectListener(service);
+  service.start();
+
+  enqueueReconciliationForEvents({
+    events: [{ type: "document_update_created", documentId: "d-1" }],
+    knownContainerIds,
+    service,
+  });
+  knownContainerIds.push("c-1", "c-2");
+  reconcileListener({ activeContainerId: "c-1", reason: "hydrated" });
+  await waitFor(
+    () => contentPulls.length === 2,
+    "Expected hydration to flush the global invalidation",
+  );
+
+  expect(contentPulls).toEqual([
+    { containerId: "c-1", force: true },
+    { containerId: "c-2", force: true },
+  ]);
 });

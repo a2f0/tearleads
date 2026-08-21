@@ -3,6 +3,7 @@ import type { ReconcileQueue } from "./queue";
 import type { ReconciliationHost } from "./serviceTypes";
 
 export interface IdleBackfillState {
+  activeContainerId: string | null;
   discoveredContainerIds: Set<string>;
   forcedContainerGenerations: Map<string, number>;
   initialDocumentProbe: InitialDocumentProbe;
@@ -43,10 +44,18 @@ export function enqueueKnownContainersForIdleBackfill(input: {
   }
 
   const knownContainerIds = host.listKnownContainerIds();
+  const activeContainerId = state.activeContainerId;
+  const backfillContainerIds =
+    state.unscopedInvalidationActive &&
+    activeContainerId !== null &&
+    !knownContainerIds.includes(activeContainerId) &&
+    host.canDiscoverContainerDocuments(activeContainerId)
+      ? [...knownContainerIds, activeContainerId]
+      : knownContainerIds;
   state.initialDocumentProbe.arm(
-    knownContainerIds.filter((id) => host.canDiscoverContainerDocuments(id)),
+    backfillContainerIds.filter((id) => host.canDiscoverContainerDocuments(id)),
   );
-  for (const containerId of knownContainerIds) {
+  for (const containerId of backfillContainerIds) {
     const needsUnscopedForce =
       state.unscopedInvalidationActive &&
       !state.unscopedInvalidatedContainerIds.has(containerId);

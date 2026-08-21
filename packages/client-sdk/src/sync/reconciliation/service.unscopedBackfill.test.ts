@@ -71,6 +71,42 @@ test("forced backfill retains force until a transient retry succeeds", async () 
   }
 });
 
+test("database loss mid-reconciliation preserves pending force", async () => {
+  const contentPulls: boolean[] = [];
+  let databaseReady = true;
+  let failNext = true;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async () => {
+      if (failNext) {
+        failNext = false;
+        databaseReady = false;
+        throw new Error("database unavailable");
+      }
+    },
+    getRuntimeStatus: () => ({
+      dbStatus: databaseReady ? "ready" : "unavailable",
+      isAuthenticated: true,
+      online: true,
+    }),
+    isIgnorableError: (error) =>
+      error instanceof Error && error.message === "database unavailable",
+    listKnownContainerIds: () => ["c-1"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  await waitFor(() => !databaseReady, "Expected database loss");
+
+  databaseReady = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected forced retry");
+
+  expect(contentPulls).toEqual([true]);
+});
+
 test("unscoped invalidation force-reconciles containers hydrated later", async () => {
   const attempts: Array<{ containerId: string; force: boolean }> = [];
   const knownContainerIds = ["c-1"];

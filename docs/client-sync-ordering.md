@@ -85,10 +85,13 @@ A scoped remote event force-reconciles its known containers. If a valid legacy
 event has no container scope, the client instead queues every known container at
 idle priority, including containers already settled in this session. That
 global invalidation remains active for containers materialized by later tree
-hydration and propagates forced content revalidation to registered ordinary
-documents. Force is acknowledged only after successful reconciliation, so the
-lossy hint cannot be discarded by discovery suppression, temporary
-ineligibility, or a transient request failure.
+hydration; the initial hydration signal conditionally flushes that recorded
+invalidation even when it suppresses the ordinary remote-growth signal. It also
+covers an eligible active write-only system container omitted from the generic
+known-container list and propagates forced content revalidation to registered
+ordinary documents. Force is acknowledged only after successful reconciliation,
+so the lossy hint cannot be discarded by discovery suppression, temporary
+ineligibility, a transient request failure, or database loss mid-request.
 
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced

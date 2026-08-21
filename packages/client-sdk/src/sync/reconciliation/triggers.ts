@@ -39,6 +39,7 @@ export function connectReconciliationTriggers(input: {
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
+        service.flushPendingUnscopedInvalidation();
         break;
       case "remote-containers-added":
         // A cold-cache tree crawl can finish after the auth-edge backfill was
