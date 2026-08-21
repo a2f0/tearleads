@@ -13,6 +13,7 @@ test("forced idle backfill retries every settled container", async () => {
   const host = createReconciliationTestHost({
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
     listKnownContainerIds: () => ["c-1", "c-2"],
     requestDocumentContentPull: (_containerId, _documents, force) => {
@@ -48,6 +49,7 @@ test("forced backfill retains force until a transient retry succeeds", async () 
           failNext = false;
           throw new Error("transient discovery failure");
         }
+        return [];
       },
       listKnownContainerIds: () => ["c-1"],
       requestDocumentContentPull: (_containerId, _documents, force) => {
@@ -84,6 +86,7 @@ test("database loss mid-reconciliation preserves pending force", async () => {
         databaseReady = false;
         throw new Error("database unavailable");
       }
+      return [];
     },
     getRuntimeStatus: () => ({
       dbStatus: databaseReady ? "ready" : "unavailable",
@@ -140,7 +143,7 @@ test("unscoped invalidation force-reconciles containers hydrated later", async (
   const attempts: Array<{ containerId: string; force: boolean }> = [];
   const knownContainerIds = ["c-1"];
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => undefined,
+    discoverContainerDocuments: async () => [],
     listKnownContainerIds: () => knownContainerIds,
     requestDocumentContentPull: (containerId, _documents, force) => {
       attempts.push({ containerId, force });
@@ -175,6 +178,7 @@ test("a newer force survives an older in-flight reconciliation", async () => {
         firstStarted.open();
         await finishFirst.wait;
       }
+      return [];
     },
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -204,6 +208,7 @@ test("an old lane completion cannot consume a post-refresh force", async () => {
         firstStarted.open();
         await finishFirst.wait;
       }
+      return [];
     },
     listKnownContainerIds: () => ["c-1"],
     requestDocumentContentPull: (_containerId, _documents, force) => {

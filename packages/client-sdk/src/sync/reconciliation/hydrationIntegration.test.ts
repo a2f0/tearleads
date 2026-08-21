@@ -94,3 +94,68 @@ test("initial hydration flushes unscoped invalidation over the fresh tree", asyn
     close();
   }
 });
+
+test("remote backing reconciles an active write-only system container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "reconciliation-active-remote-backing-test",
+  );
+  try {
+    const foreignSystem: ContainerNode = {
+      ...remoteContainer("foreign-system"),
+      effectiveAccessLevel: "write",
+      metadataDocumentId: null,
+      organizationId: "org-2",
+      systemSlot: "sys_v1_contacts",
+    };
+    let nodes: ReadonlyArray<ContainerNode> = [foreignSystem];
+    let emitContainerStore = () => {};
+    const containerStore = {
+      getSnapshot: () => ({ nodes, ready: true }),
+      subscribe: (listener: () => void) => {
+        emitContainerStore = listener;
+        return () => undefined;
+      },
+      updateRuntime: () => undefined,
+    } as unknown as ContainerContentsStore;
+    const runtime = createContainerContentsTestRuntime({
+      apiClient: createMockApiClient(),
+      dbStatus: "ready",
+      domainScope: createDomainScope(),
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    const contentPulls: boolean[] = [];
+    const service = createReconciliationService(
+      createReconciliationTestHost({
+        canDiscoverContainerDocuments: (containerId) =>
+          store
+            .getSnapshot()
+            .containers.some(
+              (container) =>
+                container.id === containerId &&
+                typeof container.metadataDocumentId === "string",
+            ),
+        listKnownContainerIds: () => [],
+        requestDocumentContentPull: (_containerId, _documents, force) => {
+          contentPulls.push(force);
+        },
+      }),
+    );
+    connectReconciliationTriggers({ service, store });
+    service.start();
+    store.updateRuntime(runtime);
+    store.setActiveContainer(foreignSystem.id);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(contentPulls).toEqual([]);
+
+    nodes = [{ ...foreignSystem, metadataDocumentId: "foreign-metadata" }];
+    emitContainerStore();
+    await waitFor(() => contentPulls.length === 1, "Expected active backfill");
+
+    expect(contentPulls).toEqual([false]);
+  } finally {
+    close();
+  }
+});

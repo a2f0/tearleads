@@ -25,7 +25,9 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /** Discover + persist documents; `null` means the lane was not fully listed. */
-  discoverContainerDocuments: (containerId: string) => Promise<unknown>;
+  discoverContainerDocuments: (
+    containerId: string,
+  ) => Promise<ReadonlyArray<DocumentSummary> | null>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (
     containerId: string,

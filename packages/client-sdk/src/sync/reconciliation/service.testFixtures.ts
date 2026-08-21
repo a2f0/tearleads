@@ -9,7 +9,7 @@ export function createReconciliationTestHost(
   return {
     applyReconciled: () => undefined,
     canDiscoverContainerDocuments: () => true,
-    discoverContainerDocuments: async () => undefined,
+    discoverContainerDocuments: async () => [],
     domainScope: createDomainScope(),
     getRuntimeStatus: () => ({
       dbStatus: "ready",

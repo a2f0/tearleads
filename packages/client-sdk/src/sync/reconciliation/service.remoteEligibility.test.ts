@@ -11,6 +11,7 @@ test("service drops a stale local active id and re-arms it after remote backing"
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     listKnownContainerIds: () => (remoteBacked ? ["active"] : []),
   });
@@ -36,6 +37,7 @@ test("explicit refresh excludes an ineligible active container", async () => {
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     listKnownContainerIds: () => ["remote"],
   });
@@ -56,6 +58,7 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     getRuntimeStatus: () => ({
       dbStatus: "ready",
@@ -126,6 +129,28 @@ test("forced backfill retains an active write-only container until eligible", as
   await waitFor(() => contentPulls.length === 1, "Expected active force");
 
   expect(contentPulls).toEqual([true]);
+});
+
+test("ordinary backfill includes an eligible active write-only container", async () => {
+  const contentPulls: boolean[] = [];
+  let remoteBacked = false;
+  const host = createReconciliationTestHost({
+    canDiscoverContainerDocuments: () => remoteBacked,
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  remoteBacked = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected active backfill");
+
+  expect(contentPulls).toEqual([false]);
 });
 
 test("returning to a write-only container consumes an unscoped event", async () => {
