@@ -136,14 +136,6 @@ Android staging inherits the release build type and deliberately uses the same
 upload keystore as production; package IDs and separate store records isolate
 the apps, not their signing key.
 
-Builds using the former `com.symcrypt.app.staging` identifier can coexist with
-the current staging app, but their local data does not carry over because each
-identifier has its own app container and keychain prefix. Delete an old staging
-install when it is no longer needed; production data is unaffected. The
-RevenueCat staging records were renamed in place. Retire any developer-portal
-or store test records created with the former identifier manually because the
-release lanes never delete external records.
-
 Complete this one-time store setup; release lanes do not write signing or store
 records:
 
