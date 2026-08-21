@@ -31,6 +31,31 @@ export function acknowledgeContainerForce(
   }
 }
 
+function needsForcedContainerActivation(
+  state: IdleBackfillState,
+  containerId: string,
+): boolean {
+  if (
+    state.unscopedInvalidationActive &&
+    !state.unscopedInvalidatedContainerIds.has(containerId)
+  ) {
+    state.unscopedInvalidatedContainerIds.add(containerId);
+    return true;
+  }
+  return state.forcedContainerGenerations.has(containerId);
+}
+
+export function activateContainer(
+  state: IdleBackfillState,
+  containerId: string | null,
+  enqueue: (containerId: string, force: boolean) => void,
+): void {
+  state.activeContainerId = containerId;
+  if (containerId) {
+    enqueue(containerId, needsForcedContainerActivation(state, containerId));
+  }
+}
+
 export function enqueueKnownContainersForIdleBackfill(input: {
   force: boolean;
   host: ReconciliationHost;

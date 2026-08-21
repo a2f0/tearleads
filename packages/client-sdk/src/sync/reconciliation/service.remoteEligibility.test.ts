@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createReconciliationService } from "./service";
 import { createReconciliationTestHost } from "./service.testFixtures";
+import { enqueueReconciliationForEvents } from "./triggers";
 
 test("service drops a stale local active id and re-arms it after remote backing", async () => {
   const discovered: string[] = [];
@@ -125,4 +126,29 @@ test("forced backfill retains an active write-only container until eligible", as
   await waitFor(() => contentPulls.length === 1, "Expected active force");
 
   expect(contentPulls).toEqual([true]);
+});
+
+test("returning to a write-only container consumes an unscoped event", async () => {
+  const contentPulls: boolean[] = [];
+  const host = createReconciliationTestHost({
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  await waitFor(() => contentPulls.length === 1, "Expected initial pull");
+  service.setActiveContainer(null);
+
+  enqueueReconciliationForEvents({
+    events: [{ type: "document_update_created", documentId: "d-1" }],
+    knownContainerIds: [],
+    service,
+  });
+  service.setActiveContainer("foreign-system");
+  await waitFor(() => contentPulls.length === 2, "Expected forced return pull");
+
+  expect(contentPulls).toEqual([false, true]);
 });

@@ -4,6 +4,7 @@ import {
 } from "../../data/sync/syncCoordinator";
 import {
   acknowledgeContainerForce,
+  activateContainer,
   enqueueKnownContainersForIdleBackfill,
   type IdleBackfillState,
   markContainerForced,
@@ -437,15 +438,11 @@ export function createReconciliationService(
       startReconciliationLane(host, state);
       scheduleDrain();
     },
-    setActiveContainer: (containerId) => {
-      state.activeContainerId = containerId;
-      if (containerId) {
-        // Reconcile the active container first. Siblings are not eagerly
-        // swept here — they reconcile when visited (each becomes active) or on
-        // an explicit refresh — which keeps first-open network minimal.
-        enqueueContainer(containerId, "active");
-      }
-    },
+    // Reconcile the active container first; siblings remain lazy until visited.
+    setActiveContainer: (containerId) =>
+      activateContainer(state, containerId, (activeId, force) =>
+        enqueueContainer(activeId, "active", force),
+      ),
     enqueueContainer,
     enqueueIdleBackfill,
     flushPendingUnscopedInvalidation: () => {
