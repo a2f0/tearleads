@@ -51,9 +51,7 @@ puts JSON.generate(
   success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret", "MATCH_READONLY" => "false" }),
   failure: exercise({}, fail: true),
   setup_failure: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }, setup_fail: true),
-  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }),
-  login_authorization: IosSigningKeychain.authorization_environment({ "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }) { |name| "/resolved/#{name}" },
-  custom_authorization: IosSigningKeychain.authorization_environment({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }) { |name| "/resolved/#{name}" }
+  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" })
 )
 `;
 
@@ -108,12 +106,5 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
   expect(results.custom.environment).toEqual({
     MATCH_KEYCHAIN_NAME: "caller-keychain",
     MATCH_KEYCHAIN_PASSWORD: "caller-secret",
-  });
-  expect(results.login_authorization).toEqual({
-    CODESIGN_KEYCHAIN_PASSWORD: "login-secret",
-  });
-  expect(results.custom_authorization).toEqual({
-    CODESIGN_KEYCHAIN_PASSWORD: "caller-secret",
-    CODESIGN_LOGIN_KEYCHAIN: "/resolved/caller-keychain",
   });
 });

@@ -367,39 +367,24 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
   });
 
-  test("iOS signing access is probed after Match in both profile lanes", async () => {
+  test("iOS release signing uses an isolated Match keychain", async () => {
     const iosFastfile = await Bun.file(
       resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
     ).text();
-    const fetchLaneIndex = iosFastfile.indexOf("lane :fetch_appstore_profile");
     const buildLaneIndex = iosFastfile.indexOf(
       "lane :build_testflight_release",
     );
-    const fetchMatchIndex = iosFastfile.indexOf(
-      "    profile_name = install_ios_appstore_signing_assets!",
-      fetchLaneIndex,
-    );
-    const fetchAuthorizationIndex = iosFastfile.indexOf(
-      "    ensure_ios_codesign_key_access!",
-      fetchMatchIndex,
+    const keychainIndex = iosFastfile.indexOf(
+      "    ipa_path = with_ios_signing_keychain do",
+      buildLaneIndex,
     );
     const buildMatchIndex = iosFastfile.indexOf(
       "      profile_name = install_ios_appstore_signing_assets!",
-      buildLaneIndex,
-    );
-    const buildAuthorizationIndex = iosFastfile.indexOf(
-      "      ensure_ios_codesign_key_access!",
-      buildMatchIndex,
+      keychainIndex,
     );
 
-    expect(fetchMatchIndex).toBeGreaterThan(fetchLaneIndex);
-    expect(fetchAuthorizationIndex).toBeGreaterThan(fetchMatchIndex);
-    expect(fetchAuthorizationIndex).toBeLessThan(buildLaneIndex);
-    expect(buildMatchIndex).toBeGreaterThan(buildLaneIndex);
-    expect(buildAuthorizationIndex).toBeGreaterThan(buildMatchIndex);
-    expect(iosFastfile).toContain(
-      "scripts/keychain/authorizeCodesignPartitionList.sh",
-    );
+    expect(keychainIndex).toBeGreaterThan(buildLaneIndex);
+    expect(buildMatchIndex).toBeGreaterThan(keychainIndex);
     expect(iosFastfile).toContain("with_ios_signing_keychain do");
     expect(iosFastfile).toContain("create_keychain(");
     expect(iosFastfile).toContain("password: password");

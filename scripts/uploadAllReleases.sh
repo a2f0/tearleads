@@ -7,9 +7,8 @@
 #   3. Staging deploy, application artifacts only (--skip-infra)
 #   4. Production deploy, application artifacts only (--skip-infra)
 #
-# The iOS step probes codesign access after Match installs its profile and only
-# prompts for your macOS login password when authorization is missing. Run it
-# from a real Terminal in a GUI login session in case authorization is needed.
+# The iOS steps isolate Match signing assets in random-password keychains that
+# are deleted after each archive, so they do not need the login keychain password.
 #
 # On success it prints the TestFlight build number and Google Play version code
 # the two upload steps reported, followed by a per-step timing summary.

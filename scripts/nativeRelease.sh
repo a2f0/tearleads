@@ -78,9 +78,9 @@ iOS options:
   groups:<name,name>          Select external TestFlight groups.
   skip_submission:true        Upload without submitting for review.
 
-After Match installs the target profile, iOS builds probe the exact signing key
-and prompt for the macOS login password only when codesign access is missing.
-iOS releases regenerate icons and splash images, so ImageMagick must be installed.
+iOS builds import Match signing assets into an isolated per-run keychain with a
+random password, then delete it after the archive. iOS releases regenerate icons
+and splash images, so ImageMagick must be installed.
 
 App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID,
 APP_STORE_CONNECT_ISSUER_ID, and TEAM_ID. The private key defaults to

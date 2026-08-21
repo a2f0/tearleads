@@ -16,10 +16,6 @@ IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
 IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
-IOS_CODESIGN_AUTHORIZATION_SCRIPT = File.expand_path(
-  '../../../../scripts/keychain/authorizeCodesignPartitionList.sh',
-  __dir__
-)
 IOS_SIGNING_KEYCHAIN_OPTIONS = {
   add_to_search_list: true,
   default_keychain: true,
@@ -256,27 +252,6 @@ def install_ios_appstore_signing_assets!
   )
 end
 
-def installed_ios_appstore_profile_path
-  ENV.fetch("sigh_#{NATIVE_APP_IDENTIFIER}_appstore_profile-path") do
-    UI.user_error!("Match did not report a provisioning profile path for #{NATIVE_APP_IDENTIFIER}.")
-  end
-end
-
-def ios_codesign_keychain_environment
-  IosSigningKeychain.authorization_environment(ENV) do |keychain_name|
-    FastlaneCore::Helper.keychain_path(keychain_name)
-  end
-end
-
-def ensure_ios_codesign_key_access!
-  profile_path = installed_ios_appstore_profile_path
-  return if system(ios_codesign_keychain_environment, 'sh', IOS_CODESIGN_AUTHORIZATION_SCRIPT, profile_path)
-
-  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
-  keychain_description = keychain_name.empty? ? 'the login keychain' : "Match keychain #{keychain_name}"
-  UI.user_error!("codesign could not use the required signing key in #{keychain_description} after authorization.")
-end
-
 def ios_export_options(team_id, profile_name)
   {
     manageAppVersionAndBuildNumber: false,
@@ -331,7 +306,6 @@ platform :ios do
   lane :fetch_appstore_profile do
     load_ios_release_secrets_env
     profile_name = install_ios_appstore_signing_assets!
-    ensure_ios_codesign_key_access!
     UI.success("Installed App Store provisioning profile: #{profile_name}")
     profile_name
   end
@@ -355,7 +329,6 @@ platform :ios do
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
     ipa_path = with_ios_signing_keychain do
       profile_name = install_ios_appstore_signing_assets!
-      ensure_ios_codesign_key_access!
       pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
       original_pbxproj = File.read(pbxproj_path)
       begin

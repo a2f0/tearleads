@@ -10,16 +10,6 @@ class IosSigningKeychain
     new(environment, setup, cleanup).run(&)
   end
 
-  def self.authorization_environment(environment, &resolve_path)
-    authorization = {}
-    keychain_name = environment['MATCH_KEYCHAIN_NAME'].to_s
-    authorization['CODESIGN_LOGIN_KEYCHAIN'] = resolve_path.call(keychain_name) unless keychain_name.empty?
-    if environment.key?('MATCH_KEYCHAIN_PASSWORD')
-      authorization['CODESIGN_KEYCHAIN_PASSWORD'] = environment.fetch('MATCH_KEYCHAIN_PASSWORD')
-    end
-    authorization
-  end
-
   def initialize(environment, setup, cleanup)
     @environment = environment
     @setup = setup
