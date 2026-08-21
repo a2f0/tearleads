@@ -7,32 +7,42 @@ import { requestContainerContentsRemoteHydration } from "./remoteHydrationReques
 type RequestState = Parameters<
   typeof requestContainerContentsRemoteHydration
 >[0]["state"];
+type ListParentLanes =
+  RequestState["runtime"]["apiClient"]["listContainerParentLanes"];
 
-function createRequestState(execSql: ExecSql): RequestState {
+function createRequestState(
+  execSql: ExecSql,
+  listContainerParentLanes?: ListParentLanes,
+): RequestState {
   return {
     containerParentIdsNeedingHydration: new Set<string | null>(),
     containersById: new Map(),
     initialized: true,
+    lifecycleGeneration: 0,
+    localContainerRefreshGeneration: null,
     localContainerRefreshPromise: null,
     localContainersNeedRefresh: false,
     persistence: {},
     remoteHydrationPromise: null,
+    remoteHydrationGeneration: null,
     rootLaneHydrated: false,
     runtime: {
       apiClient: {
-        listContainerParentLanes: async () => ({
-          results: [
-            {
-              laneId: "lane-0",
-              page: {
-                hasMore: false,
-                items: [],
-                nextWatermark: null,
-                tombstones: [],
+        listContainerParentLanes:
+          listContainerParentLanes ??
+          (async () => ({
+            results: [
+              {
+                laneId: "lane-0",
+                page: {
+                  hasMore: false,
+                  items: [],
+                  nextWatermark: null,
+                  tombstones: [],
+                },
               },
-            },
-          ],
-        }),
+            ],
+          })),
       },
       auth: { isAuthenticated: true },
       infra: { dbStatus: "ready", execSql },
@@ -49,6 +59,16 @@ const emptyHydrationHost = {
   },
   updateSnapshot: () => {},
 } as RemoteContainerHydrationHost;
+
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await Bun.sleep(1);
+  }
+  throw new Error("condition was not reached");
+}
 
 test("first completed root hydration schedules recovery with no remote delta", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -94,6 +114,96 @@ test("restoration hydration can suppress change-driven lane rearming", async () 
 
     expect(state.rootLaneHydrated).toBe(true);
     expect(scheduledCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("reset queues replacement hydration behind the stale generation", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-reset-hydration-generation",
+  );
+  try {
+    type LaneResponse = Awaited<ReturnType<ListParentLanes>>;
+    const resolvers: Array<(value: LaneResponse) => void> = [];
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    const listContainerParentLanes: ListParentLanes = () =>
+      new Promise<LaneResponse>((resolve) => {
+        activeRequests += 1;
+        maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+        resolvers.push((value) => {
+          activeRequests -= 1;
+          resolve(value);
+        });
+      });
+    const state = createRequestState(execSql, listContainerParentLanes);
+    let staleCompletionCount = 0;
+    let currentCompletionCount = 0;
+    let scheduledCount = 0;
+    const request = (onFullyHydrated: () => void) =>
+      requestContainerContentsRemoteHydration({
+        host: emptyHydrationHost,
+        onFullyHydrated,
+        parentIds: [null],
+        scheduleSync: () => {
+          scheduledCount += 1;
+        },
+        state,
+      });
+
+    const staleHydration = request(() => {
+      staleCompletionCount += 1;
+    });
+    await waitFor(() => resolvers.length === 1);
+
+    state.lifecycleGeneration += 1;
+    state.containersById = new Map();
+    state.containerParentIdsNeedingHydration = new Set();
+    state.rootLaneHydrated = false;
+    const replacementHydration = request(() => {
+      currentCompletionCount += 1;
+    });
+
+    expect(resolvers).toHaveLength(1);
+    resolvers[0]?.({
+      results: [
+        {
+          laneId: "lane-0",
+          page: {
+            hasMore: false,
+            items: [],
+            nextWatermark: null,
+            tombstones: [],
+          },
+        },
+      ],
+    });
+    await waitFor(() => resolvers.length === 2);
+
+    expect(state.remoteHydrationGeneration).toBe(1);
+    expect(state.remoteHydrationPromise).not.toBeNull();
+    expect(staleCompletionCount).toBe(0);
+    resolvers[1]?.({
+      results: [
+        {
+          laneId: "lane-0",
+          page: {
+            hasMore: false,
+            items: [],
+            nextWatermark: null,
+            tombstones: [],
+          },
+        },
+      ],
+    });
+    await Promise.all([staleHydration, replacementHydration]);
+
+    expect(maxActiveRequests).toBe(1);
+    expect(staleCompletionCount).toBe(0);
+    expect(currentCompletionCount).toBe(1);
+    expect(scheduledCount).toBe(1);
+    expect(state.remoteHydrationPromise).toBeNull();
   } finally {
     close();
   }

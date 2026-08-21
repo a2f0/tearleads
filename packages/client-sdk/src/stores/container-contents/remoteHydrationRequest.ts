@@ -12,12 +12,50 @@ import {
 type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
     containerParentIdsNeedingHydration: Set<string | null>;
+    lifecycleGeneration: number;
+    remoteHydrationGeneration: number | null;
     remoteHydrationPromise: Promise<void> | null;
     rootLaneHydrated: boolean;
     snapshot: {
       ready: boolean;
     };
   };
+
+class StaleRemoteHydrationError extends Error {}
+
+function createGenerationGuardedHydrationHost(input: {
+  host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
+}): RemoteContainerHydrationHost {
+  const assertCurrent = () => {
+    if (!input.isCurrent()) {
+      throw new StaleRemoteHydrationError();
+    }
+  };
+
+  return {
+    persistContainerState: async (...args) => {
+      assertCurrent();
+      const record = await input.host.persistContainerState(...args);
+      assertCurrent();
+      return record;
+    },
+    ...(input.host.requestDocumentPriming
+      ? {
+          requestDocumentPriming: () => {
+            if (input.isCurrent()) {
+              input.host.requestDocumentPriming?.();
+            }
+          },
+        }
+      : {}),
+    updateSnapshot: () => {
+      if (input.isCurrent()) {
+        input.host.updateSnapshot();
+      }
+    },
+  };
+}
 
 export function requestContainerContentsRemoteHydration(input: {
   followDiscoveredParentLanes?: boolean | undefined;
@@ -39,11 +77,15 @@ export function requestContainerContentsRemoteHydration(input: {
   }
 
   if (state.remoteHydrationPromise) {
+    const activeHydration = state.remoteHydrationPromise;
+    const needsCurrentGenerationHydration =
+      state.remoteHydrationGeneration !== state.lifecycleGeneration;
     const requestQueuedHydration = () =>
+      needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
         ? requestContainerContentsRemoteHydration(input)
         : undefined;
-    return state.remoteHydrationPromise.then(
+    return activeHydration.then(
       requestQueuedHydration,
       (error: unknown) => requestQueuedHydration() ?? Promise.reject(error),
     );
@@ -60,33 +102,54 @@ export function requestContainerContentsRemoteHydration(input: {
   state.containerParentIdsNeedingHydration.clear();
 
   let appliedRemoteContainerChange = false;
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  const hydrationHost = createGenerationGuardedHydrationHost({
+    host,
+    isCurrent,
+  });
   const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
-  state.remoteHydrationPromise = refreshLocalContainerStates({ host, state })
-    .then(() =>
-      hydrateRemoteContainers({
+  state.remoteHydrationGeneration = lifecycleGeneration;
+  const hydrationPromise = refreshLocalContainerStates({
+    host: hydrationHost,
+    state,
+  })
+    .then(() => {
+      if (!isCurrent()) {
+        return 0;
+      }
+      return hydrateRemoteContainers({
         followDiscoveredParentLanes,
-        host,
+        host: hydrationHost,
+        isCurrent,
         onFullyHydrated: input.onFullyHydrated,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
         state,
-      }),
-    )
+      });
+    })
     .then((changedCount) => {
       appliedRemoteContainerChange = changedCount > 0;
     })
     .catch((error: unknown) => {
-      if (isDatabaseUnavailableError(error)) {
+      if (
+        error instanceof StaleRemoteHydrationError ||
+        isDatabaseUnavailableError(error)
+      ) {
         return;
       }
 
       throw error;
     })
     .finally(() => {
-      state.remoteHydrationPromise = null;
+      if (state.remoteHydrationPromise === hydrationPromise) {
+        state.remoteHydrationPromise = null;
+        state.remoteHydrationGeneration = null;
+      }
 
       if (
+        isCurrent() &&
         (((input.scheduleSyncOnHydrationChange ?? true) &&
           (appliedRemoteContainerChange ||
             (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated))) ||
@@ -98,6 +161,7 @@ export function requestContainerContentsRemoteHydration(input: {
         scheduleSync();
       }
     });
+  state.remoteHydrationPromise = hydrationPromise;
 
-  return state.remoteHydrationPromise;
+  return hydrationPromise;
 }

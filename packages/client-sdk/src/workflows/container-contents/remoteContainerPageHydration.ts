@@ -31,6 +31,7 @@ const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   items: ReadonlyArray<ListedRemoteContainerPageItem>;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -52,6 +53,9 @@ async function applyRemoteContainerPage(input: {
     ),
     remoteContainers: items,
   });
+  if (input.isCurrent?.() === false) {
+    return 0;
+  }
   const [
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
@@ -65,8 +69,14 @@ async function applyRemoteContainerPage(input: {
       state,
     }),
   ]);
+  if (input.isCurrent?.() === false) {
+    return 0;
+  }
 
   for (const container of items) {
+    if (input.isCurrent?.() === false) {
+      return hydratedCount;
+    }
     if (!seenContainerIds.has(container.id)) {
       seenContainerIds.add(container.id);
       await upsertRemoteContainerState({
@@ -74,10 +84,14 @@ async function applyRemoteContainerPage(input: {
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
         host,
+        isCurrent: input.isCurrent,
         remoteContainer: container,
         state,
       });
       hydratedCount += 1;
+      if (input.isCurrent?.() === false) {
+        return hydratedCount;
+      }
     }
 
     queueParentLane(container.id);
@@ -151,12 +165,13 @@ function getLatestContainerTombstoneUpdatedAt(
 async function applyContainerTombstones(input: {
   childIdsByParentId: ContainerChildIndex;
   preservedContainerIds: ReadonlySet<string>;
+  isCurrent?: (() => boolean) | undefined;
   response: ListContainersResponse;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { childIdsByParentId, preservedContainerIds, response, state } = input;
   const tombstones = getApplicableContainerTombstones(response);
-  if (tombstones.length === 0) {
+  if (tombstones.length === 0 || input.isCurrent?.() === false) {
     return 0;
   }
 
@@ -195,6 +210,9 @@ async function applyContainerTombstones(input: {
       ...(tombstoneUpdatedAt ? { updatedAt: tombstoneUpdatedAt } : {}),
     },
   );
+  if (input.isCurrent?.() === false) {
+    return 0;
+  }
   for (const containerId of removedContainerIds) {
     const parentId =
       state.containersById.get(containerId)?.container.parentId ?? null;
@@ -220,6 +238,7 @@ async function applyContainerParentLanePage(input: {
   childIdsByParentId: ContainerChildIndex;
   fetchedPage: FetchedContainerParentLanePage;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   queueContinuationLane: (lane: ContainerParentHydrationLane) => void;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -236,10 +255,14 @@ async function applyContainerParentLanePage(input: {
   } = input;
   const { lane, response, syncLane } = fetchedPage;
   let changedCount = 0;
+  if (input.isCurrent?.() === false) {
+    return { changedCount, shouldStop: true };
+  }
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
   const removedContainerCount = await applyContainerTombstones({
     childIdsByParentId,
+    isCurrent: input.isCurrent,
     preservedContainerIds: new Set(
       remoteContainerItems.map((container) => container.id),
     ),
@@ -247,6 +270,9 @@ async function applyContainerParentLanePage(input: {
     state,
   });
   changedCount += removedContainerCount;
+  if (input.isCurrent?.() === false) {
+    return { changedCount, shouldStop: true };
+  }
   if (removedContainerCount > 0) {
     // A live tombstone cascade may have orphaned documents (row 3); re-arm
     // document priming so their null-scoped passes run now rather than on
@@ -257,13 +283,18 @@ async function applyContainerParentLanePage(input: {
   changedCount += await applyRemoteContainerPage({
     childIdsByParentId,
     host,
+    isCurrent: input.isCurrent,
     items: remoteContainerItems,
     queueParentLane,
     seenContainerIds,
     state,
   });
+  if (input.isCurrent?.() === false) {
+    return { changedCount, shouldStop: true };
+  }
 
   const didMarkFetched = await markContainerParentLaneFetched({
+    isCurrent: input.isCurrent,
     response,
     state,
     syncLane,
@@ -324,6 +355,7 @@ async function applyContainerParentLaneBatch(input: {
   childIdsByParentId: ContainerChildIndex;
   fetchedPages: ReadonlyArray<FetchedContainerParentLanePage>;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -341,7 +373,7 @@ async function applyContainerParentLaneBatch(input: {
   let changedCount = 0;
 
   for (const fetchedPage of fetchedPages) {
-    if (!canHydrateRemoteContainers(state)) {
+    if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
       return { changedCount, shouldStop: true };
     }
     if (!canApplyFetchedContainerParentLanePage({ fetchedPage, state })) {
@@ -352,6 +384,7 @@ async function applyContainerParentLaneBatch(input: {
       childIdsByParentId,
       fetchedPage,
       host,
+      isCurrent: input.isCurrent,
       queueContinuationLane: (lane) => lanes.push(lane),
       queueParentLane,
       seenContainerIds,
@@ -370,6 +403,7 @@ async function applyContainerParentLaneBatch(input: {
 export async function hydrateContainerParentLanes(input: {
   childIdsByParentId: ContainerChildIndex;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -386,7 +420,7 @@ export async function hydrateContainerParentLanes(input: {
   let changedCount = 0;
 
   while (lanes.length > 0) {
-    if (!canHydrateRemoteContainers(state)) {
+    if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
       return { changedCount, shouldStop: true };
     }
 
@@ -395,8 +429,15 @@ export async function hydrateContainerParentLanes(input: {
       continue;
     }
 
-    const fetchedPages = await fetchContainerParentLaneBatch({ batch, state });
+    const fetchedPages = await fetchContainerParentLaneBatch({
+      batch,
+      isCurrent: input.isCurrent,
+      state,
+    });
     if (!fetchedPages) {
+      return { changedCount, shouldStop: true };
+    }
+    if (input.isCurrent?.() === false) {
       return { changedCount, shouldStop: true };
     }
 
@@ -404,6 +445,7 @@ export async function hydrateContainerParentLanes(input: {
       childIdsByParentId,
       fetchedPages,
       host,
+      isCurrent: input.isCurrent,
       lanes,
       queueParentLane,
       seenContainerIds,

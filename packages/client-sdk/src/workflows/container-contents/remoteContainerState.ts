@@ -145,6 +145,7 @@ async function updateExistingRemoteContainerState(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -169,15 +170,17 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
-  existingState.container = applyRemoteContainerTimestamps(
-    existingState.container,
-    remoteContainer,
-  );
-  existingState.containerWriterProjection = null;
-  existingState.metadataReferencedPrincipals =
-    remoteContainer.metadataReferencedPrincipals;
-  existingState.record = await host.persistContainerState(
-    existingState,
+  const nextState: ContainerState = {
+    ...existingState,
+    container: applyRemoteContainerTimestamps(
+      existingState.container,
+      remoteContainer,
+    ),
+    containerWriterProjection: null,
+    metadataReferencedPrincipals: remoteContainer.metadataReferencedPrincipals,
+  };
+  nextState.record = await host.persistContainerState(
+    nextState,
     {
       accessEpoch: remoteContainer.metadataAccessEpoch,
       accessStateHash: remoteContainer.metadataAccessStateHash,
@@ -193,12 +196,22 @@ async function updateExistingRemoteContainerState(input: {
       remoteContainer,
     }),
   );
-  existingState.container = {
-    ...existingState.container,
+  if (input.isCurrent?.() === false) {
+    return existingState;
+  }
+  nextState.container = {
+    ...nextState.container,
     metadataDocumentId: remoteContainer.metadataDocumentId,
     organizationId: remoteContainer.organizationId,
     parentId: nextParentId,
   };
+
+  existingState.container = nextState.container;
+  existingState.containerWriterProjection = nextState.containerWriterProjection;
+  existingState.metadataReferencedPrincipals =
+    nextState.metadataReferencedPrincipals;
+  existingState.metadataWriterProjection = nextState.metadataWriterProjection;
+  existingState.record = nextState.record;
   moveIndexedContainerChild(
     childIdsByParentId,
     remoteContainer.id,
@@ -207,6 +220,7 @@ async function updateExistingRemoteContainerState(input: {
   );
   await reconcileLocalOnlyRootContainers({
     childIdsByParentId,
+    isCurrent: input.isCurrent,
     remoteRootState: existingState,
     requestDocumentPriming: host.requestDocumentPriming,
     state,
@@ -217,6 +231,7 @@ async function updateExistingRemoteContainerState(input: {
 async function insertRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState> {
@@ -289,6 +304,9 @@ async function insertRemoteContainerState(input: {
     containerState.record,
     remoteContainerHydrationSaveOptions({ remoteContainer }),
   );
+  if (input.isCurrent?.() === false) {
+    return containerState;
+  }
   state.containersById.set(remoteContainer.id, containerState);
   if (childIdsByParentId) {
     addIndexedContainerChild(
@@ -299,6 +317,7 @@ async function insertRemoteContainerState(input: {
   }
   await reconcileLocalOnlyRootContainers({
     childIdsByParentId,
+    isCurrent: input.isCurrent,
     remoteRootState: containerState,
     requestDocumentPriming: host.requestDocumentPriming,
     state,
@@ -311,6 +330,7 @@ export async function upsertRemoteContainerState(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState> {
@@ -326,17 +346,20 @@ export async function upsertRemoteContainerState(input: {
           input.containerIdsWithPendingStructuralIntents,
         existingState,
         host: input.host,
+        isCurrent: input.isCurrent,
         remoteContainer: input.remoteContainer,
         state: input.state,
       })
     : await insertRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
         host: input.host,
+        isCurrent: input.isCurrent,
         remoteContainer: input.remoteContainer,
         state: input.state,
       });
   await reconcileLocalOnlySystemContainers({
     childIdsByParentId: input.childIdsByParentId,
+    isCurrent: input.isCurrent,
     requestDocumentPriming: input.host.requestDocumentPriming,
     remoteSystemState: remoteState,
     state: input.state,

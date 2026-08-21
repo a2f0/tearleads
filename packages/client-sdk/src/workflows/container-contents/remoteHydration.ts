@@ -158,6 +158,7 @@ export function createRemoteContainerIngestor(input: {
 export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -165,7 +166,7 @@ export async function hydrateRemoteContainers(input: {
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { host, state } = input;
-  if (!canHydrateRemoteContainers(state)) {
+  if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
     return 0;
   }
 
@@ -192,6 +193,7 @@ export async function hydrateRemoteContainers(input: {
   const result = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,
+    isCurrent: input.isCurrent,
     lanes,
     queueParentLane: queueDiscoveredParentLane,
     seenContainerIds,
@@ -200,9 +202,13 @@ export async function hydrateRemoteContainers(input: {
   const { changedCount } = result;
   await finishRemoteHydration({
     changedCount,
-    complete: !result.shouldStop && canHydrateRemoteContainers(state),
+    complete:
+      !result.shouldStop &&
+      canHydrateRemoteContainers(state) &&
+      input.isCurrent?.() !== false,
     containerIdsBeforeHydration,
     host,
+    isCurrent: input.isCurrent,
     onFullyHydrated: input.onFullyHydrated,
     seenContainerIds,
     state,

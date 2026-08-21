@@ -68,7 +68,9 @@ export function createContainerContentsStoreState(
     initializePromise: null,
     initialized: false,
     localContainerRefreshPromise: null,
+    localContainerRefreshGeneration: null,
     localContainersNeedRefresh: false,
+    lifecycleGeneration: 0,
     lastEventCount: 0,
     listeners: new Set(),
     locallyAcceptedMetadataUpdateIds: new Set(),
@@ -77,6 +79,7 @@ export function createContainerContentsStoreState(
     metadataSyncSignalSeqById: new Map(),
     persistence,
     remoteHydrationPromise: null,
+    remoteHydrationGeneration: null,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -121,12 +124,12 @@ export function updateContainerContentsSnapshot(
 }
 
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
+  state.lifecycleGeneration += 1;
   state.containersById = new Map();
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
   state.initialized = false;
   state.initializePromise = null;
-  state.localContainerRefreshPromise = null;
   state.localContainersNeedRefresh = false;
   // Accepted-echo suppression state must not survive a reset: after a
   // database loss the tree rehydrates from remote, and a retained id would
@@ -135,7 +138,6 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.locallyAcceptedMetadataUpdateIds = new Set();
   state.metadataDocumentIdsNeedingSync = new Set();
   state.metadataSyncSignalSeqById = new Map();
-  state.remoteHydrationPromise = null;
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {
