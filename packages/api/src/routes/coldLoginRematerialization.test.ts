@@ -165,7 +165,9 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       expect(
         discoveredRoot.metadataReferencedPrincipals.some(
           (reference) =>
-            reference.principalType === "group" && reference.keyEpoch > 1,
+            reference.principalType === "group" &&
+            reference.principalId === grantedGroupId &&
+            reference.keyEpoch > 1,
         ),
       ).toBe(true);
     }
