@@ -14,24 +14,37 @@ def exercise(environment, fail: false, setup_fail: false)
   events = []
   result = nil
   error = nil
+  setup_password = nil
+  yield_password = nil
+  yield_readonly = nil
   begin
     result = IosSigningKeychain.with_temporary(
       environment: environment,
-      setup: proc do |name|
+      setup: proc do |name, password|
         events << ["setup", name]
-        environment["MATCH_READONLY"] = "true"
+        setup_password = password
         raise "setup failed" if setup_fail
       end,
       cleanup: proc { |name| events << ["cleanup", name] }
     ) do
       events << ["yield", environment["MATCH_KEYCHAIN_NAME"]]
+      yield_password = environment["MATCH_KEYCHAIN_PASSWORD"]
+      yield_readonly = environment["MATCH_READONLY"]
       raise "build failed" if fail
       "built"
     end
   rescue StandardError => e
     error = e.message
   end
-  { environment: environment, error: error, events: events, result: result }
+  {
+    environment: environment,
+    error: error,
+    events: events,
+    result: result,
+    setup_password: setup_password,
+    yield_password: yield_password,
+    yield_readonly: yield_readonly
+  }
 end
 
 puts JSON.generate(
@@ -63,6 +76,9 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
     "yield",
     "cleanup",
   ]);
+  expect(results.success.setup_password).toMatch(/^[0-9a-f]{64}$/);
+  expect(results.success.yield_password).toBe(results.success.setup_password);
+  expect(results.success.yield_readonly).toBe("true");
   expect(results.success.environment).toEqual({
     MATCH_KEYCHAIN_PASSWORD: "login-secret",
     MATCH_READONLY: "false",
@@ -74,6 +90,9 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
     "yield",
     "cleanup",
   ]);
+  expect(results.failure.setup_password).not.toBe(
+    results.success.setup_password,
+  );
   expect(results.failure.environment).toEqual({});
 
   expect(results.setup_failure.error).toBe("setup failed");

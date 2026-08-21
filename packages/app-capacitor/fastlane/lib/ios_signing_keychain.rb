@@ -45,8 +45,12 @@ class IosSigningKeychain
     capture_environment
     @environment.delete('MATCH_KEYCHAIN_NAME')
     @keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
+    @keychain_password = SecureRandom.hex(32)
+    @environment['MATCH_KEYCHAIN_NAME'] = @keychain_name
+    @environment['MATCH_KEYCHAIN_PASSWORD'] = @keychain_password
+    @environment['MATCH_READONLY'] = 'true'
     @ready = true
-    @setup.call(@keychain_name)
+    @setup.call(@keychain_name, @keychain_password)
   end
 
   def capture_environment

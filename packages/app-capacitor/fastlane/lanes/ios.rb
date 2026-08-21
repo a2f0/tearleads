@@ -20,12 +20,24 @@ IOS_CODESIGN_AUTHORIZATION_SCRIPT = File.expand_path(
   '../../../../scripts/keychain/authorizeCodesignPartitionList.sh',
   __dir__
 )
+IOS_SIGNING_KEYCHAIN_OPTIONS = {
+  add_to_search_list: true,
+  default_keychain: true,
+  lock_when_sleeps: true,
+  require_create: true,
+  timeout: 0,
+  unlock: true
+}.freeze
 def load_ios_release_secrets_env
   load_native_release_secrets_env
 end
 
+def create_ios_signing_keychain(name, password)
+  create_keychain(name: name, password: password, **IOS_SIGNING_KEYCHAIN_OPTIONS)
+end
+
 def with_ios_signing_keychain(&)
-  setup = proc { |name| setup_ci(force: true, keychain_name: name, timeout: 0) }
+  setup = method(:create_ios_signing_keychain)
   cleanup = proc { |name| delete_keychain(name: name) if ios_signing_keychain_exists?(name) }
   IosSigningKeychain.with_temporary(environment: ENV, setup: setup, cleanup: cleanup, &)
 end
@@ -204,7 +216,9 @@ def ios_build_xcargs(release_build, team_id)
     ios_xcodebuild_setting('DEVELOPMENT_TEAM', team_id)
   ]
   keychain_path = active_match_keychain_path
-  settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{keychain_path}") unless keychain_path.nil?
+  unless keychain_path.nil?
+    settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{keychain_path.dump}")
+  end
   settings.join(' ')
 end
 
