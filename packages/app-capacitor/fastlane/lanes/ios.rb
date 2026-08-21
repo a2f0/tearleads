@@ -26,8 +26,13 @@ end
 
 def with_ios_signing_keychain(&)
   setup = proc { |name| setup_ci(force: true, keychain_name: name, timeout: 0) }
-  cleanup = proc { |name| delete_keychain(name: name) }
+  cleanup = proc { |name| delete_keychain(name: name) if ios_signing_keychain_exists?(name) }
   IosSigningKeychain.with_temporary(environment: ENV, setup: setup, cleanup: cleanup, &)
+end
+
+def ios_signing_keychain_exists?(keychain_name)
+  base_path = File.join(Dir.home, 'Library', 'Keychains', keychain_name)
+  ["#{base_path}-db", "#{base_path}.keychain-db", base_path, "#{base_path}.keychain"].any? { |path| File.file?(path) }
 end
 
 def explicit_ios_release_build_number(options)
@@ -244,13 +249,9 @@ def installed_ios_appstore_profile_path
 end
 
 def ios_codesign_keychain_environment
-  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
-  environment = {}
-  environment['CODESIGN_LOGIN_KEYCHAIN'] = FastlaneCore::Helper.keychain_path(keychain_name) unless keychain_name.empty?
-  if ENV.key?('MATCH_KEYCHAIN_PASSWORD')
-    environment['CODESIGN_KEYCHAIN_PASSWORD'] = ENV.fetch('MATCH_KEYCHAIN_PASSWORD')
+  IosSigningKeychain.authorization_environment(ENV) do |keychain_name|
+    FastlaneCore::Helper.keychain_path(keychain_name)
   end
-  environment
 end
 
 def ensure_ios_codesign_key_access!

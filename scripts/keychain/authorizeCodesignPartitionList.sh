@@ -68,7 +68,7 @@ codesign_profile_identity() {
   })" || return 1
   profile_identity="$(
     printf '%s' "$profile_certificate" |
-      base64 -D |
+      base64 -d |
       openssl x509 -inform DER -noout -fingerprint -sha1 |
       sed -e 's/^.*=//' -e 's/://g'
   )"
@@ -103,9 +103,11 @@ codesign_probe_identity() {
 codesign_probe_identities() {
   probe_identities="$1"
   [ -n "$probe_identities" ] || return 1
-  for probe_identity in $probe_identities; do
-    codesign_probe_identity "$probe_identity" || return 1
-  done
+  printf '%s\n' "$probe_identities" |
+    while IFS= read -r probe_identity; do
+      [ -n "$probe_identity" ] || continue
+      codesign_probe_identity "$probe_identity" || exit 1
+    done
 }
 
 if [ -n "${CODESIGN_PROBE_IDENTITY:-}" ]; then
