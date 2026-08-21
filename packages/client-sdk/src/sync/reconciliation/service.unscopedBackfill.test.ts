@@ -127,6 +127,40 @@ test("a newer force survives an older in-flight reconciliation", async () => {
   expect(contentPulls).toEqual([true, true]);
 });
 
+test("an old lane completion cannot consume a post-refresh force", async () => {
+  const firstStarted = createGate();
+  const finishFirst = createGate();
+  const contentPulls: boolean[] = [];
+  let attemptCount = 0;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async () => {
+      attemptCount += 1;
+      if (attemptCount === 1) {
+        firstStarted.open();
+        await finishFirst.wait;
+      }
+    },
+    listKnownContainerIds: () => ["c-1"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueContainer("c-1", "active", true);
+  await firstStarted.wait;
+  await service.reconcileNow();
+  service.enqueueContainer("c-1", "active", true);
+  finishFirst.open();
+  await waitFor(
+    () => attemptCount === 3,
+    "Expected the post-refresh force to run",
+  );
+
+  expect(contentPulls).toEqual([true, true, true]);
+});
+
 test("a failed full refresh preserves pending forced reconciliation", async () => {
   const contentPulls: boolean[] = [];
   let online = false;

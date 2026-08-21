@@ -350,6 +350,7 @@ function createReconciliationState(
     forcedContainerGenerations: new Map(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
+    nextForceGeneration: 0,
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
     refreshPromise: null,

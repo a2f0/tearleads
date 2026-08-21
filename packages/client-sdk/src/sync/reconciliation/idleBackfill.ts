@@ -6,6 +6,7 @@ export interface IdleBackfillState {
   discoveredContainerIds: Set<string>;
   forcedContainerGenerations: Map<string, number>;
   initialDocumentProbe: InitialDocumentProbe;
+  nextForceGeneration: number;
   queue: ReconcileQueue;
   unscopedInvalidationActive: boolean;
   unscopedInvalidatedContainerIds: Set<string>;
@@ -15,9 +16,8 @@ export function markContainerForced(
   state: IdleBackfillState,
   containerId: string,
 ): void {
-  const generation =
-    (state.forcedContainerGenerations.get(containerId) ?? 0) + 1;
-  state.forcedContainerGenerations.set(containerId, generation);
+  state.nextForceGeneration += 1;
+  state.forcedContainerGenerations.set(containerId, state.nextForceGeneration);
 }
 
 export function acknowledgeContainerForce(
