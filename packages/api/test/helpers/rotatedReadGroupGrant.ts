@@ -12,8 +12,9 @@ import {
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
   toFingerprint,
+  wrapDekForRecipients,
 } from "@symcrypt/crypto";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import type {
   ContainerMutationRequest,
   PutPrincipalPolicyRequest,
@@ -28,11 +29,9 @@ import { buildRootContainerRekeyMutation } from "./containerRekey";
 import {
   accessManifestFromContainerResponse,
   asVerifiedContainerManifest,
-  createContainerKeyWrapForRecipientTarget,
   createContainerManifestBundle,
   createSignedAccessEvent,
   kekStateFromContainerResponse,
-  type StoredRootFixture,
   uniquePrincipalPolicies,
   userRecipientKeysFromKekTargets,
 } from "./keyingWriterProjectionKit";
@@ -44,6 +43,7 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
+import type { DecryptableStoredRootFixture } from "./registeredRootKek";
 
 interface SignedGroupSuccessor {
   readonly policy: VerifiedPrincipalPolicy;
@@ -147,10 +147,34 @@ function principalHead(
   };
 }
 
+async function createManagedPrincipalWrap(input: {
+  readonly containerKey: Uint8Array;
+  readonly containerKeyEpochId: string;
+  readonly policy: VerifiedPrincipalPolicy;
+  readonly wrapManifestHash: string;
+}) {
+  const [wrapped] = await wrapDekForRecipients(input.containerKey, [
+    base64ToBytes(input.policy.state.encapsulationPublicKey),
+  ]);
+  invariant(wrapped, "expected a managed-principal container wrap");
+  const head = principalHead(input.policy);
+
+  return {
+    containerKeyEpochId: input.containerKeyEpochId,
+    recipientKind: "group" as const,
+    recipientId: head.principalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(head),
+    recipientKeyFingerprint: wrapped.keyFingerprint,
+    kemCipherText: bytesToBase64(wrapped.kemCipherText),
+    wrappedKey: bytesToBase64(wrapped.wrappedKey),
+    wrapManifestHash: input.wrapManifestHash,
+  };
+}
+
 async function buildReadGroupGrantMutation(input: {
   actor: TestUser;
   policy: VerifiedPrincipalPolicy;
-  root: StoredRootFixture;
+  root: DecryptableStoredRootFixture;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.root.bundle);
   const reference = principalHead(input.policy);
@@ -188,13 +212,6 @@ async function buildReadGroupGrantMutation(input: {
     },
     event,
   );
-  const recipientTarget = {
-    recipientKind: "group" as const,
-    recipientId: reference.principalId,
-    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(reference),
-    recipientKeyFingerprint: reference.keyFingerprint,
-  };
-
   return {
     event: event.event as unknown as Record<string, unknown>,
     body: body as unknown,
@@ -215,9 +232,10 @@ async function buildReadGroupGrantMutation(input: {
     predecessorBridge: null,
     wraps: [
       ...input.root.kekState.wraps,
-      createContainerKeyWrapForRecipientTarget({
+      await createManagedPrincipalWrap({
+        containerKey: input.root.plaintextKek,
         containerKeyEpochId: input.root.kekState.containerKeyEpochId,
-        recipientTarget,
+        policy: input.policy,
         wrapManifestHash: bundle.manifestHash,
       }),
     ] as unknown as Record<string, unknown>[],
@@ -258,7 +276,7 @@ async function submitSuccessor(input: {
 export async function grantRootThroughRotatedReadGroup(input: {
   actor: TestUser;
   reader: TestUser;
-  root: StoredRootFixture;
+  root: DecryptableStoredRootFixture;
 }): Promise<string> {
   const organizationId = asVerifiedContainerManifest(input.root.bundle).state
     .organizationId;
@@ -311,9 +329,10 @@ export async function grantRootThroughRotatedReadGroup(input: {
     organizationId,
     successor: granted,
   });
-  const grantedRoot: StoredRootFixture = {
+  const grantedRoot: DecryptableStoredRootFixture = {
     bundle: accessManifestFromContainerResponse(grantMutation),
     kekState: kekStateFromContainerResponse(grantMutation),
+    plaintextKek: input.root.plaintextKek,
     principalPolicies: uniquePrincipalPolicies([
       ...input.root.principalPolicies,
       granted.policy,
@@ -330,6 +349,26 @@ export async function grantRootThroughRotatedReadGroup(input: {
     replacementPrincipalPolicy: rotated.policy,
     signer: input.actor,
   });
+  rekey.request.wraps = (await Promise.all(
+    rekey.kekState.recipientTargets.map(async (target) => {
+      invariant(
+        target.recipientKind === "group",
+        "expected root rekey recipients to be groups",
+      );
+      const policy = rekey.container.principalPolicies?.find(
+        (candidate) =>
+          candidate.principalType === target.recipientKind &&
+          candidate.principalId === target.recipientId,
+      );
+      invariant(policy, "expected root rekey recipient policy");
+      return createManagedPrincipalWrap({
+        containerKey: rekey.plaintextKek,
+        containerKeyEpochId: rekey.kekState.containerKeyEpochId,
+        policy,
+        wrapManifestHash: rekey.bundle.manifestHash,
+      });
+    }),
+  )) as unknown as Record<string, unknown>[];
   await submitSuccessor({
     actor: input.actor,
     containerMutation: rekey.request,

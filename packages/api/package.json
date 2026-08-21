@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@symcrypt/bob-and-alice": "workspace:*",
+    "@symcrypt/client-sdk": "workspace:*",
+    "@symcrypt/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

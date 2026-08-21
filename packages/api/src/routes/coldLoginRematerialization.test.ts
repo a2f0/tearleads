@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import { wrapDekForRecipients } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   isDocumentEditAttributionResponse,
-  isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
   isListContainerDocumentsResponse,
   isPrincipalPolicyBundleResponse,
@@ -11,16 +11,23 @@ import {
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
 import {
+  COLD_DOCUMENT_TEXT,
+  coldRematerializeEncryptedDocument,
+  createEncryptedColdDocument,
+} from "../../test/helpers/coldSdkRematerialization";
+import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../test/helpers/containerParentLaneQuery";
-import { createSignedDocumentSyncRequest } from "../../test/helpers/documentUpdateRequests";
 import {
+  asVerifiedContainerManifest,
   bootstrapRoot,
   buildRootGrantRequest,
-  createDocument,
-  type StoredRootFixture,
 } from "../../test/helpers/keyingWriterProjectionKit";
+import {
+  type DecryptableStoredRootFixture,
+  recoverRegisteredRootKek,
+} from "../../test/helpers/registeredRootKek";
 import { registerUser } from "../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../routeApp";
@@ -47,7 +54,7 @@ async function grantColdReader(input: {
   grantKind: GrantKind;
   owner: TestUser;
   reader: TestUser;
-  root: StoredRootFixture;
+  root: DecryptableStoredRootFixture;
 }): Promise<string | null> {
   if (input.grantKind === "rotated group") {
     return grantRootThroughRotatedReadGroup({
@@ -64,6 +71,19 @@ async function grantColdReader(input: {
     recipient: input.reader,
     signer: input.owner,
   });
+  const [wrapped] = await wrapDekForRecipients(input.root.plaintextKek, [
+    input.reader.kem.publicKey,
+  ]);
+  invariant(wrapped, "expected the direct reader root wrap");
+  const readerWrap = grantRequest.wraps.find(
+    (wrap) => Reflect.get(wrap, "recipientId") === input.reader.userId,
+  );
+  invariant(readerWrap, "expected the direct reader grant wrap");
+  Object.assign(readerWrap, {
+    kemCipherText: bytesToBase64(wrapped.kemCipherText),
+    recipientKeyFingerprint: wrapped.keyFingerprint,
+    wrappedKey: bytesToBase64(wrapped.wrappedKey),
+  });
   const response = await postJson(
     `/containers/${input.root.kekState.containerId}/share`,
     input.owner.token,
@@ -79,16 +99,17 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
     const reader = createTestUser();
     await registerAndAuthenticate(owner);
     await registerAndAuthenticate(reader);
-    const root = await bootstrapRoot(owner);
-    const created = await createDocument({ owner, root });
-    const { request: writeRequest, updateId } =
-      await createSignedDocumentSyncRequest({ created, owner, root });
-    const writeResponse = await postJson(
-      `/documents/${created.id}/sync`,
-      owner.token,
-      writeRequest,
-    );
-    expect(writeResponse.status).toBe(200);
+    const root = await recoverRegisteredRootKek({
+      owner,
+      root: await bootstrapRoot(owner),
+    });
+    const organizationId = asVerifiedContainerManifest(root.bundle).state
+      .organizationId;
+    const created = await createEncryptedColdDocument({
+      containerId: root.kekState.containerId,
+      organizationId,
+      owner,
+    });
 
     const grantedGroupId = await grantColdReader({
       grantKind,
@@ -160,11 +181,11 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       "expected a container document listing",
     );
     expect(listedDocuments.items.map((document) => document.id)).toContain(
-      created.id,
+      created.documentId,
     );
 
     const projectionResponse = await routeApp.request(
-      `/documents/${created.id}/writer-projection`,
+      `/documents/${created.documentId}/writer-projection`,
       { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(projectionResponse.status).toBe(200);
@@ -188,25 +209,18 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       expect(currentRootKek.keyring).not.toBeNull();
     }
 
-    const syncResponse = await postJson(
-      `/documents/${created.id}/sync`,
-      reader.token,
-      {
-        contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
-        expectedLinkSetManifestHash:
-          projection.contentKeyBundle.linkSetManifestHash,
-        expectedTargetHash: projection.contentKeyBundle.targetHash,
-        localVersionVector: null,
-        outgoingUpdates: [],
-      } satisfies DocumentSyncRequest,
-    );
-    expect(syncResponse.status).toBe(200);
-    const sync: unknown = await syncResponse.json();
-    invariant(isDocumentSyncResponse(sync), "expected a document sync");
-    expect(sync.updates.map((update) => update.id)).toContain(updateId);
+    const rematerialized = await coldRematerializeEncryptedDocument({
+      documentId: created.documentId,
+      organizationId,
+      owner,
+      reader,
+    });
+    expect(rematerialized.policyFetchCount).toBeGreaterThan(0);
+    expect(rematerialized.recoveredText).toBe(COLD_DOCUMENT_TEXT);
+    expect(rematerialized.updateIds).toContain(created.updateId);
 
     const attributionResponse = await routeApp.request(
-      `/documents/${created.id}/attribution`,
+      `/documents/${created.documentId}/attribution`,
       { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(attributionResponse.status).toBe(200);
