@@ -46,9 +46,11 @@ export function createGate(): { open: () => void; wait: Promise<void> } {
   return { open, wait };
 }
 
-export function silenceExpectedTransientDiscoveryError(): () => void {
+export function silenceExpectedTransientDiscoveryError(
+  expectedCount = 1,
+): () => void {
   const originalConsoleError = console.error;
-  let expectedErrorCount = 0;
+  let actualCount = 0;
 
   console.error = (...args: unknown[]) => {
     const isExpectedDiscoveryFailure =
@@ -58,7 +60,7 @@ export function silenceExpectedTransientDiscoveryError(): () => void {
           arg instanceof Error && arg.message === "transient discovery failure",
       );
     if (isExpectedDiscoveryFailure) {
-      expectedErrorCount += 1;
+      actualCount += 1;
       return;
     }
 
@@ -67,6 +69,6 @@ export function silenceExpectedTransientDiscoveryError(): () => void {
 
   return () => {
     console.error = originalConsoleError;
-    expect(expectedErrorCount).toBe(1);
+    expect(actualCount).toBe(expectedCount);
   };
 }

@@ -13,6 +13,7 @@ import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { rearmFailedContainer } from "./laneFailure";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
+import { reconcileOneContainer } from "./reconcileContainer";
 import type {
   ReconciliationHost,
   ReconciliationRuntimeStatus,
@@ -26,6 +27,7 @@ function canReconcile(status: ReconciliationRuntimeStatus): boolean {
 interface ReconciliationState extends IdleBackfillState {
   active: boolean;
   lane: SyncLane | null;
+  lifecycleGeneration: number;
   probeContinuationCancel: (() => void) | null;
   /**
    * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
@@ -44,43 +46,6 @@ interface ReconciliationState extends IdleBackfillState {
    * sweep is a superset, so anything coalesces into an in-flight full.
    */
   refreshType: "root" | "full" | null;
-}
-
-async function reconcileOneContainer(
-  host: ReconciliationHost,
-  containerId: string,
-  options: { forceDocumentContentPull?: boolean } = {},
-): Promise<boolean> {
-  // Structural hydration can replace a queued local root/system id before the
-  // document phase runs. Re-check current state at dequeue/sweep time so that
-  // stale, never-remote ids do not leak into /containers/:id/documents.
-  if (!host.canDiscoverContainerDocuments(containerId)) {
-    return false;
-  }
-
-  try {
-    const discovered = await host.discoverContainerDocuments(containerId);
-    if (discovered === null) {
-      return false;
-    }
-    const delta = await host.loadContainerDelta(containerId);
-    host.applyReconciled(delta);
-    // Always offer the delta for content sync. A forced pull (explicit refresh)
-    // revalidates registered ordinary documents and retries system documents;
-    // an unforced pass only opens system documents, whose local projections may
-    // have no document window that would otherwise materialize them.
-    host.requestDocumentContentPull(
-      containerId,
-      delta.documentSummaries,
-      options.forceDocumentContentPull ?? false,
-    );
-    return true;
-  } catch (error) {
-    if (host.isIgnorableError(error)) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 async function sweepKnownContainers(
@@ -167,6 +132,7 @@ async function runReconcileLane(
     scheduleProbeContinuation(host, state);
     return;
   }
+  const lifecycleGeneration = state.lifecycleGeneration;
 
   // Double-check at run time: a container may have been discovered (by an
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
@@ -187,7 +153,12 @@ async function runReconcileLane(
         acknowledgeContainerForce(state, containerId, forceGeneration);
       }
     } catch (error) {
-      rearmFailedContainer(state, containerId, shouldForce);
+      rearmFailedContainer(
+        state,
+        containerId,
+        forceGeneration,
+        lifecycleGeneration,
+      );
       throw error;
     }
   }
@@ -332,6 +303,7 @@ function startReconciliationLane(
   if (state.active) {
     return;
   }
+  state.lifecycleGeneration += 1;
   state.active = true;
   state.lane = getOrCreateDomainSyncCoordinator(host.domainScope).registerLane(
     "reconciliation:documents",
@@ -355,10 +327,12 @@ function createReconciliationState(
   return {
     active: false,
     activeContainerId: null,
+    automaticRetryGenerations: new Map(),
     discoveredContainerIds: new Set(),
     forcedContainerGenerations: new Map(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
+    lifecycleGeneration: 0,
     nextForceGeneration: 0,
     probeContinuationCancel: null,
     queue: createReconcileQueue(),
@@ -377,6 +351,7 @@ function stopReconciliationService(
   state.probeContinuationCancel?.();
   state.probeContinuationCancel = null;
   state.queue.clear();
+  state.automaticRetryGenerations.clear();
   state.forcedContainerGenerations.clear();
   state.refreshPromise = null;
   state.refreshType = null;

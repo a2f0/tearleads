@@ -4,6 +4,7 @@ import type { ReconciliationHost } from "./serviceTypes";
 
 export interface IdleBackfillState {
   activeContainerId: string | null;
+  automaticRetryGenerations: Map<string, number>;
   discoveredContainerIds: Set<string>;
   forcedContainerGenerations: Map<string, number>;
   initialDocumentProbe: InitialDocumentProbe;
@@ -18,6 +19,7 @@ export function markContainerForced(
   containerId: string,
 ): void {
   state.nextForceGeneration += 1;
+  state.automaticRetryGenerations.delete(containerId);
   state.forcedContainerGenerations.set(containerId, state.nextForceGeneration);
 }
 
@@ -28,6 +30,7 @@ export function acknowledgeContainerForce(
 ): void {
   if (state.forcedContainerGenerations.get(containerId) === generation) {
     state.forcedContainerGenerations.delete(containerId);
+    state.automaticRetryGenerations.delete(containerId);
   }
 }
 

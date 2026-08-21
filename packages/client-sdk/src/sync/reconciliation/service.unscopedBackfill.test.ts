@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import { waitForDomainSyncCoordinatorToSettle } from "../../data/sync/syncCoordinator";
 import { createReconciliationService } from "./service";
 import {
   createGate,
@@ -67,9 +68,88 @@ test("forced backfill retains force until a transient retry succeeds", async () 
     await waitFor(
       () => attempts.length === 3,
       "Expected automatic forced retry",
+      2_000,
     );
 
     expect(contentPulls).toEqual([false, true]);
+  } finally {
+    restoreConsoleError();
+  }
+});
+
+test("permanent forced failure stops after one automatic retry", async () => {
+  const restoreConsoleError = silenceExpectedTransientDiscoveryError(2);
+  const contentPulls: boolean[] = [];
+  let attempts = 0;
+  let shouldFail = true;
+
+  try {
+    const host = createReconciliationTestHost({
+      discoverContainerDocuments: async () => {
+        attempts += 1;
+        if (shouldFail) {
+          throw new Error("transient discovery failure");
+        }
+        return [];
+      },
+      listKnownContainerIds: () => ["c-1"],
+      requestDocumentContentPull: (_containerId, _documents, force) => {
+        contentPulls.push(force);
+      },
+    });
+    const service = createReconciliationService(host);
+    service.start();
+    service.enqueueIdleBackfill(true);
+    await waitFor(() => attempts === 2, "Expected one automatic retry", 2_000);
+    // The attempt counter increments before the rejected promise reaches the
+    // coordinator's error callback; let that microtask publish its outcome.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(host.domainScope, {
+        timeoutMs: 300,
+      }),
+    ).toBe(true);
+    expect(attempts).toBe(2);
+
+    shouldFail = false;
+    service.enqueueIdleBackfill();
+    await waitFor(() => contentPulls.length === 1, "Expected signaled retry");
+    expect(contentPulls).toEqual([true]);
+  } finally {
+    restoreConsoleError();
+  }
+});
+
+test("failure from a prior lifecycle cannot rearm after restart", async () => {
+  const restoreConsoleError = silenceExpectedTransientDiscoveryError();
+  const started = createGate();
+  const finish = createGate();
+  let attempts = 0;
+
+  try {
+    const host = createReconciliationTestHost({
+      discoverContainerDocuments: async () => {
+        attempts += 1;
+        started.open();
+        await finish.wait;
+        throw new Error("transient discovery failure");
+      },
+      listKnownContainerIds: () => ["c-1"],
+    });
+    const service = createReconciliationService(host);
+    service.start();
+    service.enqueueIdleBackfill(true);
+    await started.wait;
+
+    service.stop();
+    service.start();
+    finish.open();
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(host.domainScope, {
+        timeoutMs: 300,
+      }),
+    ).toBe(true);
+    expect(attempts).toBe(1);
   } finally {
     restoreConsoleError();
   }

@@ -95,6 +95,10 @@ successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
 loss mid-request. A fulfilled discovery that reports an incompletely listed
 remote lane also retains the force for the next reconciliation signal.
+Rejected forced discovery receives one backoff-delayed automatic retry per
+force generation. A second failure settles the coordinator while retaining the
+force for a later event, reconnect, hydration, navigation, or manual sync
+signal; persistent failures therefore cannot keep synchronization non-idle.
 
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced
