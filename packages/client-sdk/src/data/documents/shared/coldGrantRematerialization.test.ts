@@ -13,8 +13,6 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-  listTextCharOpIds,
-  listVersionVectorSpans,
 } from "@symcrypt/loro";
 import type {
   ContainerWriterProjectionResponse,
@@ -22,6 +20,7 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
+import { loadColdRecoveredDocumentInfo } from "../../../../test/helpers/coldDocumentInfo";
 import {
   createManagedContainerWrap,
   createRotatedGroupPolicy,
@@ -47,7 +46,6 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "../../persistence/principalPolicyPersistence";
-import { summarizeDocumentBlame } from "../editAttribution";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
@@ -245,6 +243,7 @@ async function createMultiEpochDocumentFixture(input: {
 }
 
 async function managedGrantFixture(input: {
+  reader: Awaited<ReturnType<typeof createAuthor>>;
   rotated: Awaited<ReturnType<typeof rotateRootKekKeyringFixture>>;
 }) {
   const previousMemberId = "previous-group-member";
@@ -252,39 +251,55 @@ async function managedGrantFixture(input: {
     organizationId: ORGANIZATION_ID,
     userId: previousMemberId,
   });
-  const bundle = (
-    await createRotatedGroupPolicy({
-      author: previousMember.author,
-      containerId: input.rotated.successor.containerId,
-      initialMemberKem: generateKemSeedAndKeyPair(),
-      initialUserId: previousMemberId,
-      memberKem: {
-        publicKey: input.rotated.fixture.publicKey,
-        secretKey: input.rotated.fixture.secretKey,
-      },
-      signingPublicKey: previousMember.signingPublicKey,
-      userId: USER_ID,
-    })
-  ).current;
+  const initialMemberKem = generateKemSeedAndKeyPair();
+  const policies = await createRotatedGroupPolicy({
+    author: previousMember.author,
+    containerId: input.rotated.successor.containerId,
+    initialMemberKem,
+    initialUserId: previousMemberId,
+    memberKem: {
+      publicKey: input.rotated.fixture.publicKey,
+      secretKey: input.rotated.fixture.secretKey,
+    },
+    signingPublicKey: previousMember.signingPublicKey,
+    userId: USER_ID,
+  });
   const wrap = await createManagedContainerWrap({
-    bundle,
+    bundle: policies.current,
     containerKey: input.rotated.currentKey,
     containerKeyEpochId: input.rotated.currentEpochId,
     wrapManifestHash: input.rotated.successor.accessManifestHash,
   });
+  const resolvePreviousMember = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: initialMemberKem.publicKey,
+    signingKeyFingerprint: previousMember.author.signerKeyFingerprint,
+    signingPublicKey: previousMember.signingPublicKey,
+    userId: previousMemberId,
+  });
+  const resolveReader = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: input.rotated.fixture.publicKey,
+    signingKeyFingerprint: input.reader.author.signerKeyFingerprint,
+    signingPublicKey: input.reader.signingPublicKey,
+    userId: USER_ID,
+  });
 
-  return { bundle, wrap };
+  return {
+    policies,
+    resolveTrustedUserIdentity: async (userId: string) =>
+      (await resolvePreviousMember(userId)) ?? resolveReader(userId),
+    wrap,
+  };
 }
 
 for (const grantKind of ["user", "group"] as const) {
   test(`a fresh client rematerializes multi-epoch document state through a ${grantKind} grant`, async () => {
     const rotated = await rotateRootKekKeyringFixture();
-    const { author } = await createAuthor({
+    const reader = await createAuthor({
       organizationId: ORGANIZATION_ID,
       userId: USER_ID,
     });
     const document = await createMultiEpochDocumentFixture({
-      author,
+      author: reader.author,
       rotated,
     });
 
@@ -292,24 +307,50 @@ for (const grantKind of ["user", "group"] as const) {
       await ensurePrincipalPolicyTables(execSql);
       let wraps = rotated.successor.wraps;
       if (grantKind !== "user") {
-        const managed = await managedGrantFixture({ rotated });
-        expect(managed.bundle.currentState.keyEpoch).toBeGreaterThan(
-          managed.bundle.previousStates[0]?.state.keyEpoch ?? 0,
+        const managed = await managedGrantFixture({ reader, rotated });
+        expect(managed.policies.current.currentState.keyEpoch).toBeGreaterThan(
+          managed.policies.current.previousStates[0]?.state.keyEpoch ?? 0,
         );
-        expect(managed.bundle.currentProjection).toEqual([
+        expect(managed.policies.current.currentProjection).toEqual([
           { role: "admin", userId: USER_ID },
         ]);
-        await savePrincipalPolicyBundle(
-          execSql,
-          managed.bundle,
-          "2026-08-12T12:01:00.000Z",
+        let policyGetCount = 0;
+        const warmReferencedPrincipalPolicies =
+          createRuntimePrincipalPolicyWarmer({
+            apiClient: {
+              getCurrentPrincipalPolicy: async (principalType, principalId) => {
+                policyGetCount += 1;
+                expect({ principalId, principalType }).toEqual({
+                  principalId:
+                    managed.policies.current.currentState.principalId,
+                  principalType: "group",
+                });
+                return managed.policies.current;
+              },
+            },
+            infra: { execSql },
+            resolveTrustedUserIdentity: managed.resolveTrustedUserIdentity,
+            util: {
+              log: () => undefined,
+              reportSecurityIncident: async () => undefined,
+            },
+          });
+        const [verifiedPolicy] = await collectReferencedPrincipalPolicies({
+          checkpointContext: createProjectionCheckpointContext({ execSql }),
+          organizationId: ORGANIZATION_ID,
+          principalPolicyCache: new Map(),
+          references: [principalPolicyHead(managed.policies.current)],
+          resolveUserKey: managed.resolveTrustedUserIdentity,
+          warmReferencedPrincipalPolicies,
+        });
+
+        expect(policyGetCount).toBe(1);
+        expect(verifiedPolicy?.stateHash).toBe(
+          managed.policies.current.currentState.stateHash,
         );
         wraps = [managed.wrap];
       }
       const projection = rootOnlyProjection(rotated, wraps);
-      const writerProjection = {
-        authorizingContainerPaths: [projection],
-      } as unknown as DocumentWriterProjectionResponse;
       const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
         currentContentKey: new Uint8Array(),
         currentContentKeyEpoch: 2,
@@ -317,7 +358,9 @@ for (const grantKind of ["user", "group"] as const) {
         response: document.response,
         targetSecretKey: rotated.fixture.secretKey,
         trustedLocalProjection: true,
-        writerProjection,
+        writerProjection: {
+          authorizingContainerPaths: [projection],
+        } as unknown as DocumentWriterProjectionResponse,
       });
 
       expect([...contentKeysByEpoch.keys()].sort()).toEqual([1, 2]);
@@ -333,25 +376,24 @@ for (const grantKind of ["user", "group"] as const) {
         decrypted.map((update) => update.updateData),
       );
       expect(getTextValue(recovered)).toBe("after container rotation");
-      const attributionSegments = document.response.updates.flatMap((update) =>
-        listVersionVectorSpans(update).map((span) => ({
-          ...span,
-          authorityKind: "direct" as const,
-          writerKeyFingerprint: author.signerKeyFingerprint,
-          writerUserId: USER_ID,
-        })),
-      );
-      const blame = summarizeDocumentBlame(
+      const { attributionGetCount, info } = await loadColdRecoveredDocumentInfo(
         {
-          codePoints: [...getTextValue(recovered)],
-          opIds: listTextCharOpIds(recovered),
+          authorFingerprint: reader.author.signerKeyFingerprint,
+          document: document.response,
+          execSql,
+          projection,
+          recovered,
+          userId: USER_ID,
         },
-        attributionSegments,
       );
-      expect(blame.characterBlame.unattributedCharacterCount).toBe(0);
-      expect(blame.characterBlame.writers).toEqual([
+
+      expect(attributionGetCount).toBe(1);
+      expect(info.remoteInfo?.characterBlame?.unattributedCharacterCount).toBe(
+        0,
+      );
+      expect(info.remoteInfo?.characterBlame?.writers).toEqual([
         expect.objectContaining({
-          writerKeyFingerprint: author.signerKeyFingerprint,
+          writerKeyFingerprint: reader.author.signerKeyFingerprint,
           writerUserId: USER_ID,
         }),
       ]);

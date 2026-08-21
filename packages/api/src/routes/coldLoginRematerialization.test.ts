@@ -16,14 +16,13 @@ import {
 } from "../../test/helpers/containerParentLaneQuery";
 import { createSignedDocumentSyncRequest } from "../../test/helpers/documentUpdateRequests";
 import {
-  asVerifiedContainerManifest,
   bootstrapRoot,
   buildRootGrantRequest,
   createDocument,
   type StoredRootFixture,
 } from "../../test/helpers/keyingWriterProjectionKit";
-import { addUserToAdminGroup } from "../../test/helpers/organizationAdmin";
 import { registerUser } from "../../test/helpers/registerUser";
+import { grantRootThroughRotatedReadGroup } from "../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../routeApp";
 
 type GrantKind = "direct user" | "rotated group";
@@ -49,15 +48,13 @@ async function grantColdReader(input: {
   owner: TestUser;
   reader: TestUser;
   root: StoredRootFixture;
-}): Promise<void> {
+}): Promise<string | null> {
   if (input.grantKind === "rotated group") {
-    await addUserToAdminGroup({
+    return grantRootThroughRotatedReadGroup({
       actor: input.owner,
-      member: input.reader,
-      organizationId: asVerifiedContainerManifest(input.root.bundle).state
-        .organizationId,
+      reader: input.reader,
+      root: input.root,
     });
-    return;
   }
 
   const grantRequest = await buildRootGrantRequest({
@@ -73,6 +70,7 @@ async function grantColdReader(input: {
     grantRequest,
   );
   expect(response.status, await response.clone().text()).toBe(200);
+  return null;
 }
 
 for (const grantKind of ["direct user", "rotated group"] as const) {
@@ -92,7 +90,12 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
     );
     expect(writeResponse.status).toBe(200);
 
-    await grantColdReader({ grantKind, owner, reader, root });
+    const grantedGroupId = await grantColdReader({
+      grantKind,
+      owner,
+      reader,
+      root,
+    });
 
     const rootLaneResponse = await requestContainerParentLanes(reader.token, [
       { laneId: "root", parentId: null },
@@ -127,7 +130,8 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       );
       if (
         grantKind === "rotated group" &&
-        reference.principalType === "group"
+        reference.principalType === "group" &&
+        reference.principalId === grantedGroupId
       ) {
         expect(
           policy.currentMemberEnvelopes.envelopes.map(
