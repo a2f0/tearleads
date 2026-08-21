@@ -245,6 +245,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "subscribeToDomainSyncCoordinator",
   "subscribeToPersistedDocuments",
   "summarizeDocumentContributors",
+  "syncRemoteDocument",
   "syncedContainerDocumentObjectSyncState",
   "unwrapContainerKekPath",
   "unwrapDocumentContentKeyTarget",

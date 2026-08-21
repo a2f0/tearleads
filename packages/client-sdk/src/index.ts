@@ -387,6 +387,7 @@ export {
   defaultDocumentsPersistence,
   deletePersistedDocument,
   persistedDocumentCreateStateFromResponse,
+  syncRemoteDocument,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "./workflows/documents";

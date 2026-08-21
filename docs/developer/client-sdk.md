@@ -124,7 +124,7 @@ Host adapters that still need the raw workflow runtime contract should use
 bundle themselves. This host-facing input omits API access and incident
 reporting; SDK facades own both.
 
-Root exports include built-in organization slot helpers.
+Root exports include `syncRemoteDocument(...)` for custom headless hosts.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
