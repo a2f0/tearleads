@@ -11,14 +11,13 @@ import {
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import {
-  type FailedForcedContainer,
-  rearmFailedContainer,
-  rearmFailedSweepContainers,
-  waitForContainerRetryBackoff,
-} from "./laneFailure";
+  isCurrentReconciliationLifecycle,
+  reconcileMarkedContainer,
+  sweepKnownContainers,
+} from "./knownContainerSweep";
+import { rearmFailedContainer } from "./laneFailure";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
-import { reconcileOneContainer } from "./reconcileContainer";
 import type {
   ReconciliationHost,
   ReconciliationRuntimeStatus,
@@ -53,89 +52,14 @@ interface ReconciliationState extends IdleBackfillState {
   refreshType: "root" | "full" | null;
 }
 
-async function sweepKnownContainers(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-  knownIds: ReadonlyArray<string>,
-  forceAllDocumentContentPulls: boolean,
-): Promise<void> {
-  const containerIds = forceAllDocumentContentPulls
-    ? knownIds
-    : knownIds.filter(
-        (containerId) =>
-          state.forcedContainerGenerations.has(containerId) ||
-          !state.discoveredContainerIds.has(containerId),
-      );
-  // Mark only the containers this sweep will fetch. Automatic root hints are
-  // discovery signals, so already-reconciled containers stay settled unless a
-  // targeted event forced them; explicit full refreshes still fetch every id.
-  for (const containerId of containerIds) {
-    state.discoveredContainerIds.add(containerId);
-  }
-  // Reconcile every container independently: one failing container must not
-  // block refreshing the rest. Surface the first real error after the sweep.
-  let firstError: unknown;
-  const failedForces: FailedForcedContainer[] = [];
-  const lifecycleGeneration = state.lifecycleGeneration;
-  for (const containerId of containerIds) {
-    const forceGeneration = state.forcedContainerGenerations.get(containerId);
-    try {
-      const shouldForce =
-        forceAllDocumentContentPulls || forceGeneration !== undefined;
-      const reconciled = await reconcileMarkedContainer(
-        host,
-        state,
-        containerId,
-        shouldForce,
-      );
-      if (reconciled) {
-        acknowledgeContainerForce(state, containerId, forceGeneration);
-      }
-    } catch (error) {
-      if (forceGeneration !== undefined) {
-        failedForces.push({ containerId, forceGeneration });
-      }
-      if (!host.isIgnorableError(error) && firstError === undefined) {
-        firstError = error;
-      }
-    }
-  }
-  rearmFailedSweepContainers(state, failedForces, lifecycleGeneration);
-  if (firstError !== undefined) {
-    throw firstError;
-  }
-}
-
-// Reconcile a container whose discovered mark is already set, rolling the mark
-// back when the container is skipped or fails so a transient error (or a
-// container that later becomes eligible) can be retried.
-async function reconcileMarkedContainer(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-  containerId: string,
-  forceDocumentContentPull: boolean,
-): Promise<boolean> {
-  try {
-    const reconciled = await reconcileOneContainer(host, containerId, {
-      forceDocumentContentPull,
-    });
-    if (!reconciled) {
-      state.discoveredContainerIds.delete(containerId);
-    }
-    return reconciled;
-  } catch (error) {
-    state.discoveredContainerIds.delete(containerId);
-    throw error;
-  }
-}
-
 async function runReconcileLane(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): Promise<void> {
-  if (!canReconcile(host.getRuntimeStatus())) {
+  if (!state.active || !canReconcile(host.getRuntimeStatus())) {
     return;
   }
+  const lifecycleGeneration = state.lifecycleGeneration;
 
   const containerId = state.queue.dequeue();
   if (!containerId) {
@@ -143,17 +67,6 @@ async function runReconcileLane(
     scheduleProbeContinuation(host, state);
     return;
   }
-  const lifecycleGeneration = state.lifecycleGeneration;
-  if (
-    !(await waitForContainerRetryBackoff(
-      state,
-      containerId,
-      lifecycleGeneration,
-    ))
-  ) {
-    return;
-  }
-
   // Double-check at run time: a container may have been discovered (by an
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
   // discovered up front to collapse concurrent re-enqueues into one fetch, but
@@ -236,6 +149,7 @@ async function reconcileKnownContainersAfterRefresh(input: {
   if (!canReconcile(host.getRuntimeStatus())) {
     return;
   }
+  const lifecycleGeneration = state.lifecycleGeneration;
 
   if (input.forceAllDocumentContentPulls) {
     state.queue.clear();
@@ -247,19 +161,29 @@ async function reconcileKnownContainersAfterRefresh(input: {
     // refresh can re-add the same id.
     forgetIneligibleDiscoveredContainers(host, state);
     await refreshTree();
+    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
+      return;
+    }
     // Structural hydration can revoke and remove a container after a targeted
     // force already reconciled it against the old tree. Forget every id that
     // is no longer remotely listable so a later share of the same container id
     // is treated as newly surfaced instead of being suppressed for the rest of
     // the session.
     forgetIneligibleDiscoveredContainers(host, state);
-    await sweepKnownContainers(
+    await sweepKnownContainers({
+      forceAllDocumentContentPulls: input.forceAllDocumentContentPulls,
       host,
+      knownIds: listContainerIds(),
+      lifecycleGeneration,
       state,
-      listContainerIds(),
-      input.forceAllDocumentContentPulls,
-    );
+    });
+    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
+      return;
+    }
   } catch (error) {
+    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
+      return;
+    }
     if (!host.isIgnorableError(error)) {
       throw error;
     }
@@ -358,7 +282,6 @@ function createReconciliationState(
     queue: createReconcileQueue(),
     refreshPromise: null,
     refreshType: null,
-    retryNotBeforeByContainerId: new Map(),
     unscopedInvalidationActive: false,
     unscopedInvalidatedContainerIds: new Set(),
   };
@@ -374,7 +297,6 @@ function stopReconciliationService(
   state.queue.clear();
   state.automaticRetryGenerations.clear();
   state.forcedContainerGenerations.clear();
-  state.retryNotBeforeByContainerId.clear();
   state.refreshPromise = null;
   state.refreshType = null;
   state.initialDocumentProbe.resetPending();

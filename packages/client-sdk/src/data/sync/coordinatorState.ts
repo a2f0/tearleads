@@ -23,6 +23,7 @@ export interface SyncLaneState {
   lastFailedAt: string | null;
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
+  notBeforeAtMs: number | null;
   progress: SyncLaneProgress | null;
   // Registered lanes are driven by the coordinator pump. Blob upload lanes
   // are observational telemetry driven directly by the upload workflow.

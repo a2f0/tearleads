@@ -427,3 +427,42 @@ test("full refresh defers forced retry until every container settles", async () 
 
   expect(attempts).toEqual(["c-1", "c-2", "c-1"]);
 });
+
+test("refresh from a prior lifecycle cannot consume restarted forces", async () => {
+  const refreshStarted = createGate();
+  const finishRefresh = createGate();
+  const contentPulls: boolean[] = [];
+  let online = true;
+  const host = createReconciliationTestHost({
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    listKnownContainerIds: () => ["c-1"],
+    refreshTree: async () => {
+      refreshStarted.open();
+      await finishRefresh.wait;
+    },
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  const staleRefresh = service.reconcileNow();
+  await refreshStarted.wait;
+
+  service.stop();
+  online = false;
+  service.start();
+  service.enqueueContainer("c-1", "active", true);
+  finishRefresh.open();
+  await staleRefresh;
+  expect(contentPulls).toEqual([]);
+
+  online = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected restarted force");
+  expect(contentPulls).toEqual([true]);
+});

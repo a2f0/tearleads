@@ -75,8 +75,14 @@ function delay(ms: number): Promise<void> {
 // re-entering finally — an event-loop-starving reschedule spin. Its
 // late-settle continuation re-pumps once the token clears.
 function hasRequestedLaneWork(lanes: Iterable<SyncLaneState>): boolean {
+  const now = Date.now();
   for (const lane of lanes) {
-    if (lane.pumpDriven && lane.requested && lane.activeRunToken === null) {
+    if (
+      lane.pumpDriven &&
+      lane.requested &&
+      lane.activeRunToken === null &&
+      (lane.notBeforeAtMs === null || lane.notBeforeAtMs <= now)
+    ) {
       return true;
     }
   }
@@ -88,9 +94,14 @@ function selectNextRequestedLane(
   lanes: Iterable<SyncLaneState>,
 ): SyncLaneState | null {
   let selectedLane: SyncLaneState | null = null;
+  const now = Date.now();
 
   for (const lane of lanes) {
-    if (!lane.pumpDriven || !lane.requested) {
+    if (
+      !lane.pumpDriven ||
+      !lane.requested ||
+      (lane.notBeforeAtMs !== null && lane.notBeforeAtMs > now)
+    ) {
       continue;
     }
     // A lane with a live (possibly watchdog-abandoned) run is never selected,
@@ -165,6 +176,7 @@ async function runRequestedSyncLanes(
     }
 
     lane.requested = false;
+    lane.notBeforeAtMs = null;
     lane.running = true;
     lane.runCount += 1;
     lane.lastAction = "started";
@@ -303,9 +315,42 @@ export function requestLaneSync(
   if (coordinatorState.disposed || !lane.pumpDriven) {
     return;
   }
+  lane.notBeforeAtMs = null;
   markLaneRequested(lane, createSyncTimestamp());
   publishSyncCoordinatorSnapshot(coordinatorState);
   scheduleCoordinatorPump(coordinatorState);
+}
+
+export function requestLaneSyncAfter(
+  coordinatorState: DomainSyncCoordinatorState,
+  lane: SyncLaneState,
+  delayMs: number,
+): void {
+  if (coordinatorState.disposed || !lane.pumpDriven) {
+    return;
+  }
+  if (lane.requested && lane.notBeforeAtMs === null) {
+    return;
+  }
+  const requestedAtMs = Date.now() + Math.max(0, delayMs);
+  lane.notBeforeAtMs =
+    lane.notBeforeAtMs === null
+      ? requestedAtMs
+      : Math.min(lane.notBeforeAtMs, requestedAtMs);
+  markLaneRequested(lane, createSyncTimestamp());
+  publishSyncCoordinatorSnapshot(coordinatorState);
+  const scheduledAtMs = lane.notBeforeAtMs;
+  setTimeout(
+    () => {
+      if (coordinatorState.disposed || lane.notBeforeAtMs !== scheduledAtMs) {
+        return;
+      }
+      lane.notBeforeAtMs = null;
+      publishSyncCoordinatorSnapshot(coordinatorState);
+      scheduleCoordinatorPump(coordinatorState);
+    },
+    Math.max(0, scheduledAtMs - Date.now()),
+  );
 }
 
 export function requestAllPumpDrivenLanes(
@@ -324,6 +369,7 @@ export function requestAllPumpDrivenLanes(
     if (!lane.pumpDriven) {
       continue;
     }
+    lane.notBeforeAtMs = null;
     markLaneRequested(lane, requestedAt);
     didRequestLane = true;
   }
