@@ -197,12 +197,22 @@ def ios_xcodebuild_setting(name, value)
   "#{name}=#{Shellwords.escape(value.to_s)}"
 end
 
+def active_match_keychain_path
+  keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
+  return nil if keychain_name.empty?
+
+  FastlaneCore::Helper.keychain_path(keychain_name)
+end
+
 def ios_build_xcargs(release_build, team_id)
-  [
+  settings = [
     ios_xcodebuild_setting('CURRENT_PROJECT_VERSION', release_build.fetch(:build_number)),
     ios_xcodebuild_setting('MARKETING_VERSION', release_build.fetch(:version)),
     ios_xcodebuild_setting('DEVELOPMENT_TEAM', team_id)
-  ].join(' ')
+  ]
+  keychain_path = active_match_keychain_path
+  settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{keychain_path}") unless keychain_path.nil?
+  settings.join(' ')
 end
 
 # Pin manual App Store signing on the App target's Release configuration only.

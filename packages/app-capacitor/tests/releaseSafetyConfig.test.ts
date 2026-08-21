@@ -405,6 +405,7 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("delete_keychain(name: keychain_name)");
     expect(iosFastfile).toContain("CODESIGN_LOGIN_KEYCHAIN");
     expect(iosFastfile).toContain("CODESIGN_KEYCHAIN_PASSWORD");
+    expect(iosFastfile).toContain("OTHER_CODE_SIGN_FLAGS");
     const normalizeIndex = iosFastfile.indexOf(
       "ENV.delete('MATCH_KEYCHAIN_NAME')",
     );

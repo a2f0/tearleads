@@ -66,10 +66,17 @@ codesign_profile_identity() {
     "$SECURITY_COMMAND" cms -D -i "$PROFILE_PATH" |
       plutil -extract DeveloperCertificates.0 raw -o - -
   })" || return 1
-  printf '%s' "$profile_certificate" |
-    base64 -D |
-    openssl x509 -inform DER -noout -fingerprint -sha1 |
-    sed -e 's/^.*=//' -e 's/://g'
+  profile_identity="$(
+    printf '%s' "$profile_certificate" |
+      base64 -D |
+      openssl x509 -inform DER -noout -fingerprint -sha1 |
+      sed -e 's/^.*=//' -e 's/://g'
+  )"
+  [ "${#profile_identity}" -eq 40 ] || return 1
+  case "$profile_identity" in
+    *[!0-9A-Fa-f]*) return 1 ;;
+  esac
+  printf '%s\n' "$profile_identity"
 }
 
 codesign_distribution_identities() {
@@ -82,6 +89,7 @@ codesign_probe_identity() {
   probe_file="$(mktemp "${TMPDIR:-/tmp}/symcrypt-codesign-probe.XXXXXX")"
   cp /usr/bin/true "$probe_file"
   if "${CODESIGN_COMMAND:-/usr/bin/codesign}" \
+    --keychain "$LOGIN_KEYCHAIN" \
     --force \
     --sign "$probe_identity" \
     "$probe_file" >/dev/null 2>&1; then
@@ -107,7 +115,10 @@ elif [ -n "$PROFILE_PATH" ]; then
     echo "Error: provisioning profile does not exist: $PROFILE_PATH" >&2
     exit 1
   fi
-  CODESIGN_IDENTITIES="$(codesign_profile_identity)"
+  if ! CODESIGN_IDENTITIES="$(codesign_profile_identity)"; then
+    echo "Error: provisioning profile does not contain a valid SHA-1 signing identity." >&2
+    exit 1
+  fi
 else
   CODESIGN_IDENTITIES="$(codesign_distribution_identities)"
 fi
