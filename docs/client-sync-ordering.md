@@ -93,7 +93,8 @@ transition emits a trailing flush. The invalidation propagates forced content
 revalidation to registered ordinary documents. Force is acknowledged only after
 successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
-loss mid-request.
+loss mid-request. A fulfilled discovery that reports an incompletely listed
+remote lane also retains the force for the next reconciliation signal.
 
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced

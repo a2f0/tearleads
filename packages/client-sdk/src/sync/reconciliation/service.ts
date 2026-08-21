@@ -58,7 +58,10 @@ async function reconcileOneContainer(
   }
 
   try {
-    await host.discoverContainerDocuments(containerId);
+    const discovered = await host.discoverContainerDocuments(containerId);
+    if (discovered === null) {
+      return false;
+    }
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
     // Always offer the delta for content sync. A forced pull (explicit refresh)

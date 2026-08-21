@@ -109,6 +109,33 @@ test("database loss mid-reconciliation preserves pending force", async () => {
   expect(contentPulls).toEqual([true]);
 });
 
+test("a null production discovery result preserves pending force", async () => {
+  const contentPulls: boolean[] = [];
+  let attempts = 0;
+  let discoveryResult: ReadonlyArray<never> | null = null;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async () => {
+      attempts += 1;
+      return discoveryResult;
+    },
+    listKnownContainerIds: () => ["c-1"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  await waitFor(() => attempts === 1, "Expected unavailable discovery");
+  expect(contentPulls).toEqual([]);
+
+  discoveryResult = [];
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected forced retry");
+
+  expect(contentPulls).toEqual([true]);
+});
+
 test("unscoped invalidation force-reconciles containers hydrated later", async () => {
   const attempts: Array<{ containerId: string; force: boolean }> = [];
   const knownContainerIds = ["c-1"];
