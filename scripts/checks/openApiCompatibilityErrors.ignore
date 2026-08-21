@@ -1,5 +1,0 @@
-# Intentional greenfield flag-day: container grant subjects are now limited to
-# same-organization groups and active users; organization principals are not
-# container recipients. Remove this entry after the narrowed read-model
-# contract reaches the default branch.
-GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
