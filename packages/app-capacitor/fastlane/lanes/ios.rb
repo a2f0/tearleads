@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'shellwords'
+require 'securerandom'
 require_relative '../lib/native_release_target'
 
 IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
@@ -15,8 +16,29 @@ IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
 IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
+IOS_CODESIGN_AUTHORIZATION_SCRIPT = File.expand_path(
+  '../../../../scripts/keychain/authorizeCodesignPartitionList.sh',
+  __dir__
+)
 def load_ios_release_secrets_env
   load_native_release_secrets_env
+end
+
+def delete_ios_signing_keychain(keychain_name)
+  delete_keychain(name: keychain_name)
+ensure
+  ENV.delete('MATCH_KEYCHAIN_NAME')
+  ENV.delete('MATCH_KEYCHAIN_PASSWORD')
+end
+
+def with_ios_signing_keychain
+  return yield unless ENV['MATCH_KEYCHAIN_NAME'].to_s.empty?
+
+  keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
+  setup_ci(force: true, keychain_name: keychain_name, timeout: 0)
+  yield
+ensure
+  delete_ios_signing_keychain(keychain_name) unless keychain_name.nil?
 end
 
 def explicit_ios_release_build_number(options)
@@ -216,6 +238,22 @@ def install_ios_appstore_signing_assets!
   )
 end
 
+def installed_ios_appstore_profile_path
+  ENV.fetch("sigh_#{NATIVE_APP_IDENTIFIER}_appstore_profile-path") do
+    UI.user_error!("Match did not report a provisioning profile path for #{NATIVE_APP_IDENTIFIER}.")
+  end
+end
+
+def ensure_ios_codesign_key_access!
+  profile_path = installed_ios_appstore_profile_path
+  return if system('sh', IOS_CODESIGN_AUTHORIZATION_SCRIPT, profile_path)
+
+  UI.user_error!(
+    'The iOS signing key needs interactive keychain authorization. Run ' \
+    '`scripts/keychain/authorizeCodesignPartitionList.sh` in a Terminal, then retry.'
+  )
+end
+
 def ios_export_options(team_id, profile_name)
   {
     manageAppVersionAndBuildNumber: false,
@@ -269,9 +307,12 @@ platform :ios do
   desc 'Install the App Store distribution cert and provisioning profile via match'
   lane :fetch_appstore_profile do
     load_ios_release_secrets_env
-    profile_name = install_ios_appstore_signing_assets!
-    UI.success("Installed App Store provisioning profile: #{profile_name}")
-    profile_name
+    with_ios_signing_keychain do
+      profile_name = install_ios_appstore_signing_assets!
+      ensure_ios_codesign_key_access!
+      UI.success("Installed App Store provisioning profile: #{profile_name}")
+      profile_name
+    end
   end
 
   desc 'Build signed iOS IPA for TestFlight'
@@ -291,26 +332,29 @@ platform :ios do
     end
     ensure_release_ios_capacitor_sync!
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
-    profile_name = install_ios_appstore_signing_assets!
-    pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
-    original_pbxproj = File.read(pbxproj_path)
-    begin
-      configure_ios_manual_signing!(profile_name, team_id)
-      ipa_path = build_app(
-        archive_path: IOS_ARCHIVE_PATH,
-        clean: true,
-        configuration: IOS_CONFIGURATION,
-        export_method: 'app-store',
-        export_options: ios_export_options(team_id, profile_name),
-        include_symbols: true,
-        output_directory: IOS_OUTPUT_DIR,
-        output_name: IOS_IPA_NAME,
-        project: IOS_PROJECT_PATH,
-        scheme: IOS_SCHEME,
-        xcargs: ios_build_xcargs(release_build, team_id)
-      )
-    ensure
-      File.write(pbxproj_path, original_pbxproj)
+    ipa_path = with_ios_signing_keychain do
+      profile_name = install_ios_appstore_signing_assets!
+      ensure_ios_codesign_key_access!
+      pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
+      original_pbxproj = File.read(pbxproj_path)
+      begin
+        configure_ios_manual_signing!(profile_name, team_id)
+        ipa_path = build_app(
+          archive_path: IOS_ARCHIVE_PATH,
+          clean: true,
+          configuration: IOS_CONFIGURATION,
+          export_method: 'app-store',
+          export_options: ios_export_options(team_id, profile_name),
+          include_symbols: true,
+          output_directory: IOS_OUTPUT_DIR,
+          output_name: IOS_IPA_NAME,
+          project: IOS_PROJECT_PATH,
+          scheme: IOS_SCHEME,
+          xcargs: ios_build_xcargs(release_build, team_id)
+        )
+      ensure
+        File.write(pbxproj_path, original_pbxproj)
+      end
     end
     assets = require_ios_testflight_assets!(ipa_path)
     print_ios_testflight_assets(assets)

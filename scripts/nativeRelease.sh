@@ -78,9 +78,9 @@ iOS options:
   groups:<name,name>          Select external TestFlight groups.
   skip_submission:true        Upload without submitting for review.
 
-The upload wrapper prepares the login keychain before the archive and may prompt
-for the macOS login password. iOS releases regenerate icons and splash images,
-so ImageMagick must be installed.
+After Match installs the target profile, iOS builds probe the exact signing key
+and prompt for the macOS login password only when codesign access is missing.
+iOS releases regenerate icons and splash images, so ImageMagick must be installed.
 
 App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID,
 APP_STORE_CONNECT_ISSUER_ID, and TEAM_ID. The private key defaults to
@@ -205,12 +205,6 @@ native_release_build_number_chosen() {
   return 1
 }
 
-native_release_prepare_ios_keychain() {
-  native_script_dir="$1"
-  "$native_script_dir/keychain/unlockLoginKeychain.sh"
-  "$native_script_dir/keychain/authorizeCodesignPartitionList.sh"
-}
-
 native_release_bun_command() {
   native_platform="$1"
   native_action="$2"
@@ -298,10 +292,6 @@ native_release_main() {
   export NATIVE_RELEASE_TIER="$native_tier"
   native_release_guard_environment "$native_platform" "$native_tier"
   [ "$native_platform" != android ] || native_release_ensure_android_wrapper
-  if [ "$native_platform:$native_action" = ios:upload ]; then
-    native_release_prepare_ios_keychain "$native_script_dir"
-  fi
-
   native_command="$(native_release_bun_command "$native_platform" "$native_action" "$native_tier")"
   echo "${native_action}ing ${native_tier} ${native_platform} release (NATIVE_RELEASE_TIER=${native_tier})"
   echo "VITE_API_BASE_URL=$VITE_API_BASE_URL"
