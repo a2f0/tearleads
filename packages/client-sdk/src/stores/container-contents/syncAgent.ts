@@ -128,28 +128,34 @@ function createSchedulingRemoteContainerIngestor(input: {
 
 async function initializeContainerContentsStore(input: {
   host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, scheduleSync, state } = input;
-  if (state.runtime.infra.dbStatus !== "ready") {
+  const { host, isCurrent, scheduleSync, state } = input;
+  const persistence = state.persistence;
+  const runtime = state.runtime;
+  if (runtime.infra.dbStatus !== "ready") {
     return;
   }
 
   const localContainerStates = await loadLocalContainerStates({
-    persistence: state.persistence,
-    runtime: state.runtime,
+    persistence,
+    runtime,
   });
+  if (!isCurrent()) {
+    return;
+  }
 
   for (const containerState of localContainerStates) {
     state.containersById.set(containerState.container.id, containerState);
   }
 
   state.initialized = true;
-  state.initializePromise = null;
 
   const shouldScheduleStaleRootRecovery =
     await scheduleStaleStartupRemoteHydration({
+      isCurrent,
       requestHydration: () =>
         requestContainerContentsRemoteHydration({
           host,
@@ -158,29 +164,36 @@ async function initializeContainerContentsStore(input: {
         }),
       state,
     });
+  if (!isCurrent()) {
+    return;
+  }
   const hasPendingRestorationSweep =
-    typeof state.runtime.auth.userId === "string" &&
+    typeof runtime.auth.userId === "string" &&
     (
-      await state.persistence.listDormantMetadataSweepRequests(
-        state.runtime.infra.execSql,
-        state.runtime.auth.userId,
+      await persistence.listDormantMetadataSweepRequests(
+        runtime.infra.execSql,
+        runtime.auth.userId,
       )
     ).length > 0;
+  if (!isCurrent()) {
+    return;
+  }
 
   host.updateSnapshot();
 
-  state.runtime.util.log(
+  runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
-  if (
-    state.runtime.auth.isAuthenticated &&
-    state.runtime.state.online &&
-    (shouldScheduleStaleRootRecovery ||
+  if (runtime.auth.isAuthenticated && runtime.state.online) {
+    const hasStartupWork =
+      shouldScheduleStaleRootRecovery ||
       hasPendingRestorationSweep ||
-      (await hasStartupContainerSyncWork(state)))
-  ) {
-    state.runtime.util.log(
+      (await hasStartupContainerSyncWork(state));
+    if (!isCurrent() || !hasStartupWork) {
+      return;
+    }
+    runtime.util.log(
       shouldScheduleStaleRootRecovery
         ? `${getContainerContentsStoreLogLabel(state)}: startup detected stale root recovery; scheduling lane pass`
         : `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
@@ -195,27 +208,40 @@ function ensureContainerContentsStoreInitialized(input: {
   state: ContainerContentsStoreSyncState;
 }) {
   const { host, scheduleSync, state } = input;
-  if (
-    state.initialized ||
-    state.initializePromise ||
-    state.runtime.infra.dbStatus !== "ready"
-  ) {
+  if (state.initialized || state.runtime.infra.dbStatus !== "ready") {
+    return;
+  }
+  if (state.initializePromise) {
     return;
   }
 
-  state.initializePromise = initializeContainerContentsStore({
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  state.initializeGeneration = lifecycleGeneration;
+  const initializePromise = initializeContainerContentsStore({
     host,
+    isCurrent,
     scheduleSync,
     state,
-  }).catch((error: unknown) => {
-    state.initializePromise = null;
+  })
+    .catch((error: unknown) => {
+      if (!isCurrent() || isDatabaseUnavailableError(error)) {
+        return;
+      }
 
-    if (isDatabaseUnavailableError(error)) {
-      return;
-    }
-
-    throw error;
-  });
+      throw error;
+    })
+    .finally(() => {
+      if (state.initializePromise !== initializePromise) {
+        return;
+      }
+      state.initializePromise = null;
+      state.initializeGeneration = null;
+      if (!isCurrent() && state.runtime.infra.dbStatus === "ready") {
+        ensureContainerContentsStoreInitialized(input);
+      }
+    });
+  state.initializePromise = initializePromise;
 }
 
 async function syncSingleContainerMetadata(input: {

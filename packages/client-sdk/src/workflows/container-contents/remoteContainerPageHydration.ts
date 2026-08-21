@@ -79,7 +79,7 @@ async function applyRemoteContainerPage(input: {
     }
     if (!seenContainerIds.has(container.id)) {
       seenContainerIds.add(container.id);
-      await upsertRemoteContainerState({
+      const upserted = await upsertRemoteContainerState({
         childIdsByParentId,
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
@@ -88,6 +88,9 @@ async function applyRemoteContainerPage(input: {
         remoteContainer: container,
         state,
       });
+      if (!upserted) {
+        return hydratedCount;
+      }
       hydratedCount += 1;
       if (input.isCurrent?.() === false) {
         return hydratedCount;

@@ -65,6 +65,7 @@ export function createContainerContentsStoreState(
     containersById: new Map(),
     containerParentIdsNeedingHydration: new Set(),
     documentStoresNeedPriming: true,
+    initializeGeneration: null,
     initializePromise: null,
     initialized: false,
     localContainerRefreshPromise: null,
@@ -129,7 +130,6 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
   state.initialized = false;
-  state.initializePromise = null;
   state.localContainersNeedRefresh = false;
   // Accepted-echo suppression state must not survive a reset: after a
   // database loss the tree rehydrates from remote, and a retained id would

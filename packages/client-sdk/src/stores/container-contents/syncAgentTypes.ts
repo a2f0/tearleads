@@ -10,6 +10,7 @@ export type ContainerContentsStoreRuntime =
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
+  initializeGeneration: number | null;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   localContainerRefreshPromise: Promise<void> | null;

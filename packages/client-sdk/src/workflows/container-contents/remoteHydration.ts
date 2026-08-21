@@ -53,13 +53,16 @@ async function upsertQueuedRemoteContainer(input: {
     return false;
   }
 
-  await upsertRemoteContainerState({
+  const upserted = await upsertRemoteContainerState({
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
     host,
     remoteContainer: queuedRemoteContainer,
     state,
   });
+  if (!upserted) {
+    return false;
+  }
   if (isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
     queue.delete(queuedRemoteContainer.id);
   }

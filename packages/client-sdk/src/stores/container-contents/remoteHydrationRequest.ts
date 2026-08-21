@@ -21,6 +21,19 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
     };
   };
 
+interface RemoteHydrationRequestInput {
+  followDiscoveredParentLanes?: boolean | undefined;
+  host: RemoteContainerHydrationHost;
+  onFullyHydrated?: (() => Promise<void> | void) | undefined;
+  parentIds?: ReadonlyArray<string | null> | undefined;
+  resetAllLaneWatermarks?: boolean | undefined;
+  resetRootLaneWatermark?: boolean | undefined;
+  scheduleSyncAfterHydration?: boolean | undefined;
+  scheduleSyncOnHydrationChange?: boolean | undefined;
+  scheduleSync: () => void;
+  state: RemoteHydrationRequestState;
+}
+
 class StaleRemoteHydrationError extends Error {}
 
 function createGenerationGuardedHydrationHost(input: {
@@ -57,18 +70,30 @@ function createGenerationGuardedHydrationHost(input: {
   };
 }
 
-export function requestContainerContentsRemoteHydration(input: {
-  followDiscoveredParentLanes?: boolean | undefined;
-  host: RemoteContainerHydrationHost;
-  onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  parentIds?: ReadonlyArray<string | null> | undefined;
-  resetAllLaneWatermarks?: boolean | undefined;
-  resetRootLaneWatermark?: boolean | undefined;
-  scheduleSyncAfterHydration?: boolean | undefined;
-  scheduleSyncOnHydrationChange?: boolean | undefined;
-  scheduleSync: () => void;
-  state: RemoteHydrationRequestState;
-}): Promise<void> {
+function waitForActiveRemoteHydration(
+  input: RemoteHydrationRequestInput,
+): Promise<void> | null {
+  const { state } = input;
+  const activeHydration = state.remoteHydrationPromise;
+  if (!activeHydration) {
+    return null;
+  }
+  const needsCurrentGenerationHydration =
+    state.remoteHydrationGeneration !== state.lifecycleGeneration;
+  const requestQueuedHydration = () =>
+    needsCurrentGenerationHydration ||
+    state.containerParentIdsNeedingHydration.size > 0
+      ? requestContainerContentsRemoteHydration(input)
+      : undefined;
+  return activeHydration.then(
+    requestQueuedHydration,
+    (error: unknown) => requestQueuedHydration() ?? Promise.reject(error),
+  );
+}
+
+export function requestContainerContentsRemoteHydration(
+  input: RemoteHydrationRequestInput,
+): Promise<void> {
   const { host, scheduleSync, state } = input;
   if (input.parentIds) {
     for (const parentId of input.parentIds) {
@@ -76,19 +101,9 @@ export function requestContainerContentsRemoteHydration(input: {
     }
   }
 
-  if (state.remoteHydrationPromise) {
-    const activeHydration = state.remoteHydrationPromise;
-    const needsCurrentGenerationHydration =
-      state.remoteHydrationGeneration !== state.lifecycleGeneration;
-    const requestQueuedHydration = () =>
-      needsCurrentGenerationHydration ||
-      state.containerParentIdsNeedingHydration.size > 0
-        ? requestContainerContentsRemoteHydration(input)
-        : undefined;
-    return activeHydration.then(
-      requestQueuedHydration,
-      (error: unknown) => requestQueuedHydration() ?? Promise.reject(error),
-    );
+  const activeHydration = waitForActiveRemoteHydration(input);
+  if (activeHydration) {
+    return activeHydration;
   }
 
   const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);
@@ -134,6 +149,7 @@ export function requestContainerContentsRemoteHydration(input: {
     })
     .catch((error: unknown) => {
       if (
+        !isCurrent() ||
         error instanceof StaleRemoteHydrationError ||
         isDatabaseUnavailableError(error)
       ) {

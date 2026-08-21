@@ -208,3 +208,38 @@ test("reset queues replacement hydration behind the stale generation", async () 
     close();
   }
 });
+
+test("stale hydration suppresses a late non-database failure", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-stale-hydration-failure",
+  );
+  try {
+    let rejectRequest: (error: Error) => void = () => {
+      throw new Error("request promise was not initialized");
+    };
+    let requestStarted = false;
+    const state = createRequestState(
+      execSql,
+      () =>
+        new Promise((_, reject) => {
+          requestStarted = true;
+          rejectRequest = reject;
+        }),
+    );
+    const hydration = requestContainerContentsRemoteHydration({
+      host: emptyHydrationHost,
+      parentIds: [null],
+      scheduleSync: () => {},
+      state,
+    });
+    await waitFor(() => requestStarted);
+
+    state.lifecycleGeneration += 1;
+    rejectRequest(new Error("old connection failed"));
+
+    await expect(hydration).resolves.toBeUndefined();
+    expect(state.remoteHydrationPromise).toBeNull();
+  } finally {
+    close();
+  }
+});
