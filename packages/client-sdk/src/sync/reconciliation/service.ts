@@ -3,8 +3,10 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import {
+  acknowledgeContainerForce,
   enqueueKnownContainersForIdleBackfill,
   type IdleBackfillState,
+  markContainerForced,
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import { clearOriginatedDocuments } from "./originatedDocuments";
@@ -26,7 +28,7 @@ interface ReconciliationState extends IdleBackfillState {
   probeContinuationCancel: (() => void) | null;
   /**
    * In-flight sweep promise. {@link reconcileKnownContainersAfterRefresh}
-   * clears the queue/forced set and mutates the discovered set non-atomically,
+   * clears the queue and mutates the discovered set non-atomically,
    * so two overlapping sweeps (e.g. the open catch-up racing a manual refresh)
    * would tear each other's shared state. Callers share one promise instead of
    * starting a second one underneath it — see
@@ -87,7 +89,7 @@ async function sweepKnownContainers(
     ? knownIds
     : knownIds.filter(
         (containerId) =>
-          state.forcedContainerIds.has(containerId) ||
+          state.forcedContainerGenerations.has(containerId) ||
           !state.discoveredContainerIds.has(containerId),
       );
   // Mark only the containers this sweep will fetch. Automatic root hints are
@@ -101,9 +103,9 @@ async function sweepKnownContainers(
   let firstError: unknown;
   for (const containerId of containerIds) {
     try {
+      const forceGeneration = state.forcedContainerGenerations.get(containerId);
       const shouldForce =
-        forceAllDocumentContentPulls ||
-        state.forcedContainerIds.has(containerId);
+        forceAllDocumentContentPulls || forceGeneration !== undefined;
       const reconciled = await reconcileMarkedContainer(
         host,
         state,
@@ -111,7 +113,7 @@ async function sweepKnownContainers(
         shouldForce,
       );
       if (reconciled) {
-        state.forcedContainerIds.delete(containerId);
+        acknowledgeContainerForce(state, containerId, forceGeneration);
       }
     } catch (error) {
       if (!host.isIgnorableError(error) && firstError === undefined) {
@@ -166,7 +168,8 @@ async function runReconcileLane(
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
   // discovered up front to collapse concurrent re-enqueues into one fetch, but
   // roll the mark back on failure so a transient error can be retried later.
-  const shouldForce = state.forcedContainerIds.has(containerId);
+  const forceGeneration = state.forcedContainerGenerations.get(containerId);
+  const shouldForce = forceGeneration !== undefined;
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
     const reconciled = await reconcileMarkedContainer(
@@ -176,7 +179,7 @@ async function runReconcileLane(
       shouldForce,
     );
     if (reconciled) {
-      state.forcedContainerIds.delete(containerId);
+      acknowledgeContainerForce(state, containerId, forceGeneration);
     }
   }
 
@@ -236,7 +239,6 @@ async function reconcileKnownContainersAfterRefresh(input: {
 
   if (input.forceAllDocumentContentPulls) {
     state.queue.clear();
-    state.forcedContainerIds.clear();
   }
   try {
     // A resync_required structural refresh runs independently of this service.
@@ -345,7 +347,7 @@ function createReconciliationState(
     active: false,
     activeContainerId: null,
     discoveredContainerIds: new Set(),
-    forcedContainerIds: new Set(),
+    forcedContainerGenerations: new Map(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
     probeContinuationCancel: null,
@@ -365,7 +367,7 @@ function stopReconciliationService(
   state.probeContinuationCancel?.();
   state.probeContinuationCancel = null;
   state.queue.clear();
-  state.forcedContainerIds.clear();
+  state.forcedContainerGenerations.clear();
   state.refreshPromise = null;
   state.refreshType = null;
   state.initialDocumentProbe.resetPending();
@@ -415,7 +417,7 @@ export function createReconciliationService(
       return;
     }
     if (force) {
-      state.forcedContainerIds.add(containerId);
+      markContainerForced(state, containerId);
     }
     state.queue.enqueue(containerId, priority);
     scheduleDrain();

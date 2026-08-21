@@ -4,11 +4,30 @@ import type { ReconciliationHost } from "./serviceTypes";
 
 export interface IdleBackfillState {
   discoveredContainerIds: Set<string>;
-  forcedContainerIds: Set<string>;
+  forcedContainerGenerations: Map<string, number>;
   initialDocumentProbe: InitialDocumentProbe;
   queue: ReconcileQueue;
   unscopedInvalidationActive: boolean;
   unscopedInvalidatedContainerIds: Set<string>;
+}
+
+export function markContainerForced(
+  state: IdleBackfillState,
+  containerId: string,
+): void {
+  const generation =
+    (state.forcedContainerGenerations.get(containerId) ?? 0) + 1;
+  state.forcedContainerGenerations.set(containerId, generation);
+}
+
+export function acknowledgeContainerForce(
+  state: IdleBackfillState,
+  containerId: string,
+  generation: number | undefined,
+): void {
+  if (state.forcedContainerGenerations.get(containerId) === generation) {
+    state.forcedContainerGenerations.delete(containerId);
+  }
 }
 
 export function enqueueKnownContainersForIdleBackfill(input: {
@@ -32,12 +51,12 @@ export function enqueueKnownContainersForIdleBackfill(input: {
       state.unscopedInvalidationActive &&
       !state.unscopedInvalidatedContainerIds.has(containerId);
     const shouldForce =
-      needsUnscopedForce || state.forcedContainerIds.has(containerId);
+      needsUnscopedForce || state.forcedContainerGenerations.has(containerId);
     if (!shouldForce && state.discoveredContainerIds.has(containerId)) {
       continue;
     }
-    if (shouldForce) {
-      state.forcedContainerIds.add(containerId);
+    if (needsUnscopedForce) {
+      markContainerForced(state, containerId);
       state.unscopedInvalidatedContainerIds.add(containerId);
     }
     state.queue.enqueue(containerId, "idle");

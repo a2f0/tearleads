@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createReconciliationService } from "./service";
 import {
+  createGate,
   createReconciliationTestHost,
   silenceExpectedTransientDiscoveryError,
 } from "./service.testFixtures";
@@ -95,4 +96,62 @@ test("unscoped invalidation force-reconciles containers hydrated later", async (
     { containerId: "c-1", force: true },
     { containerId: "c-2", force: true },
   ]);
+});
+
+test("a newer force survives an older in-flight reconciliation", async () => {
+  const firstStarted = createGate();
+  const finishFirst = createGate();
+  const contentPulls: boolean[] = [];
+  let attemptCount = 0;
+  const host = createReconciliationTestHost({
+    discoverContainerDocuments: async () => {
+      attemptCount += 1;
+      if (attemptCount === 1) {
+        firstStarted.open();
+        await finishFirst.wait;
+      }
+    },
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueContainer("c-1", "active", true);
+  await firstStarted.wait;
+  service.enqueueContainer("c-1", "active", true);
+  finishFirst.open();
+  await waitFor(() => attemptCount === 2, "Expected the newer force to run");
+
+  expect(contentPulls).toEqual([true, true]);
+});
+
+test("a failed full refresh preserves pending forced reconciliation", async () => {
+  const contentPulls: boolean[] = [];
+  let online = false;
+  const host = createReconciliationTestHost({
+    getRuntimeStatus: () => ({
+      dbStatus: "ready",
+      isAuthenticated: true,
+      online,
+    }),
+    listKnownContainerIds: () => ["c-1"],
+    refreshTree: async () => {
+      throw new Error("refresh failed");
+    },
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+
+  online = true;
+  await expect(service.reconcileNow()).rejects.toThrow("refresh failed");
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected forced retry");
+
+  expect(contentPulls).toEqual([true]);
 });
