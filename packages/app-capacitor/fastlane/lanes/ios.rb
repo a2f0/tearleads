@@ -248,7 +248,11 @@ def ios_codesign_keychain_environment
   keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
   return {} if keychain_name.empty?
 
-  { 'CODESIGN_LOGIN_KEYCHAIN' => FastlaneCore::Helper.keychain_path(keychain_name) }
+  environment = { 'CODESIGN_LOGIN_KEYCHAIN' => FastlaneCore::Helper.keychain_path(keychain_name) }
+  if ENV.key?('MATCH_KEYCHAIN_PASSWORD')
+    environment['CODESIGN_KEYCHAIN_PASSWORD'] = ENV.fetch('MATCH_KEYCHAIN_PASSWORD')
+  end
+  environment
 end
 
 def ensure_ios_codesign_key_access!

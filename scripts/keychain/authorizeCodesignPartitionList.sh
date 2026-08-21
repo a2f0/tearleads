@@ -24,6 +24,7 @@ EOF
 
 FORCE_AUTHORIZATION=0
 PROFILE_PATH=""
+SECURITY_COMMAND="${CODESIGN_SECURITY_COMMAND:-security}"
 for argument in "$@"; do
   case "$argument" in
     -h | --help)
@@ -50,7 +51,7 @@ done
 
 # Resolve the login keychain rather than hard-coding a per-user path.
 resolve_login_keychain() {
-  security login-keychain \
+  "$SECURITY_COMMAND" login-keychain \
     | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//'
 }
 
@@ -62,7 +63,7 @@ fi
 
 codesign_profile_identity() {
   profile_certificate="$({
-    security cms -D -i "$PROFILE_PATH" |
+    "$SECURITY_COMMAND" cms -D -i "$PROFILE_PATH" |
       plutil -extract DeveloperCertificates.0 raw -o - -
   })" || return 1
   printf '%s' "$profile_certificate" |
@@ -72,7 +73,7 @@ codesign_profile_identity() {
 }
 
 codesign_distribution_identities() {
-  security find-identity -v -p codesigning |
+  "$SECURITY_COMMAND" find-identity -v -p codesigning |
     awk '/"Apple Distribution:/{print $2}'
 }
 
@@ -116,30 +117,30 @@ if [ "$FORCE_AUTHORIZATION" = 0 ] && codesign_probe_identities "$CODESIGN_IDENTI
   exit 0
 fi
 
-if [ ! -t 0 ]; then
+if [ "${CODESIGN_KEYCHAIN_PASSWORD+x}" = x ]; then
+  KEYCHAIN_PASSWORD="$CODESIGN_KEYCHAIN_PASSWORD"
+elif [ ! -t 0 ]; then
   echo "Error: codesign key access requires interactive authorization." >&2
   exit 1
-fi
-
-# Read the password with echo disabled so it never lands on screen. Passing it
-# via -k avoids the cascade of per-key GUI approval dialogs; the trade-off is
-# that it is briefly visible in `ps` to other local users while `security` runs.
-# The command has no stdin form, matching fastlane match's behavior on a
-# single-user Mac.
-printf 'macOS login password (for %s): ' "$LOGIN_KEYCHAIN" >&2
-saved_stty="$(stty -g 2> /dev/null || true)"
-stty -echo 2> /dev/null || true
-IFS= read -r KEYCHAIN_PASSWORD
-if [ -n "$saved_stty" ]; then
-  stty "$saved_stty" 2> /dev/null || true
 else
-  stty echo 2> /dev/null || true
+  # Read the password with echo disabled so it never lands on screen.
+  printf 'keychain password (for %s): ' "$LOGIN_KEYCHAIN" >&2
+  saved_stty="$(stty -g 2> /dev/null || true)"
+  stty -echo 2> /dev/null || true
+  IFS= read -r KEYCHAIN_PASSWORD
+  if [ -n "$saved_stty" ]; then
+    stty "$saved_stty" 2> /dev/null || true
+  else
+    stty echo 2> /dev/null || true
+  fi
+  printf '\n' >&2
 fi
-printf '\n' >&2
 
 echo "Authorizing codesign to use signing keys in: $LOGIN_KEYCHAIN"
-security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$LOGIN_KEYCHAIN"
-security set-key-partition-list \
+# Passing the password via command arguments avoids a cascade of per-key GUI
+# approval dialogs. The security CLI has no stdin form, matching fastlane.
+"$SECURITY_COMMAND" unlock-keychain -p "$KEYCHAIN_PASSWORD" "$LOGIN_KEYCHAIN"
+"$SECURITY_COMMAND" set-key-partition-list \
   -S apple-tool:,apple:,codesign: \
   -s \
   -k "$KEYCHAIN_PASSWORD" \

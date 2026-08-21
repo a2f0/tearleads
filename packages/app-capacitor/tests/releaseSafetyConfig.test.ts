@@ -452,4 +452,29 @@ describe("RevenueCat store-release safety", () => {
     expect(exitCode).toBe(1);
     expect(stderr).toContain("requires interactive authorization");
   });
+
+  test("codesign authorization uses a known empty temporary-keychain password", async () => {
+    const child = Bun.spawn(["sh", codesignAuthorizationPath], {
+      env: {
+        ...process.env,
+        CODESIGN_COMMAND: "/usr/bin/false",
+        CODESIGN_KEYCHAIN_PASSWORD: "",
+        CODESIGN_LOGIN_KEYCHAIN: "/tmp/test-login.keychain-db",
+        CODESIGN_PROBE_IDENTITY: "TESTIDENTITY",
+        CODESIGN_SECURITY_COMMAND: "/usr/bin/true",
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+    const [exitCode, stderr, stdout] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("Authorizing codesign");
+    expect(stderr).toContain("still cannot use the required signing key");
+    expect(stderr).not.toContain("requires interactive authorization");
+  });
 });
