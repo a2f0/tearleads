@@ -19,6 +19,7 @@ def exercise(environment, fail: false, setup_fail: false)
       environment: environment,
       setup: proc do |name|
         events << ["setup", name]
+        environment["MATCH_READONLY"] = "true"
         raise "setup failed" if setup_fail
       end,
       cleanup: proc { |name| events << ["cleanup", name] }
@@ -34,7 +35,7 @@ def exercise(environment, fail: false, setup_fail: false)
 end
 
 puts JSON.generate(
-  success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }),
+  success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret", "MATCH_READONLY" => "false" }),
   failure: exercise({}, fail: true),
   setup_failure: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }, setup_fail: true),
   custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }),
@@ -64,6 +65,7 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
   ]);
   expect(results.success.environment).toEqual({
     MATCH_KEYCHAIN_PASSWORD: "login-secret",
+    MATCH_READONLY: "false",
   });
 
   expect(results.failure.error).toBe("build failed");

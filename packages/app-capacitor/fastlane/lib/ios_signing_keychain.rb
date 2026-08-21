@@ -4,6 +4,8 @@ require 'securerandom'
 
 # Owns an ephemeral Fastlane Match keychain without disturbing caller state.
 class IosSigningKeychain
+  PRESERVED_ENVIRONMENT_KEYS = %w[MATCH_KEYCHAIN_PASSWORD MATCH_READONLY].freeze
+
   def self.with_temporary(environment:, setup:, cleanup:, &)
     new(environment, setup, cleanup).run(&)
   end
@@ -40,28 +42,34 @@ class IosSigningKeychain
   end
 
   def prepare
-    capture_password
+    capture_environment
     @environment.delete('MATCH_KEYCHAIN_NAME')
     @keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
     @ready = true
     @setup.call(@keychain_name)
   end
 
-  def capture_password
-    @had_password = @environment.key?('MATCH_KEYCHAIN_PASSWORD')
-    @password = @environment['MATCH_KEYCHAIN_PASSWORD']
+  def capture_environment
+    @original_environment = {}
+    PRESERVED_ENVIRONMENT_KEYS.each do |key|
+      @original_environment[key] = @environment[key] if @environment.key?(key)
+    end
   end
 
   def finish
     @cleanup.call(@keychain_name)
   ensure
     @environment.delete('MATCH_KEYCHAIN_NAME')
-    restore_password
+    restore_environment
   end
 
-  def restore_password
-    return @environment['MATCH_KEYCHAIN_PASSWORD'] = @password if @had_password
-
-    @environment.delete('MATCH_KEYCHAIN_PASSWORD')
+  def restore_environment
+    PRESERVED_ENVIRONMENT_KEYS.each do |key|
+      if @original_environment.key?(key)
+        @environment[key] = @original_environment[key]
+      else
+        @environment.delete(key)
+      end
+    end
   end
 end
