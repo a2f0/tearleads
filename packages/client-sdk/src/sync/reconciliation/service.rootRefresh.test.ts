@@ -28,6 +28,7 @@ function createRootRefreshHarness(input: {
         input.canDiscoverContainerDocuments ?? (() => true),
       discoverContainerDocuments: async (containerId) => {
         calls.push(`discover:${containerId}`);
+        return [];
       },
       listAutomaticRootCatchupContainerIds: input.automaticContainerIds,
       listKnownContainerIds: input.automaticContainerIds,

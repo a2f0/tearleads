@@ -2,6 +2,7 @@ import type { DomainScope } from "../domainScope";
 import {
   requestAllPumpDrivenLanes,
   requestLaneSync,
+  requestLaneSyncAfter,
   type SyncIdleOptions,
   waitForIdleLanes,
 } from "./coordinatorPump";
@@ -60,6 +61,18 @@ export interface DomainSyncCoordinator {
 }
 
 const coordinatorsByScope = new WeakMap<DomainScope, DomainSyncCoordinator>();
+
+function createSyncLaneHandle(
+  coordinatorState: DomainSyncCoordinatorState,
+  lane: SyncLaneState,
+): SyncLane {
+  return {
+    requestSync: () => requestLaneSync(coordinatorState, lane),
+    requestSyncAfter: (delayMs) =>
+      requestLaneSyncAfter(coordinatorState, lane, delayMs),
+  };
+}
+
 function createDomainSyncCoordinator(): DomainSyncCoordinator {
   const coordinatorState: DomainSyncCoordinatorState = {
     disposed: false,
@@ -84,6 +97,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       // lane left re-requested by an in-flight run does not survive teardown.
       for (const lane of coordinatorState.lanes.values()) {
         lane.requested = false;
+        lane.notBeforeAtMs = null;
       }
       // Publish the final settled snapshot, then release listener closures:
       // the coordinator is dropped from the registry and a remount subscribes
@@ -107,9 +121,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         existingLane.blobStorageKey = null;
         existingLane.pumpDriven = true;
         publishSyncCoordinatorSnapshot(coordinatorState);
-        return {
-          requestSync: () => requestLaneSync(coordinatorState, existingLane),
-        };
+        return createSyncLaneHandle(coordinatorState, existingLane);
       }
 
       const registeredAt = createSyncTimestamp();
@@ -126,6 +138,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         lastFailedAt: null,
         lastRequestedAt: null,
         lastStartedAt: null,
+        notBeforeAtMs: null,
         progress: null,
         pumpDriven: true,
         registrationIndex: coordinatorState.nextRegistrationIndex,
@@ -137,9 +150,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       coordinatorState.nextRegistrationIndex += 1;
       coordinatorState.lanes.set(key, nextLane);
       publishSyncCoordinatorSnapshot(coordinatorState);
-      return {
-        requestSync: () => requestLaneSync(coordinatorState, nextLane),
-      };
+      return createSyncLaneHandle(coordinatorState, nextLane);
     },
     requestAllLanes() {
       requestAllPumpDrivenLanes(coordinatorState);

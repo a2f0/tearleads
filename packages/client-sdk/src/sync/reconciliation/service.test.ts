@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import { waitForDomainSyncCoordinatorToSettle } from "../../data/sync/syncCoordinator";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import { createReconciliationService } from "./service";
 import {
@@ -36,6 +37,7 @@ function createHost(
       [],
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     ...overrides,
   });
@@ -158,23 +160,29 @@ test("service retries a container after a failed reconciliation", async () => {
           failNext = false;
           throw new Error("transient discovery failure");
         }
+        return [];
       },
     });
     const service = createReconciliationService(host);
     service.start();
 
-    // First attempt fails; the container must not be permanently marked
-    // discovered, so a fresh enqueue retries it.
+    // Ordinary failures do not self-retry indefinitely; they settle until a
+    // later explicit signal re-enqueues the container.
     service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 1,
       "Expected the first (failing) attempt",
     );
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(host.domainScope, {
+        timeoutMs: 100,
+      }),
+    ).toBe(true);
 
     service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 2,
-      "Expected a retry after the failed reconciliation",
+      "Expected an explicit retry after the failed reconciliation",
     );
   } finally {
     restoreConsoleError();
@@ -188,6 +196,7 @@ test("service force-reconciles a discovered container", async () => {
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -221,6 +230,7 @@ test("service retries a container that failed during explicit refresh", async ()
         failNext = false;
         throw new Error("transient refresh failure");
       }
+      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -245,6 +255,7 @@ test("root refresh retains a directly granted non-root container in catch-up", a
     automaticRootCatchupContainerIds: ["root", "directly-granted-child"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -293,6 +304,7 @@ test("a full refresh during an in-flight root refresh still runs the full tree r
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -331,6 +343,7 @@ test("a root refresh during an in-flight root refresh coalesces into it", async 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
+      return [];
     },
     refreshRootTree: async () => {
       calls.push("refresh-root");
@@ -357,6 +370,7 @@ test("resetDiscovered lets a previously-reconciled container refetch", async () 
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
   });
   const service = createReconciliationService(host);
@@ -386,6 +400,7 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+      return [];
     },
   });
   const service = createReconciliationService(host);

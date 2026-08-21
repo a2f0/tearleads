@@ -24,8 +24,10 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   listKnownContainerIds: () => ReadonlyArray<string>;
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
-  /** Discover + persist a container's documents from the server. */
-  discoverContainerDocuments: (containerId: string) => Promise<unknown>;
+  /** Discover + persist documents; `null` means the lane was not fully listed. */
+  discoverContainerDocuments: (
+    containerId: string,
+  ) => Promise<ReadonlyArray<DocumentSummary> | null>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (
     containerId: string,
@@ -60,7 +62,14 @@ export interface ReconciliationService {
     priority: ReconcilePriority,
     force?: boolean,
   ) => void;
-  enqueueIdleBackfill: () => void;
+  /**
+   * Queue known containers at idle priority. A forced call records a global
+   * invalidation so containers materialized by later tree hydration are also
+   * force-reconciled exactly once.
+   */
+  enqueueIdleBackfill: (force?: boolean) => void;
+  /** Flush a recorded unscoped invalidation after tree hydration, if any. */
+  flushPendingUnscopedInvalidation: () => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the

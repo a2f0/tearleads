@@ -2,6 +2,7 @@ import type { SyncLanePhase } from "./syncTelemetry";
 
 export interface SyncLane {
   requestSync: () => void;
+  requestSyncAfter: (delayMs: number) => void;
 }
 
 export interface SyncLaneConfig {

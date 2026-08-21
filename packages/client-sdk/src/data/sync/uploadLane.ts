@@ -79,6 +79,7 @@ export function beginUploadLane(
       lastFailedAt: null,
       lastRequestedAt: null,
       lastStartedAt: startedAt,
+      notBeforeAtMs: null,
       progress: null,
       pumpDriven: false,
       registrationIndex: coordinatorState.nextRegistrationIndex,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createReconciliationService } from "./service";
 import { createReconciliationTestHost } from "./service.testFixtures";
+import { enqueueReconciliationForEvents } from "./triggers";
 
 test("service drops a stale local active id and re-arms it after remote backing", async () => {
   const discovered: string[] = [];
@@ -10,6 +11,7 @@ test("service drops a stale local active id and re-arms it after remote backing"
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     listKnownContainerIds: () => (remoteBacked ? ["active"] : []),
   });
@@ -35,6 +37,7 @@ test("explicit refresh excludes an ineligible active container", async () => {
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     listKnownContainerIds: () => ["remote"],
   });
@@ -55,6 +58,7 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
     canDiscoverContainerDocuments: () => remoteBacked,
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
+      return [];
     },
     getRuntimeStatus: () => ({
       dbStatus: "ready",
@@ -76,4 +80,100 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
     "Expected dequeue-time eligibility to admit the container",
   );
   expect(discovered).toEqual(["candidate"]);
+});
+
+test("forced backfill retains force while a container is ineligible", async () => {
+  const contentPulls: boolean[] = [];
+  let remoteBacked = false;
+  const host = createReconciliationTestHost({
+    canDiscoverContainerDocuments: () => remoteBacked,
+    listKnownContainerIds: () => ["candidate"],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueIdleBackfill(true);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  remoteBacked = true;
+  service.enqueueIdleBackfill();
+  await waitFor(
+    () => contentPulls.length === 1,
+    "Expected the promoted container to retain forced content pull",
+  );
+
+  expect(contentPulls).toEqual([true]);
+});
+
+test("forced backfill retains an active write-only container until eligible", async () => {
+  const contentPulls: boolean[] = [];
+  let remoteBacked = false;
+  const host = createReconciliationTestHost({
+    canDiscoverContainerDocuments: () => remoteBacked,
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  service.enqueueIdleBackfill(true);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(contentPulls).toEqual([]);
+
+  remoteBacked = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected active force");
+
+  expect(contentPulls).toEqual([true]);
+});
+
+test("ordinary backfill includes an eligible active write-only container", async () => {
+  const contentPulls: boolean[] = [];
+  let remoteBacked = false;
+  const host = createReconciliationTestHost({
+    canDiscoverContainerDocuments: () => remoteBacked,
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  remoteBacked = true;
+  service.enqueueIdleBackfill();
+  await waitFor(() => contentPulls.length === 1, "Expected active backfill");
+
+  expect(contentPulls).toEqual([false]);
+});
+
+test("returning to a write-only container consumes an unscoped event", async () => {
+  const contentPulls: boolean[] = [];
+  const host = createReconciliationTestHost({
+    listKnownContainerIds: () => [],
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-system");
+  await waitFor(() => contentPulls.length === 1, "Expected initial pull");
+  service.setActiveContainer(null);
+
+  enqueueReconciliationForEvents({
+    events: [{ type: "document_update_created", documentId: "d-1" }],
+    knownContainerIds: [],
+    service,
+  });
+  service.setActiveContainer("foreign-system");
+  await waitFor(() => contentPulls.length === 2, "Expected forced return pull");
+
+  expect(contentPulls).toEqual([false, true]);
 });

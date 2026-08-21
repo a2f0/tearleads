@@ -81,6 +81,25 @@ a remote-revalidation signal. The following signals require a probe:
 - a matching remote event, explicit document revalidation, or forced
   reconciliation requests a probe through the registered document store.
 
+A scoped remote event force-reconciles its known containers. If a valid legacy
+event has no container scope, the client instead queues every known container at
+idle priority, including containers already settled in this session. That
+global invalidation remains active for containers materialized by later tree
+hydration; the initial hydration signal conditionally flushes that recorded
+invalidation even when it suppresses the ordinary remote-growth signal. It also
+retains an active write-only system container omitted from the generic
+known-container list while remote creation is incomplete; its remote-backing
+transition emits a trailing flush. The invalidation propagates forced content
+revalidation to registered ordinary documents. Force is acknowledged only after
+successful reconciliation, so the lossy hint cannot be discarded by discovery
+suppression, temporary ineligibility, a transient request failure, or database
+loss mid-request. A fulfilled discovery that reports an incompletely listed
+remote lane also retains the force for the next reconciliation signal.
+Rejected forced discovery receives one backoff-delayed automatic retry per
+force generation. A second failure settles the coordinator while retaining the
+force for a later event, reconnect, hydration, navigation, or manual sync
+signal; persistent failures therefore cannot keep synchronization non-idle.
+
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced
 targeted reconciliation must propagate its force flag into document-content

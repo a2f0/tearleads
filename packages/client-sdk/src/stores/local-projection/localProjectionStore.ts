@@ -1,6 +1,9 @@
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
-import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
+import {
+  isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
+} from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {
@@ -169,11 +172,14 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
   if (state.activeContainerId) {
     loadActiveContainerSummaries(state, state.activeContainerId);
   }
+  return true;
+}
+
+function notifyHydrated(state: LocalProjectionStoreState): void {
   notifyReconcile(state, {
     reason: "hydrated",
     activeContainerId: state.activeContainerId,
   });
-  return true;
 }
 
 function flushPendingPrerequisitesRegained(
@@ -197,6 +203,7 @@ function hasRemoteBackedContainerMembershipGrowth(
   previous: LocalProjectionSnapshot["containers"],
   next: LocalProjectionSnapshot["containers"],
   homeOrganizationId: string | null,
+  activeContainerId: string | null,
 ): boolean {
   const isRemoteReconcilable = (
     container: LocalProjectionSnapshot["containers"][number],
@@ -206,9 +213,29 @@ function hasRemoteBackedContainerMembershipGrowth(
       isRemoteReconcilable(container) ? [container.id] : [],
     ),
   );
-  return next.some(
+  if (
+    next.some(
+      (container) =>
+        isRemoteReconcilable(container) && !previousIds.has(container.id),
+    )
+  ) {
+    return true;
+  }
+  if (!activeContainerId) {
+    return false;
+  }
+  const wasActiveRemoteBacked = previous.some(
     (container) =>
-      isRemoteReconcilable(container) && !previousIds.has(container.id),
+      container.id === activeContainerId &&
+      isRemoteBackedContainerNode(container),
+  );
+  return (
+    !wasActiveRemoteBacked &&
+    next.some(
+      (container) =>
+        container.id === activeContainerId &&
+        isRemoteBackedContainerNode(container),
+    )
   );
 }
 
@@ -245,6 +272,9 @@ export function createLocalProjectionStore(input: {
     const previousContainers = state.snapshot.containers;
     const didMarkHydrated = markHydratedIfReady(state);
     emit(state);
+    if (didMarkHydrated) {
+      notifyHydrated(state);
+    }
     // Flush only after emit has recomputed the snapshot: the backfill the
     // signal triggers enumerates known containers from getSnapshot(), so
     // flushing earlier would run it over the stale pre-hydration list.
@@ -260,6 +290,7 @@ export function createLocalProjectionStore(input: {
         previousContainers,
         state.snapshot.containers,
         state.runtime.auth.organizationId,
+        state.activeContainerId,
       )
     ) {
       notifyReconcile(state, {
@@ -320,9 +351,12 @@ export function createLocalProjectionStore(input: {
 
       // Reload the active container's summaries when the local store becomes
       // ready (e.g. first DB attach) so first paint reflects cached contents.
-      markHydratedIfReady(state);
+      const didMarkHydrated = markHydratedIfReady(state);
       emit(state);
-      // After emit, so the triggered backfill reads the refreshed snapshot.
+      if (didMarkHydrated) {
+        notifyHydrated(state);
+      }
+      // After emit, so triggered backfills read the refreshed snapshot.
       flushPendingPrerequisitesRegained(state);
     },
     onReconcileSignal: (listener) => {

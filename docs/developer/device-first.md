@@ -131,7 +131,8 @@ interface ReconciliationService {
   start(): void;                         // idempotent; wires coordinator + triggers
   setActiveContainer(containerId: string | null): void;  // re-prioritize
   enqueueContainer(containerId, priority, force?): void; // event/active work
-  enqueueIdleBackfill(): void;            // known-container catch-up
+  enqueueIdleBackfill(force?: boolean): void; // known-container catch-up/invalidation
+  flushPendingUnscopedInvalidation(): void;   // post-hydration invalidation flush
   resetDiscovered(): void;                // re-arm after reconnect/relogin
   reconcileRootContainersNow(): Promise<void>; // root-lane catch-up
   reconcileNow(): Promise<void>;         // explicit user "Refresh"
