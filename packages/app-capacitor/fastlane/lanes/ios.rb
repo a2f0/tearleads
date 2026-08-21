@@ -18,6 +18,11 @@ IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
 IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
 IOS_SIGNING_KEYCHAIN_OPTIONS = {
   add_to_search_list: true,
+  # Xcode 26 still resolves nested-framework signing through the default
+  # keychain. Keeping this false caused a real archive to fail with
+  # errSecInternalComponent even though OTHER_CODE_SIGN_FLAGS was pinned below.
+  # IosSigningKeychain serializes this global state and restores it on failure or
+  # termination signals as well as on a normal exit.
   default_keychain: true,
   lock_when_sleeps: true,
   require_create: true,

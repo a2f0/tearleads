@@ -85,6 +85,26 @@ IosSigningKeychain.with_temporary(
 end
 `;
 
+const terminationScript = `
+require "json"
+require ARGV.fetch(0)
+
+event_path = ARGV.fetch(1)
+record = proc do |event|
+  File.open(event_path, "a") { |file| file.puts(event) }
+end
+
+IosSigningKeychain.with_temporary(
+  environment: {},
+  lock_path: ARGV.fetch(2),
+  setup: proc { |_name, _password| record.call("setup") },
+  cleanup: proc { |_name| record.call("cleanup") }
+) do
+  record.call("yield")
+  sleep 30
+end
+`;
+
 test("temporary signing keychain lifecycle preserves caller state", async () => {
   const child = Bun.spawn(["ruby", "-e", lifecycleScript, helperPath], {
     stderr: "pipe",
@@ -195,6 +215,51 @@ test("temporary signing keychains serialize their global lifecycle", async () =>
     ).toBe(1);
     expect(events[0]?.[0]).not.toBe(events[3]?.[0]);
   } finally {
+    await rm(temporaryDirectory, { force: true, recursive: true });
+  }
+});
+
+test("termination signals clean up the temporary signing keychain", async () => {
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), "symcrypt-keychain-signal-"),
+  );
+  const eventPath = join(temporaryDirectory, "events.txt");
+  const child = Bun.spawn(
+    [
+      "ruby",
+      "-e",
+      terminationScript,
+      helperPath,
+      eventPath,
+      join(temporaryDirectory, "release.lock"),
+    ],
+    { stderr: "pipe", stdout: "pipe" },
+  );
+
+  try {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const events = await Bun.file(eventPath)
+        .text()
+        .catch(() => "");
+      if (events.includes("yield\n")) break;
+      await Bun.sleep(20);
+    }
+    expect(await Bun.file(eventPath).text()).toContain("yield\n");
+
+    child.kill(15);
+    const [exitCode, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+    expect(exitCode, stderr).not.toBe(0);
+    expect((await Bun.file(eventPath).text()).trim().split("\n")).toEqual([
+      "setup",
+      "yield",
+      "cleanup",
+    ]);
+  } finally {
+    child.kill();
     await rm(temporaryDirectory, { force: true, recursive: true });
   }
 });

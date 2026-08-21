@@ -6,6 +6,7 @@ require 'securerandom'
 class IosSigningKeychain
   DEFAULT_LOCK_PATH = File.join(Dir.home, 'Library', 'Keychains', '.symcrypt-release.lock').freeze
   PRESERVED_ENVIRONMENT_KEYS = %w[MATCH_KEYCHAIN_PASSWORD MATCH_READONLY].freeze
+  TERMINATION_SIGNALS = %w[HUP INT TERM].freeze
 
   def self.with_temporary(environment:, setup:, cleanup:, lock_path: DEFAULT_LOCK_PATH, &)
     new(environment, setup, cleanup, lock_path).run(&)
@@ -34,10 +35,24 @@ class IosSigningKeychain
   end
 
   def run_temporary
+    previous_signal_handlers = install_termination_handlers
     prepare
     yield
   ensure
     finish if @ready
+    restore_signal_handlers(previous_signal_handlers)
+  end
+
+  def install_termination_handlers
+    TERMINATION_SIGNALS.to_h do |signal|
+      [signal, Signal.trap(signal) { raise SignalException, signal }]
+    end
+  end
+
+  def restore_signal_handlers(handlers)
+    return if handlers.nil?
+
+    handlers.each { |signal, handler| Signal.trap(signal, handler) }
   end
 
   def caller_keychain?
