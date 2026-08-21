@@ -1,6 +1,9 @@
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
-import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
+import {
+  isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
+} from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {
@@ -197,6 +200,7 @@ function hasRemoteBackedContainerMembershipGrowth(
   previous: LocalProjectionSnapshot["containers"],
   next: LocalProjectionSnapshot["containers"],
   homeOrganizationId: string | null,
+  activeContainerId: string | null,
 ): boolean {
   const isRemoteReconcilable = (
     container: LocalProjectionSnapshot["containers"][number],
@@ -206,9 +210,29 @@ function hasRemoteBackedContainerMembershipGrowth(
       isRemoteReconcilable(container) ? [container.id] : [],
     ),
   );
-  return next.some(
+  if (
+    next.some(
+      (container) =>
+        isRemoteReconcilable(container) && !previousIds.has(container.id),
+    )
+  ) {
+    return true;
+  }
+  if (!activeContainerId) {
+    return false;
+  }
+  const wasActiveRemoteBacked = previous.some(
     (container) =>
-      isRemoteReconcilable(container) && !previousIds.has(container.id),
+      container.id === activeContainerId &&
+      isRemoteBackedContainerNode(container),
+  );
+  return (
+    !wasActiveRemoteBacked &&
+    next.some(
+      (container) =>
+        container.id === activeContainerId &&
+        isRemoteBackedContainerNode(container),
+    )
   );
 }
 
@@ -260,6 +284,7 @@ export function createLocalProjectionStore(input: {
         previousContainers,
         state.snapshot.containers,
         state.runtime.auth.organizationId,
+        state.activeContainerId,
       )
     ) {
       notifyReconcile(state, {

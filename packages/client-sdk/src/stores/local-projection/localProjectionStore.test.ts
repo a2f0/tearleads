@@ -342,7 +342,19 @@ test("remote container growth re-arms backfill after initial hydration only", as
         status: "pending",
       },
     };
-    let nodes: ReadonlyArray<ContainerNode> = [cachedRoot, localFirstChild];
+    const foreignWriteSystem: ContainerNode = {
+      ...remoteContainerNode("foreign-write-system"),
+      effectiveAccessLevel: "write",
+      metadataDocumentId: null,
+      organizationId: "org-2",
+      systemSlot: "sys_v1_contacts",
+    };
+    const remoteContacts = remoteContainerNode("remote-contacts");
+    let nodes: ReadonlyArray<ContainerNode> = [
+      cachedRoot,
+      localFirstChild,
+      foreignWriteSystem,
+    ];
     let emitContainerStore = () => {};
     const containerStore = {
       getSnapshot: () => ({ nodes, ready: true }),
@@ -355,6 +367,7 @@ test("remote container growth re-arms backfill after initial hydration only", as
       updateRuntime: () => {},
     } as unknown as ContainerContentsStore;
     const store = createLocalProjectionStore({ containerStore, runtime });
+    store.setActiveContainer(foreignWriteSystem.id);
     const signals: string[] = [];
     store.onReconcileSignal((signal) => signals.push(signal.reason));
 
@@ -364,7 +377,7 @@ test("remote container growth re-arms backfill after initial hydration only", as
     expect(signals).toEqual(["hydrated"]);
 
     // A newly discovered remote child re-arms the cold-recovery backfill.
-    nodes = [...nodes, remoteContainerNode("remote-contacts")];
+    nodes = [...nodes, remoteContacts];
     emitContainerStore();
     expect(signals).toEqual(["hydrated", "remote-containers-added"]);
 
@@ -382,6 +395,8 @@ test("remote container growth re-arms backfill after initial hydration only", as
           status: "synced",
         },
       },
+      foreignWriteSystem,
+      remoteContacts,
     ];
     emitContainerStore();
     expect(signals).toEqual([
@@ -393,6 +408,22 @@ test("remote container growth re-arms backfill after initial hydration only", as
     nodes = [...nodes];
     emitContainerStore();
     expect(signals).toHaveLength(3);
+
+    // A write-only foreign system container is excluded from the generic
+    // known-container set, but its active lane still needs a trailing flush
+    // when remote creation makes it listable.
+    nodes = nodes.map((node) =>
+      node.id === foreignWriteSystem.id
+        ? { ...node, metadataDocumentId: "foreign-system-metadata" }
+        : node,
+    );
+    emitContainerStore();
+    expect(signals).toEqual([
+      "hydrated",
+      "remote-containers-added",
+      "remote-containers-added",
+      "remote-containers-added",
+    ]);
   } finally {
     close();
   }

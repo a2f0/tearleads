@@ -48,8 +48,7 @@ export function enqueueKnownContainersForIdleBackfill(input: {
   const backfillContainerIds =
     state.unscopedInvalidationActive &&
     activeContainerId !== null &&
-    !knownContainerIds.includes(activeContainerId) &&
-    host.canDiscoverContainerDocuments(activeContainerId)
+    !knownContainerIds.includes(activeContainerId)
       ? [...knownContainerIds, activeContainerId]
       : knownContainerIds;
   state.initialDocumentProbe.arm(
