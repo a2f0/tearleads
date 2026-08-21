@@ -10,6 +10,7 @@ import {
   markContainerForced,
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
+import { rearmFailedContainer } from "./laneFailure";
 import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import type {
@@ -186,10 +187,7 @@ async function runReconcileLane(
         acknowledgeContainerForce(state, containerId, forceGeneration);
       }
     } catch (error) {
-      if (state.active) {
-        state.queue.enqueue(containerId, "idle");
-        state.lane?.requestSync();
-      }
+      rearmFailedContainer(state, containerId, shouldForce);
       throw error;
     }
   }

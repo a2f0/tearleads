@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import { waitForDomainSyncCoordinatorToSettle } from "../../data/sync/syncCoordinator";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import { createReconciliationService } from "./service";
 import {
@@ -165,17 +166,23 @@ test("service retries a container after a failed reconciliation", async () => {
     const service = createReconciliationService(host);
     service.start();
 
-    // First attempt fails; the lane retains and re-arms its own work. The
-    // coordinator backs failed self-retries off to avoid a tight loop.
+    // Ordinary failures do not self-retry indefinitely; they settle until a
+    // later explicit signal re-enqueues the container.
     service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 1,
       "Expected the first (failing) attempt",
     );
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(host.domainScope, {
+        timeoutMs: 100,
+      }),
+    ).toBe(true);
 
+    service.enqueueContainer("c-1", "active");
     await waitFor(
       () => attempts.length === 2,
-      "Expected an automatic retry after the failed reconciliation",
+      "Expected an explicit retry after the failed reconciliation",
     );
   } finally {
     restoreConsoleError();
