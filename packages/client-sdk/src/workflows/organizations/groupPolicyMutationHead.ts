@@ -1,9 +1,9 @@
 import {
   computePrincipalStateHash,
   type ReferencedPrincipalHead,
-} from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PutPrincipalPolicyRequest } from "@symcrypt/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 
 export async function groupPolicyMutationHead(
   request: PutPrincipalPolicyRequest,

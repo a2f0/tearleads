@@ -9,16 +9,16 @@ import type {
   ContainerMoveAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,

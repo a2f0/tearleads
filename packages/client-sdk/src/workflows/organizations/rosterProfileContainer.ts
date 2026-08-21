@@ -1,6 +1,6 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { createDocument, exportAllUpdates } from "@symcrypt/loro";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
@@ -45,7 +45,7 @@ export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
-    namespace: "tearleads.organization-roster-profiles",
+    namespace: "symcrypt.organization-roster-profiles",
     organizationId: input.organizationId,
   });
 }
@@ -54,7 +54,7 @@ export function deriveOrganizationMetadataContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
-    namespace: "tearleads.organization-metadata",
+    namespace: "symcrypt.organization-metadata",
     organizationId: input.organizationId,
   });
 }

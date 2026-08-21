@@ -1,8 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  BlobInfo,
-  BlobInfoDocumentReference,
-} from "@tearleads/client-sdk";
+import type { BlobInfo, BlobInfoDocumentReference } from "@symcrypt/client-sdk";
 import { cleanup, render, within } from "@testing-library/react";
 import { ROUTED_TABLET_QUERY } from "../../../../navigation/breakpoints";
 import { EXPLORER_LABELS } from "../../labels";

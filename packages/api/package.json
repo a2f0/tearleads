@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/api",
+  "name": "@symcrypt/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,18 +15,18 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1049.0",
-    "@tearleads/api-shared": "workspace:*",
-    "@tearleads/crypto": "workspace:*",
-    "@tearleads/encoding": "workspace:*",
-    "@tearleads/loro": "workspace:*",
-    "@tearleads/validators": "workspace:*",
+    "@symcrypt/api-shared": "workspace:*",
+    "@symcrypt/crypto": "workspace:*",
+    "@symcrypt/encoding": "workspace:*",
+    "@symcrypt/loro": "workspace:*",
+    "@symcrypt/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "hono": "4.7.11",
     "redis": "5.11.0",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tearleads/bob-and-alice": "workspace:*",
+    "@symcrypt/bob-and-alice": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

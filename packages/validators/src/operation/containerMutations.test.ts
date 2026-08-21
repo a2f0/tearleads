@@ -143,7 +143,7 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
     openApiDocument.paths["/containers/{containerId}/share"]?.post,
     openApiDocument.paths["/containers/with-metadata-document"]?.post,
   ]) {
-    expect(operation?.["x-tearleads-runtime-refinements"]).toEqual(
+    expect(operation?.["x-symcrypt-runtime-refinements"]).toEqual(
       runtimeRefinements,
     );
   }

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { saveTestSyncedContainer } from "./documentQueries.testFixtures";

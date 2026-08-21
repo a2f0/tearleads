@@ -1,5 +1,5 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
+import type { BlobInfo, BlobStore } from "@symcrypt/client-sdk";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,

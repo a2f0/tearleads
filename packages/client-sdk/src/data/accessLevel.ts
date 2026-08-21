@@ -1,4 +1,4 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type { ContainerAccessLevel } from "@symcrypt/crypto";
 
 // Fail closed: an unknown or missing effective access level is treated as
 // read-only. Locally-created records stamp "admin" explicitly at creation time,

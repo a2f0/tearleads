@@ -1,4 +1,4 @@
-import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
+import { SymCryptFrame, SymCryptLogo } from "@symcrypt/ui";
 import type { PropsWithChildren, ReactNode } from "react";
 
 interface SiteFrameProps {
@@ -35,20 +35,20 @@ export function SiteFrame({
   nav,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
-    <TearleadsFrame
+    <SymCryptFrame
       brandHref="/"
-      brandLogo={<TearleadsLogo />}
+      brandLogo={<SymCryptLogo />}
       footerStart={<FooterLinks />}
       headerActions={
         <>
           {nav}
-          <a className="tearleads-action-button site-app-button" href={appUrl}>
+          <a className="symcrypt-action-button site-app-button" href={appUrl}>
             App
           </a>
         </>
       }
     >
       {children}
-    </TearleadsFrame>
+    </SymCryptFrame>
   );
 }

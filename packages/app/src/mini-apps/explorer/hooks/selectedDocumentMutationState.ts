@@ -1,6 +1,6 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canWriteContainerNode,

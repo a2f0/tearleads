@@ -3,8 +3,8 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";

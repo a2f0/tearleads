@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { groups as groupsTable } from "@tearleads/api-shared/schema";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { groups as groupsTable } from "@symcrypt/api-shared/schema";
 import {
   isOrganizationContainerGrantSubjectType,
   type OrganizationContainerGrantResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import {

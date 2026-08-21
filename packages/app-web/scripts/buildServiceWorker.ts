@@ -18,7 +18,7 @@ const PRECACHE_EXTENSIONS = new Set([
   ".woff2",
 ]);
 const REQUIRED_PRECACHE_URLS = ["/worker.js", "/sqlite3.wasm"] as const;
-const CACHE_PREFIX = "tearleads-app-web-";
+const CACHE_PREFIX = "symcrypt-app-web-";
 
 export interface BuildServiceWorkerResult {
   cacheName: string;

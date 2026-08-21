@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import {
   type ContainerKekLogResponse,
   isContainerKekLogResponse,
-} from "@tearleads/validators/response";
-import { CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT } from "@tearleads/validators/util";
+} from "@symcrypt/validators/response";
+import { CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT } from "@symcrypt/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import {

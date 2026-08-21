@@ -24,33 +24,33 @@ export type KeyingCanonicalPayload<T> = T extends CanonicalJsonPrimitive
       : never;
 
 export type KeyingHashDomain =
-  | "tearleads.document.content-record-ciphertext"
-  | "tearleads.document.content-record-metadata"
-  | "tearleads.keying.access-event-body"
-  | "tearleads.keying.access-event-signing"
-  | "tearleads.keying.access-event"
-  | "tearleads.keying.access-manifest"
-  | "tearleads.keying.blob-access-manifest"
-  | "tearleads.keying.blob-content-key-targets"
-  | "tearleads.keying.content-record-nonce-domain"
-  | "tearleads.keying.container-access-direct-grants"
-  | "tearleads.keying.container-access-key-target"
-  | "tearleads.keying.container-access-structural"
-  | "tearleads.keying.container-key-epoch"
-  | "tearleads.keying.container-kek-material-id"
-  | "tearleads.keying.container-kek-keyring"
-  | "tearleads.keying.container-kek-predecessor-bridge"
-  | "tearleads.keying.container-kek-recipient-targets"
-  | "tearleads.keying.document-content-key-targets"
-  | "tearleads.keying.document-link-set-grants"
-  | "tearleads.keying.document-link-set-key-target"
-  | "tearleads.keying.document-link-set-structural"
-  | "tearleads.keying.transparency-empty-tree"
-  | "tearleads.keying.transparency-leaf"
-  | "tearleads.keying.transparency-node"
-  | "tearleads.keying.transparency-tree-head-signing"
-  | "tearleads.keying.write-header-signing"
-  | "tearleads.keying.write-header";
+  | "symcrypt.document.content-record-ciphertext"
+  | "symcrypt.document.content-record-metadata"
+  | "symcrypt.keying.access-event-body"
+  | "symcrypt.keying.access-event-signing"
+  | "symcrypt.keying.access-event"
+  | "symcrypt.keying.access-manifest"
+  | "symcrypt.keying.blob-access-manifest"
+  | "symcrypt.keying.blob-content-key-targets"
+  | "symcrypt.keying.content-record-nonce-domain"
+  | "symcrypt.keying.container-access-direct-grants"
+  | "symcrypt.keying.container-access-key-target"
+  | "symcrypt.keying.container-access-structural"
+  | "symcrypt.keying.container-key-epoch"
+  | "symcrypt.keying.container-kek-material-id"
+  | "symcrypt.keying.container-kek-keyring"
+  | "symcrypt.keying.container-kek-predecessor-bridge"
+  | "symcrypt.keying.container-kek-recipient-targets"
+  | "symcrypt.keying.document-content-key-targets"
+  | "symcrypt.keying.document-link-set-grants"
+  | "symcrypt.keying.document-link-set-key-target"
+  | "symcrypt.keying.document-link-set-structural"
+  | "symcrypt.keying.transparency-empty-tree"
+  | "symcrypt.keying.transparency-leaf"
+  | "symcrypt.keying.transparency-node"
+  | "symcrypt.keying.transparency-tree-head-signing"
+  | "symcrypt.keying.write-header-signing"
+  | "symcrypt.keying.write-header";
 
 export type AccessEventType =
   | "attachment.bind"
@@ -74,25 +74,25 @@ export const CONTENT_RECORD_ENCRYPTION_SUITE =
 export type ContentRecordEncryptionSuite =
   typeof CONTENT_RECORD_ENCRYPTION_SUITE;
 export const DOCUMENT_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.document.content-key-wrap.aes-256-gcm-container-kek" as const;
+  "symcrypt.document.content-key-wrap.aes-256-gcm-container-kek" as const;
 export const BLOB_CONTENT_KEY_WRAP_SUITE =
-  "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek" as const;
+  "symcrypt.blob.content-key-wrap.aes-256-gcm-container-kek" as const;
 export const CONTAINER_KEK_USER_WRAP_SUITE =
-  "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
+  "symcrypt.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
 export const CONTAINER_KEK_PARENT_WRAP_SUITE =
-  "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+  "symcrypt.container-kek-wrap.aes-256-gcm-parent-kek" as const;
 export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
-  "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
+  "symcrypt.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
-  "tearleads.container-kek.v1.sha256:" as const;
+  "symcrypt.container-kek.v1.sha256:" as const;
 export const CONTAINER_KEK_KEYRING_SEAL_SUITE =
-  "tearleads.container-kek-keyring.aes-256-gcm-current-kek" as const;
+  "symcrypt.container-kek-keyring.aes-256-gcm-current-kek" as const;
 // Write-time sanity cap on lifetime rotations. Sized to be unreachable by
 // legitimate use; it exists to stop runaway rotation loops and to give the
 // keyring length equation a hard ceiling, not to budget rotations. Defined
-// with the wire arithmetic in @tearleads/validators so every layer shares
+// with the wire arithmetic in @symcrypt/validators so every layer shares
 // one equation.
-export { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
+export { MAX_CONTAINER_KEY_EPOCH } from "@symcrypt/validators/util";
 
 export interface UnsignedAccessEvent {
   version: 1;

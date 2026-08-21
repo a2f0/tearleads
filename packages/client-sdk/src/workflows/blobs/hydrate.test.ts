@@ -7,8 +7,8 @@ import {
   generateSigningSeedAndKeyPair,
   signWriteHeader,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,

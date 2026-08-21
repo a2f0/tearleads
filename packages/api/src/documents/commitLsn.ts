@@ -2,7 +2,7 @@ import {
   type ApiDatabaseKind,
   type DatabaseSession,
   getDefaultApiDatabaseKind,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import { sql } from "drizzle-orm";
 
 let sqliteCommitLsnValue = 0n;

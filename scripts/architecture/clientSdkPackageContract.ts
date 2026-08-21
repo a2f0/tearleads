@@ -74,7 +74,7 @@ let clientSdkPackageJsonPromise: Promise<PackageJson> | undefined;
 const clientSdkPackageStatusContract = {
   files: ["dist"],
   main: "./dist/index.js",
-  name: "@tearleads/client-sdk",
+  name: "@symcrypt/client-sdk",
   private: true,
   sideEffects: false,
   types: "./dist/index.d.ts",
@@ -181,7 +181,7 @@ export async function findClientSdkWorkspaceDependencyViolations(): Promise<
     return Object.entries(dependencies).flatMap(
       ([dependencyName, declaredRange]) => {
         if (
-          !dependencyName.startsWith("@tearleads/") ||
+          !dependencyName.startsWith("@symcrypt/") ||
           declaredRange === "workspace:*"
         ) {
           return [];
@@ -250,8 +250,8 @@ function expectedClientSdkExportViolations(
 
 function clientSdkPackageEntryPoint(exportPath: string): string {
   return exportPath === "."
-    ? "@tearleads/client-sdk"
-    : `@tearleads/client-sdk/${exportPath.slice(2)}`;
+    ? "@symcrypt/client-sdk"
+    : `@symcrypt/client-sdk/${exportPath.slice(2)}`;
 }
 
 function expectedClientSdkPublicApiEntryPoints(): string[] {

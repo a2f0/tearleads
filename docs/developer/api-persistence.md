@@ -25,7 +25,7 @@ When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 Postgres accepts either a connection URL:
 
 ```sh
-API_DATABASE=postgres DATABASE_URL=postgres://user:password@localhost:5432/tearleads bun run --filter=@tearleads/api dev
+API_DATABASE=postgres DATABASE_URL=postgres://user:password@localhost:5432/symcrypt bun run --filter=@symcrypt/api dev
 ```
 
 or discrete env vars:
@@ -34,24 +34,24 @@ or discrete env vars:
 API_DATABASE=postgres \
 POSTGRES_HOST=localhost \
 POSTGRES_PORT=5432 \
-POSTGRES_USER=tearleads \
+POSTGRES_USER=symcrypt \
 POSTGRES_PASSWORD=secret \
-POSTGRES_DATABASE=tearleads \
-bun run --filter=@tearleads/api dev
+POSTGRES_DATABASE=symcrypt \
+bun run --filter=@symcrypt/api dev
 ```
 
 In development, `API_DATABASE=postgres` also supports local defaults when no
 Postgres connection env vars are set:
 
-- Linux: `/var/run/postgresql`, port `5432`, current OS user, database `tearleads_development`
-- macOS: `localhost`, port `5432`, current OS user, database `tearleads_development`
+- Linux: `/var/run/postgresql`, port `5432`, current OS user, database `symcrypt_development`
+- macOS: `localhost`, port `5432`, current OS user, database `symcrypt_development`
 
 Dev helpers:
 
 ```sh
 sh scripts/postgres/setupPostgresDev.sh
 sh scripts/postgres/runPostgresMigration.sh
-API_DATABASE=postgres bun run --filter=@tearleads/api dev
+API_DATABASE=postgres bun run --filter=@symcrypt/api dev
 ```
 
 To reset only the local dev database:
@@ -60,7 +60,7 @@ To reset only the local dev database:
 sh scripts/postgres/reset.sh
 ```
 
-The reset script only drops `tearleads_development`.
+The reset script only drops `symcrypt_development`.
 
 SQLite uses an in-memory database by default outside production. Set
 `API_SQLITE_PATH` or `SQLITE_PATH` to persist it to a file; one of them is
@@ -68,13 +68,13 @@ required in production. Development startup applies SQLite migrations in the
 same process, so the in-memory default is initialized before the API serves:
 
 ```sh
-API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api dev
+API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@symcrypt/api dev
 ```
 
 Migrate the persistent database before starting the API:
 
 ```sh
-API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api db:migrate
+API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@symcrypt/api db:migrate
 ```
 
 Turso requires a remote `libsql://` URL, auth token, and the UUID of the
@@ -88,7 +88,7 @@ API_DATABASE=turso \
 TURSO_DATABASE_URL=libsql://database-name.turso.io \
 TURSO_AUTH_TOKEN=secret \
 TURSO_PRIMARY_INSTANCE_ID=0be90471-6906-11ee-8553-eaa7715aeaf2 \
-bun run --filter=@tearleads/api db:migrate
+bun run --filter=@symcrypt/api db:migrate
 ```
 
 Start the API with the same variables after migration. Turso transactions are
@@ -122,7 +122,7 @@ be disposable or dedicated to integration tests.
 API package tests run against both in-memory PGlite and SQLite:
 
 ```sh
-bun run --filter=@tearleads/api test
+bun run --filter=@symcrypt/api test
 ```
 
 The test runner prints elapsed time for each adapter.
@@ -153,7 +153,7 @@ sh scripts/localstack/setupLocalS3.sh
 set -a
 . ./.secrets/dev.env
 set +a
-bun run --filter=@tearleads/api dev
+bun run --filter=@symcrypt/api dev
 ```
 
 To clear objects from the configured LocalStack bucket:

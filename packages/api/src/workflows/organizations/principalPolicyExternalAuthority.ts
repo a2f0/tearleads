@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
-import type { PrincipalStateExternalAuthority } from "@tearleads/crypto";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { organizations } from "@symcrypt/api-shared/schema";
+import type { PrincipalStateExternalAuthority } from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,

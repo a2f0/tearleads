@@ -1,8 +1,8 @@
 import {
   listOrganizationGroupMembersOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
-import type { OrganizationGroupMembersResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { OrganizationGroupMembersResponse } from "@symcrypt/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { listOrganizationGroupMembers } from "../../services/organizations/orgManager";

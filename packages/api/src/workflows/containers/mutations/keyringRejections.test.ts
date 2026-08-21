@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+import { MAX_CONTAINER_KEY_EPOCH } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import {
   createTestContainerKekKeyring,

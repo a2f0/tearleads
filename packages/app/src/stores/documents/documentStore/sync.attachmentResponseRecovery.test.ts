@@ -3,9 +3,9 @@ import {
   createDocumentStore,
   getDomainSyncCoordinatorSnapshot,
   requestAllDomainSyncLanes,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";

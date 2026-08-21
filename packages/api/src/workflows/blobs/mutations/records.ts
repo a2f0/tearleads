@@ -1,4 +1,4 @@
-import type { BlobWriteAuthorization } from "@tearleads/api-shared/schema";
+import type { BlobWriteAuthorization } from "@symcrypt/api-shared/schema";
 import type {
   AccessEvent,
   AttachmentBindAccessEventBody,
@@ -9,19 +9,19 @@ import type {
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
   WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   makeVerifiedBlobKekTargets,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   BlobContentKeyBundleRequest,
   BlobContentKeyTargetEnvelopeRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   BlobContentKeyBundleResponse,
   BlobKekTargetsResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type {
   BlobContentKeyTargetEnvelope,
   StoredBlobContentKeyBundleWithTargets,

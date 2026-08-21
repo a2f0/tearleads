@@ -8,14 +8,14 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
-} from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   createAuthor,
   createDeepNonCanonicalRecord,

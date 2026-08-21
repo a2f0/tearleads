@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the tearleads-code-assist webhook server to the production server.
+# Deploy the symcrypt-code-assist webhook server to the production server.
 #
 # Builds the standalone executable, ships it, and restarts the service. The env
 # file, private key, systemd unit, and tunnel ingress are provisioned by the
@@ -24,17 +24,17 @@ if [ -z "${SSH_TARGET:-}" ]; then
 fi
 export SSH_TARGET
 
-REMOTE_BIN_PATH="/opt/tearleads/bin"
+REMOTE_BIN_PATH="/opt/symcrypt/bin"
 
 echo "Building code-assist executable..."
 (cd "$REPO_ROOT/packages/code-assist" && bun run build)
 
 echo "Deploying code-assist executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
-rsync -avz "$REPO_ROOT/packages/code-assist/dist/tearleads-code-assist" \
+rsync -avz "$REPO_ROOT/packages/code-assist/dist/symcrypt-code-assist" \
   "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "Restarting code-assist service..."
-ssh "$SSH_TARGET" "sudo systemctl restart tearleads-code-assist"
+ssh "$SSH_TARGET" "sudo systemctl restart symcrypt-code-assist"
 
 echo "code-assist deployed."

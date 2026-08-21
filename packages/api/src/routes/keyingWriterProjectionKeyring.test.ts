@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import {
   CONTAINER_KEK_KEYRING_SEAL_SUITE,
   type ContainerKekKeyring,
   openContainerKekKeyring,
   verifyContainerKekKeyringEntry,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
   isDocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
 import {

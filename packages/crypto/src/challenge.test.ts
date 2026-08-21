@@ -26,7 +26,7 @@ test("auth challenge signing bytes are domain-bound", () => {
   );
 
   expect(encoded).toBe(
-    `{"domain":"tearleads.auth.challenge.v1","payload":{"challenge":"${challengeHex}","fingerprint":"${fingerprint}"}}`,
+    `{"domain":"symcrypt.auth.challenge.v1","payload":{"challenge":"${challengeHex}","fingerprint":"${fingerprint}"}}`,
   );
   expect(() =>
     authChallengeSigningBytes({ challengeHex: "abc", fingerprint }),

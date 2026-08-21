@@ -2,7 +2,7 @@ import type {
   BlobInfo,
   BlobInfoInput,
   BlobInfoList,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContext,
   type PropsWithChildren,

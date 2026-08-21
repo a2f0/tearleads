@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import {
   createMemoryBlobStore,
   type Logger,
-  Tearleads,
-} from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
+import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
 import {
   createIdentitySeedPhraseFromEntropy,
   generateIdentityKeyPairsFromSeedPhrase,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { restoreBackupPayload } from "../../src/providers/db/localBackupData";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
@@ -150,7 +150,7 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     )) as Array<{ n: number }>;
     expect(Number(contactsInContainer[0]?.n ?? 0)).toBe(1);
 
-    const restoredSdk = new Tearleads({
+    const restoredSdk = new SymCrypt({
       database: { execSql: targetExecSql, id: "restored-db" },
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: quietLogger,

@@ -3,7 +3,7 @@ import type {
   ContainerInfo,
   OrganizationDirectoryAndGroups,
   OrganizationGroupSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useExplorerContainerInfo } from "./ExplorerContainerInfoState";
 

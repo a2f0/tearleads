@@ -18,23 +18,23 @@ import { MAX_MULTIPART_BLOB_PART_BYTES } from "../util";
 import { defineHttpOperation } from "./definition";
 
 export const blobWireHeaderNames = {
-  blobByteLength: "X-Tearleads-Blob-Byte-Length",
-  blobId: "X-Tearleads-Blob-Id",
-  blobSha256: "X-Tearleads-Blob-Sha256",
+  blobByteLength: "X-SymCrypt-Blob-Byte-Length",
+  blobId: "X-SymCrypt-Blob-Id",
+  blobSha256: "X-SymCrypt-Blob-Sha256",
   contentLength: "Content-Length",
-  partByteLength: "X-Tearleads-Blob-Part-Byte-Length",
-  partSha256: "X-Tearleads-Blob-Part-Sha256",
-  partUploadId: "X-Tearleads-Blob-Upload-Id",
+  partByteLength: "X-SymCrypt-Blob-Part-Byte-Length",
+  partSha256: "X-SymCrypt-Blob-Part-Sha256",
+  partUploadId: "X-SymCrypt-Blob-Upload-Id",
 } as const;
 
 export const blobWireHeaderKeys = {
-  blobByteLength: "x-tearleads-blob-byte-length",
-  blobId: "x-tearleads-blob-id",
-  blobSha256: "x-tearleads-blob-sha256",
+  blobByteLength: "x-symcrypt-blob-byte-length",
+  blobId: "x-symcrypt-blob-id",
+  blobSha256: "x-symcrypt-blob-sha256",
   contentLength: "content-length",
-  partByteLength: "x-tearleads-blob-part-byte-length",
-  partSha256: "x-tearleads-blob-part-sha256",
-  partUploadId: "x-tearleads-blob-upload-id",
+  partByteLength: "x-symcrypt-blob-part-byte-length",
+  partSha256: "x-symcrypt-blob-part-sha256",
+  partUploadId: "x-symcrypt-blob-upload-id",
 } as const;
 
 export const BlobBytesPathParamsSchema = z.strictObject({
@@ -139,7 +139,7 @@ const BlobBytesResponseHeadersViewSchema = z.strictObject({
 
 const blobByteLengthHeaderRuntimeRefinement = {
   description:
-    "Blob byte responses include X-Tearleads-Blob-Byte-Length or Content-Length",
+    "Blob byte responses include X-SymCrypt-Blob-Byte-Length or Content-Length",
   id: "blobs.bytes.byteLengthHeader",
 } as const;
 

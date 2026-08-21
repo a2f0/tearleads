@@ -9,7 +9,7 @@ import {
   linkDocumentOperation,
   operationRequestPath,
   unlinkDocumentOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const documentCreate = {
   isRequest: isCreateDocumentOperationRequest,

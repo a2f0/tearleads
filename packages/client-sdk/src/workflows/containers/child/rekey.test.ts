@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import {
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import type {
   ContainerKekLogResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createMutationResponseFromRequest,
   createParentProjection,

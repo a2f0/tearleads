@@ -1,4 +1,4 @@
-import type { BlobStore } from "@tearleads/client-sdk";
+import type { BlobStore } from "@symcrypt/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
   MiniAppSidebar,

@@ -30,29 +30,29 @@
      equivalent to rgb(51 51 51 / 18%) here. */
   --color-hairline: color-mix(in srgb, var(--color-dark) 18%, transparent);
 
-  --tearleads-background: #f7f8f5;
-  --tearleads-border: #d6ddd2;
-  --tearleads-accent: #3f6d54;
-  --tearleads-text: #18211f;
-  --tearleads-header-background: var(--color-dark);
-  --tearleads-header-text: var(--color-light);
-  --tearleads-footer-background: var(--color-dark);
-  --tearleads-footer-text: var(--color-light);
+  --symcrypt-background: #f7f8f5;
+  --symcrypt-border: #d6ddd2;
+  --symcrypt-accent: #3f6d54;
+  --symcrypt-text: #18211f;
+  --symcrypt-header-background: var(--color-dark);
+  --symcrypt-header-text: var(--color-light);
+  --symcrypt-footer-background: var(--color-dark);
+  --symcrypt-footer-text: var(--color-light);
 
   /* Header/footer action-button hover fill. A themeable inversion: Light keeps
      the crisp white-on-dark chip (foreground/background of the dark chrome
      band), while Dark swaps to the calm neutral-grey emphasis chip (see the
      Dark block) so the button doesn't flash a near-white slab — matching the
      tokenized pane-footer hovers. */
-  --tearleads-action-hover-surface: var(--tearleads-header-text);
-  --tearleads-action-hover-text: var(--tearleads-header-background);
+  --symcrypt-action-hover-surface: var(--symcrypt-header-text);
+  --symcrypt-action-hover-text: var(--symcrypt-header-background);
 
   /* Window title bar. Dedicated (not the inverting --color-* primitives) so
      Dark can render a calm raised-chrome band instead of flipping the
      foreground role to a near-white bar. In Light these resolve to the classic
      dark bar / light text. */
-  --tearleads-window-titlebar-background: var(--color-dark);
-  --tearleads-window-titlebar-text: var(--color-light);
+  --symcrypt-window-titlebar-background: var(--color-dark);
+  --symcrypt-window-titlebar-text: var(--color-light);
 
   /* Color of the strong dividers/outlines (window & panel edges). Themeable:
      Light uses the foreground primitive; Dark tones it to a soft edge (see the
@@ -79,7 +79,7 @@
   --emphasis-text: var(--color-light);
 
   /* === Typography === */
-  --tearleads-font-family: monospace;
+  --symcrypt-font-family: monospace;
   --font-size-2xs: 0.72rem;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.9rem;
@@ -173,7 +173,7 @@
      corners). Resolve to 0 everywhere except devices whose viewport meta opts
      into `viewport-fit=cover` (the Capacitor shell, and iOS Safari on the web
      build). Chrome that touches a screen edge pads by the matching token so
-     controls never sit under a cutout — see .tearleads-header below and the
+     controls never sit under a cutout — see .symcrypt-header below and the
      routed shell (RoutedPane.css). */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
@@ -194,7 +194,7 @@
   --window-bar-padding: var(--window-bar-block-padding)
     var(--window-bar-inline-padding);
 
-  font-family: var(--tearleads-font-family);
+  font-family: var(--symcrypt-font-family);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -203,7 +203,7 @@
  * === Dark theme ===
  * Overrides only the THEME TOKENS above; structural tokens are inherited from
  * the base `:root`. The `--color-*` role primitives invert (light surface,
- * dark foreground), and the `--tearleads-*` chrome tokens are set explicitly so
+ * dark foreground), and the `--symcrypt-*` chrome tokens are set explicitly so
  * the header/footer stay dark rather than deriving from the inverted primitives.
  * The attribute selector outranks the base `:root`, so these win when
  * `<html data-theme="dark">` is set.
@@ -228,25 +228,25 @@
   --color-danger: #ec7a74;
   --color-hairline: color-mix(in srgb, var(--color-dark) 12%, transparent);
 
-  --tearleads-background: #1b1b1b;
-  --tearleads-border: #323232;
-  --tearleads-accent: #888888;
-  --tearleads-text: #e5e5e5;
+  --symcrypt-background: #1b1b1b;
+  --symcrypt-border: #323232;
+  --symcrypt-accent: #888888;
+  --symcrypt-text: #e5e5e5;
   /* Chrome bands are grounded a step below the desktop, but lifted well clear
      of the near-black they used to be so the header/footer no longer punch a
      hole out of the app. */
-  --tearleads-header-background: #161616;
-  --tearleads-header-text: #e5e5e5;
-  --tearleads-footer-background: #161616;
-  --tearleads-footer-text: #e5e5e5;
+  --symcrypt-header-background: #161616;
+  --symcrypt-header-text: #e5e5e5;
+  --symcrypt-footer-background: #161616;
+  --symcrypt-footer-text: #e5e5e5;
 
   /* Window chrome. The title bar is a raised surface one step up the dark
      elevation ramp (background #1b1b1b -> body #242424 -> muted bars #2e2e2e ->
      title bar) with off-white text, so it reads as chrome instead of an
      inverted near-white slab. The strong-border color is a soft edge that
      still delineates a window against the desktop without glaring. */
-  --tearleads-window-titlebar-background: #303030;
-  --tearleads-window-titlebar-text: #e5e5e5;
+  --symcrypt-window-titlebar-background: #303030;
+  --symcrypt-window-titlebar-text: #e5e5e5;
   --border-strong-color: #3b3b3b;
 
   /* Default borders (table/grid lines, toolbar & menu dividers, control
@@ -266,8 +266,8 @@
 
   /* Header/footer action buttons hover to the same grey chip rather than the
      near-white inversion Light uses. */
-  --tearleads-action-hover-surface: var(--emphasis-surface);
-  --tearleads-action-hover-text: var(--emphasis-text);
+  --symcrypt-action-hover-surface: var(--emphasis-surface);
+  --symcrypt-action-hover-text: var(--emphasis-text);
 
   --overlay-background: rgb(0 0 0 / 55%);
 }
@@ -313,8 +313,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  color: var(--tearleads-text);
-  background: var(--tearleads-background);
+  color: var(--symcrypt-text);
+  background: var(--symcrypt-background);
   font-family: inherit;
 }
 
@@ -330,7 +330,7 @@ textarea {
 
 /*
  * Two companion stylesheets are imported immediately after this file (see
- * TearleadsFrame), split out only to keep each stylesheet within the
+ * SymCryptFrame), split out only to keep each stylesheet within the
  * source-shape size budget:
  *
  *   - styles.routed.css — touch / routed-layout sizing (Apple HIG). Scoped to
@@ -341,7 +341,7 @@ textarea {
  *     an anchor rely on it rather than repeating the reset.
  */
 
-.tearleads-frame {
+.symcrypt-frame {
   display: grid;
   grid-template:
     "header" auto
@@ -349,18 +349,18 @@ textarea {
     "footer" auto
     / 1fr;
   min-height: 100vh;
-  background: var(--tearleads-background);
+  background: var(--symcrypt-background);
 }
 
 /* Small-viewport units track iOS Safari's collapsing toolbars; the plain vh
    declaration above stays as the fallback for engines without dvh support. */
 @supports (min-height: 100dvh) {
-  .tearleads-frame {
+  .symcrypt-frame {
     min-height: 100dvh;
   }
 }
 
-.tearleads-header {
+.symcrypt-header {
   grid-area: header;
   display: flex;
   align-items: center;
@@ -373,39 +373,39 @@ textarea {
   padding-top: calc(var(--space-md) + var(--safe-area-top));
   padding-inline: calc(var(--space-md) + var(--safe-area-left))
     calc(var(--space-md) + var(--safe-area-right));
-  background: var(--tearleads-header-background);
-  color: var(--tearleads-header-text);
+  background: var(--symcrypt-header-background);
+  color: var(--symcrypt-header-text);
 
   /* The default logo greys (#555/#999) are near-invisible on the dark header.
      Remap both tones into the light range while preserving the source
      hierarchy — the "T" (secondary) is the brighter glyph, the "L:" (primary)
      a dimmer solid grey. Mixing toward the header background (not transparent)
      keeps the dimmer tone a clean opaque grey rather than a muddy blend. */
-  --tearleads-logo-secondary: var(--tearleads-header-text);
-  --tearleads-logo-primary: color-mix(
+  --symcrypt-logo-secondary: var(--symcrypt-header-text);
+  --symcrypt-logo-primary: color-mix(
     in srgb,
-    var(--tearleads-header-text) 62%,
-    var(--tearleads-header-background)
+    var(--symcrypt-header-text) 62%,
+    var(--symcrypt-header-background)
   );
 }
 
 /* Renders as either an <a> or a <div>; both take the header's color, the
    anchor's underline reset coming from styles.links.css. */
-.tearleads-brand {
+.symcrypt-brand {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
 }
 
-.tearleads-brand-logo {
+.symcrypt-brand-logo {
   display: inline-flex;
   flex: none;
   align-items: center;
 }
 
-.tearleads-brand-logo svg,
-.tearleads-brand-logo img {
+.symcrypt-brand-logo svg,
+.symcrypt-brand-logo img {
   /* The mark is square. width: auto overrides the SVG's intrinsic 33x33
      attributes so height drives the size and height-only overrides (e.g.
      global.css) scale the width automatically; aspect-ratio keeps it square
@@ -418,21 +418,21 @@ textarea {
   aspect-ratio: 1 / 1;
 }
 
-.tearleads-brand-mark {
+.symcrypt-brand-mark {
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tearleads-header-actions {
+.symcrypt-header-actions {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   margin-left: auto;
 }
 
-.tearleads-footer {
+.symcrypt-footer {
   grid-area: footer;
   display: flex;
   align-items: center;
@@ -443,23 +443,23 @@ textarea {
   padding-bottom: calc(var(--space-md) + var(--safe-area-bottom));
   padding-inline: calc(var(--space-md) + var(--safe-area-left))
     calc(var(--space-md) + var(--safe-area-right));
-  background: var(--tearleads-footer-background);
-  color: var(--tearleads-footer-text);
+  background: var(--symcrypt-footer-background);
+  color: var(--symcrypt-footer-text);
 }
 
-.tearleads-footer-start,
-.tearleads-footer-end {
+.symcrypt-footer-start,
+.symcrypt-footer-end {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
 }
 
-.tearleads-footer-end {
+.symcrypt-footer-end {
   margin-left: auto;
 }
 
-.tearleads-action-button {
+.symcrypt-action-button {
   min-height: var(--control-height);
   padding: var(--control-padding-block) var(--control-padding-inline);
   border: var(--border);
@@ -469,10 +469,10 @@ textarea {
   font-size: var(--font-size-md);
 }
 
-.tearleads-action-button:hover,
-.tearleads-action-button:focus-visible {
-  background: var(--tearleads-action-hover-surface);
-  color: var(--tearleads-action-hover-text);
+.symcrypt-action-button:hover,
+.symcrypt-action-button:focus-visible {
+  background: var(--symcrypt-action-hover-surface);
+  color: var(--symcrypt-action-hover-text);
 }
 
 /* Square, control-height variant with a centered glyph. The footer's tray
@@ -484,7 +484,7 @@ textarea {
    carry the heavier --border-strong window-chrome edge instead, which in Dark
    sat invisibly against the footer while its sibling chip stayed legible. One
    token now keeps all three consistent in both themes. */
-.tearleads-action-button--icon {
+.symcrypt-action-button--icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;

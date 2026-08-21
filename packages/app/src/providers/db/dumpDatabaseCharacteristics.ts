@@ -1,7 +1,7 @@
 import {
   createExecSql,
   type ExecSqlClientLike,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 interface TableCharacteristic {

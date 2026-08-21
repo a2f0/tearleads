@@ -10,14 +10,14 @@ variable "ssh_key_name" {
 }
 
 variable "domain" {
-  description = "Domain name for DNS records"
+  description = "Cloudflare zone name for DNS records"
   type        = string
 }
 
-variable "extra_demo_domains" {
-  description = "Additional Cloudflare zone names that should route demo.<domain> to this server."
-  type        = list(string)
-  default     = []
+variable "deployment_tier" {
+  description = "Deployment tier used in resource names and public hostnames"
+  type        = string
+  default     = "staging"
 }
 
 variable "server_location" {

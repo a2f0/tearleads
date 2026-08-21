@@ -12,13 +12,13 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createMutationResponseFromRequest,
   createParentProjection,

@@ -82,7 +82,7 @@ test("hosted Stripe operations declare dynamic return URL validation", () => {
     ]);
     expect(
       openApiDocument.paths[operation.path]?.post?.[
-        "x-tearleads-runtime-refinements"
+        "x-symcrypt-runtime-refinements"
       ],
     ).toEqual([stripeReturnUrlOriginRefinement]);
   }

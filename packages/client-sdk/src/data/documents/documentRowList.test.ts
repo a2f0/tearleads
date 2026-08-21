@@ -6,7 +6,7 @@ import {
   exportUpdatesSince,
   importSnapshot,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   addDocumentRow,
   type DocumentRowAttribution,

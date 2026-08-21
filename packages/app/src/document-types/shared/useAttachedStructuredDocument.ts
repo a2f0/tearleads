@@ -1,6 +1,6 @@
-import type { DocumentContextValue } from "@tearleads/client-sdk";
+import type { DocumentContextValue } from "@symcrypt/client-sdk";
 import { useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../providers/sdk/SymCryptProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import type { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
@@ -38,7 +38,7 @@ interface AttachedStructuredDocument<Fields> {
 export function useAttachedStructuredDocument<Fields>(
   options: UseAttachedStructuredDocumentOptions<Fields>,
 ): AttachedStructuredDocument<Fields> {
-  const { infra } = useTearleadsRuntime();
+  const { infra } = useSymCryptRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,

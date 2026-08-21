@@ -1,23 +1,23 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
-import { documents } from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/postgres";
+import { documents } from "@symcrypt/api-shared/schema";
 import type {
   AccessManifest,
   DocumentLinkSetManifestState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentNotFoundErrorCode,
   DocumentProjectionErrorCode,
   DocumentSyncErrorCode,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,

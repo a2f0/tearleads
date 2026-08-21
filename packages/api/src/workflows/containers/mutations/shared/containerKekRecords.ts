@@ -6,13 +6,13 @@ import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   VerifiedContainerKekState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   makeVerifiedContainerKekState,
   normalizeContainerKekKeyring,
   normalizeContainerKekPredecessorBridge,
-} from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import {
   readProjectionNullableString,
   readProjectionPlainRecord,

@@ -1,4 +1,4 @@
-import type { OrganizationDirectoryAndGroups } from "@tearleads/client-sdk";
+import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,

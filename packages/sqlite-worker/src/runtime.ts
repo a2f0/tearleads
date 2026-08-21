@@ -14,7 +14,7 @@ import {
 } from "./renewedClientTransport";
 
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
-const DEFAULT_SHARED_DATABASE_WORKER_NAME = "tearleads-sqlite-worker";
+const DEFAULT_SHARED_DATABASE_WORKER_NAME = "symcrypt-sqlite-worker";
 
 interface TerminableWorkerLike extends WorkerLike {
   terminate(): void;

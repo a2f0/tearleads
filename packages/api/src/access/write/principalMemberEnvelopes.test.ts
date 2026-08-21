@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   signPrincipalStateBundle,
   storePrincipalState as storeVerifiedPrincipalState,

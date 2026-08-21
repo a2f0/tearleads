@@ -1,7 +1,7 @@
 import type {
   DomainScope,
   LocalOrganizationSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useState } from "react";
 
 export const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();

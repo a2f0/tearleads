@@ -1,4 +1,4 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { useMemo } from "react";
 import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useAsyncDerivedState } from "../../utils/useAsyncDerivedState";

@@ -5,7 +5,7 @@ import type {
   OrganizationDirectoryUserResponse,
   OrganizationGroupCurrentStateResponse,
   OrganizationRosterStatus,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,

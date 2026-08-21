@@ -1,6 +1,6 @@
-import type { OrganizationDirectoryAndGroups } from "@tearleads/client-sdk";
+import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
 import { useCallback } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { getExplorerAttributionUserLabel } from "../detail/attributionDisplay";
 import { useExplorerAttributionProfileDisplayNames } from "./useExplorerAttributionProfileDisplayNames";
 

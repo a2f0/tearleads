@@ -12,7 +12,7 @@ import {
   rekeyContainerOperation,
   revokeContainerOperation,
   shareContainerOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const containerCreate = {
   isRequest: isContainerMutationOperationRequest,

@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   containerDocumentSyncTombstones,
@@ -10,7 +10,7 @@ import {
   documentAuditEntries,
   documentContainerLinks,
   documents,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";

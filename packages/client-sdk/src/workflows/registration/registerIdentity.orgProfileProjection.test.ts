@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { createDocument, importSnapshot } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { createDocument, importSnapshot } from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";

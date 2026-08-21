@@ -3,7 +3,7 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   type DragEvent,
   type RefObject,
@@ -15,7 +15,7 @@ import {
 } from "react";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../providers/sdk/SymCryptProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   useDocument,
@@ -255,7 +255,7 @@ export function useNoteEditorFields(
   params: { containerId?: string | null; localId?: string | undefined } = {},
 ): NoteEditorFieldsModel {
   const { containerId = null, localId = DEFAULT_DOCUMENT_ID } = params;
-  const { infra } = useTearleadsRuntime();
+  const { infra } = useSymCryptRuntime();
   const { blobStore } = infra;
   const { logError } = useLog();
   const {

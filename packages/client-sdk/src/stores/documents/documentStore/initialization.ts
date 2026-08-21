@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
@@ -6,7 +6,7 @@ import {
   getImportBlobMetadata,
   importSnapshot,
   mergeVersionVectors,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,

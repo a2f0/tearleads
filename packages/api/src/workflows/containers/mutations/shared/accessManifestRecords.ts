@@ -4,13 +4,13 @@ import type {
   ContainerDirectGrant,
   ContainerGrantSubjectType,
   VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
-import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
+import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,
-  readProjectionAccessManifest,
+  readProjectionContainerAccessManifest,
   readProjectionContainerGrantPrincipalHeads,
   readProjectionNullableString,
   readProjectionPlainRecord,
@@ -150,7 +150,7 @@ export function readVerifiedContainerManifest(
   bundle: AccessManifestBundleWire,
   label: string,
 ): VerifiedContainerAccessManifest {
-  const manifest = readProjectionAccessManifest(
+  const manifest = readProjectionContainerAccessManifest(
     bundle.manifest,
     `${label}.manifest`,
     mutationShapeError,

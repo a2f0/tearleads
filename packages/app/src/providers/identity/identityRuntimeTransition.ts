@@ -1,9 +1,9 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 
 /** Detach auth and events before publishing a different signing identity. */
-function clearSessionForIdentityTransition(tearleads: Tearleads): void {
-  tearleads.events.clear();
-  tearleads.session.setContext({
+function clearSessionForIdentityTransition(symcrypt: SymCrypt): void {
+  symcrypt.events.clear();
+  symcrypt.session.setContext({
     authToken: null,
     containerId: null,
     defaultOrganizationId: null,
@@ -14,7 +14,7 @@ function clearSessionForIdentityTransition(tearleads: Tearleads): void {
 }
 
 /** Stop identity-scoped work and detach the old session before changing keys. */
-export function prepareForIdentityTransition(tearleads: Tearleads): void {
-  tearleads.dispose();
-  clearSessionForIdentityTransition(tearleads);
+export function prepareForIdentityTransition(symcrypt: SymCrypt): void {
+  symcrypt.dispose();
+  clearSessionForIdentityTransition(symcrypt);
 }

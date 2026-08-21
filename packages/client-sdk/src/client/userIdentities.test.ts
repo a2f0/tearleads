@@ -4,8 +4,8 @@ import {
   generateSigningSeedAndKeyPair,
   KeyingVerificationError,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import { createTestTrustedUserIdentity } from "../../test/helpers/trustedUserIdentity";
 import { createUserIdentities } from "./userIdentities";
 

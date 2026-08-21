@@ -1,10 +1,10 @@
-import { users } from "@tearleads/api-shared/schema";
+import { users } from "@symcrypt/api-shared/schema";
 import {
   authChallengeSigningBytes,
   toFingerprint,
   verify,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
 import { eq } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 

@@ -4,10 +4,10 @@ import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryAndGroups,
   type OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
@@ -61,11 +61,11 @@ function runtimeSnapshot(input?: { isAuthenticated?: boolean }) {
   } as unknown as RuntimeSnapshot;
 }
 
-function createTearleadsHarness(listDocuments: () => Promise<DocumentList>) {
+function createSymCryptHarness(listDocuments: () => Promise<DocumentList>) {
   const list = mock(listDocuments);
   const open = mock(() => ({ requestSync: mock(() => undefined) }));
   const logError = mock(() => undefined);
-  const tearleads = {
+  const symcrypt = {
     documents: {
       list,
       open,
@@ -76,8 +76,8 @@ function createTearleadsHarness(listDocuments: () => Promise<DocumentList>) {
       loadDirectoryAndGroups: () => Promise.resolve(null),
       loadLocalDirectoryAndGroups: () => Promise.resolve(null),
     },
-  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
-  return { list, logError, open, tearleads };
+  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
+  return { list, logError, open, symcrypt };
 }
 
 function profileDocumentList(title: string): DocumentList {
@@ -104,11 +104,11 @@ test("a cancelled local query cannot publish stale names", async () => {
   const pendingList = new Promise<DocumentList>((resolve) => {
     resolveList = resolve;
   });
-  const harness = createTearleadsHarness(() => pendingList);
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const harness = createSymCryptHarness(() => pendingList);
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
   const initialRuntime = runtimeSnapshot();
 
   try {
@@ -132,17 +132,17 @@ test("a cancelled local query cannot publish stale names", async () => {
     expect(view.result.current(PROFILE_USER_ID)).toBeNull();
     expect(harness.logError).toHaveBeenCalledTimes(0);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });
 
 test("a failed local query is contained and leaves attribution unnamed", async () => {
   const failure = new Error("local projection failed");
-  const harness = createTearleadsHarness(() => Promise.reject(failure));
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const harness = createSymCryptHarness(() => Promise.reject(failure));
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
 
   try {
     const view = renderHook(() =>
@@ -162,6 +162,6 @@ test("a failed local query is contained and leaves attribution unnamed", async (
     expect(view.result.current(PROFILE_USER_ID)).toBeNull();
     expect(harness.open).toHaveBeenCalledTimes(0);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });

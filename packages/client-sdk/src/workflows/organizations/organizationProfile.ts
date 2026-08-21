@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { createDocument, exportAllUpdates } from "@symcrypt/loro";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import {

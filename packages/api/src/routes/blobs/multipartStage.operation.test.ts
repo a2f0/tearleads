@@ -6,7 +6,7 @@ import {
   initiateMultipartBlobStageOperation,
   operationRoutePath,
   uploadMultipartBlobPartBytesOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";

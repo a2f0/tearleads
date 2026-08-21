@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { listDocumentAttachmentsOperation } from "@tearleads/validators/operation";
+import { listDocumentAttachmentsOperation } from "@symcrypt/validators/operation";
 import { listDocumentAttachments } from "./attachments";
 
 test("document attachment client metadata derives from the shared operation", () => {

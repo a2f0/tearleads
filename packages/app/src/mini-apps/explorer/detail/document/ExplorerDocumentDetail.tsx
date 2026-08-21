@@ -2,14 +2,14 @@ import type {
   ContainerDocumentObjectSyncState,
   ContainerDocumentQueries,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContainerDocumentObjectSyncState,
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppHeader,

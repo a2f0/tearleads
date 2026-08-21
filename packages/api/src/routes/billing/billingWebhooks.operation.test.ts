@@ -5,7 +5,7 @@ import {
   operationRoutePath,
   receiveRevenueCatWebhookOperation,
   receiveStripeWebhookOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createRevenueCatWebhookRoute } from "./revenuecatWebhook";
 import { createStripeWebhookRoute } from "./stripeWebhook";

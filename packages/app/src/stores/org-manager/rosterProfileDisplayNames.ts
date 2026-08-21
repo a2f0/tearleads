@@ -2,7 +2,7 @@ import {
   type DocumentList,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 export interface RosterProfileBinding {
   readonly profileDocumentId: string;

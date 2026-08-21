@@ -4,8 +4,8 @@ import type {
   DocumentAttributionRangesPage,
   DocumentInfo,
   DocumentSummary,
-} from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
 import {
   act,
   cleanup,

@@ -3,9 +3,9 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { isRegistrationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { isRegistrationRequest } from "@symcrypt/validators/request";
 import type {
   DestroySessionResponse,
   ListContainerParentLanesResponse,
@@ -13,7 +13,7 @@ import type {
   OrganizationBillingResponse,
   UserIdentityResponse,
   VerifyResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
@@ -93,11 +93,11 @@ const [appTestRuntimeModuleUrl, apiPostgresAdapterModuleUrl] = [
 ].map((path) => new URL(path, import.meta.url).href) as [string, string];
 
 const appTestProcessState = globalThis as typeof globalThis & {
-  __tearleadsAppTestProcessState?: AppTestProcessState;
+  __symcryptAppTestProcessState?: AppTestProcessState;
 };
 
 function getOrCreateTestProcessState(): AppTestProcessState {
-  const existing = appTestProcessState.__tearleadsAppTestProcessState;
+  const existing = appTestProcessState.__symcryptAppTestProcessState;
   if (existing) {
     return existing;
   }
@@ -105,7 +105,7 @@ function getOrCreateTestProcessState(): AppTestProcessState {
   const created: AppTestProcessState = {
     hasLoadedApiRuntimeModule: false,
   };
-  appTestProcessState.__tearleadsAppTestProcessState = created;
+  appTestProcessState.__symcryptAppTestProcessState = created;
   return created;
 }
 

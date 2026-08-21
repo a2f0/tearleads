@@ -2,8 +2,8 @@ import {
   emptyVersionVector,
   getImportBlobMetadata,
   versionVectorsEqual,
-} from "@tearleads/loro";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+} from "@symcrypt/loro";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 
 export function assertDecryptedDocumentUpdateMetadata(
   updateData: Uint8Array,

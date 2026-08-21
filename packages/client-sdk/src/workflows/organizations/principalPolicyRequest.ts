@@ -10,15 +10,15 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 
 interface BuildInitialGroupPolicyInput {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;

@@ -6,7 +6,7 @@ import {
   type OpenSubscriptionManagementFn,
 } from "../../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   useBillingManagementUrl,
@@ -26,7 +26,7 @@ afterEach(() => {
 
 function stubOrganizations(organizations: Record<string, unknown>) {
   spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
       organizations,
     } as never),
   );

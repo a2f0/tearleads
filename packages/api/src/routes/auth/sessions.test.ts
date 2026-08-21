@@ -5,8 +5,8 @@ import {
   generateSigningSeedAndKeyPair,
   sign,
   toFingerprint,
-} from "@tearleads/crypto";
-import type { ListSessionsResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ListSessionsResponse } from "@symcrypt/validators/response";
 import invariant from "invariant";
 import {
   requestChallenge,

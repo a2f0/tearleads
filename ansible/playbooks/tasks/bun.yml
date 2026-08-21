@@ -1,7 +1,7 @@
 ---
 - name: Create Bun release directory
   ansible.builtin.file:
-    path: /usr/local/src/tearleads-bun-{{ bun_version }}
+    path: /usr/local/src/symcrypt-bun-{{ bun_version }}
     state: directory
     owner: root
     group: root
@@ -12,7 +12,7 @@
     url: >-
       https://github.com/oven-sh/bun/releases/download/bun-v{{ bun_version
       }}/bun-linux-x64.zip
-    dest: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64.zip
+    dest: /usr/local/src/symcrypt-bun-{{ bun_version }}/bun-linux-x64.zip
     owner: root
     group: root
     mode: "0644"
@@ -20,10 +20,10 @@
 
 - name: Extract Bun release
   ansible.builtin.unarchive:
-    src: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64.zip
-    dest: /usr/local/src/tearleads-bun-{{ bun_version }}
+    src: /usr/local/src/symcrypt-bun-{{ bun_version }}/bun-linux-x64.zip
+    dest: /usr/local/src/symcrypt-bun-{{ bun_version }}
     remote_src: true
-    creates: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64/bun
+    creates: /usr/local/src/symcrypt-bun-{{ bun_version }}/bun-linux-x64/bun
 
 - name: Create Bun binary directory
   ansible.builtin.file:
@@ -35,7 +35,7 @@
 
 - name: Install Bun binary
   ansible.builtin.copy:
-    src: /usr/local/src/tearleads-bun-{{ bun_version }}/bun-linux-x64/bun
+    src: /usr/local/src/symcrypt-bun-{{ bun_version }}/bun-linux-x64/bun
     dest: "{{ bun_path }}"
     remote_src: true
     owner: "{{ server_user }}"

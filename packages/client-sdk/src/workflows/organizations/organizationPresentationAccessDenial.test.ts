@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import type { RequestResult } from "@tearleads/api-client";
-import { createTestExecSql } from "@tearleads/test-utils";
+import type { RequestResult } from "@symcrypt/api-client";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   OrganizationReadModelResponse,
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   dataUsage,
   organizationPrincipalPolicy,

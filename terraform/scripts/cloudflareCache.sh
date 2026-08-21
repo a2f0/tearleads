@@ -128,7 +128,7 @@ _purge_cloudflare_batch() {
 # Usage:
 #   purge_cloudflare_cache_for_hosts <zone-domain> <host1> [host2 ...]
 # Example:
-#   purge_cloudflare_cache_for_hosts "tearleads.com" "tearleads.com" "app.tearleads.com"
+#   purge_cloudflare_cache_for_hosts "symcrypt.com" "symcrypt.com" "app.symcrypt.com"
 purge_cloudflare_cache_for_hosts() {
   local domain="$1"
   shift
@@ -150,7 +150,7 @@ purge_cloudflare_cache_for_hosts() {
       "https://${host}/apple-touch-icon.png"
       "https://${host}/manifest.webmanifest"
     )
-    if [[ "$host" == app.* || "$host" == demo.* ]]; then
+    if [[ "$host" == app.* || "$host" == app-*.* ]]; then
       files+=(
         "https://${host}/sw.js"
         "https://${host}/registerSW.js"

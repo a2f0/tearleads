@@ -1,8 +1,8 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { useMemo } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";

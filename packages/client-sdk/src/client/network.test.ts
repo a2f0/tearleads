@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { Network } from "./network";
-import { Tearleads } from "./Tearleads";
+import { SymCrypt } from "./SymCrypt";
 
 describe("Network reachability", () => {
   test("reportReachability drives connectivity when no authoritative source governs it", () => {
@@ -54,7 +54,7 @@ describe("Network reachability", () => {
     try {
       // Browser default (non-authoritative): the thrown fetch flips the store
       // offline, the WebView's best available offline proxy.
-      const browserSdk = new Tearleads({
+      const browserSdk = new SymCrypt({
         apiBaseUrl: "https://api.example.test",
         logger: quietLogger,
         online: true,
@@ -64,7 +64,7 @@ describe("Network reachability", () => {
 
       // Native shell: an authoritative OS source is bound, so the same thrown
       // fetch reports the backend unreachable without stranding it offline.
-      const nativeSdk = new Tearleads({
+      const nativeSdk = new SymCrypt({
         apiBaseUrl: "https://api.example.test",
         logger: quietLogger,
         online: true,

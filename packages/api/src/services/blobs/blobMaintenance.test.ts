@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { blobs } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { blobs } from "@symcrypt/api-shared/schema";
 import {
   readBlobObjectText,
   uploadBlobObject,

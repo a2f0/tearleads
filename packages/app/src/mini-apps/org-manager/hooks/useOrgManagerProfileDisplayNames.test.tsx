@@ -5,12 +5,12 @@ import {
   type OrganizationDirectory,
   type OrganizationDirectoryUser,
   type PersistedDocumentListener,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../../providers/sdk/SymCryptProvider";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
@@ -90,12 +90,10 @@ function runtime(input?: {
     },
     infra: { dbStatus: input?.dbStatus ?? "ready" },
     state: { domainScope: input?.domainScope ?? {} },
-  } as unknown as ReturnType<typeof useTearleadsRuntime>;
+  } as unknown as ReturnType<typeof useSymCryptRuntime>;
 }
 
-function createTearleadsHarness(
-  rowsInput: ReadonlyArray<DocumentSummary> = [],
-) {
+function createSymCryptHarness(rowsInput: ReadonlyArray<DocumentSummary> = []) {
   let rows = rowsInput;
   const listeners = new Set<PersistedDocumentListener>();
   const requestSync = mock(() => undefined);
@@ -108,14 +106,14 @@ function createTearleadsHarness(
   const loadDirectoryAndGroups = mock(() => Promise.resolve(null));
   const loadLocalDirectoryAndGroups = mock(() => Promise.resolve(null));
   const logError = mock(() => undefined);
-  const tearleads = {
+  const symcrypt = {
     documents: { list, open, subscribe },
     logError,
     organizations: {
       loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups,
     },
-  } as unknown as ReturnType<typeof useTearleads>;
+  } as unknown as ReturnType<typeof useSymCrypt>;
 
   return {
     emit(document: DocumentSummary) {
@@ -131,7 +129,7 @@ function createTearleadsHarness(
     open,
     requestSync,
     subscribe,
-    tearleads,
+    symcrypt,
   };
 }
 
@@ -142,7 +140,7 @@ test("59 roster profiles use one local query and no hydration fanout", async () 
       userId: `profile-user-${index}`,
     }),
   );
-  const harness = createTearleadsHarness();
+  const harness = createSymCryptHarness();
   const selectedUserIdRef = { current: users[0]?.userId ?? null };
   const appData = runtime();
   const view = renderHook(
@@ -152,7 +150,7 @@ test("59 roster profiles use one local query and no hydration fanout", async () 
         canLoadAuthenticatedOrgData: true,
         directory: activeDirectory,
         selectedUserIdRef,
-        tearleads: harness.tearleads,
+        symcrypt: harness.symcrypt,
       }),
     { initialProps: directory(users) as OrganizationDirectory | null },
   );
@@ -177,7 +175,7 @@ test("local changes repaint and current profile bindings reject stale rows", asy
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
   });
-  const harness = createTearleadsHarness([
+  const harness = createSymCryptHarness([
     profileSummary({
       profileDocumentId: PROFILE_DOCUMENT_ID,
       title: "First Name",
@@ -193,7 +191,7 @@ test("local changes repaint and current profile bindings reject stale rows", asy
         canLoadAuthenticatedOrgData: true,
         directory: activeDirectory,
         selectedUserIdRef,
-        tearleads: harness.tearleads,
+        symcrypt: harness.symcrypt,
       }),
     { initialProps: directory([user]) as OrganizationDirectory | null },
   );
@@ -266,7 +264,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
   });
-  const harness = createTearleadsHarness([
+  const harness = createSymCryptHarness([
     profileSummary({
       profileDocumentId: PROFILE_DOCUMENT_ID,
       title: "Scoped Name",
@@ -278,7 +276,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
   const activeDirectory = directory([user]);
   const view = renderHook(
     (props: {
-      appData: ReturnType<typeof useTearleadsRuntime>;
+      appData: ReturnType<typeof useSymCryptRuntime>;
       canLoad: boolean;
       directory: OrganizationDirectory | null;
     }) =>
@@ -287,7 +285,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
         canLoadAuthenticatedOrgData: props.canLoad,
         directory: props.directory,
         selectedUserIdRef,
-        tearleads: harness.tearleads,
+        symcrypt: harness.symcrypt,
       }),
     {
       initialProps: {

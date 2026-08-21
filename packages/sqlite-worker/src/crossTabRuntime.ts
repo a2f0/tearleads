@@ -15,8 +15,8 @@ import {
   responseId,
 } from "./crossTabProtocol";
 
-const CROSS_TAB_CHANNEL_NAME = "tearleads-sqlite-worker";
-const CROSS_TAB_OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
+const CROSS_TAB_CHANNEL_NAME = "symcrypt-sqlite-worker";
+const CROSS_TAB_OWNER_LOCK_NAME = "symcrypt-sqlite-worker-owner";
 const CROSS_TAB_REQUEST_TIMEOUT_MS = 10_000;
 // How long a non-owner tab polls for an owner to appear before it unblocks
 // routing anyway. Generous enough to cover a same-origin tab winning the

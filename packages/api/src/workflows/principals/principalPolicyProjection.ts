@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
 import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   getCurrentPrincipalStates,
   type PrincipalStateReference,

@@ -1,4 +1,4 @@
-import type { ContainerGrantSubjectType } from "@tearleads/crypto";
+import type { ContainerGrantSubjectType } from "@symcrypt/crypto";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   addOrganizationGroupUser,

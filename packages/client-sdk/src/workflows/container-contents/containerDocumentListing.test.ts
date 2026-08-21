@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { SyncWatermark } from "@tearleads/validators/response";
+import type { SyncWatermark } from "@symcrypt/validators/response";
 import { listAllContainerDocumentIdsFromApi } from "./containerDocumentListing";
 
 test("authoritative document listing starts without a persisted watermark", async () => {

@@ -1,7 +1,7 @@
-import type { OrganizationDirectoryAndGroups } from "@tearleads/client-sdk";
+import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
 import { useEffect, useRef, useState } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import {
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDisplayNames,
@@ -9,7 +9,7 @@ import {
   loadExplorerAttributionDirectoryAndGroups,
 } from "./explorerAttributionReadModel";
 
-type TearleadsRuntime = ReturnType<typeof useTearleads>;
+type SymCryptRuntime = ReturnType<typeof useSymCrypt>;
 
 const EMPTY_PROFILE_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map();
 
@@ -22,7 +22,7 @@ interface ProfileDisplayNameState {
 }
 
 async function loadLocalProfileDisplayNames(input: {
-  documents: TearleadsRuntime["documents"];
+  documents: SymCryptRuntime["documents"];
   profileBindingsByLocalId: ReturnType<
     typeof getExplorerAttributionProfileBindingsByLocalId
   >;
@@ -38,14 +38,14 @@ function startProfileDisplayNameLoad(input: {
   directoryAndGroups?: OrganizationDirectoryAndGroups | null | undefined;
   organizationId: string;
   setNames: (names: ReadonlyMap<string, string>) => void;
-  tearleads: TearleadsRuntime;
+  symcrypt: SymCryptRuntime;
 }): () => void {
   let cancelled = false;
   let loadSequence = 0;
   let unsubscribe: () => void = () => undefined;
   const reportFailure = (error: unknown) => {
     if (!cancelled) {
-      input.tearleads.logError(
+      input.symcrypt.logError(
         "Failed to load local explorer attribution roster display names",
         error,
       );
@@ -53,7 +53,7 @@ function startProfileDisplayNameLoad(input: {
   };
 
   void loadExplorerAttributionDirectoryAndGroups(
-    input.tearleads.organizations,
+    input.symcrypt.organizations,
     input.directoryAndGroups,
   )
     .then((directoryAndGroups) => {
@@ -73,7 +73,7 @@ function startProfileDisplayNameLoad(input: {
         const sequence = ++loadSequence;
         try {
           const next = await loadLocalProfileDisplayNames({
-            documents: input.tearleads.documents,
+            documents: input.symcrypt.documents,
             profileBindingsByLocalId,
           });
           if (!cancelled && sequence === loadSequence) {
@@ -83,7 +83,7 @@ function startProfileDisplayNameLoad(input: {
           reportFailure(error);
         }
       };
-      unsubscribe = input.tearleads.documents.subscribe((document) => {
+      unsubscribe = input.symcrypt.documents.subscribe((document) => {
         if (profileBindingsByLocalId.has(document.id)) {
           void reload();
         }
@@ -108,7 +108,7 @@ export function useExplorerAttributionProfileDisplayNames(input: {
     | undefined;
   readonly readModelRevision?: number | undefined;
 }) {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const [state, setState] = useState<ProfileDisplayNameState | null>(null);
   const projectionRef = useRef<OrganizationDirectoryAndGroups | null>(null);
   projectionRef.current = input.readModelProjection ?? null;
@@ -155,7 +155,7 @@ export function useExplorerAttributionProfileDisplayNames(input: {
           userId,
         });
       },
-      tearleads,
+      symcrypt,
     });
   }, [
     dbStatus,
@@ -164,7 +164,7 @@ export function useExplorerAttributionProfileDisplayNames(input: {
     isAuthenticated,
     organizationId,
     projectionKey,
-    tearleads,
+    symcrypt,
     userId,
   ]);
 

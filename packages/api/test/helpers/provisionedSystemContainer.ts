@@ -4,21 +4,21 @@ import {
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
   signWriteHeader,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type {
   ContainerMutationRequest,
   DocumentCreateRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
-} from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import { toWireRecord } from "./registrationWire";
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -60,7 +60,7 @@ export function deriveRosterProfileContainerSystemSlot(
   organizationId: string,
 ): Promise<string> {
   return deriveOrganizationSystemSlot(
-    "tearleads.organization-roster-profiles",
+    "symcrypt.organization-roster-profiles",
     organizationId,
   );
 }
@@ -69,7 +69,7 @@ export function deriveOrganizationMetadataContainerSystemSlot(
   organizationId: string,
 ): Promise<string> {
   return deriveOrganizationSystemSlot(
-    "tearleads.organization-metadata",
+    "symcrypt.organization-metadata",
     organizationId,
   );
 }
@@ -97,7 +97,7 @@ export async function createProvisionedTrashFixture(input: {
     signerKeyFingerprint: input.signerKeyFingerprint,
     signingPrivateKey: input.signingPrivateKey,
     systemSlot: await deriveOrganizationSystemSlot(
-      "tearleads.trash",
+      "symcrypt.trash",
       input.organizationId,
     ),
     userId: input.userId,

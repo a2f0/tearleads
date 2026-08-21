@@ -26,14 +26,14 @@ import {
   verifyContainerKekState,
   type WriteHeader,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql, type TestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { createTestExecSql, type TestExecSql } from "@symcrypt/test-utils";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import {
   createContainerManifestFixture,

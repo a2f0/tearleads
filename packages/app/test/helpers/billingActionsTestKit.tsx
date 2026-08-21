@@ -3,7 +3,7 @@ import type {
   PurchasesCapability,
   SyncPurchaseResult,
   SyncSubscriptionOption,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { renderHook } from "@testing-library/react";
 import type { PropsWithChildren, RefObject } from "react";
 import {

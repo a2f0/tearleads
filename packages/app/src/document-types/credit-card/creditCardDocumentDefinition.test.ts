@@ -4,8 +4,8 @@ import {
   readStoredDocumentState,
   type StructuredDocumentShape,
   writeStoredDocumentFields,
-} from "@tearleads/client-sdk";
-import { createDocument } from "@tearleads/loro";
+} from "@symcrypt/client-sdk";
+import { createDocument } from "@symcrypt/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import {
   type CreditCardDocumentFields,

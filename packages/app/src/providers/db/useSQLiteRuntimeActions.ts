@@ -1,8 +1,8 @@
-import type { DatabaseStatus, Tearleads } from "@tearleads/client-sdk";
+import type { DatabaseStatus, SymCrypt } from "@symcrypt/client-sdk";
 import {
   purgeOpfsSqliteDatabase,
   type SQLiteRuntime,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { type RefObject, useCallback, useMemo } from "react";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
@@ -31,13 +31,13 @@ interface RuntimeRefs {
 
 function clearRuntimeState(
   refs: RuntimeRefs,
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   status: DatabaseStatus,
 ): void {
   refs.bootGenerationRef.current += 1;
   refs.bootingRef.current = false;
   refs.currentDbNameRef.current = null;
-  tearleads.database.clear(status);
+  symcrypt.database.clear(status);
 }
 
 function trackRuntimeOperation(
@@ -66,12 +66,12 @@ function trackRuntimeOperation(
 
 function terminateRuntime(
   refs: RuntimeRefs,
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   status: DatabaseStatus,
 ): void {
   const runtime = refs.runtimeRef.current;
   refs.runtimeRef.current = null;
-  clearRuntimeState(refs, tearleads, status);
+  clearRuntimeState(refs, symcrypt, status);
   if (!runtime) {
     return;
   }
@@ -181,11 +181,11 @@ async function purgeNonReadySQLiteRuntime(params: {
   readonly retireRuntime: boolean;
   readonly refs: RuntimeRefs;
   readonly runtime: SQLiteRuntime;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }): Promise<void> {
-  const { dbName, refs, retireRuntime, runtime, tearleads } = params;
+  const { dbName, refs, retireRuntime, runtime, symcrypt } = params;
   if (retireRuntime) {
-    terminateRuntime(refs, tearleads, "idle");
+    terminateRuntime(refs, symcrypt, "idle");
     const releaseOperation = refs.runtimeOperationRef.current;
     if (releaseOperation) {
       await purgeCapturedDatabaseAfterOperation({
@@ -204,20 +204,20 @@ async function purgeSQLiteRuntime(params: {
   readonly log: (message: string) => void;
   readonly refs: RuntimeRefs;
   readonly reuseWorker: boolean;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }): Promise<void> {
-  const { dbName, log, refs, reuseWorker, tearleads } = params;
+  const { dbName, log, refs, reuseWorker, symcrypt } = params;
   let runtime = refs.runtimeRef.current;
   const wasBooting = refs.bootingRef.current;
-  const runtimeStatus = tearleads.database.status;
+  const runtimeStatus = symcrypt.database.status;
   const runtimeHadDatabase = refs.currentDbNameRef.current !== null;
-  clearRuntimeState(refs, tearleads, "idle");
+  clearRuntimeState(refs, symcrypt, "idle");
 
   if (runtime && wasBooting) {
     // close/delete can acknowledge before an in-flight init finishes acquiring
     // its database. Retire this worker before deleting by name so a zombie init
     // cannot survive onto a renewed connection.
-    terminateRuntime(refs, tearleads, "idle");
+    terminateRuntime(refs, symcrypt, "idle");
     const releaseOperation = refs.runtimeOperationRef.current;
     if (releaseOperation) {
       await purgeCapturedDatabaseAfterOperation({
@@ -255,7 +255,7 @@ async function purgeSQLiteRuntime(params: {
       retireRuntime: runtimeStatus === "error",
       refs,
       runtime,
-      tearleads,
+      symcrypt,
     });
     return;
   }
@@ -292,7 +292,7 @@ export function useSQLiteRuntimeActions(params: {
   readonly runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
   readonly runtimeRef: RefObject<SQLiteRuntime | null>;
   readonly targetDbNameRef: RefObject<string>;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }) {
   const {
     bootGenerationRef,
@@ -303,7 +303,7 @@ export function useSQLiteRuntimeActions(params: {
     runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
-    tearleads,
+    symcrypt,
   } = params;
   const refs = useMemo<RuntimeRefs>(
     () => ({
@@ -324,21 +324,21 @@ export function useSQLiteRuntimeActions(params: {
 
   const destroyCurrentRuntime = useCallback(
     (status: DatabaseStatus) => {
-      terminateRuntime(refs, tearleads, status);
+      terminateRuntime(refs, symcrypt, status);
     },
-    [refs, tearleads],
+    [refs, symcrypt],
   );
 
   const clearCurrentRuntime = useCallback(
     (status: DatabaseStatus) => {
       const runtime = runtimeRef.current;
       const wasBooting = bootingRef.current;
-      clearRuntimeState(refs, tearleads, status);
+      clearRuntimeState(refs, symcrypt, status);
       if (!runtime) {
         return;
       }
       if (wasBooting) {
-        terminateRuntime(refs, tearleads, status);
+        terminateRuntime(refs, symcrypt, status);
         return;
       }
       if (runtimeOperationRef.current?.runtime === runtime) {
@@ -349,7 +349,7 @@ export function useSQLiteRuntimeActions(params: {
         return;
       }
       logSQLiteRuntimeReuseUnavailable(reuseWorker, runtime, log);
-      terminateRuntime(refs, tearleads, status);
+      terminateRuntime(refs, symcrypt, status);
     },
     [
       bootingRef,
@@ -358,7 +358,7 @@ export function useSQLiteRuntimeActions(params: {
       reuseWorker,
       runtimeOperationRef,
       runtimeRef,
-      tearleads,
+      symcrypt,
     ],
   );
 
@@ -369,9 +369,9 @@ export function useSQLiteRuntimeActions(params: {
         log,
         refs,
         reuseWorker,
-        tearleads,
+        symcrypt,
       }),
-    [currentDbNameRef, log, refs, reuseWorker, targetDbNameRef, tearleads],
+    [currentDbNameRef, log, refs, reuseWorker, targetDbNameRef, symcrypt],
   );
 
   return useMemo(

@@ -165,8 +165,8 @@ testApiClient("exposes streamed blob download responses", async () => {
         {
           headers: {
             "Content-Length": encryptedBytes.byteLength.toString(),
-            "X-Tearleads-Blob-Id": blobId,
-            "X-Tearleads-Blob-Sha256": "sha256-1",
+            "X-SymCrypt-Blob-Id": blobId,
+            "X-SymCrypt-Blob-Sha256": "sha256-1",
           },
         },
       );
@@ -200,10 +200,10 @@ testApiClient(
           }),
           {
             headers: {
-              "X-Tearleads-Blob-Byte-Length":
+              "X-SymCrypt-Blob-Byte-Length":
                 encryptedBytes.byteLength.toString(),
-              "X-Tearleads-Blob-Id": blobId,
-              "X-Tearleads-Blob-Sha256": "sha256-1",
+              "X-SymCrypt-Blob-Id": blobId,
+              "X-SymCrypt-Blob-Sha256": "sha256-1",
             },
           },
         );
@@ -235,7 +235,7 @@ testApiClient("reports malformed blob byte responses", async () => {
 
   await expect(client.getBlobBytes(blobId)).resolves.toBeNull();
   expect(errors).toEqual([
-    `Invalid response shape for /blobs/${blobId}/bytes: missing X-Tearleads-Blob-Id, X-Tearleads-Blob-Sha256`,
+    `Invalid response shape for /blobs/${blobId}/bytes: missing X-SymCrypt-Blob-Id, X-SymCrypt-Blob-Sha256`,
   ]);
 });
 
@@ -256,7 +256,7 @@ testApiClient(
 
     await expect(client.getBlobBytes(blobId)).resolves.toBeNull();
     expect(errors).toEqual([
-      `Invalid response shape for /blobs/${blobId}/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or Content-Length), X-Tearleads-Blob-Sha256`,
+      `Invalid response shape for /blobs/${blobId}/bytes: missing X-SymCrypt-Blob-Id, (X-SymCrypt-Blob-Byte-Length or Content-Length), X-SymCrypt-Blob-Sha256`,
     ]);
   },
 );

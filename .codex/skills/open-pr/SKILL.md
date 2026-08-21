@@ -25,7 +25,7 @@ PR **title must conform to the repository's commitlint rules**
 ## Prerequisites
 
 - `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
-- The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
+- The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The working tree contains only changes intended for this PR. Stop and ask
   before carrying unrelated changes onto a new branch or committing them.

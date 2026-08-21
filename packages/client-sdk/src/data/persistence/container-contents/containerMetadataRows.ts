@@ -1,5 +1,5 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import { getImportBlobMetadata } from "@tearleads/loro";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { getImportBlobMetadata } from "@symcrypt/loro";
 import { and, eq } from "drizzle-orm";
 import {
   documentRecordSelection,

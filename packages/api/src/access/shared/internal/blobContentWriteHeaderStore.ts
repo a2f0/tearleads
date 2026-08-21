@@ -1,7 +1,7 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import type { BlobWriteAuthorization } from "@tearleads/api-shared/schema";
-import { blobContentWriteHeaders } from "@tearleads/api-shared/schema";
-import type { WriteHeader } from "@tearleads/crypto";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { BlobWriteAuthorization } from "@symcrypt/api-shared/schema";
+import { blobContentWriteHeaders } from "@symcrypt/api-shared/schema";
+import type { WriteHeader } from "@symcrypt/crypto";
 import { eq, inArray } from "drizzle-orm";
 import {
   BlobContentKeyBundleError,

@@ -16,6 +16,6 @@ export const CONTACTS_LABELS = {
   removeContactAction: "Move to Trash",
   selectState: "Select a contact.",
   unauthenticatedImportState: "Authenticate before importing peer keys.",
-  userIdField: "Tearleads user ID",
+  userIdField: "SymCrypt user ID",
   userIdPlaceholder: "User ID",
 } as const;

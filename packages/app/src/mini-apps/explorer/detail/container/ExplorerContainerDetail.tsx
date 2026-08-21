@@ -3,7 +3,7 @@ import type {
   ContainerItemRow,
   ContainerItemSort,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
   MiniAppActions,

@@ -4,7 +4,7 @@ import {
   type DocumentAttachmentUpload,
   type DocumentSummary,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { BINARY_FILE_IMPORT_MAX_BYTES } from "../../document-types/importers";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 

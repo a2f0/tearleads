@@ -1,8 +1,8 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import {
   hasNumberProperty,
   hasStringProperty,
-} from "@tearleads/validators/util";
+} from "@symcrypt/validators/util";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import { OrganizationManagerError } from "./errors";
 

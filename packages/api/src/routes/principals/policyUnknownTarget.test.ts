@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@symcrypt/bob-and-alice";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";

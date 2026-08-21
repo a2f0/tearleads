@@ -1,5 +1,5 @@
-import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicySignerPublicKey } from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,

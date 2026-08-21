@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/sqlite-worker",
+  "name": "@symcrypt/sqlite-worker",
   "private": true,
   "type": "module",
   "exports": {
@@ -18,7 +18,7 @@
     "test": "bun test tests --max-concurrency=4"
   },
   "dependencies": {
-    "@tearleads/sqlite-instance": "workspace:*"
+    "@symcrypt/sqlite-instance": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

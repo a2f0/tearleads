@@ -3,9 +3,9 @@ import {
   type ContainerNode,
   createDomainScope,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
+  type SymCrypt,
   syncedContainerDocumentObjectSyncState,
-  type Tearleads,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { useOrganizationIndexRefreshKey } from "./useOrganizationIndexRefreshKey";
 
@@ -35,7 +35,7 @@ function createRefreshHarness() {
       return () => treeListeners.delete(listener);
     },
   };
-  const tearleads = {
+  const symcrypt = {
     deviceFirst: { open: () => ({ containerStore: tree }) },
     documents: {
       subscribe: (
@@ -47,7 +47,7 @@ function createRefreshHarness() {
         };
       },
     },
-  } as unknown as Tearleads;
+  } as unknown as SymCrypt;
 
   return {
     emitDocument: (documentKind: string) => {
@@ -59,7 +59,7 @@ function createRefreshHarness() {
         listener();
       }
     },
-    tearleads,
+    symcrypt,
   };
 }
 
@@ -67,7 +67,7 @@ test("changes for root-set and organization-profile persistence signals", () => 
   const harness = createRefreshHarness();
   const scopeKey = createDomainScope();
   const view = renderHook(() =>
-    useOrganizationIndexRefreshKey({ scopeKey, tearleads: harness.tearleads }),
+    useOrganizationIndexRefreshKey({ scopeKey, symcrypt: harness.symcrypt }),
   );
   const initialKey = view.result.current;
 

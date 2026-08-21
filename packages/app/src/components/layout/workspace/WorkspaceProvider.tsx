@@ -22,7 +22,7 @@ export function localIdentityNamespaceForWorkspace(
   // otherwise hidden panes can restore the same identity and race the visible
   // pane for the same persistent SQLite database. Routed mode reuses this so a
   // session established in windowed mode survives the mode toggle.
-  return `${baseNamespace ?? "tearleads.pane"}.workspace-${workspaceId}`;
+  return `${baseNamespace ?? "symcrypt.pane"}.workspace-${workspaceId}`;
 }
 
 interface WorkspaceContextValue {

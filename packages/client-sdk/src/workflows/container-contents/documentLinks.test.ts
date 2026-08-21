@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@tearleads/test-utils";
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/test-utils";
+import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   createAuthor,
   createLinkSetResponseFromRequest,

@@ -2,8 +2,8 @@ import { afterEach, expect, mock, test } from "bun:test";
 import type {
   ContainerNode,
   LocalOrganizationSummary,
-} from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 

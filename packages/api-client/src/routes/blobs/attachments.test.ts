@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import { bindBlobAttachment, detachBlobAttachment } from "./attachments";
 
 test("blob attachment client metadata derives from shared operations", () => {

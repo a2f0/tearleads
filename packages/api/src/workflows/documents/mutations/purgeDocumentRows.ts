@@ -1,4 +1,4 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -18,7 +18,7 @@ import {
   documentUpdateAuditEvents,
   documentUpdateSpans,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { DocumentMutationError } from "./errors";
 

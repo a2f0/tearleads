@@ -5,7 +5,7 @@ import {
   exportAllUpdates,
   exportFullHistorySnapshot,
   exportUpdatesSince,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   createPendingUpdateFields,
   isDocumentMutationCreatedEvent,

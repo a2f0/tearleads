@@ -1,4 +1,4 @@
-import { encodeVersionVector } from "@tearleads/loro";
+import { encodeVersionVector } from "@symcrypt/loro";
 import {
   blobByteSourceInputLength,
   createBlobByteSource,

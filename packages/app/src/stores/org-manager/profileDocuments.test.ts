@@ -4,7 +4,7 @@ import {
   type Documents,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { createRosterProfileDocument } from "./profileDocuments";
 
 const user: OrganizationDirectoryUser = {

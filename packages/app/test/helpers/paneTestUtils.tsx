@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { LocalKeyring } from "@tearleads/client-sdk";
+import type { LocalKeyring } from "@symcrypt/client-sdk";
 import {
   act,
   cleanup,
@@ -35,7 +35,7 @@ export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 export async function cleanupPaneTestEnvironment(): Promise<void> {
   cleanup();
-  // cleanup() unmounts the tree, which queues TearleadsProvider's deferred
+  // cleanup() unmounts the tree, which queues SymCryptProvider's deferred
   // dispose (a macrotask, so StrictMode remounts can cancel it). Flush that
   // macrotask here so the sync coordinator pump is force-stopped and dropped
   // before the next test — no spinning pump can bleed across tests.

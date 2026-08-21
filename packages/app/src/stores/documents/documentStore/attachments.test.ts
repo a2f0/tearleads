@@ -3,8 +3,8 @@ import {
   type BlobByteSource,
   createDocumentStore,
   createMemoryBlobStore,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,

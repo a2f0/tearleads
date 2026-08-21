@@ -1,4 +1,4 @@
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import {
   getTargetContainerContext,
   readContainerState,

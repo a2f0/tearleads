@@ -1,7 +1,7 @@
-import type { OrganizationBillingManagementUrl } from "@tearleads/client-sdk";
+import type { OrganizationBillingManagementUrl } from "@symcrypt/client-sdk";
 import { useCallback, useState } from "react";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
@@ -33,12 +33,12 @@ export function useBillingManagementUrl(
   enabled: boolean,
   reloadToken?: unknown,
 ): ManagementUrlSnapshot {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const snapshot = useScopedOrganizationLoad<ManagementUrlSnapshot>({
     enabled,
     load: async () => {
       try {
-        const result = await tearleads.organizations.loadBillingManagementUrl();
+        const result = await symcrypt.organizations.loadBillingManagementUrl();
         return {
           canCancelDirectly: result?.canCancelDirectly ?? false,
           managementUrl: result?.managementUrl ?? null,
@@ -51,7 +51,7 @@ export function useBillingManagementUrl(
     },
     organizationId,
     reloadToken,
-    source: tearleads,
+    source: symcrypt,
     whenDisabled: NO_MANAGEMENT_URL,
   });
 

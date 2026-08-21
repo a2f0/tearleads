@@ -4,7 +4,7 @@ import type {
   SyncLanePhase,
   SyncLaneSnapshot,
   SyncLaneStatus,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { EXPLORER_LABELS } from "../../labels";
 
 interface SyncLaneSummary {

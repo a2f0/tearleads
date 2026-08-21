@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type CreateModuleDatabaseRuntimeOptions,
   createDatabaseRuntime,
-} from "@tearleads/sqlite-worker/runtime";
+} from "@symcrypt/sqlite-worker/runtime";
 import {
   MockMessageChannel,
   MockWorker,

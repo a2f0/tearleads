@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizations,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 
 test("an entitled organization policy remains writable without a user seat", async () => {

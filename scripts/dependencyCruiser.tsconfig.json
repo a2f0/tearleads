@@ -3,9 +3,9 @@
   "compilerOptions": {
     "baseUrl": "..",
     "paths": {
-      "@tearleads/client-sdk": ["packages/client-sdk/src/index.ts"],
-      "@tearleads/client-sdk/sqlite": ["packages/client-sdk/src/sqlite.ts"],
-      "@tearleads/client-sdk/testing": [
+      "@symcrypt/client-sdk": ["packages/client-sdk/src/index.ts"],
+      "@symcrypt/client-sdk/sqlite": ["packages/client-sdk/src/sqlite.ts"],
+      "@symcrypt/client-sdk/testing": [
         "packages/client-sdk/src/data/trustedUserIdentity/testFixtures.ts"
       ]
     }

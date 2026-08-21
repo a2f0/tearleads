@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobs,
   containers,
-} from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -99,18 +99,18 @@ test("GET /blobs/:blobId/bytes streams committed encrypted blob bytes", async ()
   expect(blobResponse.headers.get("content-length")).toBe(
     stagedBlobInput.byteLength.toString(),
   );
-  expect(blobResponse.headers.get("x-tearleads-blob-byte-length")).toBe(
+  expect(blobResponse.headers.get("x-symcrypt-blob-byte-length")).toBe(
     stagedBlobInput.byteLength.toString(),
   );
-  expect(blobResponse.headers.get("x-tearleads-blob-id")).toBe(blob.id);
-  expect(blobResponse.headers.get("x-tearleads-blob-sha256")).toBe(
+  expect(blobResponse.headers.get("x-symcrypt-blob-id")).toBe(blob.id);
+  expect(blobResponse.headers.get("x-symcrypt-blob-sha256")).toBe(
     stagedBlobInput.sha256,
   );
   expect(blobResponse.headers.get("access-control-expose-headers")).toContain(
-    "X-Tearleads-Blob-Byte-Length",
+    "X-SymCrypt-Blob-Byte-Length",
   );
   expect(blobResponse.headers.get("access-control-expose-headers")).toContain(
-    "X-Tearleads-Blob-Sha256",
+    "X-SymCrypt-Blob-Sha256",
   );
   expect(await blobResponse.text()).toBe(stagedBlobInput.encryptedBytes);
 });

@@ -1,7 +1,7 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerNode } from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { useMemo } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { getExplorerSystemContainerId } from "../../../stores/explorer/ExplorerSystemContainers";
 import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 

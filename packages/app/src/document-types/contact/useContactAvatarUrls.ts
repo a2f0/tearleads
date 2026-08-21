@@ -1,4 +1,4 @@
-import type { BlobStore } from "@tearleads/client-sdk";
+import type { BlobStore } from "@symcrypt/client-sdk";
 import { useEffect, useRef, useState } from "react";
 import { isAutomaticBlobPreviewAllowed } from "../shared/documentAttachmentUtils";
 import type { ContactAvatarRef } from "./contactAvatarSlot";

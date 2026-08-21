@@ -4,7 +4,7 @@ import {
   isGetContainerWriterProjectionOperationResponse,
   isGetDocumentWriterProjectionOperationResponse,
   operationRequestPath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const containerWriterProjection = {
   isResponse: isGetContainerWriterProjectionOperationResponse,

@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizationBillingSeatAssignments } from "@tearleads/api-shared/schema";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { organizationBillingSeatAssignments } from "@symcrypt/api-shared/schema";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 interface OrganizationBillingSeatUsage {

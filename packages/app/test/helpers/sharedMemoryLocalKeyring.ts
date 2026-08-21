@@ -7,7 +7,7 @@ import {
   localKeyringScopeKey,
   normalizeLocalKeyringScope,
   WRAPPED_LOCAL_SECRET_FORMAT,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
   const identityKeysByScopeKey = new Map<string, Uint8Array>();

@@ -3,14 +3,14 @@ import {
   addDocumentAttachments,
   ensureDocumentAttachmentStructure,
   getDocumentAttachments,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 
 interface MutableOrderMap {
   set: (key: string, value: number) => void;

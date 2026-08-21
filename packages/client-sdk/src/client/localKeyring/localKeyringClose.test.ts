@@ -22,8 +22,8 @@ test("closing a browser keyring releases both IndexedDB connections", async () =
   await Promise.resolve();
 
   expect(closedDatabaseNames.sort()).toEqual([
-    "tearleads-local-keyring",
-    "tearleads-local-keyring-manifests",
+    "symcrypt-local-keyring",
+    "symcrypt-local-keyring-manifests",
   ]);
   await expect(
     keyring.getOrCreateSession({ namespace: "test" }),

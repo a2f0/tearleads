@@ -3,8 +3,8 @@ import {
   type PrincipalPolicyExternalAuthority,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
-} from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {

@@ -1,4 +1,4 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
 import {
   buildPrincipalStateSigningInput,
   normalizePrincipalProjectionMembers,
@@ -7,7 +7,7 @@ import {
   type PrincipalStateHeaderInput,
   type PrincipalStateMember,
   signPrincipalState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   type PrincipalStateBundleInput,
   type StoreVerifiedPrincipalStateOptions,

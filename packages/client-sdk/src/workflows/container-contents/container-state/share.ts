@@ -1,7 +1,7 @@
 import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   getTargetContainerContext,
   readContainerState,

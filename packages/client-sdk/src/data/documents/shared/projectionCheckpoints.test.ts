@@ -7,12 +7,12 @@ import {
   sealContainerKekKeyring,
   toFingerprint,
   type VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,

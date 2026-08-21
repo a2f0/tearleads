@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "../Tearleads";
+import { SymCrypt } from "../SymCrypt";
 
 test("default organization is stable and distinct from active context", () => {
-  const sdk = new Tearleads();
+  const sdk = new SymCrypt();
   sdk.session.setContext({
     containerId: "container-1",
     defaultOrganizationId: "personal-org",

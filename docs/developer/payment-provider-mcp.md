@@ -1,6 +1,6 @@
 # Payment Provider MCP and CLI Operations
 
-This is the shared operator guide for provisioning and auditing the Tearleads
+This is the shared operator guide for provisioning and auditing the SymCrypt
 billing catalog. The implementation contract lives in
 [revenuecat-billing.md](./revenuecat-billing.md); this document explains which
 provider tools an agent can use and which account-owner steps remain outside
@@ -18,7 +18,7 @@ catalog work unless real subscribers exist when the change is made.
 - Native stores use fixed products, never Stripe-style quantity. Stripe also
   uses the same fixed tiers with subscription-item quantity `1`.
 - Cancellation is routed to the store of record. Either client can open the
-  provider management surface, and either client can call the Tearleads Stripe
+  provider management surface, and either client can call the SymCrypt Stripe
   cancellation endpoint. Provider webhooks keep server access in sync.
 
 | Tier | USD/month | Capacity | Product stem | RevenueCat package | Apple level |
@@ -61,12 +61,12 @@ starts. Never put the token value in `~/.codex/config.toml` or commit it.
 codex mcp remove revenuecat
 codex mcp add revenuecat \
   --url https://mcp.revenuecat.ai/mcp \
-  --bearer-token-env-var TEARLEADS_REVENUECAT_MCP_TOKEN
+  --bearer-token-env-var SYMCRYPT_REVENUECAT_MCP_TOKEN
 
 codex mcp remove stripe
 codex mcp add stripe \
   --url https://mcp.stripe.com \
-  --bearer-token-env-var TEARLEADS_STRIPE_MCP_RESTRICTED_KEY
+  --bearer-token-env-var SYMCRYPT_STRIPE_MCP_RESTRICTED_KEY
 ```
 
 The environment variable must be present in the process that launches Codex.

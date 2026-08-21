@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
-} from "@tearleads/sqlite-worker/assets";
+} from "@symcrypt/sqlite-worker/assets";
 import index from "../index.html";
 
 const workerBuild = await Bun.build({

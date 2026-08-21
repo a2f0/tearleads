@@ -10,12 +10,12 @@ import type {
   KeyingCanonicalJson,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
-import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
+} from "@symcrypt/crypto";
+import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   toContainerKeyEpoch,
   toContainerKeyWrap,
@@ -34,8 +34,8 @@ function projectionError(message: string): ContainerWriterProjectionError {
 
 const {
   accessManifestRecord,
-  readAccessManifest,
   readCanonicalRecord,
+  readContainerAccessManifest,
   readNullableString,
   readPlainRecord,
   readPositiveInteger,
@@ -208,7 +208,10 @@ export function toManifestBundleResponse(input: {
 export function toVerifiedContainerManifest(
   bundle: AccessManifestBundleWireResponse,
 ): VerifiedContainerAccessManifest {
-  const manifest = readAccessManifest(bundle.manifest, "Container manifest");
+  const manifest = readContainerAccessManifest(
+    bundle.manifest,
+    "Container manifest",
+  );
   return makeVerifiedContainerAccessManifest({
     event: readVerifiedAccessEvent(
       bundle.event,
@@ -228,7 +231,10 @@ function readContainerAccessState(
   bundle: AccessManifestBundleWireResponse,
 ): ContainerAccessManifestState {
   const record = readPlainRecord(bundle.state, "Container manifest state");
-  const manifest = readAccessManifest(bundle.manifest, "Container manifest");
+  const manifest = readContainerAccessManifest(
+    bundle.manifest,
+    "Container manifest",
+  );
   const state = readContainerAccessStateFields(record);
   assertContainerManifestMatchesState(manifest, state);
 

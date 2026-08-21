@@ -34,7 +34,7 @@ test("registration OpenAPI documents its nested contract and all errors", () => 
   ]);
   expect(requestSchema.required).toContain("initialRootContainer");
   expect(requestSchema.required).toContain("initialRootMetadataDocument");
-  expect(registerPost["x-tearleads-runtime-refinements"]).toEqual(
+  expect(registerPost["x-symcrypt-runtime-refinements"]).toEqual(
     registerOperation.runtimeRefinements,
   );
 

@@ -1,8 +1,8 @@
 import {
   createMemoryBlobStore,
   type IdentityKeyPackage,
-  Tearleads,
-} from "@tearleads/client-sdk";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
 import { type MutableRefObject, useCallback } from "react";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import {
@@ -24,7 +24,7 @@ export function useCreateLocalIdentity(input: {
   readonly persistSessionBeforeIdentityTransition: () => Promise<void>;
   readonly setTransitionInFlight: (inFlight: boolean) => void;
   readonly switchIdentity: (signingFingerprint: string) => Promise<boolean>;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
   readonly transitionInFlightRef: MutableRefObject<boolean>;
 }): () => Promise<boolean> {
   const {
@@ -34,7 +34,7 @@ export function useCreateLocalIdentity(input: {
     persistSessionBeforeIdentityTransition,
     setTransitionInFlight,
     switchIdentity,
-    tearleads,
+    symcrypt,
     transitionInFlightRef,
   } = input;
 
@@ -43,17 +43,17 @@ export function useCreateLocalIdentity(input: {
       return false;
     }
 
-    const previousSigningFingerprint = tearleads.identity.signingFingerprint;
-    let previousSession = { ...tearleads.session.snapshot };
+    const previousSigningFingerprint = symcrypt.identity.signingFingerprint;
+    let previousSession = { ...symcrypt.session.snapshot };
     let created = false;
     transitionInFlightRef.current = true;
     setTransitionInFlight(true);
     generationInFlight.current = true;
     try {
       await persistSessionBeforeIdentityTransition();
-      previousSession = { ...tearleads.session.snapshot };
-      prepareForIdentityTransition(tearleads);
-      await tearleads.identity.setKeyPairs({
+      previousSession = { ...symcrypt.session.snapshot };
+      prepareForIdentityTransition(symcrypt);
+      await symcrypt.identity.setKeyPairs({
         encapsulationKeyPair: null,
         signingKeyPair: null,
       });
@@ -61,7 +61,7 @@ export function useCreateLocalIdentity(input: {
       generationInFlight.current = false;
       created = await generateKey();
     } catch (error: unknown) {
-      tearleads.logError("Failed to create a local identity", error);
+      symcrypt.logError("Failed to create a local identity", error);
     } finally {
       generationInFlight.current = false;
       transitionInFlightRef.current = false;
@@ -71,7 +71,7 @@ export function useCreateLocalIdentity(input: {
     if (!created && previousSigningFingerprint) {
       const restored = await switchIdentity(previousSigningFingerprint);
       if (restored) {
-        tearleads.session.setContext(previousSession);
+        symcrypt.session.setContext(previousSession);
       }
     }
     return created;
@@ -82,7 +82,7 @@ export function useCreateLocalIdentity(input: {
     persistSessionBeforeIdentityTransition,
     setTransitionInFlight,
     switchIdentity,
-    tearleads,
+    symcrypt,
     transitionInFlightRef,
   ]);
 }
@@ -102,15 +102,15 @@ async function switchLocalIdentity(
       throw new Error("Selected local identity was not found.");
     }
     logIdentityTransitionPhase(
-      input.tearleads,
+      input.symcrypt,
       input.generationId,
       input.kind,
       "target-loaded",
     );
   } catch (error: unknown) {
-    input.tearleads.logError("Failed to switch local identity", error);
+    input.symcrypt.logError("Failed to switch local identity", error);
     logIdentityTransitionResult(
-      input.tearleads,
+      input.symcrypt,
       input.generationId,
       input.kind,
       { rollback: "not-needed", status: "failed" },
@@ -122,7 +122,7 @@ async function switchLocalIdentity(
     input.localPersistence.setActive(input.signingFingerprint),
   );
   if (switched) {
-    input.tearleads.log(`Switched local identity: ${input.signingFingerprint}`);
+    input.symcrypt.log(`Switched local identity: ${input.signingFingerprint}`);
   }
   return switched;
 }
@@ -138,13 +138,13 @@ export function useSwitchLocalIdentity(
     localPersistence,
     onIdentitiesChanged,
     setTransitionInFlight,
-    tearleads,
+    symcrypt,
     transitionInFlightRef,
   } = input;
 
   return useCallback(
     async (signingFingerprint: string) => {
-      if (tearleads.identity.signingFingerprint === signingFingerprint) {
+      if (symcrypt.identity.signingFingerprint === signingFingerprint) {
         return true;
       }
       if (
@@ -160,7 +160,7 @@ export function useSwitchLocalIdentity(
       const generationId = generationIdRef.current + 1;
       generationIdRef.current = generationId;
       generationInFlight.current = true;
-      logIdentityTransitionPhase(tearleads, generationId, "switch", "started");
+      logIdentityTransitionPhase(symcrypt, generationId, "switch", "started");
       try {
         return await switchLocalIdentity({
           ...input,
@@ -186,7 +186,7 @@ export function useSwitchLocalIdentity(
       localPersistence,
       onIdentitiesChanged,
       setTransitionInFlight,
-      tearleads,
+      symcrypt,
       transitionInFlightRef,
     ],
   );
@@ -195,7 +195,7 @@ export function useSwitchLocalIdentity(
 async function validateIdentityKeyPackage(
   keyPackage: unknown,
 ): Promise<IdentityKeyPackage> {
-  const candidate = new Tearleads({ blobStore: createMemoryBlobStore() });
+  const candidate = new SymCrypt({ blobStore: createMemoryBlobStore() });
   try {
     await candidate.identity.importKeyPackage(keyPackage);
     return await candidate.identity.exportKeyPackage();
@@ -215,7 +215,7 @@ export function useImportLocalIdentity(
     localPersistence,
     onIdentitiesChanged,
     setTransitionInFlight,
-    tearleads,
+    symcrypt,
     transitionInFlightRef,
   } = input;
 
@@ -230,7 +230,7 @@ export function useImportLocalIdentity(
       const generationId = generationIdRef.current + 1;
       generationIdRef.current = generationId;
       generationInFlight.current = true;
-      logIdentityTransitionPhase(tearleads, generationId, "import", "started");
+      logIdentityTransitionPhase(symcrypt, generationId, "import", "started");
       try {
         const target = await validateIdentityKeyPackage(keyPackage);
         const operation: IdentitySwitchOperation = {
@@ -241,7 +241,7 @@ export function useImportLocalIdentity(
         };
         assertTransitionIsCurrent(operation);
         logIdentityTransitionPhase(
-          tearleads,
+          symcrypt,
           generationId,
           "import",
           "target-loaded",
@@ -254,18 +254,16 @@ export function useImportLocalIdentity(
               ? localPersistence.upsert(target)
               : Promise.resolve([]),
           async () => {
-            await tearleads.session.bootstrapLocalRootContainer();
+            await symcrypt.session.bootstrapLocalRootContainer();
           },
         );
         if (imported) {
-          tearleads.log(
-            `Imported local identity: ${target.signingFingerprint}`,
-          );
+          symcrypt.log(`Imported local identity: ${target.signingFingerprint}`);
         }
         return imported;
       } catch (error: unknown) {
-        tearleads.logError("Failed to import local identity", error);
-        logIdentityTransitionResult(tearleads, generationId, "import", {
+        symcrypt.logError("Failed to import local identity", error);
+        logIdentityTransitionResult(symcrypt, generationId, "import", {
           rollback: "not-needed",
           status: "failed",
         });
@@ -287,7 +285,7 @@ export function useImportLocalIdentity(
       localPersistence,
       onIdentitiesChanged,
       setTransitionInFlight,
-      tearleads,
+      symcrypt,
       transitionInFlightRef,
     ],
   );

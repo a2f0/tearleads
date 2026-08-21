@@ -1,7 +1,7 @@
 import type {
   OrganizationDirectory,
   OrganizationPolicyHistory,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useState } from "react";
 import {
   MiniAppHeader,

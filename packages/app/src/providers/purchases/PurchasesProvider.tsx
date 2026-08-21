@@ -1,7 +1,7 @@
 import {
   createUnavailablePurchases,
   type PurchasesCapability,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContext,
   type PropsWithChildren,

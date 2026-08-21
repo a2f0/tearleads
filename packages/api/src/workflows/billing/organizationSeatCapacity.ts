@@ -1,11 +1,11 @@
 import type {
   OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   getLargestSyncBillingTier,
   getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 
 interface BillingSeatCapacity {
   readonly seatCount: number;

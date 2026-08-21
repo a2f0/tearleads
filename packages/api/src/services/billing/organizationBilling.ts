@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   serializeOrganizationBilling,
   serializeOrganizationBillingHistory,

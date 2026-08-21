@@ -1,8 +1,8 @@
 import {
   getOrganizationDataUsageOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
-import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { OrganizationDataUsageResponse } from "@symcrypt/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getOrganizationDataUsage } from "../../services/organizations/orgManager";

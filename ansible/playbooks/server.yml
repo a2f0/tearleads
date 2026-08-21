@@ -1,5 +1,5 @@
 ---
-- name: Configure Tearleads server
+- name: Configure SymCrypt server
   hosts: all
   become: true
 
@@ -19,8 +19,8 @@
       - { key: "MaxAuthTries", value: "3" }
       - { key: "KbdInteractiveAuthentication", value: "no" }
     postgres_version: "16"
-    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('tearleads', true) }}"
-    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('tearleads', true) }}"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DATABASE') | default('symcrypt', true) }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') | default('symcrypt', true) }}"
     postgres_password: >-
       {{ lookup('env', 'POSTGRES_PASSWORD') |
       default(lookup('ansible.builtin.password', playbook_dir +
@@ -28,15 +28,17 @@
     postgres_host: "{{ lookup('env', 'POSTGRES_HOST') | default('127.0.0.1', true) }}"
     postgres_port: "{{ lookup('env', 'POSTGRES_PORT') | default('5432', true) }}"
     redis_bind: "127.0.0.1"
+    deployment_tier: "{{ lookup('env', 'DEPLOYMENT_TIER') | default('prod', true) }}"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
-    app_hostname: "app.{{ domain | default('tearleads.com', true) }}"
-    app_demo_hostnames_env: "{{ lookup('env', 'APP_DEMO_HOSTNAMES') | default('', true) }}"
-    app_demo_hostnames_default:
-      - "demo.{{ domain | default('tearleads.com', true) }}"
-    app_demo_hostnames: >-
-      {{ app_demo_hostnames_env.split(',') | map('trim') |
-      reject('equalto', '') | list if app_demo_hostnames_env != '' else
-      app_demo_hostnames_default }}
+    api_hostname: >-
+      {{ 'api-staging.' ~ domain if deployment_tier == 'staging'
+      else 'api.' ~ domain }}
+    app_hostname: >-
+      {{ 'app-staging.' ~ domain if deployment_tier == 'staging'
+      else 'app.' ~ domain }}
+    website_hostname: >-
+      {{ 'website-staging.' ~ domain if deployment_tier == 'staging'
+      else domain }}
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
@@ -67,7 +69,7 @@
     garage_metrics_token: "{{ lookup('env', 'GARAGE_METRICS_TOKEN') | default('', true) }}"
     blob_object_store_default: "{{ 's3' if garage_enabled | bool else 'memory' }}"
     blob_object_store: "{{ lookup('env', 'BLOB_OBJECT_STORE') | default(blob_object_store_default, true) }}"
-    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('tearleads-blobs', true) }}"
+    blob_s3_bucket: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_BUCKET') | default('symcrypt-blobs', true) }}"
     blob_s3_region: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_REGION') | default('garage', true) }}"
     blob_s3_endpoint: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ENDPOINT') | default('http://127.0.0.1:3900', true) }}"
     blob_s3_force_path_style: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE') | default('true', true) }}"
@@ -75,7 +77,7 @@
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
     # The Capacitor Android/iOS WebView serves the app from https://localhost; release builds fetch the API cross-origin, so allow it.
-    api_web_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
+    api_web_cors_origins: "{{ [app_hostname] | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
     api_default_cors_origins: "{{ (api_web_cors_origins + ['https://localhost']) | join(',') }}"
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
     revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
@@ -176,14 +178,6 @@
     - name: Create app-web directory
       ansible.builtin.file:
         path: /var/www/app-web
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: "0755"
-
-    - name: Create app-demo directory
-      ansible.builtin.file:
-        path: /var/www/app-demo
         state: directory
         owner: www-data
         group: www-data
@@ -326,42 +320,42 @@
         group: "{{ server_user }}"
         mode: "0755"
       loop:
-        - /opt/tearleads
-        - /opt/tearleads/bin
-        - /etc/tearleads
+        - /opt/symcrypt
+        - /opt/symcrypt/bin
+        - /etc/symcrypt
 
     - name: Configure Garage S3 object storage
       ansible.builtin.import_tasks: tasks/garage.yml
 
     - name: Deploy API environment file
       ansible.builtin.template:
-        src: etc/tearleads/api.env.j2
-        dest: /etc/tearleads/api.env
+        src: etc/symcrypt/api.env.j2
+        dest: /etc/symcrypt/api.env
         owner: root
         group: "{{ server_user }}"
         mode: "0640"
-      notify: Restart tearleads-api
+      notify: Restart symcrypt-api
       no_log: true
 
     - name: Deploy API systemd service
       ansible.builtin.template:
-        src: etc/systemd/system/tearleads-api.service.j2
-        dest: /etc/systemd/system/tearleads-api.service
+        src: etc/systemd/system/symcrypt-api.service.j2
+        dest: /etc/systemd/system/symcrypt-api.service
         owner: root
         group: root
         mode: "0644"
-      notify: Restart tearleads-api
+      notify: Restart symcrypt-api
 
     - name: Enable API systemd service
       ansible.builtin.systemd:
-        name: tearleads-api
+        name: symcrypt-api
         daemon_reload: true
         enabled: true
 
     - name: Configure API maintenance timers
       ansible.builtin.import_tasks: tasks/apiMaintenance.yml
 
-    - name: Configure tearleads-code-assist
+    - name: Configure symcrypt-code-assist
       ansible.builtin.import_tasks: tasks/codeAssist.yml
       when: code_assist_enabled | bool
 
@@ -471,30 +465,30 @@
         daemon_reload: true
         state: restarted
 
-    - name: Check if tearleads-api binary exists
+    - name: Check if symcrypt-api binary exists
       ansible.builtin.stat:
-        path: /opt/tearleads/bin/tearleads-api
-      register: tearleads_api_bin
-      listen: Restart tearleads-api
+        path: /opt/symcrypt/bin/symcrypt-api
+      register: symcrypt_api_bin
+      listen: Restart symcrypt-api
 
-    - name: Restart tearleads-api service
+    - name: Restart symcrypt-api service
       ansible.builtin.systemd:
-        name: tearleads-api
+        name: symcrypt-api
         daemon_reload: true
         state: restarted
-      when: tearleads_api_bin.stat.exists | default(false)
-      listen: Restart tearleads-api
+      when: symcrypt_api_bin.stat.exists | default(false)
+      listen: Restart symcrypt-api
 
-    - name: Check if tearleads-code-assist binary exists
+    - name: Check if symcrypt-code-assist binary exists
       ansible.builtin.stat:
-        path: /opt/tearleads/bin/tearleads-code-assist
-      register: tearleads_code_assist_bin
-      listen: Restart tearleads-code-assist
+        path: /opt/symcrypt/bin/symcrypt-code-assist
+      register: symcrypt_code_assist_bin
+      listen: Restart symcrypt-code-assist
 
-    - name: Restart tearleads-code-assist service
+    - name: Restart symcrypt-code-assist service
       ansible.builtin.systemd:
-        name: tearleads-code-assist
+        name: symcrypt-code-assist
         daemon_reload: true
         state: restarted
-      when: tearleads_code_assist_bin.stat.exists | default(false)
-      listen: Restart tearleads-code-assist
+      when: symcrypt_code_assist_bin.stat.exists | default(false)
+      listen: Restart symcrypt-code-assist

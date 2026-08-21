@@ -4,7 +4,7 @@ import {
   LOCAL_KEYRING_MANIFEST_FORMAT,
   type LocalKeyringManifest,
   WRAPPED_LOCAL_SECRET_FORMAT,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { createFakeIndexedDb } from "../../../../test/helpers/fakeIndexedDb";
 import {

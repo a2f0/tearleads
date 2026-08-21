@@ -10,7 +10,7 @@ import { isThemeId, type ThemeId } from "./themes";
 
 // Written only when the user explicitly picks a theme, so its presence is an
 // unambiguous record of intent.
-const CHOICE_STORAGE_KEY = "tearleads.theme.choice";
+const CHOICE_STORAGE_KEY = "symcrypt.theme.choice";
 
 /**
  * The theme the user has explicitly chosen, or `null` when they have not.

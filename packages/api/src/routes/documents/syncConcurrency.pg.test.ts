@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
-import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
 import {
   blobContentKeyTargets,
   documents,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { runDirectGrantRosterRemovalRace } from "../../../test/helpers/containerGrantConcurrency";

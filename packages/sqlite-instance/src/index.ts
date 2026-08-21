@@ -7,7 +7,7 @@
  *
  * Usage from a worker thread:
  *
- *   import sqlite3InitModule from "@tearleads/sqlite-instance/jswasm/sqlite3.mjs";
+ *   import sqlite3InitModule from "@symcrypt/sqlite-instance/jswasm/sqlite3.mjs";
  *
  *   const sqlite3 = await sqlite3InitModule();
  */

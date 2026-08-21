@@ -1,11 +1,11 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type {
   ContainerAccessLevel,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 

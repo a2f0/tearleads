@@ -1,0 +1,21 @@
+[Unit]
+Description=SymCrypt Stripe Seat Sync
+After=network.target postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+Wants=postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+ConditionPathExists=/opt/symcrypt/bin/symcrypt-stripe-seat-sync
+
+[Service]
+Type=oneshot
+User={{ server_user | default('deploy') }}
+WorkingDirectory=/opt/symcrypt
+EnvironmentFile=/etc/symcrypt/api.env
+ExecStart=/opt/symcrypt/bin/symcrypt-stripe-seat-sync
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=symcrypt-stripe-seat-sync
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/opt/symcrypt

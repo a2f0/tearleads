@@ -8,10 +8,10 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
 import {
   ensurePrincipalPolicyTables,

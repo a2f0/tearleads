@@ -10,8 +10,8 @@ import type {
   DocumentSummary,
   DomainScope,
   OrganizationDirectoryAndGroups,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";

@@ -4,7 +4,7 @@ import type {
   ContainerAccessManifestState,
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 
 export function projectionReferencedPrincipalHeadRecord<
   PrincipalHead extends ReferencedPrincipalHead,

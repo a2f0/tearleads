@@ -1,8 +1,8 @@
 import {
   listDocumentAttachmentsOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
-import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { ListDocumentAttachmentsResponse } from "@symcrypt/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

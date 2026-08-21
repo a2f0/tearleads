@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { organizationPrincipalPolicy } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelSnapshot,

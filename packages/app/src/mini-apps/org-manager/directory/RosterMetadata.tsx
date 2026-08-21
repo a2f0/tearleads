@@ -1,4 +1,4 @@
-import type { OrganizationUserDetail } from "@tearleads/client-sdk";
+import type { OrganizationUserDetail } from "@symcrypt/client-sdk";
 import type { ReactNode } from "react";
 import { MiniAppClipboardButton } from "../../../components/mini-app/MiniAppLayout";
 import {

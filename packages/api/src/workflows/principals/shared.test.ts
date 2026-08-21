@@ -3,7 +3,7 @@ import {
   PrincipalMemberEnvelopeValidationError,
   PrincipalPolicyValidationError,
   type PrincipalPolicyValidationErrorCode,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { toPrincipalPolicyError } from "./shared";
 
 test("principal policy validation codes determine HTTP status independently of wording", () => {

@@ -1,5 +1,5 @@
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";

@@ -5,16 +5,16 @@ import {
   generateSigningSeedAndKeyPair,
   type ReferencedPrincipalHead,
   toFingerprint,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerMutationRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerMutationResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,

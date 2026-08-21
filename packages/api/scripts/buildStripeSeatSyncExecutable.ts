@@ -30,7 +30,7 @@ const executableTarget = readExecutableTarget();
 const result = await Bun.build({
   entrypoints: ["packages/api/scripts/stripeSeatSync.ts"],
   compile: {
-    outfile: "packages/api/dist/tearleads-stripe-seat-sync",
+    outfile: "packages/api/dist/symcrypt-stripe-seat-sync",
     target: executableTarget,
   },
   target: "bun",

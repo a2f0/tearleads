@@ -1,14 +1,14 @@
 import type {
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
-import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
+} from "@symcrypt/api-shared/postgres";
+import { documentUpdates } from "@symcrypt/api-shared/schema";
+import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
+import { mergeVersionVectors, satisfiesVersionVector } from "@symcrypt/loro";
 import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";

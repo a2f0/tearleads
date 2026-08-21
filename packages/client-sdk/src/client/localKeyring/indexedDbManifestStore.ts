@@ -16,7 +16,7 @@ import type {
  * separate from the wrapping-key database so the two never coordinate versions.
  */
 const BROWSER_KEYRING_MANIFEST_DATABASE_NAME =
-  "tearleads-local-keyring-manifests";
+  "symcrypt-local-keyring-manifests";
 const BROWSER_KEYRING_MANIFEST_STORE_NAME = "manifests";
 
 export interface IndexedDbLocalKeyringManifestStoreOptions {

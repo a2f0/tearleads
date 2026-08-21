@@ -2,8 +2,8 @@ import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerMutationResponse } from "@symcrypt/validators/response";
 import {
   getCurrentPrincipalState,
   listContainerGrantsForState,

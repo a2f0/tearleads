@@ -1,11 +1,10 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import { randomBytes } from "../../utils/randomBytes";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
-const LOCAL_IDENTITY_PACKAGE_FORMAT =
-  "tearleads.app.local-identity-key-package";
+const LOCAL_IDENTITY_PACKAGE_FORMAT = "symcrypt.app.local-identity-key-package";
 const AES_GCM_IV_BYTES = 12;
 
 interface LocalIdentityEnvelope {

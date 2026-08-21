@@ -49,13 +49,40 @@ echo "Checking $OPENAPI_PATH compatibility against $base_description ($base_comm
 command -v bun >/dev/null 2>&1 ||
   fail "bun is unavailable; it is required for the runtime-refinement check."
 
-# oasdiff ignores x-tearleads-runtime-refinements, so tightening them must be
+# oasdiff ignores x-symcrypt-runtime-refinements, so tightening them must be
 # caught separately. The helper lives next to this script, not in $REPO_ROOT,
 # so fixture repositories exercise the real implementation.
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
 trap 'rm -f "$base_spec_file"' EXIT
 git cat-file blob "$base_spec" >"$base_spec_file"
+
+read_openapi_title() {
+  bun -e '
+    const spec = await Bun.file(Bun.argv[1]).json();
+    const title = spec?.info?.title;
+    if (typeof title !== "string") process.exit(2);
+    process.stdout.write(title);
+  ' "$1"
+}
+
+base_title=$(read_openapi_title "$base_spec_file") ||
+  fail "cannot read info.title from $base_spec."
+revision_title=$(read_openapi_title "$OPENAPI_PATH") ||
+  fail "cannot read info.title from $OPENAPI_PATH."
+
+# The move to SymCrypt deliberately resets the wire contract. This condition
+# is self-expiring: once the default branch carries the SymCrypt title, future
+# SymCrypt-to-SymCrypt comparisons continue through the normal compatibility
+# checks below.
+if [ "$revision_title" = "SymCrypt Protocol API" ] &&
+  [ "$base_title" != "$revision_title" ]; then
+  echo "Skipping compatibility for the clean-break transition to $revision_title."
+  rm -f "$base_spec_file"
+  trap - EXIT
+  exit 0
+fi
+
 bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
   "$base_spec_file" "$OPENAPI_PATH"
 rm -f "$base_spec_file"

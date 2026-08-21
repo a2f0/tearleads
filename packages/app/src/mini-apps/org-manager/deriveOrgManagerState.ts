@@ -8,7 +8,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   scopeOrganizationValue,
   scopeSelectedGroupValue,

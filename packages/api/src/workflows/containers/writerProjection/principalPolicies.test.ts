@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { principalPolicyCacheKey } from "./principalPolicies";
 
 function createManifestReference(

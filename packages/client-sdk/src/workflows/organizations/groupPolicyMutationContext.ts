@@ -4,19 +4,19 @@ import type {
   PrincipalPolicySignerPublicKey,
   ReferencedPrincipalHead,
   SigningKeyPair,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupWithPolicyRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
   CreateOrganizationGroupResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   advanceKeyingCheckpointsAtomically,
   persistVerifiedPrincipalPolicyBundlesAtomically,

@@ -3,8 +3,8 @@ import type {
   DocumentRecord,
   DocumentsPersistence,
   PendingAttachmentRecord,
-} from "@tearleads/client-sdk";
-import { createDocument } from "@tearleads/loro";
+} from "@symcrypt/client-sdk";
+import { createDocument } from "@symcrypt/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";

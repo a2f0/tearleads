@@ -12,7 +12,7 @@ import {
   type DirectCheckoutCapability,
   type DirectCheckoutConfirmation,
   type DirectCheckoutSession,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 /**
  * Stripe-backed {@link DirectCheckoutCapability} for the web shell (issue

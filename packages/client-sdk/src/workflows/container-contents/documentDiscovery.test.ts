@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   ReferencedPrincipalStateResponse,
   SyncWatermark,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,

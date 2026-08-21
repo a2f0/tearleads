@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createOrganizationOperation } from "@tearleads/validators/operation";
+import { createOrganizationOperation } from "@symcrypt/validators/operation";
 import { createOrganization } from "./create";
 
 test("create organization client metadata derives from the shared operation", () => {

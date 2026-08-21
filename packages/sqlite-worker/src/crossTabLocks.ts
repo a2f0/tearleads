@@ -1,4 +1,4 @@
-const CROSS_TAB_CLIENT_LOCK_PREFIX = "tearleads-sqlite-worker-client:";
+const CROSS_TAB_CLIENT_LOCK_PREFIX = "symcrypt-sqlite-worker-client:";
 
 export interface LockManagerLike {
   request(

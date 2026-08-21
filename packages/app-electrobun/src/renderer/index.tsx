@@ -1,7 +1,7 @@
 import {
   createSQLiteRuntime,
   PERSISTENT_STORAGE_POLICY,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
   APP_HOST_PROFILES,

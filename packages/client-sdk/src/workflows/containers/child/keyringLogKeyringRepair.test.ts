@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { sealContainerKekKeyring } from "@tearleads/crypto";
+import { sealContainerKekKeyring } from "@symcrypt/crypto";
 import {
   makeEpochBridge,
   makeEpochKeys,

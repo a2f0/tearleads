@@ -1,8 +1,8 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { randomBytes } from "../../utils/randomBytes";
 
-const BACKUP_FILE_FORMAT = "tearleads.local-backup.encrypted";
-export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
+const BACKUP_FILE_FORMAT = "symcrypt.local-backup.encrypted";
+export const BACKUP_PAYLOAD_FORMAT = "symcrypt.local-backup.payload";
 // v3: greenfield reset (2026-07). Backups written before the reset carry the
 // pre-reset schema (row-blob content, no durable-history tables) and are
 // rejected outright rather than restored into a shape the runtime no longer
@@ -491,5 +491,5 @@ export function createBackupFileName(payload: BackupPayload): string {
     ? `${payload.source.signingFingerprint.slice(0, 12)}-`
     : "";
 
-  return `tearleads-local-backup-${fingerprintPrefix}${timestamp}.tlbackup.json`;
+  return `symcrypt-local-backup-${fingerprintPrefix}${timestamp}.scbackup.json`;
 }

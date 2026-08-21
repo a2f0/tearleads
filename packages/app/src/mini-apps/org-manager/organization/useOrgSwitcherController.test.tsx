@@ -5,7 +5,7 @@ import {
   type LocalOrganizationSummary,
   type SessionContext,
   type SessionCreateOrganizationResult,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useOrgSwitcherController } from "./useOrgSwitcherController";

@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { groups } from "@tearleads/api-shared/schema";
-import type { PrincipalProjectionMember } from "@tearleads/crypto";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { groups } from "@symcrypt/api-shared/schema";
+import type { PrincipalProjectionMember } from "@symcrypt/crypto";
 import { asc, eq } from "drizzle-orm";
 import { getCurrentPrincipalStates } from "../../access/read/principalStateStore";
 import { PrincipalPolicyError } from "../principals/shared";

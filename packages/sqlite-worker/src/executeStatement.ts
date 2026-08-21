@@ -1,4 +1,4 @@
-import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
 import type {
   DatabaseWorkerExecOptions,
   SqliteArrayRow,

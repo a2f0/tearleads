@@ -1,13 +1,13 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   getSyncBillingTierForNativeProduct,
   getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+} from "@symcrypt/validators/billing";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { and, eq, gt, ne } from "drizzle-orm";
 import {
   classifyRevenueCatEvent,

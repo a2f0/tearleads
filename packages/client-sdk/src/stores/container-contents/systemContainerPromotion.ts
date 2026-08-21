@@ -1,4 +1,4 @@
-import { base64ToBytes } from "@tearleads/encoding";
+import { base64ToBytes } from "@symcrypt/encoding";
 import { enqueuePendingContainerUpdate } from "../../workflows/container-contents/containerPersistence";
 import { updateContainerContentsSnapshot } from "./state";
 import type {

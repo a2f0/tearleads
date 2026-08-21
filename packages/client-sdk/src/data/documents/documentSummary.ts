@@ -1,4 +1,4 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type { ContainerAccessLevel } from "@symcrypt/crypto";
 import type { StoredDocumentKind } from "./documentKinds";
 
 /** Non-empty because callers use this tuple to build SQL `NOT IN` clauses. */

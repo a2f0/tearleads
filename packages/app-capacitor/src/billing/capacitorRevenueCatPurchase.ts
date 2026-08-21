@@ -3,7 +3,7 @@ import type {
   Purchases,
   PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
-import type { RevenueCatCustomerInfo } from "@tearleads/client-sdk";
+import type { RevenueCatCustomerInfo } from "@symcrypt/client-sdk";
 import { getNativeRevenueCatPurchase } from "./capacitorRevenueCatRuntime";
 
 type NativePurchaseChangeOptions = Pick<

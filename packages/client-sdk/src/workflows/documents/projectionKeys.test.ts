@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";

@@ -5,7 +5,7 @@ import {
   createStripePortalOperation,
   getStripeCheckoutOptionsOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { StripeApiError } from "../../billing/stripeApi";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "../../corsOrigins";

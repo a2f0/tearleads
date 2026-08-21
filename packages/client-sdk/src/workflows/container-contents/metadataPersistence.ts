@@ -1,9 +1,9 @@
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
   exportUpdatesSince,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   getDefaultContainerName,
   readContainerMetadataValue,

@@ -1,8 +1,8 @@
-import type { ContainerAccessLevel, SigningKeyPair } from "@tearleads/crypto";
+import type { ContainerAccessLevel, SigningKeyPair } from "@symcrypt/crypto";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import type {
   ContainerMutationAuthor,

@@ -1,5 +1,5 @@
 import { expect, mock, spyOn, test } from "bun:test";
-import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import type { BlobAttachmentBindResponse } from "@symcrypt/validators/response";
 import {
   createAttachmentBindDocumentEvent,
   createAttachmentDetachDocumentEvent,

@@ -1,14 +1,14 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
   SyncWatermark,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ListContainerDocumentsOptions, RequestBody } from "./types";
 
 /**

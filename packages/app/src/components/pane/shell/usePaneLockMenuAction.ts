@@ -2,12 +2,12 @@ import { useCallback } from "react";
 
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 
 export function usePaneLockMenuAction(onClose: () => void) {
   const { clearWorker } = useDatabase();
   const localKeyringLock = useLocalKeyringLock();
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const canLockPane =
     localKeyringLock.pinCodeEnabled && !localKeyringLock.isLocked;
 
@@ -17,7 +17,7 @@ export function usePaneLockMenuAction(onClose: () => void) {
       return;
     }
 
-    tearleads.session.setContext({
+    symcrypt.session.setContext({
       authToken: null,
       containerId: null,
       defaultOrganizationId: null,
@@ -26,16 +26,16 @@ export function usePaneLockMenuAction(onClose: () => void) {
       userId: null,
     });
     try {
-      await tearleads.identity.setKeyPairs({
+      await symcrypt.identity.setKeyPairs({
         encapsulationKeyPair: null,
         signingKeyPair: null,
       });
     } catch (error: unknown) {
-      tearleads.logError("Failed to clear identity keys while locking", error);
+      symcrypt.logError("Failed to clear identity keys while locking", error);
     }
     clearWorker();
     onClose();
-  }, [canLockPane, clearWorker, localKeyringLock, onClose, tearleads]);
+  }, [canLockPane, clearWorker, localKeyringLock, onClose, symcrypt]);
 
   return { canLockPane, lockPane };
 }

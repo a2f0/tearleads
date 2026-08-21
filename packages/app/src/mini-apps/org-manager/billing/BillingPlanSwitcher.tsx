@@ -1,8 +1,8 @@
-import type { SyncSubscriptionOption } from "@tearleads/client-sdk";
+import type { SyncSubscriptionOption } from "@symcrypt/client-sdk";
 import {
   getLargestSyncBillingTier,
   getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import {
   MiniAppButton,
   MiniAppStatus,

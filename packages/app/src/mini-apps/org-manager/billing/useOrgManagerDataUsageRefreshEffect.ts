@@ -1,9 +1,9 @@
 import {
   getDomainSyncCoordinatorSnapshot,
   subscribeToDomainSyncCoordinator,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import type { DataUsageRefreshOptions } from "../refresh";
 
 interface DataUsageRefreshInput {
@@ -95,8 +95,8 @@ export function useOrgManagerDataUsageRefreshEffect({
   refreshDataUsage,
   visible,
 }: DataUsageRefreshInput): void {
-  const tearleads = useTearleads();
-  const domainScope = tearleads.domainScope;
+  const symcrypt = useSymCrypt();
+  const domainScope = symcrypt.domainScope;
 
   useEffect(() => {
     if (!enabled || !visible) {

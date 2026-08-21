@@ -1,6 +1,6 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { ProvisionedDocumentRequest } from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { ProvisionedDocumentRequest } from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import type {
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,

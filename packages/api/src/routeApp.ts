@@ -32,9 +32,9 @@ interface RouteAppOptions {
 const API_CORS_ALLOW_HEADERS = [
   "Authorization",
   "Content-Type",
-  "X-Tearleads-Blob-Part-Byte-Length",
-  "X-Tearleads-Blob-Part-Sha256",
-  "X-Tearleads-Blob-Upload-Id",
+  "X-SymCrypt-Blob-Part-Byte-Length",
+  "X-SymCrypt-Blob-Part-Sha256",
+  "X-SymCrypt-Blob-Upload-Id",
 ];
 const API_CORS_ALLOW_METHODS = [
   "DELETE",

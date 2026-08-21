@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
-import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
+import type { ListContainerParentLanesResponse } from "@symcrypt/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerCreateWithMetadataDocumentRequest,

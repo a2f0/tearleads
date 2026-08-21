@@ -3,9 +3,9 @@ import {
   createDocumentStore,
   DOCUMENTS_APP_KIND,
   getOrCreateDomainSyncCoordinator,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createLargeText } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import { createLargeText } from "@symcrypt/test-utils";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import {
   createDocumentsPersistence,

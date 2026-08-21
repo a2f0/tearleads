@@ -395,9 +395,9 @@ The blob binding route validates:
 
 Blob staged bytes and document updates use the content-record encryption suite
 `aes-256-gcm-hkdf-sha256-record-key`. Document content-key targets use
-`tearleads.document.content-key-wrap.aes-256-gcm-container-kek`, and blob
+`symcrypt.document.content-key-wrap.aes-256-gcm-container-kek`, and blob
 content-key targets use
-`tearleads.blob.content-key-wrap.aes-256-gcm-container-kek`; those wrap suites
+`symcrypt.blob.content-key-wrap.aes-256-gcm-container-kek`; those wrap suites
 are direct AES-GCM under a verified container KEK and are separate from the
 HKDF content-record suite.
 

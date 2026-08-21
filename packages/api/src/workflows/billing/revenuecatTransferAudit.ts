@@ -1,6 +1,6 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
-import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
-import type { RevenueCatTransferWebhookEvent } from "@tearleads/validators/request";
+import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import { revenuecatWebhookEvents } from "@symcrypt/api-shared/schema";
+import type { RevenueCatTransferWebhookEvent } from "@symcrypt/validators/request";
 import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";
 
 /** Persists a permanent transfer rejection so redelivery becomes a duplicate. */

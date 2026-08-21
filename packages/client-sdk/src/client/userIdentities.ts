@@ -1,4 +1,4 @@
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,

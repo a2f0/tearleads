@@ -5,7 +5,7 @@ import {
   saveHiddenExplorerColumns,
 } from "./explorerColumnPreferences";
 
-const STORAGE_KEY = "tearleads.explorer:hidden-columns";
+const STORAGE_KEY = "symcrypt.explorer:hidden-columns";
 
 afterEach(() => {
   globalThis.localStorage.clear();

@@ -1,12 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
   users,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -47,7 +47,7 @@ test("a stale lifecycle grant for a moved subscription is ignored", async () => 
     expiration_at_ms: now + 60_000,
     id: crypto.randomUUID(),
     original_transaction_id: subscriptionId,
-    product_id: "com.tearleads.sync.monthly",
+    product_id: "com.symcrypt.sync.monthly",
     purchased_at_ms: now,
     store: "APP_STORE",
     subscriber_attributes: {

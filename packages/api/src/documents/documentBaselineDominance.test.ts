@@ -4,7 +4,7 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { selectServedSyncUpdates } from "./documentSyncBaselineRedirect";
 

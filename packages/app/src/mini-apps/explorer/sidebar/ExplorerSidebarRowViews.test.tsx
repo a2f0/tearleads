@@ -2,8 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentSidebarRow,
   ContainerNode,
-} from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { syncedContainerDocumentObjectSyncState as syncedState } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EXPLORER_ORPHANED_DOCUMENTS_ID } from "../../../stores/explorer/orphanedDocuments";
 import { ExplorerSidebarVirtualTree } from "./ExplorerSidebarRowViews";

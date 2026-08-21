@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessManifests,
   containerKeyEpochs,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   type AccessEventType,
   type AccessManifest,
@@ -24,8 +24,8 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
   type WriteHeader,
-} from "@tearleads/crypto";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import {
   type DocumentContentKeyTargetEnvelope,
@@ -42,7 +42,7 @@ import {
 } from "./documentContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
     label,
   });
 }

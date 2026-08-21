@@ -31,8 +31,8 @@ configuration:
 
 | Tier | Native app identifier | Android variant | iOS scheme / configuration |
 | --- | --- | --- | --- |
-| Production | `com.tearleads.app` | `release` | `App` / `Release` |
-| Staging | `com.tearleads.staging.app` | `staging` | `App-Staging` / `Release-Staging` |
+| Production | `com.symcrypt.app` | `release` | `App` / `Release` |
+| Staging | `com.symcrypt.staging.app` | `staging` | `App-Staging` / `Release-Staging` |
 
 Build or upload staging releases with:
 
@@ -43,8 +43,8 @@ Build or upload staging releases with:
 ./scripts/uploadIosStagingRelease.sh
 ```
 
-The staging wrappers default to `https://api.tearleads.de`; production wrappers
-continue to default to `https://api.tearleads.com`. All wrappers delegate to
+The staging wrappers default to `https://api-staging.symcrypt.com`; production wrappers
+continue to default to `https://api.symcrypt.com`. All wrappers delegate to
 `scripts/nativeRelease.sh`, while
 `fastlane/lib/native_release_target.rb` owns the app identifier, Gradle variant,
 Xcode scheme, and Xcode configuration mapping.
@@ -88,7 +88,7 @@ any live-reload URL from the generated native config:
 bun run android:sideload:release
 ```
 
-Release builds use `.secrets/tearleads-release.keystore` with
+Release builds use `.secrets/symcrypt-release.keystore` with
 `ANDROID_KEYSTORE_STORE_PASS` and `ANDROID_KEYSTORE_KEY_PASS` when present.
 Without those values, Gradle signs the release APK with the debug signing config
 so it can still be sideloaded locally.
@@ -101,7 +101,7 @@ Build a signed Android App Bundle for Google Play:
 bun run android:build:google-play
 ```
 
-The lane loads `.secrets/root.env`, requires `.secrets/tearleads-release.keystore`
+The lane loads `.secrets/root.env`, requires `.secrets/symcrypt-release.keystore`
 and `ANDROID_KEYSTORE_STORE_PASS`/`ANDROID_KEYSTORE_KEY_PASS`, runs a release
 Capacitor sync, and builds `android/app/build/outputs/bundle/release/app-release.aab`.
 It also prints any generated upload companion assets, such as
@@ -145,7 +145,7 @@ bun run ios:build:testflight
 
 The lane loads `.secrets/root.env`, runs a release Capacitor sync, verifies that
 the generated native config is fully bundled, and builds
-`ios/App/output/Tearleads.ipa`. Release signing requires a Developer Team ID via
+`ios/App/output/SymCrypt.ipa`. Release signing requires a Developer Team ID via
 `IOS_TEAM_ID`, `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or the
 Fastlane option `team_id:<id>`. With automatic signing, the lane passes
 `-allowProvisioningUpdates` by default; disable it with

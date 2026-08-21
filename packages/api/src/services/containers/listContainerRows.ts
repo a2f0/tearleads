@@ -4,8 +4,8 @@ import {
   accessManifests,
   containers,
   principalMembershipProjection,
-} from "@tearleads/api-shared/schema";
-import type { SyncWatermark } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/schema";
+import type { SyncWatermark } from "@symcrypt/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import {
   intExpression,

@@ -1,8 +1,8 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/postgres";
+import type { PrincipalPolicyMutationResponse } from "@symcrypt/validators/response";
 import {
   getCurrentPrincipalState,
   type StoredPrincipalState,

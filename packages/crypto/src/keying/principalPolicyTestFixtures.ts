@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   generateKemSeedAndKeyPair,
   ML_KEM1024_CIPHERTEXT_BYTES,

@@ -1,8 +1,8 @@
 import type {
   ContainerContentsStore,
   ContainerNode,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import {
   isExplorerContainerUnderTrash,
   resolveExplorerDeleteTrashTarget,

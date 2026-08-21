@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
@@ -11,8 +11,8 @@ import {
   documents,
   organizations,
   users,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
@@ -26,7 +26,7 @@ import type {
   VerifiedContainerKekState,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
@@ -42,8 +42,8 @@ import {
   verifyContainerKekState,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
-} from "@tearleads/crypto";
-import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { blobObjectBytes } from "../../../test/helpers/blobObjectStore";
 import {
@@ -100,7 +100,7 @@ interface BuiltBindRequest {
 const runtime = createServiceTestRuntime();
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
     label,
   });
 }

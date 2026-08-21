@@ -1,4 +1,4 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../src/access/write/principalMemberEnvelopes";
 
 export function replacePrincipalMemberEnvelopesInTestTransaction(

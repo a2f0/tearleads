@@ -8,7 +8,7 @@ ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
 ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
 ANDROID_BUILD_VARIANT_TASK = native_release_android_build_variant_task
-ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')
+ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'symcrypt-release.keystore')
 ANDROID_RELEASE_SIGNING_ENV_NAMES = %w[
   ANDROID_KEYSTORE_STORE_PASS
   ANDROID_KEYSTORE_KEY_PASS
@@ -28,7 +28,7 @@ RELEASE_PLAY_ASSET_PATHS = [
   RELEASE_MAPPING_PATH,
   RELEASE_NATIVE_DEBUG_SYMBOLS_PATH
 ].freeze
-ANDROID_RELEASE_VERSION_CODE_PROPERTY = 'tearleadsVersionCode'
+ANDROID_RELEASE_VERSION_CODE_PROPERTY = 'symcryptVersionCode'
 
 def connected_android_device_serials
   adb_output = `adb devices`

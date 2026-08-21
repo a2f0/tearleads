@@ -241,7 +241,7 @@
       "lines": 815,
       "bytes": 24041
     },
-    "packages/client-sdk/src/client/Tearleads.test.ts": {
+    "packages/client-sdk/src/client/SymCrypt.test.ts": {
       "lines": 1001,
       "bytes": 31624
     },

@@ -1,6 +1,6 @@
 # Device-First Reads, Writes & Background Reconciliation
 
-The `tearleads.deviceFirst` facade (`client/deviceFirst.ts`) gives the app one
+The `symcrypt.deviceFirst` facade (`client/deviceFirst.ts`) gives the app one
 device-first scope for reads, writes, and reconciliation. The container tree
 and active container's document list render synchronously from local
 SQLite/OPFS, ordinary container writes commit locally and queue durable sync,
@@ -268,7 +268,7 @@ React imports (enforced by the lane rules + dependency-cruiser).
 The top-level facade spans containers and documents:
 
 ```ts
-// client/deviceFirst.ts  →  tearleads.deviceFirst
+// client/deviceFirst.ts  →  symcrypt.deviceFirst
 interface DeviceFirstContainerContents {
   containerStore: ContainerContentsStore;   // local tree + locally durable writes
   view: LocalProjectionView;                 // Layer A read handle

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads API CLI executable to the production server.
+# Deploy the SymCrypt API CLI executable to the production server.
 
 set -euo pipefail
 
@@ -23,11 +23,11 @@ export SSH_TARGET
 echo "Building API CLI executable..."
 (cd "$REPO_ROOT/packages/api-cli" && bun run build)
 
-REMOTE_BIN_PATH="/opt/tearleads/bin"
+REMOTE_BIN_PATH="/opt/symcrypt/bin"
 
 echo "Deploying API CLI executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
-rsync -avz "$REPO_ROOT/packages/api-cli/dist/tearleads-api-cli" \
+rsync -avz "$REPO_ROOT/packages/api-cli/dist/symcrypt-api-cli" \
   "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "API CLI deployed."

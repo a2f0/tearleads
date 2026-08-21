@@ -1,9 +1,9 @@
 import type {
   ContainerDocumentQueries,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
   areLinkedContainerIdMapsEqual,

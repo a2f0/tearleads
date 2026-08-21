@@ -1,16 +1,16 @@
-import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
+import type { DomainScope, DomainSyncSnapshot } from "@symcrypt/client-sdk";
 import {
   getDomainSyncCoordinatorSnapshot,
   subscribeToDomainSyncCoordinator,
   subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPendingWriteWatcher } from "../../../components/pane/footer/sync-status/pendingWriteWatcher";
 import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
-import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../../providers/sdk/SymCryptProvider";
+import { useSymCryptExternalValue } from "../../../providers/sdk/useSymCryptSubscription";
 import type { SystemMonitorWriteQueueReport } from "./systemMonitorReport";
 
 // `listPendingWrites()` is an identity-wide scan, so re-reads are throttled: a
@@ -65,8 +65,8 @@ export function selectSystemMonitorWriteQueue(input: {
  * queue spans every organization in the database (see `organizationId`).
  */
 export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
-  const runtime = useTearleadsRuntime();
-  const { containerContents } = useTearleads();
+  const runtime = useSymCryptRuntime();
+  const { containerContents } = useSymCrypt();
   const domainScope = runtime.state.domainScope;
   const dbStatus = runtime.infra.dbStatus;
   const dbReady = dbStatus === "ready";
@@ -128,10 +128,7 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
     () => getDomainSyncCoordinatorSnapshot(domainScope),
     [domainScope],
   );
-  const syncSnapshot = useTearleadsExternalValue(
-    subscribeSync,
-    getSyncSnapshot,
-  );
+  const syncSnapshot = useSymCryptExternalValue(subscribeSync, getSyncSnapshot);
 
   // An inactive scope yields an empty coordinator snapshot; report it as
   // unavailable until the database is ready rather than as a live-but-empty

@@ -1,9 +1,9 @@
 import { createHmac } from "node:crypto";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizations,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 
 export const STRIPE_WEBHOOK_ORGANIZATION_ID =
   "11111111-1111-4111-8111-111111111111";

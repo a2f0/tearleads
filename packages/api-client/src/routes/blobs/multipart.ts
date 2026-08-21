@@ -11,7 +11,7 @@ import {
   isUploadMultipartBlobPartBytesOperationResponse,
   operationRequestPath,
   uploadMultipartBlobPartBytesOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const initiateMultipartBlobStage = {
   isRequest: isInitiateMultipartBlobStageOperationRequest,

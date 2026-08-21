@@ -5,7 +5,7 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { DragEvent } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "../shared/AttachmentActionButton";

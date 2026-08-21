@@ -1,4 +1,4 @@
-import type { DocumentStore } from "@tearleads/client-sdk";
+import type { DocumentStore } from "@symcrypt/client-sdk";
 import { loadProjectedContacts } from "./contactProjection";
 import { sortContactEntries } from "./contactSnapshot";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";

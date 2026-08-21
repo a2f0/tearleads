@@ -5,7 +5,7 @@ import type {
   BlobInfoSort,
   BlobInfoSortKey,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useState } from "react";
 import {
   getMiniAppCompactTableRowHeight,

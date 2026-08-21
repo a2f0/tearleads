@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,

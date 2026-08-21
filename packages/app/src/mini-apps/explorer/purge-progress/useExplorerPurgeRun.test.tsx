@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { PurgeOptions } from "@tearleads/client-sdk";
+import type { PurgeOptions } from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useExplorerPurgeRun } from "./useExplorerPurgeRun";
 

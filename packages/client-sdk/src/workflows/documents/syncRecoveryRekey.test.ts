@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   exportAllUpdates,
   getUpdateVersionVectors,
-} from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+} from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
 import {
   createMaterializedSyncFixture,
   createSyncResponse,

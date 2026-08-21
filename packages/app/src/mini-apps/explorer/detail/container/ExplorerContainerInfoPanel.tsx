@@ -3,7 +3,7 @@ import type {
   ContainerNode,
   ContainerShareAccessLevel,
   OrganizationDirectoryAndGroups,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useId, useState } from "react";
 import {
   MiniAppFormPanel,

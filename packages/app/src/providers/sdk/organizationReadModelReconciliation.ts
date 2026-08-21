@@ -1,4 +1,4 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 import {
   activeDemandScope,
   hasOpenOrganizationReadModelSocket,
@@ -54,12 +54,12 @@ async function settleSameScopePass(
  * trigger. Null still counts as a completed pass — an authoritative denial
  * purged the projection and mounted consumers must repaint the loss. */
 async function reconcileFeed(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   useSdkBarrier: boolean,
 ): Promise<boolean> {
   const result = useSdkBarrier
-    ? await tearleads.organizations.loadDirectoryAndGroupsAfterMutation()
-    : await tearleads.organizations.loadDirectoryAndGroups();
+    ? await symcrypt.organizations.loadDirectoryAndGroupsAfterMutation()
+    : await symcrypt.organizations.loadDirectoryAndGroups();
   return result !== undefined;
 }
 
@@ -69,12 +69,12 @@ async function reconcileFeed(
  * one dirty bit, producing a sequential catch-up pass without parallel GETs.
  */
 function scheduleOrganizationReadModelReconciliationPass(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
   requiresSdkBarrier: boolean,
 ): Promise<void> {
-  const state = stateFor(tearleads);
-  const requestedScope = activeDemandScope(tearleads, state, organizationId);
+  const state = stateFor(symcrypt);
+  const requestedScope = activeDemandScope(symcrypt, state, organizationId);
   if (!requestedScope) {
     return Promise.resolve();
   }
@@ -105,7 +105,7 @@ function scheduleOrganizationReadModelReconciliationPass(
     reconciliation.started = true;
     do {
       reconciliation.pending = false;
-      const passScope = activeDemandScope(tearleads, state, organizationId);
+      const passScope = activeDemandScope(symcrypt, state, organizationId);
       if (!passScope) {
         return;
       }
@@ -114,12 +114,12 @@ function scheduleOrganizationReadModelReconciliationPass(
       reconciliation.requiresSdkBarrier = false;
       let reconciled = false;
       try {
-        reconciled = await reconcileFeed(tearleads, useSdkBarrier);
+        reconciled = await reconcileFeed(symcrypt, useSdkBarrier);
       } catch {
         // The durable projection stays last-known-good. Another hint,
         // reconnect, or explicit Org Manager refresh retries the feed.
       }
-      const currentScope = activeDemandScope(tearleads, state, organizationId);
+      const currentScope = activeDemandScope(symcrypt, state, organizationId);
       if (!isSameOrganizationReadModelScope(passScope, currentScope)) {
         // An identity transition cannot consume or repaint from the stale pass.
         // One dirty bit catches up the current exact scope sequentially.
@@ -143,10 +143,10 @@ function scheduleOrganizationReadModelReconciliationPass(
     // the request.
     if (
       reconciliation.pending &&
-      activeDemandScope(tearleads, state, organizationId)
+      activeDemandScope(symcrypt, state, organizationId)
     ) {
       await scheduleOrganizationReadModelReconciliationPass(
-        tearleads,
+        symcrypt,
         organizationId,
         reconciliation.requiresSdkBarrier,
       );
@@ -157,11 +157,11 @@ function scheduleOrganizationReadModelReconciliationPass(
 }
 
 export function scheduleOrganizationReadModelReconciliation(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
 ): Promise<void> {
   return scheduleOrganizationReadModelReconciliationPass(
-    tearleads,
+    symcrypt,
     organizationId,
     false,
   );
@@ -170,11 +170,11 @@ export function scheduleOrganizationReadModelReconciliation(
 /** Queue a pass that cannot join SDK reconciliation begun before the event or
  * organization-interest declaration that requires this catch-up. */
 export function scheduleOrganizationReadModelReconciliationAfterActivePass(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
 ): Promise<void> {
   return scheduleOrganizationReadModelReconciliationPass(
-    tearleads,
+    symcrypt,
     organizationId,
     true,
   );
@@ -183,15 +183,15 @@ export function scheduleOrganizationReadModelReconciliationAfterActivePass(
 /** Ensure initial consumer catch-up without turning an already-running pass
  * into a dirty hint that schedules a second request. */
 export function ensureOrganizationReadModelReconciliation(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
 ): Promise<void> {
-  const state = stateFor(tearleads);
-  const requestedScope = activeDemandScope(tearleads, state, organizationId);
+  const state = stateFor(symcrypt);
+  const requestedScope = activeDemandScope(symcrypt, state, organizationId);
   const active = state.reconciliationsByOrganizationId.get(organizationId);
   return requestedScope &&
     active &&
     isSameOrganizationReadModelScope(active.scope, requestedScope)
     ? active.promise
-    : scheduleOrganizationReadModelReconciliation(tearleads, organizationId);
+    : scheduleOrganizationReadModelReconciliation(symcrypt, organizationId);
 }

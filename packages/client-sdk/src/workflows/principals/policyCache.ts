@@ -1,7 +1,7 @@
 import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { errorMessage } from "../../data/errorMessage";
 import {
   reportAndRethrowKeyingVerificationError,

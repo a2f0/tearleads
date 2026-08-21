@@ -178,7 +178,7 @@ test("OpenAPI declares the assigned-seat runtime-only invariant", () => {
     openApiDocument.paths["/organizations/{organizationId}/billing/trial"]
       ?.post,
   ]) {
-    expect(operation?.["x-tearleads-runtime-refinements"]).toEqual([
+    expect(operation?.["x-symcrypt-runtime-refinements"]).toEqual([
       organizationBillingAssignedSeatsRefinement,
     ]);
   }

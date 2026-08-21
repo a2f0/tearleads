@@ -1,5 +1,5 @@
-import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { OrganizationBillingView } from "@symcrypt/client-sdk";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import {
   type FormEvent,
   type RefObject,
@@ -15,7 +15,7 @@ import {
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
@@ -284,7 +284,7 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const billing = useOrganizationBilling();
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
@@ -316,12 +316,12 @@ export function BillingPanel({
   const claimNativeSubscription = useCallback(
     async (store: NativeSubscriptionStore) =>
       (
-        await tearleads.organizations.claimNativeSubscription(
+        await symcrypt.organizations.claimNativeSubscription(
           organizationId,
           store,
         )
       )?.organizationId === organizationId,
-    [organizationId, tearleads],
+    [organizationId, symcrypt],
   );
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),

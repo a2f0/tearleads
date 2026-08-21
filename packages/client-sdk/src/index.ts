@@ -202,12 +202,12 @@ export {
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
   type RevenueCatPurchasesConfig,
+  SymCrypt,
   SyncBillingGate,
   type SyncBillingGateListener,
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,
-  Tearleads,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
 export type {

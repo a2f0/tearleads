@@ -2,12 +2,12 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
   type ReferencedPrincipalHead,
-} from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import {
   isPrincipalPolicyBundleResponse,
   isReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   principalPolicyBundleContainsReference,

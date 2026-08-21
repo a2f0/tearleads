@@ -1,6 +1,6 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import { listSnapshotFieldEditors } from "@tearleads/loro";
-import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { listSnapshotFieldEditors } from "@symcrypt/loro";
+import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
 import { DOCUMENT_FIELDS_MAP_KEY } from "../../data/documents/documentKinds";
 import {
   type DocumentFieldBlame,

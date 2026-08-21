@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ContainerManifestRef } from "@tearleads/validators/request";
+import type { ContainerManifestRef } from "@symcrypt/validators/request";
 import { assertDocumentAccessEventDependenciesMatchRequest } from "./eventDependencies";
 
 function ref(containerId: string, manifestHash: string): ContainerManifestRef {

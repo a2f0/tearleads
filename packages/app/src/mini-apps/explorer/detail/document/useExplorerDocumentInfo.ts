@@ -1,4 +1,4 @@
-import type { DocumentInfo } from "@tearleads/client-sdk";
+import type { DocumentInfo } from "@symcrypt/client-sdk";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 

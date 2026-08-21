@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import { cacheRemoteContainerPrincipalPolicies } from "./principalPolicyCache";
 
 function reference(principalId: string): ReferencedPrincipalHead {

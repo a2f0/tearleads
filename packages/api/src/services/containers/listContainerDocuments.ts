@@ -5,14 +5,14 @@ import {
   containerMetadataDocuments,
   documents,
   organizationRosterEntries,
-} from "@tearleads/api-shared/schema";
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+} from "@symcrypt/api-shared/schema";
+import type { ContainerAccessLevel } from "@symcrypt/crypto";
 import type {
   ContainerDocumentSummary,
   ContainerDocumentSyncTombstone,
   ListContainerDocumentsResponse,
   SyncWatermark,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { textExpression } from "../../utils/sqlDialect";

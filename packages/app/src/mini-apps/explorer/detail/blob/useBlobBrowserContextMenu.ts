@@ -1,4 +1,4 @@
-import type { BlobInfo, BlobStore, FileSaver } from "@tearleads/client-sdk";
+import type { BlobInfo, BlobStore, FileSaver } from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useContextMenuState } from "../../../../components/shared/useContextMenuState";
 import { useFileSaver } from "../../../../providers/file-saver/FileSaverProvider";

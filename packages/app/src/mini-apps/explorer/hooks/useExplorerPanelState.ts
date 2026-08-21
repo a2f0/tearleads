@@ -1,14 +1,14 @@
 import type {
   ContainerDocumentQueries,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import {
   type RuntimeSnapshot,
-  useTearleads,
-} from "../../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+} from "../../../providers/sdk/SymCryptProvider";
 import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import {
@@ -166,12 +166,12 @@ export function useExplorerPanelState(params: {
     },
     [loadDocumentSummary, loadRouteDocumentSummary, routeState.route],
   );
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   // Bind + memoize the loader so the resolver hook can depend on a stable
   // reference (a fresh inline closure each render would re-fire its effect).
   const listLocalOrganizations = useCallback(
-    () => tearleads.organizations.listLocalOrganizations(),
-    [tearleads],
+    () => symcrypt.organizations.listLocalOrganizations(),
+    [symcrypt],
   );
   const sidebarOrganizationNamesById = useExplorerOrganizationNames({
     listLocalOrganizations,

@@ -1,4 +1,4 @@
-import type { OrganizationGroupMember } from "@tearleads/client-sdk";
+import type { OrganizationGroupMember } from "@symcrypt/client-sdk";
 import {
   MiniAppButton,
   MiniAppStatus,

@@ -1,4 +1,4 @@
-import type { DatabaseStatus } from "@tearleads/client-sdk";
+import type { DatabaseStatus } from "@symcrypt/client-sdk";
 import { type RefObject, useCallback, useMemo, useRef } from "react";
 
 type SQLiteRuntimeStatus = DatabaseStatus;

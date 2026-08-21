@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { sqlContainerContentsPersistence } from "../container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";

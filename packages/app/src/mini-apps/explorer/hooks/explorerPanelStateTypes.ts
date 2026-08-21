@@ -3,7 +3,7 @@ import type {
   ContainerItemRow,
   DocumentInfo,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { MouseEvent } from "react";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";

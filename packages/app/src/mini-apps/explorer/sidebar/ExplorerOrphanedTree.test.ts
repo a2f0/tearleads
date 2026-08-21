@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
 import { createExplorerOrphanedDocumentsNode } from "../../../stores/explorer/orphanedDocuments";
 import { getExplorerSidebarBlankContextMenuContainerId } from "./ExplorerTree";
 import { buildExplorerTree } from "./explorerTreeModel";

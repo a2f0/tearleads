@@ -8,8 +8,8 @@ Usage: scripts/getCurrentAppStoreBuildNumbers.sh [production|staging] [fastlane-
 Show the current Apple App Store build numbers via the Fastlane
 store_build_numbers lane, with the Google Play fetch skipped. Without a tier
 argument both apps are queried:
-  production  com.tearleads.app
-  staging     com.tearleads.staging.app
+  production  com.symcrypt.app
+  staging     com.symcrypt.staging.app
 
 Remaining arguments are passed through to the lane, e.g.
 apple_version:<version> to select a specific version.

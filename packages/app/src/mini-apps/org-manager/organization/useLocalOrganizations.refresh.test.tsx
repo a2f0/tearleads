@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import {
   createDomainScope,
   type LocalOrganizationSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useLocalOrganizations } from "./useLocalOrganizations";
 

@@ -37,7 +37,7 @@ export function PaneFooterWindowButton({ entry }: { entry: WindowEntry }) {
     <>
       <button
         type="button"
-        className="tearleads-action-button pane-footer-window"
+        className="symcrypt-action-button pane-footer-window"
         aria-label={`Activate ${entry.title} window`}
         title={entry.title}
         onClick={() => restore(entry.id)}

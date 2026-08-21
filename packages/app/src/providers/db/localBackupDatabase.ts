@@ -4,7 +4,7 @@ import {
   runSerializedSqlMutation,
   type SqlRow,
   type SqlRowValue,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import type {
   BackupIndex,
   BackupSqlValue,

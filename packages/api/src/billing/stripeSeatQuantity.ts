@@ -1,7 +1,7 @@
 import {
   getLargestSyncBillingTier,
   getSyncBillingTierForSeatCount,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
 
 type StripeSeatProrationBehavior = "create_prorations" | "none";

@@ -1,5 +1,5 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { OrganizationProvisioningRequest } from "@symcrypt/validators/request";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
 import { recordFreeTrialInitialized } from "../billing/organizationTrialLifecycle";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";

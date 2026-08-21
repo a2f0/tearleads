@@ -1,4 +1,4 @@
-import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
+import type { DocumentClientProjectionDefinition } from "@symcrypt/client-sdk";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readContactFieldsFromRecord } from "../document-types/contact/contactDocumentDefinition";
 import {

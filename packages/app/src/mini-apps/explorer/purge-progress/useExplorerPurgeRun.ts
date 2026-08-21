@@ -1,4 +1,4 @@
-import type { PurgeOptions, PurgeProgress } from "@tearleads/client-sdk";
+import type { PurgeOptions, PurgeProgress } from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EXPLORER_LABELS, getExplorerPurgeContainerTitle } from "../labels";
 

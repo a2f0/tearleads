@@ -1,1 +1,1 @@
-import "@tearleads/sqlite-worker/default-thread";
+import "@symcrypt/sqlite-worker/default-thread";

@@ -9,11 +9,11 @@ import {
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   CreateOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerMutationResponse,
   CurrentPrincipalMemberEnvelopesResponse,
@@ -21,7 +21,7 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
   PrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {

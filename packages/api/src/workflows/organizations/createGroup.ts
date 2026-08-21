@@ -1,10 +1,10 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import { groups as groupsTable } from "@tearleads/api-shared/schema";
-import type { CreateOrganizationGroupWithPolicyRequest } from "@tearleads/validators/request";
-import type { CreateOrganizationGroupResponse } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/postgres";
+import { groups as groupsTable } from "@symcrypt/api-shared/schema";
+import type { CreateOrganizationGroupWithPolicyRequest } from "@symcrypt/validators/request";
+import type { CreateOrganizationGroupResponse } from "@symcrypt/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";

@@ -3,8 +3,8 @@ import {
   type ContainerItemRow,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type MouseEvent, useRef } from "react";
 import {

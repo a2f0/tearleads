@@ -2,10 +2,10 @@ import {
   type ContainerNode,
   type DomainScope,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
-  type Tearleads,
-} from "@tearleads/client-sdk";
+  type SymCrypt,
+} from "@symcrypt/client-sdk";
 import { useEffect, useMemo, useReducer } from "react";
-import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
+import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
 
 function organizationRootSetKey(nodes: ReadonlyArray<ContainerNode>): string {
   return nodes
@@ -24,13 +24,13 @@ function organizationRootSetKey(nodes: ReadonlyArray<ContainerNode>): string {
  */
 export function useOrganizationIndexRefreshKey(input: {
   readonly scopeKey: DomainScope;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }): string {
   const tree = useMemo(
-    () => input.tearleads.deviceFirst.open().containerStore,
-    [input.scopeKey, input.tearleads],
+    () => input.symcrypt.deviceFirst.open().containerStore,
+    [input.scopeKey, input.symcrypt],
   );
-  const snapshot = useTearleadsExternalStoreSnapshot(tree);
+  const snapshot = useSymCryptExternalStoreSnapshot(tree);
   const [profileRevision, bumpProfileRevision] = useReducer(
     (revision: number) => revision + 1,
     0,
@@ -38,12 +38,12 @@ export function useOrganizationIndexRefreshKey(input: {
 
   useEffect(
     () =>
-      input.tearleads.documents.subscribe((document) => {
+      input.symcrypt.documents.subscribe((document) => {
         if (document.documentKind === ORGANIZATION_PROFILE_DOCUMENT_KIND) {
           bumpProfileRevision();
         }
       }),
-    [input.scopeKey, input.tearleads],
+    [input.scopeKey, input.symcrypt],
   );
 
   const rootSetKey = useMemo(

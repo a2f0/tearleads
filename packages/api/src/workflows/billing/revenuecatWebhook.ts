@@ -1,12 +1,12 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
-} from "@tearleads/api-shared/schema";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/schema";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";

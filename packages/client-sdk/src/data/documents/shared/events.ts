@@ -8,8 +8,8 @@ import {
   deriveDocumentLinkSetManifest,
   signAccessEvent,
   type UnsignedAccessEvent,
-} from "@tearleads/crypto";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   readCanonicalJson,
   readCanonicalRecord,

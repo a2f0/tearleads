@@ -3,7 +3,7 @@ import type {
   BlobStore,
   ContainerDocumentObjectSyncState,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";

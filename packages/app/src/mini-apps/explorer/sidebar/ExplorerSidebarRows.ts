@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentSidebarRow,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { EXPLORER_LABELS } from "../labels";
 

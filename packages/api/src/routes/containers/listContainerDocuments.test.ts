@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   containerDocumentSyncTombstones,
   containers,
   documents,
   organizationRosterEntries,
   organizations,
-} from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { toFingerprint } from "@tearleads/crypto";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { toFingerprint } from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

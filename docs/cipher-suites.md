@@ -1,6 +1,6 @@
 # Cipher Suites
 
-This document summarizes the cryptographic primitives used by Tearleads and
+This document summarizes the cryptographic primitives used by SymCrypt and
 where each is applied. It is a reference map, not a design spec — see
 [keying-design.md](./keying-design.md) and
 [security-guarantees.md](./security-guarantees.md) for how these fit together,
@@ -38,7 +38,7 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Identity key-package probe envelope | `packages/client-sdk/src/client/identityKeyPackage.ts` |
 | Identity keypair generation | `packages/crypto/src/encapsulation/generateKeyPair.ts` |
 
-Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
+Container-KEK-to-principal wrap suite: `symcrypt.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
 Document and blob content keys are not ML-KEM-wrapped directly to recipients —
 they wrap to container KEKs with AES-GCM (see below), and only the KEK is
 ML-KEM-wrapped out to users and principals.
@@ -59,10 +59,10 @@ ML-KEM-wrapped out to users and principals.
 | Use | Suite / location |
 | --- | --- |
 | Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `.../blob/shared/chunkedBlobCrypto.ts` |
-| Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `.../shared/projectionContentKeys.ts`, `.../blob/shared/projection.ts` |
-| Wrap container KEK to parent KEK | `tearleads.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
-| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row so a future suite rotation is representable |
-| Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
+| Wrap content key to container KEK | `symcrypt.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `.../shared/projectionContentKeys.ts`, `.../blob/shared/projection.ts` |
+| Wrap container KEK to parent KEK | `symcrypt.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
+| Wrap predecessor container KEK to successor KEK | `symcrypt.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row so a future suite rotation is representable |
+| Seal container KEK history keyring under current KEK | `symcrypt.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
 | Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts` |
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |
@@ -114,7 +114,7 @@ The SQLite cipher key is an HKDF-derived key from the local keyring (`sqliteKey`
 ### OPFS local storage
 
 OPFS (the Origin Private File System) is a browser storage backend, not a
-cipher suite. Tearleads encrypts the data it writes there; OPFS itself does not
+cipher suite. SymCrypt encrypts the data it writes there; OPFS itself does not
 provide an additional application-managed encryption layer.
 
 | OPFS data | Protection | Location |
@@ -130,7 +130,7 @@ PBKDF2-SHA-256 salt and iteration count. Raw 32-byte/AES-GCM keys, including
 the production local-keyring-derived blob key, do not use this PBKDF2 envelope.
 
 On supported platforms, SQLite uses the OPFS SyncAccessHandle Pool VFS and
-blob files are placed under an identity-namespaced `tearleads` OPFS directory.
+blob files are placed under an identity-namespaced `symcrypt` OPFS directory.
 The app requests durable browser storage before the first persistent database
 write; this is best effort, so a browser can still deny it. Without OPFS the
 automatic storage policy selects in-memory SQLite; an explicitly requested

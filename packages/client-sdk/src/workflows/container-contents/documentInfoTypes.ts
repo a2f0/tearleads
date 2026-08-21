@@ -1,4 +1,4 @@
-import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
+import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import type {
   DocumentBlameRange,

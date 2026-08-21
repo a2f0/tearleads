@@ -1,7 +1,7 @@
 import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,

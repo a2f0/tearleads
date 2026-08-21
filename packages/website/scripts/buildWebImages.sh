@@ -3,7 +3,7 @@ set -e
 
 # Build website favicon assets into the Astro public/ directory.
 #
-# Sourced from the shared brand logo in @tearleads/ui and generated into
+# Sourced from the shared brand logo in @symcrypt/ui and generated into
 # public/ (gitignored). Astro serves public/ at the site root during `astro
 # dev` and copies it into dist/ during `astro build`, so a single output
 # location fixes dev 404s and still ships the icons in the deploy rsync.

@@ -12,7 +12,7 @@ import type {
   ContainerKeyWrap,
   DocumentLinkAccessEventBody,
   DocumentUnlinkAccessEventBody,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { readCanonicalRecord } from "../keyingCanonicalJson";
 import {
   readRecordNullableString,

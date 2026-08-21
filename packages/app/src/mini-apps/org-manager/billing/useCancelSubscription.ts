@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 /**
@@ -41,7 +41,7 @@ export function useCancelSubscription(input: {
   /** Re-reads billing so the panel reflects the scheduled end. */
   readonly refresh: () => Promise<void>;
 }): CancelSubscriptionState {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const [phase, setPhase] = useState<CancelPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const { refresh } = input;
@@ -61,7 +61,7 @@ export function useCancelSubscription(input: {
     setError(null);
     void (async () => {
       try {
-        const result = await tearleads.organizations.cancelStripeSubscription();
+        const result = await symcrypt.organizations.cancelStripeSubscription();
         if (!result) {
           // 404 / unconfigured: nothing to cancel for this org. Surfacing the
           // generic failure is right — the admin cannot act on the difference,
@@ -89,7 +89,7 @@ export function useCancelSubscription(input: {
         console.error("Failed to refresh after cancelling:", refreshError);
       }
     })();
-  }, [refresh, tearleads]);
+  }, [refresh, symcrypt]);
 
   return { phase, error, ask, dismiss, confirm };
 }

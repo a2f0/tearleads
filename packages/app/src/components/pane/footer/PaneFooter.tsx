@@ -1,4 +1,4 @@
-import { TearleadsLogo } from "@tearleads/ui";
+import { SymCryptLogo } from "@symcrypt/ui";
 import type { ReactNode } from "react";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import { useContextMenuPositionState } from "../../shared/useContextMenuState";
@@ -24,7 +24,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
       <div className="pane-footer">
         <button
           type="button"
-          className="tearleads-action-button pane-footer-menu-button"
+          className="symcrypt-action-button pane-footer-menu-button"
           aria-label="Menu"
           aria-haspopup="menu"
           aria-expanded={contextMenu !== null}
@@ -32,7 +32,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
             openContextMenuAt({ x: event.clientX, y: event.clientY })
           }
         >
-          <TearleadsLogo className="pane-footer-menu-logo" />
+          <SymCryptLogo className="pane-footer-menu-logo" />
         </button>
         {windows.map((w) => (
           <PaneFooterWindowButton key={w.id} entry={w} />

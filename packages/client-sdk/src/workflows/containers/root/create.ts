@@ -7,17 +7,17 @@ import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computePrincipalStateHash,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
-} from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,

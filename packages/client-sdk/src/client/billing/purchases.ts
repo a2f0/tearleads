@@ -15,7 +15,7 @@ import {
   getSyncBillingTierForNativeProduct,
   type NativeSubscriptionStore,
   type SyncBillingTierId,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import { PurchasesUnavailableError } from "./purchaseErrors";
 import {
   revenueCatCheckoutSettlementTimeoutMs,
@@ -128,7 +128,7 @@ export interface RevenueCatCustomerInfo {
  * The minimal RevenueCat surface a platform shell adapts from its native SDK.
  * Keeping it normalized (plain ids/strings, no native types) lets the mapping in
  * {@link createRevenueCatPurchases} be unit-tested with a fake backend and keeps
- * `@tearleads/client-sdk` free of any provider dependency.
+ * `@symcrypt/client-sdk` free of any provider dependency.
  */
 export interface RevenueCatBackend {
   configure(input: { apiKey: string; appUserId?: string }): Promise<void>;

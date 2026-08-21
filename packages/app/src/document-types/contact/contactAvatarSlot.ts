@@ -1,4 +1,4 @@
-import type { DocumentAttachment } from "@tearleads/client-sdk";
+import type { DocumentAttachment } from "@symcrypt/client-sdk";
 import { getLatestDocumentAttachmentBySlotId } from "../shared/documentAttachmentUtils";
 
 // The contact avatar is a single attachment slot on the contact document. The

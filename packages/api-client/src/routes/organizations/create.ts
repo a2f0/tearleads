@@ -3,7 +3,7 @@ import {
   isCreateOrganizationOperationRequest,
   isCreateOrganizationOperationResponse,
   operationRequestPath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const createOrganization = {
   isRequest: isCreateOrganizationOperationRequest,

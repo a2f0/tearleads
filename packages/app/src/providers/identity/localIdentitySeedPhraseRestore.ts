@@ -1,8 +1,8 @@
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { createMemoryBlobStore, SymCrypt } from "@symcrypt/client-sdk";
 import { useCallback } from "react";
 
 async function keyPackageFromSeedPhrase(seedPhrase: string) {
-  const candidate = new Tearleads({ blobStore: createMemoryBlobStore() });
+  const candidate = new SymCrypt({ blobStore: createMemoryBlobStore() });
   try {
     await candidate.identity.importSeedPhrase(seedPhrase);
     return await candidate.identity.exportKeyPackage();

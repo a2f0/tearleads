@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationReadModelGroupMembershipsResponse } from "@tearleads/validators/response";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { OrganizationReadModelGroupMembershipsResponse } from "@symcrypt/validators/response";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {

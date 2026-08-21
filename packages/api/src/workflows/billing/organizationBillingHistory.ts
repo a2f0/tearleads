@@ -1,14 +1,14 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   organizationBillingInvoiceEvents,
   organizationBillingLifecycleEvents,
   organizationBillingSeatEvents,
   revenuecatWebhookEvents,
-} from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+} from "@symcrypt/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { OrganizationBillingHistoryEvent } from "../../billing/organizationBilling";
 import { isRevenueCatGrantEventType } from "../../billing/revenuecatWebhook";

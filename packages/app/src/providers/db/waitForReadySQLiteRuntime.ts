@@ -1,4 +1,4 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 import type { RefObject } from "react";
 
 /**
@@ -10,7 +10,7 @@ import type { RefObject } from "react";
  * and satisfy the original waiter.
  */
 export function waitForReadySQLiteRuntime(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   currentDbNameRef: RefObject<string | null>,
   readinessGenerationRef: RefObject<number>,
   readinessGeneration: number,
@@ -18,8 +18,8 @@ export function waitForReadySQLiteRuntime(
   spawnRuntime: () => void,
 ): Promise<void> {
   if (
-    tearleads.database.status === "ready" &&
-    tearleads.database.client &&
+    symcrypt.database.status === "ready" &&
+    symcrypt.database.client &&
     currentDbNameRef.current === dbName
   ) {
     return Promise.resolve();
@@ -29,7 +29,7 @@ export function waitForReadySQLiteRuntime(
   // be gated on the killed runtime's asynchronous release, so keep waiting. A
   // waiter that observes termination after it started has been interrupted and
   // must reject instead of leaving its caller busy forever.
-  let toleratingInitialTermination = tearleads.database.status === "terminated";
+  let toleratingInitialTermination = symcrypt.database.status === "terminated";
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -39,7 +39,7 @@ export function waitForReadySQLiteRuntime(
         return;
       }
 
-      const { client, status } = tearleads.database.snapshot;
+      const { client, status } = symcrypt.database.snapshot;
       toleratingInitialTermination =
         toleratingInitialTermination && status === "terminated";
       if (readinessGenerationRef.current !== readinessGeneration) {
@@ -65,7 +65,7 @@ export function waitForReadySQLiteRuntime(
       }
     };
 
-    unsubscribe = tearleads.database.subscribe(finish);
+    unsubscribe = symcrypt.database.subscribe(finish);
     finish();
     if (!settled) {
       spawnRuntime();

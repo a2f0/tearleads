@@ -14,7 +14,7 @@ import {
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 

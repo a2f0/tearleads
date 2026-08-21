@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentAttachment } from "@tearleads/client-sdk";
+import type { DocumentAttachment } from "@symcrypt/client-sdk";
 import {
   CONTACT_AVATAR_SLOT_ID,
   getContactAvatarRef,

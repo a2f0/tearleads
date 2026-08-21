@@ -1,12 +1,12 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
-import { containers } from "@tearleads/api-shared/schema";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
+import { containers } from "@symcrypt/api-shared/schema";
 import type {
   ContainerAccessLevel,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
+} from "@symcrypt/crypto";
+import { resolveContainerPathUserAccessLevel } from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,

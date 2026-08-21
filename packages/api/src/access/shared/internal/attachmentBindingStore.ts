@@ -2,12 +2,12 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import { attachmentBindings } from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/postgres";
+import { attachmentBindings } from "@symcrypt/api-shared/schema";
 import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { nowExpression } from "../../../utils/sqlDialect";
 import { storeVerifiedAccessEventInTransaction } from "./accessManifestStore";

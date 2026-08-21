@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { containerKeyEpochs } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
+import { db } from "@symcrypt/api-shared/postgres";
+import { containerKeyEpochs } from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { DOCUMENT_PROJECTION_ERROR_CODES } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";
 import {

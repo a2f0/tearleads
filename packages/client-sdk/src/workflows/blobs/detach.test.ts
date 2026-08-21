@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { BlobAttachmentDetachRequest } from "@symcrypt/validators/request";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { detachDocumentAttachment } from "./detach";
 

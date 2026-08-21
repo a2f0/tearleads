@@ -1,13 +1,13 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
-import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
+import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
 import type {
   ContainerAccessLevel,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   asContainerWriterProjectionError,

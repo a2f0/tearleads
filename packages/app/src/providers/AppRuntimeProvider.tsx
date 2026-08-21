@@ -14,7 +14,7 @@ import { IdentityProvider } from "./identity/IdentityProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "./logging/LogProvider";
 import { PurchasesProvider } from "./purchases/PurchasesProvider";
-import { TearleadsProvider } from "./sdk/TearleadsProvider";
+import { SymCryptProvider } from "./sdk/SymCryptProvider";
 import { SyncModeProvider } from "./sync-mode/SyncModeProvider";
 import { SystemBootstrapProvider } from "./system-bootstrap/SystemBootstrapProvider";
 import { UserSystemContainersProvider } from "./system-bootstrap/UserSystemContainersProvider";
@@ -43,7 +43,7 @@ export function AppRuntimeProvider({
               <LocalKeyringLockProvider>
                 <LogProvider>
                   <SyncModeProvider>
-                    <TearleadsProvider>
+                    <SymCryptProvider>
                       <DatabaseProvider>
                         <IdentityProvider>
                           <CryptoSessionProvider>
@@ -68,7 +68,7 @@ export function AppRuntimeProvider({
                           </CryptoSessionProvider>
                         </IdentityProvider>
                       </DatabaseProvider>
-                    </TearleadsProvider>
+                    </SymCryptProvider>
                   </SyncModeProvider>
                 </LogProvider>
               </LocalKeyringLockProvider>

@@ -14,8 +14,8 @@ import {
   PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatPackage,
-} from "@tearleads/client-sdk";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+} from "@symcrypt/client-sdk";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import {
   fromCapacitorCustomerInfo,
   type NativeProductChangeInput,

@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/sqlite-instance",
+  "name": "@symcrypt/sqlite-instance",
   "private": true,
   "type": "module",
   "exports": {

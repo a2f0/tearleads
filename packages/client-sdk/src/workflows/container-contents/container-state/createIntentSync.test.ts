@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { KeyingVerificationError } from "@symcrypt/crypto";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,

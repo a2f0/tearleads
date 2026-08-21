@@ -2,7 +2,7 @@ import {
   documentSyncOperation,
   isDocumentSyncOperationResponse,
   operationRequestPath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const documentSync = {
   isResponse: isDocumentSyncOperationResponse,

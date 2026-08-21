@@ -1,10 +1,10 @@
-import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk";
+import type { createDocumentsWorkflowRuntime } from "@symcrypt/client-sdk";
 import {
   createDomainScope,
   createMemoryBlobStore,
   defaultDocumentProjectorRegistry,
-} from "@tearleads/client-sdk";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import { createTestExecSql } from "@symcrypt/test-utils";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime

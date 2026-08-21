@@ -1,11 +1,11 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getImportBlobMetadata,
   satisfiesVersionVector,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {

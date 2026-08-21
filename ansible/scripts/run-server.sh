@@ -58,11 +58,12 @@ if [[ -z "$TUNNEL_TOKEN" ]]; then
   exit 1
 fi
 
-INVENTORY_FILE=$(mktemp "/tmp/tearleads-${TIER}-inventory-XXXXXX")
+INVENTORY_FILE=$(mktemp "/tmp/symcrypt-${TIER}-inventory-XXXXXX")
 trap 'rm -f "$INVENTORY_FILE"' EXIT
 
 printf '[all]\n%s ansible_user=%s\n' "$HOSTNAME" "$USERNAME" >"$INVENTORY_FILE"
 
 CLOUDFLARE_TUNNEL_TOKEN="$TUNNEL_TOKEN" ansible-playbook -i "$INVENTORY_FILE" \
+  -e "deployment_tier=${TIER}" \
   -e "domain=${DOMAIN}" \
   "$SCRIPT_DIR/../playbooks/server.yml" "$@"

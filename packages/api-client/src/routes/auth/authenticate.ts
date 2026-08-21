@@ -4,7 +4,7 @@ import {
   isVerifyOperationResponse,
   operationRequestPath,
   verifyOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const challenge = {
   isResponse: isChallengeOperationResponse,

@@ -4,8 +4,8 @@ import {
   operationRoutePath,
   type RevenueCatWebhookHeaders,
   receiveRevenueCatWebhookOperation,
-} from "@tearleads/validators/operation";
-import type { RevenueCatWebhookRequest } from "@tearleads/validators/request";
+} from "@symcrypt/validators/operation";
+import type { RevenueCatWebhookRequest } from "@symcrypt/validators/request";
 import { Hono, type MiddlewareHandler } from "hono";
 import { readRevenueCatWebhookAuthToken } from "../../billing/revenuecatWebhook";
 import type { SessionEnv } from "../../middleware/session";

@@ -77,48 +77,48 @@ test("resolveAppHostProfile throws on an unknown variant id", () => {
 });
 
 test("resolveEventsWebSocketUrl derives the events path from the API URL", () => {
-  expect(resolveEventsWebSocketUrl("https://api.tearleads.com")).toBe(
-    "wss://api.tearleads.com/events",
+  expect(resolveEventsWebSocketUrl("https://api.symcrypt.com")).toBe(
+    "wss://api.symcrypt.com/events",
   );
   expect(resolveEventsWebSocketUrl("http://localhost:3001")).toBe(
     "ws://localhost:3001/events",
   );
-  expect(resolveEventsWebSocketUrl("https://tearleads.com/api")).toBe(
-    "wss://tearleads.com/api/events",
+  expect(resolveEventsWebSocketUrl("https://symcrypt.com/api")).toBe(
+    "wss://symcrypt.com/api/events",
   );
-  expect(resolveEventsWebSocketUrl("https://tearleads.com/api/")).toBe(
-    "wss://tearleads.com/api/events",
+  expect(resolveEventsWebSocketUrl("https://symcrypt.com/api/")).toBe(
+    "wss://symcrypt.com/api/events",
   );
 });
 
 test("resolveEventsWebSocketUrl derives relative API URLs from the current location", () => {
-  setLocationHref("https://app.tearleads.test/workspace");
+  setLocationHref("https://app.symcrypt.test/workspace");
 
   expect(resolveEventsWebSocketUrl("/api")).toBe(
-    "wss://app.tearleads.test/api/events",
+    "wss://app.symcrypt.test/api/events",
   );
 });
 
 test("resolveEventsWebSocketUrl preserves explicit websocket URLs", () => {
   expect(
     resolveEventsWebSocketUrl(
-      "https://api.tearleads.com",
-      "wss://api.tearleads.com",
+      "https://api.symcrypt.com",
+      "wss://api.symcrypt.com",
     ),
-  ).toBe("wss://api.tearleads.com/");
+  ).toBe("wss://api.symcrypt.com/");
   expect(
     resolveEventsWebSocketUrl(
-      "https://api.tearleads.com",
-      "wss://events.tearleads.com/socket",
+      "https://api.symcrypt.com",
+      "wss://api.symcrypt.com/events",
     ),
-  ).toBe("wss://events.tearleads.com/socket");
+  ).toBe("wss://api.symcrypt.com/events");
 });
 
 test("resolveEventsWebSocketUrl preserves explicit relative websocket paths", () => {
-  setLocationHref("https://app.tearleads.test/workspace");
+  setLocationHref("https://app.symcrypt.test/workspace");
 
   expect(resolveEventsWebSocketUrl("/api", "/ws")).toBe(
-    "wss://app.tearleads.test/ws",
+    "wss://app.symcrypt.test/ws",
   );
 });
 
@@ -136,22 +136,22 @@ test("resolveAppHostRuntimeConfig falls back to the localhost dev backend when u
 
 test("resolveAppHostRuntimeConfig derives the websocket URL from an explicit API URL", () => {
   expect(
-    resolveAppHostRuntimeConfig({ apiBaseUrl: "https://api.tearleads.com" }),
+    resolveAppHostRuntimeConfig({ apiBaseUrl: "https://api.symcrypt.com" }),
   ).toEqual({
-    apiBaseUrl: "https://api.tearleads.com",
-    wsUrl: "wss://api.tearleads.com/events",
+    apiBaseUrl: "https://api.symcrypt.com",
+    wsUrl: "wss://api.symcrypt.com/events",
   });
 });
 
 test("resolveAppHostRuntimeConfig honours an explicit websocket override", () => {
   expect(
     resolveAppHostRuntimeConfig({
-      apiBaseUrl: "https://api.tearleads.com",
-      wsUrl: "wss://events.tearleads.com/socket",
+      apiBaseUrl: "https://api.symcrypt.com",
+      wsUrl: "wss://api.symcrypt.com/events",
     }),
   ).toEqual({
-    apiBaseUrl: "https://api.tearleads.com",
-    wsUrl: "wss://events.tearleads.com/socket",
+    apiBaseUrl: "https://api.symcrypt.com",
+    wsUrl: "wss://api.symcrypt.com/events",
   });
 });
 
@@ -159,12 +159,12 @@ test("resolveAppHostRuntimeConfig trims surrounding whitespace before resolving"
   // A blank-but-present websocket override must not win over the derived URL.
   expect(
     resolveAppHostRuntimeConfig({
-      apiBaseUrl: "  https://api.tearleads.com  ",
+      apiBaseUrl: "  https://api.symcrypt.com  ",
       wsUrl: "   ",
     }),
   ).toEqual({
-    apiBaseUrl: "https://api.tearleads.com",
-    wsUrl: "wss://api.tearleads.com/events",
+    apiBaseUrl: "https://api.symcrypt.com",
+    wsUrl: "wss://api.symcrypt.com/events",
   });
 });
 

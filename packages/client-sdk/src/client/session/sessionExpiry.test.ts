@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   quietLogger,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import { Tearleads } from "../Tearleads";
+import { SymCrypt } from "../SymCrypt";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -68,7 +68,7 @@ describe("session expiry", () => {
     }) as typeof fetch;
 
     try {
-      const sdk = new Tearleads({
+      const sdk = new SymCrypt({
         apiBaseUrl: "https://api.example.test",
         blobStoreFactory: () => createMemoryBlobStore(),
         database: { execSql, id: "session-expiry-identity-trust" },

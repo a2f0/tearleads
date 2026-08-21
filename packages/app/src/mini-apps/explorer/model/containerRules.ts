@@ -2,8 +2,8 @@ import {
   type ContainerNode,
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { isCurrentSelfContactLocalId } from "../../../stores/contacts/selfContact";
 import {
   type BuiltInSystemContainer,

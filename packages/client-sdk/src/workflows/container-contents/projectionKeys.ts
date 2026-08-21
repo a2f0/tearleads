@@ -35,7 +35,7 @@ export function didContainerContentsProjectionKeyRuntimeChange(
   previousRuntime: ContainerContentsProjectionKeyRuntime,
   nextRuntime: ContainerContentsProjectionKeyRuntime,
 ): boolean {
-  // The SDK-owned resolver is stable for the lifetime of Tearleads, but reads
+  // The SDK-owned resolver is stable for the lifetime of SymCrypt, but reads
   // mutable session, identity, and database dependencies. The projection
   // resolver adds its own per-user cache, so compare that trust context rather
   // than relying only on the resolver function reference.

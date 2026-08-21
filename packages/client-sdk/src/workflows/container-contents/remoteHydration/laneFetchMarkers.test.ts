@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { ListContainersResponse } from "@tearleads/validators/response";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { ListContainersResponse } from "@symcrypt/validators/response";
 import { createContainerParentSyncLane } from "../containerPersistence";
 import { markContainerParentLaneFetched } from "./laneFetchMarkers";
 import type { RemoteContainerHydrationState } from "./types";

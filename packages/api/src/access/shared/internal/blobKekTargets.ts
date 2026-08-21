@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { attachmentBindings } from "@tearleads/api-shared/schema";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { attachmentBindings } from "@symcrypt/api-shared/schema";
 import {
   type BlobContentKeyTarget,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { compareStrings, uniqueSortedStrings } from "../../../utils/array";
 import {

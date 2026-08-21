@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
   type OrganizationBillingStatus,
@@ -9,8 +9,8 @@ import {
   organizationBillingStripeSeats,
   organizations,
   revenuecatWebhookEvents,
-} from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+} from "@symcrypt/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { and, desc, eq, gt, gte, inArray } from "drizzle-orm";
 import {
   createTrialBillingFields,

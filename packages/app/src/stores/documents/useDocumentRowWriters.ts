@@ -1,10 +1,10 @@
-import { writerByPeerId } from "@tearleads/client-sdk";
-import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
+import { writerByPeerId } from "@symcrypt/client-sdk";
+import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../providers/sdk/SymCryptProvider";
 import { useDocument } from "./DocumentsProvider";
 
 type AttributionSegments = DocumentEditAttributionResponse["segments"];
@@ -73,8 +73,8 @@ export function createRowWriterResolver(
 // resolver. `enabled` lets a caller skip the fetch when the result is unused.
 export function useDocumentRowWriters(enabled: boolean): RowWriterResolver {
   const { documentId, syncing } = useDocument();
-  const { containerContents } = useTearleads();
-  const runtime = useTearleadsRuntime();
+  const { containerContents } = useSymCrypt();
+  const runtime = useSymCryptRuntime();
   const isAuthenticated = runtime.auth.isAuthenticated;
   const online = runtime.state.online;
   const [segments, setSegments] = useState<AttributionSegments>(NO_SEGMENTS);

@@ -2,11 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect } from "react";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { useOrgManagerGroupDetailsRefresher } from "./useOrgManagerGroupDetailsRefresher";
@@ -49,7 +49,7 @@ function DetailProbe(input: {
   const refresh = useOrgManagerGroupDetailsRefresher({
     appData: {
       auth: { isAuthenticated: true, organizationId: "org-a" },
-    } as ReturnType<typeof useTearleadsRuntime>,
+    } as ReturnType<typeof useSymCryptRuntime>,
     beginRequest,
     markGroupDetailsSettled: () => undefined,
     orgManagerActions: {

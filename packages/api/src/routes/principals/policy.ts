@@ -3,11 +3,11 @@ import {
   getPrincipalPolicyOperation,
   operationRoutePath,
   putPrincipalPolicyOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

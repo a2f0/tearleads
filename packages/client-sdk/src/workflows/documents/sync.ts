@@ -1,7 +1,7 @@
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type {
   MaterializedDocumentSyncPlan,

@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@symcrypt/client-sdk";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 
 interface ExplorerContactAvatar {

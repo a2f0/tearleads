@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/test-utils",
+  "name": "@symcrypt/test-utils",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@tearleads/api-client": "workspace:*",
-    "@tearleads/crypto": "workspace:*",
-    "@tearleads/encoding": "workspace:*",
-    "@tearleads/sqlite-worker": "workspace:*",
-    "@tearleads/validators": "workspace:*"
+    "@symcrypt/api-client": "workspace:*",
+    "@symcrypt/crypto": "workspace:*",
+    "@symcrypt/encoding": "workspace:*",
+    "@symcrypt/sqlite-worker": "workspace:*",
+    "@symcrypt/validators": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

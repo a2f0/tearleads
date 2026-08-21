@@ -1,6 +1,6 @@
 /** Minimal outbound RevenueCat REST API v2 client. */
 
-import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import {
   allowsRevenueCatSandboxEvents,
   REVENUECAT_API_ORIGIN,

@@ -6,8 +6,8 @@ import type {
   ContainerKekRecipientTarget,
   ContainerKeyEpoch,
   ContainerKeyWrap,
-} from "@tearleads/crypto";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import { toWireRecord, toWireRecords } from "./registrationWire";
 
 interface RootContainerProjectionArtifacts {

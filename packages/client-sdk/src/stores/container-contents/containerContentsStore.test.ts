@@ -3,11 +3,11 @@ import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
   createTestExecSql,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import type {
   ListContainersResponse,
   SyncWatermark,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { waitFor } from "../../../test/helpers/waitFor";
 import type { DomainScope } from "../../data/domainScope";
 import {

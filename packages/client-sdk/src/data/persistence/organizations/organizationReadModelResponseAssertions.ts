@@ -1,4 +1,4 @@
-import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import type { OrganizationReadModelResponse } from "@symcrypt/validators/response";
 import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
 function assertUniqueIds(values: ReadonlyArray<string>, label: string): void {

@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
+import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
 import type {
   ComputedDocumentEditAttribution,
   PreparedDocumentEditAttribution,

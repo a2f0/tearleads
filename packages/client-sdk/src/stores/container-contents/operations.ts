@@ -1,4 +1,4 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
 import {

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { DocumentAttachment } from "@tearleads/client-sdk";
+import type { DocumentAttachment } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { createRef } from "react";
 import { NoteEditorFields } from "./NoteEditorFields";

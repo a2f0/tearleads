@@ -12,9 +12,9 @@ VERIFY_FLOW="$CAPACITOR_DIR/maestro/review/subscription-review-catalog-visible.y
 OUTPUT_DIR="${SUBSCRIPTION_SCREENSHOT_OUTPUT_DIR:-$REPO_ROOT/.screenshots/app-store-review}"
 MAESTRO_OUTPUT_DIR="$OUTPUT_DIR/maestro"
 CAPTURE_PATH="$OUTPUT_DIR/.subscription-review-capture.png"
-BUILD_DIR="${TMPDIR:-/tmp}/tearleads-subscription-review-derived-data"
+BUILD_DIR="${TMPDIR:-/tmp}/symcrypt-subscription-review-derived-data"
 REVENUECAT_ENV_FILE="${SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE:-$REPO_ROOT/.secrets/root.env}"
-DEVICE_NAME="Tearleads Subscription Review"
+DEVICE_NAME="SymCrypt Subscription Review"
 DEVICE_TYPE_IDENTIFIER="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
 DEVICE_RUNTIME_VERSION="${IOS_SCREENSHOT_RUNTIME_VERSION:-18.0}"
 
@@ -54,7 +54,7 @@ reject_invalid_revenuecat_store_key \
 # Match the shipping app end to end: production API, production app id, and the
 # production iOS RevenueCat key. Reject stale dev-shell overrides before any
 # simulator is created or authenticated.
-export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
+export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.symcrypt.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 echo "Using subscription review API: $VITE_API_BASE_URL"
 
@@ -148,7 +148,7 @@ xcrun simctl boot "$DEVICE_UDID" 2>/dev/null || true
 open -a Simulator --args -CurrentDeviceUDID "$DEVICE_UDID" || true
 xcrun simctl bootstatus "$DEVICE_UDID" -b
 
-xcrun simctl terminate "$DEVICE_UDID" com.tearleads.app 2>/dev/null || true
+xcrun simctl terminate "$DEVICE_UDID" com.symcrypt.app 2>/dev/null || true
 xcrun simctl install \
   "$DEVICE_UDID" \
   "$BUILD_DIR/Build/Products/Debug-iphonesimulator/App.app"

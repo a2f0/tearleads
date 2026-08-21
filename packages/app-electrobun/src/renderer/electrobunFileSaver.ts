@@ -1,4 +1,4 @@
-import type { FileSaver, SaveFileRequest } from "@tearleads/client-sdk";
+import type { FileSaver, SaveFileRequest } from "@symcrypt/client-sdk";
 import {
   ELECTROBUN_FILE_NAME_HEADER,
   ELECTROBUN_SAVE_FILE_PATH,

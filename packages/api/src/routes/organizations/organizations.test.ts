@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestHeads,
   blobContentWriteHeaders,
@@ -12,14 +12,14 @@ import {
   organizationRosterEntries,
   organizations,
   users,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   toFingerprint,
   type WriteHeader,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,
@@ -29,7 +29,7 @@ import {
   isOrganizationProfileResponse,
   isOrganizationReadModelResponse,
   type OrganizationDataUsageResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

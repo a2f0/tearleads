@@ -1,7 +1,7 @@
 import {
   getSyncBillingTier,
   type SyncBillingTierId,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import {
   prop,
   readPositiveInteger,

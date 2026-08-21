@@ -4,7 +4,7 @@ import type {
   DocumentAttachmentUpload,
   DocumentSummary,
   StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback } from "react";
 import { getDocumentFileImporter } from "../../document-types/importers";
 

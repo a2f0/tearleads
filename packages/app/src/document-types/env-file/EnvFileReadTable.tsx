@@ -98,7 +98,7 @@ export function EnvFileReadTable(params: {
       actionsAriaLabel={(row) => `Env variable ${row.index + 1} actions`}
       ariaLabel="Variables"
       buildRows={buildEnvFileRows}
-      columnStorageKey="tearleads.env-file.variables:hidden-columns:v2"
+      columnStorageKey="symcrypt.env-file.variables:hidden-columns:v2"
       currentAuthorId={currentAuthorId}
       detailFields={toEnvVariableDetailFields}
       detailLabel="Details"

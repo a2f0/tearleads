@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
-import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
+import type { SymCrypt } from "@symcrypt/client-sdk";
+import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
 import {
   act,
   fireEvent,
@@ -95,15 +95,15 @@ export function installDeferredClipboardWriteMock(): {
  */
 export async function renderRecoveryKeyView(entropyByte: number): Promise<{
   readonly seedPhrase: string;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
   readonly view: RenderResult;
 }> {
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const symcryptRef: { current: SymCrypt | null } = { current: null };
   const view = render(
     <IdentityManagerTestRuntime
       hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
+      onSymCryptReady={(sdk) => {
+        symcryptRef.current = sdk;
       }}
     >
       <IdentityManager />
@@ -113,21 +113,21 @@ export async function renderRecoveryKeyView(entropyByte: number): Promise<{
   fireEvent.click(view.getByRole("button", { name: "Recovery Key" }));
 
   await waitFor(() => {
-    expect(tearleadsRef.current).toBeTruthy();
+    expect(symcryptRef.current).toBeTruthy();
   });
 
-  const tearleads = tearleadsRef.current;
-  if (!tearleads) {
-    throw new Error("Expected Tearleads SDK to be available after render.");
+  const symcrypt = symcryptRef.current;
+  if (!symcrypt) {
+    throw new Error("Expected SymCrypt SDK to be available after render.");
   }
 
   const seedPhrase = createIdentitySeedPhraseFromEntropy(
     new Uint8Array(32).fill(entropyByte),
   );
   await act(async () => {
-    await tearleads.identity.importSeedPhrase(seedPhrase);
+    await symcrypt.identity.importSeedPhrase(seedPhrase);
   });
   await view.findByRole("button", { name: "Reveal Recovery Key" });
 
-  return { seedPhrase, tearleads, view };
+  return { seedPhrase, symcrypt, view };
 }

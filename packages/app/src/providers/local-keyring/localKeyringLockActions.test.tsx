@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { LocalKeyring } from "@tearleads/client-sdk";
+import type { LocalKeyring } from "@symcrypt/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import { useDynamicLocalKeyringFactory } from "./localKeyringLockActions";
 import type {

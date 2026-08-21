@@ -1,7 +1,7 @@
 import type {
   ContainerInfo,
   ContainerShareAccessLevel,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { MiniAppSelectMenu } from "../../../../components/mini-app/controls/MiniAppSelectMenu";
 import {

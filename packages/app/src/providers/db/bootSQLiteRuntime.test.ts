@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import type { SQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
 import { bootSQLiteRuntime } from "./bootSQLiteRuntime";
 
 function createRuntime(init: SQLiteRuntime["client"]["init"]): SQLiteRuntime {

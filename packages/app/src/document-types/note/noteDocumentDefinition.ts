@@ -1,5 +1,5 @@
 import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@symcrypt/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const APP_DEFAULT_DOCUMENT_KIND = "note" satisfies StoredDocumentKind;

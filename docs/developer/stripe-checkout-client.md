@@ -1,6 +1,6 @@
 # Stripe Checkout Client
 
-The web client runs the card form inside the Tearleads billing panel. Stripe
+The web client runs the card form inside the SymCrypt billing panel. Stripe
 still hosts the sensitive fields in iframes, but the app owns the surrounding
 flow and can style it from its theme tokens.
 
@@ -24,11 +24,11 @@ flow and can style it from its theme tokens.
 `useDirectCheckoutFlow` loads the server-selected option, creates checkout,
 mounts the Payment Element, confirms, and hands off to activation polling. The
 entitlement arrives asynchronously through Stripe, RevenueCat, and the
-Tearleads webhook. A decline leaves the element mounted for correction; cancel
+SymCrypt webhook. A decline leaves the element mounted for correction; cancel
 unmounts it.
 
 The payment fields remain Stripe-hosted for PCI SAQ A. The Appearance API is
-fed computed Tearleads theme values by
+fed computed SymCrypt theme values by
 [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts).
 It resolves actual colors and sizes because an iframe cannot dereference app
 CSS variables. The Stripe base theme is `night` for dark surfaces and `stripe`

@@ -6,8 +6,8 @@ import type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
-} from "@tearleads/client-sdk";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+} from "@symcrypt/client-sdk";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import type {
   PendingUpdateLengthRow,
   ProjectionLengthRow,

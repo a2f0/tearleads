@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads website to the staging server
+# Deploy the SymCrypt website to the staging server
 #
 # Builds the Astro website, resolves the staging server hostname and
 # username from Terraform outputs, and deploys the static files via rsync.
@@ -42,6 +42,7 @@ echo "Website deployed."
 # Purge Cloudflare cache for the main domain if available
 DOMAIN="${TF_VAR_domain:-}"
 if [ -n "$DOMAIN" ]; then
-  purge_cloudflare_cache_for_hosts "$DOMAIN" "$DOMAIN"
-  purge_cloudflare_website "$DOMAIN" "$DOMAIN" "$WEBSITE_DIR/dist"
+  WEBSITE_HOSTNAME="website-staging.${DOMAIN}"
+  purge_cloudflare_cache_for_hosts "$DOMAIN" "$WEBSITE_HOSTNAME"
+  purge_cloudflare_website "$DOMAIN" "$WEBSITE_HOSTNAME" "$WEBSITE_DIR/dist"
 fi

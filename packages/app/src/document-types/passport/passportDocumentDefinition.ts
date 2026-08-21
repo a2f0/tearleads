@@ -4,7 +4,7 @@ import {
   readStringDocumentField,
   type StoredDocumentKind,
   type ValidatedDocumentFields,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   addDateOnlyFormatIssue,
   structuredFieldsProjector,

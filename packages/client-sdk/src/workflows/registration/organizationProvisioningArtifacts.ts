@@ -1,10 +1,10 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type { buildContainerCreatePlan } from "../containers/child/create";
 import type { buildRootContainerCreatePlan } from "../containers/root/create";
 import type { buildMaterializedDocumentCreatePlan } from "../documents/create";

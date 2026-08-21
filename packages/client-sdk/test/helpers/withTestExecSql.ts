@@ -1,4 +1,4 @@
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 
 export async function withTestExecSql<T>(
   name: string,

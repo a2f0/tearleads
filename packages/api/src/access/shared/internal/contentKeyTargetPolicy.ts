@@ -1,7 +1,7 @@
 import {
   type KeyingCanonicalJson,
   KeyingVerificationError,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { compareStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 

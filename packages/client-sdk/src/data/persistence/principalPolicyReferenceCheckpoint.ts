@@ -1,8 +1,8 @@
 import {
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
-} from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { principalPolicyBundleStates } from "../principalPolicyStates";
 import { assertPrincipalPolicyCheckpointShape } from "./keyingCheckpointPersistence";
 

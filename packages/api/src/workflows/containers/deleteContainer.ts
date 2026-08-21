@@ -1,13 +1,13 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   containerSyncTombstones,
   containers,
   documentContainerLinks,
-} from "@tearleads/api-shared/schema";
-import type { ContainerDeleteResponse } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/schema";
+import type { ContainerDeleteResponse } from "@symcrypt/validators/response";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../utils/array";

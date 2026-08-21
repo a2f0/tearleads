@@ -1,5 +1,5 @@
 import { Directory, Filesystem } from "@capacitor/filesystem";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 
 interface CacheFileRequest {
   data: Uint8Array<ArrayBuffer>;

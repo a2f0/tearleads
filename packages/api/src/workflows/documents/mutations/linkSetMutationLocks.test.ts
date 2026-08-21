@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import { db } from "@symcrypt/api-shared/postgres";
+import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
 import {
   createDocumentLinkSetMutationLockPlan,
   executeDocumentLinkSetMutationLockPlan,

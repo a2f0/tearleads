@@ -2,7 +2,7 @@ import type {
   OrganizationContainerGrant,
   OrganizationDirectory,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import {
   type DirectoryContextMenuHandler,

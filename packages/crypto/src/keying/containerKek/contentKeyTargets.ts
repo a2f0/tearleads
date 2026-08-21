@@ -119,7 +119,7 @@ export async function computeDocumentContentKeyTargetHash(
     normalizedTargets;
 
   return computeKeyingDomainHash(
-    "tearleads.keying.document-content-key-targets",
+    "symcrypt.keying.document-content-key-targets",
     payload,
   );
 }
@@ -556,7 +556,7 @@ export async function computeBlobContentKeyTargetHash(
     normalizedTargets;
 
   return computeKeyingDomainHash(
-    "tearleads.keying.blob-content-key-targets",
+    "symcrypt.keying.blob-content-key-targets",
     payload,
   );
 }
@@ -644,7 +644,7 @@ export async function computeBlobAccessManifestHash(
     normalizeBlobAccessManifest(manifest);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.blob-access-manifest",
+    "symcrypt.keying.blob-access-manifest",
     payload,
   );
 }

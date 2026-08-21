@@ -4,9 +4,9 @@ import {
   type ContainerGrantPrincipalHead,
   type ReferencedPrincipalHead,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,

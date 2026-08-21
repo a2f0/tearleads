@@ -19,7 +19,7 @@ const healthyGraph = {
       dependencies: [
         {
           dependencyTypes: ["undetermined", "import"],
-          module: "@tearleads/encoding",
+          module: "@symcrypt/encoding",
           resolved: "packages/encoding/src/index.ts",
         },
       ],

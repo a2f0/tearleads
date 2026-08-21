@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
+import { computeDocumentContentRecordMetadataHash } from "@symcrypt/crypto";
 import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 
 async function fixture() {

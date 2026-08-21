@@ -3,10 +3,10 @@ import {
   computeContainerKekRecipientTargetHash,
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -391,7 +391,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       Array.from(coldKeks.get(initialKek.containerKeyEpochId) ?? []),
     ).toEqual(Array.from(originalContainerKey));
     expect(response.referencedPrincipalHeads).toContainEqual({
-      principalType: nextPolicy.principalType,
+      principalType: "group",
       principalId: nextPolicy.principalId,
       version: nextPolicy.version,
       keyEpoch: nextPolicy.keyEpoch,

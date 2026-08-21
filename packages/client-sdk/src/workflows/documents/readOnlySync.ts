@@ -1,14 +1,14 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   isAccessManifestBundleWireResponse,
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   persistedDocumentSyncStateFromResponse,

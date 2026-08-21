@@ -1,7 +1,7 @@
 import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 export type ProjectionUserKey = TrustedUserIdentity;

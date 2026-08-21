@@ -1,8 +1,8 @@
 import type {
   PrincipalPolicyCheckpoint,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { verifyPrincipalPolicyCheckpoint } from "@tearleads/crypto";
+} from "@symcrypt/crypto";
+import { verifyPrincipalPolicyCheckpoint } from "@symcrypt/crypto";
 import { assertPrincipalPolicyCheckpointShape } from "./keyingCheckpointPersistence";
 
 export function principalPolicyHeadMeetsCheckpoint(

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationPolicyHistory } from "@tearleads/client-sdk";
+import type { OrganizationPolicyHistory } from "@symcrypt/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { PolicyHistorySection } from "./PolicyHistory";

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError, toFingerprint } from "@tearleads/crypto";
+import { KeyingVerificationError, toFingerprint } from "@symcrypt/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";

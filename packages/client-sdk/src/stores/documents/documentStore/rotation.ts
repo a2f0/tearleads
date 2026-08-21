@@ -4,7 +4,7 @@ import {
   importSnapshot,
   importUpdates,
   versionVectorsEqual,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,

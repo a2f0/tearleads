@@ -25,13 +25,13 @@ export const IDENTITY_SEED_PHRASE_WORDS = 24;
 
 const TEXT_ENCODER = new TextEncoder();
 const HKDF_SALT = TEXT_ENCODER.encode(
-  "tearleads.identity-seed-phrase.hkdf-salt.v1",
+  "symcrypt.identity-seed-phrase.hkdf-salt.v1",
 );
 const SIGNING_SEED_INFO = TEXT_ENCODER.encode(
-  "tearleads.identity-seed-phrase.ml-dsa87-signing-seed.v1",
+  "symcrypt.identity-seed-phrase.ml-dsa87-signing-seed.v1",
 );
 const ENCAPSULATION_SEED_INFO = TEXT_ENCODER.encode(
-  "tearleads.identity-seed-phrase.ml-kem1024-encapsulation-seed.v1",
+  "symcrypt.identity-seed-phrase.ml-kem1024-encapsulation-seed.v1",
 );
 const ML_DSA87_SEED_BYTES = 32;
 

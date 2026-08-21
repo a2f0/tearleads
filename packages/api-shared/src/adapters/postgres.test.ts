@@ -17,11 +17,11 @@ function expectedDevHost(): string {
 test("Postgres pool config uses DATABASE_URL when provided", () => {
   expect(
     createPostgresPoolConfig({
-      DATABASE_URL: "postgres://dev-user@localhost:5432/tearleads_dev",
+      DATABASE_URL: "postgres://dev-user@localhost:5432/symcrypt_dev",
       NODE_ENV: "development",
     }),
   ).toEqual({
-    connectionString: "postgres://dev-user@localhost:5432/tearleads_dev",
+    connectionString: "postgres://dev-user@localhost:5432/symcrypt_dev",
     max: 15,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
@@ -31,11 +31,11 @@ test("Postgres pool config uses DATABASE_URL when provided", () => {
 test("Postgres pool config applies SSL settings to DATABASE_URL", () => {
   expect(
     createPostgresPoolConfig({
-      DATABASE_URL: "postgres://dev-user@localhost:5432/tearleads_dev",
+      DATABASE_URL: "postgres://dev-user@localhost:5432/symcrypt_dev",
       POSTGRES_SSL: "true",
     }),
   ).toMatchObject({
-    connectionString: "postgres://dev-user@localhost:5432/tearleads_dev",
+    connectionString: "postgres://dev-user@localhost:5432/symcrypt_dev",
     ssl: { rejectUnauthorized: true },
   });
 });
@@ -44,13 +44,13 @@ test("Postgres pool config uses local development defaults", () => {
   expect(
     createPostgresPoolConfig({
       NODE_ENV: "development",
-      USER: "tearleads_dev",
+      USER: "symcrypt_dev",
     }),
   ).toEqual({
     host: expectedDevHost(),
     port: 5432,
-    user: "tearleads_dev",
-    database: "tearleads_development",
+    user: "symcrypt_dev",
+    database: "symcrypt_development",
     max: 15,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
@@ -94,7 +94,7 @@ test("Postgres pool config validates release port", () => {
   expect(() =>
     createPostgresPoolConfig({
       NODE_ENV: "production",
-      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_DATABASE: "symcrypt",
       POSTGRES_HOST: "postgres.example.com",
       POSTGRES_PASSWORD: "secret",
       POSTGRES_PORT: "not-a-number",
@@ -105,7 +105,7 @@ test("Postgres pool config validates release port", () => {
   expect(() =>
     createPostgresPoolConfig({
       NODE_ENV: "production",
-      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_DATABASE: "symcrypt",
       POSTGRES_HOST: "postgres.example.com",
       POSTGRES_PASSWORD: "secret",
       POSTGRES_PORT: "5432.5",
@@ -116,7 +116,7 @@ test("Postgres pool config validates release port", () => {
   expect(() =>
     createPostgresPoolConfig({
       NODE_ENV: "production",
-      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_DATABASE: "symcrypt",
       POSTGRES_HOST: "postgres.example.com",
       POSTGRES_PASSWORD: "secret",
       POSTGRES_PORT: "65536",
@@ -129,7 +129,7 @@ test("Postgres pool config supports SSL settings", () => {
   expect(
     createPostgresPoolConfig({
       NODE_ENV: "production",
-      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_DATABASE: "symcrypt",
       POSTGRES_HOST: "postgres.example.com",
       POSTGRES_PASSWORD: "secret",
       POSTGRES_PORT: "5432",

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "@tearleads/client-sdk";
+import { SymCrypt } from "@symcrypt/client-sdk";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 
 test("identity transition clears the full session and prior server events", () => {
-  const tearleads = new Tearleads();
-  tearleads.session.setContext({
+  const symcrypt = new SymCrypt();
+  symcrypt.session.setContext({
     authToken: "token-a",
     containerId: "container-a",
     defaultOrganizationId: "default-org-a",
@@ -12,11 +12,11 @@ test("identity transition clears the full session and prior server events", () =
     organizationId: "org-a",
     userId: "user-a",
   });
-  tearleads.events.push({ id: "event-a" });
+  symcrypt.events.push({ id: "event-a" });
 
-  prepareForIdentityTransition(tearleads);
+  prepareForIdentityTransition(symcrypt);
 
-  expect(tearleads.session.snapshot).toEqual({
+  expect(symcrypt.session.snapshot).toEqual({
     authToken: null,
     containerId: null,
     defaultOrganizationId: null,
@@ -24,5 +24,5 @@ test("identity transition clears the full session and prior server events", () =
     organizationId: null,
     userId: null,
   });
-  expect(tearleads.events.events).toEqual([]);
+  expect(symcrypt.events.events).toEqual([]);
 });

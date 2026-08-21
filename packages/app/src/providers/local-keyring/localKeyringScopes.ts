@@ -1,8 +1,8 @@
-import type { LocalKeyringScope } from "@tearleads/client-sdk";
+import type { LocalKeyringScope } from "@symcrypt/client-sdk";
 
-export const LOCAL_BLOB_STORE_SCOPE_NAMESPACE = "tearleads.blob-store";
-export const LOCAL_SQLITE_SCOPE_NAMESPACE = "tearleads.sqlite";
-const LOCAL_IDENTITY_SCOPE_PREFIX = "tearleads.local-identity:";
+export const LOCAL_BLOB_STORE_SCOPE_NAMESPACE = "symcrypt.blob-store";
+export const LOCAL_SQLITE_SCOPE_NAMESPACE = "symcrypt.sqlite";
+const LOCAL_IDENTITY_SCOPE_PREFIX = "symcrypt.local-identity:";
 
 export function localIdentityScope(namespace: string): LocalKeyringScope {
   return {

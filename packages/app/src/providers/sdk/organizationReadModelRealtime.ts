@@ -1,7 +1,7 @@
 import {
+  type SymCrypt,
   subscribeOrganizationReadModelInvalidation,
-  type Tearleads,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   activeDemandOrganizationId,
   activeDemandScope,
@@ -40,7 +40,7 @@ function clearDisconnectedReconciliationFallback(
 }
 
 function scheduleDisconnectedReconciliationFallback(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   state: OrganizationRealtimeState,
   scope: OrganizationReadModelScope,
 ): void {
@@ -54,7 +54,7 @@ function scheduleDisconnectedReconciliationFallback(
     }
     state.disconnectedFallbackByOrganizationId.delete(scope.organizationId);
     const currentScope = activeDemandScope(
-      tearleads,
+      symcrypt,
       state,
       scope.organizationId,
     );
@@ -65,7 +65,7 @@ function scheduleDisconnectedReconciliationFallback(
       return;
     }
     void scheduleOrganizationReadModelReconciliationAfterActivePass(
-      tearleads,
+      symcrypt,
       scope.organizationId,
     );
   }, DISCONNECTED_RECONCILIATION_FALLBACK_MS);
@@ -81,14 +81,14 @@ function scheduleDisconnectedReconciliationFallback(
 }
 
 function syncOrganizationInterest(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   state: OrganizationRealtimeState,
 ): void {
   const ws = state.socket;
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     return;
   }
-  const organizationId = activeDemandOrganizationId(tearleads, state);
+  const organizationId = activeDemandOrganizationId(symcrypt, state);
   if (organizationId === null && state.declaredOrganizationId === undefined) {
     return;
   }
@@ -114,11 +114,11 @@ function syncOrganizationInterest(
  * changed. Drop the lease and refetch authoritatively instead of leaving the
  * stale paint in place until the next unrelated hint. */
 function subscribeProjectionInvalidation(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   state: OrganizationRealtimeState,
   organizationId: string,
 ): (() => void) | null {
-  const runtimeInput = tearleads.runtime.input();
+  const runtimeInput = symcrypt.runtime.input();
   if (runtimeInput.infra.dbStatus !== "ready") {
     return null;
   }
@@ -132,7 +132,7 @@ function subscribeProjectionInvalidation(
         state.caughtUpScope = null;
       }
       void scheduleOrganizationReadModelReconciliationAfterActivePass(
-        tearleads,
+        symcrypt,
         organizationId,
       );
     },
@@ -142,18 +142,18 @@ function subscribeProjectionInvalidation(
 /** Register actual projection demand. No mounted consumer means no websocket
  * organization interest and therefore no background read-model request. */
 export function subscribeOrganizationReadModelRealtime(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
   listener: ProjectionListener,
   options: {
     readonly isMutationActive?: (() => boolean) | undefined;
   } = {},
 ): () => void {
-  const state = stateFor(tearleads);
+  const state = stateFor(symcrypt);
   const listeners =
     state.listenersByOrganizationId.get(organizationId) ??
     new Set<ProjectionSubscription>();
-  const scope = currentOrganizationReadModelScope(tearleads, organizationId);
+  const scope = currentOrganizationReadModelScope(symcrypt, organizationId);
   const hadActiveExactDemand = [...listeners].some(
     (subscription) =>
       subscription.active &&
@@ -167,9 +167,9 @@ export function subscribeOrganizationReadModelRealtime(
   };
   listeners.add(subscription);
   state.listenersByOrganizationId.set(organizationId, listeners);
-  syncOrganizationInterest(tearleads, state);
+  syncOrganizationInterest(symcrypt, state);
   const unsubscribeInvalidation = subscribeProjectionInvalidation(
-    tearleads,
+    symcrypt,
     state,
     organizationId,
   );
@@ -185,7 +185,7 @@ export function subscribeOrganizationReadModelRealtime(
     !isSameOrganizationReadModelScope(state.caughtUpScope, scope)
   ) {
     void scheduleOrganizationReadModelReconciliationAfterActivePass(
-      tearleads,
+      symcrypt,
       organizationId,
     );
   } else if (
@@ -196,7 +196,7 @@ export function subscribeOrganizationReadModelRealtime(
     // Keep HTTP reconciliation functional when realtime is unavailable. If a
     // socket opens first, attach cancels this fallback and owns the sole pass;
     // if it opens later, its fresh pass closes the disconnected mutation gap.
-    scheduleDisconnectedReconciliationFallback(tearleads, state, scope);
+    scheduleDisconnectedReconciliationFallback(symcrypt, state, scope);
   }
 
   return () => {
@@ -223,14 +223,14 @@ export function subscribeOrganizationReadModelRealtime(
         state.deferredSelfHintByOrganizationId.delete(organizationId);
         clearDisconnectedReconciliationFallback(state, organizationId);
       }
-      syncOrganizationInterest(tearleads, state);
-      const currentScope = activeDemandScope(tearleads, state, organizationId);
+      syncOrganizationInterest(symcrypt, state);
+      const currentScope = activeDemandScope(symcrypt, state, organizationId);
       if (
         abandonedSelfHint &&
         isSameOrganizationReadModelScope(abandonedSelfHint.scope, currentScope)
       ) {
         void scheduleOrganizationReadModelReconciliationAfterActivePass(
-          tearleads,
+          symcrypt,
           organizationId,
         );
       }
@@ -241,18 +241,18 @@ export function subscribeOrganizationReadModelRealtime(
 /** Bind the currently open socket to the demand registry. Reconnects
  * re-declare demand and perform one feed catch-up for the active consumer. */
 export function attachOrganizationReadModelSocket(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   ws: WebSocket,
 ): () => void {
-  const state = stateFor(tearleads);
+  const state = stateFor(symcrypt);
   state.socket = ws;
   state.acknowledgedOrganizationId = undefined;
   state.caughtUpScope = null;
   state.declaredOrganizationId = undefined;
   state.pendingDeclaration = null;
-  syncOrganizationInterest(tearleads, state);
+  syncOrganizationInterest(symcrypt, state);
 
-  const demandScope = activeDemandScope(tearleads, state);
+  const demandScope = activeDemandScope(symcrypt, state);
   if (demandScope) {
     clearDisconnectedReconciliationFallback(state, demandScope.organizationId);
   }
@@ -264,10 +264,10 @@ export function attachOrganizationReadModelSocket(
       state.caughtUpScope = null;
       state.declaredOrganizationId = undefined;
       state.pendingDeclaration = null;
-      const disconnectedDemand = activeDemandScope(tearleads, state);
+      const disconnectedDemand = activeDemandScope(symcrypt, state);
       if (disconnectedDemand) {
         scheduleDisconnectedReconciliationFallback(
-          tearleads,
+          symcrypt,
           state,
           disconnectedDemand,
         );
@@ -279,13 +279,13 @@ export function attachOrganizationReadModelSocket(
 /** Start the authoritative catch-up only after the server has finished
  * authorizing and indexing the exact organization declaration on this socket. */
 export function handleOrganizationReadModelInterestAcknowledgement(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   ws: WebSocket,
   declarationId: string,
   organizationId: string | null,
   _authorized: boolean,
 ): void {
-  const state = stateFor(tearleads);
+  const state = stateFor(symcrypt);
   const pending = state.pendingDeclaration;
   if (
     state.socket !== ws ||
@@ -301,22 +301,22 @@ export function handleOrganizationReadModelInterestAcknowledgement(
   // Both outcomes are ordering barriers. An authorization denial deliberately
   // drives the HTTP reconciliation too: its authoritative 403/404 path purges
   // the durable local projection instead of leaving stale roster/grant UI.
-  if (organizationId && activeDemandScope(tearleads, state, organizationId)) {
+  if (organizationId && activeDemandScope(symcrypt, state, organizationId)) {
     void scheduleOrganizationReadModelReconciliationAfterActivePass(
-      tearleads,
+      symcrypt,
       organizationId,
     );
   }
 }
 
 export function handleOrganizationReadModelHint(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
   originatedFromSession: boolean,
 ): void {
-  const state = stateFor(tearleads);
+  const state = stateFor(symcrypt);
   const subscriptions = state.listenersByOrganizationId.get(organizationId);
-  const scope = activeDemandScope(tearleads, state, organizationId);
+  const scope = activeDemandScope(symcrypt, state, organizationId);
   const mutationSubscription =
     originatedFromSession && scope
       ? [...(subscriptions ?? [])].find(
@@ -334,7 +334,7 @@ export function handleOrganizationReadModelHint(
     return;
   }
   void scheduleOrganizationReadModelReconciliationAfterActivePass(
-    tearleads,
+    symcrypt,
     organizationId,
   );
 }
@@ -346,22 +346,22 @@ export function handleOrganizationReadModelHint(
  * always reconciles the feed rather than trusting a repaint shortcut.
  */
 export function releaseDeferredOrganizationReadModelHint(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   organizationId: string,
 ): void {
-  const state = stateFor(tearleads);
+  const state = stateFor(symcrypt);
   const deferredHint =
     state.deferredSelfHintByOrganizationId.get(organizationId);
   if (!deferredHint) {
     return;
   }
   state.deferredSelfHintByOrganizationId.delete(organizationId);
-  const activeScope = activeDemandScope(tearleads, state, organizationId);
+  const activeScope = activeDemandScope(symcrypt, state, organizationId);
   if (!isSameOrganizationReadModelScope(deferredHint.scope, activeScope)) {
     return;
   }
   void scheduleOrganizationReadModelReconciliationAfterActivePass(
-    tearleads,
+    symcrypt,
     organizationId,
   );
 }

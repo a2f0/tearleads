@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { exportAllUpdates } from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,

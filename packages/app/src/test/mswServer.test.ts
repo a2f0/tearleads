@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { registerIdentity as registerClientIdentity } from "@tearleads/client-sdk";
-import type { ExecSql, ExecSqlClientLike } from "@tearleads/client-sdk/sqlite";
+import { registerIdentity as registerClientIdentity } from "@symcrypt/client-sdk";
+import type { ExecSql, ExecSqlClientLike } from "@symcrypt/client-sdk/sqlite";
 import {
   authChallengeSigningBytes,
   type EncapsulationKeyPair,
@@ -9,9 +9,9 @@ import {
   type SigningKeyPair,
   sign,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import { isRegistrationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import { isRegistrationResponse } from "@symcrypt/validators/response";
 import invariant from "invariant";
 import {
   getProxiedApiNetworkActivitySnapshot,

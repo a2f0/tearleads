@@ -1,5 +1,5 @@
-import { db as defaultDb } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import { db as defaultDb } from "@symcrypt/api-shared/postgres";
+import type { TestUser } from "@symcrypt/bob-and-alice";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
@@ -8,9 +8,9 @@ import {
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { RegistrationRequest } from "@symcrypt/validators/request";
 import {
   type BlobObjectStore,
   createMemoryBlobObjectStore,

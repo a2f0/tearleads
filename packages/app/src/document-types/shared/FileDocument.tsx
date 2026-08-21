@@ -12,7 +12,7 @@ import {
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useFileViewer } from "../../providers/file-viewer/FileViewerProvider";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../providers/sdk/SymCryptProvider";
 import {
   useDocument,
   useDocumentReadOnly,
@@ -269,7 +269,7 @@ function useFileDocument(params: {
   title: string;
 }) {
   const { extraFieldLabels, initialEditing, title } = params;
-  const { infra } = useTearleadsRuntime();
+  const { infra } = useSymCryptRuntime();
   const fileSaver = useFileSaver();
   const fileViewer = useFileViewer();
   const {

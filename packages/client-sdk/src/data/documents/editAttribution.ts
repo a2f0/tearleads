@@ -1,4 +1,4 @@
-import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators/response";
+import type { DocumentEditAttributionRangeResponse } from "@symcrypt/validators/response";
 import {
   type DocumentAttributionInterval,
   signingIdentityKey,

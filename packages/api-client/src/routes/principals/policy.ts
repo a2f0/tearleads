@@ -8,7 +8,7 @@ import {
   isPutPrincipalPolicyOperationResponse,
   operationRequestPath,
   putPrincipalPolicyOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const commitOrganizationGroupPolicy = {
   isRequest: isCommitOrganizationGroupPolicyOperationRequest,

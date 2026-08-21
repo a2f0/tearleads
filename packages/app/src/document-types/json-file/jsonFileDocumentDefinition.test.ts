@@ -4,8 +4,8 @@ import {
   readStoredDocumentState as readStoredDocumentStateBase,
   type StructuredDocumentShape,
   writeStoredDocumentFields as writeStoredDocumentFieldsBase,
-} from "@tearleads/client-sdk";
-import { createDocument } from "@tearleads/loro";
+} from "@symcrypt/client-sdk";
+import { createDocument } from "@symcrypt/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 
 function initializeJsonFileDocument(doc: StructuredDocumentShape): void {

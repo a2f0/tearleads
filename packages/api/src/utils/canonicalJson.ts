@@ -1,6 +1,6 @@
-import type { KeyingCanonicalJson } from "@tearleads/crypto";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { KeyingCanonicalJson } from "@symcrypt/crypto";
+import { serializeKeyingCanonicalJson } from "@symcrypt/crypto";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 
 interface CanonicalJsonFrame {
   readonly leave?: object;

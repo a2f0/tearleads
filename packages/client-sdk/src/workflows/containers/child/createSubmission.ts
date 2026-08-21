@@ -1,7 +1,7 @@
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import type {
   ContainerCreateApi,

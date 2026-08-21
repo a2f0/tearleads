@@ -1,13 +1,13 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@symcrypt/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import { createContainerKeyWrap } from "./containerKeying";
 import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import {

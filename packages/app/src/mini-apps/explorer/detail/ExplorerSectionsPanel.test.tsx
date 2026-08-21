@@ -1,9 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  BlobStore,
-  ContainerDocumentQueries,
-} from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
+import type { BlobStore, ContainerDocumentQueries } from "@symcrypt/client-sdk";
+import { createDomainScope } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";

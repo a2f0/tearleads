@@ -3,12 +3,12 @@ import type {
   PrincipalPolicyCheckpoint,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { CommitOrganizationGroupPolicyRequest } from "@symcrypt/validators/request";
 import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";

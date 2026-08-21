@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationGroupContainer } from "@tearleads/client-sdk";
+import type { OrganizationGroupContainer } from "@symcrypt/client-sdk";
 import { cleanup, render, within } from "@testing-library/react";
 import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";

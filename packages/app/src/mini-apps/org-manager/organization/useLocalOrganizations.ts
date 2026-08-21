@@ -1,7 +1,7 @@
 import type {
   DomainScope,
   LocalOrganizationSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,

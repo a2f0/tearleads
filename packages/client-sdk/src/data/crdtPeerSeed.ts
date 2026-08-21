@@ -117,8 +117,8 @@ async function computeScopedPeerSeed(
   scope: string,
   environment: PeerSeedEnvironment,
 ): Promise<string> {
-  const deviceSeedKey = `tearleads.${scope}.device-seed`;
-  const sessionPeerSeedKey = `tearleads.${scope}.session-peer-seed`;
+  const deviceSeedKey = `symcrypt.${scope}.device-seed`;
+  const sessionPeerSeedKey = `symcrypt.${scope}.session-peer-seed`;
 
   let deviceSeed: string;
   let perTabSeed: string;
@@ -145,7 +145,7 @@ async function computeScopedPeerSeed(
   }
   return resolveDevicePeerSeed(
     environment.locks,
-    `tearleads.${scope}.device-peer`,
+    `symcrypt.${scope}.device-peer`,
     deviceSeed,
     perTabSeed,
   );

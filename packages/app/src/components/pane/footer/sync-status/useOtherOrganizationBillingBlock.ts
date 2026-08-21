@@ -1,8 +1,8 @@
 import type {
   OrganizationBilling,
   SyncBillingGate,
-} from "@tearleads/client-sdk";
-import { resolveOrganizationBillingView } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { resolveOrganizationBillingView } from "@symcrypt/client-sdk";
 import { useEffect, useRef, useState } from "react";
 
 /**

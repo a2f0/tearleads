@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppVirtualWindow } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";

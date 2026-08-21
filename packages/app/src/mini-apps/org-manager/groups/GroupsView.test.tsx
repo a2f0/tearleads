@@ -4,7 +4,7 @@ import type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";

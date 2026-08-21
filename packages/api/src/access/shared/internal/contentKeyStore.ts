@@ -2,8 +2,8 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import type { WriteHeader } from "@tearleads/crypto";
+} from "@symcrypt/api-shared/postgres";
+import type { WriteHeader } from "@symcrypt/crypto";
 import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
 interface ContentKeyBundle<TTarget> {

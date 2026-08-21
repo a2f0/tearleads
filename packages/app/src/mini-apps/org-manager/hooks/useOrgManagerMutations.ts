@@ -6,10 +6,10 @@ import type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
@@ -23,7 +23,7 @@ type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
 interface OrgManagerMutationsParams {
   addUserId: string;
-  appData: ReturnType<typeof useTearleadsRuntime>;
+  appData: ReturnType<typeof useSymCryptRuntime>;
   canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
   canDisableRosterUsers: boolean;
   canImportRosterUser: boolean;

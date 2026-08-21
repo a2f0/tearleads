@@ -3,8 +3,8 @@ import type {
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortKey,
-} from "@tearleads/client-sdk";
-import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { getStoredDocumentTypeLabel } from "@symcrypt/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
   getMiniAppTableSortAria,

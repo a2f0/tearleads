@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { PurchaseIdentityPendingError } from "@tearleads/client-sdk";
+import { PurchaseIdentityPendingError } from "@symcrypt/client-sdk";
 import {
   createCapacitorPurchases,
   fixture,
@@ -20,7 +20,7 @@ function createDeferred<T>() {
 
 test("factory instances share native checkout identity serialization", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   const purchaseResult = createDeferred<{ activeEntitlementIds: string[] }>();
   const purchaseStarted = createDeferred<void>();
   fixture.nativePurchasePromise = purchaseResult.promise;

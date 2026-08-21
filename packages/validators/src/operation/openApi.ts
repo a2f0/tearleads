@@ -30,7 +30,7 @@ interface OpenApiOperation {
   };
   readonly responses: Readonly<Record<string, OpenApiResponse>>;
   readonly security: readonly object[];
-  readonly "x-tearleads-runtime-refinements"?: readonly object[];
+  readonly "x-symcrypt-runtime-refinements"?: readonly object[];
 }
 
 interface OpenApiPathItem {
@@ -422,7 +422,7 @@ function openApiOperation(operation: HttpOperation): OpenApiOperation {
     ...(operation.runtimeRefinements === undefined
       ? {}
       : {
-          "x-tearleads-runtime-refinements": operation.runtimeRefinements,
+          "x-symcrypt-runtime-refinements": operation.runtimeRefinements,
         }),
   };
 }
@@ -473,7 +473,7 @@ export function createOpenApiDocument(
       },
     },
     info: {
-      title: "Tearleads Protocol API",
+      title: "SymCrypt Protocol API",
       version: "0.1.0",
     },
     jsonSchemaDialect: JSON_SCHEMA_DIALECT,

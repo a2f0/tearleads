@@ -1,7 +1,7 @@
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerMutationResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   type MutateContainerInput,
   runContainerMutationWorkflow,

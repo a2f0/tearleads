@@ -1,5 +1,5 @@
 # {{ ansible_managed }}
-# Static application server block for {{ domain | default('tearleads.com') }}
+# Static application server block for {{ app_hostname }}
 
 {% macro static_app_server(hostnames, root_path) -%}
 server {
@@ -43,5 +43,4 @@ server {
 }
 {%- endmacro %}
 
-{{ static_app_server([app_hostname | default('app.' + (domain | default('tearleads.com')))], '/var/www/app-web') }}
-{{ static_app_server(app_demo_hostnames | default(['demo.' + (domain | default('tearleads.com'))]), '/var/www/app-demo') }}
+{{ static_app_server([app_hostname], '/var/www/app-web') }}

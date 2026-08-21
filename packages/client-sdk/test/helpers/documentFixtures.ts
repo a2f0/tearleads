@@ -2,9 +2,9 @@ import {
   computeContainerKekMaterialId,
   encryptWithDek,
   generateKemSeedAndKeyPair,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   createUserContainerWrap,
   fixtureHash,

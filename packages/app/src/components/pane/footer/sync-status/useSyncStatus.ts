@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { useOrganizationBilling } from "../../../../providers/billing/BillingProvider";
 import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../../../providers/sdk/SymCryptProvider";
 import {
   describeSyncStatus,
   resolveSyncStatus,
@@ -32,9 +32,9 @@ interface SyncStatusResult {
  * one currently switched to.
  */
 export function useSyncStatus(): SyncStatusResult {
-  const appData = useTearleadsRuntime();
+  const appData = useSymCryptRuntime();
   const billing = useOrganizationBilling();
-  const { containerContents, organizations, syncBillingGate } = useTearleads();
+  const { containerContents, organizations, syncBillingGate } = useSymCrypt();
   const domainScope = appData.state.domainScope;
   const dbStatus = appData.infra.dbStatus;
   const dbReady = dbStatus === "ready";

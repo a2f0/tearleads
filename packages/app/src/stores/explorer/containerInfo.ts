@@ -1,16 +1,16 @@
-import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerInfo, ContainerNode } from "@symcrypt/client-sdk";
 import { useCallback, useMemo } from "react";
 import {
   type RuntimeSnapshot,
-  useTearleads,
-} from "../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+} from "../../providers/sdk/SymCryptProvider";
 
 export function useExplorerContainerInfoLoader(input: {
   readonly appData: Pick<RuntimeSnapshot, "auth" | "state">;
   readonly nodes: ReadonlyArray<ContainerNode>;
 }): (containerId: string) => Promise<ContainerInfo> {
   const { appData, nodes } = input;
-  const { containerContents } = useTearleads();
+  const { containerContents } = useSymCrypt();
   const nodesById = useMemo(
     () => new Map(nodes.map((node) => [node.id, node])),
     [nodes],

@@ -4,11 +4,11 @@ import {
   type VerifiedDocumentLinkSetManifest,
   type VerifiedPrincipalPolicy,
   verifyDocumentLinkSetManifest,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { readCanonicalJson } from "../keyingCanonicalJson";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {

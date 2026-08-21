@@ -1,10 +1,10 @@
-import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
+import type { DomainScope, DomainSyncSnapshot } from "@symcrypt/client-sdk";
 import {
   getDomainSyncCoordinatorSnapshot,
   subscribeToDomainSyncCoordinator,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback } from "react";
-import { useTearleadsExternalValue } from "../../../../providers/sdk/useTearleadsSubscription";
+import { useSymCryptExternalValue } from "../../../../providers/sdk/useSymCryptSubscription";
 
 export function useDomainSyncSnapshot(
   domainScope: DomainScope,
@@ -19,5 +19,5 @@ export function useDomainSyncSnapshot(
     [domainScope],
   );
 
-  return useTearleadsExternalValue(subscribe, getSnapshot);
+  return useSymCryptExternalValue(subscribe, getSnapshot);
 }

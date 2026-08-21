@@ -1,6 +1,6 @@
-import type { Tearleads } from "@tearleads/client-sdk";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
+import type { SymCrypt } from "@symcrypt/client-sdk";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { hasStringProperty, isUuidV4String } from "@symcrypt/validators/util";
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import {
@@ -117,14 +117,14 @@ function readOrganizationInterestAcknowledgement(value: unknown): {
 // HTTP is the source of access truth: a now-unauthorized container drops out of
 // the tree (and interest); a still-authorized one is re-validated.
 export async function resyncContainerAccess(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   containerId: string,
 ): Promise<void> {
   const resyncTasks: Promise<unknown>[] = [];
   try {
     // Re-validate just the affected container (force re-discovery), not the
     // whole tree; a single access change should not re-sync everything.
-    tearleads.deviceFirst
+    symcrypt.deviceFirst
       .open()
       .reconciler.enqueueContainer(containerId, "active", true);
   } catch {
@@ -142,7 +142,7 @@ export async function resyncContainerAccess(
     // every event, which is the bulk of the membership-change request storm
     // (#1281); scoping to root + the one relevant parent lane keeps the
     // revocation/discovery/deletion guarantees while dropping that crawl.
-    const tree = tearleads.deviceFirst.open().containerStore;
+    const tree = symcrypt.deviceFirst.open().containerStore;
     const flaggedParentId =
       tree.getSnapshot().nodes.find((node) => node.id === containerId)
         ?.parentId ?? null;
@@ -157,11 +157,11 @@ export async function resyncContainerAccess(
   await Promise.allSettled(resyncTasks);
 }
 
-// Tracks an in-flight root re-list per Tearleads instance (dual-pane gives each
+// Tracks an in-flight root re-list per SymCrypt instance (dual-pane gives each
 // pane its own instance) so a burst of "shared_with_you" events coalesces into a
 // single sweep plus at most one trailing sweep, instead of firing concurrently.
 const activeRootResyncByInstance = new WeakMap<
-  Tearleads,
+  SymCrypt,
   { readonly promise: Promise<void>; pending: boolean }
 >();
 
@@ -175,8 +175,8 @@ const activeRootResyncByInstance = new WeakMap<
 // trailing sweep when events land while a sweep is in flight, so a share whose
 // grant commits after the active sweep already fetched the root list is still
 // picked up rather than waiting for the next event or manual refresh.
-async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
-  const active = activeRootResyncByInstance.get(tearleads);
+async function resyncRootContainers(symcrypt: SymCrypt): Promise<void> {
+  const active = activeRootResyncByInstance.get(symcrypt);
   if (active) {
     active.pending = true;
     return active.promise;
@@ -184,21 +184,19 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
 
   const runSweep = async (): Promise<void> => {
     try {
-      await tearleads.deviceFirst
-        .open()
-        .reconciler.reconcileRootContainersNow();
+      await symcrypt.deviceFirst.open().reconciler.reconcileRootContainersNow();
     } catch {
       // Runtime not ready; the next reconnect or manual refresh re-lists roots.
     }
   };
 
   const state = { pending: false, promise: runSweep() };
-  activeRootResyncByInstance.set(tearleads, state);
+  activeRootResyncByInstance.set(symcrypt, state);
   await state.promise;
-  activeRootResyncByInstance.delete(tearleads);
+  activeRootResyncByInstance.delete(symcrypt);
 
   if (state.pending) {
-    await resyncRootContainers(tearleads);
+    await resyncRootContainers(symcrypt);
   }
 }
 
@@ -300,21 +298,21 @@ function useRefreshGeneration(
 }
 
 function markServerEventsConnected(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   log: (message: string) => void,
 ): void {
-  const reconnecting = tearleads.events.connectionGeneration > 0;
+  const reconnecting = symcrypt.events.connectionGeneration > 0;
   if (reconnecting) {
     // A missed access_changed may represent a revoke, move, or container key
     // epoch change. Drop cached writer projections before the HTTP sweep.
-    tearleads.events.invalidateAccessState();
+    symcrypt.events.invalidateAccessState();
   }
-  tearleads.events.setConnected(true);
+  symcrypt.events.setConnected(true);
   if (reconnecting) {
     // The declaration acknowledgement is the ordering barrier: routing is live
     // before this sweep closes the lossy interval. This also catches re-keys in
     // unopened containers, which open-document reconnect probes cannot.
-    void tearleads.deviceFirst
+    void symcrypt.deviceFirst
       .open()
       .reconciler.reconcileNow()
       .catch(() => log("WebSocket: reconnect catch-up unavailable"));
@@ -324,7 +322,7 @@ function markServerEventsConnected(
 }
 
 export function useServerEventsBinding(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   wsUrl: string,
   authToken: string | null,
   log: (message: string) => void,
@@ -353,7 +351,7 @@ export function useServerEventsBinding(
     return startServerEventsConnectionLoop({
       onDisconnect: () => {
         stopDeclarations();
-        tearleads.events.setConnected(false);
+        symcrypt.events.setConnected(false);
       },
       onMessage: (ws, event) => {
         routeIncomingWsMessage(String(event.data), {
@@ -361,12 +359,12 @@ export function useServerEventsBinding(
             if (!interestHandle?.acknowledge(declarationId)) {
               return;
             }
-            markServerEventsConnected(tearleads, log);
+            markServerEventsConnected(symcrypt, log);
           },
           onInterestState: (baseline) => {
             interestHandle?.stop();
             interestHandle = startContainerInterestDeclaration(
-              tearleads,
+              symcrypt,
               ws,
               new Set(baseline),
             );
@@ -382,7 +380,7 @@ export function useServerEventsBinding(
             authorized,
           ) => {
             handleOrganizationReadModelInterestAcknowledgement(
-              tearleads,
+              symcrypt,
               ws,
               declarationId,
               organizationId,
@@ -394,42 +392,34 @@ export function useServerEventsBinding(
             originatedFromSession,
           ) => {
             handleOrganizationReadModelHint(
-              tearleads,
+              symcrypt,
               organizationId,
               originatedFromSession,
             );
           },
           onResyncRequired: (containerId) => {
-            tearleads.events.invalidateAccessState();
+            symcrypt.events.invalidateAccessState();
             const handle = interestHandle;
             handle?.invalidate(containerId);
-            void resyncContainerAccess(tearleads, containerId).finally(() => {
+            void resyncContainerAccess(symcrypt, containerId).finally(() => {
               handle?.sync();
             });
           },
-          onSharedWithYou: () => void resyncRootContainers(tearleads),
+          onSharedWithYou: () => void resyncRootContainers(symcrypt),
           onServerEvent: (data) => {
-            tearleads.events.push({ ...data, id: String(nextEventId++) });
+            symcrypt.events.push({ ...data, id: String(nextEventId++) });
           },
         });
       },
       onOpen: (ws) => {
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
-          tearleads,
+          symcrypt,
           ws,
         );
       },
-      requestTicket: () => tearleads.requestWebSocketTicket(),
+      requestTicket: () => symcrypt.requestWebSocketTicket(),
       wsUrl,
     });
-  }, [
-    authToken,
-    log,
-    online,
-    refreshGeneration,
-    syncEnabled,
-    tearleads,
-    wsUrl,
-  ]);
+  }, [authToken, log, online, refreshGeneration, syncEnabled, symcrypt, wsUrl]);
 }

@@ -1,10 +1,10 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   organizationRosterEntries,
-} from "@tearleads/api-shared/schema";
-import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/schema";
+import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";

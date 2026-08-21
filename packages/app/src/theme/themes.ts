@@ -1,6 +1,6 @@
 // The theme registry — the single source of truth for which color themes exist
 // and the order the footer toggle cycles through them. Each id here has a
-// matching `:root[data-theme="<id>"]` token block in @tearleads/ui's styles.css
+// matching `:root[data-theme="<id>"]` token block in @symcrypt/ui's styles.css
 // (the "light" default living in the base `:root`).
 //
 // Adding a theme:

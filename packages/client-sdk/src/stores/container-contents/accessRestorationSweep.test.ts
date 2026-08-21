@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
 import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
   createTestExecSql,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import {

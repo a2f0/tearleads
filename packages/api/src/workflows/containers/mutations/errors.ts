@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
-import type { PrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
+import { KeyingVerificationError } from "@symcrypt/crypto";
+import type { PrincipalPolicyStaleErrorResponse } from "@symcrypt/validators/response";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
   errorCauseChain,

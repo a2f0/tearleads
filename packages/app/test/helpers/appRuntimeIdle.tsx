@@ -3,9 +3,9 @@ import {
   getDomainSyncCoordinatorSnapshot,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect } from "react";
-import { useTearleadsRuntime } from "../../src/providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../src/providers/sdk/SymCryptProvider";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
 
 interface AppTestRuntimeSettleOptions {
@@ -165,7 +165,7 @@ async function waitForAppTestRuntimeFinalDrain(input: {
 export function AppTestRuntimeScopeProbe() {
   const {
     state: { domainScope },
-  } = useTearleadsRuntime();
+  } = useSymCryptRuntime();
 
   useEffect(() => {
     activeDomainScopeMountCounts.set(

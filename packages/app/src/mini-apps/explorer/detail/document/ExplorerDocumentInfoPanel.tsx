@@ -2,7 +2,7 @@ import type {
   ContainerNode,
   DocumentInfo,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   MiniAppHeader,

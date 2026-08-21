@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/bob-and-alice",
+  "name": "@symcrypt/bob-and-alice",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@tearleads/crypto": "workspace:*"
+    "@symcrypt/crypto": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

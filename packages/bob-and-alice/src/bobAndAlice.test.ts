@@ -6,7 +6,7 @@ import {
   hexToBytes,
   sign,
   verify,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import invariant from "invariant";
 import { createTestUser } from "./createTestUser";
 

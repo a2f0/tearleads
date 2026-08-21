@@ -1,10 +1,12 @@
 locals {
-  demo_hostnames             = concat(["demo.${var.domain}"], [for domain in var.extra_demo_domains : "demo.${domain}"])
-  primary_zone_hostnames     = toset([var.domain, "app.${var.domain}", "demo.${var.domain}", "api.${var.domain}", "code-assist.${var.domain}"])
-  tailscale_hostname         = "staging"
-  tunnel_cname               = module.tunnel.tunnel_cname
-  tunnel_http_service        = "http://localhost:80"
-  tunnel_code_assist_service = "http://localhost:3939"
+  hostname_suffix        = var.deployment_tier == "staging" ? "-staging" : ""
+  api_hostname           = "api${local.hostname_suffix}.${var.domain}"
+  app_hostname           = "app${local.hostname_suffix}.${var.domain}"
+  primary_zone_hostnames = toset([local.website_hostname, local.app_hostname, local.api_hostname])
+  tailscale_hostname     = var.deployment_tier
+  tunnel_cname           = module.tunnel.tunnel_cname
+  tunnel_http_service    = "http://localhost:80"
+  website_hostname       = var.deployment_tier == "staging" ? "website-staging.${var.domain}" : var.domain
 }
 
 data "hcloud_ssh_key" "main" {
@@ -14,7 +16,7 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name        = "staging-${var.domain}"
+  name        = "${var.deployment_tier}-${var.domain}"
   ssh_key_id  = data.hcloud_ssh_key.main.id
   server_type = var.server_type
   location    = var.server_location
@@ -69,7 +71,7 @@ module "server" {
   ]
 
   labels = {
-    environment = "staging"
+    environment = var.deployment_tier
     stack       = "server"
   }
 
@@ -87,22 +89,11 @@ data "cloudflare_zone" "staging" {
   }
 }
 
-data "cloudflare_zone" "extra_demo" {
-  for_each = toset(var.extra_demo_domains)
-
-  filter = {
-    account = {
-      id = var.cloudflare_account_id
-    }
-    name = each.value
-  }
-}
-
 module "website_cache" {
   source = "../../../modules/cloudflare-website-cache"
 
   zone_id  = data.cloudflare_zone.staging.id
-  hostname = var.domain
+  hostname = local.website_hostname
 }
 
 module "tunnel" {
@@ -111,35 +102,23 @@ module "tunnel" {
   account_id          = var.cloudflare_account_id
   zone_id             = data.cloudflare_zone.staging.id
   lookup_zone_by_name = false
-  tunnel_name         = "staging"
+  tunnel_name         = var.deployment_tier
   create_dns_records  = false
 
-  ingress_rules = concat(
-    [
-      {
-        hostname = var.domain
-        service  = local.tunnel_http_service
-      },
-      {
-        hostname = "app.${var.domain}"
-        service  = local.tunnel_http_service
-      },
-      {
-        hostname = "api.${var.domain}"
-        service  = local.tunnel_http_service
-      },
-      {
-        hostname = "code-assist.${var.domain}"
-        service  = local.tunnel_code_assist_service
-      }
-    ],
-    [
-      for hostname in local.demo_hostnames : {
-        hostname = hostname
-        service  = local.tunnel_http_service
-      }
-    ]
-  )
+  ingress_rules = [
+    {
+      hostname = local.website_hostname
+      service  = local.tunnel_http_service
+    },
+    {
+      hostname = local.app_hostname
+      service  = local.tunnel_http_service
+    },
+    {
+      hostname = local.api_hostname
+      service  = local.tunnel_http_service
+    }
+  ]
 }
 
 resource "cloudflare_dns_record" "primary_zone_tunnel" {
@@ -147,17 +126,6 @@ resource "cloudflare_dns_record" "primary_zone_tunnel" {
 
   zone_id = data.cloudflare_zone.staging.id
   name    = each.value
-  type    = "CNAME"
-  content = local.tunnel_cname
-  proxied = true
-  ttl     = 1
-}
-
-resource "cloudflare_dns_record" "extra_demo_tunnel" {
-  for_each = data.cloudflare_zone.extra_demo
-
-  zone_id = each.value.id
-  name    = "demo.${each.key}"
   type    = "CNAME"
   content = local.tunnel_cname
   proxied = true

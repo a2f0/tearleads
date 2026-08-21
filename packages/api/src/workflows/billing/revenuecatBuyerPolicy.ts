@@ -1,8 +1,8 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { isUuidV4String } from "@tearleads/validators/util";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
+import { isUuidV4String } from "@symcrypt/validators/util";
 import { eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
@@ -82,7 +82,7 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
       return null;
     }
     if (!isUuidV4String(input.event.app_user_id)) {
-      return "Native purchase buyer is not a Tearleads user";
+      return "Native purchase buyer is not a SymCrypt user";
     }
     const [buyer] = await input.executor
       .select({ defaultOrganizationId: users.defaultOrganizationId })

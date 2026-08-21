@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
+import type { ContainerDocumentQueries } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createExplorerOrphanedDocumentsNode } from "../../../stores/explorer/orphanedDocuments";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";

@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import type { Organizations } from "@tearleads/client-sdk";
+import type { Organizations } from "@symcrypt/client-sdk";
 import { renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {

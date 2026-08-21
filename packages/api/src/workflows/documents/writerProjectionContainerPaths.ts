@@ -1,6 +1,6 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,

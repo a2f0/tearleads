@@ -193,7 +193,7 @@ function createSerializedSqliteBridge(
   const runSqliteTransaction = async (callback: TransactionCallback) => {
     const activeTransaction = transactionContext.getStore();
     if (activeTransaction) {
-      const savepointName = `tearleads_sp_${++savepointCounter}`;
+      const savepointName = `symcrypt_sp_${++savepointCounter}`;
       client.exec(`savepoint ${savepointName}`);
       try {
         const result = await transactionContext.run(

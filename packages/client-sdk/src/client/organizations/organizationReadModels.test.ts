@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import type { RequestResult } from "@tearleads/api-client";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { RequestResult } from "@symcrypt/api-client";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import type {
   OrganizationGroupMemberResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,

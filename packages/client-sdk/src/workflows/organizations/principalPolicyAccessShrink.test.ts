@@ -3,7 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { buildGroupAccessSetShrinkPolicyRequest } from "./groupPolicyRequests";

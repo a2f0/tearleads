@@ -1,5 +1,5 @@
-import type { OrganizationDataUsage } from "@tearleads/client-sdk";
-import type { OrganizationDocumentUsageCategory } from "@tearleads/validators/response";
+import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
+import type { OrganizationDocumentUsageCategory } from "@symcrypt/validators/response";
 import {
   MiniAppSection,
   MiniAppSectionHeading,

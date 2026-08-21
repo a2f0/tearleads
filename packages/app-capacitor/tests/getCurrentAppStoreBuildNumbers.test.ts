@@ -27,7 +27,7 @@ async function runWithStubbedBun(
   } = {},
 ): Promise<StubbedRun> {
   const temporaryDirectory = await mkdtemp(
-    resolve(tmpdir(), "tearleads-app-store-build-numbers-"),
+    resolve(tmpdir(), "symcrypt-app-store-build-numbers-"),
   );
   const bunStub = resolve(temporaryDirectory, "bun");
   const logPath = resolve(temporaryDirectory, "bun-calls.log");

@@ -1,4 +1,4 @@
-import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
+import type { DocumentClientProjectionDefinition } from "@symcrypt/client-sdk";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readDriverLicenseFieldsFromRecord } from "../document-types/drivers-license/driverLicenseDocumentDefinition";
 import { createDocumentSqlProjection } from "./createDocumentSqlProjection";

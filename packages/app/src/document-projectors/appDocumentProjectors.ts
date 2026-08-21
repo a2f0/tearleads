@@ -1,4 +1,4 @@
-import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
+import type { DocumentProjectorDefinition } from "@symcrypt/client-sdk";
 import { audioDocumentProjectorDefinition } from "../document-types/audio/audioDocumentDefinition";
 import { bloodPressureDocumentProjectorDefinition } from "../document-types/blood-pressure/bloodPressureDocumentDefinition";
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";

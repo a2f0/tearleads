@@ -1,14 +1,14 @@
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   signPrincipalState,
-} from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { PutPrincipalPolicyRequest } from "@symcrypt/validators/request";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 

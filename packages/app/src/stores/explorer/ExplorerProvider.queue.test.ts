@@ -8,17 +8,17 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   openDocumentStore,
   waitForDomainSyncCoordinatorToSettle,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,

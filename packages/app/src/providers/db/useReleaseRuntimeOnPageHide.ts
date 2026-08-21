@@ -1,4 +1,4 @@
-import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import type { SQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
 import { type RefObject, useEffect } from "react";
 
 // Release the worker on page unload so its persistent SAHPool VFS frees its

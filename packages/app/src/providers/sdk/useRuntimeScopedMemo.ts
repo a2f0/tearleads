@@ -1,5 +1,5 @@
 import { type DependencyList, useMemo } from "react";
-import { useTearleadsRuntime } from "./TearleadsProvider";
+import { useSymCryptRuntime } from "./SymCryptProvider";
 
 /**
  * Memoizes an SDK handle until an explicit input changes or any SDK runtime
@@ -12,7 +12,7 @@ export function useRuntimeScopedMemo<T>(
   factory: () => T,
   dependencies: DependencyList,
 ): T {
-  const runtime = useTearleadsRuntime();
+  const runtime = useSymCryptRuntime();
 
   return useMemo(factory, [runtime, ...dependencies]);
 }

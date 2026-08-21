@@ -1,4 +1,4 @@
-import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
+import type { DocumentEditAttributionResponse } from "@symcrypt/validators/response";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import type { DocumentSummary } from "../data/documents/documentSummary";
 import type {
@@ -148,7 +148,7 @@ export interface ContainerDocumentLinks
  * referenced-principal policy cache, local document query helpers, link
  * projection, tombstone handling, and sync watermarks. Consumers that need a
  * custom persistence protocol can call the lower-level workflows directly from
- * `@tearleads/client-sdk`.
+ * `@symcrypt/client-sdk`.
  */
 export interface ContainerContents {
   /**

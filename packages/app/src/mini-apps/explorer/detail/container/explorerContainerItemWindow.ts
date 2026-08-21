@@ -4,7 +4,7 @@ import type {
   ContainerItemSort,
   ContainerItemSortKey,
   ContainerNode,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import {
   getMiniAppCompactTableRowHeight,

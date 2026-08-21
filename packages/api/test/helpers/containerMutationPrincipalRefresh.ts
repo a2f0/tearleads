@@ -3,8 +3,8 @@ import type {
   ContainerKekRecipientTarget,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { derivePrincipalRecipientKeyEpochId } from "@tearleads/crypto";
+} from "@symcrypt/crypto";
+import { derivePrincipalRecipientKeyEpochId } from "@symcrypt/crypto";
 
 function replacementHead(
   policy: VerifiedPrincipalPolicy,

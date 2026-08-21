@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
 import { verify } from "../signing/verify";
@@ -157,7 +157,7 @@ function unsignedAccessEventPayload(
 
 function accessEventSigningBytes(event: UnsignedAccessEvent): Uint8Array {
   return encodeDomainPayload(
-    "tearleads.keying.access-event-signing",
+    "symcrypt.keying.access-event-signing",
     unsignedAccessEventPayload(event),
   );
 }
@@ -183,7 +183,7 @@ function toUnsignedAccessEvent(event: AccessEvent): UnsignedAccessEvent {
 export async function computeAccessEventBodyHash(
   body: KeyingCanonicalJson,
 ): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", body);
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", body);
 }
 
 export async function signAccessEvent(
@@ -208,7 +208,7 @@ export async function computeAccessEventHash(
   const payload: KeyingCanonicalPayload<AccessEvent> =
     normalizeAccessEvent(event);
 
-  return computeKeyingDomainHash("tearleads.keying.access-event", payload);
+  return computeKeyingDomainHash("symcrypt.keying.access-event", payload);
 }
 
 export async function verifySignedAccessEvent({
@@ -397,7 +397,7 @@ export async function computeAccessManifestHash(
   const payload: KeyingCanonicalPayload<AccessManifest> =
     normalizeAccessManifest(manifest);
 
-  return computeKeyingDomainHash("tearleads.keying.access-manifest", payload);
+  return computeKeyingDomainHash("symcrypt.keying.access-manifest", payload);
 }
 
 export async function verifyAccessManifest({

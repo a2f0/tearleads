@@ -6,13 +6,13 @@ import {
   ML_KEM1024_SECRET_KEY_BYTES,
   type PrincipalProjectionMember,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
   UserIdentityResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import {
   type CacheReferencedPrincipalPoliciesOptions,

@@ -24,12 +24,12 @@ export API_DATABASE
 # default is only injected when neither a URL nor any discrete POSTGRES_*
 # setting is present.
 if [ -z "${DATABASE_URL:-}${POSTGRES_URL:-}${POSTGRES_HOST:-}${POSTGRES_PORT:-}${POSTGRES_USER:-}${POSTGRES_PASSWORD:-}${POSTGRES_DATABASE:-}" ]; then
-  DATABASE_URL=postgres://localhost:5432/tearleads_concurrency_test
+  DATABASE_URL=postgres://localhost:5432/symcrypt_concurrency_test
   export DATABASE_URL
   if command -v createdb >/dev/null 2>&1; then
     # Pin createdb to the same local server as the injected URL — bare createdb
     # follows inherited libpq PG* variables and could target a remote server.
-    createdb -h localhost -p 5432 tearleads_concurrency_test 2>/dev/null || true
+    createdb -h localhost -p 5432 symcrypt_concurrency_test 2>/dev/null || true
   fi
 fi
 

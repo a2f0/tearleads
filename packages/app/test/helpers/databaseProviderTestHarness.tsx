@@ -1,5 +1,5 @@
-import type { LocalKeyring } from "@tearleads/client-sdk";
-import type { StoragePersistencePolicy } from "@tearleads/client-sdk/sqlite";
+import type { LocalKeyring } from "@symcrypt/client-sdk";
+import type { StoragePersistencePolicy } from "@symcrypt/client-sdk/sqlite";
 import { render } from "@testing-library/react";
 import { useEffect } from "react";
 import type { CreateSQLiteRuntimeFn } from "../../src/host/AppHostConfig";
@@ -11,7 +11,7 @@ import {
 import { AppHostConfigProvider } from "../../src/providers/host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../../src/providers/local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../../src/providers/logging/LogProvider";
-import { TearleadsProvider } from "../../src/providers/sdk/TearleadsProvider";
+import { SymCryptProvider } from "../../src/providers/sdk/SymCryptProvider";
 import { SyncModeProvider } from "../../src/providers/sync-mode/SyncModeProvider";
 import { createDeferred } from "./databaseRuntimeFactories";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
@@ -72,7 +72,7 @@ export function renderDatabaseProvider(props: {
       <LocalKeyringLockProvider>
         <LogProvider>
           <SyncModeProvider>
-            <TearleadsProvider>
+            <SymCryptProvider>
               <DatabaseProvider>
                 <DatabaseProbe
                   onControls={(nextControls) => {
@@ -81,7 +81,7 @@ export function renderDatabaseProvider(props: {
                   }}
                 />
               </DatabaseProvider>
-            </TearleadsProvider>
+            </SymCryptProvider>
           </SyncModeProvider>
         </LogProvider>
       </LocalKeyringLockProvider>

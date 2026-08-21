@@ -13,7 +13,7 @@ export interface CodeAssistConfig {
 
 const DEFAULT_MODEL = "deepseek-v4-flash";
 const DEFAULT_BASE_URL = "https://api.deepseek.com";
-const DEFAULT_BOT_HANDLE = "@tearleads-code-assist";
+const DEFAULT_BOT_HANDLE = "@symcrypt-code-assist";
 const DEFAULT_SEVERITY_THRESHOLD: Severity = "medium";
 const DEFAULT_MAX_COMMENTS = 25;
 

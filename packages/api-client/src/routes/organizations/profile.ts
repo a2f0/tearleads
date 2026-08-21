@@ -3,7 +3,7 @@ import {
   isUpdateOrganizationProfileOperationResponse,
   operationRequestPath,
   updateOrganizationProfileOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const updateOrganizationProfile = {
   isRequest: isUpdateOrganizationProfileOperationRequest,

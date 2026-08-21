@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
   isDocumentSyncRequest,
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -253,7 +253,7 @@ test("createOrganization provisions configured system containers (Trash) atomica
     icon: "trash",
     name: "Trash",
     slotDefinition: {
-      namespace: "tearleads.explorer",
+      namespace: "symcrypt.explorer",
       projectorId: "explorer",
       slotId: "trash",
       version: 1,

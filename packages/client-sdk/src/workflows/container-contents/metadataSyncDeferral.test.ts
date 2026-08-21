@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { PrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import { syncContainerMetadataState } from "./metadata";

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -7,7 +7,7 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,

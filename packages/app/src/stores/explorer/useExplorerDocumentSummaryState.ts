@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentQueries,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -10,8 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../providers/sdk/SymCryptProvider";
+import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
 import {
   applyTrackedDocumentSummaryUpdates,
   mergeDocumentSummaryLists,
@@ -42,14 +42,14 @@ function useTrackedDocumentSummarySubscription(params: {
   setDocumentSummaries: Dispatch<
     SetStateAction<ReadonlyArray<DocumentSummary>>
   >;
-  tearleads: ReturnType<typeof useTearleads>;
+  symcrypt: ReturnType<typeof useSymCrypt>;
 }) {
   const {
     containerId,
     domainScope,
     setDocumentListRevision,
     setDocumentSummaries,
-    tearleads,
+    symcrypt,
   } = params;
   const pendingTrackedSummariesRef = useRef(new Map<string, DocumentSummary>());
   const flushTrackedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -88,7 +88,7 @@ function useTrackedDocumentSummarySubscription(params: {
   );
 
   useEffect(() => {
-    const unsubscribe = tearleads.documents.subscribe(
+    const unsubscribe = symcrypt.documents.subscribe(
       mergeTrackedDocumentSummary,
       { containerId },
     );
@@ -102,7 +102,7 @@ function useTrackedDocumentSummarySubscription(params: {
       }
       pendingTrackedSummariesRef.current.clear();
     };
-  }, [containerId, domainScope, mergeTrackedDocumentSummary, tearleads]);
+  }, [containerId, domainScope, mergeTrackedDocumentSummary, symcrypt]);
 }
 
 function useExplorerDocumentSummaryLoaders(params: {
@@ -213,7 +213,7 @@ export function useExplorerDocumentSummaryState(
   currentOrganizationId: string | null,
   documentQueries: ContainerDocumentQueries,
 ) {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const [documentSummaries, setDocumentSummaries] = useState<
     ReadonlyArray<DocumentSummary>
   >([]);
@@ -284,7 +284,7 @@ export function useExplorerDocumentSummaryState(
     domainScope,
     setDocumentListRevision,
     setDocumentSummaries,
-    tearleads,
+    symcrypt,
   });
 
   return {

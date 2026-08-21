@@ -5,13 +5,13 @@ import {
   initiateMultipartBlobStageOperation,
   operationRoutePath,
   uploadMultipartBlobPartBytesOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type {
   CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

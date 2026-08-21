@@ -1,4 +1,4 @@
-import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
+import type { BlobAttachmentDetachRequest } from "@symcrypt/validators/request";
 import { signBlobAttachmentDetachEvent } from "../../data/documents/blob/shared/events";
 import { deriveBlobTargetsFromDocumentProjection } from "../../data/documents/blob/shared/projection";
 import { assertBlobAttachmentDetachResponse } from "../../data/documents/blob/shared/responses";

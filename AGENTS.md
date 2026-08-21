@@ -61,14 +61,14 @@ deleted as soon as the default branch contains the new contract.
 - App presentation goes through stores/providers instead of importing
   persistence, SQLite, blob, contact, sync, or workflow internals directly.
 - Client SDK data modules stay below client, store, and workflow facades.
-- `@tearleads/validators`, `@tearleads/encoding`, and
-  `@tearleads/sqlite-instance` are leaf-level support packages.
-- `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not
+- `@symcrypt/validators`, `@symcrypt/encoding`, and
+  `@symcrypt/sqlite-instance` are leaf-level support packages.
+- `@symcrypt/sqlite-worker` may depend on `@symcrypt/sqlite-instance`, but not
   app, API, SDK, UI, or other support implementation code.
-- `@tearleads/api-client` may share crypto and validator contracts, but must not
+- `@symcrypt/api-client` may share crypto and validator contracts, but must not
   import server, app, SDK, UI, or deployment implementation code.
-- Production source must not import `@tearleads/test-utils` or
-  `@tearleads/bob-and-alice`; keep shared test helpers in tests or documented
+- Production source must not import `@symcrypt/test-utils` or
+  `@symcrypt/bob-and-alice`; keep shared test helpers in tests or documented
   test helper directories.
 - Deployment target packages (`app-web`, `app-capacitor`, `app-electrobun`, and
   `website`) should consume shared packages and app facades, not import each

@@ -1,7 +1,7 @@
 import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useRef, useState } from "react";
 import type { OpenMiniAppRequest } from "../../types";
 import type { OrgManagerContextMenuState } from "../context-menu/OrgManagerContextMenu";

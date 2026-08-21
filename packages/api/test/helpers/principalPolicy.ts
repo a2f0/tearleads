@@ -1,5 +1,5 @@
-import { type ApiDatabase, db } from "@tearleads/api-shared/postgres";
-import { groups, organizations, users } from "@tearleads/api-shared/schema";
+import { type ApiDatabase, db } from "@symcrypt/api-shared/postgres";
+import { groups, organizations, users } from "@symcrypt/api-shared/schema";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -7,15 +7,15 @@ import {
   type PrincipalContainerGrant,
   toFingerprint,
   type VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import type {
   CommitOrganizationGroupPolicyRequest,
   CreateOrganizationGroupRequest,
   DeleteOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";

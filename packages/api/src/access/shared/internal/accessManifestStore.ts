@@ -2,7 +2,7 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -11,7 +11,7 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import type {
   AccessManifest,
   AccessObjectKind,
@@ -20,7 +20,7 @@ import type {
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import {

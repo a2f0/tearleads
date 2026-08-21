@@ -1,4 +1,4 @@
-import type { RequestFailure } from "@tearleads/api-client";
+import type { RequestFailure } from "@symcrypt/api-client";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
@@ -8,7 +8,7 @@ import type {
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 
 export const organizationReadModelOrganizationId = "org-1";
 export const organizationReadModelUserId = "user-1";

@@ -3,7 +3,7 @@ import type {
   BlobInfoSort,
   BlobInfoSortKey,
   BlobStore,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { type MouseEvent, useMemo } from "react";
 import { MiniAppStatus } from "../../../../components/mini-app/MiniAppLayout";
 import {

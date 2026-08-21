@@ -1,8 +1,8 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { listUsersReachableFromCurrentPrincipal } from "../../../organizations/principalReachability";
 import { pruneRegainedAccessTombstones } from "../../../regainedAccessTombstones";
 

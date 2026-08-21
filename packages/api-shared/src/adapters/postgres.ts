@@ -129,7 +129,7 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
 } {
   const user = getCurrentUser(env);
   const defaults = {
-    database: "tearleads_development",
+    database: "symcrypt_development",
     host: process.platform === "linux" ? "/var/run/postgresql" : "localhost",
     port: 5432,
   };

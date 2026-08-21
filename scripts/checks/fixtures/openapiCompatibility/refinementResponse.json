@@ -29,7 +29,7 @@
             "description": "No content"
           }
         },
-        "x-tearleads-runtime-refinements": [
+        "x-symcrypt-runtime-refinements": [
           {
             "description": "widget counts are consistent with the emitted list",
             "id": "response.widget-count-consistent"

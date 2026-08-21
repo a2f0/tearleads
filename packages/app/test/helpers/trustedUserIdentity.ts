@@ -1,9 +1,9 @@
 import {
   createMockApiTrustedUserIdentityResolver,
   createTestTrustedUserIdentity,
-} from "@tearleads/client-sdk/testing";
-import { toFingerprint } from "@tearleads/crypto";
-import type { UserIdentityResponse } from "@tearleads/validators/response";
+} from "@symcrypt/client-sdk/testing";
+import { toFingerprint } from "@symcrypt/crypto";
+import type { UserIdentityResponse } from "@symcrypt/validators/response";
 
 interface TestRuntimeTrustedIdentityInput {
   readonly encapsulationPublicKey: Uint8Array | null;

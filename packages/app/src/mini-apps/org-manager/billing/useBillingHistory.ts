@@ -1,5 +1,5 @@
-import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import type { OrganizationBillingHistoryEntry } from "@symcrypt/client-sdk";
+import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useScopedOrganizationLoad } from "./useScopedOrganizationLoad";
 
@@ -24,12 +24,12 @@ export function useBillingHistory(
   enabled: boolean,
   reloadToken?: unknown,
 ): BillingHistorySnapshot {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const snapshot = useScopedOrganizationLoad<BillingHistorySnapshot>({
     enabled,
     load: async () => {
       try {
-        const history = await tearleads.organizations.loadBillingHistory();
+        const history = await symcrypt.organizations.loadBillingHistory();
         const scoped =
           history?.organizationId === organizationId ? history : null;
         return {
@@ -55,7 +55,7 @@ export function useBillingHistory(
         : { entries: null, error: null, loading: true },
     organizationId,
     reloadToken,
-    source: tearleads,
+    source: symcrypt,
   });
 
   return snapshot ?? { entries: null, error: null, loading: enabled };

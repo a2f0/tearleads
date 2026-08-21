@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { RequestFailure, RequestResult } from "@tearleads/api-client";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+import type { RequestFailure, RequestResult } from "@symcrypt/api-client";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { OrganizationDataUsageResponse } from "@symcrypt/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,

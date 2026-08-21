@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { PurchasesCapability } from "@tearleads/client-sdk";
+import type { PurchasesCapability } from "@symcrypt/client-sdk";
 import { render } from "@testing-library/react";
 import {
   type CreatePurchasesFn,

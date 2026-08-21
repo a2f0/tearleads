@@ -1,9 +1,9 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
 import type {
   EffectiveAccessLevel,
   ReferencedPrincipalStateResponse,
   SyncWatermark,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,

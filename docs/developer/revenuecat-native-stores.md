@@ -87,7 +87,7 @@ For an end-to-end staging test, point the mobile bundle at the reachable staging
 API instead of the local default:
 
 ```sh
-VITE_API_BASE_URL=https://api.tearleads.de \
+VITE_API_BASE_URL=https://api-staging.symcrypt.com \
 VITE_REVENUECAT_IOS_API_KEY=test_... \
 ./scripts/runIos.sh
 ```
@@ -117,7 +117,7 @@ platform-specific public key in store builds.
 
 ## Dedicated staging store apps
 
-The native staging apps use `com.tearleads.staging.app` on both platforms so
+The native staging apps use `com.symcrypt.staging.app` on both platforms so
 they can coexist with production and keep sandbox store history isolated. The
 Android `staging` build variant and the iOS `App-Staging` / `Release-Staging`
 pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging release wrappers
@@ -136,7 +136,7 @@ Android staging inherits the release build type and deliberately uses the same
 upload keystore as production; package IDs and separate store records isolate
 the apps, not their signing key.
 
-Builds using the former `com.tearleads.app.staging` identifier can coexist with
+Builds using the former `com.symcrypt.app.staging` identifier can coexist with
 the current staging app, but their local data does not carry over because each
 identifier has its own app container and keychain prefix. Delete an old staging
 install when it is no longer needed; production data is unaffected. The
@@ -152,13 +152,13 @@ Use staging product IDs `sync_solo_monthly_staging`,
 RevenueCat package identifiers and attach each staging app's product to its
 matching package.
 
-1. Register `com.tearleads.staging.app` in Apple Developer and create its App
+1. Register `com.symcrypt.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.
 2. Use the team's match administration workflow to create and commit an App
-   Store distribution profile for `com.tearleads.staging.app`. The repo's
+   Store distribution profile for `com.symcrypt.staging.app`. The repo's
    `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
    `readonly: true`; it cannot generate a missing profile.
-3. Create the `com.tearleads.staging.app` Play app, grant the identity from
+3. Create the `com.symcrypt.staging.app` Play app, grant the identity from
    `.secrets/google-play-service-account-admin.json` access, and create an
    internal testing track.
 4. Create matching RevenueCat apps. Upload
@@ -206,7 +206,7 @@ override in `.secrets/staging.env`.
 Before testing the real Apple purchase sheet:
 
 1. In App Store Connect, create one subscription group under the app being
-   tested (`com.tearleads.app` for production or `com.tearleads.staging.app`
+   tested (`com.symcrypt.app` for production or `com.symcrypt.staging.app`
    for staging). Create `sync_solo_monthly`, `sync_team_5_monthly`, and
    `sync_team_10_monthly` for production, or their `_staging` variants for
    staging, at $5, $10, and $20 USD per month. Rank Team 10 at level 1, Team 5
@@ -258,7 +258,7 @@ Before testing the real Google Play purchase sheet:
 
 1. In Play Console, create and activate `sync_solo_monthly`,
    `sync_team_5_monthly`, and `sync_team_10_monthly`, each with a `monthly`
-   auto-renewing base plan for application ID `com.tearleads.app`.
+   auto-renewing base plan for application ID `com.symcrypt.app`.
 2. Connect it to RevenueCat with
    `.secrets/google-play-service-account-revenue-cat.json`; import and attach the
    products to their packages and the `sync` entitlement.
@@ -336,7 +336,7 @@ sandbox testing there will look like a webhook that silently does nothing.
   always sent the field, and a redelivered old event must keep its paid meaning.
 
 Because this is a tier-level policy rendered by ansible
-([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)), it
+([`api.env.j2`](../../ansible/playbooks/templates/etc/symcrypt/api.env.j2)), it
 only reaches a deployed server through the **ansible** deploy step, like the
 webhook secret.
 

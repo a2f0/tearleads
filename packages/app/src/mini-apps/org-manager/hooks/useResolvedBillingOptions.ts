@@ -1,4 +1,4 @@
-import type { PurchasesCapability } from "@tearleads/client-sdk";
+import type { PurchasesCapability } from "@symcrypt/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import {
   type BillingActionScope,
