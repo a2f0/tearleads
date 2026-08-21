@@ -1,4 +1,4 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 
 export function isDirectGroupAdmin(
   policy: PrincipalPolicyBundleResponse,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { db } from "@symcrypt/api-shared/postgres";
+import { revenuecatWebhookEvents } from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import { PRODUCT_CHANGE_BOUND_SUBSCRIPTION_MISMATCH_REASON } from "./revenuecatGrantCapacity";

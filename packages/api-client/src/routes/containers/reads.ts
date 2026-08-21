@@ -7,9 +7,9 @@ import {
   listContainerParentLanesOperation,
   operationRequestPath,
   operationRequestPathWithQuery,
-} from "@tearleads/validators/operation";
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
-import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
+import type { ListContainerParentLanesResponse } from "@symcrypt/validators/response";
 import type { ListContainerDocumentsOptions } from "../../types";
 
 export interface ContainerKekLogOptions {

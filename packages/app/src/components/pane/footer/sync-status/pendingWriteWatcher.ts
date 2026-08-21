@@ -1,4 +1,4 @@
-import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
+import type { PendingWriteQueueItem } from "@symcrypt/client-sdk";
 
 interface PendingWriteWatcherDeps {
   /** Read the durable write queue for the active domain. */

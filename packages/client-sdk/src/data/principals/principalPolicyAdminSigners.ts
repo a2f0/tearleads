@@ -7,8 +7,8 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
-} from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 
 export function principalPolicyReferenceFromBundle(
   bundle: PrincipalPolicyBundleResponse,

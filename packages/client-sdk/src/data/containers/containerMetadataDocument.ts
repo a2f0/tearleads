@@ -1,4 +1,4 @@
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { createDocument, exportAllUpdates } from "@symcrypt/loro";
 import { getScopedPeerSeed } from "../crdtPeerSeed";
 
 interface ContainerMetadataValue {

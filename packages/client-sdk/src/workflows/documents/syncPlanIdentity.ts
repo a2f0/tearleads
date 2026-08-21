@@ -4,13 +4,13 @@ import {
   computeDocumentContentKeyTargetHash,
   signWriteHeader,
   type UnsignedWriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerManifestRef,
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { DocumentCreateResponse } from "@symcrypt/validators/response";
 import {
   assertDocumentManifestBundleConsistent,
   normalizeDocumentKekTargetResponse,

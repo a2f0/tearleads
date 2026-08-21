@@ -288,7 +288,7 @@ test("a preference stored before the ordinal was hidden does not resurrect it", 
   // the new defaults, would show the very column those defaults hide. Versioning
   // the key is what retires it.
   globalThis.localStorage.setItem(
-    "tearleads.blood-pressure.readings:hidden-columns",
+    "symcrypt.blood-pressure.readings:hidden-columns",
     JSON.stringify(["updated"]),
   );
   const view = renderReadTable();

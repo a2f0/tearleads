@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobStore } from "@tearleads/client-sdk";
+import type { BlobStore } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowBackActionValue,

@@ -2,7 +2,7 @@ import {
   encodeVersionVector,
   importSnapshot,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/types";
 import type { DocumentRecord } from "../../../workflows/documents";
 import type { DocumentSyncAttempt } from "./state";

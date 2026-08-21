@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createContainerContentsTestRuntime } from "../container-contents/runtime.testFixtures";

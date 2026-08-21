@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationDataUsage } from "@tearleads/client-sdk";
+import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
 import invariant from "invariant";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import type { DataUsageRefreshOptions } from "../refresh";
@@ -49,7 +49,7 @@ function RefreshProbe(input: {
   const refresh = useOrgManagerDataUsageRefresher({
     appData: {
       auth: { isAuthenticated: true, organizationId: "org-a" },
-    } as ReturnType<typeof useTearleadsRuntime>,
+    } as ReturnType<typeof useSymCryptRuntime>,
     beginRequest,
     canLoadAuthenticatedOrgData: true,
     dataUsageRef,

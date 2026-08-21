@@ -1,4 +1,4 @@
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import { containerStateHasCurrentGroupGrant } from "../../workflows/container-contents/container-state/groupGrantVerification";
 import { prepareContainerStateGroupRewrap } from "../../workflows/container-contents/container-state/share";
 import type {

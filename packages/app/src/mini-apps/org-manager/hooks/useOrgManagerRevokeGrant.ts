@@ -3,7 +3,7 @@ import type {
   OrganizationContainerGrants,
   OrganizationGroupContainers,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";

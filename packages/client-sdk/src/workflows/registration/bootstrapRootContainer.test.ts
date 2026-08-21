@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { loadContainers } from "../../data/persistence/containers/containerPersistence";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";

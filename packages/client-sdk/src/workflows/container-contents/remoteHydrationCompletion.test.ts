@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { hydrateRemoteContainers } from "./remoteHydration";
 import type {

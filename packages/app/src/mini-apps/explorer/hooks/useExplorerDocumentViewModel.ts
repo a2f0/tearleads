@@ -2,8 +2,8 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
   DocumentSummary,
-} from "@tearleads/client-sdk";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+} from "@symcrypt/client-sdk";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import {
   type ExplorerRouteDocumentSummaryResult,
   useExplorerDocumentSummaryState,

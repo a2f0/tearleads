@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
   attachOrganizationReadModelSocket,
@@ -16,7 +16,7 @@ test("loads locally offline and establishes reconciliation demand when online", 
   const domainScope = {};
   let runtimeOnline = false;
   const loadDirectoryAndGroups = mock(async () => ({}));
-  const tearleads = {
+  const symcrypt = {
     organizations: {
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
@@ -32,7 +32,7 @@ test("loads locally offline and establishes reconciliation demand when online", 
         state: { domainScope, online: runtimeOnline },
       }),
     },
-  } as unknown as Tearleads;
+  } as unknown as SymCrypt;
   const refreshDirectoryAndGroups = mock(async () => ({
     didLoad: false as const,
     groupId: null,
@@ -47,7 +47,7 @@ test("loads locally offline and establishes reconciliation demand when online", 
         organizationId: ORGANIZATION_ID,
         refreshDirectoryAndGroups,
         scopeKey: "scope-a",
-        tearleads,
+        symcrypt,
       });
     },
     { initialProps: { online: false } },
@@ -68,12 +68,12 @@ test("loads locally offline and establishes reconciliation demand when online", 
     readyState: WebSocket.OPEN,
     send: (message: string) => sent.push(message),
   } as unknown as WebSocket;
-  const detach = attachOrganizationReadModelSocket(tearleads, socket);
+  const detach = attachOrganizationReadModelSocket(symcrypt, socket);
   const declaration = JSON.parse(sent[0] ?? "null") as {
     declarationId: string;
   };
   handleOrganizationReadModelInterestAcknowledgement(
-    tearleads,
+    symcrypt,
     socket,
     declaration.declarationId,
     ORGANIZATION_ID,

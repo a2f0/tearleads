@@ -5,7 +5,7 @@ import {
   logoutOperation,
   userIdentityOperation,
   webSocketTicketOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import {
   destroySession,
   listSessions,

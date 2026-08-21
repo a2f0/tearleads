@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documents,
-} from "@tearleads/api-shared/schema";
-import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
+} from "@symcrypt/api-shared/schema";
+import type { DocumentCheckpointKind } from "@symcrypt/loro/shared";
 import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
 import { lockRowForUpdate } from "../utils/sqlDialect";

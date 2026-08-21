@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { blobStages } from "@tearleads/api-shared/schema";
+import { blobStages } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { loadOwnedActiveBlobStage } from "./stageAccess";

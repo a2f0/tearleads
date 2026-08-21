@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@symcrypt/bob-and-alice";
 import {
   authChallengeSigningBytes,
   generateSigningSeedAndKeyPair,
   hexToBytes,
   sign,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createRegistrationRequest,
   createServiceTestRuntime,

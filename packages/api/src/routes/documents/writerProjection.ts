@@ -1,9 +1,9 @@
 import {
   getDocumentWriterProjectionOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { DOCUMENT_PROJECTION_ERROR_CODES } from "@symcrypt/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

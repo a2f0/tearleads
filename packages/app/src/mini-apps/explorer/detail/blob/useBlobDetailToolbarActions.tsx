@@ -1,6 +1,6 @@
 import { ArrowsOutIcon } from "@phosphor-icons/react/dist/csr/ArrowsOut";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import type { BlobInfo } from "@tearleads/client-sdk";
+import type { BlobInfo } from "@symcrypt/client-sdk";
 import { useCallback, useMemo, useState } from "react";
 import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { getMediaPreviewKind } from "../../../../document-types/shared/MediaPreview";

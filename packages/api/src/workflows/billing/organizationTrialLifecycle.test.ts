@@ -1,13 +1,13 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
-} from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { isOrganizationBillingHistoryResponse } from "@symcrypt/validators/response";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import {

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { containerKeyEpochs } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { containerKeyEpochs } from "@symcrypt/api-shared/schema";
 
 async function expectRotationArtifactInsertRejected(
   values: Partial<typeof containerKeyEpochs.$inferInsert>,

@@ -1,19 +1,19 @@
 import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   emptyVersionVector,
   getImportBlobMetadata,
   satisfiesVersionVector,
   versionVectorsEqual,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
-import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
+import { documentKekTargetsFromContentKeyBundle } from "@symcrypt/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import {
   assertDocumentWriterProjectionConsistent,

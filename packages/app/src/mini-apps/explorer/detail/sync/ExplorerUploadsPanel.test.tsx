@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
+import type { SyncLaneSnapshot } from "@symcrypt/client-sdk";
+import { createDomainScope } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ExplorerUploadItem } from "../../hooks/explorerUploadState";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";

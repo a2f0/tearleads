@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,

@@ -1,4 +1,4 @@
-import type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
+import type { DatabasePersistenceMode } from "@symcrypt/sqlite-worker/types";
 
 /**
  * Platform-normalized storage persistence policy.

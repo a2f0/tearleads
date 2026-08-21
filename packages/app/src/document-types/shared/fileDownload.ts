@@ -1,4 +1,4 @@
-import type { BlobStore, FileSaver } from "@tearleads/client-sdk";
+import type { BlobStore, FileSaver } from "@symcrypt/client-sdk";
 import { downloadBytesAsFile } from "../../utils/downloadFile";
 
 interface DownloadableAttachment {

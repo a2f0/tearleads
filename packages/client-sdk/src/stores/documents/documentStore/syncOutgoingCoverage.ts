@@ -3,7 +3,7 @@ import {
   exportUpdatesSince,
   mergeVersionVectors,
   satisfiesVersionVector,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type {
   DocumentRecord,
   PendingUpdateRecord,

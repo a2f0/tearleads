@@ -1,11 +1,11 @@
 import type {
   ContainerDocumentQueries,
   DomainScope,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   subscribeToDomainSyncCoordinator,
   subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useState } from "react";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
 import {

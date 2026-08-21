@@ -5,7 +5,7 @@ import type {
   BlobInfoSort,
   BlobInfoSortKey,
   BlobStore,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { MouseEvent } from "react";
 import {
   MiniAppActions,

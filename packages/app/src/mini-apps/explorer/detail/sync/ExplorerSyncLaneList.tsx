@@ -1,4 +1,4 @@
-import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
+import type { SyncLaneSnapshot } from "@symcrypt/client-sdk";
 import { useMemo } from "react";
 import {
   addMiniAppTableHeaderAction,
@@ -62,7 +62,7 @@ const SYNC_LANE_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
 ];
 
 const SYNC_LANE_COLUMN_STORAGE_KEY =
-  "tearleads.explorer.sync-lanes:hidden-columns";
+  "symcrypt.explorer.sync-lanes:hidden-columns";
 
 function getSyncLaneListColumnLabel(id: SyncLaneListColumnId): string {
   switch (id) {

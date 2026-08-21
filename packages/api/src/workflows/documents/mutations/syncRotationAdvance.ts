@@ -1,10 +1,10 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
-import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import { documentUpdates } from "@symcrypt/api-shared/schema";
+import { mergeVersionVectors, satisfiesVersionVector } from "@symcrypt/loro";
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import { eq, inArray } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
 import { DocumentMutationError } from "./errors";

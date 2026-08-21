@@ -3,7 +3,7 @@ import {
   isRegistrationOperationResponse,
   operationRequestPath,
   registerOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const register = {
   isRequest: isRegistrationOperationRequest,

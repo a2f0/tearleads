@@ -1,10 +1,10 @@
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingLifecycleEvents,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 /**

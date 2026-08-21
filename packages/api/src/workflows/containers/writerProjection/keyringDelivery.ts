@@ -1,4 +1,4 @@
-import type { ContainerKekKeyring } from "@tearleads/crypto";
+import type { ContainerKekKeyring } from "@symcrypt/crypto";
 import {
   getContainerKeyEpochById,
   getContainerKeyEpochKeyring,

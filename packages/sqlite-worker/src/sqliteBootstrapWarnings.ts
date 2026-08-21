@@ -1,4 +1,4 @@
-import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
 
 export const AUTO_OPFS_VFS_WARNING =
   "Ignoring inability to install OPFS sqlite3_vfs:";
@@ -7,7 +7,7 @@ const AUTO_OPFS_VFS_IGNORED_REASONS = [
   "The OPFS sqlite3_vfs cannot run in the main thread",
 ];
 const AUTO_OPFS_VFS_WARN_FILTER_INSTALLED = Symbol.for(
-  "tearleads.sqliteWorker.autoOpfsVfsWarnFilterInstalled",
+  "symcrypt.sqliteWorker.autoOpfsVfsWarnFilterInstalled",
 );
 
 function warningText(value: unknown): string {
@@ -125,7 +125,7 @@ export async function loadSqlite3WithFilteredWarnings(): Promise<Sqlite3Static> 
 
   try {
     const { default: sqlite3InitModule } = await import(
-      "@tearleads/sqlite-instance/jswasm/sqlite3.mjs"
+      "@symcrypt/sqlite-instance/jswasm/sqlite3.mjs"
     );
     return await sqlite3InitModule();
   } finally {

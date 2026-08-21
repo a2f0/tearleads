@@ -1,5 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import {
   type BlobByteSource,
   type BlobBytes,
@@ -39,7 +39,7 @@ export interface ParsedEncryptedBlobEnvelope {
 }
 
 export const ENCRYPTED_BLOB_STORE_FORMAT =
-  "tearleads.local-blob-store.encrypted";
+  "symcrypt.local-blob-store.encrypted";
 export const ENCRYPTED_BLOB_STORE_VERSION = 2;
 export const ENCRYPTED_BLOB_CHUNK_SIZE = 5 * 1024 * 1024;
 export const AES_GCM_TAG_BYTES = 16;
@@ -48,7 +48,7 @@ const AES_GCM_IV_BYTES = 12;
 const DEFAULT_KDF_ITERATIONS = 310_000;
 const MAX_HEADER_BYTES = 64 * 1024;
 const MAGIC_BYTES = new TextEncoder().encode(
-  "tearleads.local-blob-store.encrypted.v2",
+  "symcrypt.local-blob-store.encrypted.v2",
 );
 const HEADER_LENGTH_BYTES = 4;
 const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
@@ -118,7 +118,7 @@ export function createKeyDerivationEnvelope(input: {
   namespace: string;
 }): KeyDerivationEnvelope {
   const salt = TEXT_ENCODER.encode(
-    `tearleads.local-opfs-blob-store.v2.${input.cipher}.${input.namespace}`,
+    `symcrypt.local-opfs-blob-store.v2.${input.cipher}.${input.namespace}`,
   );
   return {
     name: "pbkdf2-sha256",

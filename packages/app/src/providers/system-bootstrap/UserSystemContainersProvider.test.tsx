@@ -2,7 +2,7 @@ import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
 import { useEffect } from "react";
 import * as SystemContainers from "../../stores/systemContainers";
-import * as TearleadsProvider from "../sdk/TearleadsProvider";
+import * as SymCryptProvider from "../sdk/SymCryptProvider";
 import {
   UserSystemContainersProvider,
   useUserSystemContainers,
@@ -43,15 +43,15 @@ test("derives user system containers once per identity for every consumer", asyn
     pendingByKey.set(key, pending);
     return pending.promise;
   });
-  spyOn(TearleadsProvider, "useTearleadsRuntime").mockImplementation(
+  spyOn(SymCryptProvider, "useSymCryptRuntime").mockImplementation(
     () =>
       ({
         crypto: { signingKeyPair: { signingPrivateKey } },
-      }) as ReturnType<typeof TearleadsProvider.useTearleadsRuntime>,
+      }) as ReturnType<typeof SymCryptProvider.useSymCryptRuntime>,
   );
-  spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+  spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
     logError: () => undefined,
-  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>);
+  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>);
   const firstConsumerValues: Array<
     ReadonlyArray<SystemContainers.UserSystemContainer>
   > = [];

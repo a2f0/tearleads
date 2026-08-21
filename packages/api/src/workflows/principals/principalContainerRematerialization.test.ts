@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
 
 function emptyGrantExecutor(): DatabaseTransaction {

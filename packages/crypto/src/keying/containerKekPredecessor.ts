@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { assertAesGcmIv, decryptWithDek, encryptWithDek } from "../symmetric";
 import {
   computeKeyingDomainHash,
@@ -32,7 +32,7 @@ function bridgeAdditionalData(input: {
 }): Uint8Array<ArrayBuffer> {
   return TEXT_ENCODER.encode(
     serializeKeyingCanonicalJson({
-      domain: "tearleads.container-kek-predecessor-bridge.aad",
+      domain: "symcrypt.container-kek-predecessor-bridge.aad",
       payload: {
         version: 1,
         wrappingSuite: CONTAINER_KEK_PREDECESSOR_WRAP_SUITE,
@@ -171,7 +171,7 @@ export async function computeContainerKekPredecessorBridgeHash(
 ): Promise<string> {
   const bridge = normalizeContainerKekPredecessorBridge(value);
   return computeKeyingDomainHash(
-    "tearleads.keying.container-kek-predecessor-bridge",
+    "symcrypt.keying.container-kek-predecessor-bridge",
     {
       version: bridge.version,
       wrappingSuite: bridge.wrappingSuite,

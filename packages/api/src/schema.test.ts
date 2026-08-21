@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -16,12 +16,12 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
   documentUpdateSpans,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import type {
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
   WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 
 const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";

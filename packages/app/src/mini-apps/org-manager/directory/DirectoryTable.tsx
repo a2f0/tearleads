@@ -1,7 +1,7 @@
 import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -190,7 +190,7 @@ const DIRECTORY_TABLE_COLUMNS_CONFIG = {
   columnLabels: DIRECTORY_COLUMN_LABELS,
   dataColumns: DIRECTORY_TABLE_COLUMNS,
   menuOptions: DIRECTORY_COLUMN_MENU_OPTIONS,
-  storageKey: "tearleads.org-manager.directory:hidden-columns",
+  storageKey: "symcrypt.org-manager.directory:hidden-columns",
   toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
 };
 

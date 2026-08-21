@@ -1,4 +1,4 @@
-import type { DirectCheckoutAppearance } from "@tearleads/client-sdk";
+import type { DirectCheckoutAppearance } from "@symcrypt/client-sdk";
 
 /**
  * Resolves the app's theme tokens into concrete CSS for the payment element
@@ -59,7 +59,7 @@ export function readCheckoutAppearance(
   probe.style.borderColor = "var(--color-hairline)";
   probe.style.outlineColor = "var(--color-danger)";
   probe.style.caretColor = "var(--emphasis-surface)";
-  probe.style.fontFamily = "var(--tearleads-font-family)";
+  probe.style.fontFamily = "var(--symcrypt-font-family)";
   probe.style.fontSize = "var(--font-size-md)";
   probe.style.paddingTop = "var(--control-padding-block)";
   host.appendChild(probe);

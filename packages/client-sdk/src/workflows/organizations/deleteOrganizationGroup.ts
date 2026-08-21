@@ -1,6 +1,6 @@
-import type { SigningKeyPair } from "@tearleads/crypto";
-import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
-import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
+import type { SigningKeyPair } from "@symcrypt/crypto";
+import type { DeleteOrganizationGroupRequest } from "@symcrypt/validators/request";
+import type { DeleteOrganizationGroupResponse } from "@symcrypt/validators/response";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";

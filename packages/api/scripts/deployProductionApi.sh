@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads API to the production server
+# Deploy the SymCrypt API to the production server
 #
 # Builds and deploys standalone API executables, runs database migrations,
 # and restarts the API service.
@@ -23,7 +23,7 @@ if [ -z "${SSH_TARGET:-}" ]; then
 fi
 export SSH_TARGET
 
-REMOTE_BIN_PATH="/opt/tearleads/bin"
+REMOTE_BIN_PATH="/opt/symcrypt/bin"
 
 echo "Building API executable..."
 (cd "$REPO_ROOT/packages/api" && bun run build)
@@ -33,15 +33,15 @@ bash "$REPO_ROOT/packages/api-cli/scripts/deployProductionApiCli.sh"
 echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
 rsync -avz \
-  "$REPO_ROOT/packages/api/dist/tearleads-api" \
-  "$REPO_ROOT/packages/api/dist/tearleads-blob-gc" \
-  "$REPO_ROOT/packages/api/dist/tearleads-stripe-seat-sync" \
+  "$REPO_ROOT/packages/api/dist/symcrypt-api" \
+  "$REPO_ROOT/packages/api/dist/symcrypt-blob-gc" \
+  "$REPO_ROOT/packages/api/dist/symcrypt-stripe-seat-sync" \
   "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "Running database migrations..."
-ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli migrate'
+ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/symcrypt/api.env && set +a && /opt/symcrypt/bin/symcrypt-api-cli migrate'
 
 echo "Restarting API service..."
-ssh "$SSH_TARGET" "sudo systemctl restart tearleads-api"
+ssh "$SSH_TARGET" "sudo systemctl restart symcrypt-api"
 
 echo "API deployed."

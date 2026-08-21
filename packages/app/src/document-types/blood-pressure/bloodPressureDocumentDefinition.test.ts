@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   DocumentProjection,
   DocumentRowSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   bloodPressureDocumentProjectorDefinition,
   isValidBloodPressureMeasurement,

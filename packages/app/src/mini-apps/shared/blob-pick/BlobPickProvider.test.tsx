@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobInfo, BlobInfoList } from "@tearleads/client-sdk";
+import type { BlobInfo, BlobInfoList } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import {

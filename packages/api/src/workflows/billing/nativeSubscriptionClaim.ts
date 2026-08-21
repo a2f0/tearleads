@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingSeatAssignments,
@@ -9,8 +9,8 @@ import {
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
   users,
-} from "@tearleads/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+} from "@symcrypt/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   LAPSED_BILLING_PURGE_GRACE_MS,

@@ -7,9 +7,9 @@ import {
   computeContentRecordNonceDomainHash,
   createAesGcmIv,
   createIncrementalSha256,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { BlobContentKeyBundleRequest } from "@symcrypt/validators/request";
 import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
 import { importContentKeyMaterial } from "../../shared/contentRecordKeys";
 import {

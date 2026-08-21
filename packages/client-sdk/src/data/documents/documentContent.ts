@@ -1,4 +1,4 @@
-import { LoroMap } from "@tearleads/loro";
+import { LoroMap } from "@symcrypt/loro";
 import type {
   StructuredDocumentShape as FullStructuredDocumentShape,
   StructuredDocumentMap,

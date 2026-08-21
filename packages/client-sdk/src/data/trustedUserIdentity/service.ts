@@ -1,5 +1,5 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { KeyingVerificationError } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   compareOrInsertTrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,

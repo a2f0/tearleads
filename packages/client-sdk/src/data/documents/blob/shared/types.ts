@@ -1,12 +1,12 @@
-import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
-import type { BlobContentKeyTarget, WriteHeader } from "@tearleads/crypto";
+import type { UploadMultipartBlobPartBytesRequest } from "@symcrypt/api-client";
+import type { BlobContentKeyTarget, WriteHeader } from "@symcrypt/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   BlobContentKeyBundleRequest,
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
@@ -16,7 +16,7 @@ import type {
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { BlobByteSourceInput, BlobBytes } from "../../../blobContracts";
 import type {
   ProjectionUserKeyResolver,
@@ -25,19 +25,19 @@ import type {
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
-export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
+export const BLOB_ENCRYPTED_BYTES_FORMAT = "symcrypt.blob.bytes";
 export const BLOB_ENCRYPTED_BYTES_VERSION = 2;
-export const BLOB_ENCRYPTED_BYTES_MAGIC = "tearleads.blob.bytes.v2";
+export const BLOB_ENCRYPTED_BYTES_MAGIC = "symcrypt.blob.bytes.v2";
 export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
-  "tearleads.blob.content-record-key-info";
+  "symcrypt.blob.content-record-key-info";
 export const BLOB_CONTENT_RECORD_AAD_DOMAIN =
-  "tearleads.blob.content-record-aad";
+  "symcrypt.blob.content-record-aad";
 export const BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN =
-  "tearleads.blob.content-record-metadata";
+  "symcrypt.blob.content-record-metadata";
 export const BLOB_CONTENT_RECORD_NONCE_DOMAIN =
-  "tearleads.blob.content-record-nonce";
+  "symcrypt.blob.content-record-nonce";
 export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
-  new TextEncoder().encode("tearleads.blob.content-record-hkdf-salt");
+  new TextEncoder().encode("symcrypt.blob.content-record-hkdf-salt");
 export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
   "blobId",
   "byteLength",

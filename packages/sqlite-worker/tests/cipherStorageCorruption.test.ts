@@ -14,7 +14,7 @@
 //   - Two workers cannot install a pool over the same OPFS directory: the second
 //     loses the access-handle exclusivity race (contention), it does not corrupt.
 import { afterEach, expect, test } from "bun:test";
-import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
 import {
   closeDatabase,
   deleteDatabase,

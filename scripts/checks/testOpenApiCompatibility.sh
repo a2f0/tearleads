@@ -27,7 +27,7 @@ trap 'exit 1' HUP INT TERM
 
 git init --quiet --initial-branch=main "$TEST_ROOT"
 git -C "$TEST_ROOT" config commit.gpgsign false
-git -C "$TEST_ROOT" config user.email test@tearleads.com
+git -C "$TEST_ROOT" config user.email test@symcrypt.com
 git -C "$TEST_ROOT" config user.name "OpenAPI compatibility test"
 mkdir -p "$TEST_ROOT/docs"
 cp "$FIXTURE_ROOT/base.json" "$TEST_ROOT/docs/openapi.json"
@@ -175,5 +175,22 @@ fi
 [ "$response_removed_exit" -eq 1 ] ||
   fail "expected exit 1 for a removed response refinement, received $response_removed_exit."
 assert_contains "$response_removed_output" "response.widget-count-consistent"
+
+cp "$FIXTURE_ROOT/breaking.json" "$TEST_ROOT/docs/openapi.json"
+bun -e '
+  const path = Bun.argv[1];
+  const spec = await Bun.file(path).json();
+  spec.info.title = "SymCrypt Protocol API";
+  await Bun.write(path, JSON.stringify(spec, null, 2) + "\n");
+' "$TEST_ROOT/docs/openapi.json"
+
+brand_transition_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$revision_commit" \
+    "$CHECK_SCRIPT" 2>&1
+) || fail "the clean-break brand transition should bypass old-contract checks."
+assert_contains "$brand_transition_output" "clean-break transition"
 
 echo "OpenAPI compatibility regression fixtures passed."

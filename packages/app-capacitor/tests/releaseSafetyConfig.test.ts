@@ -241,20 +241,20 @@ describe("RevenueCat store-release safety", () => {
   test("Fastlane rejects a generated config for the wrong native target", async () => {
     await expect(
       readCapacitorReleaseProblem(
-        "com.tearleads.app",
-        "com.tearleads.staging.app",
+        "com.symcrypt.app",
+        "com.symcrypt.staging.app",
       ),
-    ).resolves.toContain('instead of "com.tearleads.staging.app"');
+    ).resolves.toContain('instead of "com.symcrypt.staging.app"');
     await expect(
       readCapacitorReleaseProblem(
-        "com.tearleads.staging.app",
-        "com.tearleads.staging.app",
+        "com.symcrypt.staging.app",
+        "com.symcrypt.staging.app",
       ),
     ).resolves.toBe("ok");
     await expect(
       readCapacitorReleaseProblem(
-        "com.tearleads.staging.app",
-        "com.tearleads.staging.app",
+        "com.symcrypt.staging.app",
+        "com.symcrypt.staging.app",
         "http://localhost:5173",
       ),
     ).resolves.toContain("server.url");

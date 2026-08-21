@@ -6,16 +6,16 @@ import {
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import type {
   PrincipalProjectionMemberRequest,
   PutPrincipalPolicyRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,

@@ -11,7 +11,7 @@ export const DEFAULT_SYSTEM_MONITOR_MODE: SystemMonitorMode = "windowed";
 export const DEFAULT_SYSTEM_MONITOR_DEVELOPER_MODE: SystemMonitorDeveloperMode =
   "disabled";
 
-const STORAGE_PREFIX = "tearleads.system-monitor";
+const STORAGE_PREFIX = "symcrypt.system-monitor";
 
 // Pin/window choice is persisted per pane side, so the two panes remember their
 // preference independently. It is intentionally not scoped per workspace: the

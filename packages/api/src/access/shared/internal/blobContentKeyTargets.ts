@@ -2,7 +2,7 @@ import {
   type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
   type KeyingCanonicalJson,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 import { createContentKeyTargetPolicy } from "./contentKeyTargetPolicy";
 

@@ -3,13 +3,13 @@ import type {
   DomainScope,
   DomainSyncSnapshot,
   SyncLaneSnapshot,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createDomainScope,
   getOrCreateDomainSyncCoordinator,
   requestAllDomainSyncLanes,
   waitForDomainSyncCoordinatorToSettle,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import {

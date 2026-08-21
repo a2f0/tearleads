@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
-import { isDocumentSyncRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { isDocumentSyncRequest } from "@symcrypt/validators/request";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 test("registration includes initial metadata in the personal-org transaction", async () => {
@@ -40,7 +40,7 @@ test("registration includes initial metadata in the personal-org transaction", a
         icon: "trash",
         name: "Trash",
         slotDefinition: {
-          namespace: "tearleads.explorer",
+          namespace: "symcrypt.explorer",
           projectorId: "explorer",
           slotId: "trash",
           version: 1,

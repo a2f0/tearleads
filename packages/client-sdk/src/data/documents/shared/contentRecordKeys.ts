@@ -2,7 +2,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { asWebCryptoBytes } from "./readers";
 import {
   DOCUMENT_CONTENT_RECORD_HKDF_SALT,

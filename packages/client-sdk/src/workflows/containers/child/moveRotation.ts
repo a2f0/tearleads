@@ -2,15 +2,15 @@ import type {
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
   ContainerKekPredecessorBridge,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createContainerKekPredecessorBridge,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
   verifyContainerKekKeyringEntry,
-} from "@tearleads/crypto";
-import type { ContainerKekResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerKekResponse } from "@symcrypt/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
 import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 

@@ -1,4 +1,4 @@
-import { isKeyingVerificationCode } from "@tearleads/crypto";
+import { isKeyingVerificationCode } from "@symcrypt/crypto";
 import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,

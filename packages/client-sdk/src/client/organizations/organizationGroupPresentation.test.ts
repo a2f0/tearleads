@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient } from "@tearleads/test-utils";
-import type { OrganizationGroupMembersResponse } from "@tearleads/validators/response";
+import { createMockApiClient } from "@symcrypt/test-utils";
+import type { OrganizationGroupMembersResponse } from "@symcrypt/validators/response";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   containers,

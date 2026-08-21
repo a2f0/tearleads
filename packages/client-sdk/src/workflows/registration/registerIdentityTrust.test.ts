@@ -3,7 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   KeyingVerificationError,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { registerIdentity } from "./registerIdentity";
 
 test("registration pins the local identity before network or persistence", async () => {

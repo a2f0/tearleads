@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
+import type { ResolvedUserIdentity } from "@symcrypt/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentStore,
-} from "@tearleads/client-sdk";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";

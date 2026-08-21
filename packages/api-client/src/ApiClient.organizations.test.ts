@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { OrganizationBillingResponse } from "@tearleads/validators/response";
+import type { OrganizationBillingResponse } from "@symcrypt/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createOrganizationGroupRequest,

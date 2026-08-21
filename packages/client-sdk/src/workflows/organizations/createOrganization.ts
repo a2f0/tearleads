@@ -1,6 +1,6 @@
-import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
-import type { CreateOrganizationRequest } from "@tearleads/validators/request";
-import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+import type { EncapsulationKeyPair, SigningKeyPair } from "@symcrypt/crypto";
+import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {

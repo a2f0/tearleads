@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
+import type { OrganizationGroupSummary } from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupDetailSection } from "./GroupDetailSection";

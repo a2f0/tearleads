@@ -9,7 +9,7 @@ import { boundedStringSchema, loosePlainObject } from "../schema";
  * server rejects a rotation whose sealed keyring ciphertext differs from
  * `sealedContainerKekKeyringBytes(keyEpoch)`, and response guards reject any
  * blob over the `MAX_CONTAINER_KEY_EPOCH` ceiling before cryptographic work.
- * `@tearleads/crypto` consumes these same constants for seal/open, so the
+ * `@symcrypt/crypto` consumes these same constants for seal/open, so the
  * equation has one definition. The overhead constant is the AES-GCM tag.
  */
 export const MAX_CONTAINER_KEY_EPOCH = 65536;
@@ -52,7 +52,7 @@ export const ContainerKekKeyringWireRecordSchema = loosePlainObject({
 /**
  * Structural bound applied before any allocation-heavy or cryptographic work.
  * Content verification (exact length for the epoch, AEAD, per-entry
- * commitments) happens in `@tearleads/crypto`; this guard only bounds a
+ * commitments) happens in `@symcrypt/crypto`; this guard only bounds a
  * hostile payload.
  */
 export function isContainerKekKeyringWireRecord(

@@ -12,8 +12,8 @@ import {
   isCreateStripePortalOperationResponse,
   isGetStripeCheckoutOptionsOperationResponse,
   type StripeCheckoutPathParams,
-} from "@tearleads/validators/operation";
-import type { StripeReturnUrlRequest } from "@tearleads/validators/request";
+} from "@symcrypt/validators/operation";
+import type { StripeReturnUrlRequest } from "@symcrypt/validators/request";
 import { organizationBillingPath } from "./billing";
 
 type OrganizationId = StripeCheckoutPathParams["organizationId"];

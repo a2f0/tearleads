@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import type { BlobWriteAuthorization } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import type { BlobWriteAuthorization } from "@symcrypt/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
   computeKeyingDomainHash,
   type WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   BlobContentKeyBundleError,
   listBlobContentWriteHeaders,
@@ -14,7 +14,7 @@ import {
 import { storeBlobContentWriteHeader } from "./blobContentKeyStore";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
     label,
   });
 }

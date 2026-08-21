@@ -1,4 +1,4 @@
-import type { KeyingVerificationCode } from "@tearleads/crypto";
+import type { KeyingVerificationCode } from "@symcrypt/crypto";
 
 export type SecurityIncidentObjectKind =
   | "blob"

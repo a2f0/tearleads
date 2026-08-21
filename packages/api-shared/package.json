@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/api-shared",
+  "name": "@symcrypt/api-shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
   "dependencies": {
     "@electric-sql/pglite": "0.4.1",
     "@libsql/client": "0.17.4",
-    "@tearleads/crypto": "workspace:*",
-    "@tearleads/loro": "workspace:*",
+    "@symcrypt/crypto": "workspace:*",
+    "@symcrypt/loro": "workspace:*",
     "drizzle-orm": "0.45.1",
     "pg": "8.19.0"
   },

@@ -4,10 +4,10 @@ import {
   createDomainScope,
   createMemoryBlobStore,
   getOrCreateDomainSyncCoordinator,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";

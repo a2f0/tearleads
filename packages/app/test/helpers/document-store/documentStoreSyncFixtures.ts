@@ -8,28 +8,28 @@ import {
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createContainerParentLaneBatchMock,
   createContainerWriterProjectionFixture,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentCreateRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
   ListContainersResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
 import {
   assertAccessEvent,

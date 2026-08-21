@@ -6,7 +6,7 @@ import {
   type PurchasesCapability,
   PurchasesUnavailableError,
   type SyncPurchaseResult,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,

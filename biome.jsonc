@@ -39,7 +39,7 @@
           "level": "error",
           "options": {
             "paths": {
-              "@tearleads/api": "Do not import from the API server package",
+              "@symcrypt/api": "Do not import from the API server package",
               "app-web": "Do not import from app-web — it is a deployment target",
               "app-capacitor": "Do not import from app-capacitor — it is a deployment target",
               "app-electrobun": "Do not import from app-electrobun — it is a deployment target",

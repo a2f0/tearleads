@@ -1,10 +1,10 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentNotFoundErrorCode,
   type DocumentSyncErrorCode,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";

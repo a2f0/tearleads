@@ -1,9 +1,9 @@
-import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
+import { computeDocumentContentRecordMetadataHash } from "@symcrypt/crypto";
 import {
   emptyVersionVector,
   listVersionVectorSpans,
   versionVectorsEqual,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 
 interface ReplayableBaselineMetadata {
   readonly checkpointKind: string;

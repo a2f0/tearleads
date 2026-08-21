@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { containers, organizations, users } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import { db } from "@symcrypt/api-shared/postgres";
+import { containers, organizations, users } from "@symcrypt/api-shared/schema";
+import type { TestUser } from "@symcrypt/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerAccessManifestState,
@@ -16,7 +16,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
@@ -27,17 +27,17 @@ import {
   toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
   DocumentCreateRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import {
   type ContainerMutationResponse,
   type DocumentCreateResponse,
   isDocumentCreateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { getAccessManifestBundle } from "../../src/access/read/accessManifestStore";

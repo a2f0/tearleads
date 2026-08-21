@@ -1,4 +1,4 @@
-import type { BlobInfoSort, BlobInfoSortKey } from "@tearleads/client-sdk";
+import type { BlobInfoSort, BlobInfoSortKey } from "@symcrypt/client-sdk";
 import { MiniAppCompactSortMenu } from "../../../../components/mini-app/MiniAppTable";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
 

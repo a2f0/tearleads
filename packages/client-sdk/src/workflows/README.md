@@ -30,7 +30,7 @@ stalls that require an app restart.
 
 Workflow code consumes the resolved `runtime.state.online` value. Host-level
 network detection and any manual online/offline override policy belongs to the
-SDK `tearleads.network` runtime state, not individual workflow facades.
+SDK `symcrypt.network` runtime state, not individual workflow facades.
 
 Custom hosts that construct a container-contents store directly must pair
 `createContainerContentsStoreWorkflowRuntime(...)` with a
@@ -39,7 +39,7 @@ recovery capability compile-time required; general query workflows can continue
 to use `createContainerContentsWorkflowRuntime(...)`.
 
 The device-first read/write/reconcile seam lives outside the workflow facades.
-`tearleads.deviceFirst.open()` binds the locally durable per-scope container
+`symcrypt.deviceFirst.open()` binds the locally durable per-scope container
 mutation store to `src/stores/local-projection` (synchronous reads) and
 `src/sync/reconciliation` (background remote discovery). Product UIs consume
 that unified handle rather than owning those modules or reopening the tree
@@ -59,21 +59,21 @@ operations. Hosts close a retired keyring through its optional public `close()`
 lifecycle contract so browser-backed variants can release their IndexedDB
 connections; callers still dispose the sessions they own.
 
-Seed phrase generation/import lives on the `tearleads.identity` client facade.
+Seed phrase generation/import lives on the `symcrypt.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
 Remote user identity material is a data-layer trust boundary shared by
-workflows, not an ad hoc key fetch. The `tearleads.userIdentities` facade
+workflows, not an ad hoc key fetch. The `symcrypt.userIdentities` facade
 exposes the same pinned identity gateway to host-owned contact projections.
 Workflow inputs accept the opaque trusted bundle or a user id resolved by the
 injected gateway; raw identity endpoint and organization response objects must
 not reach signature or encryption helpers.
-Lower-level integration tests may use `@tearleads/client-sdk/testing` to
+Lower-level integration tests may use `@symcrypt/client-sdk/testing` to
 construct the nominal test values; production source must not import it.
 
 Trust-boundary failures are terminal and feed the client-owned
-`tearleads.securityIncidents` ledger. Workflow runtimes receive only its
+`symcrypt.securityIncidents` ledger. Workflow runtimes receive only its
 internal reporter; they cannot clear the durable table. Equivalent detections
 increment a repeat count, and each trust domain retains its 1,000 most recently
 detected rows. Network and SQLite availability errors are not incidents.

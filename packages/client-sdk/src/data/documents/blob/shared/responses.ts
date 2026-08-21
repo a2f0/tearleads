@@ -4,12 +4,12 @@ import {
   computeAccessEventHash,
   computeBlobContentKeyTargetHash,
   type WriteHeader,
-} from "@tearleads/crypto";
-import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { BlobContentKeyBundleRequest } from "@symcrypt/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { serializeCanonical, uniqueSortedStrings } from "../../shared/readers";
 import {
   contentKeyTargetReference,

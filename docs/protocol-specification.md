@@ -1,8 +1,8 @@
 # Protocol Specification
 
 This document specifies messages, proofs, encrypted payload boundaries, and
-validation rules across `@tearleads/client-sdk`, `packages/api`, and shared
-`@tearleads/*` packages for identity, access, document sync, blob staging,
+validation rules across `@symcrypt/client-sdk`, `packages/api`, and shared
+`@symcrypt/*` packages for identity, access, document sync, blob staging,
 attachment binding, and slots.
 
 The executable contract is layered:
@@ -28,7 +28,7 @@ schemas for API client and SDK consumers.
 
 [`openapi.json`](./openapi.json) and checked generated TypeScript are structural
 views of the operations migrated into the registry. Zod remains runtime
-authority; each `x-tearleads-runtime-refinements` gap needs an executable
+authority; each `x-symcrypt-runtime-refinements` gap needs an executable
 OpenAPI-accepts/Zod-rejects witness. Crypto, transactions, convergence, and
 formal guarantees remain separate.
 

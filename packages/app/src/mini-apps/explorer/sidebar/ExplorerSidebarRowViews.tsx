@@ -1,4 +1,4 @@
-import type { ContainerDocumentSidebarRow } from "@tearleads/client-sdk";
+import type { ContainerDocumentSidebarRow } from "@symcrypt/client-sdk";
 import type { MouseEvent } from "react";
 import {
   MiniAppRow,

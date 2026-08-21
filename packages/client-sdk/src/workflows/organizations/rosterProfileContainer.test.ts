@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument, importUpdates } from "@tearleads/loro";
+import { createDocument, importUpdates } from "@symcrypt/loro";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { createInitializedRosterProfileDocument } from "./rosterProfileContainer";
 

@@ -1,4 +1,4 @@
-import type { DocumentSummary, DocumentsRuntime } from "@tearleads/client-sdk";
+import type { DocumentSummary, DocumentsRuntime } from "@symcrypt/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   createDomainScope,
@@ -8,8 +8,8 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "@tearleads/client-sdk";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
 

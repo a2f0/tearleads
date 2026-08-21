@@ -44,7 +44,7 @@ case "$PLATFORM" in
     # DerivedData must live outside the repo: its SPM checkouts are full of
     # symlinks that hang ls-lint's tree walk in the pre-commit hook (the
     # ignore list does not save it), so an in-repo path breaks git commit.
-    DERIVED_DATA="${TMPDIR:-/tmp}/tearleads-maestro-derived-data"
+    DERIVED_DATA="${TMPDIR:-/tmp}/symcrypt-maestro-derived-data"
     xcodebuild -project ios/App/App.xcodeproj -scheme App \
       -configuration Debug -sdk iphonesimulator \
       -derivedDataPath "$DERIVED_DATA" \

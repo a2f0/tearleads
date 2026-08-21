@@ -1,7 +1,7 @@
 import type {
   ContainerSyncTombstone,
   ListContainersResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,

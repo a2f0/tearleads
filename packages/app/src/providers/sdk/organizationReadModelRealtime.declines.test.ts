@@ -18,7 +18,7 @@ test("a released deferred author hint reconciles the feed", async () => {
   let mutating = false;
   let projectionUpdates = 0;
   subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       projectionUpdates += 1;
@@ -29,14 +29,14 @@ test("a released deferred author hint reconciles the feed", async () => {
   );
 
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
   expect(projectionUpdates).toBe(1);
 
   mutating = true;
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+  handleOrganizationReadModelHint(runtime.symcrypt, ORGANIZATION_A, true);
   await Promise.resolve();
   expect(runtime.reconcileCalls).toBe(1);
 
@@ -44,9 +44,9 @@ test("a released deferred author hint reconciles the feed", async () => {
   // client's own echo (a sibling client shares the login session), so the
   // release must reconcile the feed instead of repainting from local rows.
   mutating = false;
-  releaseDeferredOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A);
+  releaseDeferredOrganizationReadModelHint(runtime.symcrypt, ORGANIZATION_A);
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
 
@@ -63,14 +63,14 @@ test("an authoritative null reconcile still repaints mounted consumers", async (
   });
   let projectionUpdates = 0;
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       projectionUpdates += 1;
     },
   );
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -84,18 +84,15 @@ test("a declined pass clears a previously caught-up scope", async () => {
     loadDirectoryAndGroups: () => Promise.resolve(result),
   });
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(
-    runtime.tearleads,
-    socket.ws,
-  );
+  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
   const unsubscribeFirst = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -103,14 +100,14 @@ test("a declined pass clears a previously caught-up scope", async () => {
   // A hint consumed by a declined pass (database temporarily not ready) means
   // the scope is no longer provably caught up.
   result = undefined;
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, false);
+  handleOrganizationReadModelHint(runtime.symcrypt, ORGANIZATION_A, false);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(runtime.reconcileCalls).toBe(2);
 
   result = {};
   unsubscribeFirst();
   const unsubscribeSecond = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
@@ -127,18 +124,15 @@ test("a declined reconcile does not mark the scope caught up", async () => {
     loadDirectoryAndGroups: () => Promise.resolve(result),
   });
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(
-    runtime.tearleads,
-    socket.ws,
-  );
+  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
   const unsubscribeFirst = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -148,7 +142,7 @@ test("a declined reconcile does not mark the scope caught up", async () => {
   result = {};
   unsubscribeFirst();
   const unsubscribeSecond = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );

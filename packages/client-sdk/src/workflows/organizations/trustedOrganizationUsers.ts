@@ -1,4 +1,4 @@
-import type { PrincipalProjectionMemberRequest } from "@tearleads/validators/request";
+import type { PrincipalProjectionMemberRequest } from "@symcrypt/validators/request";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentity,

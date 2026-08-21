@@ -1,7 +1,7 @@
 import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type { ContainerWriterProjectionContext } from "../../writerProjection";
 import { loadContainerKekManifestHistory } from "../../writerProjection/kek";
 

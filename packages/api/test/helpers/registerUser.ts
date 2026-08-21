@@ -1,6 +1,6 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
-import { toFingerprint } from "@tearleads/crypto";
-import { isRegistrationResponse } from "@tearleads/validators/response";
+import type { TestUser } from "@symcrypt/bob-and-alice";
+import { toFingerprint } from "@symcrypt/crypto";
+import { isRegistrationResponse } from "@symcrypt/validators/response";
 import invariant from "invariant";
 import { submitRegistration } from "./api";
 

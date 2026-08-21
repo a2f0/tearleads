@@ -1,4 +1,4 @@
-import type { LoroList, LoroMap } from "@tearleads/loro";
+import type { LoroList, LoroMap } from "@symcrypt/loro";
 import type { ExecSql, SqlTableSchema } from "../sqlite/sqlSchema";
 import {
   DEFAULT_DOCUMENT_KIND,

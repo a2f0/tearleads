@@ -6,23 +6,23 @@ import type {
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   makeVerifiedAccessEvent,
   makeVerifiedDocumentKekTargets,
   makeVerifiedDocumentLinkSetManifest,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   DocumentContentKeyBundleRequest,
   DocumentContentKeyTargetEnvelope,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
   DocumentKekTargetsResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type {
   StoredDocumentContentKeyBundle,
   DocumentContentKeyTargetEnvelope as StoredDocumentContentKeyTargetEnvelope,

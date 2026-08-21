@@ -1,8 +1,8 @@
 import type {
   PurchasesCapability,
   SyncSubscriptionOption,
-} from "@tearleads/client-sdk";
-import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+} from "@symcrypt/client-sdk";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import {
   type Dispatch,
   type RefObject,

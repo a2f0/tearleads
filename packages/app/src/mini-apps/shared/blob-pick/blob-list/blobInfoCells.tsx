@@ -3,7 +3,7 @@ import {
   type BlobStore,
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { ReactNode } from "react";
 import {
   MiniAppCompactTableCell,

@@ -1,4 +1,4 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import {
   computeAccessManifestHash,
   referencedPrincipalKey,
@@ -359,7 +359,7 @@ export async function computeContainerAccessStructuralHash(
   > = normalizeContainerAccessStructuralState(structural);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.container-access-structural",
+    "symcrypt.keying.container-access-structural",
     payload,
   );
 }
@@ -371,7 +371,7 @@ export async function computeContainerDirectGrantRoot(
     normalizeContainerDirectGrants(grants);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.container-access-direct-grants",
+    "symcrypt.keying.container-access-direct-grants",
     payload,
   );
 }
@@ -383,7 +383,7 @@ export async function computeContainerAccessKeyTargetHash(
     normalizeContainerAccessKeyState(keyState);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.container-access-key-target",
+    "symcrypt.keying.container-access-key-target",
     payload,
   );
 }

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Regenerate the screenshot seed backup artifact (tearleads-seed.tlbackup.json
+# Regenerate the screenshot seed backup artifact (symcrypt-seed.scbackup.json
 # at the repo root) by driving the real client-sdk write path headlessly. On
 # success it prints the artifact's absolute path plus the passphrase and password
 # the encrypted backup is bound to, so it can be restored by hand through the

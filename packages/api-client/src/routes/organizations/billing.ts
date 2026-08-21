@@ -11,7 +11,7 @@ import {
   type OrganizationBillingNativeClaimPathParams,
   type OrganizationBillingPathParams,
   startOrganizationTrialOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import { pathSegment } from "../path";
 
 type OrganizationId = OrganizationBillingPathParams["organizationId"];

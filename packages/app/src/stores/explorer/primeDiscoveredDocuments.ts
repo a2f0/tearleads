@@ -1,7 +1,7 @@
 import type {
   ContainerDocumentLinks,
   DocumentSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback } from "react";
 import { useExplorerDocumentLinks } from "./documentRuntime";
 

@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import type { OrganizationDirectoryAndGroups } from "@tearleads/client-sdk";
+import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
 import { loadExplorerAttributionDirectoryAndGroups } from "./explorerAttributionReadModel";
 
 function readModel(cursor: string): OrganizationDirectoryAndGroups {

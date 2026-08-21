@@ -2,7 +2,7 @@ import {
   bytesToHex,
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface CreateChallengeInput {

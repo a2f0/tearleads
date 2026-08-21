@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 
 // Regression guard: a blocked move intent (its destination parent has not synced

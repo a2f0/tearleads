@@ -4,8 +4,8 @@
   justify-content: space-between;
   min-height: var(--window-bar-height);
   padding: var(--window-bar-padding);
-  background: var(--tearleads-window-titlebar-background);
-  color: var(--tearleads-window-titlebar-text);
+  background: var(--symcrypt-window-titlebar-background);
+  color: var(--symcrypt-window-titlebar-text);
   line-height: var(--window-bar-line-height);
   cursor: grab;
   user-select: none;
@@ -41,7 +41,7 @@
   padding: 0 var(--space-xs);
   border: none;
   background: none;
-  color: var(--tearleads-window-titlebar-text);
+  color: var(--symcrypt-window-titlebar-text);
   cursor: pointer;
   line-height: 1;
 }
@@ -58,6 +58,6 @@
 .window-close:focus-visible,
 .window-maximize:focus-visible,
 .window-minimize:focus-visible {
-  outline: var(--border-width) solid var(--tearleads-window-titlebar-text);
+  outline: var(--border-width) solid var(--symcrypt-window-titlebar-text);
   outline-offset: calc(-1 * var(--border-width));
 }

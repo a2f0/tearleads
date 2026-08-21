@@ -99,7 +99,7 @@ export function useSessionTableColumns(compact: boolean): {
 } {
   const columnVisibility = useMiniAppColumnVisibility<SessionTableColumnId>({
     defaultHiddenColumnIds: DEFAULT_HIDDEN_SESSION_COLUMNS,
-    storageKey: "tearleads.identity-manager.sessions:hidden-columns",
+    storageKey: "symcrypt.identity-manager.sessions:hidden-columns",
     toggleableColumnIds: SESSION_TOGGLEABLE_COLUMN_IDS,
   });
   const visibleColumnIds = useMemo(

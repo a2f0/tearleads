@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createContainerKekPredecessorBridge } from "@tearleads/crypto";
+import { createContainerKekPredecessorBridge } from "@symcrypt/crypto";
 import {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   MAX_CONTAINER_KEY_EPOCH,
-} from "@tearleads/validators/util";
+} from "@symcrypt/validators/util";
 import {
   makeEpochBridge,
   makeEpochKeys,
@@ -194,7 +194,7 @@ test("log paging rejects a short page claiming more", async () => {
                 accessManifestHash: "manifest",
                 bridge: null,
                 containerKeyEpoch: start,
-                containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+                containerKeyEpochId: `symcrypt.container-kek.v1.sha256:${"0".repeat(64)}`,
                 keyring: null,
                 parentContainerKeyEpochId: null,
                 wraps: [],
@@ -230,7 +230,7 @@ test("log paging stops at the protocol epoch ceiling", async () => {
                 accessManifestHash: "manifest",
                 bridge: null,
                 containerKeyEpoch: start + index + 1,
-                containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+                containerKeyEpochId: `symcrypt.container-kek.v1.sha256:${"0".repeat(64)}`,
                 keyring: null,
                 parentContainerKeyEpochId: null,
                 wraps: [],
@@ -265,7 +265,7 @@ test("log paging rejects a page for another container", async () => {
               accessManifestHash: "manifest",
               bridge: null,
               containerKeyEpoch: 1,
-              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"0".repeat(64)}`,
+              containerKeyEpochId: `symcrypt.container-kek.v1.sha256:${"0".repeat(64)}`,
               keyring: null,
               parentContainerKeyEpochId: null,
               wraps: [],
@@ -294,7 +294,7 @@ test("log paging rejects a page replaying epochs at or below the cursor", async 
               accessManifestHash: "manifest",
               bridge: null,
               containerKeyEpoch: 2,
-              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"1".repeat(64)}`,
+              containerKeyEpochId: `symcrypt.container-kek.v1.sha256:${"1".repeat(64)}`,
               keyring: null,
               parentContainerKeyEpochId: null,
               wraps: [],
@@ -303,7 +303,7 @@ test("log paging rejects a page replaying epochs at or below the cursor", async 
               accessManifestHash: "manifest",
               bridge: null,
               containerKeyEpoch: 2,
-              containerKeyEpochId: `tearleads.container-kek.v1.sha256:${"2".repeat(64)}`,
+              containerKeyEpochId: `symcrypt.container-kek.v1.sha256:${"2".repeat(64)}`,
               keyring: null,
               parentContainerKeyEpochId: null,
               wraps: [],

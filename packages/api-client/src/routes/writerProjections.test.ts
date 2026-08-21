@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import {
   containerWriterProjection,
   documentWriterProjection,

@@ -4,7 +4,7 @@ import {
   type ExecSqlClientLike,
   requestPersistentStorage,
   type SQLiteRuntime,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import { dumpDatabaseCharacteristics } from "./dumpDatabaseCharacteristics";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";

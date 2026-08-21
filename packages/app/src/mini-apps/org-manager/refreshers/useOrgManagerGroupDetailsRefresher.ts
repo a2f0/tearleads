@@ -1,10 +1,10 @@
 import type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -15,7 +15,7 @@ import {
 } from "../refresh";
 
 export function useOrgManagerGroupDetailsRefresher(input: {
-  appData: ReturnType<typeof useTearleadsRuntime>;
+  appData: ReturnType<typeof useSymCryptRuntime>;
   beginRequest: ReturnType<typeof useOrgManagerRequestGuard>;
   // These details carry no loading flag of their own, so the views learn that a
   // selected group has been fetched from this mark rather than from `loading`.

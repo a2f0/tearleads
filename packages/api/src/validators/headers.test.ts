@@ -3,7 +3,7 @@ import {
   blobWireHeaderKeys,
   blobWireHeaderNames,
   MultipartBlobPartHeadersSchema,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import { Hono } from "hono";
 import { headersValidator } from "./headers";
 

@@ -1,16 +1,16 @@
-import type { VerifiedWriteHeader, WriteHeader } from "@tearleads/crypto";
+import type { VerifiedWriteHeader, WriteHeader } from "@symcrypt/crypto";
 import {
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
   computeWriteHeaderHash,
   verifyWriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   emptyVersionVector,
   listVersionVectorSpans,
   versionVectorsEqual,
-} from "@tearleads/loro";
-import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+} from "@symcrypt/loro";
+import type { DocumentOutgoingUpdate } from "@symcrypt/validators/request";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import { readWriteHeader } from "./shared/records";

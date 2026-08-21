@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { allowsNativePurchase } from "./BillingPanel";

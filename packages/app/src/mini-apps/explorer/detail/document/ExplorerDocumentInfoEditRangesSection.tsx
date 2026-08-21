@@ -1,7 +1,7 @@
 import type {
   DocumentAttributionRangesPage,
   DocumentInfo,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   MiniAppButton,

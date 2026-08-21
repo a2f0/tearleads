@@ -1,10 +1,10 @@
 import type {
   OrganizationDirectory,
   OrganizationGroupMembers,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import type { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -18,7 +18,7 @@ type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
 interface OrgManagerMembershipMutationsParams {
   readonly addUserId: string;
-  readonly appData: ReturnType<typeof useTearleadsRuntime>;
+  readonly appData: ReturnType<typeof useSymCryptRuntime>;
   readonly directory: OrganizationDirectory | null;
   readonly invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   readonly isOperationActive: (organizationId: string) => boolean;

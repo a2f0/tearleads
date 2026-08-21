@@ -1,7 +1,7 @@
 import type {
   DocumentEditAttributionRangeResponse,
   ListDocumentEditAttributionRangesResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 
 export interface DocumentAttributionRangesInput {
   readonly cursor?: string | null | undefined;

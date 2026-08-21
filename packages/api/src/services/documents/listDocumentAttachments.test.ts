@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessEvents,
   attachmentBindings,
@@ -7,7 +7,7 @@ import {
   blobContentKeyTargets,
   blobContentWriteHeaders,
   blobs,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   type AttachmentBindAccessEventBody,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -18,7 +18,7 @@ import {
   toFingerprint,
   type UnsignedAccessEvent,
   type WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";

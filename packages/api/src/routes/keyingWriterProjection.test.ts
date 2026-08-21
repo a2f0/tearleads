@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestDocumentLinkProjection,
   accessManifests,
@@ -15,25 +15,25 @@ import {
   documents,
   documentUpdateAuditEvents,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+} from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import type {
   DocumentAccessEventBody,
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeAccessManifestHash,
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
-} from "@tearleads/crypto";
-import { emptyVersionVector } from "@tearleads/loro";
+} from "@symcrypt/crypto";
+import { emptyVersionVector } from "@symcrypt/loro";
 import type {
   ContainerManifestRef,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import {
   type ContainerMutationResponse,
   DOCUMENT_PROJECTION_ERROR_CODES,
@@ -45,7 +45,7 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";

@@ -3,7 +3,7 @@ import {
   type ContainerItemRow,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import { EXPLORER_LABELS } from "../../labels";

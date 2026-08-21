@@ -1,7 +1,7 @@
-import type { NetworkMode } from "@tearleads/client-sdk";
+import type { NetworkMode } from "@symcrypt/client-sdk";
 import { useCallback, useMemo } from "react";
-import { useTearleads } from "../sdk/TearleadsProvider";
-import { useTearleadsExternalValue } from "../sdk/useTearleadsSubscription";
+import { useSymCrypt } from "../sdk/SymCryptProvider";
+import { useSymCryptExternalValue } from "../sdk/useSymCryptSubscription";
 
 interface NetworkStateContextValue {
   mode: NetworkMode;
@@ -10,18 +10,18 @@ interface NetworkStateContextValue {
 }
 
 export function useNetworkState(): NetworkStateContextValue {
-  const tearleads = useTearleads();
-  const mode = useTearleadsExternalValue(
-    tearleads.network.subscribe,
-    () => tearleads.network.mode,
+  const symcrypt = useSymCrypt();
+  const mode = useSymCryptExternalValue(
+    symcrypt.network.subscribe,
+    () => symcrypt.network.mode,
   );
-  const online = useTearleadsExternalValue(
-    tearleads.network.subscribe,
-    () => tearleads.network.online,
+  const online = useSymCryptExternalValue(
+    symcrypt.network.subscribe,
+    () => symcrypt.network.online,
   );
   const setNetworkMode = useCallback(
-    (nextMode: NetworkMode) => tearleads.network.setMode(nextMode),
-    [tearleads],
+    (nextMode: NetworkMode) => symcrypt.network.setMode(nextMode),
+    [symcrypt],
   );
 
   return useMemo(

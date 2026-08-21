@@ -5,7 +5,7 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
   DocumentUnlinkAccessEventBody,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerManifestRef,
   DocumentContentKeyTargetEnvelope,
@@ -13,14 +13,14 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ContainerMutationAuthor } from "../../containers/shared/types";
 import type {
   ProjectionUserKeyResolver,
@@ -32,15 +32,15 @@ import type { DocumentRecord } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
-  "tearleads.document.loro-update";
+  "symcrypt.document.loro-update";
 export const DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN =
-  "tearleads.document.content-record-key-info";
+  "symcrypt.document.content-record-key-info";
 export const DOCUMENT_CONTENT_RECORD_PLAINTEXT_HASH_KEY_INFO_DOMAIN =
-  "tearleads.document.content-record-plaintext-hash-key-info";
+  "symcrypt.document.content-record-plaintext-hash-key-info";
 export const DOCUMENT_CONTENT_RECORD_AAD_DOMAIN =
-  "tearleads.document.content-record-aad";
+  "symcrypt.document.content-record-aad";
 export const DOCUMENT_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
-  new TextEncoder().encode("tearleads.document.content-record-hkdf-salt");
+  new TextEncoder().encode("symcrypt.document.content-record-hkdf-salt");
 export const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
   "ciphertext",
   "contentKeyEpoch",

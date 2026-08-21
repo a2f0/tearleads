@@ -4,7 +4,7 @@ import {
   generateIdentityKeyPairsFromSeedPhrase,
   type SigningKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { errorMessage } from "../data/errorMessage";
 import {
   createIdentityKeyPackage,

@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentsRuntime,
-} from "@tearleads/client-sdk";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { type ContactsRuntime, getOrCreateContactsStore } from "./contactStore";
 import type { ContactsStoreDependencies } from "./contactStoreTypes";

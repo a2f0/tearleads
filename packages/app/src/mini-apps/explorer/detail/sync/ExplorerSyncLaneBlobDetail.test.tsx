@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLanesPanelView } from "./ExplorerSyncLanesPanel";

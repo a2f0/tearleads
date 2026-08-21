@@ -1,8 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { organizationRosterEntries, users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { isCreateOrganizationGroupResponse } from "@tearleads/validators/response";
+import { db } from "@symcrypt/api-shared/postgres";
+import { organizationRosterEntries, users } from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { isCreateOrganizationGroupResponse } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import invariant from "invariant";

@@ -30,7 +30,7 @@ const executableTarget = readExecutableTarget();
 const result = await Bun.build({
   entrypoints: ["packages/code-assist/src/server/index.ts"],
   compile: {
-    outfile: "packages/code-assist/dist/tearleads-code-assist",
+    outfile: "packages/code-assist/dist/symcrypt-code-assist",
     target: executableTarget,
   },
   target: "bun",

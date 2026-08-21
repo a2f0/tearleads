@@ -1,7 +1,7 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { base64ToBytes } from "@tearleads/encoding";
-import type { CreateOrganizationRequest } from "@tearleads/validators/request";
+import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
+import { base64ToBytes } from "@symcrypt/encoding";
+import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import {
   type OrganizationProvisioningSigner,

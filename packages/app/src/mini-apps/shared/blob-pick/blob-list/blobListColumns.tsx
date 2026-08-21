@@ -1,4 +1,4 @@
-import type { BlobInfoSort, BlobInfoSortKey } from "@tearleads/client-sdk";
+import type { BlobInfoSort, BlobInfoSortKey } from "@symcrypt/client-sdk";
 import {
   getMiniAppTableSortAria,
   getVisibleMiniAppTableColumnIds,

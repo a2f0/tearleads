@@ -1,8 +1,8 @@
 import {
   createOrganizationOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
-import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/operation";
+import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {

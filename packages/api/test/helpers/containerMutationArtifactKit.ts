@@ -1,6 +1,6 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
-import type { ContainerAccessEventBody } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { ContainerAccessEventBody } from "@symcrypt/crypto";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
 import {
   asVerifiedContainerManifest,

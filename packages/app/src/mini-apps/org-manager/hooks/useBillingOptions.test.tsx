@@ -3,11 +3,11 @@ import type {
   PurchasesCapability,
   SyncPurchaseResult,
   SyncSubscriptionOption,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,

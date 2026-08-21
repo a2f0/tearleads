@@ -1,5 +1,5 @@
-import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
+import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
+import { serializeKeyingCanonicalJson } from "@symcrypt/crypto";
 import { documentLinkSetStateRecord } from "../keyingProjectionRecords";
 import { sha256Hex } from "../utils/sha256";
 

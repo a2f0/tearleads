@@ -1,4 +1,4 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 
 export interface ContainerInterestDeclaration {
   readonly acknowledge: (declarationId: string) => boolean;
@@ -41,13 +41,13 @@ function setsEqual(
  * Interest is routing state, not an authorization grant.
  */
 export function startContainerInterestDeclaration(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   ws: WebSocket,
   baseline: ReadonlySet<string>,
 ): ContainerInterestDeclaration {
-  let store: ReturnType<Tearleads["deviceFirst"]["open"]>["containerStore"];
+  let store: ReturnType<SymCrypt["deviceFirst"]["open"]>["containerStore"];
   try {
-    store = tearleads.deviceFirst.open().containerStore;
+    store = symcrypt.deviceFirst.open().containerStore;
   } catch {
     return {
       acknowledge: () => false,

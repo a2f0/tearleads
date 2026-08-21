@@ -2,11 +2,11 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   blobContentKeyEpochs,
   blobContentKeyTargets,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import {
   assertTargetHashMatches,

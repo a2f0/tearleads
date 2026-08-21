@@ -9,20 +9,20 @@ import type {
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   buildContainerCreateKeyEpoch,
   signContainerMutationEvent,

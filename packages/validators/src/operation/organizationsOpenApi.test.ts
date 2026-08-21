@@ -33,7 +33,7 @@ test("create organization OpenAPI documents its shared contract", () => {
   ]);
   expect(requestSchema.required).toContain("initialRootContainer");
   expect(requestSchema.required).toContain("initialRootMetadataDocument");
-  expect(createOrganizationPost["x-tearleads-runtime-refinements"]).toEqual(
+  expect(createOrganizationPost["x-symcrypt-runtime-refinements"]).toEqual(
     createOrganizationOperation.runtimeRefinements,
   );
 });
@@ -61,7 +61,7 @@ test("organization data usage OpenAPI documents its shared contract", () => {
     "404",
     "500",
   ]);
-  expect(operation["x-tearleads-runtime-refinements"]).toEqual(
+  expect(operation["x-symcrypt-runtime-refinements"]).toEqual(
     getOrganizationDataUsageOperation.runtimeRefinements,
   );
 });
@@ -93,7 +93,7 @@ test("organization read-model OpenAPI documents path, query, and response", () =
     "404",
     "500",
   ]);
-  expect(operation["x-tearleads-runtime-refinements"]).toEqual(
+  expect(operation["x-symcrypt-runtime-refinements"]).toEqual(
     getOrganizationReadModelOperation.runtimeRefinements,
   );
 });
@@ -138,7 +138,7 @@ test("organization management OpenAPI documents shared contracts", () => {
   expect(
     createGroup.requestBody.content["application/json"]?.schema.required,
   ).toEqual(["groupId", "initialGroupPolicy", "name", "organizationPolicy"]);
-  expect(createGroup["x-tearleads-runtime-refinements"]).toEqual(
+  expect(createGroup["x-symcrypt-runtime-refinements"]).toEqual(
     createOrganizationGroupOperation.runtimeRefinements,
   );
   expect(deleteGroup.operationId).toBe("organizations.groups.delete");

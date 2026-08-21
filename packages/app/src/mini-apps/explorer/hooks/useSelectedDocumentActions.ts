@@ -4,7 +4,7 @@ import type {
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback } from "react";
 import {
   activateExplorerLinkedNote,

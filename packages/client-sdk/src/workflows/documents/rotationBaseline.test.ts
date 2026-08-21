@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { verifyWriteHeader, type WriteHeader } from "@tearleads/crypto";
+import { verifyWriteHeader, type WriteHeader } from "@symcrypt/crypto";
 import {
   createDocument,
   emptyVersionVector,
@@ -8,7 +8,7 @@ import {
   getTextValue,
   importSnapshot,
   versionVectorsEqual,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   createAuthor,
   fixtureHash,

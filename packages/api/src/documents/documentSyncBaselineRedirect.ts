@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";

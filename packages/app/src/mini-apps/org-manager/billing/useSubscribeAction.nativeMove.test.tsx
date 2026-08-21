@@ -4,7 +4,7 @@ import {
   PurchaseProviderStalledError,
   type PurchasesCapability,
   type SyncPurchaseResult,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../../providers/logging/LogProvider";

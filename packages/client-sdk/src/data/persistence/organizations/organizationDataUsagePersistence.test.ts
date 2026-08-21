@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { OrganizationDataUsageResponse } from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   organizationDataUsageCategories,

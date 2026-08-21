@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   projectStoredDocumentState,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./appDocumentProjectors";
 
 function projectOrganizationProfile(

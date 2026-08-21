@@ -1,6 +1,6 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import type { ProvisionedDocumentRequest } from "@tearleads/validators/request";
-import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
+import { base64ToBytes } from "@symcrypt/encoding";
+import type { ProvisionedDocumentRequest } from "@symcrypt/validators/request";
+import type { OrganizationProvisioningResponse } from "@symcrypt/validators/response";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { MaterializedDocumentCreatePlan } from "../../data/documents/shared/types";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";

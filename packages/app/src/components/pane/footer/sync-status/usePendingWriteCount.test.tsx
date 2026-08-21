@@ -3,7 +3,7 @@ import type {
   ContainerDocumentQueries,
   DomainScope,
   PendingWriteQueueItem,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { usePendingWriteCount } from "./usePendingWriteCount";
 

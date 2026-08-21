@@ -2,4 +2,4 @@ export {
   documents,
   documentUpdateSpans,
   documentUpdates,
-} from "@tearleads/loro/server";
+} from "@symcrypt/loro/server";

@@ -1,4 +1,4 @@
-const domainScopeBrand = Symbol("tearleads.domainScope");
+const domainScopeBrand = Symbol("symcrypt.domainScope");
 
 // Identity token for in-process caches that must rotate together when the
 // active database or signing identity changes.

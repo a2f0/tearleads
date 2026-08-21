@@ -2,7 +2,7 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 type FixtureBlobBytes = Parameters<BlobStore["writeBytes"]>[1];
 

@@ -1,8 +1,8 @@
-import type { DocumentInfo } from "@tearleads/client-sdk";
+import type { DocumentInfo } from "@symcrypt/client-sdk";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import type { CSSProperties } from "react";
 import {
   MiniAppInfoSection,

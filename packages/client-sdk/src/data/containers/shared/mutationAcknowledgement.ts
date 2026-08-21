@@ -9,8 +9,8 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-} from "@tearleads/crypto";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerMutationResponse } from "@symcrypt/validators/response";
 import { canonicalKeyingJsonString } from "../../keyingCanonicalJson";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,

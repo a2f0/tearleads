@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDomainScope } from "@tearleads/client-sdk";
+import { createDomainScope } from "@symcrypt/client-sdk";
 import {
   captureOrgManagerOperationScope,
   isOrgManagerOperationScopeActive,

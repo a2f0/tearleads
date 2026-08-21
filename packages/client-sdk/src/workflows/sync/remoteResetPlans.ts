@@ -1,4 +1,4 @@
-import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { createDocument, exportAllUpdates } from "@symcrypt/loro";
 import { sql } from "drizzle-orm";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";

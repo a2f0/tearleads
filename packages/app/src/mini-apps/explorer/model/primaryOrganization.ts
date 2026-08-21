@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerNode } from "@symcrypt/client-sdk";
 
 export function resolveExplorerPrimaryOrganizationId(input: {
   currentOrganizationId: string | null | undefined;

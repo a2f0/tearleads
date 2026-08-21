@@ -30,7 +30,7 @@ const executableTarget = readExecutableTarget();
 const result = await Bun.build({
   entrypoints: ["packages/api/scripts/blobGc.ts"],
   compile: {
-    outfile: "packages/api/dist/tearleads-blob-gc",
+    outfile: "packages/api/dist/symcrypt-blob-gc",
     target: executableTarget,
   },
   target: "bun",

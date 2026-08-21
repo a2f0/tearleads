@@ -194,7 +194,7 @@ test("encrypted blob store encrypts stored bytes and decrypts with the same key"
   }
   expect(stored).not.toEqual(blobBytes("local attachment bytes"));
   const storedEnvelope = TEXT_DECODER.decode(stored);
-  expect(storedEnvelope).toContain("tearleads.local-blob-store.encrypted");
+  expect(storedEnvelope).toContain("symcrypt.local-blob-store.encrypted");
   expect(storedEnvelope).not.toContain("local attachment bytes");
   await expect(store.readBytes("attachment-1")).resolves.toEqual(
     blobBytes("local attachment bytes"),
@@ -335,7 +335,7 @@ test("encrypted blob store rejects the removed version-one JSON format", async (
       JSON.stringify({
         cipher: "aes-256-gcm",
         ciphertext: "AA==",
-        format: "tearleads.local-blob-store.encrypted",
+        format: "symcrypt.local-blob-store.encrypted",
         iv: "AAAAAAAAAAAAAAAA",
         keyDerivation: null,
         version: 1,
@@ -450,7 +450,7 @@ test("encrypted OPFS blob store stores encrypted files under the namespace", asy
 
     await store.writeBytes(storageKey, blobBytes("local OPFS bytes"));
 
-    const appDirectory = rootDirectory.directories.get("tearleads");
+    const appDirectory = rootDirectory.directories.get("symcrypt");
     const identityDirectory = appDirectory?.directories.get("identity-a");
     const stored = identityDirectory?.files.get(
       `${encodeURIComponent(storageKey)}.blob`,
@@ -459,7 +459,7 @@ test("encrypted OPFS blob store stores encrypted files under the namespace", asy
       throw new Error("Expected encrypted OPFS blob bytes.");
     }
     const storedEnvelope = TEXT_DECODER.decode(stored);
-    expect(storedEnvelope).toContain("tearleads.local-blob-store.encrypted");
+    expect(storedEnvelope).toContain("symcrypt.local-blob-store.encrypted");
     expect(storedEnvelope).not.toContain("local OPFS bytes");
     await expect(store.readBytes(storageKey)).resolves.toEqual(
       blobBytes("local OPFS bytes"),

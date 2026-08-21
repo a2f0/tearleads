@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads website to the production server
+# Deploy the SymCrypt website to the production server
 #
 # Builds the Astro website, resolves the production server hostname and
 # username from Terraform outputs, and deploys the static files via rsync.

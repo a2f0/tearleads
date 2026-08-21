@@ -1,7 +1,7 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { groups, organizations } from "@tearleads/api-shared/schema";
-import { computePrincipalStateHash } from "@tearleads/crypto";
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import { groups, organizations } from "@symcrypt/api-shared/schema";
+import { computePrincipalStateHash } from "@symcrypt/crypto";
+import type { PutPrincipalPolicyRequest } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import {
   getCurrentPrincipalState,

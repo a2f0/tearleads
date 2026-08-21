@@ -1,18 +1,18 @@
 import { expect } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessManifests,
   documentContainerLinks,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
+} from "@symcrypt/api-shared/schema";
+import type { TestUser } from "@symcrypt/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
   signWriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createDocument,
   emptyVersionVector,
@@ -20,13 +20,13 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
   mergeVersionVectors,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { DocumentCreateResponse } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";

@@ -1,10 +1,10 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { RegistrationRequest } from "@symcrypt/validators/request";
 import {
   type OrganizationProvisioningSigner,
   provisionOrganizationInTransaction,

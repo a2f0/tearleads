@@ -1,7 +1,7 @@
 import {
   getDefaultApiDatabaseKind,
   initializeApiDatabase,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
 import type { RouteRequestBindings } from "./middleware/session";
 import { createRealtimeGateway } from "./realtime/realtimeGateway";

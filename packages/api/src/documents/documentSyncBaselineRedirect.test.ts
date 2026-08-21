@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
   documentUpdates,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeDocumentContentRecordMetadataHash,
   type WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createDocument,
   emptyVersionVector,
@@ -20,7 +20,7 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importSnapshot,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import {
   loadLatestReadableBaselineCoverage,
   selectServedSyncUpdateEntries,

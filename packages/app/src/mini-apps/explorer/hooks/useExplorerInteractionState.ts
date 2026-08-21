@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@symcrypt/client-sdk";
 import { useCallback, useRef, useState } from "react";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";

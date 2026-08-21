@@ -1,14 +1,14 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import type {
   AccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {

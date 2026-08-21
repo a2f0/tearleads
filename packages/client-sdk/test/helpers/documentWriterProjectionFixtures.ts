@@ -2,7 +2,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 
 export function writerProjectionEvidence(
   projections: readonly ContainerWriterProjectionResponse[],

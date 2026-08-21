@@ -8,7 +8,7 @@ import {
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
-import { isSha256HexString } from "@tearleads/validators/util";
+import { isSha256HexString } from "@symcrypt/validators/util";
 import { summarizeSha256Stream } from "../utils/sha256";
 import {
   type BlobObjectPart,

@@ -3,15 +3,15 @@ import type {
   ContainerSystemSlotDefinition,
   ProvisionedSystemContainerSpec,
   StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   deriveContainerSystemSlot,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
 // Icon slug for the Contacts system folder, resolved to a glyph by
@@ -23,7 +23,7 @@ export const CONTACTS_CONTAINER_NAME = "Contacts";
 const CONTACTS_CONTAINER_ICON = "contacts";
 const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
   {
-    namespace: "tearleads.contacts",
+    namespace: "symcrypt.contacts",
     projectorId: "contact",
     slotId: "contacts",
     version: 1,
@@ -33,7 +33,7 @@ export const EXPLORER_TRASH_CONTAINER_NAME = "Trash";
 export const EXPLORER_TRASH_CONTAINER_ICON = "trash";
 const EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
   {
-    namespace: "tearleads.explorer",
+    namespace: "symcrypt.explorer",
     projectorId: "explorer",
     slotId: "trash",
     version: 1,
@@ -180,7 +180,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
 // bootstrap. Only the Trash bin is eagerly provisioned today; Contacts stays
 // lazy. The lazy `ensureSystemContainer` bootstrap still runs and finds the
 // provisioned container by slot, so the two never produce a duplicate. Passed
-// into `new Tearleads({ provisionedSystemContainers })`.
+// into `new SymCrypt({ provisionedSystemContainers })`.
 export const PROVISIONED_SYSTEM_CONTAINER_SPECS: ReadonlyArray<ProvisionedSystemContainerSpec> =
   USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
     (definition) => definition.provisionedAtOrganizationCreation,

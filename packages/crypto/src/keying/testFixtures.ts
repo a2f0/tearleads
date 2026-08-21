@@ -62,7 +62,7 @@ export function expectVerificationError<T>(
 }
 
 export async function fixtureHash(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
     fixture: label,
   });
 }

@@ -1,8 +1,8 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type { ContainerAccessLevel } from "@symcrypt/crypto";
 import {
   type ContainerSystemSlot,
   isContainerSystemSlot,
-} from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/validators/containerSystemSlot";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   DEFAULT_EFFECTIVE_ACCESS_LEVEL,

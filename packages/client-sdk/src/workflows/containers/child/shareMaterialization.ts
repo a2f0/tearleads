@@ -6,11 +6,11 @@ import type {
   ContainerKekRecipientTarget,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import {
   asContainerManifestBundle,

@@ -13,7 +13,7 @@ export type OrganizationBillingLifecycleEventType =
   | "free_trial_expired";
 
 /**
- * Immutable snapshots of billing transitions owned by Tearleads itself.
+ * Immutable snapshots of billing transitions owned by SymCrypt itself.
  *
  * Provider lifecycle events remain in their provider audit ledgers. This table
  * records product lifecycle that has no payment-provider event, currently the

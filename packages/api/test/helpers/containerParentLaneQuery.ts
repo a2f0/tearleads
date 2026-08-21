@@ -1,8 +1,8 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
 import {
   isListContainerParentLanesResponse,
   type ListContainersResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { routeApp } from "../../src/routeApp";
 
 type ParentLaneRequest = Omit<

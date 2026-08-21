@@ -1,5 +1,5 @@
-import type { KeyingCanonicalJson } from "@tearleads/crypto";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import type { KeyingCanonicalJson } from "@symcrypt/crypto";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 
 function isCanonicalJson(value: unknown): value is KeyingCanonicalJson {
   if (

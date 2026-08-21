@@ -1,5 +1,5 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
-import type { ListContainerParentLanesResponse } from "@tearleads/validators/response";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
+import type { ListContainerParentLanesResponse } from "@symcrypt/validators/response";
 import type { ApiServiceRuntime } from "../runtime";
 import { listContainers } from "./listContainers";
 

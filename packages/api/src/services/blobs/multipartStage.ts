@@ -1,14 +1,14 @@
-import { blobStages } from "@tearleads/api-shared/schema";
+import { blobStages } from "@symcrypt/api-shared/schema";
 import type {
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { eq, inArray, lte } from "drizzle-orm";
 import {
   BlobObjectStoreError,

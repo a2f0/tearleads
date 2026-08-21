@@ -1,4 +1,4 @@
-import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
+import type { ListDocumentAttachmentsResponse } from "@symcrypt/validators/response";
 import {
   ListDocumentAttachmentsError,
   runListDocumentAttachmentsWorkflow,

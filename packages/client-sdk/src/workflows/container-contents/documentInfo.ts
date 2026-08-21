@@ -1,12 +1,12 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { exportFullHistorySnapshot } from "@tearleads/loro";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { exportFullHistorySnapshot } from "@symcrypt/loro";
 import type {
   BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
   DocumentEditAttributionResponse,
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import {

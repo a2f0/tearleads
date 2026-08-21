@@ -16,8 +16,8 @@ function seededEnvironment(
 ): PeerSeedEnvironment {
   const deviceStorage = memStorage();
   const sessionStorage = memStorage();
-  deviceStorage.setItem("tearleads.docs.device-seed", "DEVICE");
-  sessionStorage.setItem("tearleads.docs.session-peer-seed", "SESSION");
+  deviceStorage.setItem("symcrypt.docs.device-seed", "DEVICE");
+  sessionStorage.setItem("symcrypt.docs.session-peer-seed", "SESSION");
   return { deviceStorage, sessionStorage, locks };
 }
 
@@ -122,7 +122,7 @@ test("distinct (per-pane) scopes get distinct seeds and separate locks", async (
   // OWN device-peer lock, so both can be device-stable without sharing a peer.
   expect(left).not.toBe(right);
   expect(requestedLockNames).toEqual([
-    "tearleads.documents:pane.left.device-peer",
-    "tearleads.documents:pane.right.device-peer",
+    "symcrypt.documents:pane.left.device-peer",
+    "symcrypt.documents:pane.right.device-peer",
   ]);
 });

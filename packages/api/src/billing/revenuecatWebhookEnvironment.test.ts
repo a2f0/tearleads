@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { classifyRevenueCatEvent } from "./revenuecatWebhook";
 
 const ACTIVE_GRANT_NOW = new Date(1_500);

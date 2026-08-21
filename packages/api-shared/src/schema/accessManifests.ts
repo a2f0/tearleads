@@ -3,7 +3,7 @@ import type {
   KeyingCanonicalJson,
   ManagedPrincipalKind,
   ReferencedPrincipalHead,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   index,
   integer,

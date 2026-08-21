@@ -3,7 +3,7 @@ import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
   SyncLaneStatus,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { ExplorerSyncLanesPanelView } from "./ExplorerSyncLanesPanel";

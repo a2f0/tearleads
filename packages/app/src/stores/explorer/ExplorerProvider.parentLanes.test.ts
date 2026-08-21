@@ -10,12 +10,12 @@ import {
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
 import {
   createContainerParentLaneBatchMock as batchParentLanes,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import {
   listContainersResponse,
   listedContainer,

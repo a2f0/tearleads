@@ -1,4 +1,4 @@
-import type { OrganizationDataUsage } from "@tearleads/client-sdk";
+import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,

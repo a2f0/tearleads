@@ -1,5 +1,5 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { isSha256HexString, isUuidV4String } from "@tearleads/validators/util";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import { isSha256HexString, isUuidV4String } from "@symcrypt/validators/util";
 import { z } from "zod";
 
 const sessionIdSchema = z.string().regex(/^[0-9a-f]{64}$/);

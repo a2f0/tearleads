@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@symcrypt/client-sdk";
 
 // Declarative description of the data seeded into a screenshot backup artifact.
 // Authored in fixtures/seed.json and interpreted by buildSeedArtifact.ts. Kept

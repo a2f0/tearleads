@@ -5,9 +5,8 @@ variable "zone_id" {
 
 variable "hostname" {
   description = <<-EOT
-    Exact hostname the cache rule applies to (e.g. tearleads.com). Matched with
-    `http.host eq`, so it never widens to the api./app./demo. hosts sharing the
-    zone.
+    Exact hostname the cache rule applies to (e.g. symcrypt.com). Matched with
+    `http.host eq`, so it never widens to the API or app hosts sharing the zone.
   EOT
   type        = string
 }

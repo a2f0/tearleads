@@ -4,9 +4,9 @@ import {
   generateSigningSeedAndKeyPair,
   KeyingVerificationError,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,

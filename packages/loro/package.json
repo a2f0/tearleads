@@ -1,5 +1,5 @@
 {
-  "name": "@tearleads/loro",
+  "name": "@symcrypt/loro",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@tearleads/encoding": "workspace:*",
+    "@symcrypt/encoding": "workspace:*",
     "drizzle-orm": "0.45.1",
     "loro-crdt": "catalog:"
   },

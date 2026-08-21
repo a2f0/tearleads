@@ -9,7 +9,7 @@ import {
   SYNC_BILLING_TIERS,
   type SyncBillingTier,
   type SyncBillingTierId,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 
 /** Environment variable holding the Stripe secret key (`sk_test_…`/`sk_live_…`). */
 const STRIPE_SECRET_KEY_ENV = "STRIPE_SECRET_KEY";

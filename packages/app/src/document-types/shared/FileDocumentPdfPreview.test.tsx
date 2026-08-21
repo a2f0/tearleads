@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
+import type { BlobStore, DocumentAttachment } from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FileViewer, ViewFileRequest } from "../../host/FileViewer";
 import { useFileDocumentPdfPreview } from "./FileDocumentPdfPreview";

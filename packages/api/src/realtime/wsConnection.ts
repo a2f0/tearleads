@@ -1,4 +1,4 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 
 /** The authenticated websocket subset required by the pure routers. */

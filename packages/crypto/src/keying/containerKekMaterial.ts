@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { isSha256HexString } from "@tearleads/validators/util";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { isSha256HexString } from "@symcrypt/validators/util";
 import { computeKeyingDomainHash } from "./canonical";
 import { CONTAINER_KEK_MATERIAL_ID_PREFIX } from "./types";
 
@@ -13,7 +13,7 @@ export async function computeContainerKekMaterialId(input: {
   }
 
   const materialHash = await computeKeyingDomainHash(
-    "tearleads.keying.container-kek-material-id",
+    "symcrypt.keying.container-kek-material-id",
     {
       version: 1,
       containerId: input.containerId,

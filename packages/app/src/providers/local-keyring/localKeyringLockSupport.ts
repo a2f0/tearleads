@@ -11,7 +11,7 @@ import {
   type LocalSecretContext,
   type WrappingKeyKeystore,
   type WrappingKeyMaterialStorage,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { getLocalStorage } from "../../utils/storedPreference";
 
 export type LocalKeyringLockStatus = "unavailable" | "unlocked" | "locked";
@@ -69,7 +69,7 @@ export function canRunPinCodeAction(
   );
 }
 
-const PIN_CODE_CONFIG_PREFIX = "tearleads.local-keyring.pin-code:";
+const PIN_CODE_CONFIG_PREFIX = "symcrypt.local-keyring.pin-code:";
 
 export function pinCodeConfigKey(namespace: string): string {
   return `${PIN_CODE_CONFIG_PREFIX}${namespace}`;

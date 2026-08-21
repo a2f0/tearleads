@@ -2,17 +2,17 @@ import { randomUUID } from "node:crypto";
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   type OrganizationBillingStatus,
   organizationBilling,
   organizations,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   BILLING_ERROR_CODES,
   getSyncBillingTierForSeatCount,
   type SyncBillingTierId,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import { eq } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { OrganizationManagerError } from "../organizations/errors";

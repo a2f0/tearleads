@@ -3,27 +3,24 @@ import {
   createDocumentSignerDeviceId,
   createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   persistedDocumentCreateStateFromResponse,
-} from "@tearleads/client-sdk";
-import {
-  generateSigningSeedAndKeyPair,
-  toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/client-sdk";
+import { generateSigningSeedAndKeyPair, toFingerprint } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   DocumentCreateRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import {

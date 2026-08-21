@@ -4,7 +4,7 @@ import {
   type ContainerItemSort,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import { ROUTED_TABLET_QUERY } from "../../../../navigation/breakpoints";

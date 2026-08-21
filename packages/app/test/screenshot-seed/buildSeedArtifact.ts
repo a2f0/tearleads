@@ -5,9 +5,9 @@ import {
   defaultDocumentsPersistence,
   type Logger,
   type StoredDocumentKind,
-  Tearleads,
-} from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
+import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
 import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../../src/document-types/drivers-license/driverLicenseDocument";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createBackupPayload } from "../../src/providers/db/localBackupData";
@@ -21,7 +21,7 @@ import type { SeedFile, SeedSpec } from "./seedTypes";
 
 // Core of the screenshot seeder: interpret a SeedSpec against the REAL client-sdk
 // write path (documents.open -> setStructuredFields/setText/attachFiles) and emit
-// an encrypted *.tlbackup.json the app's backup-restore mini-app can restore.
+// an encrypted *.scbackup.json the app's backup-restore mini-app can restore.
 //
 // Why this is the only correct write path (verified): the high-level store
 // mutators run the projection save on every write, populating the read models
@@ -87,7 +87,7 @@ function resolveDriverLicenseSlotId(slot: string): string {
 }
 
 type SeedDocumentLinks = ReturnType<
-  InstanceType<typeof Tearleads>["containerContents"]["documentLinks"]
+  InstanceType<typeof SymCrypt>["containerContents"]["documentLinks"]
 >;
 type OpenSeedDocument = (
   kind: StoredDocumentKind,
@@ -99,7 +99,7 @@ type OpenSeedDocument = (
 // restore. Offline + unauthenticated, ensureSystemContainer takes the local
 // device-first path (no remote probe).
 async function ensureContactsContainer(
-  sdk: InstanceType<typeof Tearleads>,
+  sdk: InstanceType<typeof SymCrypt>,
   signingPrivateKey: Uint8Array,
 ): Promise<string> {
   const systemContainers = await deriveUserSystemContainers(signingPrivateKey);
@@ -170,7 +170,7 @@ export async function buildSeedArtifact(
   spec: SeedSpec,
   deps: BuildSeedArtifactDeps,
 ): Promise<SeedArtifact> {
-  const sdk = new Tearleads({
+  const sdk = new SymCrypt({
     blobStoreFactory: () => deps.blobStore,
     database: { execSql: deps.execSql, id: SEED_DATABASE_ID },
     documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,

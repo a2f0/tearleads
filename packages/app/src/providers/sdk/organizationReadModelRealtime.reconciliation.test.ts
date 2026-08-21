@@ -38,7 +38,7 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
   });
   let projectionUpdates = 0;
   subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       projectionUpdates += 1;
@@ -46,11 +46,11 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
   );
 
   const active = scheduleOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   const sameBurst = scheduleOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(active).toBe(sameBurst);
@@ -58,7 +58,7 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
   expect(runtime.reconcileCalls).toBe(1);
 
   const duringRequest = scheduleOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(duringRequest).toBe(active);
@@ -87,18 +87,18 @@ test("initial consumer catch-up joins an active reconciliation without a trailin
     },
   });
   subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
 
   const active = scheduleOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   await requestStarted;
   const joined = ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(joined).toBe(active);
@@ -112,14 +112,14 @@ test("first exact demand owns catch-up until the last consumer leaves", async ()
   const runtime = createRuntimeHarness();
   const subscribeWithCatchUp = () =>
     subscribeOrganizationReadModelRealtime(
-      runtime.tearleads,
+      runtime.symcrypt,
       ORGANIZATION_A,
       () => undefined,
     );
 
   const unsubscribeFirst = subscribeWithCatchUp();
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -134,7 +134,7 @@ test("first exact demand owns catch-up until the last consumer leaves", async ()
   unsubscribeThird();
   const unsubscribeAfterGap = subscribeWithCatchUp();
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(2);
@@ -159,29 +159,26 @@ test("first-demand catch-up repaints consumers that join while it is in flight",
   let ownerUpdates = 0;
   let joiningConsumerUpdates = 0;
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(
-    runtime.tearleads,
-    socket.ws,
-  );
+  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
   const unsubscribeOwner = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       ownerUpdates += 1;
     },
   );
   const unsubscribeJoiningConsumer = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       joiningConsumerUpdates += 1;
     },
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
 
   await requestStarted;
   const catchUp = ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   releaseRequest?.();
@@ -224,7 +221,7 @@ for (const transition of ["user identity", "domain scope"] as const) {
     let staleProjectionUpdates = 0;
     let currentProjectionUpdates = 0;
     subscribeOrganizationReadModelRealtime(
-      runtime.tearleads,
+      runtime.symcrypt,
       ORGANIZATION_A,
       () => {
         staleProjectionUpdates += 1;
@@ -232,7 +229,7 @@ for (const transition of ["user identity", "domain scope"] as const) {
     );
 
     const stalePass = scheduleOrganizationReadModelReconciliation(
-      runtime.tearleads,
+      runtime.symcrypt,
       ORGANIZATION_A,
     );
     await firstRequestStarted;
@@ -242,7 +239,7 @@ for (const transition of ["user identity", "domain scope"] as const) {
       runtime.transitionDomainScope();
     }
     subscribeOrganizationReadModelRealtime(
-      runtime.tearleads,
+      runtime.symcrypt,
       ORGANIZATION_A,
       () => {
         currentProjectionUpdates += 1;
@@ -262,27 +259,24 @@ for (const transition of ["user identity", "domain scope"] as const) {
 test("a newly demanded scope is handed off across reconciliation finalization", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(
-    runtime.tearleads,
-    socket.ws,
-  );
+  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
   const unsubscribeStale = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
   unsubscribeStale();
   runtime.transitionDomainScope();
 
   let unsubscribeCurrent: (() => void) | undefined;
   await Promise.resolve().then(() => {
     unsubscribeCurrent = subscribeOrganizationReadModelRealtime(
-      runtime.tearleads,
+      runtime.symcrypt,
       ORGANIZATION_A,
       () => undefined,
     );
-    acknowledgeLatestDeclaration(runtime.tearleads, socket);
+    acknowledgeLatestDeclaration(runtime.symcrypt, socket);
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -294,22 +288,19 @@ test("a newly demanded scope is handed off across reconciliation finalization", 
 test("an unmounted mutation owner releases its deferred hint to remaining demand", async () => {
   const runtime = createRuntimeHarness();
   const socket = fakeOpenSocket();
-  const detach = attachOrganizationReadModelSocket(
-    runtime.tearleads,
-    socket.ws,
-  );
+  const detach = attachOrganizationReadModelSocket(runtime.symcrypt, socket.ws);
   let explorerUpdates = 0;
   const unsubscribeExplorer = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => {
       explorerUpdates += 1;
     },
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, socket);
   let mutating = true;
   const unsubscribeMutationOwner = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
     {
@@ -317,12 +308,12 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
     },
   );
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
   expect(runtime.reconcileCalls).toBe(1);
 
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+  handleOrganizationReadModelHint(runtime.symcrypt, ORGANIZATION_A, true);
   unsubscribeMutationOwner();
   mutating = false;
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -336,23 +327,23 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
 test("ignores undemanded scope and catches up demanded scope on reconnect", async () => {
   const runtime = createRuntimeHarness();
   const unsubscribe = subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
     () => undefined,
   );
   const firstSocket = fakeOpenSocket();
   const detachFirst = attachOrganizationReadModelSocket(
-    runtime.tearleads,
+    runtime.symcrypt,
     firstSocket.ws,
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, firstSocket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, firstSocket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
 
   await scheduleOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_B,
   );
   expect(runtime.reconcileCalls).toBe(1);
@@ -360,12 +351,12 @@ test("ignores undemanded scope and catches up demanded scope on reconnect", asyn
   detachFirst();
   const secondSocket = fakeOpenSocket();
   const detachSecond = attachOrganizationReadModelSocket(
-    runtime.tearleads,
+    runtime.symcrypt,
     secondSocket.ws,
   );
-  acknowledgeLatestDeclaration(runtime.tearleads, secondSocket);
+  acknowledgeLatestDeclaration(runtime.symcrypt, secondSocket);
   await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
+    runtime.symcrypt,
     ORGANIZATION_A,
   );
 

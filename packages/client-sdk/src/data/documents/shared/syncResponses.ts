@@ -6,14 +6,14 @@ import {
   KeyingVerificationError,
   verifyWriteHeader,
   type WriteHeader,
-} from "@tearleads/crypto";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+} from "@symcrypt/crypto";
+import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncResponse,
-} from "@tearleads/validators/response";
-import { parseWalLsn } from "@tearleads/validators/util";
+} from "@symcrypt/validators/response";
+import { parseWalLsn } from "@symcrypt/validators/util";
 import { rethrowDatabaseUnavailableError } from "../../keyingProjectionVerification/error";
 import {
   readRecordPositiveInteger,

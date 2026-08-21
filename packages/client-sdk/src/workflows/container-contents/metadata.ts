@@ -2,8 +2,8 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   importUpdates,
-} from "@tearleads/loro";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/loro";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";

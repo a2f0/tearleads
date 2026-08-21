@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
   sign,
   toFingerprint,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import invariant from "invariant";
 import {
   fetchUserIdentity,

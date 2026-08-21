@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type { ContainerWriterProjectionContext } from "./types";
 
 export function createContainerWriterProjectionContext(

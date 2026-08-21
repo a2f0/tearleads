@@ -1,4 +1,4 @@
-import { satisfiesVersionVector } from "@tearleads/loro";
+import { satisfiesVersionVector } from "@symcrypt/loro";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {

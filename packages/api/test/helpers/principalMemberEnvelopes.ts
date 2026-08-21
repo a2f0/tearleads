@@ -1,10 +1,10 @@
-import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
 import {
   type PrincipalProjectionMember,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 

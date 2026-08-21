@@ -1,4 +1,4 @@
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
 import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
 import {
   assertExactKeys,

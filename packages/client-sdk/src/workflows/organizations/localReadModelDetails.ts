@@ -2,7 +2,7 @@ import type {
   OrganizationContainerGrantResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
 import { loadOrganizationReadModelProjection } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";

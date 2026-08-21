@@ -7,13 +7,13 @@ import type {
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../../providers/sdk/SymCryptProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppBusActions } from "../../bus";
 import { useOrgManagerScopedDataUsage } from "../billing/useOrgManagerScopedDataUsage";
@@ -46,8 +46,8 @@ import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
-  const appData = useTearleadsRuntime();
-  const tearleads = useTearleads();
+  const appData = useSymCryptRuntime();
+  const symcrypt = useSymCrypt();
   const orgManagerActions = useOrgManagerActions();
   const { openMiniApp } = useMiniAppBusActions();
   const addUserListId = useId();
@@ -194,7 +194,7 @@ export function useOrgManagerModel() {
       canLoadAuthenticatedOrgData,
       directory: activeDirectory,
       selectedUserIdRef,
-      tearleads,
+      symcrypt,
     });
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
   const canDeleteGroup = useCallback(
@@ -346,7 +346,7 @@ export function useOrgManagerModel() {
     organizationId,
     refreshDirectoryAndGroups,
     scopeKey: orgManagerScopeKey,
-    tearleads,
+    symcrypt,
   });
   useOrgManagerDetailRefreshEffects({
     readModelCursor,

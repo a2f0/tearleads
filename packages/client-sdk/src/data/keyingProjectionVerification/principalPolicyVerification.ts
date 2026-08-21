@@ -5,8 +5,8 @@ import {
   toFingerprint,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
-} from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   principalPolicyHeadMeetsCheckpoint,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { OrganizationReadModelResponse } from "@symcrypt/validators/response";
 import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,

@@ -9,9 +9,9 @@ import {
 function keyringRecord(overrides: Record<string, unknown> = {}) {
   return {
     version: 1,
-    sealingSuite: "tearleads.container-kek-keyring.aes-256-gcm-current-kek",
+    sealingSuite: "symcrypt.container-kek-keyring.aes-256-gcm-current-kek",
     containerId: "container-1",
-    containerKeyEpochId: "tearleads.container-kek.v1.sha256:ab",
+    containerKeyEpochId: "symcrypt.container-kek.v1.sha256:ab",
     iv: "A".repeat(16),
     sealed: "A".repeat(120),
     ...overrides,

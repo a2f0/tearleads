@@ -14,19 +14,19 @@ import type {
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface ContainerMutationAuthor {

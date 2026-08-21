@@ -1,13 +1,13 @@
 import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import type { DocumentCreateRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { DocumentCreateRequest } from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import {

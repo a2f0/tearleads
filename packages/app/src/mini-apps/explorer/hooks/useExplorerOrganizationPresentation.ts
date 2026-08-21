@@ -1,5 +1,5 @@
-import type { OrganizationDirectoryAndGroups } from "@tearleads/client-sdk";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
 import {
   type ExplorerOrganizationReadModelScope,

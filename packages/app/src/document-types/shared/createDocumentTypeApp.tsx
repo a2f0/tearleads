@@ -1,4 +1,4 @@
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@symcrypt/client-sdk";
 import type { ComponentType } from "react";
 import {
   DEFAULT_DOCUMENT_ID,

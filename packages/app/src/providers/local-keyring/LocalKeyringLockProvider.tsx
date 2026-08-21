@@ -1,4 +1,4 @@
-import { createBrowserLocalKeyringManifestStore } from "@tearleads/client-sdk";
+import { createBrowserLocalKeyringManifestStore } from "@symcrypt/client-sdk";
 import {
   createContext,
   type Dispatch,

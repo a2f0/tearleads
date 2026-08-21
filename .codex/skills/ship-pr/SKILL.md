@@ -56,7 +56,7 @@ actually contains the merge commit; the final checkout reset belongs to `reset`.
 ## Prerequisites
 
 - `git` and `gh` (authenticated) on `PATH`.
-- The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
+- The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The worktree contains only changes intended for this PR. A PR may already be
   open; this is how a prior gated run resumes after fixes.

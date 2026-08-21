@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import {

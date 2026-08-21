@@ -1,4 +1,4 @@
-# @tearleads/agent-tool
+# @symcrypt/agent-tool
 
 Minimal CLI for cross-agent code review and PR squash-merges.
 

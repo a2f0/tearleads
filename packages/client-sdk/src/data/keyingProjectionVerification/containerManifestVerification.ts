@@ -2,8 +2,8 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
-} from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
 import {
   assertCanonicalEqual,

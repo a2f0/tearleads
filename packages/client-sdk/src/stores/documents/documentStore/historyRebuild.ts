@@ -1,10 +1,10 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   importSnapshot,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type { syncRemoteDocument } from "../../../workflows/documents";
 import {
   advancePendingBaseVersion,

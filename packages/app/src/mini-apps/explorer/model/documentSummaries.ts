@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@symcrypt/client-sdk";
 
 export function getDocumentByLocalId(
   documentSummaries: ReadonlyArray<DocumentSummary>,

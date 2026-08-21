@@ -3,7 +3,7 @@ import {
   type AccessManifestCheckpoint,
   type AnyVerifiedAccessManifest,
   verifyAccessManifestLocalCheckpoint,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 

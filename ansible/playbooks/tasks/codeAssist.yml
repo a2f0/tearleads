@@ -2,35 +2,35 @@
 - name: Copy code-assist GitHub App private key
   ansible.builtin.copy:
     src: "{{ code_assist_github_private_key_src }}"
-    dest: /etc/tearleads/code-assist-app.pem
+    dest: /etc/symcrypt/code-assist-app.pem
     owner: root
     group: "{{ server_user }}"
     mode: "0640"
   when: code_assist_github_private_key_src != ""
-  notify: Restart tearleads-code-assist
+  notify: Restart symcrypt-code-assist
   no_log: true
 
 - name: Deploy code-assist environment file
   ansible.builtin.template:
-    src: etc/tearleads/code-assist.env.j2
-    dest: /etc/tearleads/code-assist.env
+    src: etc/symcrypt/code-assist.env.j2
+    dest: /etc/symcrypt/code-assist.env
     owner: root
     group: "{{ server_user }}"
     mode: "0640"
-  notify: Restart tearleads-code-assist
+  notify: Restart symcrypt-code-assist
   no_log: true
 
 - name: Deploy code-assist systemd service
   ansible.builtin.template:
-    src: etc/systemd/system/tearleads-code-assist.service.j2
-    dest: /etc/systemd/system/tearleads-code-assist.service
+    src: etc/systemd/system/symcrypt-code-assist.service.j2
+    dest: /etc/systemd/system/symcrypt-code-assist.service
     owner: root
     group: root
     mode: "0644"
-  notify: Restart tearleads-code-assist
+  notify: Restart symcrypt-code-assist
 
 - name: Enable code-assist systemd service
   ansible.builtin.systemd:
-    name: tearleads-code-assist
+    name: symcrypt-code-assist
     daemon_reload: true
     enabled: true

@@ -3,10 +3,10 @@ import {
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
-import type { RegistrationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { RegistrationRequest } from "@symcrypt/validators/request";
+import type { RegistrationResponse } from "@symcrypt/validators/response";
 import {
   isDuplicateRegistrationFingerprintError,
   RegistrationError,

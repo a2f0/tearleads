@@ -1,4 +1,4 @@
-import type { FileSaver } from "@tearleads/client-sdk";
+import type { FileSaver } from "@symcrypt/client-sdk";
 import {
   createContext,
   type PropsWithChildren,

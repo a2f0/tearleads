@@ -1,5 +1,5 @@
-import type { IdentitySnapshot } from "@tearleads/client-sdk";
-import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
+import type { IdentitySnapshot } from "@symcrypt/client-sdk";
+import type { EncapsulationKeyPair, SigningKeyPair } from "@symcrypt/crypto";
 import {
   createContext,
   type MutableRefObject,
@@ -18,8 +18,8 @@ import {
 import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
-import { useTearleads } from "../sdk/TearleadsProvider";
-import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { useSymCrypt } from "../sdk/SymCryptProvider";
+import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
 import { useGenerateKey } from "./localIdentityGeneration";
 import {
   useDestroyKey,
@@ -89,7 +89,7 @@ interface IdentityProviderActionsInput {
   ) => void;
   readonly persistSessionBeforeIdentityTransition: () => Promise<void>;
   readonly setTransitionInFlight: (inFlight: boolean) => void;
-  readonly tearleads: ReturnType<typeof useTearleads>;
+  readonly symcrypt: ReturnType<typeof useSymCrypt>;
   readonly transitionInFlightRef: MutableRefObject<boolean>;
 }
 
@@ -108,7 +108,7 @@ function useLocalIdentitySwitcherActions(
     persistSessionBeforeIdentityTransition:
       input.persistSessionBeforeIdentityTransition,
     setTransitionInFlight: input.setTransitionInFlight,
-    tearleads: input.tearleads,
+    symcrypt: input.symcrypt,
     transitionInFlightRef: input.transitionInFlightRef,
   };
   const switchIdentity = useSwitchLocalIdentity(identityTransitionInput);
@@ -121,7 +121,7 @@ function useLocalIdentitySwitcherActions(
       input.persistSessionBeforeIdentityTransition,
     setTransitionInFlight: input.setTransitionInFlight,
     switchIdentity,
-    tearleads: input.tearleads,
+    symcrypt: input.symcrypt,
     transitionInFlightRef: input.transitionInFlightRef,
   });
   return useMemo(
@@ -139,19 +139,19 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     localPersistence,
     localIdentityNamespace,
     onIdentitiesChanged,
-    tearleads,
+    symcrypt,
   } = input;
   const persistLocalIdentity = usePersistLocalIdentity(
     localPersistence,
     onIdentitiesChanged,
-    tearleads,
+    symcrypt,
   );
   const generateKey = useGenerateKey({
     ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,
-    tearleads,
+    symcrypt,
   });
   const { destroyKey, identityDestroyed } = useDestroyKey({
     clearDatabase,
@@ -164,7 +164,7 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
         namespace: localIdentityNamespace,
         signingFingerprint,
       }),
-    tearleads,
+    symcrypt,
   });
 
   const { createIdentity, importIdentityPackage, switchIdentity } =
@@ -250,14 +250,14 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     clearWorkerForIdentitySwitch: clearDatabaseForIdentitySwitch,
     ensureIdentityReady: ensureIdentityDatabaseReady,
   } = useDatabase();
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const localKeyringLock = useLocalKeyringLock();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
   const transitionInFlightRef = useRef(false);
   const [identityTransitionInFlight, setIdentityTransitionInFlight] =
     useState(false);
-  const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
+  const snapshot = useSymCryptStoreSnapshot(symcrypt.identity);
   const localPersistence = useLocalIdentityPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
     namespace: localKeyringLock.isLocked
@@ -272,7 +272,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     signingFingerprint: snapshot.signingFingerprint,
   });
   const persistSessionBeforeIdentityTransition = useCallback(async () => {
-    const signingFingerprint = tearleads.identity.signingFingerprint;
+    const signingFingerprint = symcrypt.identity.signingFingerprint;
     if (
       !signingFingerprint ||
       signingFingerprint !== snapshot.signingFingerprint ||
@@ -280,18 +280,18 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     ) {
       return;
     }
-    while (tearleads.identity.signingFingerprint === signingFingerprint) {
-      const sessionSnapshot = tearleads.session.snapshot;
+    while (symcrypt.identity.signingFingerprint === signingFingerprint) {
+      const sessionSnapshot = symcrypt.session.snapshot;
       await queueCryptoSessionPersistence({
         context: { ...sessionSnapshot },
         localPersistence: localSessionPersistence,
         signingFingerprint,
       });
-      if (tearleads.session.snapshot === sessionSnapshot) {
+      if (symcrypt.session.snapshot === sessionSnapshot) {
         return;
       }
     }
-  }, [localSessionPersistence, snapshot.signingFingerprint, tearleads]);
+  }, [localSessionPersistence, snapshot.signingFingerprint, symcrypt]);
   const {
     identities: localIdentities,
     restoredFingerprint: localIdentityRestoredFingerprint,
@@ -301,7 +301,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     generationIdRef,
     generationInFlight,
     localPersistence,
-    tearleads,
+    symcrypt,
   });
   const identityActions = useIdentityProviderActions({
     clearDatabase,
@@ -314,7 +314,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     onIdentitiesChanged: setIdentities,
     persistSessionBeforeIdentityTransition,
     setTransitionInFlight: setIdentityTransitionInFlight,
-    tearleads,
+    symcrypt,
     transitionInFlightRef,
   });
 

@@ -14,11 +14,11 @@ import {
   deriveContainerAccessManifest,
   signAccessEvent,
   type UnsignedAccessEvent,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { readCanonicalJson } from "../../keyingCanonicalJson";
 import { uniqueSortedManifestHashes } from "./projection";
 import type {

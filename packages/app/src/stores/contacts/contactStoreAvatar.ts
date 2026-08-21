@@ -1,7 +1,7 @@
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { CONTACT_AVATAR_SLOT_ID } from "../../document-types/contact/contactAvatarSlot";
 import { ensureContactDocumentStore } from "./contactStoreInitialization";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";

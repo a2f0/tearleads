@@ -8,20 +8,20 @@ import {
   generateKemSeedAndKeyPair,
   signWriteHeader,
   type WriteHeader,
-} from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createContainerWriterProjectionFixture } from "@symcrypt/test-utils";
 import type {
   ContainerManifestRef,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { buildDocumentCreatePlan } from "../../src/data/documents/shared/events";
 import { deriveDocumentCreateTargets } from "../../src/data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";

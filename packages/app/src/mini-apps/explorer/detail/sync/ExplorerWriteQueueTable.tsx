@@ -5,7 +5,7 @@ import type {
   ContainerNode,
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   type MouseEvent,
   useCallback,

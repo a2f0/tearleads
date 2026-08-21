@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
 import { verify } from "../signing/verify";
@@ -215,7 +215,7 @@ export async function computeContentRecordNonceDomainHash(
     normalizeContentRecordNonceDomain(domain);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.content-record-nonce-domain",
+    "symcrypt.keying.content-record-nonce-domain",
     payload,
   );
 }
@@ -239,7 +239,7 @@ async function assertWriteHeaderNonceDomainHash(
 
 function writeHeaderSigningBytes(header: UnsignedWriteHeader): Uint8Array {
   return encodeDomainPayload(
-    "tearleads.keying.write-header-signing",
+    "symcrypt.keying.write-header-signing",
     unsignedWriteHeaderPayload(header),
   );
 }
@@ -288,7 +288,7 @@ export async function computeWriteHeaderHash(
   const payload: KeyingCanonicalPayload<WriteHeader> =
     normalizeWriteHeader(header);
 
-  return computeKeyingDomainHash("tearleads.keying.write-header", payload);
+  return computeKeyingDomainHash("symcrypt.keying.write-header", payload);
 }
 
 export async function verifyWriteHeader({

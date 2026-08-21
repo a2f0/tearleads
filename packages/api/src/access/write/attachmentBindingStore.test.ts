@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { attachmentBindings } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { attachmentBindings } from "@symcrypt/api-shared/schema";
 import {
   type AttachmentBindAccessEventBody,
   type AttachmentDetachAccessEventBody,
@@ -10,7 +10,7 @@ import {
   type VerifiedAccessEvent,
   type VerifiedAttachmentBinding,
   type VerifiedAttachmentDetach,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import {
   storeVerifiedAttachmentBinding,
@@ -18,7 +18,7 @@ import {
 } from "./attachmentBindingStore";
 
 async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+  return computeKeyingDomainHash("symcrypt.keying.access-event-body", {
     label,
   });
 }

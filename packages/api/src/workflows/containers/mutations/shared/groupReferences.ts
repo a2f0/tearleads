@@ -1,9 +1,6 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import {
-  groups,
-  organizationRosterEntries,
-} from "@tearleads/api-shared/schema";
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import { groups, organizationRosterEntries } from "@symcrypt/api-shared/schema";
+import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { ContainerMutationError } from "../errors";

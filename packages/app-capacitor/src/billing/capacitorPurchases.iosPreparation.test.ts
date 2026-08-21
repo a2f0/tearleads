@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { PurchaseProviderStalledError } from "@tearleads/client-sdk";
+import { PurchaseProviderStalledError } from "@symcrypt/client-sdk";
 import {
   createCapacitorPurchases,
   fixture,
@@ -13,7 +13,7 @@ afterEach(resetFixture);
 test("bounds iOS package preparation before opening StoreKit", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.platform = "ios";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   fixture.nativePreparePromise = new Promise(() => {});
 
   await expect(
@@ -23,7 +23,7 @@ test("bounds iOS package preparation before opening StoreKit", async () => {
     }),
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
   expect(fixture.nativePrepareCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);

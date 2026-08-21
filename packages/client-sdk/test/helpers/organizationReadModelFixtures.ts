@@ -5,7 +5,7 @@ import type {
   OrganizationGroupContainersResponse,
   OrganizationUserDetailResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 
 export const organizationId = "org-1";
 export const groupId = "group-1";

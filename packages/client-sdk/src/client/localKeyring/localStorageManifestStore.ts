@@ -10,7 +10,7 @@ import type {
   LocalKeyringScope,
 } from "./types";
 
-const LOCAL_STORAGE_MANIFEST_PREFIX = "tearleads.local-keyring.manifest:";
+const LOCAL_STORAGE_MANIFEST_PREFIX = "symcrypt.local-keyring.manifest:";
 
 export interface LocalStorageLocalKeyringManifestStoreOptions {
   readonly prefix?: string | undefined;

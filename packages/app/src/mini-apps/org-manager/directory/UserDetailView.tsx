@@ -2,7 +2,7 @@ import type {
   OrganizationContainerGrant,
   OrganizationGroupSummary,
   OrganizationUserDetail,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useEffect, useState } from "react";
 import {
   MiniAppActions,

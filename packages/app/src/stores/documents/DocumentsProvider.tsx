@@ -5,7 +5,7 @@ import {
   type DocumentStore,
   type DocumentsRuntime,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -17,9 +17,9 @@ import {
   defineFacadeKeys,
   projectFacade,
 } from "../../providers/sdk/projectFacade";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
-import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import { useSymCryptExternalStoreSnapshot } from "../../providers/sdk/useSymCryptSubscription";
 
 export { DEFAULT_DOCUMENT_ID };
 
@@ -71,17 +71,17 @@ export function DocumentsProvider({
   initialText = "",
   readOnly = false,
 }: DocumentsProviderProps) {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const runtime = useRuntimeScopedMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
-        ? tearleads.documents.workflowRuntime()
-        : tearleads.documents.workflowRuntime(containerId),
-    [containerId, tearleads],
+        ? symcrypt.documents.workflowRuntime()
+        : symcrypt.documents.workflowRuntime(containerId),
+    [containerId, symcrypt],
   );
   const store = useMemo(
     () =>
-      tearleads.documents.open(
+      symcrypt.documents.open(
         {
           containerId,
           documentId,
@@ -98,7 +98,7 @@ export function DocumentsProvider({
       initialText,
       localId,
       runtime,
-      tearleads,
+      symcrypt,
     ],
   );
 
@@ -142,7 +142,7 @@ export function useDocument(): DocumentContextValue {
     throw new Error("useDocument must be used within a DocumentsProvider.");
   }
 
-  const snapshot = useTearleadsExternalStoreSnapshot(store);
+  const snapshot = useSymCryptExternalStoreSnapshot(store);
   const readOnly = useContext(DocumentReadOnlyContext);
 
   return useMemo(

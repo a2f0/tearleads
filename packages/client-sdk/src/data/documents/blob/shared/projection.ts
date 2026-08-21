@@ -1,10 +1,10 @@
-import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
+import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { BlobContentKeyTargetEnvelopeRequest } from "@symcrypt/validators/request";
 import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "../../shared/projection";
 import { unwrapContentKeyTargetForSuite } from "../../shared/projectionContentKeys";

@@ -4,8 +4,8 @@
 
 native_release_default_api() {
   case "$1" in
-    production) printf '%s\n' "https://api.tearleads.com" ;;
-    staging) printf '%s\n' "https://api.tearleads.de" ;;
+    production) printf '%s\n' "https://api.symcrypt.com" ;;
+    staging) printf '%s\n' "https://api-staging.symcrypt.com" ;;
     *) return 1 ;;
   esac
 }
@@ -24,8 +24,8 @@ Usage: $(basename "$0") [fastlane-options...]
 ${native_action_description} the ${native_tier} ${native_platform} store release.
 
 The native app identifier is selected by NATIVE_RELEASE_TIER:
-  production  com.tearleads.app
-  staging     com.tearleads.staging.app
+  production  com.symcrypt.app
+  staging     com.symcrypt.staging.app
 
 Environment:
   VITE_API_BASE_URL  API URL inlined into the Capacitor bundle.
@@ -114,14 +114,6 @@ native_release_url_host() {
   printf '%s\n' "$native_url_host" | tr '[:upper:]' '[:lower:]'
 }
 
-native_release_tier_domain() {
-  case "$1" in
-    production) printf '%s\n' "tearleads.com" ;;
-    staging) printf '%s\n' "tearleads.de" ;;
-    *) return 1 ;;
-  esac
-}
-
 native_release_require_tier_host() {
   native_url_guard_name="$1"
   native_url_guard_tier="$2"
@@ -143,18 +135,16 @@ native_release_require_tier_host() {
   native_url_guard_host="$(native_release_url_host "$native_url_guard_value")"
   native_url_guard_expected_url="$(native_release_default_api "$native_url_guard_tier")"
   native_url_guard_expected_host="$(native_release_url_host "$native_url_guard_expected_url")"
-  native_url_guard_domain="$(native_release_tier_domain "$native_url_guard_tier")"
   case "$native_url_guard_name:$native_url_guard_host" in
     VITE_API_BASE_URL:"$native_url_guard_expected_host" | \
-      VITE_WS_URL:"$native_url_guard_domain" | \
-      VITE_WS_URL:*."$native_url_guard_domain") return 0 ;;
+      VITE_WS_URL:"$native_url_guard_expected_host") return 0 ;;
   esac
 
   echo "Error: $native_url_guard_name=$native_url_guard_value uses host $native_url_guard_host." >&2
   if [ "$native_url_guard_name" = VITE_API_BASE_URL ]; then
     echo "A $native_url_guard_tier release API must use $native_url_guard_expected_host." >&2
   else
-    echo "A $native_url_guard_tier release WebSocket must use $native_url_guard_domain or one of its subdomains." >&2
+    echo "A $native_url_guard_tier release WebSocket must use $native_url_guard_expected_host." >&2
   fi
   return 1
 }

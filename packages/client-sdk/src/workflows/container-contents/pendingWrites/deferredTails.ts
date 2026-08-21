@@ -1,4 +1,4 @@
-import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
+import { mergeVersionVectors, satisfiesVersionVector } from "@symcrypt/loro";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   getContainerDisplayNameSql,

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { db } from "@symcrypt/api-shared/postgres";
+import { createTestUser } from "@symcrypt/bob-and-alice";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { isCommitOrganizationGroupPolicyResponse } from "@symcrypt/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildPrincipalGrantRefreshRequest } from "../../../test/helpers/containerGrantRefresh";

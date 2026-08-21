@@ -19,7 +19,7 @@ export function WorkspaceSwitcher() {
         <button
           key={id}
           type="button"
-          className={`tearleads-action-button tearleads-action-button--icon workspace-button${activeWorkspace === id ? " workspace-button--active" : ""}`}
+          className={`symcrypt-action-button symcrypt-action-button--icon workspace-button${activeWorkspace === id ? " workspace-button--active" : ""}`}
           onClick={() => setActiveWorkspace(id)}
         >
           {id}

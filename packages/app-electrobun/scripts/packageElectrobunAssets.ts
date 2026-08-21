@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
-} from "@tearleads/sqlite-worker/assets";
+} from "@symcrypt/sqlite-worker/assets";
 
 function findPackagedMainViewDir(artifactPath: string): string {
   let searchDir = dirname(artifactPath);

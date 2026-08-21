@@ -1,4 +1,4 @@
-import type { Sqlite3Static } from "@tearleads/sqlite-instance";
+import type { Sqlite3Static } from "@symcrypt/sqlite-instance";
 
 /**
  * Invokes the untyped `sqlite3mc_vfs_create` SQLite3MultipleCiphers C export,

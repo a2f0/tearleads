@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { deriveBuiltInSystemContainers } from "./systemContainers";
 
 const ORGANIZATION_ID = "org-1";

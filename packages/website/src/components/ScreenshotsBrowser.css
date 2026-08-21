@@ -1,9 +1,9 @@
 /* Gallery chrome uses the same theme roles and control rhythm as the app. */
 .screenshots-browser {
-  --sb-bg: var(--tearleads-background);
+  --sb-bg: var(--symcrypt-background);
   --sb-panel: var(--color-light);
-  --sb-border: var(--tearleads-border);
-  --sb-text: var(--tearleads-text);
+  --sb-border: var(--symcrypt-border);
+  --sb-text: var(--symcrypt-text);
   --sb-muted: color-mix(in srgb, var(--sb-text) 68%, transparent);
   --sb-accent: var(--emphasis-surface);
   --sb-accent-text: var(--emphasis-text);

@@ -1,4 +1,4 @@
-import { ThemeInvertIcon } from "@tearleads/ui";
+import { ThemeInvertIcon } from "@symcrypt/ui";
 import { useOptionalTheme } from "./ThemeProvider";
 
 // The theme control that docks in the pane footer's system tray, next to the
@@ -18,7 +18,7 @@ export function ThemeToggleButton() {
   return (
     <button
       aria-label={label}
-      className="tearleads-action-button tearleads-action-button--icon"
+      className="symcrypt-action-button symcrypt-action-button--icon"
       title={label}
       type="button"
       onClick={toggleTheme}

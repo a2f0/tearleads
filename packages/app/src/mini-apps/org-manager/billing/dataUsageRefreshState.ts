@@ -1,4 +1,4 @@
-import type { OrganizationDataUsage } from "@tearleads/client-sdk";
+import type { OrganizationDataUsage } from "@symcrypt/client-sdk";
 
 interface DataUsageRefreshResolution {
   readonly shouldReportMissing: boolean;

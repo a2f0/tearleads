@@ -22,7 +22,7 @@ reject_dev_only_url() {
     localhost | 0.0.0.0 | 127.* | 10.* | 192.168.* | \
       172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | *.local)
       echo "Error: $reject_name=$reject_url points at a dev-only host ($reject_host)." >&2
-      echo "A store release must use a public API URL (e.g. https://api.tearleads.com)." >&2
+      echo "A store release must use a public API URL (e.g. https://api.symcrypt.com)." >&2
       echo "Unset $reject_name (or set it to a public URL) and re-run." >&2
       exit 1
       ;;

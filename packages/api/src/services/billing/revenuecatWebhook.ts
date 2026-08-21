@@ -1,13 +1,13 @@
 import {
   NATIVE_SUBSCRIPTION_STORES,
   type NativeSubscriptionStore,
-} from "@tearleads/validators/billing";
+} from "@symcrypt/validators/billing";
 import type {
   RevenueCatIncomingWebhookEvent,
   RevenueCatTransferWebhookEvent,
-} from "@tearleads/validators/request";
-import { isRevenueCatTransferWebhookEvent } from "@tearleads/validators/request";
-import { isUuidV4String } from "@tearleads/validators/util";
+} from "@symcrypt/validators/request";
+import { isRevenueCatTransferWebhookEvent } from "@symcrypt/validators/request";
+import { isUuidV4String } from "@symcrypt/validators/util";
 import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
   type ActiveNativeSubscription,
@@ -251,7 +251,7 @@ async function processRevenueCatTransfer(
   if (!destination) {
     return ignoreRevenueCatTransfer({
       event,
-      reason: "Transfer destination is not a Tearleads user",
+      reason: "Transfer destination is not a SymCrypt user",
       runtime,
     });
   }

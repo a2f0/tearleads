@@ -1,8 +1,8 @@
 import type {
   ContainerContentsStore,
   ContainerNode,
-  Tearleads,
-} from "@tearleads/client-sdk";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -22,12 +22,12 @@ import {
   findUserSystemContainer,
   type UserSystemContainer,
 } from "../../stores/systemContainers";
-import { useTearleads, useTearleadsRuntime } from "../sdk/TearleadsProvider";
+import { useSymCrypt, useSymCryptRuntime } from "../sdk/SymCryptProvider";
 import {
   resolveContactsBootstrapPolicy,
   usePrimaryLocalOrganization,
 } from "../sdk/usePrimaryLocalOrganization";
-import { useTearleadsExternalStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { useSymCryptExternalStoreSnapshot } from "../sdk/useSymCryptSubscription";
 import {
   createSystemBootstrapTargetKey,
   mergeSystemBootstrapState,
@@ -60,9 +60,9 @@ function useSystemBootstrapInput(input: {
   readonly storeReady: boolean;
   readonly storeNodes: ReadonlyArray<ContainerNode>;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }): SystemBootstrapRunInput | null {
-  const appData = useTearleadsRuntime();
+  const appData = useSymCryptRuntime();
   const signingPrivateKey =
     appData.crypto.signingKeyPair?.signingPrivateKey ?? null;
   const contactsSystemContainer = findUserSystemContainer(
@@ -111,7 +111,7 @@ function useSystemBootstrapInput(input: {
         contactsContainer,
         systemContainers: input.systemContainers,
       }),
-      tearleads: input.tearleads,
+      symcrypt: input.symcrypt,
     };
   }, [
     appData,
@@ -123,7 +123,7 @@ function useSystemBootstrapInput(input: {
     input.store,
     input.storeReady,
     input.systemContainers,
-    input.tearleads,
+    input.symcrypt,
     signingPrivateKey,
   ]);
 }
@@ -243,10 +243,10 @@ export function SystemBootstrapProvider({
   children,
   enabled = true,
 }: PropsWithChildren<{ readonly enabled?: boolean | undefined }>) {
-  const appData = useTearleadsRuntime();
-  const tearleads = useTearleads();
+  const appData = useSymCryptRuntime();
+  const symcrypt = useSymCrypt();
   const { containerStore: store } = useDeviceFirstContainerContents();
-  const snapshot = useTearleadsExternalStoreSnapshot(store);
+  const snapshot = useSymCryptExternalStoreSnapshot(store);
   const systemContainers = useUserSystemContainers();
   const primaryLocalOrganization = usePrimaryLocalOrganization({
     defaultOrganizationId: appData.auth.defaultOrganizationId,
@@ -267,12 +267,12 @@ export function SystemBootstrapProvider({
     storeNodes: snapshot.nodes,
     storeReady: snapshot.ready,
     systemContainers,
-    tearleads,
+    symcrypt,
   });
   const contextValue = useSystemBootstrapController({
     bootstrapInput,
     enabled,
-    logError: tearleads.logError,
+    logError: symcrypt.logError,
   });
 
   usePromoteLocalSystemContainers({
@@ -280,7 +280,7 @@ export function SystemBootstrapProvider({
     currentRootContainerId: appData.state.containerId,
     enabled,
     isAuthenticated: appData.auth.isAuthenticated,
-    logError: tearleads.logError,
+    logError: symcrypt.logError,
     snapshotNodes: snapshot.nodes,
     snapshotReady: snapshot.ready,
     store,
@@ -291,7 +291,7 @@ export function SystemBootstrapProvider({
     currentRootContainerId: appData.state.containerId,
     enabled,
     isAuthenticated: appData.auth.isAuthenticated,
-    logError: tearleads.logError,
+    logError: symcrypt.logError,
     snapshotReady: snapshot.ready,
     store,
     systemContainers,

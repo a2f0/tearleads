@@ -34,31 +34,31 @@ function createFakeStorage(
 
 test("removes the stale pre-restore caches but preserves the identity registry", () => {
   const storage = createFakeStorage({
-    "tearleads.local-session:sqlite:fingerprint": "session",
-    "tearleads.documents.device-seed": "doc-seed",
-    "tearleads.documents:pane.left.session-peer-seed": "doc-tab-seed",
-    "tearleads.container-metadata.device-seed": "meta-seed",
-    "tearleads.app.local-identity-registry": "keep-me",
-    "tearleads.feature-flags:beta": "keep-me-too",
+    "symcrypt.local-session:sqlite:fingerprint": "session",
+    "symcrypt.documents.device-seed": "doc-seed",
+    "symcrypt.documents:pane.left.session-peer-seed": "doc-tab-seed",
+    "symcrypt.container-metadata.device-seed": "meta-seed",
+    "symcrypt.app.local-identity-registry": "keep-me",
+    "symcrypt.feature-flags:beta": "keep-me-too",
   });
 
   clearRestoredLocalCaches(storage);
 
   expect(storage.snapshot()).toEqual({
-    "tearleads.app.local-identity-registry": "keep-me",
-    "tearleads.feature-flags:beta": "keep-me-too",
+    "symcrypt.app.local-identity-registry": "keep-me",
+    "symcrypt.feature-flags:beta": "keep-me-too",
   });
 });
 
 test("is a no-op when there are no stale caches", () => {
   const storage = createFakeStorage({
-    "tearleads.app.local-identity-registry": "keep-me",
+    "symcrypt.app.local-identity-registry": "keep-me",
   });
 
   clearRestoredLocalCaches(storage);
 
   expect(storage.snapshot()).toEqual({
-    "tearleads.app.local-identity-registry": "keep-me",
+    "symcrypt.app.local-identity-registry": "keep-me",
   });
 });
 

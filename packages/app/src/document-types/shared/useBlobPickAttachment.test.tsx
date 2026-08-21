@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { createBlobByteSource } from "@tearleads/client-sdk";
+import type { BlobBytes, BlobInfo, BlobStore } from "@symcrypt/client-sdk";
+import { createBlobByteSource } from "@symcrypt/client-sdk";
 import {
   act,
   cleanup,

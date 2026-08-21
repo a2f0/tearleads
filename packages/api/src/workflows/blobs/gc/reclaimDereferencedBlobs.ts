@@ -1,7 +1,7 @@
 import type {
   ApiDatabase,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
@@ -10,7 +10,7 @@ import {
   blobContentWriteHeaders,
   blobs,
   documentAttachmentAuditEvents,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 

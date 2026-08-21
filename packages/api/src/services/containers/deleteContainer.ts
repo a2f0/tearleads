@@ -1,4 +1,4 @@
-import type { ContainerDeleteResponse } from "@tearleads/validators/response";
+import type { ContainerDeleteResponse } from "@symcrypt/validators/response";
 import {
   DeleteContainerError,
   deleteContainer as runDeleteContainerWorkflow,

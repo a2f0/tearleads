@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../providers/sdk/SymCryptProvider";
 import {
   useDocument,
   useDocumentReadOnly,
@@ -93,7 +93,7 @@ function ContactDocumentAvatar({
     replaceAttachment,
   } = useDocument();
   const readOnly = useDocumentReadOnly();
-  const { infra } = useTearleadsRuntime();
+  const { infra } = useSymCryptRuntime();
   const imageUrlBySlotId = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,

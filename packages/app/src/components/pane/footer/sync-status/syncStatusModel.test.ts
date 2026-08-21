@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   countPendingWrites,
   describeSyncStatus,

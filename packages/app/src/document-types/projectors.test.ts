@@ -6,13 +6,13 @@ import {
   type StoredDocumentKind,
   type StructuredDocumentShape,
   writeStoredDocumentFields as writeStoredDocumentFieldsBase,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import { readContactFieldsFromRecord } from "./contact/contactDocumentDefinition";
 import { readCreditCardFieldsFromRecord } from "./credit-card/creditCardDocumentDefinition";
 import { readDriverLicenseFieldsFromRecord } from "./drivers-license/driverLicenseDocumentDefinition";

@@ -2,7 +2,7 @@ import {
   getOrganizationDataUsageOperation,
   isGetOrganizationDataUsageOperationResponse,
   operationRequestPath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const getOrganizationDataUsage = {
   isResponse: isGetOrganizationDataUsageOperationResponse,

@@ -16,10 +16,10 @@ test("app-web deploy builds against the websocket events endpoint", async () => 
   const deployScript = await Bun.file(
     new URL("./deployAppWeb.sh", import.meta.url),
   ).text();
-  const domainPlaceholder = "$" + "{DOMAIN}";
+  const apiHostnamePlaceholder = "$" + "{API_HOSTNAME}";
 
   expect(deployScript).toContain("NODE_ENV=production");
   expect(deployScript).toContain(
-    `BUN_PUBLIC_WS_URL="wss://api.${domainPlaceholder}/events"`,
+    `BUN_PUBLIC_WS_URL="wss://${apiHostnamePlaceholder}/events"`,
   );
 });

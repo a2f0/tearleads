@@ -6,7 +6,7 @@ import {
   PurchaseCancelledError,
   PurchaseProviderStalledError,
   PurchasesUnavailableError,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createCapacitorPurchases,
   fixture,
@@ -20,7 +20,7 @@ afterEach(resetFixture);
 test("purchases Android packages through the bounded native bridge", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   await createCapacitorPurchases().purchaseSync({
     organizationId: "org-1",
@@ -28,10 +28,10 @@ test("purchases Android packages through the bounded native bridge", async () =>
   });
 
   expect(fixture.nativePrepareCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.nativePurchaseCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
 });
@@ -39,7 +39,7 @@ test("purchases Android packages through the bounded native bridge", async () =>
 test("rejects a package whose identity changes after preparation", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
-  const aPackage = nativePackage("monthly", "com.tearleads.sync.monthly");
+  const aPackage = nativePackage("monthly", "com.symcrypt.sync.monthly");
   fixture.packages = [aPackage];
   fixture.onNativePrepare = () => {
     Object.assign(aPackage, { identifier: "changed" });
@@ -100,7 +100,7 @@ test("rejects an incomplete Play product change before preparation", async () =>
 test("bounds Android native preparation before opening Play", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   fixture.nativePreparePromise = new Promise(() => {});
 
   await expect(
@@ -110,7 +110,7 @@ test("bounds Android native preparation before opening Play", async () => {
     }),
   ).rejects.toBeInstanceOf(PurchaseProviderStalledError);
   expect(fixture.nativePrepareCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);

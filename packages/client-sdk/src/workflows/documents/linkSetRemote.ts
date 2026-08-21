@@ -1,9 +1,9 @@
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import type {

@@ -1,9 +1,9 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestHeads,
   accessManifests,
-} from "@tearleads/api-shared/schema";
-import type { ContainerKekTarget } from "@tearleads/crypto";
+} from "@symcrypt/api-shared/schema";
+import type { ContainerKekTarget } from "@symcrypt/crypto";
 import { sql } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { isRecord } from "../../../utils/record";

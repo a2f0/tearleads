@@ -1,4 +1,4 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type { SymCrypt } from "@symcrypt/client-sdk";
 import { useEffect, useRef } from "react";
 import {
   releaseDeferredOrganizationReadModelHint,
@@ -18,7 +18,7 @@ interface OrgManagerDirectorySyncInput {
     options?: DirectoryRefreshOptions,
   ) => Promise<DirectoryRefreshResult>;
   readonly scopeKey: string;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }
 
 /** Immediate local load plus demand-scoped background reconciliation. */
@@ -45,7 +45,7 @@ export function useOrgManagerDirectorySync(
       return;
     }
     return subscribeOrganizationReadModelRealtime(
-      input.tearleads,
+      input.symcrypt,
       input.organizationId,
       () =>
         refreshDirectoryAndGroupsRef.current({
@@ -62,7 +62,7 @@ export function useOrgManagerDirectorySync(
     input.online,
     input.organizationId,
     input.scopeKey,
-    input.tearleads,
+    input.symcrypt,
   ]);
 
   useEffect(() => {
@@ -70,8 +70,8 @@ export function useOrgManagerDirectorySync(
       return;
     }
     releaseDeferredOrganizationReadModelHint(
-      input.tearleads,
+      input.symcrypt,
       input.organizationId,
     );
-  }, [input.mutating, input.organizationId, input.tearleads]);
+  }, [input.mutating, input.organizationId, input.symcrypt]);
 }

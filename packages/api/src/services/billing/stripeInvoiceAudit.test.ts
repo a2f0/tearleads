@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { organizationBillingInvoiceEvents } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { organizationBillingInvoiceEvents } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
   createWebhookBillingOrganization,

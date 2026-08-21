@@ -1,13 +1,13 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   type OrganizationBillingProvider,
   type OrganizationBillingStatus,
   organizationBillingStripeSeats,
-} from "@tearleads/api-shared/schema";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/schema";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq, inArray, or } from "drizzle-orm";
 import {
   resolveOrganizationIdFromTransactionMetadata,

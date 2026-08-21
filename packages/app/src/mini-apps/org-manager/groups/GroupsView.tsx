@@ -5,7 +5,7 @@ import type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useContextMenuState } from "../../../components/shared/useContextMenuState";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { GroupContextMenu } from "./GroupContextMenu";

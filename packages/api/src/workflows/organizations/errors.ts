@@ -1,4 +1,4 @@
-import type { BillingErrorCode } from "@tearleads/validators/billing";
+import type { BillingErrorCode } from "@symcrypt/validators/billing";
 
 type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409 | 503;
 

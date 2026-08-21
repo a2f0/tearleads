@@ -1,8 +1,8 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
   createRemoteContainer as createRemoteContainerMutation,

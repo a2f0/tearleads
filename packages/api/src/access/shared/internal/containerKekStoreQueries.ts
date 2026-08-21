@@ -1,13 +1,13 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   containerKeyEpochs,
   containerKeyWraps,
-} from "@tearleads/api-shared/schema";
-import type { ContainerKekKeyring } from "@tearleads/crypto";
+} from "@symcrypt/api-shared/schema";
+import type { ContainerKekKeyring } from "@symcrypt/crypto";
 import {
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
-} from "@tearleads/validators/util";
+} from "@symcrypt/validators/util";
 import type { SQL } from "drizzle-orm";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import type {

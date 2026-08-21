@@ -6,13 +6,13 @@ import {
   deletePersistedDocument,
   openDocumentStore,
   subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
-} from "@tearleads/client-sdk/sqlite";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk/sqlite";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";

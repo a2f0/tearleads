@@ -1,4 +1,4 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
 
 function isPeerIdString(value: string): value is `${number}` {

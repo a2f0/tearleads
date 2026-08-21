@@ -3,8 +3,8 @@ import {
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -12,13 +12,13 @@ import {
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createManagedContainerWrap,
   createRotatedGroupPolicy,

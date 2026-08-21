@@ -2,14 +2,14 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
-} from "@tearleads/api-shared/schema";
-import type { DocumentContentKeyTarget, WriteHeader } from "@tearleads/crypto";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+} from "@symcrypt/api-shared/schema";
+import type { DocumentContentKeyTarget, WriteHeader } from "@symcrypt/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   carryForwardContentKeyTargets,

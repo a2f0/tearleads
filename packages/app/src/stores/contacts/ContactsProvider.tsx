@@ -2,8 +2,8 @@ import type {
   ContainerContentsStore,
   ContainerNode,
   DocumentSummary,
-} from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+} from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import {
   createContext,
   type PropsWithChildren,
@@ -18,15 +18,15 @@ import {
 } from "../../providers/sdk/projectFacade";
 import {
   type RuntimeSnapshot,
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+  useSymCryptRuntime,
+} from "../../providers/sdk/SymCryptProvider";
 import {
   resolveContactsBootstrapPolicy,
   usePrimaryLocalOrganization,
 } from "../../providers/sdk/usePrimaryLocalOrganization";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
-import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import { useSymCryptExternalStoreSnapshot } from "../../providers/sdk/useSymCryptSubscription";
 import { useUserSystemContainers } from "../../providers/system-bootstrap/UserSystemContainersProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import { getExplorerSystemContainerId } from "../explorer/ExplorerSystemContainers";
@@ -276,18 +276,18 @@ function useContactsSystemContainerBootstrap(input: {
 }
 
 export function ContactsProvider({ children }: PropsWithChildren) {
-  const tearleads = useTearleads();
-  const appData = useTearleadsRuntime();
+  const symcrypt = useSymCrypt();
+  const appData = useSymCryptRuntime();
   const containerContentsRuntime = useRuntimeScopedMemo(
-    () => tearleads.containerContents.workflowRuntime(),
-    [tearleads],
+    () => symcrypt.containerContents.workflowRuntime(),
+    [symcrypt],
   );
   const { containerStore: containerContentsStore } =
     useDeviceFirstContainerContents();
   const hasRootContainerId = Boolean(
     containerContentsRuntime.state.containerId,
   );
-  const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
+  const containerContentsSnapshot = useSymCryptExternalStoreSnapshot(
     containerContentsStore,
   );
   const canBootstrapContactsContainer = useContactsOrganizationPolicy({
@@ -327,7 +327,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     contactsSystemSlot,
     hasRootContainerId,
     isAuthenticated: containerContentsRuntime.auth.isAuthenticated,
-    logError: tearleads.logError,
+    logError: symcrypt.logError,
     ready: containerContentsSnapshot.ready,
     store: containerContentsStore,
   });
@@ -346,7 +346,7 @@ export function useContacts(): ContactsContextValue {
   }
   const { canWrite, store } = contextValue;
 
-  const snapshot = useTearleadsExternalStoreSnapshot(store);
+  const snapshot = useSymCryptExternalStoreSnapshot(store);
 
   return useMemo(
     () => ({

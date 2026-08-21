@@ -1,21 +1,21 @@
 import {
   execDatabaseStatement,
   loadSqlite3,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+} from "@symcrypt/sqlite-worker/load-sqlite3";
 import type {
   DatabaseWorkerInitOptions,
   WorkerRequest,
   WorkerResponse,
-} from "@tearleads/sqlite-worker/types";
+} from "@symcrypt/sqlite-worker/types";
 import {
   WORKER_CONNECT_PORT_MESSAGE_TYPE,
   WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
   WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
-} from "@tearleads/sqlite-worker/types";
+} from "@symcrypt/sqlite-worker/types";
 import {
   handleRequest,
   isWorkerRequest,
-} from "@tearleads/sqlite-worker/worker-core";
+} from "@symcrypt/sqlite-worker/worker-core";
 
 type TestDatabase = InstanceType<
   Awaited<ReturnType<typeof loadSqlite3>>["oo1"]["DB"]

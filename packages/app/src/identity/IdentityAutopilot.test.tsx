@@ -34,7 +34,7 @@ import {
 
 afterEach(cleanupPaneTestEnvironment);
 
-const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
+const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "symcrypt.local-session:";
 const USER_ID_STATUS_PATTERN =
   /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 

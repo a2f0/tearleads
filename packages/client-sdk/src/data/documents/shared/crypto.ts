@@ -7,11 +7,11 @@ import {
   computeDocumentContentRecordPlaintextHash,
   createAesGcmIv,
   serializeKeyingCanonicalJson,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { versionVectorsEqual } from "@tearleads/loro";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { versionVectorsEqual } from "@symcrypt/loro";
+import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 import {
   deriveDocumentContentRecordKey,

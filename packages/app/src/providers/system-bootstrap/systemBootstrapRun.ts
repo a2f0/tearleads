@@ -1,9 +1,9 @@
 import type {
   ContainerContentsStore,
   ContainerNode,
-  Tearleads,
-} from "@tearleads/client-sdk";
-import { bytesToBase64 } from "@tearleads/encoding";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   type EnsureSelfContactInput,
   getSelfContactLocalId,
@@ -13,7 +13,7 @@ import {
   getOrCreateContactsStoreForRuntime,
 } from "../../stores/contacts/useContactsStoreForContainer";
 import type { UserSystemContainer } from "../../stores/systemContainers";
-import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../sdk/SymCryptProvider";
 import { ensureSystemBootstrapContainer } from "./systemContainerBootstrap";
 
 // The non-React core of system bootstrap: the provisioning run, its target-key
@@ -50,7 +50,7 @@ export interface SystemBootstrapRunInput {
   readonly containerContentsStore: ContainerContentsStore;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
   readonly targetKey: string;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }
 
 function getSelfContactInput(input: {
@@ -94,7 +94,7 @@ function canBootstrapRemoteSelfContactIdentity(
 async function ensureSelfContact(input: {
   readonly appData: RuntimeSnapshot;
   readonly contactsContainer: ContainerNode;
-  readonly tearleads: Tearleads;
+  readonly symcrypt: SymCrypt;
 }): Promise<boolean> {
   const selfContact = getSelfContactInput({
     appData: input.appData,
@@ -107,15 +107,15 @@ async function ensureSelfContact(input: {
     return false;
   }
 
-  const documentsRuntime = input.tearleads.documents.workflowRuntime(
+  const documentsRuntime = input.symcrypt.documents.workflowRuntime(
     input.contactsContainer.id,
   );
   const contactsRuntime = createContactsRuntimeForContainer(
-    input.tearleads,
+    input.symcrypt,
     documentsRuntime,
   );
   const contactsStore = getOrCreateContactsStoreForRuntime(
-    input.tearleads,
+    input.symcrypt,
     contactsRuntime,
   );
   contactsStore.updateRuntime(contactsRuntime);
@@ -157,7 +157,7 @@ export async function runSystemBootstrap(
   return ensureSelfContact({
     appData: input.appData,
     contactsContainer,
-    tearleads: input.tearleads,
+    symcrypt: input.symcrypt,
   });
 }
 

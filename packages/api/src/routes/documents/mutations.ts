@@ -5,12 +5,12 @@ import {
   linkDocumentOperation,
   operationRoutePath,
   unlinkDocumentOperation,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -20,7 +20,7 @@ import {
   type DocumentPurgeResponse,
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";

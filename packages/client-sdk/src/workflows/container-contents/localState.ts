@@ -1,5 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates, importUpdates } from "@tearleads/loro";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { exportAllUpdates, importUpdates } from "@symcrypt/loro";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,

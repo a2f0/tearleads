@@ -52,51 +52,51 @@ async function runTierHostGuard(
 describe("native release URL guards", () => {
   test("uses tier-specific API defaults", async () => {
     await expect(nativeDefaultApi("production")).resolves.toBe(
-      "https://api.tearleads.com",
+      "https://api.symcrypt.com",
     );
     await expect(nativeDefaultApi("staging")).resolves.toBe(
-      "https://api.tearleads.de",
+      "https://api-staging.symcrypt.com",
     );
   });
 
   test("rejects cross-tier and deceptive hosts", async () => {
     const stagingWrong = await Promise.all(
       [
-        "https://api.tearleads.com/",
-        "https://api.tearleads.com:443",
-        "https://API.tearleads.com",
-        "https://api.tearleads.com/v1",
+        "https://api.symcrypt.com/",
+        "https://api.symcrypt.com:443",
+        "https://API.symcrypt.com",
+        "https://api.symcrypt.com/v1",
       ].map((url) => runTierHostGuard("VITE_API_BASE_URL", "staging", url)),
     );
     const productionWrong = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "production",
-      "https://api.tearleads.de",
+      "https://api-staging.symcrypt.com",
     );
     const stagingSocketWrong = await runTierHostGuard(
       "VITE_WS_URL",
       "staging",
-      "wss://api.tearleads.com/v1/events",
+      "wss://api.symcrypt.com/v1/events",
     );
     const deceptiveStagingSockets = await Promise.all(
       [
-        "wss://tearleads.de.example/socket",
-        "wss://evil.example#@events.tearleads.de",
-        "wss://evil.example?next=@events.tearleads.de",
+        "wss://symcrypt.com.example/socket",
+        "wss://evil.example#@api-staging.symcrypt.com",
+        "wss://evil.example?next=@api-staging.symcrypt.com",
       ].map((url) => runTierHostGuard("VITE_WS_URL", "staging", url)),
     );
     const stagingUnknown = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "staging",
-      "https://tearleads.com",
+      "https://symcrypt.com",
     );
 
     for (const result of stagingWrong) {
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("must use api.tearleads.de");
+      expect(result.stderr).toContain("must use api-staging.symcrypt.com");
     }
     expect(productionWrong.exitCode).toBe(1);
-    expect(productionWrong.stderr).toContain("must use api.tearleads.com");
+    expect(productionWrong.stderr).toContain("must use api.symcrypt.com");
     expect(stagingSocketWrong.exitCode).toBe(1);
     expect(stagingSocketWrong.stderr).toContain("VITE_WS_URL");
     for (const result of deceptiveStagingSockets) {
@@ -109,12 +109,12 @@ describe("native release URL guards", () => {
     const insecureApi = await runTierHostGuard(
       "VITE_API_BASE_URL",
       "staging",
-      "http://api.tearleads.de",
+      "http://api-staging.symcrypt.com",
     );
     const insecureSocket = await runTierHostGuard(
       "VITE_WS_URL",
       "staging",
-      "ws://events.tearleads.de/socket",
+      "ws://api-staging.symcrypt.com/socket",
     );
 
     expect(insecureApi.exitCode).toBe(1);
@@ -128,17 +128,17 @@ describe("native release URL guards", () => {
       runTierHostGuard(
         "VITE_API_BASE_URL",
         "staging",
-        "https://api.tearleads.de",
+        "https://api-staging.symcrypt.com",
       ),
       runTierHostGuard(
         "VITE_WS_URL",
         "staging",
-        "wss://events.tearleads.de/socket",
+        "wss://api-staging.symcrypt.com/events",
       ),
       runTierHostGuard(
         "VITE_WS_URL",
         "production",
-        "wss://events.tearleads.com/socket",
+        "wss://api.symcrypt.com/events",
       ),
       runTierHostGuard("VITE_WS_URL", "staging", ""),
     ]);

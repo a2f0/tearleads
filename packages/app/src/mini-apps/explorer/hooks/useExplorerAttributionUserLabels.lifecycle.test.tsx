@@ -5,10 +5,10 @@ import {
   type OrganizationDirectoryAndGroups,
   type OrganizationDirectoryUser,
   type PersistedDocumentListener,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
+import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
@@ -92,7 +92,7 @@ function profileSummary(input: {
   };
 }
 
-function createTearleadsHarness(input?: {
+function createSymCryptHarness(input?: {
   rows?: ReadonlyArray<DocumentSummary>;
 }) {
   let rows = input?.rows ?? [];
@@ -107,14 +107,14 @@ function createTearleadsHarness(input?: {
   const loadLocalDirectoryAndGroups = mock(() => Promise.resolve(null));
   const loadDirectoryAndGroups = mock(() => Promise.resolve(null));
   const logError = mock(() => undefined);
-  const tearleads = {
+  const symcrypt = {
     documents: { list, open, subscribe },
     logError,
     organizations: {
       loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups,
     },
-  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
+  } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
   return {
     emit(document: DocumentSummary) {
       rows = [...rows.filter((row) => row.id !== document.id), document];
@@ -129,7 +129,7 @@ function createTearleadsHarness(input?: {
     open,
     requestSync,
     subscribe,
-    tearleads,
+    symcrypt,
   };
 }
 
@@ -140,11 +140,11 @@ test("59 cold roster profiles cause one local query and zero hydration fanout", 
       userId: `profile-user-${index}`,
     }),
   );
-  const harness = createTearleadsHarness();
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const harness = createSymCryptHarness();
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
   const appData = runtimeSnapshot({
     domainScope: {},
     userId: "viewer-user-id",
@@ -168,7 +168,7 @@ test("59 cold roster profiles cause one local query and zero hydration fanout", 
     expect(harness.loadLocalDirectoryAndGroups).toHaveBeenCalledTimes(0);
     expect(harness.loadDirectoryAndGroups).toHaveBeenCalledTimes(0);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });
 
@@ -178,7 +178,7 @@ test("local profile updates repaint while group-only revisions do not reload", a
     userId: PROFILE_USER_ID,
   });
   const firstProjection = projection([user], "cursor-1");
-  const harness = createTearleadsHarness({
+  const harness = createSymCryptHarness({
     rows: [
       profileSummary({
         profileDocumentId: FIRST_PROFILE_ID,
@@ -187,10 +187,10 @@ test("local profile updates repaint while group-only revisions do not reload", a
       }),
     ],
   });
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
   const appData = runtimeSnapshot({
     domainScope: {},
     userId: "viewer-user-id",
@@ -256,7 +256,7 @@ test("local profile updates repaint while group-only revisions do not reload", a
     );
     expect(harness.list).toHaveBeenCalledTimes(2);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });
 
@@ -265,7 +265,7 @@ test("profile binding changes reject stale local rows and roster removal clears"
     profileDocumentId: FIRST_PROFILE_ID,
     userId: PROFILE_USER_ID,
   });
-  const harness = createTearleadsHarness({
+  const harness = createSymCryptHarness({
     rows: [
       profileSummary({
         profileDocumentId: FIRST_PROFILE_ID,
@@ -274,10 +274,10 @@ test("profile binding changes reject stale local rows and roster removal clears"
       }),
     ],
   });
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
   const appData = runtimeSnapshot({
     domainScope: {},
     userId: "viewer-user-id",
@@ -393,7 +393,7 @@ test("profile binding changes reject stale local rows and roster removal clears"
     await act(async () => Promise.resolve());
     expect(harness.list).toHaveBeenCalledTimes(4);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });
 
@@ -402,7 +402,7 @@ test("auth, database, identity, and domain transitions never render stale names"
     profileDocumentId: FIRST_PROFILE_ID,
     userId: PROFILE_USER_ID,
   });
-  const harness = createTearleadsHarness({
+  const harness = createSymCryptHarness({
     rows: [
       profileSummary({
         profileDocumentId: FIRST_PROFILE_ID,
@@ -411,10 +411,10 @@ test("auth, database, identity, and domain transitions never render stale names"
       }),
     ],
   });
-  const useTearleadsSpy = spyOn(
-    TearleadsProvider,
-    "useTearleads",
-  ).mockImplementation(() => harness.tearleads);
+  const useSymCryptSpy = spyOn(
+    SymCryptProvider,
+    "useSymCrypt",
+  ).mockImplementation(() => harness.symcrypt);
   const firstScope = {};
   const readModelProjection = projection([user], "cursor-1");
 
@@ -463,6 +463,6 @@ test("auth, database, identity, and domain transitions never render stale names"
     );
     expect(harness.list).toHaveBeenCalledTimes(2);
   } finally {
-    useTearleadsSpy.mockRestore();
+    useSymCryptSpy.mockRestore();
   }
 });

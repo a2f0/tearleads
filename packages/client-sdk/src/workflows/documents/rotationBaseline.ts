@@ -2,8 +2,8 @@ import {
   emptyVersionVector,
   getImportBlobMetadata,
   versionVectorsEqual,
-} from "@tearleads/loro";
-import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+} from "@symcrypt/loro";
+import type { DocumentOutgoingUpdate } from "@symcrypt/validators/request";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useTearleads } from "../sdk/TearleadsProvider";
-import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { useSymCrypt } from "../sdk/SymCryptProvider";
+import { useSymCryptStoreSnapshot } from "../sdk/useSymCryptSubscription";
 
 interface ServerEvent {
   id: string;
@@ -24,8 +24,8 @@ function isServerEvent(value: unknown): value is ServerEvent {
 }
 
 export function useEvents(): EventsContextValue {
-  const tearleads = useTearleads();
-  const snapshot = useTearleadsStoreSnapshot(tearleads.events);
+  const symcrypt = useSymCrypt();
+  const snapshot = useSymCryptStoreSnapshot(symcrypt.events);
 
   return useMemo(
     () => ({

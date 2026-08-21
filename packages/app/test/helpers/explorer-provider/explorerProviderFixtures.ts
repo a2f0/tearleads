@@ -2,18 +2,18 @@ import {
   type createContainerContentsStore as createExplorerStore,
   defaultDocumentsPersistence,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
-} from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
-import { computeAccessEventHash } from "@tearleads/crypto";
+} from "@symcrypt/client-sdk";
+import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
+import { computeAccessEventHash } from "@symcrypt/crypto";
 import {
   createContainerMutationResponseFromRequest,
   createContainerWriterProjectionFixture,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import type {
   ContainerMutationRequest,
   DocumentCreateRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   AccessManifestBundleWireResponse,
   ContainerMutationResponse,
@@ -22,8 +22,8 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   ListContainersResponse,
-} from "@tearleads/validators/response";
-import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
+} from "@symcrypt/validators/response";
+import { isAccessManifestBundleWireResponse } from "@symcrypt/validators/util";
 import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 
 export type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];

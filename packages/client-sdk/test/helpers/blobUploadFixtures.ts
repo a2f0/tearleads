@@ -4,12 +4,12 @@ import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
-} from "@tearleads/crypto";
-import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
 import type {
   BlobAttachmentBindResponse,
   DocumentCreateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { BlobAttachmentApi } from "../../src/data/documents/blob/shared/types";
 import {
   readWriteHeader,

@@ -1,8 +1,8 @@
 import type {
   ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
-} from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
 
 export interface ExplorerSidebarWindowCall {
   containerId: string | null;

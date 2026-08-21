@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { KeyingVerificationError } from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { sql } from "drizzle-orm";
 import { getClientSQLitePersistenceRuntime } from "../data/sqlite/sqlitePersistenceRuntime";
 import type {

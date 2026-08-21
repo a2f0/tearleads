@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
 
 /** Reconciles the provider-specific seat outbox after local seat accounting. */

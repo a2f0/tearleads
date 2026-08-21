@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 
 const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 

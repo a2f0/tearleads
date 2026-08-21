@@ -1,4 +1,4 @@
-import { bytesToHex, generateChallenge } from "@tearleads/crypto";
+import { bytesToHex, generateChallenge } from "@symcrypt/crypto";
 import type { Context, Next } from "hono";
 import { createMiddleware } from "hono/factory";
 import {

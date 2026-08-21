@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 
-const CHOICE_KEY = "tearleads.theme.choice";
+const CHOICE_KEY = "symcrypt.theme.choice";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const originalMatchMedia = window.matchMedia;

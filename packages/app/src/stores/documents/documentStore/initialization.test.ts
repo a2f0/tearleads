@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocumentStore } from "@tearleads/client-sdk";
+import { createDocumentStore } from "@symcrypt/client-sdk";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,

@@ -2,13 +2,13 @@ import {
   DOCUMENTS_APP_KIND,
   defaultDocumentsPersistence,
   getDocumentClientProjectionTables,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   clientSQLiteSchema,
   type ExecSql,
   ensureSqlTables,
   getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { and, eq } from "drizzle-orm";
 import { contactProjection } from "../../document-projectors/contactClientProjection";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";

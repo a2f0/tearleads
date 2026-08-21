@@ -6,13 +6,13 @@ import {
   defaultDocumentsPersistence,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   type DocumentRecord as StoredDocumentRecord,
-} from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/client-sdk";
+import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,

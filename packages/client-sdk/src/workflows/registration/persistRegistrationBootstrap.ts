@@ -1,12 +1,12 @@
-import { bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   importUpdates,
-} from "@tearleads/loro";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+} from "@symcrypt/loro";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";

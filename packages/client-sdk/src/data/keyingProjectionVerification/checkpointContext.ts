@@ -2,7 +2,7 @@ import {
   type AnyVerifiedAccessManifest,
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 

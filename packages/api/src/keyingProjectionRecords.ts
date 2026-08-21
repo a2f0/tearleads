@@ -1,16 +1,17 @@
 import type {
   AccessEvent,
   AccessManifest,
+  ContainerAccessManifest,
   ContainerGrantPrincipalHead,
   KeyingCanonicalJson,
   KeyingVerificationError,
   ManagedPrincipalKind,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
-} from "@tearleads/crypto";
-import { makeVerifiedAccessEvent } from "@tearleads/crypto";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
+} from "@symcrypt/crypto";
+import { makeVerifiedAccessEvent } from "@symcrypt/crypto";
+import { isPlainObject } from "@symcrypt/validators/isPlainObject";
+import type { AccessEventBundleWireResponse } from "@symcrypt/validators/util";
 import { projectionReferencedPrincipalHeadRecord } from "./keyingProjectionManifestRecords";
 import { isKeyingCanonicalJson } from "./utils/canonicalJson";
 
@@ -423,11 +424,35 @@ export function readProjectionAccessManifest(
   };
 }
 
+export function readProjectionContainerAccessManifest(
+  value: unknown,
+  label: string,
+  error: ProjectionErrorFactory,
+): ContainerAccessManifest {
+  const manifest = readProjectionAccessManifest(value, label, error);
+  if (manifest.objectKind !== "container") {
+    throw error(`${label}.objectKind must be container`);
+  }
+
+  return {
+    ...manifest,
+    objectKind: "container",
+    referencedPrincipalHeads: readProjectionContainerGrantPrincipalHeads(
+      manifest.referencedPrincipalHeads,
+      `${label}.referencedPrincipalHeads`,
+      error,
+    ),
+  };
+}
+
 export function createProjectionReaders(error: ProjectionErrorFactory) {
   return {
     accessManifestRecord: projectionAccessManifestRecord,
     readAccessManifest(value: unknown, label: string) {
       return readProjectionAccessManifest(value, label, error);
+    },
+    readContainerAccessManifest(value: unknown, label: string) {
+      return readProjectionContainerAccessManifest(value, label, error);
     },
     readCanonicalRecord(value: KeyingCanonicalJson, label: string) {
       return readProjectionRecord(value, label, error);

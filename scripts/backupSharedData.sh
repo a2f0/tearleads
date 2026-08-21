@@ -4,7 +4,7 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SOURCE_DIRS_REL=(".secrets" ".test_files")
 SOURCE_DIRS=("${SOURCE_DIRS_REL[@]/#/$REPO_ROOT/}")
-DEFAULT_OUTPUT_DIR="$HOME/tearleads-backups"
+DEFAULT_OUTPUT_DIR="$HOME/symcrypt-backups"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 PASSWORD=""
 NO_PASSWORD=false

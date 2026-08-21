@@ -108,7 +108,7 @@ export function getSyncBillingTierForNativeProduct(
   if (
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||
-    normalized === "com.tearleads.sync.monthly" ||
+    normalized === "com.symcrypt.sync.monthly" ||
     normalized === "sync_solo_monthly" ||
     normalized === "sync_solo_monthly_staging"
   ) {

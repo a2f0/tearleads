@@ -4,7 +4,7 @@ import {
   requestAllDomainSyncLanes,
   resolveOrganizationBillingView,
   type SyncBillingGate,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContext,
   type Dispatch,
@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 import { useCryptoSession } from "../crypto/CryptoSessionProvider";
-import { useTearleads } from "../sdk/TearleadsProvider";
+import { useSymCrypt } from "../sdk/SymCryptProvider";
 import { BILLING_LABELS } from "./billingLabels";
 
 /** Stable billing snapshot shared via context; the derived view lives in the hook. */
@@ -316,10 +316,10 @@ export function syncBillingBlockAppliesToOrganization(
  * source and the same refresh, so a single GET backs both.
  */
 export function BillingProvider({ children }: PropsWithChildren) {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const { isAuthenticated, organizationId } = useCryptoSession();
   const activeOrganizationId = isAuthenticated ? organizationId : null;
-  const value = useOrganizationBillingState(tearleads, activeOrganizationId);
+  const value = useOrganizationBillingState(symcrypt, activeOrganizationId);
   const { billing, refresh } = value;
 
   // When a sync write is rejected for payment (HTTP 402), refetch billing so the
@@ -328,7 +328,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
   // refetches, since the active org is the usual sync target.
   useEffect(
     () =>
-      tearleads.syncBillingGate.subscribe((blockedOrganizationId) => {
+      symcrypt.syncBillingGate.subscribe((blockedOrganizationId) => {
         if (
           activeOrganizationId !== null &&
           (blockedOrganizationId === null ||
@@ -337,7 +337,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
           void refresh();
         }
       }),
-    [activeOrganizationId, refresh, tearleads],
+    [activeOrganizationId, refresh, symcrypt],
   );
 
   // On re-activation (billing recovered to a syncable state after a block): a
@@ -356,13 +356,13 @@ export function BillingProvider({ children }: PropsWithChildren) {
     if (!view.canSync) {
       return;
     }
-    const gate = tearleads.syncBillingGate;
+    const gate = symcrypt.syncBillingGate;
     if (!syncBillingBlockAppliesToOrganization(gate, billing.organizationId)) {
       return;
     }
-    requestAllDomainSyncLanes(tearleads.domainScope);
+    requestAllDomainSyncLanes(symcrypt.domainScope);
     gate.clearBlock(billing.organizationId);
-  }, [billing, tearleads]);
+  }, [billing, symcrypt]);
 
   return (
     <OrganizationBillingContext.Provider value={value}>

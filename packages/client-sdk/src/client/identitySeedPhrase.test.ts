@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
+import { createIdentitySeedPhraseFromEntropy } from "@symcrypt/crypto";
 import { createIdentity } from "./identity";
 
 function createTestIdentity() {

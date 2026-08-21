@@ -7,8 +7,8 @@ import {
   type PurchasesCapability,
   PurchasesUnavailableError,
   type SyncSubscriptionOption,
-} from "@tearleads/client-sdk";
-import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+} from "@symcrypt/client-sdk";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import { type RefObject, useCallback, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {

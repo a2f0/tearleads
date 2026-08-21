@@ -3,7 +3,7 @@ import type {
   ContentRecordEncryptionSuite,
   KeyingCanonicalJson,
   WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   index,
   integer,
@@ -98,7 +98,7 @@ export const blobContentKeyEpochs = pgTable(
  * - `wrappedKey`: Blob content key encrypted/wrapped for the container KEK.
  * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
  *   `wrappedKey`; current clients use suite
- *   `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek` with an
+ *   `symcrypt.blob.content-key-wrap.aes-256-gcm-container-kek` with an
  *   AES-GCM IV.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *

@@ -1,4 +1,4 @@
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import type { ContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";

@@ -16,7 +16,7 @@ export type AppFeatureFlagMode = "disabled" | "enabled";
 
 export const DEFAULT_APP_FEATURE_FLAG_MODE: AppFeatureFlagMode = "disabled";
 
-const STORAGE_PREFIX = "tearleads.feature-flags";
+const STORAGE_PREFIX = "symcrypt.feature-flags";
 
 export function appFeatureFlagStorageKey(flag: AppFeatureFlagId): string {
   return `${STORAGE_PREFIX}:${flag}`;

@@ -3,8 +3,8 @@ import {
   createDocument,
   encodeVersionVector,
   exportUpdatesSince,
-} from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

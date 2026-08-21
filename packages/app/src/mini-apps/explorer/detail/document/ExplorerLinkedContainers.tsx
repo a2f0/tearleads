@@ -1,4 +1,4 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@symcrypt/client-sdk";
 import { useState } from "react";
 import {
   MiniAppButton,

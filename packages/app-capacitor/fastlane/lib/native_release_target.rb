@@ -6,27 +6,25 @@ require 'uri'
 NATIVE_RELEASE_TARGETS = {
   'production' => {
     android_build_variant: 'release',
-    api_host: 'api.tearleads.com',
-    app_identifier: 'com.tearleads.app',
+    api_host: 'api.symcrypt.com',
+    app_identifier: 'com.symcrypt.app',
     capacitor_sync_script: 'cap:sync:release',
-    ios_archive_name: 'Tearleads.xcarchive',
+    ios_archive_name: 'SymCrypt.xcarchive',
     ios_configuration: 'Release',
-    ios_ipa_name: 'Tearleads.ipa',
+    ios_ipa_name: 'SymCrypt.ipa',
     ios_output_directory: 'output',
-    ios_scheme: 'App',
-    service_domain: 'tearleads.com'
+    ios_scheme: 'App'
   }.freeze,
   'staging' => {
     android_build_variant: 'staging',
-    api_host: 'api.tearleads.de',
-    app_identifier: 'com.tearleads.staging.app',
+    api_host: 'api-staging.symcrypt.com',
+    app_identifier: 'com.symcrypt.staging.app',
     capacitor_sync_script: 'cap:sync:staging',
-    ios_archive_name: 'Tearleads-Staging.xcarchive',
+    ios_archive_name: 'SymCrypt-Staging.xcarchive',
     ios_configuration: 'Release-Staging',
-    ios_ipa_name: 'Tearleads-Staging.ipa',
+    ios_ipa_name: 'SymCrypt-Staging.ipa',
     ios_output_directory: 'output/staging',
-    ios_scheme: 'App-Staging',
-    service_domain: 'tearleads.de'
+    ios_scheme: 'App-Staging'
   }.freeze
 }.freeze
 
@@ -146,10 +144,10 @@ def native_release_api_host_problem(host)
 end
 
 def native_release_websocket_host_problem(host)
-  service_domain = NATIVE_RELEASE_TARGET.fetch(:service_domain)
-  return nil if host == service_domain || host.end_with?(".#{service_domain}")
+  expected_host = NATIVE_RELEASE_TARGET.fetch(:api_host)
+  return nil if host == expected_host
 
-  "must use #{service_domain} or one of its subdomains for a #{NATIVE_RELEASE_TIER} release"
+  "must use #{expected_host} for a #{NATIVE_RELEASE_TIER} release"
 end
 
 def native_release_parsed_url_problem(env_name, parsed_url)

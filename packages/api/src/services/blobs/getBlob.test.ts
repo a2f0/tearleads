@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { attachmentBindings, blobs } from "@tearleads/api-shared/schema";
-import { toFingerprint } from "@tearleads/crypto";
+import { db } from "@symcrypt/api-shared/postgres";
+import { attachmentBindings, blobs } from "@symcrypt/api-shared/schema";
+import { toFingerprint } from "@symcrypt/crypto";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";

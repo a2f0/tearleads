@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import type {
   OrganizationContainerGrantResponse,
   OrganizationGroupMemberResponse,
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { principalPolicy } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   ensureContainerTables,

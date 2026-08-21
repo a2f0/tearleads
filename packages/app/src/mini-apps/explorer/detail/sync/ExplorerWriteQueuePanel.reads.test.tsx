@@ -3,11 +3,11 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
   PendingWriteQueueItem,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createDomainScope,
   syncedContainerDocumentObjectSyncState,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerWriteQueuePanel } from "./ExplorerWriteQueuePanel";

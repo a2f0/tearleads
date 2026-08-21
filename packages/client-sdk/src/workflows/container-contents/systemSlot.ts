@@ -1,4 +1,4 @@
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
 
 const CONTAINER_SYSTEM_SLOT_HMAC_ALGORITHM = {

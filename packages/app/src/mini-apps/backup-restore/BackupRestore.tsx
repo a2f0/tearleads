@@ -225,7 +225,7 @@ export function BackupRestore() {
         ref={model.restoreFileInputRef}
         aria-label="Backup Restore File"
         type="file"
-        accept="application/json,.json,.tlbackup"
+        accept="application/json,.json,.scbackup"
         hidden
         onChange={model.handleRestoreFileChange}
       />

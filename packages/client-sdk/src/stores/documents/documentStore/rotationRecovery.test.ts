@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -7,10 +7,10 @@ import {
   getTextValue,
   importSnapshot,
   importUpdates,
-} from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+} from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";

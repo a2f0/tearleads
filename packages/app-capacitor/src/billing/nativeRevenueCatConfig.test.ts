@@ -209,7 +209,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     Bun.file(
       resolve(
         packageRoot,
-        "android/app/src/main/java/com/tearleads/app/MainActivity.java",
+        "android/app/src/main/java/com/symcrypt/app/MainActivity.java",
       ),
     ).text(),
     Bun.file(
@@ -218,7 +218,7 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     Bun.file(
       resolve(
         packageRoot,
-        "android/app/src/main/java/com/tearleads/app/RevenueCatPurchasePlugin.kt",
+        "android/app/src/main/java/com/symcrypt/app/RevenueCatPurchasePlugin.kt",
       ),
     ).text(),
     Bun.file(

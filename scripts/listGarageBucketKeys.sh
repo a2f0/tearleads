@@ -97,7 +97,7 @@ main() {
   ssh "$ssh_target" "/bin/sh -s -- $remote_prefix_arg $remote_with_size_arg" <<'SH'
 set -eu
 set -a
-. /etc/tearleads/api.env
+. /etc/symcrypt/api.env
 set +a
 
 prefix="${1:-}"
@@ -111,7 +111,7 @@ if [ -n "$with_size" ]; then
   set -- "$@" "$with_size"
 fi
 
-exec /opt/tearleads/bin/tearleads-api-cli "$@"
+exec /opt/symcrypt/bin/symcrypt-api-cli "$@"
 SH
 }
 

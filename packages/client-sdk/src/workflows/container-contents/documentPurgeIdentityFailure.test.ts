@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../documents";

@@ -10,12 +10,12 @@ import {
   type ContainerContentsStoreSyncState as ExplorerSyncState,
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@tearleads/crypto";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import {
   listedContainer,
   loadContainers,

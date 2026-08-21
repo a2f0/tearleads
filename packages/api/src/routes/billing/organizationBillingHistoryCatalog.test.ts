@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { isOrganizationBillingHistoryResponse } from "@symcrypt/validators/response";
 import invariant from "invariant";
 import {
   billingAuthHeader,

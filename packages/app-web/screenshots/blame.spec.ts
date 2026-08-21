@@ -432,7 +432,7 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
   }
 
   await page.addInitScript(() => {
-    localStorage.setItem("tearleads.theme.choice", "light");
+    localStorage.setItem("symcrypt.theme.choice", "light");
   });
   await page.goto("/");
   await waitForBooted(page);

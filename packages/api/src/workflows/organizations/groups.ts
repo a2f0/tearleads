@@ -2,18 +2,18 @@ import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   groups as groupsTable,
   organizations,
-} from "@tearleads/api-shared/schema";
-import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
+} from "@symcrypt/api-shared/schema";
+import type { DeleteOrganizationGroupRequest } from "@symcrypt/validators/request";
 import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, asc, eq, notInArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,

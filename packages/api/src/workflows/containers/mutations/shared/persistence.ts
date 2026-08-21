@@ -1,16 +1,16 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
   containerMetadataDocuments,
   containerSyncTombstones,
   containers,
   documents,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
-} from "@tearleads/crypto";
-import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { isContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
+import type { ContainerMutationResponse } from "@symcrypt/validators/response";
 import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";

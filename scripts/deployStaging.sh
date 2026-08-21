@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Full staging deployment for Tearleads
+# Full staging deployment for SymCrypt
 #
 # Runs in order:
 #   1. terraform apply (staging server stack)
 #   2. ansible playbook (server configuration)
 #   3. API deploy (executable deploy, migrations, service restart)
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
-#   5. App-web deploy (build normal + demo static bundles, sync, nginx reload)
+#   5. App-web deploy (build, sync, nginx reload)
 #
 # Pass --skip-infra to skip terraform and ansible (steps 1-2) and deploy only
 # the application artifacts.
@@ -82,7 +82,7 @@ print_timing_summary() {
   printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
 }
 
-echo "=== Tearleads Staging Deployment ==="
+echo "=== SymCrypt Staging Deployment ==="
 echo ""
 
 if [[ "$SKIP_INFRA" == true ]]; then

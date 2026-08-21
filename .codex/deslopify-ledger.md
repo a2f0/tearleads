@@ -3,7 +3,7 @@
 ## Summary
 
 - Date: 2026-08-07
-- Repository: tearleads
+- Repository: symcrypt
 - Baseline commands: targeted tests per refactor entry
 - Baseline status: passing
 - Golden outputs captured: existing behavior-focused test suites
@@ -620,7 +620,7 @@
   full runtime snapshot solely to invalidate a memoized handle.
 - Decision notes: retain explicit dependency arrays for non-runtime inputs and
   SDK instance/facade replacement. Use the Runtime Context object that
-  `TearleadsProvider` rebuilds from `tearleads.runtime.version`, keeping the
+  `SymCryptProvider` rebuilds from `symcrypt.runtime.version`, keeping the
   memo key consistent with the runtime snapshot rendered by each consumer.
   Preserve narrower memoization where callback identity owns an immediate or
   user-visible reload side effect. Discover every source file referencing the

@@ -6,8 +6,8 @@ import {
   getTextValue,
   satisfiesVersionVector,
   versionVectorsEqual,
-} from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";

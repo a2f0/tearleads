@@ -1,4 +1,4 @@
-import { type encodeVersionVector, getTextValue } from "@tearleads/loro";
+import { type encodeVersionVector, getTextValue } from "@symcrypt/loro";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,

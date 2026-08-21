@@ -1,16 +1,16 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
-import type { DocumentPurgeResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { DocumentPurgeResponse } from "@symcrypt/validators/response";
 
 export interface CreateDocumentInput {
   readonly fingerprint: string;

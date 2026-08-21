@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, asc, eq, isNotNull, isNull, lte, or } from "drizzle-orm";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";

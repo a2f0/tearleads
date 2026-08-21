@@ -7,7 +7,7 @@
      the prose as written. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: var(--tearleads-font-family);
+  font-family: var(--symcrypt-font-family);
   line-height: 1.6;
 }
 

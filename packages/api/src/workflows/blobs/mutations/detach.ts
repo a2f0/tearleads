@@ -1,5 +1,5 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
-import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
+import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import { verifyAttachmentDetachEvent } from "@symcrypt/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";

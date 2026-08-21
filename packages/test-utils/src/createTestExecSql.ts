@@ -1,7 +1,7 @@
 import {
   execDatabaseStatement,
   initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+} from "@symcrypt/sqlite-worker/load-sqlite3";
 
 let expectedSqliteWarningSuppressionDepth = 0;
 let originalConsoleWarn: typeof console.warn | null = null;

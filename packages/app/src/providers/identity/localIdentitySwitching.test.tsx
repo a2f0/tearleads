@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import { createMemoryBlobStore, SymCrypt } from "@symcrypt/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { renderHook } from "@testing-library/react";
 import type { LocalIdentityRepository } from "./localIdentityRegistry";
 import {
@@ -12,8 +12,8 @@ import {
   useSwitchLocalIdentity,
 } from "./localIdentitySwitching";
 
-function createQuietTearleads(logs: string[] = []): Tearleads {
-  return new Tearleads({
+function createQuietSymCrypt(logs: string[] = []): SymCrypt {
+  return new SymCrypt({
     blobStore: createMemoryBlobStore(),
     logger: {
       log: (message) => logs.push(message),
@@ -23,7 +23,7 @@ function createQuietTearleads(logs: string[] = []): Tearleads {
 }
 
 async function createKeyPackage() {
-  const source = createQuietTearleads();
+  const source = createQuietSymCrypt();
   await source.identity.setKeyPairs({
     encapsulationKeyPair: generateKemSeedAndKeyPair(),
     signingKeyPair: generateSigningSeedAndKeyPair(),
@@ -33,8 +33,8 @@ async function createKeyPackage() {
 
 test("failed identity creation returns to the previous identity", async () => {
   const identityA = await createKeyPackage();
-  const tearleads = createQuietTearleads();
-  await tearleads.identity.importKeyPackage(identityA);
+  const symcrypt = createQuietSymCrypt();
+  await symcrypt.identity.importKeyPackage(identityA);
   const identityASession = {
     authToken: "token-a",
     containerId: "container-a",
@@ -43,7 +43,7 @@ test("failed identity creation returns to the previous identity", async () => {
     organizationId: "organization-a",
     userId: "user-a",
   };
-  tearleads.session.setContext(identityASession);
+  symcrypt.session.setContext(identityASession);
   const switchedFingerprints: string[] = [];
   const generationInFlight = { current: false };
   const transitionInFlightRef = { current: false };
@@ -56,20 +56,20 @@ test("failed identity creation returns to the previous identity", async () => {
       setTransitionInFlight: () => undefined,
       switchIdentity: async (signingFingerprint) => {
         switchedFingerprints.push(signingFingerprint);
-        await tearleads.identity.importKeyPackage(identityA);
+        await symcrypt.identity.importKeyPackage(identityA);
         return true;
       },
-      tearleads,
+      symcrypt,
       transitionInFlightRef,
     }),
   );
 
   expect(await view.result.current()).toBe(false);
   expect(switchedFingerprints).toEqual([identityA.signingFingerprint]);
-  expect(tearleads.identity.signingFingerprint).toBe(
+  expect(symcrypt.identity.signingFingerprint).toBe(
     identityA.signingFingerprint,
   );
-  expect(tearleads.session.snapshot).toEqual(identityASession);
+  expect(symcrypt.session.snapshot).toEqual(identityASession);
   expect(generationInFlight.current).toBe(false);
   expect(transitionInFlightRef.current).toBe(false);
 });
@@ -78,9 +78,9 @@ test("failed target startup rolls back the live identity, session, and active se
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
   const logs: string[] = [];
-  const tearleads = createQuietTearleads(logs);
-  await tearleads.identity.importKeyPackage(identityA);
-  tearleads.session.setContext({
+  const symcrypt = createQuietSymCrypt(logs);
+  await symcrypt.identity.importKeyPackage(identityA);
+  symcrypt.session.setContext({
     authToken: "token-a",
     containerId: "container-a",
     defaultOrganizationId: "default-organization-a",
@@ -100,9 +100,9 @@ test("failed target startup rolls back the live identity, session, and active se
   } as unknown as LocalIdentityRepository;
   const ensuredFingerprints: string[] = [];
   const disposedFingerprints: Array<string | null> = [];
-  const originalDispose = tearleads.dispose.bind(tearleads);
-  tearleads.dispose = () => {
-    disposedFingerprints.push(tearleads.identity.signingFingerprint);
+  const originalDispose = symcrypt.dispose.bind(symcrypt);
+  symcrypt.dispose = () => {
+    disposedFingerprints.push(symcrypt.identity.signingFingerprint);
     originalDispose();
   };
   let databaseClearCount = 0;
@@ -126,17 +126,17 @@ test("failed target startup rolls back the live identity, session, and active se
       onIdentitiesChanged: () => undefined,
       persistSessionBeforeIdentityTransition: async () => undefined,
       setTransitionInFlight: () => undefined,
-      tearleads,
+      symcrypt,
       transitionInFlightRef,
     }),
   );
 
   expect(await view.result.current(identityB.signingFingerprint)).toBe(false);
 
-  expect(tearleads.identity.signingFingerprint).toBe(
+  expect(symcrypt.identity.signingFingerprint).toBe(
     identityA.signingFingerprint,
   );
-  expect(tearleads.session.snapshot).toEqual({
+  expect(symcrypt.session.snapshot).toEqual({
     authToken: "token-a",
     containerId: "container-a",
     defaultOrganizationId: "default-organization-a",
@@ -173,8 +173,8 @@ test("failed target startup rolls back the live identity, session, and active se
 test("failed key-package import startup leaves the restored identity uncommitted", async () => {
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
-  const tearleads = createQuietTearleads();
-  await tearleads.identity.importKeyPackage(identityA);
+  const symcrypt = createQuietSymCrypt();
+  await symcrypt.identity.importKeyPackage(identityA);
   const identityASession = {
     authToken: "token-a",
     containerId: "container-a",
@@ -183,7 +183,7 @@ test("failed key-package import startup leaves the restored identity uncommitted
     organizationId: "organization-a",
     userId: "user-a",
   };
-  tearleads.session.setContext(identityASession);
+  symcrypt.session.setContext(identityASession);
   const activeSelections: string[] = [];
   let importedIdentityCommitCount = 0;
   const repository = {
@@ -213,16 +213,16 @@ test("failed key-package import startup leaves the restored identity uncommitted
       onIdentitiesChanged: () => undefined,
       persistSessionBeforeIdentityTransition: async () => undefined,
       setTransitionInFlight: () => undefined,
-      tearleads,
+      symcrypt,
       transitionInFlightRef,
     }),
   );
 
   expect(await view.result.current(identityB)).toBe(false);
-  expect(tearleads.identity.signingFingerprint).toBe(
+  expect(symcrypt.identity.signingFingerprint).toBe(
     identityA.signingFingerprint,
   );
-  expect(tearleads.session.snapshot).toEqual(identityASession);
+  expect(symcrypt.session.snapshot).toEqual(identityASession);
   expect(importedIdentityCommitCount).toBe(0);
   expect(activeSelections).toEqual([identityA.signingFingerprint]);
 });
@@ -230,10 +230,10 @@ test("failed key-package import startup leaves the restored identity uncommitted
 test("key-package import commits only after database readiness and bootstrap", async () => {
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
-  const tearleads = createQuietTearleads();
-  await tearleads.identity.importKeyPackage(identityA);
+  const symcrypt = createQuietSymCrypt();
+  await symcrypt.identity.importKeyPackage(identityA);
   const operationOrder: string[] = [];
-  Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => {
+  Reflect.set(symcrypt.session, "bootstrapLocalRootContainer", async () => {
     operationOrder.push("bootstrap");
     return { containerId: "root-b", created: true };
   });
@@ -256,13 +256,13 @@ test("key-package import commits only after database readiness and bootstrap", a
       onIdentitiesChanged: () => undefined,
       persistSessionBeforeIdentityTransition: async () => undefined,
       setTransitionInFlight: () => undefined,
-      tearleads,
+      symcrypt,
       transitionInFlightRef: { current: false },
     }),
   );
 
   expect(await view.result.current(identityB)).toBe(true);
-  expect(tearleads.identity.signingFingerprint).toBe(
+  expect(symcrypt.identity.signingFingerprint).toBe(
     identityB.signingFingerprint,
   );
   expect(operationOrder).toEqual(["ready", "bootstrap", "commit"]);
@@ -272,8 +272,8 @@ test("active selection is committed only after the target database is ready", as
   const identityA = await createKeyPackage();
   const identityB = await createKeyPackage();
   const logs: string[] = [];
-  const tearleads = createQuietTearleads(logs);
-  await tearleads.identity.importKeyPackage(identityA);
+  const symcrypt = createQuietSymCrypt(logs);
+  await symcrypt.identity.importKeyPackage(identityA);
   const operationOrder: string[] = [];
   const repository = {
     findKeyPackage: async () => identityB,
@@ -294,7 +294,7 @@ test("active selection is committed only after the target database is ready", as
       onIdentitiesChanged: () => undefined,
       persistSessionBeforeIdentityTransition: async () => undefined,
       setTransitionInFlight: () => undefined,
-      tearleads,
+      symcrypt,
       transitionInFlightRef: { current: false },
     }),
   );

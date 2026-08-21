@@ -3,9 +3,9 @@ import type {
   BlobByteSource,
   BlobBytes,
   BlobStore,
-} from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 const TRUST_DOMAIN = "https://api.example.test/v1";

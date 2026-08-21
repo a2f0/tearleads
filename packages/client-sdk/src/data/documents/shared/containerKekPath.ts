@@ -1,7 +1,7 @@
-import { type ContainerKeyWrap, decryptWithDek } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { type ContainerKeyWrap, decryptWithDek } from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { isPlainObject as isPlainRecord } from "@symcrypt/validators/isPlainObject";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {

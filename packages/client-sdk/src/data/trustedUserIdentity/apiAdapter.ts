@@ -1,5 +1,5 @@
-import type { ApiClient } from "@tearleads/api-client";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import type { ApiClient } from "@symcrypt/api-client";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type { RemoteUserIdentitySource } from "./types";
 
 /** The sole SDK adapter allowed to consume the raw user-identity endpoint. */

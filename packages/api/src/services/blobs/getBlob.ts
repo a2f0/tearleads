@@ -1,4 +1,4 @@
-import { blobs } from "@tearleads/api-shared/schema";
+import { blobs } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import type { BlobObjectReadStream } from "../../adapters/blobObjectStore";
 import {

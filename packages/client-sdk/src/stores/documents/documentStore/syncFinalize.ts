@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { getImportBlobMetadata, mergeVersionVectors } from "@tearleads/loro";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { getImportBlobMetadata, mergeVersionVectors } from "@symcrypt/loro";
 import {
   type DocumentRecord,
   settleOutgoingPassAndDecideReArm,

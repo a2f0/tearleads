@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   listDocumentAttachmentsOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";

@@ -5,8 +5,8 @@ import type {
   ContainerDirectGrant,
   ContainerKekRecipientTarget,
   ContainerKeyWrap,
-} from "@tearleads/crypto";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 import {
   readContainerKekRecipientTarget,

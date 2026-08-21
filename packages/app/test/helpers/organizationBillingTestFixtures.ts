@@ -1,7 +1,7 @@
 import type {
   OrganizationBilling,
   OrganizationBillingView,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 /** Complete wire and view fixtures for tests that stub the billing provider. */
 export function billingFixture(

@@ -2,12 +2,12 @@ import {
   destroySessionOperation,
   listSessionsOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type {
   DestroySessionResponse,
   ListSessionsResponse,
   UserSessionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";

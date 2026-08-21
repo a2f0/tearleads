@@ -1,17 +1,17 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import { db } from "@symcrypt/api-shared/postgres";
+import { documents, documentUpdates } from "@symcrypt/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeDocumentContentRecordMetadataHash,
   type WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createDocument,
   emptyVersionVector,
   encodeVersionVector,
-} from "@tearleads/loro";
-import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+} from "@symcrypt/loro";
+import type { DocumentOutgoingUpdate } from "@symcrypt/validators/request";
 import {
   assertAtomicRotationBaselineCoversCommittedFrontier,
   assertBaselinelessUnlinkHasEmptyCommittedFrontier,

@@ -1,4 +1,4 @@
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 
 export { createMemoryBlobObjectStore } from "./adapters/blobObjectStore";
 export {

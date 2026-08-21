@@ -1,6 +1,6 @@
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
-import type { UserSession } from "@tearleads/client-sdk";
+import type { UserSession } from "@symcrypt/client-sdk";
 import { Menu, type MenuPosition } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 

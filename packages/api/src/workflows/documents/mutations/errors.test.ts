@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import {

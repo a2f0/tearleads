@@ -1,5 +1,5 @@
-import { getSyncBillingTierForNativeProduct } from "@tearleads/validators/billing";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import {
   APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
   BOUND_REVENUECAT_PRODUCT_CHANGE_REQUIRED_REASON,

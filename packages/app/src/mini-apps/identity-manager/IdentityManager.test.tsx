@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import type { Tearleads, UserSession } from "@tearleads/client-sdk";
-import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import type { SymCrypt, UserSession } from "@symcrypt/client-sdk";
+import { generateSigningSeedAndKeyPair } from "@symcrypt/crypto";
 import {
   act,
   fireEvent,
@@ -77,13 +77,13 @@ async function renderAuthenticatedIdentityManagerWithSessions(
   section: "Active Sessions" | "General" = "Active Sessions",
 ) {
   const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const symcryptRef: { current: SymCrypt | null } = { current: null };
   Reflect.set(globalThis, "WebSocket", TestWebSocket);
   const view = render(
     <IdentityManagerTestRuntime
       hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
+      onSymCryptReady={(sdk) => {
+        symcryptRef.current = sdk;
       }}
     >
       <IdentityManager />
@@ -91,24 +91,24 @@ async function renderAuthenticatedIdentityManagerWithSessions(
   );
 
   await waitFor(() => {
-    expect(tearleadsRef.current).toBeTruthy();
+    expect(symcryptRef.current).toBeTruthy();
   });
 
-  const tearleads = tearleadsRef.current;
-  if (!tearleads) {
-    throw new Error("Expected Tearleads SDK to be available after render.");
+  const symcrypt = symcryptRef.current;
+  if (!symcrypt) {
+    throw new Error("Expected SymCrypt SDK to be available after render.");
   }
 
-  const originalListSessions = tearleads.session.listSessions;
-  spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-  tearleads.session.listSessions = async () => [...sessions];
+  const originalListSessions = symcrypt.session.listSessions;
+  spyOn(symcrypt, "requestWebSocketTicket").mockResolvedValue(null);
+  symcrypt.session.listSessions = async () => [...sessions];
   await act(async () => {
-    await tearleads.identity.setKeyPairs({
+    await symcrypt.identity.setKeyPairs({
       encapsulationKeyPair: null,
       signingFingerprint: "b".repeat(64),
       signingKeyPair: generateSigningSeedAndKeyPair(),
     });
-    tearleads.session.setContext({
+    symcrypt.session.setContext({
       authToken: "test-token",
       containerId: "container-1",
       isAuthenticated: true,
@@ -120,8 +120,8 @@ async function renderAuthenticatedIdentityManagerWithSessions(
   view.rerender(
     <IdentityManagerTestRuntime
       hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
+      onSymCryptReady={(sdk) => {
+        symcryptRef.current = sdk;
       }}
     >
       <IdentityManager />
@@ -140,10 +140,10 @@ async function renderAuthenticatedIdentityManagerWithSessions(
 
   return {
     restore: () => {
-      tearleads.session.listSessions = originalListSessions;
+      symcrypt.session.listSessions = originalListSessions;
       Reflect.set(globalThis, "WebSocket", originalWebSocket);
     },
-    tearleads,
+    symcrypt,
     view,
   };
 }
@@ -212,16 +212,16 @@ test("active sessions hide diagnostic columns by default and expose the columns 
 });
 
 test("session rows open details and expose context menu actions", async () => {
-  const { restore, tearleads, view } =
+  const { restore, symcrypt, view } =
     await renderAuthenticatedIdentityManagerWithSessions([
       ACTIVE_SESSION,
       REMOTE_SESSION,
     ]);
-  const originalDestroySession = tearleads.session.destroySession;
+  const originalDestroySession = symcrypt.session.destroySession;
   const destroyedSessionIds: string[] = [];
 
   try {
-    tearleads.session.destroySession = async (sessionId) => {
+    symcrypt.session.destroySession = async (sessionId) => {
       destroyedSessionIds.push(sessionId);
       return true;
     };
@@ -323,7 +323,7 @@ test("session rows open details and expose context menu actions", async () => {
       expect(destroyedSessionIds).toEqual([REMOTE_SESSION.id]);
     });
   } finally {
-    tearleads.session.destroySession = originalDestroySession;
+    symcrypt.session.destroySession = originalDestroySession;
     restore();
   }
 });
@@ -402,15 +402,15 @@ test("identity actions menu trigger toggles the menu shut when reclicked", async
 
 test("identity actions menu stays hidden while signed out", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const symcryptRef: { current: SymCrypt | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
+        onSymCryptReady={(sdk) => {
+          symcryptRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -431,7 +431,7 @@ test("identity actions menu stays hidden while signed out", async () => {
 
 test("identity detail copies the authenticated user id", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const symcryptRef: { current: SymCrypt | null } = { current: null };
   const clipboardWrites = installClipboardWriteMock();
 
   try {
@@ -439,27 +439,27 @@ test("identity detail copies the authenticated user id", async () => {
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
+        onSymCryptReady={(sdk) => {
+          symcryptRef.current = sdk;
         }}
       />,
     );
 
     await waitFor(() => {
-      expect(tearleadsRef.current).toBeTruthy();
+      expect(symcryptRef.current).toBeTruthy();
     });
 
-    const tearleads = tearleadsRef.current;
-    if (!tearleads) {
-      throw new Error("Expected Tearleads SDK to be available after render.");
+    const symcrypt = symcryptRef.current;
+    if (!symcrypt) {
+      throw new Error("Expected SymCrypt SDK to be available after render.");
     }
 
-    const originalListSessions = tearleads.session.listSessions;
+    const originalListSessions = symcrypt.session.listSessions;
     try {
-      spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-      tearleads.session.listSessions = async () => [];
+      spyOn(symcrypt, "requestWebSocketTicket").mockResolvedValue(null);
+      symcrypt.session.listSessions = async () => [];
       await act(async () => {
-        tearleads.session.setContext({
+        symcrypt.session.setContext({
           authToken: "test-token",
           containerId: "container-1",
           isAuthenticated: true,
@@ -471,8 +471,8 @@ test("identity detail copies the authenticated user id", async () => {
       view.rerender(
         <IdentityManagerTestRuntime
           hostConfig={TEST_HOST_CONFIG}
-          onTearleadsReady={(sdk) => {
-            tearleadsRef.current = sdk;
+          onSymCryptReady={(sdk) => {
+            symcryptRef.current = sdk;
           }}
         >
           <IdentityManager />
@@ -491,7 +491,7 @@ test("identity detail copies the authenticated user id", async () => {
 
       expect(clipboardWrites).toEqual(["user-1"]);
     } finally {
-      tearleads.session.listSessions = originalListSessions;
+      symcrypt.session.listSessions = originalListSessions;
     }
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
@@ -500,15 +500,15 @@ test("identity detail copies the authenticated user id", async () => {
 
 test("identity manager confirms before destroying a key package", async () => {
   const originalWebSocket = globalThis.WebSocket;
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const symcryptRef: { current: SymCrypt | null } = { current: null };
 
   try {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
         hostConfig={TEST_HOST_CONFIG}
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
+        onSymCryptReady={(sdk) => {
+          symcryptRef.current = sdk;
         }}
       >
         <IdentityManager />
@@ -516,16 +516,16 @@ test("identity manager confirms before destroying a key package", async () => {
     );
 
     await waitFor(() => {
-      expect(tearleadsRef.current).toBeTruthy();
+      expect(symcryptRef.current).toBeTruthy();
     });
 
-    const tearleads = tearleadsRef.current;
-    if (!tearleads) {
-      throw new Error("Expected Tearleads SDK to be available after render.");
+    const symcrypt = symcryptRef.current;
+    if (!symcrypt) {
+      throw new Error("Expected SymCrypt SDK to be available after render.");
     }
 
     await act(async () => {
-      await tearleads.identity.setKeyPairs({
+      await symcrypt.identity.setKeyPairs({
         encapsulationKeyPair: null,
         signingKeyPair: generateSigningSeedAndKeyPair(),
       });

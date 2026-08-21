@@ -1,5 +1,5 @@
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
+import type { ContainerMutationResponse } from "@symcrypt/validators/response";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
 import { ContainerMutationError, toMutationError } from "./errors";

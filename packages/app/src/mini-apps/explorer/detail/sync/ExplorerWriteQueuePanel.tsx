@@ -4,12 +4,12 @@ import type {
   DomainScope,
   DomainSyncSnapshot,
   PendingWriteQueueItem,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   discardRegisteredDocumentLocalState,
   requestAllDomainSyncLanes,
   requestContainerContentsDocumentPriming,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,

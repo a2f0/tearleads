@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { ContainerNode } from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerNode } from "@symcrypt/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
+import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { getVisibleExplorerNodes } from "./ExplorerProvider";
 import { getExplorerVisibleSystemSlots } from "./ExplorerSystemContainers";
 

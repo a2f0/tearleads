@@ -11,7 +11,7 @@ import { DirectCheckoutProvider } from "../../../providers/direct-checkout/Direc
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
-import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
+import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingPanel } from "./BillingPanel";
 
@@ -61,7 +61,7 @@ function stubEnvironment(
     }),
   );
   spies.push(
-    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
       organizations: {
         claimNativeSubscription: () => Promise.resolve(null),
         loadStripeCheckoutOptions:

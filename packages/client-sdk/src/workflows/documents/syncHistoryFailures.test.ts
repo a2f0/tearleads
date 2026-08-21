@@ -4,8 +4,8 @@ import {
   computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
   sealContainerKekKeyring,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   createMaterializedSyncFixture,
   createUserContainerWrap,

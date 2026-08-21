@@ -18,7 +18,7 @@ appTestEnvironment.API_REDIS ??= "memory";
 // Workspace deps the app suite imports through their *built* `dist` (their
 // package exports resolve to dist, never source). Relative to this preload.
 const BUILT_WORKSPACE_DEPS = [
-  { name: "@tearleads/client-sdk", dir: "../client-sdk/" },
+  { name: "@symcrypt/client-sdk", dir: "../client-sdk/" },
 ] as const;
 
 function newestMtimeMs(dir: string): number {
@@ -121,14 +121,14 @@ interface AppTestProcessState {
 }
 
 const appTestProcessState = globalThis as typeof globalThis & {
-  __tearleadsAppTestProcessState?: AppTestProcessState;
+  __symcryptAppTestProcessState?: AppTestProcessState;
 };
 
-appTestProcessState.__tearleadsAppTestProcessState ??= {
+appTestProcessState.__symcryptAppTestProcessState ??= {
   hasLoadedApiRuntimeModule: false,
 };
 const currentAppTestProcessState =
-  appTestProcessState.__tearleadsAppTestProcessState;
+  appTestProcessState.__symcryptAppTestProcessState;
 
 afterAll(async () => {
   if (!currentAppTestProcessState.hasLoadedApiRuntimeModule) {

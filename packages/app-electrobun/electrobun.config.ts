@@ -2,8 +2,8 @@ import type { ElectrobunConfig } from "electrobun";
 
 export default {
   app: {
-    name: "Tearleads",
-    identifier: "com.tearleads.app",
+    name: "SymCrypt",
+    identifier: "com.symcrypt.app",
     version: "0.0.1",
   },
   runtime: {

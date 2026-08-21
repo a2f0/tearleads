@@ -1,11 +1,11 @@
 import type {
   DocumentClientProjectionDefinition,
   DocumentClientProjectionSaveInput,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   defineSqlTableSchema,
   getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 import { eq } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 

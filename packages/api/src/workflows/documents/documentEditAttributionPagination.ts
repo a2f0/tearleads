@@ -1,7 +1,7 @@
 import type {
   DocumentEditAttributionRangeResponse,
   ListDocumentEditAttributionRangesResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { DocumentEditAttributionSegment } from "../../documents/documentEditAttribution";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 

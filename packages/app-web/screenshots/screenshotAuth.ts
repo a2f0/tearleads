@@ -10,7 +10,7 @@ interface OpenIdentityManagerResult {
   readonly scope: Locator | Page;
 }
 
-const LOCAL_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
+const LOCAL_SESSION_STORAGE_PREFIX = "symcrypt.local-session:";
 
 async function readPersistedSessionSnapshot(page: Page): Promise<string> {
   return page.evaluate((prefix) => {

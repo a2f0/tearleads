@@ -2,16 +2,16 @@ import type {
   AccessEvent,
   AttachmentBindAccessEventBody,
   WriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobContentKeyBundleRequest,
-} from "@tearleads/validators/request";
-import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+} from "@symcrypt/validators/request";
+import type { BlobAttachmentBindResponse } from "@symcrypt/validators/response";
 import {
   type BlobByteSource,
   createBlobByteSource,

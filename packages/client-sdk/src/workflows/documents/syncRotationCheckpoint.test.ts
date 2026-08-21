@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
-import { verifyWriteHeader, type WriteHeader } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { verifyWriteHeader, type WriteHeader } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   exportFullHistorySnapshot,
   getUpdateVersionVectors,
-} from "@tearleads/loro";
-import { isDocumentSyncRequest } from "@tearleads/validators/request";
+} from "@symcrypt/loro";
+import { isDocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -55,7 +55,7 @@ test("materialized sync encrypts and signs a full-history checkpoint", async () 
   expect(update.sourceVersionVector).toBe(
     pendingCheckpoint.sourceVersionVector,
   );
-  expect(update.encryptedData).toContain("tearleads.document.loro-update");
+  expect(update.encryptedData).toContain("symcrypt.document.loro-update");
   expect(update.encryptedData).not.toContain("materialized update");
 
   const writeHeader = update.writeHeader as unknown as WriteHeader;

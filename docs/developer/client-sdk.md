@@ -1,6 +1,6 @@
 # Client SDK
 
-`@tearleads/client-sdk` is the React-free client runtime package. It owns local
+`@symcrypt/client-sdk` is the React-free client runtime package. It owns local
 SQLite execution, identity key state, blob storage, and workflow runtime
 composition. React providers, browser workers, Electron wrappers, and UI stores
 should adapt host-specific behavior into this package rather than duplicating
@@ -11,9 +11,9 @@ SDK setup.
 Create one SDK instance for the active client environment:
 
 ```ts
-import { Tearleads } from "@tearleads/client-sdk";
+import { SymCrypt } from "@symcrypt/client-sdk";
 
-const tearleads = new Tearleads();
+const symcrypt = new SymCrypt();
 ```
 
 All constructor options are optional. The minimal instance uses same-origin API
@@ -22,7 +22,7 @@ initialized SQLite runtime when persistence, sync, or identity generation is
 needed:
 
 ```ts
-tearleads.database.configure({
+symcrypt.database.configure({
   client: sqliteRuntime.client,
   id: sqliteRuntime.id,
 });
@@ -32,17 +32,17 @@ Single-identity clients can ask the constructor to start local identity
 provisioning once SQLite becomes ready:
 
 ```ts
-const tearleads = new Tearleads({
+const symcrypt = new SymCrypt({
   identityProvisioning: "auto",
 });
 ```
 
-Automatic provisioning calls `tearleads.identity.generate()` when no signing key
+Automatic provisioning calls `symcrypt.identity.generate()` when no signing key
 pair exists and the database is ready. Hosts that need the root container id
 immediately can keep the explicit call after configuring SQLite:
 
 ```ts
-const { rootContainerId } = await tearleads.identity.generate();
+const { rootContainerId } = await symcrypt.identity.generate();
 ```
 
 ## Advanced Configuration
@@ -53,11 +53,11 @@ Hosts that own API routing, encrypted blob storage, keyring-derived
 ```ts
 import {
   createEncryptedBlobStore,
-  Tearleads,
-} from "@tearleads/client-sdk";
+  SymCrypt,
+} from "@symcrypt/client-sdk";
 import {
   createSQLiteRuntime,
-} from "@tearleads/client-sdk/sqlite";
+} from "@symcrypt/client-sdk/sqlite";
 
 const sqliteRuntime = createSQLiteRuntime();
 await sqliteRuntime.client.init({
@@ -66,7 +66,7 @@ await sqliteRuntime.client.init({
   key: localKeys.sqliteKey,
 });
 
-const tearleads = new Tearleads({
+const symcrypt = new SymCrypt({
   apiBaseUrl: "http://localhost:3000",
   blobStoreFactory: (namespace) =>
     createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
@@ -80,34 +80,34 @@ const tearleads = new Tearleads({
   },
 });
 
-const { rootContainerId } = await tearleads.identity.generate();
+const { rootContainerId } = await symcrypt.identity.generate();
 ```
 
 Client capabilities:
 
 | Namespace | Owns |
 | --- | --- |
-| `tearleads.database` | SQLite client and `ExecSql` executor |
-| `tearleads.identity` | signing and encapsulation key pairs, seed phrase state |
-| `tearleads.blobs` | local blob byte storage |
-| `tearleads.session` | registration, auth token, personal-org identity, and active context |
-| `tearleads.network` | online/offline state passed into sync workflows |
-| `tearleads.events` | remote event list passed into sync workflows |
-| `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
-| `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
-| `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
-| `tearleads.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
-| `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
-| `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
+| `symcrypt.database` | SQLite client and `ExecSql` executor |
+| `symcrypt.identity` | signing and encapsulation key pairs, seed phrase state |
+| `symcrypt.blobs` | local blob byte storage |
+| `symcrypt.session` | registration, auth token, personal-org identity, and active context |
+| `symcrypt.network` | online/offline state passed into sync workflows |
+| `symcrypt.events` | remote event list passed into sync workflows |
+| `symcrypt.runtime` | workflow runtime input snapshots for host stores and providers |
+| `symcrypt.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
+| `symcrypt.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
+| `symcrypt.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
+| `symcrypt.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
+| `symcrypt.userIdentities` | pinned user identity bundles for cryptographic workflows |
+| `symcrypt.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
 scope with the active database and identity so document and container/document
 stores share a sync and subscription boundary. Product app code should use:
-`tearleads.documents.open(...)`, `tearleads.documents.list(...)`,
-`tearleads.documents.subscribe(listener, { containerId })`,
-`tearleads.deviceFirst.open().containerStore`, and
-`tearleads.containerContents.documentQueries()`. For orphan recovery, queries
+`symcrypt.documents.open(...)`, `symcrypt.documents.list(...)`,
+`symcrypt.documents.subscribe(listener, { containerId })`,
+`symcrypt.deviceFirst.open().containerStore`, and
+`symcrypt.containerContents.documentQueries()`. For orphan recovery, queries
 accept a null container plus the active organization; use the indexed
 `hasOrphanedDocuments(...)` visibility probe. Import internals only when
 developing the SDK or a custom host.
@@ -120,13 +120,13 @@ readiness probe without performing a mutation, for example before reading a
 ready snapshot or deciding whether to show an unavailable-storage state.
 
 Host adapters that still need the raw workflow runtime contract should use
-`tearleads.runtime.input(containerId)` instead of reconstructing the dependency
+`symcrypt.runtime.input(containerId)` instead of reconstructing the dependency
 bundle themselves. This host-facing input omits API access and incident
 reporting; SDK facades own both.
 
 Root exports include built-in organization slot helpers.
 
-`tearleads.network` defaults to automatic mode: browser events and API request
+`symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 `setMode("online")`, then resume detection with `setMode("automatic")`.
 
@@ -145,14 +145,14 @@ Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.
 
-`tearleads.containerContents.workflowRuntime()` remains available to advanced
+`symcrypt.containerContents.workflowRuntime()` remains available to advanced
 host stores and includes root adoption. Custom hosts assembling a store directly
 must use `createContainerContentsStoreWorkflowRuntime(input, adopter)`; the
 adopter atomically validates and updates the session root. The general workflow
 factory has no root-adoption capability. Most product code should use the
 higher-level helpers.
 
-`tearleads.containerContents.documentQueries().listPendingWrites()` returns an
+`symcrypt.containerContents.documentQueries().listPendingWrites()` returns an
 identity-wide, locally derived view of durable writes that have not converged.
 Rows are grouped by logical container, document, or unknown document namespace
 and include safe navigation metadata plus aggregate operation counts, attachment
@@ -190,7 +190,7 @@ histories.
 
 ### Device-first reads, writes, and background reconciliation
 
-`tearleads.deviceFirst.open()` returns one shared scope containing the locally
+`symcrypt.deviceFirst.open()` returns one shared scope containing the locally
 durable `containerStore`, the synchronously readable `view`, and the background
 `reconciler`. Ordinary tree writes persist and update subscribers locally, then
 converge through durable sync lanes without blocking on the network. The view's
@@ -202,10 +202,10 @@ explicit online/remote-authority requirements. See
 
 ## Constructor Options
 
-`new Tearleads(options)` accepts host adapters and initial runtime state:
+`new SymCrypt(options)` accepts host adapters and initial runtime state:
 
 ```ts
-const tearleads = new Tearleads({
+const symcrypt = new SymCrypt({
   apiBaseUrl,
   blobStore,
   blobStoreFactory,
@@ -238,8 +238,8 @@ Use `database.execSql` only when the host already owns executor construction.
 
 `onSecurityIncident` is called after a typed keying-verification failure is
 durably appended. The same rows are available through
-`await tearleads.securityIncidents.list()` and detections can be observed with
-`tearleads.securityIncidents.subscribe(listener)`. An incident contains the
+`await symcrypt.securityIncidents.list()` and detections can be observed with
+`symcrypt.securityIncidents.subscribe(listener)`. An incident contains the
 code, operation, first/last timestamps, repeat count, protocol hashes, plus
 object identity and trust domain when known. Equivalent repeat detections are
 coalesced, and the most recently detected 1,000 rows per trust domain are
@@ -248,44 +248,44 @@ while the local database is unavailable; detections during database startup are
 held in a bounded, redacted memory buffer and flushed once it becomes ready.
 Ordinary transport and database-availability failures do not create incidents.
 
-`new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
+`new SymCrypt(...)` does not initialize SQLite or call `client.init(...)`. The
 constructor only captures the current database `client`, `execSql`, and `id`,
 deriving status unless the host supplies an explicit lifecycle override. If the
 host has already initialized the worker, pass the runtime into the constructor;
 the SDK infers `status: "ready"` from the configured client or executor:
 
 ```ts
-new Tearleads({
+new SymCrypt({
   database: { client: runtime.client, id: runtime.id },
 });
 ```
 
-If the host boots SQLite after constructing the SDK, create `new Tearleads(...)`
+If the host boots SQLite after constructing the SDK, create `new SymCrypt(...)`
 without a ready database, call `runtime.client.init(...)`, then publish the
 initialized runtime:
 
 ```ts
-tearleads.database.configure({
+symcrypt.database.configure({
   client: runtime.client,
   id: runtime.id,
 });
 ```
 
-Pass `status` to `tearleads.database.configure(...)` only for lifecycle states
+Pass `status` to `symcrypt.database.configure(...)` only for lifecycle states
 the SDK cannot infer from the presence of a client, such as a worker that
 exists but is still initializing (`"idle"`) or a failed initialization
 (`"error"`). Publish a destroyed runtime with
-`tearleads.database.clear("terminated")`.
+`symcrypt.database.clear("terminated")`.
 
 Browser and Electron hosts should create worker-backed SQLite runtimes through
 the SDK SQLite facade:
 
 ```ts
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@symcrypt/client-sdk/sqlite";
 ```
 
 `SQLiteRuntime` is the host lifecycle object with `{ id, client,
-destroy() }`. The lower-level `@tearleads/sqlite-worker` package still owns the
+destroy() }`. The lower-level `@symcrypt/sqlite-worker` package still owns the
 worker thread implementation, but host application code should prefer the SDK
 facade so database setup, executor contracts, and workflow runtime integration
 stay behind one developer-facing package.
@@ -307,17 +307,17 @@ SQLite vocabulary:
 
 Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
-`DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Worker-thread
+`DatabaseWorkerClient` from `@symcrypt/sqlite-worker` directly. Worker-thread
 entry files and low-level SQLite tests may still import the underlying worker
 package when they are implementing or exercising the worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key and local root setup requires SQLite. `generate()` requires a
 ready SQLite database, creates or reuses the local root container, and stores it
-on `tearleads.session.containerId` before resolving:
+on `symcrypt.session.containerId` before resolving:
 
 ```ts
-const result = await tearleads.identity.generate();
+const result = await symcrypt.identity.generate();
 
 result.rootContainerId;
 result.rootContainerCreated;
@@ -327,9 +327,9 @@ result.userId;
 
 If SQLite is not ready or local root bootstrap fails when `generate()` runs, the
 promise rejects and the previous identity snapshot is left in place. Configure
-the database and then call `generate()` again. The `Tearleads` constructor stays
+the database and then call `generate()` again. The `SymCrypt` constructor stays
 synchronous, so constructor-provided identity key pairs are available through
-`tearleads.identity.snapshot`, but callers should use
+`symcrypt.identity.snapshot`, but callers should use
 `refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
 fingerprint asynchronously.
 
@@ -355,7 +355,7 @@ given, and arbitrary post-construction store replacement is gone.
 For browser and Electron hosts, prefer an encrypted local blob store factory:
 
 ```ts
-new Tearleads({
+new SymCrypt({
   blobStoreFactory: (namespace) =>
     createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
 });
@@ -382,7 +382,7 @@ import {
   createBrowserLocalKeyring,
   createLocalKeyring,
   createWebViewLocalKeyring,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 
 const keyring = createLocalKeyring({
   keystore: platformWrappingKeyKeystore,
@@ -390,7 +390,7 @@ const keyring = createLocalKeyring({
 });
 
 const session = await keyring.getOrCreateSession({
-  namespace: "tearleads",
+  namespace: "symcrypt",
   accountId: userId,
   signingFingerprint,
 });
@@ -432,10 +432,10 @@ account-root secret; the unwrapped account root is used with HKDF to derive:
 - additional 32-byte keys through `session.deriveKey(purpose)`
 
 The manifest is explicit JSON with format
-`tearleads.local-keyring.manifest`. Hosts persist it through
+`symcrypt.local-keyring.manifest`. Hosts persist it through
 `LocalKeyringManifestStore`, and can serialize or parse it with
 `serializeLocalKeyringManifest(...)` and `parseLocalKeyringManifest(...)`.
-The wrapped root envelope uses format `tearleads.wrapped-local-secret` and
+The wrapped root envelope uses format `symcrypt.wrapped-local-secret` and
 binds the wrapping context to the normalized scope plus key purpose.
 
 Scopes are intentionally part of derivation and wrapping associated data:
@@ -459,15 +459,15 @@ sessions remain valid until `session.dispose()`.
 handle for the scope.
 
 Session state is explicit. Registration flows should call
-`tearleads.session.registerIdentity()`, which submits the current identity,
+`symcrypt.session.registerIdentity()`, which submits the current identity,
 persists the local bootstrap, and updates the session with canonical user,
 organization, and container IDs. Login stores the auth token on
-`tearleads.session` and configures the internal API client:
+`symcrypt.session` and configures the internal API client:
 
 ```ts
-const registration = await tearleads.session.registerIdentity();
+const registration = await symcrypt.session.registerIdentity();
 if (registration) {
-  const authenticated = await tearleads.session.login(registration.challenge);
+  const authenticated = await symcrypt.session.login(registration.challenge);
 }
 ```
 
@@ -477,9 +477,9 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
-| `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
-| `@tearleads/client-sdk/testing` | Nominal trusted-identity fixtures for lower-level repository integration tests; never production code |
+| `@symcrypt/client-sdk` | `SymCrypt`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
+| `@symcrypt/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
+| `@symcrypt/client-sdk/testing` | Nominal trusted-identity fixtures for lower-level repository integration tests; never production code |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an
 emitted ESM JavaScript file under `dist`. The export map is exact. Host code
@@ -487,7 +487,7 @@ reaches document contracts, store facades, and public workflow symbols through
 the root entry point; the SQLite entry point owns its runtime adapter boundary,
 and the testing entry point is forbidden from production source.
 
-Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
+Do not import `@symcrypt/client-sdk/data/*` from host code. The root entry
 point aggregates documented public facades and does not make `data/*` internals,
 deep workflow files, or store implementation files public. Promote a contract
 through the root entry point when it is meant to become public.
@@ -527,7 +527,7 @@ Both ship an unavailable stub (`createUnavailablePurchases` and
 checkout. Native purchases are personal-org only. `PurchaseIdentityPendingError`
 means retry; `PurchaseProviderStalledError` means restart. Recover
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; its `claim`
-calls `tearleads.organizations.claimNativeSubscription`. Never split
+calls `symcrypt.organizations.claimNativeSubscription`. Never split
 restore/claim/bind: the atomic move keeps one buyer and publishes attribution
 only after acceptance.
 See [revenuecat-billing.md](./revenuecat-billing.md).
@@ -539,14 +539,14 @@ The build emits ESM JavaScript, inline-source source maps, and declaration files
 from `tsconfig.build.json`, replacing any previous `dist`:
 
 ```sh
-bun run --filter='@tearleads/client-sdk' build
+bun run --filter='@symcrypt/client-sdk' build
 ```
 
 `bun run lint:architecture` enforces the package-consumption contract:
 
-- `@tearleads/client-sdk` is private, ESM, side-effect-free, and backed by
+- `@symcrypt/client-sdk` is private, ESM, side-effect-free, and backed by
   build-output package exports.
-- Local `@tearleads/*` package dependencies use `workspace:*` ranges.
+- Local `@symcrypt/*` package dependencies use `workspace:*` ranges.
 - The package export map matches the documented root and SQLite entry points
   exactly, points at `dist` JavaScript/declaration files, and stays in sync with
   the public API entry-point table.

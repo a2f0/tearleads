@@ -1,5 +1,5 @@
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 
 type PrincipalPolicyStateHead = Pick<
   ReferencedPrincipalHead,

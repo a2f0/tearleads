@@ -1,7 +1,7 @@
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
 import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/responses";
 import type {

@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   BlobAttachmentSummary,
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,

@@ -6,7 +6,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
   versionVectorsEqual,
-} from "@tearleads/loro";
+} from "@symcrypt/loro";
 import { extendDocumentVersionCoverage } from "./versionCoverage";
 
 test("version coverage connects durable spans to a fixed point", async () => {

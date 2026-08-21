@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import {
-  groups,
-  organizationRosterEntries,
-} from "@tearleads/api-shared/schema";
-import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import { db } from "@symcrypt/api-shared/postgres";
+import { groups, organizationRosterEntries } from "@symcrypt/api-shared/schema";
+import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
 
 function manifestWithGroupGrant(input: {

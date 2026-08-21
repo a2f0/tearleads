@@ -3,11 +3,11 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
   type VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principals/principalPolicyAdminSigners";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import type { VerifiedExternalAdminPolicy } from "./externalAdminPolicy";

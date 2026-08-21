@@ -12,7 +12,7 @@ test("seed phrase backup file names can be timestamped deterministically", () =>
   });
 
   expect(fileName).toBe(
-    "tearleads-seed-phrase-abcdef123456-2026-07-07T22-15-30.000Z.txt",
+    "symcrypt-seed-phrase-abcdef123456-2026-07-07T22-15-30.000Z.txt",
   );
 });
 

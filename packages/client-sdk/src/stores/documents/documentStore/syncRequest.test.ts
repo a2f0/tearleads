@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDocument } from "@tearleads/loro";
+import { createDocument } from "@symcrypt/loro";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

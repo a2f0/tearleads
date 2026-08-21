@@ -1,7 +1,7 @@
 // Out-of-process billing maintenance. The existing systemd timer runs this
 // every minute: due free trials are persisted before Stripe seat reconciliation.
 // Row locks, DB predicates, and Stripe idempotency make overlaps safe.
-import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import { closeApiDatabase } from "@symcrypt/api-shared/postgres";
 import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";

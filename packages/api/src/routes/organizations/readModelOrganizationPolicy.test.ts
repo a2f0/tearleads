@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { db } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import { generateKemSeedAndKeyPair, toFingerprint } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

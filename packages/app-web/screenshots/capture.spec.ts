@@ -42,7 +42,7 @@ const SEED_FIXTURES_DIR = path.join(
   REPO_ROOT,
   "packages/app/test/screenshot-seed/fixtures",
 );
-const SEED_ARTIFACT_PATH = path.join(REPO_ROOT, "tearleads-seed.tlbackup.json");
+const SEED_ARTIFACT_PATH = path.join(REPO_ROOT, "symcrypt-seed.scbackup.json");
 // Password + identity phrase come from the fixture so they never drift from the
 // artifact they were authored with.
 const SEED_SPEC = JSON.parse(

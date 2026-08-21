@@ -5,8 +5,8 @@ import {
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
   toFingerprint,
-} from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   BLOB_CONTENT_RECORD_AAD_DOMAIN,
   BLOB_CONTENT_RECORD_HKDF_SALT,

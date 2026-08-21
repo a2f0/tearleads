@@ -6,7 +6,7 @@ import {
   PurchaseCancelledError,
   PurchaseProviderStalledError,
   PurchasesUnavailableError,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   clearEnv,
   createCapacitorPurchases,
@@ -136,14 +136,14 @@ test("reset preserves a genuine RevenueCat log-out failure", async () => {
 
 test("lists the current offering's packages as sync options", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   const options = await createCapacitorPurchases().listSyncOptions();
 
   expect(options).toEqual([
     {
       packageId: "monthly",
-      productId: "com.tearleads.sync.monthly",
+      productId: "com.symcrypt.sync.monthly",
       title: "Solo",
       description: "Organization sync",
       priceLabel: "$4.99",
@@ -155,7 +155,7 @@ test("lists the current offering's packages as sync options", async () => {
 
 test("binds the purchase to the organization before presenting the sheet", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   const result = await purchaseSync();
 
@@ -163,7 +163,7 @@ test("binds the purchase to the organization before presenting the sheet", async
   // subscriber attribute, so it must be set before the purchase, not after.
   expect(fixture.attributeCalls).toEqual([{ orgId: "org-1" }]);
   expect(fixture.nativePurchaseCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
   expect(result.syncEntitlementActive).toBe(true);
@@ -277,7 +277,7 @@ test("an iOS tier change lets the subscription group determine timing", async ()
 
 test("reports the entitlement as inactive when the purchase does not grant it", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   fixture.customerInfo = { entitlements: { active: { other: {} } } };
 
   const result = await purchaseSync();
@@ -287,7 +287,7 @@ test("reports the entitlement as inactive when the purchase does not grant it", 
 
 test("normalizes malformed entitlement ids from the iOS bridge", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   fixture.nativePurchaseResult = {};
   const missing = await purchaseSync();
@@ -336,7 +336,7 @@ test("rejects a stale package whose product is not a configured tier", async () 
 
 test("fails closed when the native bridge cannot validate", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   const bridgeError = {
     code: "bridge-invalid",
     message: "RevenueCat purchase failed",
@@ -352,14 +352,14 @@ test("fails closed when the native bridge cannot validate", async () => {
   });
 
   expect(fixture.nativePurchaseCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
 });
 
 test("rejects a package the current offering does not contain", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   await expect(purchaseSync("annual")).rejects.toThrow(
     "Unknown purchase package: annual",
@@ -370,7 +370,7 @@ test("rejects a package the current offering does not contain", async () => {
 
 test("treats a dismissed store sheet as a cancellation, not a failure", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   // Match the first-party Swift plugin's CAPPluginCall.reject payload rather
   // than the official bridge's PurchasesError serialization.
   fixture.nativePurchaseRejection = {
@@ -389,12 +389,12 @@ test("treats a dismissed store sheet as a cancellation, not a failure", async ()
 test("normalizes cancellation from the Android RevenueCat bridge", async () => {
   setEnv("VITE_REVENUECAT_ANDROID_API_KEY", "android-key");
   fixture.platform = "android";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   fixture.nativePurchaseRejection = { code: "1" };
 
   await expect(purchaseSync()).rejects.toBeInstanceOf(PurchaseCancelledError);
   expect(fixture.nativePurchaseCalls).toEqual([
-    { identifier: "monthly", productId: "com.tearleads.sync.monthly" },
+    { identifier: "monthly", productId: "com.symcrypt.sync.monthly" },
   ]);
   expect(fixture.purchaseCalls).toEqual([]);
 });
@@ -413,7 +413,7 @@ test("normalizes an already-owned Android product into subscription recovery", a
 test("normalizes iOS receipt-ownership conflicts into subscription recovery", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.platform = "ios";
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
 
   for (const code of ["6", "7", "13"]) {
     fixture.nativePurchaseRejection = { code };
@@ -425,7 +425,7 @@ test("normalizes iOS receipt-ownership conflicts into subscription recovery", as
 
 test("propagates a genuine store failure unchanged", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   fixture.nativePurchaseRejection = {
     code: "2",
     message: "There was a problem with the store.",
@@ -448,7 +448,7 @@ test("propagates a genuine store failure unchanged", async () => {
 
 test("does not present a sheet for a purchase abandoned before it began", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   const controller = new AbortController();
   controller.abort();
 
@@ -463,7 +463,7 @@ test("does not present a sheet for a purchase abandoned before it began", async 
 
 test("does not present a sheet when abandoned while offerings loaded", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
-  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
   const controller = new AbortController();
   // Abort during the fetch, not before it: this is the real window, since a
   // caller can only cancel while something is still on screen to cancel.

@@ -3,14 +3,14 @@ import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
   ContainerMoveAccessEventBody,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   computeAccessManifestHash,
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
-} from "@tearleads/crypto";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import {
   buildContainerCreateKeyEpoch,
   signContainerMutationEvent,

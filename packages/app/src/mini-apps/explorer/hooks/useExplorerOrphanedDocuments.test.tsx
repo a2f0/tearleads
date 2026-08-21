@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
+import type { ContainerDocumentQueries } from "@symcrypt/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { EXPLORER_ORPHANED_DOCUMENTS_ID } from "../../../stores/explorer/orphanedDocuments";
 import { useExplorerNodesWithOrphanedDocuments } from "./useExplorerOrphanedDocuments";

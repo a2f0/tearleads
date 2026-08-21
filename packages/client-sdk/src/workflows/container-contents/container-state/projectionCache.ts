@@ -1,4 +1,4 @@
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerWorkflowRuntime } from "./types";
 

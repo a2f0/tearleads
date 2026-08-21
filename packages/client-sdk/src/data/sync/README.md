@@ -82,5 +82,5 @@ coordinator.
 
 Production workflow modules may import this internal data helper to register
 their lanes. Cross-package callers and host tests should use the sync workflow
-facade at `@tearleads/client-sdk` when they need to observe
+facade at `@symcrypt/client-sdk` when they need to observe
 pending sync work or wait for sync to settle.

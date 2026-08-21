@@ -2,8 +2,8 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
   makeVerifiedDocumentKekTargets,
-} from "@tearleads/crypto";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { sortDocumentTargets, targetEnvelopeReference } from "./readers";
 import type { DocumentSyncPlan } from "./types";
 

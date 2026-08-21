@@ -1,4 +1,4 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";

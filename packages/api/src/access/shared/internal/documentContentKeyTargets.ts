@@ -2,8 +2,8 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
-} from "@tearleads/crypto";
-import type { DocumentSyncErrorCode } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import type { DocumentSyncErrorCode } from "@symcrypt/validators/response";
 import { createContentKeyTargetPolicy } from "./contentKeyTargetPolicy";
 import type { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
 

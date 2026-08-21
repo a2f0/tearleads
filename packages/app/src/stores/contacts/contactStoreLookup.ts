@@ -1,7 +1,4 @@
-import type {
-  DocumentStore,
-  ResolvedUserIdentity,
-} from "@tearleads/client-sdk";
+import type { DocumentStore, ResolvedUserIdentity } from "@symcrypt/client-sdk";
 import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import {
   type ContactEntry,

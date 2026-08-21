@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { ensureDocumentProjectionTables } from "./documentPersistence";
 
 test("document_projection gets container, orphan, and document indexes", async () => {

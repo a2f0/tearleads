@@ -1,9 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationBillingInvoiceEvents,
   organizationBillingStripeSeats,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
   createRespondingFetch,

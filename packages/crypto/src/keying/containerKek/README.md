@@ -8,4 +8,4 @@ subdomains that are shared by that facade.
   sets from verified container KEK, document link, and attachment projections.
 
 Keep canonical hashing domains and exported helper names stable; callers import
-from `@tearleads/crypto` rather than these internal files.
+from `@symcrypt/crypto` rather than these internal files.

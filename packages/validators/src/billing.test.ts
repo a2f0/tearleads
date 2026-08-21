@@ -43,7 +43,7 @@ test("native product ids map exact production, staging, and Play base plans", ()
   const cases = [
     ["sync_monthly", "solo"],
     ["sync_monthly_staging", "solo"],
-    ["com.tearleads.sync.monthly", "solo"],
+    ["com.symcrypt.sync.monthly", "solo"],
     ["sync_solo_monthly", "solo"],
     ["sync_solo_monthly_staging", "solo"],
     ["sync_team_5_monthly:monthly", "team_5"],

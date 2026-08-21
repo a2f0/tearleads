@@ -74,7 +74,7 @@ export function localKeyringSalt(
 ): Uint8Array<ArrayBuffer> {
   return copyBytes(
     TEXT_ENCODER.encode(
-      `tearleads.local-keyring.v1.${localKeyringScopeKey(scope)}`,
+      `symcrypt.local-keyring.v1.${localKeyringScopeKey(scope)}`,
     ),
   );
 }
@@ -83,7 +83,7 @@ export async function localWrappingKeyScopeHash(
   scope: NormalizedLocalKeyringScope,
 ): Promise<string> {
   const keyMaterial = TEXT_ENCODER.encode(
-    `tearleads.local-wrapping-key.v1.${localKeyringScopeKey(scope)}`,
+    `symcrypt.local-wrapping-key.v1.${localKeyringScopeKey(scope)}`,
   );
   return hashHex(keyMaterial);
 }

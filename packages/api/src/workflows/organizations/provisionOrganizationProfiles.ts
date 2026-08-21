@@ -1,17 +1,17 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import type {
   DocumentCreateRequest,
   OrganizationProvisioningRequest,
   ProvisionedDocumentRequest,
-} from "@tearleads/validators/request";
+} from "@symcrypt/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   DocumentCreateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import { createDocumentWithExecutor } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";

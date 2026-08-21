@@ -6,7 +6,7 @@
 #
 # Run (iOS simulator):   maestro test packages/app-capacitor/maestro/first-identity-offline.yaml
 # Run (Android emulator): same command.
-appId: com.tearleads.app
+appId: com.symcrypt.app
 ---
 # Fresh install with no backend: the app auto-generates the first identity and
 # opens the usable Explorer.

@@ -1,7 +1,7 @@
 import {
   DEFAULT_DOCUMENT_KIND,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useMemo, useState } from "react";
 
 // Tracks which documents should mount directly in edit mode. Two producers feed

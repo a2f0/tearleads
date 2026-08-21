@@ -186,7 +186,7 @@ export async function computeContainerKeyEpochHash(
     normalizeContainerKeyEpoch(keyEpoch);
 
   return computeKeyingDomainHash(
-    "tearleads.keying.container-key-epoch",
+    "symcrypt.keying.container-key-epoch",
     payload,
   );
 }
@@ -763,7 +763,7 @@ export async function computeContainerKekRecipientTargetHash(
   > = normalizedTargets;
 
   return computeKeyingDomainHash(
-    "tearleads.keying.container-kek-recipient-targets",
+    "symcrypt.keying.container-kek-recipient-targets",
     payload,
   );
 }

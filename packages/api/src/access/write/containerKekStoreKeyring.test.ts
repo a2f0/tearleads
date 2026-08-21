@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import type {
   ContainerKekKeyring,
   ContainerKekPredecessorBridge,
@@ -8,11 +8,11 @@ import type {
   ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createContainerKekPredecessorBridge,
   verifyContainerKekState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createTestContainerKekKeyring,
   createTestContainerKekMaterial,

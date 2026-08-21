@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { bytesToHex, createAesGcmIv } from "@tearleads/crypto";
-import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
+import { bytesToHex, createAesGcmIv } from "@symcrypt/crypto";
+import type { BlobContentKeyBundleRequest } from "@symcrypt/validators/request";
 import { type BlobBytes, createBlobByteSource } from "../../../blobContracts";
 import { deriveBlobBaseIv } from "./blobRecordCrypto";
 import { DEFAULT_BLOB_CHUNK_SIZE_BYTES, prepareBlobEncryption } from "./crypto";
@@ -259,7 +259,7 @@ describe("parseBlobEncryptedBytes", () => {
     );
 
     const invalidHeaderLength = encrypted.slice();
-    invalidHeaderLength.fill(0, "tearleads.blob.bytes.v2".length, 27);
+    invalidHeaderLength.fill(0, "symcrypt.blob.bytes.v2".length, 27);
     expect(() => parseBlobEncryptedBytes(invalidHeaderLength)).toThrow(
       "header length is invalid",
     );

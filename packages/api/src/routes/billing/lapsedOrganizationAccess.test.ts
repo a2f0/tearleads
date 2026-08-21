@@ -1,26 +1,26 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { db } from "@symcrypt/api-shared/postgres";
+import { users } from "@symcrypt/api-shared/schema";
+import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
   signWriteHeader,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createDocument as createLoroDocument,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
-} from "@tearleads/loro";
-import type { DocumentSyncRequest } from "@tearleads/validators/request";
+} from "@symcrypt/loro";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   type DocumentCreateResponse,
   isDocumentSyncResponse,
   isOrganizationReadModelResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

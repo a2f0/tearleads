@@ -1,8 +1,8 @@
-import type { ResolvedUserIdentity, Tearleads } from "@tearleads/client-sdk";
-import { toFingerprint } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import type { ResolvedUserIdentity, SymCrypt } from "@symcrypt/client-sdk";
+import { toFingerprint } from "@symcrypt/crypto";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import { useEffect, useMemo } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useSymCrypt } from "../../providers/sdk/SymCryptProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
 import {
   type ContactsRuntime,
@@ -12,12 +12,12 @@ import {
 
 async function getLocalUserIdentity(input: {
   encapsulationKeyPair: ReturnType<
-    typeof useTearleads
+    typeof useSymCrypt
   >["identity"]["encapsulationKeyPair"];
   signingFingerprint: ReturnType<
-    typeof useTearleads
+    typeof useSymCrypt
   >["identity"]["signingFingerprint"];
-  signingKeyPair: ReturnType<typeof useTearleads>["identity"]["signingKeyPair"];
+  signingKeyPair: ReturnType<typeof useSymCrypt>["identity"]["signingKeyPair"];
   userId: string;
 }): Promise<ResolvedUserIdentity | null> {
   const { encapsulationKeyPair, signingFingerprint, signingKeyPair, userId } =
@@ -65,23 +65,23 @@ function useContactsRuntime(
   contactsContainerId: string | null,
   resolveTrashContainerForDocument: ContactsRuntime["resolveTrashContainerForDocument"],
 ): ContactsRuntime {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   const documentsRuntime = useRuntimeScopedMemo(
-    () => tearleads.documents.workflowRuntime(contactsContainerId),
-    [contactsContainerId, tearleads],
+    () => symcrypt.documents.workflowRuntime(contactsContainerId),
+    [contactsContainerId, symcrypt],
   );
   const documentLinks = useRuntimeScopedMemo(
-    () => tearleads.containerContents.documentLinks(),
-    [tearleads],
+    () => symcrypt.containerContents.documentLinks(),
+    [symcrypt],
   );
   const documentQueries = useRuntimeScopedMemo(
-    () => tearleads.containerContents.documentQueries(),
-    [tearleads],
+    () => symcrypt.containerContents.documentQueries(),
+    [symcrypt],
   );
   return useMemo(
     () =>
       createContactsRuntimeForContainer(
-        tearleads,
+        symcrypt,
         documentsRuntime,
         resolveTrashContainerForDocument,
         (note, targetContainerId) =>
@@ -103,72 +103,72 @@ function useContactsRuntime(
       documentQueries,
       documentsRuntime,
       resolveTrashContainerForDocument,
-      tearleads,
+      symcrypt,
     ],
   );
 }
 
 function useContactsStore(runtime: ContactsRuntime): ContactsStore {
-  const tearleads = useTearleads();
+  const symcrypt = useSymCrypt();
   return useMemo(
-    () => createContactsStore(runtime, tearleads),
-    [runtime, tearleads],
+    () => createContactsStore(runtime, symcrypt),
+    [runtime, symcrypt],
   );
 }
 
 function createContactsStore(
   runtime: ContactsRuntime,
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
 ): ContactsStore {
   return getOrCreateContactsStore(
     runtime.documents.state.domainScope,
     runtime,
     {
-      resolveUserIdentity: (userId) => tearleads.userIdentities.resolve(userId),
+      resolveUserIdentity: (userId) => symcrypt.userIdentities.resolve(userId),
       getLocalUserIdentity: (userId) =>
         getLocalUserIdentity({
-          encapsulationKeyPair: tearleads.identity.encapsulationKeyPair,
-          signingFingerprint: tearleads.identity.signingFingerprint,
-          signingKeyPair: tearleads.identity.signingKeyPair,
+          encapsulationKeyPair: symcrypt.identity.encapsulationKeyPair,
+          signingFingerprint: symcrypt.identity.signingFingerprint,
+          signingKeyPair: symcrypt.identity.signingKeyPair,
           userId,
         }),
-      logError: tearleads.logError,
+      logError: symcrypt.logError,
     },
   );
 }
 
 export function createContactsRuntimeForContainer(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   documentsRuntime: ContactsRuntime["documents"],
   resolveTrashContainerForDocument: ContactsRuntime["resolveTrashContainerForDocument"] = undefined,
   moveDocumentToTrash: ContactsRuntime["moveDocumentToTrash"] = () =>
     Promise.resolve(null),
   loadDocumentSummary: ContactsRuntime["loadDocumentSummary"] = (localId) =>
-    tearleads.containerContents.documentQueries().loadDocumentSummary(localId),
+    symcrypt.containerContents.documentQueries().loadDocumentSummary(localId),
 ): ContactsRuntime {
-  const documentLinks = tearleads.containerContents.documentLinks();
+  const documentLinks = symcrypt.containerContents.documentLinks();
   return {
-    deleteDocument: (localId) => tearleads.documents.delete(localId),
+    deleteDocument: (localId) => symcrypt.documents.delete(localId),
     documents: documentsRuntime,
     loadDocumentSummary,
     moveDocumentToTrash,
     openDocumentStore: (input) =>
-      tearleads.documents.open(input, {
+      symcrypt.documents.open(input, {
         workflowRuntime: documentsRuntime,
       }),
     purgeDocument: async (document) =>
       (await documentLinks.purgeDocument({ note: document })) !== null,
     resolveTrashContainerForDocument,
     subscribeToPersistedDocuments: (listener) =>
-      tearleads.documents.subscribe(listener, {
+      symcrypt.documents.subscribe(listener, {
         containerId: documentsRuntime.state.containerId,
       }),
   };
 }
 
 export function getOrCreateContactsStoreForRuntime(
-  tearleads: Tearleads,
+  symcrypt: SymCrypt,
   runtime: ContactsRuntime,
 ): ContactsStore {
-  return createContactsStore(runtime, tearleads);
+  return createContactsStore(runtime, symcrypt);
 }

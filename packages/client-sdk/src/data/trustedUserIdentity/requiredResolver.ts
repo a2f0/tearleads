@@ -1,4 +1,4 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import {
   isTrustedUserIdentity,
   type TrustedUserIdentityResolver,

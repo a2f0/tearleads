@@ -6,7 +6,7 @@ import {
   isDetachBlobAttachmentOperationRequest,
   isDetachBlobAttachmentOperationResponse,
   operationRequestPath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 
 export const bindBlobAttachment = {
   isRequest: isBindBlobAttachmentOperationRequest,

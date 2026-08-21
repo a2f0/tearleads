@@ -6,13 +6,13 @@ import {
   derivePrincipalRecipientKeyEpochId,
   encryptWithDek,
   wrapDekForRecipients,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+} from "@symcrypt/crypto";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { readManifestContainerId } from "../../documents/shared/readers";
 import {
   readCanonicalManifestBundle,

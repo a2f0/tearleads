@@ -9,7 +9,7 @@ const [
   { clearInMemoryRedisData },
   { closeApiTestAdapters },
 ] = await Promise.all([
-  import("@tearleads/api-shared/postgres"),
+  import("@symcrypt/api-shared/postgres"),
   import("../src/adapters/inMemoryRedis"),
   import("./cleanup"),
 ]);

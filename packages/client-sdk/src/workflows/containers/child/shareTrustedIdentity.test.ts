@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import {
   createAuthor,
   createParentProjection,

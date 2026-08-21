@@ -6,10 +6,10 @@ import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { CreateOrganizationRequest } from "@tearleads/validators/request";
-import type { CreateOrganizationResponse } from "@tearleads/validators/response";
+} from "@symcrypt/crypto";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
+import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -25,7 +25,7 @@ const SYSTEM_CONTAINER = {
   icon: "trash",
   name: "Trash",
   slotDefinition: {
-    namespace: "tearleads.explorer",
+    namespace: "symcrypt.explorer",
     projectorId: "explorer",
     slotId: "trash",
     version: 1,

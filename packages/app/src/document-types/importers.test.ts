@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  createBlobByteSource,
-  readBlobByteSource,
-} from "@tearleads/client-sdk";
+import { createBlobByteSource, readBlobByteSource } from "@symcrypt/client-sdk";
 import {
   BINARY_FILE_IMPORT_MAX_BYTES,
   getDocumentFileImporter,

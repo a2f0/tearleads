@@ -1,8 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { db } from "@symcrypt/api-shared/postgres";
+import { organizationBilling } from "@symcrypt/api-shared/schema";
+import { createTestUser } from "@symcrypt/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";

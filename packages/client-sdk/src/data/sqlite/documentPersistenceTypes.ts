@@ -1,4 +1,4 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type { ContainerAccessLevel } from "@symcrypt/crypto";
 
 export interface DocumentRecord {
   id: string;

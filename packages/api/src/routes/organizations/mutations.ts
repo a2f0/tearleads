@@ -2,11 +2,11 @@ import {
   createOrganizationGroupOperation,
   deleteOrganizationGroupOperation,
   operationRoutePath,
-} from "@tearleads/validators/operation";
+} from "@symcrypt/validators/operation";
 import type {
   CreateOrganizationGroupResponse,
   DeleteOrganizationGroupResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {

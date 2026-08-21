@@ -1,4 +1,4 @@
-import type { PurchasesCapability } from "@tearleads/client-sdk";
+import type { PurchasesCapability } from "@symcrypt/client-sdk";
 
 interface CachedCapacitorPurchases {
   readonly apiKey: string;

@@ -12,9 +12,9 @@ areas:
 
 Tests stay beside the adapter or native contract they cover; shared test
 fixtures live under `../tests/`. Reusable behavior belongs in `app` or
-`@tearleads/client-sdk`; this package should only compose those facades with
+`@symcrypt/client-sdk`; this package should only compose those facades with
 Capacitor plugins and must not become a reusable dependency.
 
 The database worker bundle is built by `scripts/buildWorker.ts` from the public
-`@tearleads/sqlite-worker/assets` entrypoint rather than from a local source
+`@symcrypt/sqlite-worker/assets` entrypoint rather than from a local source
 shim.

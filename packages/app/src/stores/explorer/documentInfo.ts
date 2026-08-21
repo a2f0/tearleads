@@ -4,12 +4,12 @@ import type {
   DocumentAttributionRangesPage,
   DocumentInfo,
   StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type RuntimeSnapshot,
-  useTearleads,
-} from "../../providers/sdk/TearleadsProvider";
+  useSymCrypt,
+} from "../../providers/sdk/SymCryptProvider";
 
 export function documentInfoRefreshKey(
   events: readonly unknown[],
@@ -122,7 +122,7 @@ export function useExplorerDocumentInfoLoader(input: {
     documentLocalId,
     documentUpdatedAt,
   } = input;
-  const { containerContents } = useTearleads();
+  const { containerContents } = useSymCrypt();
   const isAuthenticated = appData.auth.isAuthenticated;
   const online = appData.state.online;
   const syncCompletionRevision = useDocumentSyncCompletionRevision({
@@ -159,7 +159,7 @@ export type ExplorerDocumentAttributionRangesLoader = (
 ) => Promise<DocumentAttributionRangesPage>;
 
 export function useExplorerDocumentAttributionRangesLoader(): ExplorerDocumentAttributionRangesLoader {
-  const { containerContents } = useTearleads();
+  const { containerContents } = useSymCrypt();
 
   return useCallback(
     (input: DocumentAttributionRangesInput) =>

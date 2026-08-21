@@ -1,10 +1,10 @@
-import { type RecipientEntry, unwrapDek } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { type RecipientEntry, unwrapDek } from "@symcrypt/crypto";
+import { base64ToBytes } from "@symcrypt/encoding";
 import type {
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
-import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
+} from "@symcrypt/validators/response";
+import type { SerializedKeyEnvelope } from "@symcrypt/validators/util";
 import { loadAllPrincipalPolicyBundles } from "../persistence/principalPolicyPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useTearleadsExternalValue } from "../providers/sdk/useTearleadsSubscription";
+import { useSymCryptExternalValue } from "../providers/sdk/useSymCryptSubscription";
 import type { ThemeId } from "./themes";
 
 const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
@@ -24,5 +24,5 @@ export function useOsPreferredTheme(): ThemeId {
     return window.matchMedia(DARK_SCHEME_QUERY).matches ? "dark" : "light";
   }, []);
 
-  return useTearleadsExternalValue(subscribe, getSnapshot);
+  return useSymCryptExternalValue(subscribe, getSnapshot);
 }

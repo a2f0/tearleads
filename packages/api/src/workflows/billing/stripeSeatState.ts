@@ -1,11 +1,11 @@
 import type {
   ApiDatabase,
   DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   organizationBillingStripeSeats,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";

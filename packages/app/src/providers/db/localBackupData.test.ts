@@ -5,14 +5,14 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
   type SqlTableSchema,
-} from "@tearleads/client-sdk/sqlite";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk/sqlite";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 import { restoreBackupDatabase } from "./localBackupDatabase";
 import {

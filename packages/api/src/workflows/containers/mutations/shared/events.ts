@@ -1,7 +1,7 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import type { AccessEventType, VerifiedAccessEvent } from "@tearleads/crypto";
-import { verifySignedAccessEvent } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import type { AccessEventType, VerifiedAccessEvent } from "@symcrypt/crypto";
+import { verifySignedAccessEvent } from "@symcrypt/crypto";
+import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";

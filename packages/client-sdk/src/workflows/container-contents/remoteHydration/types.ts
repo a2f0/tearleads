@@ -1,4 +1,4 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type { ListContainerParentLanesRequest } from "@symcrypt/validators/request";
 import type {
   ContainerSummary,
   ContainerWriterProjectionResponse,
@@ -7,7 +7,7 @@ import type {
   ListContainersResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import type { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type {
   ContainerContentsPersistence,

@@ -3,8 +3,8 @@ import type {
   AccessObjectKind,
   ManagedPrincipalKind,
   PrincipalPolicyCheckpoint,
-} from "@tearleads/crypto";
-import { KeyingVerificationError } from "@tearleads/crypto";
+} from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { and, eq } from "drizzle-orm";
 import {
   accessManifestCheckpoints,

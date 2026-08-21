@@ -2,9 +2,9 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import { useSymCryptRuntime } from "../../../providers/sdk/SymCryptProvider";
 import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
 import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
 import { useDocumentTrash } from "../../shared/trash/useDocumentTrash";
@@ -59,7 +59,7 @@ function useSyncSelectedNote(input: {
   ready: boolean;
   selectNoteRoute: SelectNoteRoute;
 }) {
-  const appData = useTearleadsRuntime();
+  const appData = useSymCryptRuntime();
   const {
     autoSelectInitialNote,
     explicitNoteId,
@@ -133,7 +133,7 @@ function useDeleteNote(input: {
   setSelectedNoteId: (noteId: string) => void;
   visibleNotes: ReadonlyArray<DocumentSummary>;
 }) {
-  const appData = useTearleadsRuntime();
+  const appData = useSymCryptRuntime();
   const {
     mergeNoteSummary,
     moveToTrash,
@@ -194,7 +194,7 @@ export function useNotesDirectory({
   explicitSelection,
   selectNoteRoute,
 }: NotesDirectoryInput) {
-  const appData = useTearleadsRuntime();
+  const appData = useSymCryptRuntime();
   const explicitNoteId = explicitSelection?.noteId ?? null;
   const {
     mergeSummary: mergeNoteSummary,

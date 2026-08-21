@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import {
   createContainerContentsStore as createExplorerStore,
   createInitializedContainerMetadataDocument,
-} from "@tearleads/client-sdk";
-import { bytesToBase64 } from "@tearleads/encoding";
+} from "@symcrypt/client-sdk";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,

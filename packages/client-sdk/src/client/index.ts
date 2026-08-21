@@ -218,6 +218,11 @@ export type {
   OrganizationUserDetail,
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
+export {
+  type ClientDatabaseOptions,
+  type ClientOptions,
+  SymCrypt,
+} from "./SymCrypt";
 export type {
   SecurityIncident,
   SecurityIncidentListener,
@@ -238,11 +243,6 @@ export {
   SyncBillingGate,
   type SyncBillingGateListener,
 } from "./syncBillingGate";
-export {
-  type ClientDatabaseOptions,
-  type ClientOptions,
-  Tearleads,
-} from "./Tearleads";
 export type {
   ResolvedUserIdentity,
   UserIdentities,

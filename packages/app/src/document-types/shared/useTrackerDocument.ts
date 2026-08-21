@@ -1,7 +1,7 @@
 import type {
   DocumentStructuredFieldPatch,
   StoredDocumentKind,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { useDocumentRowWriters } from "../../stores/documents/useDocumentRowWriters";
 import { useDocumentRowEditing } from "./useDocumentRowEditing";

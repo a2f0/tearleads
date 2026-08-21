@@ -24,8 +24,8 @@ interface PsqlEnvironment extends Record<string, string> {
   PGUSER?: string;
 }
 
-const allowedDatabase = "tearleads_development";
-const deniedDatabase = "tearleads_production";
+const allowedDatabase = "symcrypt_development";
+const deniedDatabase = "symcrypt_production";
 
 function parseArgs(args: readonly string[]): CliOptions {
   let database: string | undefined;

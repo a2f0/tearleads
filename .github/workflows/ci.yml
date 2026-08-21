@@ -92,13 +92,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: tearleads
-          POSTGRES_PASSWORD: tearleads
-          POSTGRES_DB: tearleads_concurrency_test
+          POSTGRES_USER: symcrypt
+          POSTGRES_PASSWORD: symcrypt
+          POSTGRES_DB: symcrypt_concurrency_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U tearleads"
+          --health-cmd "pg_isready -U symcrypt"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -120,7 +120,7 @@ jobs:
 
       - name: Run Postgres concurrency lane
         env:
-          DATABASE_URL: postgres://tearleads:tearleads@localhost:5432/tearleads_concurrency_test
+          DATABASE_URL: postgres://symcrypt:symcrypt@localhost:5432/symcrypt_concurrency_test
         run: bun run test:postgres-concurrency
 
   terraform:

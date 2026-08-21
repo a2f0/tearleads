@@ -1,11 +1,11 @@
 import type {
   ContainerKekLogEpochResponse,
   ContainerKekLogResponse,
-} from "@tearleads/validators/response";
+} from "@symcrypt/validators/response";
 import {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   MAX_CONTAINER_KEY_EPOCH,
-} from "@tearleads/validators/util";
+} from "@symcrypt/validators/util";
 import type { AggregatedContainerKekLog } from "./keyringLogWalk";
 
 /**

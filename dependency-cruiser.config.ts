@@ -563,7 +563,7 @@ const websiteRules = [
     name: "website-does-not-depend-on-app",
     severity: "error",
     comment:
-      "The website may share UI through @tearleads/ui, but it must not import the application implementation package.",
+      "The website may share UI through @symcrypt/ui, but it must not import the application implementation package.",
     from: {
       path: sourceRoot.website,
       pathNot: testFilesPattern,

@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db } from "@symcrypt/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessManifestPrincipalHeadProjection,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   type AccessManifest,
   computeAccessEventBodyHash,
@@ -14,7 +14,7 @@ import {
   type VerifiedAccessManifest,
   verifyAccessManifest,
   verifySignedAccessEvent,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { eq } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,

@@ -1,4 +1,4 @@
-# @tearleads/code-assist
+# @symcrypt/code-assist
 
 Self-hosted AI pull-request reviewer, replacing the Gemini Code Assist GitHub app
 (the consumer `gemini-code-assist[bot]` stops reviewing on **2026-07-17**).
@@ -62,7 +62,7 @@ Review config (shared by CLI and server):
 | `CODE_ASSIST_BASE_URL` | `https://api.deepseek.com` | OpenAI-compatible base URL; point elsewhere to swap providers. |
 | `CODE_ASSIST_SEVERITY_THRESHOLD` | `medium` | Minimum severity to post (`low`/`medium`/`high`/`critical`). |
 | `CODE_ASSIST_MAX_COMMENTS` | `25` | Cap on inline comments per review (highest severity first). |
-| `CODE_ASSIST_BOT_HANDLE` | `@tearleads-code-assist` | Mention string that triggers an interactive re-check on a review thread. |
+| `CODE_ASSIST_BOT_HANDLE` | `@symcrypt-code-assist` | Mention string that triggers an interactive re-check on a review thread. |
 | `CODE_ASSIST_IGNORE_PATTERNS` | lockfiles + build output | Comma-separated globs of paths to skip reviewing (replaces the default list). |
 
 Server-only config:
@@ -80,9 +80,10 @@ Server-only config:
 
 One-time manual setup (Settings → Developer settings → GitHub Apps → New):
 
-1. **Name:** `tearleads-code-assist`. **Homepage:** the repo URL.
-2. **Webhook → Active.** URL = your tunnel hostname + `/webhook`
-   (e.g. `https://code-assist.example.com/webhook`). Set a **Webhook secret**
+1. **Name:** `symcrypt-code-assist`. **Homepage:** the repo URL.
+2. **Webhook → Active.** URL = the tier's API hostname +
+   `/code-assist/webhook` (for example,
+   `https://api.symcrypt.com/code-assist/webhook`). Set a **Webhook secret**
    and put the same value in `CODE_ASSIST_GITHUB_WEBHOOK_SECRET`.
 3. **Repository permissions:** Pull requests = **Read & write**;
    Contents = **Read-only**; Metadata = **Read-only**.
@@ -90,7 +91,7 @@ One-time manual setup (Settings → Developer settings → GitHub Apps → New):
 5. **Where can this be installed:** Only on this account.
 6. Create the app, then **Generate a private key** (downloads a `.pem`) and note
    the numeric **App ID**.
-7. **Install** the app on `a2f0/tearleads`.
+7. **Install** the app on `a2f0/symcrypt`.
 8. Set `CODE_ASSIST_GITHUB_APP_ID` and point
    `CODE_ASSIST_GITHUB_PRIVATE_KEY_PATH` at the `.pem`, then run the server.
 
@@ -100,7 +101,7 @@ configured manually.
 ## Deployment (Phase 4)
 
 The bot deploys to the Hetzner server alongside the API: a compiled Bun
-executable (`bun run build` → `dist/tearleads-code-assist`) run by systemd,
+executable (`bun run build` → `dist/symcrypt-code-assist`) run by systemd,
 listening on `127.0.0.1:3939`, reached only through the Cloudflare tunnel (the
 host firewall allows just 22/80/443 inbound). All provisioning is gated on
 `CODE_ASSIST_ENABLED=true`.
@@ -119,13 +120,15 @@ One-time setup:
    CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC=/absolute/path/to/.secrets/code-assist-app.pem
    ```
 
-3. `terraform/stacks/prod/server/scripts/apply.sh` — adds the
-   `code-assist.<domain>` DNS record + tunnel ingress route to `localhost:3939`.
-4. `ansible/scripts/run-server-prod.sh` — installs the env file, private key, and
-   `tearleads-code-assist` systemd unit.
+3. `terraform/stacks/prod/server/scripts/apply.sh` — provisions the shared API
+   hostname and tunnel route.
+4. `ansible/scripts/run-server-prod.sh` — installs the env file, private key,
+   `symcrypt-code-assist` systemd unit, and API-host path proxy.
 5. `packages/code-assist/scripts/deployProductionCodeAssist.sh` — builds, ships,
    and starts the executable.
-6. Point the GitHub App webhook URL at `https://code-assist.<domain>/webhook`.
+6. Point the GitHub App webhook URL at
+   `https://api.symcrypt.com/code-assist/webhook` for production or
+   `https://api-staging.symcrypt.com/code-assist/webhook` for staging.
 
 Redeploying new bot code afterward is just step 5. Staging uses the `staging` /
 `*Staging*` variants of each command.

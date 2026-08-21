@@ -5,9 +5,9 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
-import { createTestExecSql } from "@tearleads/test-utils";
+} from "@symcrypt/client-sdk";
+import type { ExecSql } from "@symcrypt/client-sdk/sqlite";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
 
 const HASH_A = "a".repeat(64);

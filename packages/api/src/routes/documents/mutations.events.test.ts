@@ -1,6 +1,6 @@
 import { expect, mock, spyOn, test } from "bun:test";
-import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
-import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
+import type { DocumentLinkSetMutationResponse } from "@symcrypt/validators/response";
 import {
   createDocumentMutationCreatedEvent,
   createDocumentPurgeEvent,

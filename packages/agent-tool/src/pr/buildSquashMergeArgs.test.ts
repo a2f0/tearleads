@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { buildSquashMergeArgs } from "./squashMerge";
 
-const pr = { prNumber: "1537", repo: "a2f0/tearleads" };
+const pr = { prNumber: "1537", repo: "a2f0/symcrypt" };
 
 describe("buildSquashMergeArgs", () => {
   test("builds a subject-only squash with an empty body", () => {
@@ -16,7 +16,7 @@ describe("buildSquashMergeArgs", () => {
       "--body",
       "",
       "-R",
-      "a2f0/tearleads",
+      "a2f0/symcrypt",
     ]);
   });
 

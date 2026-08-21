@@ -1,20 +1,20 @@
 import type {
   DatabaseSession,
   DatabaseTransaction,
-} from "@tearleads/api-shared/postgres";
+} from "@symcrypt/api-shared/postgres";
 import {
   principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-} from "@tearleads/api-shared/schema";
+} from "@symcrypt/api-shared/schema";
 import {
   computePrincipalStateHash,
   type ManagedRecipientPrincipalType,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
   verifySignedPrincipalState,
-} from "@tearleads/crypto";
+} from "@symcrypt/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {

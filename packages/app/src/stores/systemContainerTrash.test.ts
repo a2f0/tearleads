@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@symcrypt/client-sdk";
 import { resolveDeleteToTrashTarget } from "./systemContainerTrash";
 
 const VIEWER_ORG = "viewer-org";

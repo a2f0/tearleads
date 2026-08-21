@@ -9,7 +9,7 @@ import {
 
 const scope: LocalKeyringScope = {
   accountId: "user-1",
-  namespace: "tearleads.sqlite",
+  namespace: "symcrypt.sqlite",
   signingFingerprint: "fp-1",
 };
 

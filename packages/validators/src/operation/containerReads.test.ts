@@ -131,15 +131,15 @@ test("OpenAPI declares each container read runtime-only invariant", () => {
     throw new Error("Container read OpenAPI schemas are missing");
   }
 
-  expect(kekOperation?.["x-tearleads-runtime-refinements"]).toEqual(
+  expect(kekOperation?.["x-symcrypt-runtime-refinements"]).toEqual(
     containerKekLogResponseRuntimeRefinements,
   );
   const documentsOperation =
     openApiDocument.paths["/containers/{containerId}/documents"]?.get;
-  expect(documentsOperation?.["x-tearleads-runtime-refinements"]).toEqual(
+  expect(documentsOperation?.["x-symcrypt-runtime-refinements"]).toEqual(
     containerDocumentRuntimeRefinements,
   );
-  expect(parentOperation?.["x-tearleads-runtime-refinements"]).toEqual(
+  expect(parentOperation?.["x-symcrypt-runtime-refinements"]).toEqual(
     containerParentLaneRuntimeRefinements,
   );
 

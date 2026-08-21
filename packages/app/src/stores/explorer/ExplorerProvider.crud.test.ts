@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import {
   createContainerDocumentObjectSyncState,
   createContainerContentsStore as createExplorerStore,
-} from "@tearleads/client-sdk";
+} from "@symcrypt/client-sdk";
 import {
   createContainerParentLaneBatchMock,
   createMockApiClient,
-} from "@tearleads/test-utils";
+} from "@symcrypt/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,

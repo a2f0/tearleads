@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createDocumentStore } from "@tearleads/client-sdk";
+import { createDocumentStore } from "@symcrypt/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
-} from "@tearleads/crypto";
-import { createMockApiClient } from "@tearleads/test-utils";
+} from "@symcrypt/crypto";
+import { createMockApiClient } from "@symcrypt/test-utils";
 import {
   createDocumentStorePersistence,
   createDocumentStoreRuntime,
