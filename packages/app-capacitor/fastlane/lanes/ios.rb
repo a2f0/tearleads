@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'shellwords'
-require 'securerandom'
+require_relative '../lib/ios_signing_keychain'
 require_relative '../lib/native_release_target'
 
 IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
@@ -24,22 +24,10 @@ def load_ios_release_secrets_env
   load_native_release_secrets_env
 end
 
-def delete_ios_signing_keychain(keychain_name)
-  delete_keychain(name: keychain_name)
-ensure
-  ENV.delete('MATCH_KEYCHAIN_NAME')
-  ENV.delete('MATCH_KEYCHAIN_PASSWORD')
-end
-
-def with_ios_signing_keychain
-  return yield unless ENV['MATCH_KEYCHAIN_NAME'].to_s.empty?
-
-  ENV.delete('MATCH_KEYCHAIN_NAME')
-  keychain_name = "symcrypt-fastlane-#{Process.pid}-#{SecureRandom.hex(6)}"
-  setup_ci(force: true, keychain_name: keychain_name, timeout: 0)
-  yield
-ensure
-  delete_ios_signing_keychain(keychain_name) unless keychain_name.nil?
+def with_ios_signing_keychain(&)
+  setup = proc { |name| setup_ci(force: true, keychain_name: name, timeout: 0) }
+  cleanup = proc { |name| delete_keychain(name: name) }
+  IosSigningKeychain.with_temporary(environment: ENV, setup: setup, cleanup: cleanup, &)
 end
 
 def explicit_ios_release_build_number(options)
@@ -257,9 +245,8 @@ end
 
 def ios_codesign_keychain_environment
   keychain_name = ENV['MATCH_KEYCHAIN_NAME'].to_s
-  return {} if keychain_name.empty?
-
-  environment = { 'CODESIGN_LOGIN_KEYCHAIN' => FastlaneCore::Helper.keychain_path(keychain_name) }
+  environment = {}
+  environment['CODESIGN_LOGIN_KEYCHAIN'] = FastlaneCore::Helper.keychain_path(keychain_name) unless keychain_name.empty?
   if ENV.key?('MATCH_KEYCHAIN_PASSWORD')
     environment['CODESIGN_KEYCHAIN_PASSWORD'] = ENV.fetch('MATCH_KEYCHAIN_PASSWORD')
   end
