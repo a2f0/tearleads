@@ -218,7 +218,7 @@ def ios_build_xcargs(release_build, team_id)
   ]
   keychain_path = active_match_keychain_path
   unless keychain_path.nil?
-    settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{keychain_path.dump}")
+    settings << ios_xcodebuild_setting('OTHER_CODE_SIGN_FLAGS', "--keychain #{Shellwords.escape(keychain_path)}")
   end
   settings.join(' ')
 end

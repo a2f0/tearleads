@@ -12,7 +12,7 @@ const lifecycleScript = `
 require "json"
 require ARGV.fetch(0)
 
-def exercise(environment, fail: false, setup_fail: false)
+def exercise(environment, fail: false, setup_fail: false, cleanup_fail: false)
   events = []
   result = nil
   error = nil
@@ -27,7 +27,10 @@ def exercise(environment, fail: false, setup_fail: false)
         setup_password = password
         raise "setup failed" if setup_fail
       end,
-      cleanup: proc { |name| events << ["cleanup", name] }
+      cleanup: proc do |name|
+        events << ["cleanup", name]
+        raise "cleanup failed" if cleanup_fail
+      end
     ) do
       events << ["yield", environment["MATCH_KEYCHAIN_NAME"]]
       yield_password = environment["MATCH_KEYCHAIN_PASSWORD"]
@@ -49,11 +52,18 @@ def exercise(environment, fail: false, setup_fail: false)
   }
 end
 
+original_term_handler = proc {}
+prior_term_handler = Signal.trap("TERM", original_term_handler)
+cleanup_failure = exercise({}, cleanup_fail: true)
+restored_term_handler = Signal.trap("TERM", prior_term_handler)
+
 puts JSON.generate(
   success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret", "MATCH_READONLY" => "false" }),
   failure: exercise({}, fail: true),
   setup_failure: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }, setup_fail: true),
-  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" })
+  cleanup_failure: cleanup_failure,
+  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }),
+  signal_handler_restored: restored_term_handler.equal?(original_term_handler)
 )
 `;
 
@@ -150,6 +160,13 @@ test("temporary signing keychain lifecycle preserves caller state", async () => 
   expect(results.setup_failure.environment).toEqual({
     MATCH_KEYCHAIN_PASSWORD: "login-secret",
   });
+
+  expect(results.cleanup_failure.error).toBe("cleanup failed");
+  expect(
+    results.cleanup_failure.events.map(([event]: string[]) => event),
+  ).toEqual(["setup", "yield", "cleanup"]);
+  expect(results.cleanup_failure.environment).toEqual({});
+  expect(results.signal_handler_restored).toBe(true);
 
   expect(results.custom.result).toBe("built");
   expect(results.custom.events).toEqual([["yield", "caller-keychain"]]);

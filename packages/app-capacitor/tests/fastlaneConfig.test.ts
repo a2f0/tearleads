@@ -173,13 +173,13 @@ const iosXcargsScript = [
   'require "fastlane"',
   "Fastlane.load_actions",
   'fastfile = Fastlane::FastFile.new("fastlane/Fastfile")',
-  'FastlaneCore::Helper.singleton_class.define_method(:keychain_path) { |_name| "/tmp/Signing Keys/release keychain-db" }',
+  'FastlaneCore::Helper.singleton_class.define_method(:keychain_path) { |_name| "/tmp/Signing Keys/署名 keychain-db" }',
   'ENV["MATCH_KEYCHAIN_NAME"] = "release keychain"',
   'xcargs = fastfile.send(:ios_build_xcargs, { build_number: 2, version: "1.0" }, "TEAM")',
   "puts JSON.generate(Shellwords.split(xcargs))",
 ].join("; ");
 
-test("iOS build flags preserve a keychain path containing whitespace", async () => {
+test("iOS build flags preserve a keychain path containing whitespace and Unicode", async () => {
   await requireRubyBundle();
   const child = Bun.spawn(["bundle", "exec", "ruby", "-e", iosXcargsScript], {
     cwd: packageRoot,
@@ -201,6 +201,6 @@ test("iOS build flags preserve a keychain path containing whitespace", async () 
 
   const xcargs = JSON.parse(stdout.trim().split("\n").at(-1) ?? "null");
   expect(xcargs).toContain(
-    'OTHER_CODE_SIGN_FLAGS=--keychain "/tmp/Signing Keys/release keychain-db"',
+    "OTHER_CODE_SIGN_FLAGS=--keychain /tmp/Signing\\ Keys/\\署\\名\\ keychain-db",
   );
 });

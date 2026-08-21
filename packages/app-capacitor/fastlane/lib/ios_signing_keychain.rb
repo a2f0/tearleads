@@ -39,8 +39,11 @@ class IosSigningKeychain
     prepare
     yield
   ensure
-    finish if @ready
-    restore_signal_handlers(previous_signal_handlers)
+    begin
+      finish if @ready
+    ensure
+      restore_signal_handlers(previous_signal_handlers)
+    end
   end
 
   def install_termination_handlers
