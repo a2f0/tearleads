@@ -28,6 +28,9 @@ import {
  *   grace period; a later sweep locks the blob and re-checks active reachability
  *   before pruning live state. A bind that re-references it clears this back to
  *   `null`. Null while live.
+ * - `reclaimAttemptedAt`: Most recent failed live-state reclaim attempt. This
+ *   rotates corrupt work behind healthy candidates without changing the
+ *   lifecycle-defining `dereferencedAt`. Cleared when the blob is revived.
  */
 export const blobs = pgTable(
   "blobs",
@@ -38,6 +41,7 @@ export const blobs = pgTable(
     byteLength: integer("byte_length").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     dereferencedAt: timestamp("dereferenced_at"),
+    reclaimAttemptedAt: timestamp("reclaim_attempted_at"),
   },
   (table) => [
     // One blob row per object-store key: a blob is 1:1 with its bytes (sharing

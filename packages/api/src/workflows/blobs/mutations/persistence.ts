@@ -189,7 +189,7 @@ export async function reviveBlobIfDereferenced(input: {
 }): Promise<void> {
   await input.executor
     .update(blobs)
-    .set({ dereferencedAt: null })
+    .set({ dereferencedAt: null, reclaimAttemptedAt: null })
     .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)));
 }
 
@@ -232,7 +232,7 @@ export async function markBlobDereferencedIfInactive(input: {
 
   await input.executor
     .update(blobs)
-    .set({ dereferencedAt: nowExpression() })
+    .set({ dereferencedAt: nowExpression(), reclaimAttemptedAt: null })
     .where(and(eq(blobs.id, input.blobId), isNull(blobs.dereferencedAt)));
 }
 

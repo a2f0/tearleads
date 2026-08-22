@@ -23,11 +23,15 @@ When a signed attachment mutation deactivates an attachment binding through
 - after the grace period, GC locks the blob and rechecks active reachability; a
  rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
  blob content-key target rows, write headers, and detached binding rows
+- a failed live-state reclaim records `blobs.reclaimAttemptedAt` for fair retry
+ ordering without changing the original `dereferencedAt` lifecycle timestamp
 - pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
  deletion work; maintenance records `objectDeleteAttemptedAt` before each try,
  reserves batch capacity for both new work and retries, and then clears the
  storage key
  and records `objectDeletedAt` after deletion succeeds
+- object deletion or acknowledgement failures keep the durable row retryable
+ and make the maintenance command fail after independent stage cleanup finishes
 
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, audit manifest, or recovery index.

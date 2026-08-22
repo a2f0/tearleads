@@ -101,7 +101,10 @@ async function deleteDocumentAttachmentRows(input: {
   if (input.orphanedBlobIds.length > 0) {
     await input.executor
       .update(blobs)
-      .set({ dereferencedAt: input.dereferencedAt })
+      .set({
+        dereferencedAt: input.dereferencedAt,
+        reclaimAttemptedAt: null,
+      })
       .where(
         and(
           inArray(blobs.id, [...input.orphanedBlobIds]),

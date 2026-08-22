@@ -10,7 +10,16 @@ import {
   blobContentWriteHeaders,
   blobs,
 } from "@symcrypt/api-shared/schema";
-import { and, asc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
@@ -134,7 +143,7 @@ async function reclaimOneBlob(
     if (await isBlobActivelyReferenced(tx, input.blobId)) {
       await tx
         .update(blobs)
-        .set({ dereferencedAt: null })
+        .set({ dereferencedAt: null, reclaimAttemptedAt: null })
         .where(eq(blobs.id, input.blobId));
       return { kind: "revived" };
     }
@@ -189,12 +198,12 @@ async function deferFailedBlobReclaim(
   },
 ): Promise<void> {
   // A corrupt candidate must not remain at the front of every bounded batch.
-  // Move only a marker that remains beyond the grace cutoff; a concurrent
-  // revive or fresh detach wins. The cutoff avoids exact timestamp equality,
-  // which loses PostgreSQL microseconds when a value round-trips through Date.
+  // Rotate its retry marker without changing the lifecycle-defining
+  // dereference timestamp. The cutoff makes a concurrent revive or fresh
+  // detach win and avoids PostgreSQL timestamp round-trip precision equality.
   await db
     .update(blobs)
-    .set({ dereferencedAt: input.retryAt })
+    .set({ reclaimAttemptedAt: input.retryAt })
     .where(
       and(
         eq(blobs.id, input.blobId),
@@ -207,8 +216,8 @@ async function deferFailedBlobReclaim(
 // Prunes live database state for blobs dereferenced longer than the grace
 // period, retaining the storage key on the audit row as a durable physical-
 // deletion work item. Each candidate is rechecked against the cutoff under the
-// blob-row lock. A failed candidate moves behind the grace window so bounded
-// batches keep advancing, while an unchanged corrupt row is retried later.
+// blob-row lock. A failed candidate records its attempt separately so bounded
+// batches keep advancing without rewriting when the blob became unreachable.
 export async function runReclaimDereferencedBlobsWorkflow(
   db: ApiDatabase,
   input: ReclaimDereferencedBlobsInput = {},
@@ -224,7 +233,13 @@ export async function runReclaimDereferencedBlobsWorkflow(
     .where(
       and(isNotNull(blobs.dereferencedAt), lte(blobs.dereferencedAt, cutoff)),
     )
-    .orderBy(asc(blobs.dereferencedAt), asc(blobs.id))
+    // Never-attempted work sorts by dereference time. A failed candidate moves
+    // to its attempt time, behind the backlog that existed when it failed but
+    // ahead of newly eligible work, so neither class can starve the other.
+    .orderBy(
+      asc(sql`coalesce(${blobs.reclaimAttemptedAt}, ${blobs.dereferencedAt})`),
+      asc(blobs.id),
+    )
     .limit(limit);
 
   const reclaimedBlobIds: string[] = [];

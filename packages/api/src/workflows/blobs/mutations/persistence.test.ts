@@ -10,6 +10,7 @@ import {
 async function insertBlob(input: {
   readonly id: string;
   readonly dereferencedAt: Date | null;
+  readonly reclaimAttemptedAt?: Date | null;
   readonly storageKey?: string;
 }): Promise<void> {
   await db.insert(blobs).values({
@@ -18,6 +19,7 @@ async function insertBlob(input: {
     sha256: `sha256:${input.id}`,
     byteLength: 1,
     dereferencedAt: input.dereferencedAt,
+    reclaimAttemptedAt: input.reclaimAttemptedAt,
   });
 }
 
@@ -32,7 +34,11 @@ async function readDereferencedAt(id: string): Promise<Date | null> {
 
 test("reviveBlobIfDereferenced clears a soft-deleted blob's marker", async () => {
   const blobId = crypto.randomUUID();
-  await insertBlob({ id: blobId, dereferencedAt: new Date() });
+  await insertBlob({
+    id: blobId,
+    dereferencedAt: new Date(),
+    reclaimAttemptedAt: new Date(),
+  });
 
   await db.transaction((tx) =>
     reviveBlobIfDereferenced({ blobId, executor: tx }),
@@ -41,6 +47,11 @@ test("reviveBlobIfDereferenced clears a soft-deleted blob's marker", async () =>
   // A bind re-references the blob, so a prior purge's soft-delete is cleared and
   // the GC sweep will not reclaim it.
   expect(await readDereferencedAt(blobId)).toBeNull();
+  const [row] = await db
+    .select({ reclaimAttemptedAt: blobs.reclaimAttemptedAt })
+    .from(blobs)
+    .where(eq(blobs.id, blobId));
+  expect(row?.reclaimAttemptedAt).toBeNull();
 });
 
 test("reviveBlobIfDereferenced is a no-op for a live blob", async () => {

@@ -22,7 +22,6 @@ interface ReclaimDereferencedBlobsSummary {
   readonly reclaimedCount: number;
   readonly revivedCount: number;
   readonly deletedObjectCount: number;
-  readonly failedObjectDeletions: number;
 }
 
 async function drainPendingBlobObjectDeletions(
@@ -30,7 +29,7 @@ async function drainPendingBlobObjectDeletions(
   input: ReclaimDereferencedBlobsInput,
 ) {
   let deletedObjectCount = 0;
-  let failedObjectDeletions = 0;
+  const failures: unknown[] = [];
   const pendingDeletions = await listPendingBlobObjectDeletions(
     runtime.db,
     input.limit === undefined ? {} : { limit: input.limit },
@@ -60,16 +59,16 @@ async function drainPendingBlobObjectDeletions(
             objectDeletedAt: new Date(),
           });
           deletedObjectCount += 1;
-        } catch {
+        } catch (error) {
           // The audit row still retains the storage key, so the next sweep
           // retries both an object-store failure and a lost DB acknowledgement.
-          failedObjectDeletions += 1;
+          failures.push(error);
         }
       }),
     );
   }
 
-  return { deletedObjectCount, failedObjectDeletions };
+  return { deletedObjectCount, failures };
 }
 
 // Reclaims blobs soft-deleted past the grace period. The workflow prunes live
@@ -88,14 +87,24 @@ export async function reclaimDereferencedBlobs(
     (error: unknown) => ({ error, ok: false as const }),
   );
   const deletionSummary = await drainPendingBlobObjectDeletions(runtime, input);
-  if (!reclaimAttempt.ok) {
-    throw reclaimAttempt.error;
+  if (!reclaimAttempt.ok || deletionSummary.failures.length > 0) {
+    const failures = [
+      ...(reclaimAttempt.ok ? [] : [reclaimAttempt.error]),
+      ...deletionSummary.failures,
+    ];
+    const firstFailure = failures[0];
+    const detail =
+      firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
+    throw new AggregateError(
+      failures,
+      `Blob reclamation encountered ${failures.length} failure(s)${detail}`,
+    );
   }
 
   return {
     reclaimedCount: reclaimAttempt.result.reclaimedBlobIds.length,
     revivedCount: reclaimAttempt.result.revivedBlobIds.length,
-    ...deletionSummary,
+    deletedObjectCount: deletionSummary.deletedObjectCount,
   };
 }
 

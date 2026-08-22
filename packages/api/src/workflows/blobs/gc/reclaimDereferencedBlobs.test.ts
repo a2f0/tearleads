@@ -141,8 +141,9 @@ test("a corrupt bounded candidate rotates behind healthy work", async () => {
   const now = new Date();
   const corruptBlobId = crypto.randomUUID();
   const healthyBlobId = crypto.randomUUID();
+  const corruptDereferencedAt = new Date(now.getTime() - 49 * HOUR_MS);
   await insertDereferencedBlob({
-    dereferencedAt: new Date(now.getTime() - 49 * HOUR_MS),
+    dereferencedAt: corruptDereferencedAt,
     id: corruptBlobId,
   });
   await db
@@ -162,10 +163,14 @@ test("a corrupt bounded candidate rotates behind healthy work", async () => {
     }),
   ).rejects.toThrow("audit metadata does not match live storage");
   const [rotated] = await db
-    .select({ dereferencedAt: blobs.dereferencedAt })
+    .select({
+      dereferencedAt: blobs.dereferencedAt,
+      reclaimAttemptedAt: blobs.reclaimAttemptedAt,
+    })
     .from(blobs)
     .where(eq(blobs.id, corruptBlobId));
-  expect(rotated?.dereferencedAt).toEqual(now);
+  expect(rotated?.dereferencedAt).toEqual(corruptDereferencedAt);
+  expect(rotated?.reclaimAttemptedAt).toEqual(now);
 
   const result = await runReclaimDereferencedBlobsWorkflow(db, {
     gracePeriodMs: 24 * HOUR_MS,
@@ -193,6 +198,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       .update(blobs)
       .set({ dereferencedAt: sql`now() - interval '49 hours'` })
       .where(eq(blobs.id, blobId));
+    const [before] = await db
+      .select({ dereferencedAt: blobs.dereferencedAt })
+      .from(blobs)
+      .where(eq(blobs.id, blobId));
     await db
       .update(blobAuditObjects)
       .set({ sha256: "mismatched-audit-digest" })
@@ -206,10 +215,14 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       }),
     ).rejects.toThrow("audit metadata does not match live storage");
     const [rotated] = await db
-      .select({ dereferencedAt: blobs.dereferencedAt })
+      .select({
+        dereferencedAt: blobs.dereferencedAt,
+        reclaimAttemptedAt: blobs.reclaimAttemptedAt,
+      })
       .from(blobs)
       .where(eq(blobs.id, blobId));
-    expect(rotated?.dereferencedAt).toEqual(retryAt);
+    expect(rotated?.dereferencedAt).toEqual(before?.dereferencedAt);
+    expect(rotated?.reclaimAttemptedAt).toEqual(retryAt);
     await db.delete(blobs).where(eq(blobs.id, blobId));
     await db
       .delete(blobAuditObjects)

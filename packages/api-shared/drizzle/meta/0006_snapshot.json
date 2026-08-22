@@ -1932,6 +1932,12 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "reclaim_attempted_at": {
+          "name": "reclaim_attempted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

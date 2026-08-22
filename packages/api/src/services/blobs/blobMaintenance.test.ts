@@ -104,13 +104,40 @@ test("failed object deletion remains durable and a later sweep records completio
     storageKey,
   });
 
-  const first = await reclaimDereferencedBlobs(runtime, {
-    gracePeriodMs: 24 * HOUR_MS,
+  const expiredStageId = crypto.randomUUID();
+  const expiredStageKey = `blob-stages/${expiredStageId}`;
+  const { uploadId } = await runtime.blobObjectStore.createMultipartUpload({
+    key: expiredStageKey,
   });
-  expect(first.failedObjectDeletions).toBeGreaterThanOrEqual(1);
+  await db.insert(blobStages).values({
+    byteLength: 1,
+    expiresAt: new Date("2000-01-01T00:00:00.000Z"),
+    id: expiredStageId,
+    ownerUserId: crypto.randomUUID(),
+    sha256: "expired-stage-digest",
+    storageKey: expiredStageKey,
+    uploadId,
+  });
+
+  const maintenanceError = await runBlobMaintenance(runtime, {
+    dereferencedBlobs: { gracePeriodMs: 24 * HOUR_MS },
+    expiredStages: { now: new Date("2000-01-02T00:00:00.000Z") },
+  }).then(
+    () => null,
+    (error: unknown) => error,
+  );
+  expect(maintenanceError).toBeInstanceOf(AggregateError);
+  expect(maintenanceError).toMatchObject({
+    message: "Blob maintenance failed",
+  });
   expect(await readBlobObjectText(runtime.blobObjectStore, storageKey)).toBe(
     bytes,
   );
+  const remainingStages = await db
+    .select({ id: blobStages.id })
+    .from(blobStages)
+    .where(eq(blobStages.id, expiredStageId));
+  expect(remainingStages).toEqual([]);
   const [pending] = await db
     .select({
       liveStorageKey: blobAuditObjects.liveStorageKey,
@@ -172,11 +199,12 @@ test("a poison deletion does not starve newly pending object work", async () => 
     storageKey: poisonStorageKey,
   });
 
-  const first = await reclaimDereferencedBlobs(runtime, {
-    gracePeriodMs: 24 * HOUR_MS,
-    limit: 1,
-  });
-  expect(first.failedObjectDeletions).toBe(1);
+  await expect(
+    reclaimDereferencedBlobs(runtime, {
+      gracePeriodMs: 24 * HOUR_MS,
+      limit: 1,
+    }),
+  ).rejects.toThrow("permanent object-store rejection");
   await db
     .update(blobAuditObjects)
     .set({ objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS) })
@@ -197,12 +225,12 @@ test("a poison deletion does not starve newly pending object work", async () => 
     storageKey: healthyStorageKey,
   });
 
-  const second = await reclaimDereferencedBlobs(runtime, {
-    gracePeriodMs: 24 * HOUR_MS,
-    limit: 1,
-  });
-  expect(second.deletedObjectCount).toBe(0);
-  expect(second.failedObjectDeletions).toBe(1);
+  await expect(
+    reclaimDereferencedBlobs(runtime, {
+      gracePeriodMs: 24 * HOUR_MS,
+      limit: 1,
+    }),
+  ).rejects.toThrow("permanent object-store rejection");
   expect(
     await readBlobObjectText(runtime.blobObjectStore, healthyStorageKey),
   ).toBe(healthyBytes);
@@ -212,13 +240,15 @@ test("a poison deletion does not starve newly pending object work", async () => 
     limit: 1,
   });
   expect(third.deletedObjectCount).toBe(1);
-  expect(third.failedObjectDeletions).toBe(0);
   expect(
     await readBlobObjectText(runtime.blobObjectStore, healthyStorageKey),
   ).toBeNull();
   expect(
     await readBlobObjectText(runtime.blobObjectStore, poisonStorageKey),
   ).toBe(poisonBytes);
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, poisonBlobId));
 });
 
 test("continuously arriving object work does not starve a due retry", async () => {
@@ -248,10 +278,12 @@ test("continuously arriving object work does not starve a due retry", async () =
     sha256: await sha256Hex(poisonBytes),
     storageKey: poisonStorageKey,
   });
-  await reclaimDereferencedBlobs(runtime, {
-    gracePeriodMs: 24 * HOUR_MS,
-    limit: 1,
-  });
+  await expect(
+    reclaimDereferencedBlobs(runtime, {
+      gracePeriodMs: 24 * HOUR_MS,
+      limit: 1,
+    }),
+  ).rejects.toThrow("permanent object-store rejection");
   await db
     .update(blobAuditObjects)
     .set({ objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS) })
@@ -268,18 +300,24 @@ test("continuously arriving object work does not starve a due retry", async () =
     storageKey: newStorageKey,
   });
 
-  const summary = await reclaimDereferencedBlobs(runtime, {
-    gracePeriodMs: 24 * HOUR_MS,
-    limit: 1,
-  });
-  expect(summary.failedObjectDeletions).toBe(1);
-  expect(summary.deletedObjectCount).toBe(0);
+  await expect(
+    reclaimDereferencedBlobs(runtime, {
+      gracePeriodMs: 24 * HOUR_MS,
+      limit: 1,
+    }),
+  ).rejects.toThrow("permanent object-store rejection");
   expect(
     await readBlobObjectText(runtime.blobObjectStore, poisonStorageKey),
   ).toBe(poisonBytes);
   expect(await readBlobObjectText(runtime.blobObjectStore, newStorageKey)).toBe(
     newBytes,
   );
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, poisonBlobId));
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, newBlobId));
 });
 
 test("a corrupt reclaim candidate does not block the durable deletion queue", async () => {
