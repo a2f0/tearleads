@@ -2,12 +2,10 @@ import { expect, test } from "bun:test";
 import {
   type ContainerState,
   createContainerDocumentObjectSyncState,
-  createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
   createContainerContentsStoreState as createExplorerStoreState,
   createContainerContentsStoreSyncAgent as createExplorerSyncAgent,
   createInitializedContainerMetadataDocument,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
-  type ContainerContentsStoreSyncState as ExplorerSyncState,
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@symcrypt/client-sdk";
@@ -157,29 +155,9 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
 
-    const state: ExplorerSyncState = {
-      containersById: new Map(),
-      containerParentIdsNeedingHydration: new Set(),
-      documentStoresNeedPriming: false,
-      initializePromise: null,
-      initialized: false,
-      localContainerRefreshPromise: null,
-      localContainersNeedRefresh: false,
-      lastEventCount: 0,
-      locallyAcceptedMetadataUpdateIds: new Set(),
-      metadataDocumentIdsNeedingSync: new Set(),
-      metadataSyncSignalSeqById: new Map(),
-      persistence: defaultExplorerPersistence,
-      remoteHydrationPromise: null,
-      resolveProjectionUserKey:
-        createExplorerProjectionUserKeyResolver(runtime),
-      rootLaneHydrated: false,
-      runtime,
-      snapshot: {
-        ready: true,
-      },
-      syncLane: null,
-    };
+    const state = createExplorerStoreState(runtime, defaultExplorerPersistence);
+    state.documentStoresNeedPriming = false;
+    state.snapshot = { ...state.snapshot, ready: true };
     const syncAgent = createExplorerSyncAgent({
       host: {
         persistContainerState: async (
@@ -293,29 +271,9 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
 
-    const state: ExplorerSyncState = {
-      containersById: new Map(),
-      containerParentIdsNeedingHydration: new Set(),
-      documentStoresNeedPriming: false,
-      initializePromise: null,
-      initialized: false,
-      localContainerRefreshPromise: null,
-      localContainersNeedRefresh: false,
-      lastEventCount: 0,
-      locallyAcceptedMetadataUpdateIds: new Set(),
-      metadataDocumentIdsNeedingSync: new Set(),
-      metadataSyncSignalSeqById: new Map(),
-      persistence: defaultExplorerPersistence,
-      remoteHydrationPromise: null,
-      resolveProjectionUserKey:
-        createExplorerProjectionUserKeyResolver(runtime),
-      rootLaneHydrated: false,
-      runtime,
-      snapshot: {
-        ready: true,
-      },
-      syncLane: null,
-    };
+    const state = createExplorerStoreState(runtime, defaultExplorerPersistence);
+    state.documentStoresNeedPriming = false;
+    state.snapshot = { ...state.snapshot, ready: true };
     const syncAgent = createExplorerSyncAgent({
       host: {
         persistContainerState: async (
@@ -431,56 +389,33 @@ test("explorer sync skips pending metadata updates for containers without docume
         name: "Local",
       },
     );
-    const state: ExplorerSyncState = {
-      containersById: new Map([
-        [
-          "local-container",
-          {
-            container: {
-              id: "local-container",
-              organizationId: "org-1",
-              parentId: null,
-              metadataDocumentId: null,
-              name: "Local",
-              icon: null,
-            },
-            doc,
-            record: {
-              accessEpoch: 1,
-              accessStateHash: null,
-              documentId: null,
-              id: "local-container",
-              lastCommitLsn: null,
-              metadataUpdates: "",
-              snapshotEndVersion: "",
-              contentKeyBundle: null,
-              documentKekTargets: null,
-              documentManifestBundle: null,
-            },
-          },
-        ],
-      ]),
-      containerParentIdsNeedingHydration: new Set(),
-      documentStoresNeedPriming: false,
-      initializePromise: null,
-      initialized: true,
-      localContainerRefreshPromise: null,
-      localContainersNeedRefresh: false,
-      lastEventCount: 0,
-      locallyAcceptedMetadataUpdateIds: new Set(),
-      metadataDocumentIdsNeedingSync: new Set(),
-      metadataSyncSignalSeqById: new Map(),
-      persistence,
-      remoteHydrationPromise: null,
-      resolveProjectionUserKey:
-        createExplorerProjectionUserKeyResolver(runtime),
-      rootLaneHydrated: false,
-      runtime,
-      snapshot: {
-        ready: true,
+    const state = createExplorerStoreState(runtime, persistence);
+    state.containersById.set("local-container", {
+      container: {
+        id: "local-container",
+        organizationId: "org-1",
+        parentId: null,
+        metadataDocumentId: null,
+        name: "Local",
+        icon: null,
       },
-      syncLane: null,
-    };
+      doc,
+      record: {
+        accessEpoch: 1,
+        accessStateHash: null,
+        documentId: null,
+        id: "local-container",
+        lastCommitLsn: null,
+        metadataUpdates: "",
+        snapshotEndVersion: "",
+        contentKeyBundle: null,
+        documentKekTargets: null,
+        documentManifestBundle: null,
+      },
+    });
+    state.documentStoresNeedPriming = false;
+    state.initialized = true;
+    state.snapshot = { ...state.snapshot, ready: true };
     const syncAgent = createExplorerSyncAgent({
       host: {
         persistContainerState: async (containerState) => containerState.record,
