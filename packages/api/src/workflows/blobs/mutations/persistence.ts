@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
+  blobAuditObjects,
   blobStages,
   blobs,
 } from "@symcrypt/api-shared/schema";
@@ -13,8 +14,13 @@ import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import { lockRowForUpdate, nowExpression } from "../../../utils/sqlDialect";
+import {
+  lockRowForUpdate,
+  nowExpression,
+  wallClockNowExpression,
+} from "../../../utils/sqlDialect";
 import { loadOwnedActiveBlobStage } from "../stageAccess";
+import { assertStoredBlobOrganizationMatches } from "./authorization";
 import {
   BlobMutationError,
   type PrevalidatedMultipartBlobStage,
@@ -111,6 +117,7 @@ async function ensureBlobExists(input: {
 export async function promoteStagedBlobIfPresent(input: {
   readonly blobId: string;
   readonly executor: DatabaseTransaction;
+  readonly expectedOrganizationId: string;
   readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   readonly request: BlobAttachmentBindRequest;
   readonly userId: string;
@@ -121,6 +128,26 @@ export async function promoteStagedBlobIfPresent(input: {
       executor: input.executor,
     });
     return null;
+  }
+
+  // Blob ids are generation identifiers. Once an id appears in immutable
+  // audit history it may not be promoted again, even after live-state pruning:
+  // a pending object-deletion work item for the old generation must never be
+  // able to target a newly uploaded object with the same id. Retained ownership
+  // lets us conceal historical ids from every other organization.
+  const [auditedBlob] = await input.executor
+    .select({
+      blobId: blobAuditObjects.blobId,
+      organizationId: blobAuditObjects.organizationId,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, input.blobId))
+    .limit(1);
+  if (auditedBlob) {
+    if (auditedBlob.organizationId !== input.expectedOrganizationId) {
+      throw new BlobMutationError("Blob not found", 404);
+    }
+    throw new BlobMutationError("Blob already exists", 409);
   }
 
   const [existingBlob] = await input.executor
@@ -154,12 +181,27 @@ export async function promoteStagedBlobIfPresent(input: {
     );
   }
 
-  await input.executor.insert(blobs).values({
-    id: input.blobId,
-    byteLength: stage.byteLength,
-    sha256: stage.sha256,
-    storageKey: stage.storageKey,
-  });
+  const [inserted] = await input.executor
+    .insert(blobs)
+    .values({
+      id: input.blobId,
+      byteLength: stage.byteLength,
+      sha256: stage.sha256,
+      storageKey: stage.storageKey,
+    })
+    .onConflictDoNothing({ target: blobs.id })
+    .returning({ id: blobs.id });
+  if (!inserted) {
+    // ON CONFLICT keeps PostgreSQL's transaction usable after a concurrent
+    // promotion wins. Re-read the committed winner so foreign ids retain the
+    // same concealed response as blobs that existed before this transaction.
+    await assertStoredBlobOrganizationMatches({
+      blobId: input.blobId,
+      executor: input.executor,
+      expectedOrganizationId: input.expectedOrganizationId,
+    });
+    throw new BlobMutationError("Blob already exists", 409);
+  }
   await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
 
   return { sha256: stage.sha256 };
@@ -175,8 +217,54 @@ export async function reviveBlobIfDereferenced(input: {
 }): Promise<void> {
   await input.executor
     .update(blobs)
-    .set({ dereferencedAt: null })
+    .set({ dereferencedAt: null, reclaimAttemptedAt: null })
     .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)));
+}
+
+/**
+ * Start the delayed-reclamation clock when a detach or replacement removes the
+ * final active reference to a blob. Detached bindings and audit events preserve
+ * history metadata, but neither keeps live bytes or key material reachable.
+ *
+ * Locking the blob row serializes this decision against bind and GC, which lock
+ * the same row. A concurrent bind therefore either becomes visible to the
+ * active-reference check or runs afterward and clears `dereferencedAt`.
+ */
+export async function markBlobDereferencedIfInactive(input: {
+  readonly blobId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<void> {
+  const lockQuery = input.executor
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, input.blobId))
+    .limit(1);
+  const [blob] = await lockRowForUpdate(lockQuery);
+  if (!blob) {
+    throw new BlobMutationError("Blob not found", 404);
+  }
+
+  const [activeBinding] = await input.executor
+    .select({ id: attachmentBindings.id })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.blobId, input.blobId),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    )
+    .limit(1);
+  if (activeBinding) {
+    return;
+  }
+
+  await input.executor
+    .update(blobs)
+    .set({
+      dereferencedAt: wallClockNowExpression(),
+      reclaimAttemptedAt: null,
+    })
+    .where(and(eq(blobs.id, input.blobId), isNull(blobs.dereferencedAt)));
 }
 
 export async function detachActiveSlotBinding(input: {
@@ -208,6 +296,7 @@ export async function appendAttachmentAuditEvent(input: {
     actorFingerprint: input.fingerprint,
     actorUserId: input.userId,
     documentId: input.binding.documentId,
+    organizationId: input.manifest.state.organizationId,
     events: [
       {
         action: input.activeBinding ? "replace" : "attach",
@@ -235,6 +324,7 @@ export async function appendAttachmentDetachAuditEvent(input: {
     actorFingerprint: input.fingerprint,
     actorUserId: input.userId,
     documentId: input.detach.documentId,
+    organizationId: input.manifest.state.organizationId,
     events: [
       {
         action: "detach",

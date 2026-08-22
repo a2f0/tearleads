@@ -6,14 +6,13 @@ import {
   attachmentBindings,
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
-  documentAttachmentAuditEvents,
-  documentAuditEntries,
   documentContainerLinks,
   documents,
 } from "@symcrypt/api-shared/schema";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
+import { lockBlobMutationRows } from "../../blobs/mutations/blobMutationLocks";
 import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
@@ -118,16 +117,9 @@ async function authorizePurge(input: {
   }
 }
 
-// Collect every blobId still referenced by some OTHER document, so purging this
-// document never reclaims a blob another document still needs. "Referenced"
-// spans more than active bindings:
-//   - any binding on another document, ACTIVE OR DETACHED — a detached binding
-//     is retained history that still points at the blob; and
-//   - any attachment audit event on another document that names the blob as its
-//     blobId or previousBlobId — the immutable audit trail references it.
-// `blobAuditObjects` itself is a single per-blob row (keyed by blobId, no
-// documentId), so it is not a cross-document signal; we delete it for a blob
-// only once that blob is proven orphaned below.
+// Collect blob ids still ACTIVE on another document, so purging this document
+// never reclaims bytes another live projection needs. Detached bindings and
+// audit events retain metadata only and deliberately do not keep bytes live.
 async function resolveBlobIdsReferencedByOtherDocuments(input: {
   readonly candidateBlobIds: readonly string[];
   readonly documentId: string;
@@ -143,35 +135,11 @@ async function resolveBlobIdsReferencedByOtherDocuments(input: {
       and(
         inArray(attachmentBindings.blobId, candidateBlobIds),
         ne(attachmentBindings.documentId, input.documentId),
+        isNull(attachmentBindings.detachedAt),
       ),
     );
   for (const binding of otherBindings) {
     referenced.add(binding.blobId);
-  }
-
-  // Attachment audit events live on `documentAttachmentAuditEvents` and reach
-  // their owning document through `documentAuditEntries.documentId`. A blob
-  // named as blobId or previousBlobId by another document's history must be
-  // retained so that history keeps resolving.
-  const otherAuditEvents = await input.executor
-    .select({
-      blobId: documentAttachmentAuditEvents.blobId,
-      previousBlobId: documentAttachmentAuditEvents.previousBlobId,
-    })
-    .from(documentAttachmentAuditEvents)
-    .innerJoin(
-      documentAuditEntries,
-      eq(documentAuditEntries.id, documentAttachmentAuditEvents.auditEntryId),
-    )
-    .where(ne(documentAuditEntries.documentId, input.documentId));
-  const candidateSet = new Set(candidateBlobIds);
-  for (const event of otherAuditEvents) {
-    if (event.blobId && candidateSet.has(event.blobId)) {
-      referenced.add(event.blobId);
-    }
-    if (event.previousBlobId && candidateSet.has(event.previousBlobId)) {
-      referenced.add(event.previousBlobId);
-    }
   }
 
   return referenced;
@@ -179,9 +147,8 @@ async function resolveBlobIdsReferencedByOtherDocuments(input: {
 
 // Blobs can be shared: a single blob may be bound to several documents, and a
 // document's own history can hold detached bindings to a blob it replaced.
-// Purging this document orphans a blob only when it removes the last reference
-// to that blob anywhere (across all documents, active or detached bindings, and
-// attachment audit history). Returns the ids of the blobs this purge orphans;
+// Purging this document orphans a blob when no active binding remains anywhere.
+// Returns the ids of the blobs this purge orphans;
 // the caller soft-deletes them (retaining bytes) rather than hard-deleting,
 // because a concurrent bind to a shared blob is a phantom this scan cannot see
 // under READ COMMITTED — a later GC sweep re-checks reachability before
@@ -203,6 +170,15 @@ async function resolveOrphanedBlobIds(input: {
   if (candidateBlobIds.length === 0) {
     return [];
   }
+
+  // Attachment mutations take the document head before these same blob locks.
+  // The purge already holds that head exclusively, so locking every candidate
+  // now makes reachability stable through the binding delete below and keeps
+  // the global document -> blob -> binding order.
+  await lockBlobMutationRows({
+    blobIds: candidateBlobIds,
+    executor: input.executor,
+  });
 
   const referencedElsewhere = await resolveBlobIdsReferencedByOtherDocuments({
     candidateBlobIds,
@@ -273,7 +249,6 @@ async function purgeDocumentWithExecutor(input: {
   const purgedAt = new Date();
 
   await deleteDocumentRows({
-    dereferencedAt: purgedAt,
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,
@@ -336,13 +311,12 @@ export async function runPurgeDocumentWorkflow(
  * plain /containers path carries only the binding and a manifest pointer, with
  * no document rows. Tear the document down only when it exists.
  *
- * Runs inside the caller's transaction. `dereferencedAt` is the container
- * deletion's timestamp, threaded through so any dereferenced blob is stamped at
- * the same logical time as the container tombstone (one clock read per delete).
+ * Runs inside the caller's transaction. Any orphaned blob starts its grace
+ * period from the database wall clock after the reachability locks below have
+ * been acquired; time spent waiting for those locks must not consume it.
  */
 export async function teardownContainerMetadataDocument(input: {
   readonly containerId: string;
-  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
@@ -376,7 +350,6 @@ export async function teardownContainerMetadataDocument(input: {
     executor: input.executor,
   });
   await deleteDocumentRows({
-    dereferencedAt: input.dereferencedAt,
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,

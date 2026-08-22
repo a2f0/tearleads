@@ -413,8 +413,13 @@ If a attachment mutation succeeds:
 
 - staged blobs are promoted to committed blob objects when supplied
 - requested binding replacements/detaches are persisted
-- detached bindings, blob content-key material, and blob bytes are pruned when
-    no active binding references the blob after the mutation
+- when no active binding references a blob, the mutation stamps
+    `dereferencedAt` and starts the garbage-collection grace period
+- a bind during the grace period revives the blob; otherwise GC locks and
+    rechecks it before pruning the live row, content-key material, write header,
+    and detached bindings
+- audit metadata retains the storage key as durable physical-object deletion
+    work until maintenance records a successful deletion
 - affected blob key targets are recomputed and persisted
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server

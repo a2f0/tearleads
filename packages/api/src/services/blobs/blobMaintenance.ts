@@ -1,4 +1,9 @@
 import {
+  listPendingBlobObjectDeletions,
+  recordBlobObjectDeleted,
+  recordBlobObjectDeletionAttempt,
+} from "../../workflows/blobs/gc/pendingBlobObjectDeletion";
+import {
   type ReclaimDereferencedBlobsInput,
   runReclaimDereferencedBlobsWorkflow,
 } from "../../workflows/blobs/gc/reclaimDereferencedBlobs";
@@ -17,48 +22,86 @@ interface ReclaimDereferencedBlobsSummary {
   readonly reclaimedCount: number;
   readonly revivedCount: number;
   readonly deletedObjectCount: number;
-  readonly failedObjectDeletions: number;
 }
 
-// Reclaims blobs that purge soft-deleted past the grace period: the workflow
-// hard-deletes the rows in their own transactions and returns the object-store
-// keys, then this deletes those bytes after commit (best-effort, mirroring
-// purgeDocument). Byte deletion is post-commit so a rollback never leaves a
-// dangling reference and a storage failure only leaks already-reclaimable bytes.
-export async function reclaimDereferencedBlobs(
+async function drainPendingBlobObjectDeletions(
   runtime: ApiServiceRuntime,
-  input: ReclaimDereferencedBlobsInput = {},
-): Promise<ReclaimDereferencedBlobsSummary> {
-  const result = await runReclaimDereferencedBlobsWorkflow(runtime.db, input);
-
+  input: ReclaimDereferencedBlobsInput,
+) {
   let deletedObjectCount = 0;
-  let failedObjectDeletions = 0;
-  const storageKeys = result.reclaimedStorageKeys;
+  const failures: unknown[] = [];
+  const pendingDeletions = await listPendingBlobObjectDeletions(
+    runtime.db,
+    input.limit === undefined ? {} : { limit: input.limit },
+  );
   for (
     let start = 0;
-    start < storageKeys.length;
+    start < pendingDeletions.length;
     start += OBJECT_DELETE_CONCURRENCY
   ) {
-    const batch = storageKeys.slice(start, start + OBJECT_DELETE_CONCURRENCY);
+    const batch = pendingDeletions.slice(
+      start,
+      start + OBJECT_DELETE_CONCURRENCY,
+    );
     await Promise.all(
-      batch.map(async (storageKey) => {
+      batch.map(async (pending) => {
         try {
-          await runtime.blobObjectStore.deleteObject(storageKey);
+          const shouldAttempt = await recordBlobObjectDeletionAttempt(
+            runtime.db,
+            pending,
+          );
+          if (!shouldAttempt) {
+            return;
+          }
+          await runtime.blobObjectStore.deleteObject(pending.storageKey);
+          await recordBlobObjectDeleted(runtime.db, pending);
           deletedObjectCount += 1;
-        } catch {
-          // Best-effort: the blob row is already gone, so leave the bytes for the
-          // next sweep rather than failing the maintenance run.
-          failedObjectDeletions += 1;
+        } catch (error) {
+          // The audit row still retains the storage key, so the next sweep
+          // retries both an object-store failure and a lost DB acknowledgement.
+          failures.push(error);
         }
       }),
     );
   }
 
+  return { deletedObjectCount, failures };
+}
+
+// Reclaims blobs soft-deleted past the grace period. The workflow prunes live
+// database state and persists each storage key on its audit row; this service
+// drains durable work even when a separate reclaim candidate fails validation.
+// A failed object deletion or crash before acknowledgement remains retryable.
+export async function reclaimDereferencedBlobs(
+  runtime: ApiServiceRuntime,
+  input: ReclaimDereferencedBlobsInput = {},
+): Promise<ReclaimDereferencedBlobsSummary> {
+  const reclaimAttempt = await runReclaimDereferencedBlobsWorkflow(
+    runtime.db,
+    input,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
+  );
+  const deletionSummary = await drainPendingBlobObjectDeletions(runtime, input);
+  if (!reclaimAttempt.ok || deletionSummary.failures.length > 0) {
+    const failures = [
+      ...(reclaimAttempt.ok ? [] : [reclaimAttempt.error]),
+      ...deletionSummary.failures,
+    ];
+    const firstFailure = failures[0];
+    const detail =
+      firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
+    throw new AggregateError(
+      failures,
+      `Blob reclamation encountered ${failures.length} failure(s)${detail}`,
+    );
+  }
+
   return {
-    reclaimedCount: result.reclaimedBlobIds.length,
-    revivedCount: result.revivedBlobIds.length,
-    deletedObjectCount,
-    failedObjectDeletions,
+    reclaimedCount: reclaimAttempt.result.reclaimedBlobIds.length,
+    revivedCount: reclaimAttempt.result.revivedBlobIds.length,
+    deletedObjectCount: deletionSummary.deletedObjectCount,
   };
 }
 
@@ -73,19 +116,39 @@ interface BlobMaintenanceSummary {
 }
 
 // One entrypoint for scheduled blob storage reclamation: reclaim dereferenced
-// committed blobs and clean up expired stage uploads. Intended to be invoked by
-// an out-of-process trigger (see scripts/blobGc.ts); nothing schedules it yet.
+// committed blobs and clean up expired stage uploads. The deployed trigger is
+// scripts/blobGc.ts, run hourly by the Ansible-managed systemd timer.
 export async function runBlobMaintenance(
   runtime: ApiServiceRuntime,
   input: BlobMaintenanceInput = {},
 ): Promise<BlobMaintenanceSummary> {
-  const dereferencedBlobs = await reclaimDereferencedBlobs(
+  const dereferencedAttempt = await reclaimDereferencedBlobs(
     runtime,
     input.dereferencedBlobs,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
   );
-  const expiredStages = await cleanupExpiredBlobStages(
+  const expiredStageAttempt = await cleanupExpiredBlobStages(
     runtime,
     input.expiredStages,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
   );
-  return { dereferencedBlobs, expiredStages };
+  if (!dereferencedAttempt.ok || !expiredStageAttempt.ok) {
+    const failures: unknown[] = [];
+    if (!dereferencedAttempt.ok) {
+      failures.push(dereferencedAttempt.error);
+    }
+    if (!expiredStageAttempt.ok) {
+      failures.push(expiredStageAttempt.error);
+    }
+    throw new AggregateError(failures, "Blob maintenance failed");
+  }
+
+  return {
+    dereferencedBlobs: dereferencedAttempt.result,
+    expiredStages: expiredStageAttempt.result,
+  };
 }

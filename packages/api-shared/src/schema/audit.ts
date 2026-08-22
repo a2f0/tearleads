@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -207,12 +208,14 @@ export const documentUpdateAuditEvents = pgTable(
  * Blob metadata retained for document attachment audit history.
  *
  * Attachment audit entries may need to reference blobs after the live blob
- * lifecycle changes. This table stores immutable audit metadata for each
- * referenced blob: digest, byte length, live storage key if the live object is
- * still present, and retention/pruning state for historical bytes.
+ * lifecycle changes. This table stores immutable content metadata plus mutable
+ * retention state for each referenced blob: digest, byte length, the storage
+ * key while physical deletion is pending, and pruning/deletion timestamps.
  *
  * Columns:
  * - `blobId`: Primary key matching the committed blob id.
+ * - `organizationId`: Organization that owns this blob generation. Retained
+ *   after pruning so historical ids cannot become cross-organization probes.
  * - `sha256`: SHA-256 digest of the encrypted blob bytes.
  * - `byteLength`: Byte length of the encrypted blob bytes.
  * - `liveStorageKey`: Storage key for the live blob object when available.
@@ -220,21 +223,41 @@ export const documentUpdateAuditEvents = pgTable(
  *   only `live_only` is supported.
  * - `historicalBytesRetained`: Whether historical encrypted bytes are retained
  *   outside the live blob object.
- * - `prunedAt`: Timestamp when historical bytes were pruned, if applicable.
+ * - `prunedAt`: Timestamp when live database state was pruned and physical
+ *   object deletion became pending.
+ * - `objectDeleteAttemptedAt`: Timestamp of the most recent physical deletion
+ *   attempt. Pending batches reserve capacity for both new items and retries;
+ *   failed items rotate by this timestamp instead of starving the queue.
+ * - `objectDeletedAt`: Timestamp when object-store deletion completed. While
+ *   this is null on a pruned row, `liveStorageKey` is the durable deletion
+ *   work item retried by blob maintenance.
  * - `createdAt`: Server-side insertion timestamp.
  */
-export const blobAuditObjects = pgTable("blob_audit_objects", {
-  blobId: uuid("blob_id").primaryKey(),
-  sha256: text("sha256").notNull(),
-  byteLength: integer("byte_length").notNull(),
-  liveStorageKey: text("live_storage_key"),
-  retentionMode: text("retention_mode")
-    .$type<BlobAuditRetentionMode>()
-    .notNull(),
-  historicalBytesRetained: boolean("historical_bytes_retained").notNull(),
-  prunedAt: timestamp("pruned_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const blobAuditObjects = pgTable(
+  "blob_audit_objects",
+  {
+    blobId: uuid("blob_id").primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    sha256: text("sha256").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    liveStorageKey: text("live_storage_key"),
+    retentionMode: text("retention_mode")
+      .$type<BlobAuditRetentionMode>()
+      .notNull(),
+    historicalBytesRetained: boolean("historical_bytes_retained").notNull(),
+    prunedAt: timestamp("pruned_at"),
+    objectDeleteAttemptedAt: timestamp("object_delete_attempted_at"),
+    objectDeletedAt: timestamp("object_deleted_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("blob_audit_objects_pending_delete_idx")
+      .on(table.objectDeleteAttemptedAt, table.prunedAt, table.blobId)
+      .where(
+        sql`${table.prunedAt} is not null and ${table.objectDeletedAt} is null and ${table.liveStorageKey} is not null`,
+      ),
+  ],
+);
 
 /**
  * Event-specific audit details for document attachment changes.

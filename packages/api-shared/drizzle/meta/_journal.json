@@ -36,6 +36,20 @@
       "when": 1786472084882,
       "tag": "0004_fresh_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787385287416,
+      "tag": "0005_fancy_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787407910227,
+      "tag": "0006_tranquil_black_queen",
+      "breakpoints": true
     }
   ]
 }

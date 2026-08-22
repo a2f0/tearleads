@@ -50,6 +50,7 @@ async function createDocumentWithAuditHistory() {
     actorFingerprint: ACTOR_FINGERPRINT,
     actorUserId,
     documentId: document.id,
+    organizationId: crypto.randomUUID(),
     events: [
       {
         action: "attach",

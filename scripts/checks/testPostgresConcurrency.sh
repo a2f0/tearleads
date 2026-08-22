@@ -36,4 +36,19 @@ fi
 # Workspace packages must already be built (bun run build:packages); the lane
 # itself only runs the multi-connection concurrency tests.
 cd packages/api
-exec bun test src/routes/documents/syncConcurrency.pg.test.ts
+exec bun test \
+  src/routes/documents/syncConcurrency.pg.test.ts \
+  src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
+  src/workflows/blobs/gc/reclaimDereferencedBlobs.pg.test.ts \
+  src/workflows/blobs/gc/reclaimDereferencedBlobsBindRace.pg.test.ts \
+  src/workflows/blobs/gc/pendingBlobObjectDeletion.test.ts \
+  src/workflows/blobs/mutations/authorization.test.ts \
+  src/workflows/blobs/mutations/authorizationAncestors.pg.test.ts \
+  src/workflows/blobs/mutations/authorizationMissingHead.pg.test.ts \
+  src/workflows/blobs/mutations/blobOwnershipCreationRace.pg.test.ts \
+  src/workflows/blobs/mutations/blobOwnershipStageRace.pg.test.ts \
+  src/workflows/blobs/mutations/blobMutationLocks.test.ts \
+  src/workflows/blobs/mutations/finalizeAttachmentMutation.pg.test.ts \
+  src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
+  src/workflows/documents/mutations/purgeDocumentBlobRace.pg.test.ts \
+  src/workflows/containers/deleteContainerTimestamp.pg.test.ts

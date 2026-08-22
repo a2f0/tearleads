@@ -276,7 +276,6 @@ async function deleteContainerWithExecutor(input: {
   });
   await teardownContainerMetadataDocument({
     containerId: input.containerId,
-    dereferencedAt: updatedAt,
     documentId: targetManifest.state.metadataDocumentId,
     executor: input.executor,
   });

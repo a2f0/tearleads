@@ -23,11 +23,14 @@ import {
  * - `sha256`: SHA-256 digest of the encrypted object.
  * - `byteLength`: Byte length of the encrypted object.
  * - `createdAt`: Server-side promotion timestamp.
- * - `dereferencedAt`: Set when a purge found this blob unreferenced by any other
- *   document and soft-deleted it. The bytes are retained; a later GC sweep
- *   re-checks reachability (a concurrent bind under READ COMMITTED is a phantom
- *   the purge scan cannot see) before any hard delete, and a bind that
- *   re-references the blob clears this back to `null`. Null while live.
+ * - `dereferencedAt`: Set when detach, replacement, or purge leaves this blob
+ *   without an active attachment binding. The bytes are retained during a GC
+ *   grace period; a later sweep locks the blob and re-checks active reachability
+ *   before pruning live state. A bind that re-references it clears this back to
+ *   `null`. Null while live.
+ * - `reclaimAttemptedAt`: Most recent failed live-state reclaim attempt. This
+ *   places corrupt work in a retry class with reserved batch capacity without
+ *   changing the lifecycle-defining `dereferencedAt`. Cleared when revived.
  */
 export const blobs = pgTable(
   "blobs",
@@ -38,6 +41,7 @@ export const blobs = pgTable(
     byteLength: integer("byte_length").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     dereferencedAt: timestamp("dereferenced_at"),
+    reclaimAttemptedAt: timestamp("reclaim_attempted_at"),
   },
   (table) => [
     // One blob row per object-store key: a blob is 1:1 with its bytes (sharing
@@ -49,6 +53,11 @@ export const blobs = pgTable(
     index("blobs_dereferenced_at_idx")
       .on(table.dereferencedAt)
       .where(sql`${table.dereferencedAt} is not null`),
+    index("blobs_reclaim_attempted_at_idx")
+      .on(table.reclaimAttemptedAt, table.dereferencedAt, table.id)
+      .where(
+        sql`${table.reclaimAttemptedAt} is not null and ${table.dereferencedAt} is not null`,
+      ),
   ],
 );
 

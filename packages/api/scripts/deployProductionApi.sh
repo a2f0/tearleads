@@ -2,7 +2,7 @@
 # Deploy the SymCrypt API to the production server
 #
 # Builds and deploys standalone API executables, runs database migrations,
-# and restarts the API service.
+# and starts the API service after the migration window.
 
 set -euo pipefail
 
@@ -24,24 +24,46 @@ fi
 export SSH_TARGET
 
 REMOTE_BIN_PATH="/opt/symcrypt/bin"
+REMOTE_STAGE_PATH="$REMOTE_BIN_PATH/.deploy-$(git rev-parse --short=12 HEAD)-$$"
 
 echo "Building API executable..."
 (cd "$REPO_ROOT/packages/api" && bun run build)
 
 bash "$REPO_ROOT/packages/api-cli/scripts/deployProductionApiCli.sh"
 
-echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
-ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
+echo "Staging API executables at $SSH_TARGET:$REMOTE_STAGE_PATH ..."
+ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH" "$REMOTE_STAGE_PATH"
 rsync -avz \
   "$REPO_ROOT/packages/api/dist/symcrypt-api" \
   "$REPO_ROOT/packages/api/dist/symcrypt-blob-gc" \
   "$REPO_ROOT/packages/api/dist/symcrypt-stripe-seat-sync" \
-  "$SSH_TARGET:$REMOTE_BIN_PATH/"
+  "$SSH_TARGET:$REMOTE_STAGE_PATH/"
+ssh "$SSH_TARGET" sh -s -- "$REMOTE_STAGE_PATH" <<'REMOTE_VERIFY'
+set -eu
+remote_stage_path="$1"
+test -x "$remote_stage_path/symcrypt-api"
+test -x "$remote_stage_path/symcrypt-blob-gc"
+test -x "$remote_stage_path/symcrypt-stripe-seat-sync"
+REMOTE_VERIFY
+
+echo "Stopping API database writers for the breaking migration window..."
+ssh "$SSH_TARGET" "sudo systemctl stop symcrypt-api symcrypt-blob-gc.timer symcrypt-blob-gc.service symcrypt-stripe-seat-sync.timer symcrypt-stripe-seat-sync.service"
+
+echo "Installing staged API executables atomically..."
+ssh "$SSH_TARGET" sh -s -- "$REMOTE_STAGE_PATH" "$REMOTE_BIN_PATH" <<'REMOTE_INSTALL'
+set -eu
+remote_stage_path="$1"
+remote_bin_path="$2"
+mv -f "$remote_stage_path/symcrypt-api" "$remote_bin_path/symcrypt-api"
+mv -f "$remote_stage_path/symcrypt-blob-gc" "$remote_bin_path/symcrypt-blob-gc"
+mv -f "$remote_stage_path/symcrypt-stripe-seat-sync" "$remote_bin_path/symcrypt-stripe-seat-sync"
+rmdir "$remote_stage_path"
+REMOTE_INSTALL
 
 echo "Running database migrations..."
 ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/symcrypt/api.env && set +a && /opt/symcrypt/bin/symcrypt-api-cli migrate'
 
-echo "Restarting API service..."
-ssh "$SSH_TARGET" "sudo systemctl restart symcrypt-api"
+echo "Starting API service and maintenance timers..."
+ssh "$SSH_TARGET" "sudo systemctl start symcrypt-api symcrypt-blob-gc.timer symcrypt-stripe-seat-sync.timer"
 
 echo "API deployed."

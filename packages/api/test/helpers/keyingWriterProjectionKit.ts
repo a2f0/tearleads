@@ -3,6 +3,7 @@ import { db } from "@symcrypt/api-shared/postgres";
 import { containers, organizations, users } from "@symcrypt/api-shared/schema";
 import type { TestUser } from "@symcrypt/bob-and-alice";
 import type {
+  AttachmentAccessEventBody,
   ContainerAccessEventBody,
   ContainerAccessManifestState,
   ContainerKeyEpoch,
@@ -101,10 +102,13 @@ export function asVerifiedContainerManifest(
 }
 
 export async function createSignedAccessEvent(input: {
-  readonly body: ContainerAccessEventBody | DocumentAccessEventBody;
+  readonly body:
+    | AttachmentAccessEventBody
+    | ContainerAccessEventBody
+    | DocumentAccessEventBody;
   readonly dependencyManifestHashes?: readonly string[];
   readonly objectId: string;
-  readonly objectKind: "container" | "document";
+  readonly objectKind: "blob" | "container" | "document";
   readonly organizationId: string;
   readonly previousManifestHash: string | null;
   readonly signer: TestUser;
