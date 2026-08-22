@@ -1,4 +1,5 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
+import { blobs } from "@symcrypt/api-shared/schema";
 import type {
   AccessEvent,
   VerifiedContainerAccessManifest,
@@ -10,6 +11,7 @@ import type {
   BlobAttachmentDetachRequest,
   BlobContentKeyTargetEnvelopeRequest,
 } from "@symcrypt/validators/request";
+import { eq } from "drizzle-orm";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import {
@@ -170,12 +172,23 @@ export async function assertStoredBlobOrganizationMatches(input: {
   const storedHeader = (
     await listBlobContentWriteHeaders([input.blobId], input.executor)
   ).get(input.blobId);
-  if (storedHeader) {
-    assertBlobTargetOrganizationMatches({
-      actualOrganizationId: storedHeader.header.organizationId,
-      expectedOrganizationId: input.expectedOrganizationId,
-    });
+  if (!storedHeader) {
+    const [existingBlob] = await input.executor
+      .select({ id: blobs.id })
+      .from(blobs)
+      .where(eq(blobs.id, input.blobId))
+      .limit(1);
+    if (existingBlob) {
+      // Existing ciphertext without a verified organization claim is invalid
+      // under the clean-break contract. Hide it like every foreign blob id.
+      throw new BlobMutationError("Blob not found", 404);
+    }
+    return;
   }
+  assertBlobTargetOrganizationMatches({
+    actualOrganizationId: storedHeader.header.organizationId,
+    expectedOrganizationId: input.expectedOrganizationId,
+  });
 }
 
 export function assertBlobTargetOrganizationMatches(input: {

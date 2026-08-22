@@ -162,8 +162,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1388,
-      "bytes": 41941
+      "lines": 1404,
+      "bytes": 42513
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,

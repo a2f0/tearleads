@@ -3,6 +3,7 @@ import { db } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
+  blobContentWriteHeaders,
   blobs,
   containers,
   documentAttachmentAuditEvents,
@@ -857,7 +858,7 @@ test("attachment writes tolerate publish failures", async () => {
   });
 });
 
-test("a cross-organization bind cannot revive a dereferenced blob", async () => {
+test("cross-organization binds cannot revive invalid blobs", async () => {
   const sourceOwner = createTestUser();
   const targetOwner = createTestUser();
   await registerOnly(sourceOwner);
@@ -927,6 +928,21 @@ test("a cross-organization bind cannot revive a dereferenced blob", async () => 
     }),
   ).rejects.toMatchObject({ message: "Blob not found", status: 404 });
   expect(await loadBlobReviveState(blobId)).toEqual(before);
+
+  await db
+    .delete(blobContentWriteHeaders)
+    .where(eq(blobContentWriteHeaders.contentRecordId, blobId));
+  const beforeHeaderlessAttempt = await loadBlobReviveState(blobId);
+  await expect(
+    bindBlobAttachment(runtime, {
+      blobId,
+      fingerprint: targetOwner.fingerprint,
+      request: targetBind.request,
+      sessionId: "target-session",
+      userId: targetOwner.userId,
+    }),
+  ).rejects.toMatchObject({ message: "Blob not found", status: 404 });
+  expect(await loadBlobReviveState(blobId)).toEqual(beforeHeaderlessAttempt);
 });
 
 test("bindBlobAttachment applies optional container rekeys before target validation", async () => {
