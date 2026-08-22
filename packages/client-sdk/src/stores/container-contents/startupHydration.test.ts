@@ -7,6 +7,7 @@ import {
   clearDocumentSyncFailure,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -160,6 +161,49 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
     expect(shouldScheduleStaleRootRecovery).toBe(true);
   } finally {
     close();
+  }
+});
+
+test("stale startup marker failures are not reported", async () => {
+  let rejectRead: (error: Error) => void = () => {};
+  let markReadStarted: () => void = () => {};
+  const readStarted = new Promise<void>((resolve) => {
+    markReadStarted = resolve;
+  });
+  const execSql = (() =>
+    new Promise((_, reject) => {
+      rejectRead = reject;
+      markReadStarted();
+    })) as ExecSql;
+  const reportedErrors: unknown[][] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    reportedErrors.push(args);
+  };
+  let current = true;
+  try {
+    const hydration = scheduleStaleStartupRemoteHydration({
+      isCurrent: () => current,
+      requestHydration: async () => {},
+      state: {
+        containerParentIdsNeedingHydration: new Set(),
+        containersById: new Map(),
+        rootLaneHydrated: false,
+        runtime: {
+          auth: { isAuthenticated: true },
+          infra: { execSql },
+          state: { containerId: null, online: true },
+        },
+      },
+    });
+    await readStarted;
+    current = false;
+    rejectRead(new Error("stale database handle"));
+
+    await expect(hydration).resolves.toBe(false);
+    expect(reportedErrors).toHaveLength(0);
+  } finally {
+    console.error = originalConsoleError;
   }
 });
 

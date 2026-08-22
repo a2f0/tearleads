@@ -191,6 +191,7 @@ function adoptReconciledSessionRoot(input: {
 
 async function reconcileLocalOnlyRootContainer(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  isCurrent?: (() => boolean) | undefined;
   localRootState: ContainerState;
   remoteRootState: ContainerState;
   state: RemoteContainerHydrationState;
@@ -213,6 +214,9 @@ async function reconcileLocalOnlyRootContainer(input: {
     remoteRootContainerId: remoteRootState.container.id,
     updatedAt,
   });
+  if (input.isCurrent?.() === false) {
+    return;
+  }
   applyLocalRootDescendantReparents({
     childIdsByParentId,
     descendantReparents,
@@ -238,12 +242,14 @@ async function reconcileLocalOnlyRootContainer(input: {
 
 export async function reconcileLocalOnlyRootContainers(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  isCurrent?: (() => boolean) | undefined;
   requestDocumentPriming?: (() => void) | undefined;
   remoteRootState: ContainerState;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { childIdsByParentId, remoteRootState, state } = input;
   if (
+    input.isCurrent?.() === false ||
     !canUseRemoteRootAsLocalRootReconciliationTarget({
       remoteRootState,
       state,
@@ -258,13 +264,22 @@ export async function reconcileLocalOnlyRootContainers(input: {
       isLocalOnlyRootContainerState(containerState),
   );
 
+  let reconciledRootContainerCount = 0;
   for (const localRootState of localRootStates) {
+    if (input.isCurrent?.() === false) {
+      return reconciledRootContainerCount;
+    }
     await reconcileLocalOnlyRootContainer({
       childIdsByParentId,
+      isCurrent: input.isCurrent,
       localRootState,
       remoteRootState,
       state,
     });
+    if (input.isCurrent?.() === false) {
+      return reconciledRootContainerCount;
+    }
+    reconciledRootContainerCount += 1;
   }
   // A remote system child can be applied before its remote root (for example,
   // from an earlier page/pass). Its local twin does not match while it is still
@@ -282,16 +297,17 @@ export async function reconcileLocalOnlyRootContainers(input: {
       reconciledSystemContainerCount +=
         await reconcileLocalOnlySystemContainers({
           childIdsByParentId,
+          isCurrent: input.isCurrent,
           remoteSystemState: knownRemoteSystemState,
           state,
         });
     }
   }
-  if (localRootStates.length + reconciledSystemContainerCount > 0) {
+  if (reconciledRootContainerCount + reconciledSystemContainerCount > 0) {
     input.requestDocumentPriming?.();
   }
 
-  return localRootStates.length;
+  return reconciledRootContainerCount;
 }
 
 function isLocalOnlySystemContainerState(input: {
@@ -398,6 +414,7 @@ function applyLocalSystemContainerChildReparents(input: {
 
 async function reconcileLocalOnlySystemContainer(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  isCurrent?: (() => boolean) | undefined;
   localSystemState: ContainerState;
   remoteSystemState: ContainerState;
   state: RemoteContainerHydrationState;
@@ -413,6 +430,9 @@ async function reconcileLocalOnlySystemContainer(input: {
     remoteOrganizationId: remoteSystemState.container.organizationId,
     updatedAt,
   });
+  if (input.isCurrent?.() === false) {
+    return;
+  }
   applyLocalSystemContainerChildReparents({
     childIdsByParentId,
     localSystemState,
@@ -437,27 +457,40 @@ async function reconcileLocalOnlySystemContainer(input: {
 
 export async function reconcileLocalOnlySystemContainers(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  isCurrent?: (() => boolean) | undefined;
   requestDocumentPriming?: (() => void) | undefined;
   remoteSystemState: ContainerState;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { childIdsByParentId, remoteSystemState, state } = input;
+  if (input.isCurrent?.() === false) {
+    return 0;
+  }
   const localSystemStates = findLocalOnlySystemContainerStates({
     remoteSystemState,
     state,
   });
 
+  let reconciledSystemContainerCount = 0;
   for (const localSystemState of localSystemStates) {
+    if (input.isCurrent?.() === false) {
+      return reconciledSystemContainerCount;
+    }
     await reconcileLocalOnlySystemContainer({
       childIdsByParentId,
+      isCurrent: input.isCurrent,
       localSystemState,
       remoteSystemState,
       state,
     });
+    if (input.isCurrent?.() === false) {
+      return reconciledSystemContainerCount;
+    }
+    reconciledSystemContainerCount += 1;
   }
-  if (localSystemStates.length > 0) {
+  if (reconciledSystemContainerCount > 0) {
     input.requestDocumentPriming?.();
   }
 
-  return localSystemStates.length;
+  return reconciledSystemContainerCount;
 }

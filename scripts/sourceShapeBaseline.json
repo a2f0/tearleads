@@ -233,10 +233,6 @@
       "lines": 523,
       "bytes": 16822
     },
-    "packages/app/src/stores/explorer/ExplorerProvider.syncAgent.test.ts": {
-      "lines": 503,
-      "bytes": 14867
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 815,
       "bytes": 24041

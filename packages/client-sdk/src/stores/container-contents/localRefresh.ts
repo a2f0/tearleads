@@ -14,6 +14,8 @@ export interface LocalContainerRefreshState {
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
   initialized: boolean;
+  lifecycleGeneration: number;
+  localContainerRefreshGeneration: number | null;
   localContainerRefreshPromise: Promise<void> | null;
   localContainersNeedRefresh: boolean;
   persistence: ContainerContentsPersistence;
@@ -63,12 +65,20 @@ function isRemoteBackedRootState(containerState: ContainerState): boolean {
 
 async function reconcileLocalsLoadedAfterRemoteState(
   state: LocalContainerRefreshState,
+  isCurrent: () => boolean,
 ): Promise<void> {
   const remoteRootStates = Array.from(state.containersById.values()).filter(
     isRemoteBackedRootState,
   );
   for (const remoteRootState of remoteRootStates) {
-    await reconcileLocalOnlyRootContainers({ remoteRootState, state });
+    if (!isCurrent()) {
+      return;
+    }
+    await reconcileLocalOnlyRootContainers({
+      isCurrent,
+      remoteRootState,
+      state,
+    });
   }
 }
 
@@ -78,7 +88,19 @@ export function refreshLocalContainerStates(input: {
 }): Promise<void> {
   const { host, state } = input;
   if (state.localContainerRefreshPromise) {
-    return state.localContainerRefreshPromise;
+    const activeRefresh = state.localContainerRefreshPromise;
+    if (state.localContainerRefreshGeneration === state.lifecycleGeneration) {
+      return activeRefresh;
+    }
+
+    const refreshCurrentGeneration = () => {
+      state.localContainersNeedRefresh = true;
+      return refreshLocalContainerStates(input);
+    };
+    return activeRefresh.then(
+      refreshCurrentGeneration,
+      refreshCurrentGeneration,
+    );
   }
 
   if (
@@ -89,6 +111,8 @@ export function refreshLocalContainerStates(input: {
     return Promise.resolve();
   }
 
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
   state.localContainersNeedRefresh = false;
   const remoteContainerIdsAtLoadStart = new Set<string>();
   for (const containerState of state.containersById.values()) {
@@ -96,11 +120,15 @@ export function refreshLocalContainerStates(input: {
       remoteContainerIdsAtLoadStart.add(containerState.container.id);
     }
   }
-  state.localContainerRefreshPromise = loadLocalContainerStates({
+  state.localContainerRefreshGeneration = lifecycleGeneration;
+  const refreshPromise = loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,
   })
     .then(async (localContainerStates) => {
+      if (!isCurrent()) {
+        return;
+      }
       mergeLocalContainerStates({
         localContainerStates,
         remoteContainerIdsAtLoadStart,
@@ -110,19 +138,29 @@ export function refreshLocalContainerStates(input: {
       // before this local read returns. Re-run root/system convergence after
       // merging so that the late local bootstrap rows cannot reintroduce a
       // stale root and same-slot system children into the live tree.
-      await reconcileLocalsLoadedAfterRemoteState(state);
+      await reconcileLocalsLoadedAfterRemoteState(state, isCurrent);
+      if (!isCurrent()) {
+        return;
+      }
       state.documentStoresNeedPriming = true;
       host.updateSnapshot();
     })
     .catch((error: unknown) => {
+      if (!isCurrent()) {
+        return;
+      }
       state.localContainersNeedRefresh = true;
       state.runtime.util.log(
         `Failed to refresh local container states: ${errorMessage(error)}`,
       );
     })
     .finally(() => {
-      state.localContainerRefreshPromise = null;
+      if (state.localContainerRefreshPromise === refreshPromise) {
+        state.localContainerRefreshPromise = null;
+        state.localContainerRefreshGeneration = null;
+      }
     });
+  state.localContainerRefreshPromise = refreshPromise;
 
-  return state.localContainerRefreshPromise;
+  return refreshPromise;
 }

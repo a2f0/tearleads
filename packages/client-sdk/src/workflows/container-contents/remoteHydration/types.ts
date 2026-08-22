@@ -88,6 +88,7 @@ interface RemoteContainerHydrationRuntime
 
 export interface RemoteContainerHydrationState {
   containersById: Map<string, ContainerState>;
+  lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;
   rootLaneHydrated?: boolean | undefined;
   runtime: RemoteContainerHydrationRuntime;

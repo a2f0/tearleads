@@ -52,7 +52,8 @@ function shouldHydrateUnmarkedStartupRoot(
 
 async function getStaleStartupRemoteHydrationParentIds(
   state: StartupHydrationState,
-): Promise<Array<string | null>> {
+  isCurrent?: (() => boolean) | undefined,
+): Promise<Array<string | null> | null> {
   const parentIds = [null, ...state.containersById.keys()];
   const syncLanes = parentIds.map((parentId) =>
     createContainerParentSyncLane(parentId),
@@ -61,6 +62,9 @@ async function getStaleStartupRemoteHydrationParentIds(
     state.runtime.infra.execSql,
     syncLanes,
   );
+  if (isCurrent?.() === false) {
+    return null;
+  }
   const nowMs = Date.now();
   const rootCheckRecord = checkRecords[0];
   state.rootLaneHydrated = rootCheckRecord
@@ -87,6 +91,7 @@ function reportStartupHydrationError(message: string, error: unknown) {
 }
 
 export async function scheduleStaleStartupRemoteHydration(input: {
+  isCurrent?: (() => boolean) | undefined;
   requestHydration: () => Promise<void>;
   state: StartupHydrationState;
 }): Promise<boolean> {
@@ -95,14 +100,23 @@ export async function scheduleStaleStartupRemoteHydration(input: {
     return false;
   }
 
-  let parentIds: Array<string | null>;
+  let parentIds: Array<string | null> | null;
   try {
-    parentIds = await getStaleStartupRemoteHydrationParentIds(state);
+    parentIds = await getStaleStartupRemoteHydrationParentIds(
+      state,
+      input.isCurrent,
+    );
   } catch (error: unknown) {
+    if (input.isCurrent?.() === false) {
+      return false;
+    }
     reportStartupHydrationError(
       "Failed to inspect startup container contents hydration:",
       error,
     );
+    return false;
+  }
+  if (!parentIds || input.isCurrent?.() === false) {
     return false;
   }
   const activeContainerId = state.runtime.state.containerId;

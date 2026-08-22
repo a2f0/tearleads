@@ -24,6 +24,8 @@ function createRefreshState(input: {
     containersById: input.containersById ?? new Map(),
     documentStoresNeedPriming: false,
     initialized: true,
+    lifecycleGeneration: 0,
+    localContainerRefreshGeneration: null,
     localContainerRefreshPromise: null,
     localContainersNeedRefresh: true,
     persistence: {
@@ -108,6 +110,16 @@ function createContainerState(documentId: string | null): ContainerState {
   };
 }
 
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await Promise.resolve();
+  }
+  throw new Error("condition was not reached");
+}
+
 test("local container refresh waits for an in-flight refresh", async () => {
   type LoadContainersResult = Awaited<
     ReturnType<ContainerContentsPersistence["loadContainers"]>
@@ -134,6 +146,50 @@ test("local container refresh waits for an in-flight refresh", async () => {
   await Promise.all([firstRefresh, secondRefresh]);
 
   expect(host.updateSnapshot).toHaveBeenCalledTimes(1);
+});
+
+test("local refresh serializes replacement work after a lifecycle reset", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  const resolvers: Array<(value: LoadContainersResult) => void> = [];
+  let activeLoads = 0;
+  let maxActiveLoads = 0;
+  const loadContainers = mock(
+    () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        activeLoads += 1;
+        maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+        resolvers.push((value) => {
+          activeLoads -= 1;
+          resolve(value);
+        });
+      }),
+  );
+  const state = createRefreshState({ loadContainers });
+  const host = { updateSnapshot: mock(() => {}) };
+
+  const staleRefresh = refreshLocalContainerStates({ host, state });
+  await waitFor(() => resolvers.length === 1);
+
+  state.lifecycleGeneration += 1;
+  state.containersById = new Map();
+  state.localContainersNeedRefresh = true;
+  const replacementRefresh = refreshLocalContainerStates({ host, state });
+
+  expect(loadContainers).toHaveBeenCalledTimes(1);
+  resolvers[0]?.([]);
+  await waitFor(() => resolvers.length === 2);
+
+  expect(state.localContainerRefreshGeneration).toBe(1);
+  expect(state.localContainerRefreshPromise).not.toBeNull();
+  expect(host.updateSnapshot).not.toHaveBeenCalled();
+  resolvers[1]?.([]);
+  await Promise.all([staleRefresh, replacementRefresh]);
+
+  expect(maxActiveLoads).toBe(1);
+  expect(host.updateSnapshot).toHaveBeenCalledTimes(1);
+  expect(state.localContainerRefreshPromise).toBeNull();
 });
 
 test("local container refresh logs failures without rejecting", async () => {

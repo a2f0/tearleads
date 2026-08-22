@@ -28,6 +28,7 @@ async function prepareContainerParentLanePage(input: {
 
 export async function fetchContainerParentLaneBatch(input: {
   batch: ReadonlyArray<ContainerParentHydrationLane>;
+  isCurrent?: (() => boolean) | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
   const { batch, state } = input;
@@ -40,6 +41,9 @@ export async function fetchContainerParentLaneBatch(input: {
       }),
     ),
   );
+  if (input.isCurrent?.() === false) {
+    return null;
+  }
   const response = await state.runtime.apiClient.listContainerParentLanes({
     lanes: preparedPages.map((page) => page.request),
   });

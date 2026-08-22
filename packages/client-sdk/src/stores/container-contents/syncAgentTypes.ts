@@ -10,10 +10,14 @@ export type ContainerContentsStoreRuntime =
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;
   documentStoresNeedPriming: boolean;
+  initializeGeneration: number | null;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   localContainerRefreshPromise: Promise<void> | null;
+  localContainerRefreshGeneration: number | null;
   localContainersNeedRefresh: boolean;
+  /** Invalidates asynchronous hydration work when this store is reset. */
+  lifecycleGeneration: number;
   lastEventCount: number;
   /**
    * Update ids this client sent for container metadata documents, registered
@@ -39,6 +43,7 @@ export interface ContainerContentsStoreSyncState {
   containerParentIdsNeedingHydration: Set<string | null>;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
+  remoteHydrationGeneration: number | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   /** True after this store has fully applied an authoritative root lane. */
   rootLaneHydrated: boolean;

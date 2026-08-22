@@ -6,11 +6,10 @@ import {
 } from "../../workflows/container-contents/documentMoveIntentSync";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
-import {
-  type ContainerState,
-  createRemoteContainerIngestor,
-  type RemoteContainer,
-  type RemoteContainerHydrationHost,
+import type {
+  ContainerState,
+  RemoteContainer,
+  RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import { createContainerContentsDocumentsRuntime } from "../../workflows/container-contents/runtime";
 import {
@@ -31,6 +30,7 @@ import {
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
+import { createRemoteContainerIngestionController } from "./remoteContainerIngestion";
 import { handleContainerContentsRemoteEvents } from "./remoteEventSync";
 import {
   type RemoteHydrationRefreshOptions,
@@ -111,76 +111,78 @@ function createContainerContentsStoreDocumentMoveHost(
   };
 }
 
-function createSchedulingRemoteContainerIngestor(input: {
-  host: RemoteContainerHydrationHost;
-  scheduleSync: () => void;
-  state: ContainerContentsStoreSyncState;
-}): ContainerContentsStoreSyncAgent["ingestRemoteContainer"] {
-  const { host, scheduleSync, state } = input;
-  const ingestRemoteContainer = createRemoteContainerIngestor({ host, state });
-  return async (remoteContainer) => {
-    await ingestRemoteContainer(remoteContainer);
-    if (state.documentStoresNeedPriming) {
-      scheduleSync();
-    }
-  };
-}
-
 async function initializeContainerContentsStore(input: {
   host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, scheduleSync, state } = input;
-  if (state.runtime.infra.dbStatus !== "ready") {
+  const { host, isCurrent, resumeRecoveryWork, scheduleSync, state } = input;
+  const persistence = state.persistence;
+  const loadRuntime = state.runtime;
+  if (loadRuntime.infra.dbStatus !== "ready") {
     return;
   }
 
   const localContainerStates = await loadLocalContainerStates({
-    persistence: state.persistence,
-    runtime: state.runtime,
+    persistence,
+    runtime: loadRuntime,
   });
+  if (!isCurrent()) {
+    return;
+  }
 
   for (const containerState of localContainerStates) {
     state.containersById.set(containerState.container.id, containerState);
   }
 
   state.initialized = true;
-  state.initializePromise = null;
 
   const shouldScheduleStaleRootRecovery =
     await scheduleStaleStartupRemoteHydration({
+      isCurrent,
       requestHydration: () =>
         requestContainerContentsRemoteHydration({
           host,
+          resumeRecoveryWork,
           scheduleSync,
           state,
         }),
       state,
     });
+  if (!isCurrent()) {
+    return;
+  }
+  const runtime = state.runtime;
   const hasPendingRestorationSweep =
-    typeof state.runtime.auth.userId === "string" &&
+    typeof runtime.auth.userId === "string" &&
     (
-      await state.persistence.listDormantMetadataSweepRequests(
-        state.runtime.infra.execSql,
-        state.runtime.auth.userId,
+      await persistence.listDormantMetadataSweepRequests(
+        loadRuntime.infra.execSql,
+        runtime.auth.userId,
       )
     ).length > 0;
+  if (!isCurrent()) {
+    return;
+  }
 
   host.updateSnapshot();
 
-  state.runtime.util.log(
+  runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
-  if (
-    state.runtime.auth.isAuthenticated &&
-    state.runtime.state.online &&
-    (shouldScheduleStaleRootRecovery ||
+  const currentRuntime = state.runtime;
+  if (currentRuntime.auth.isAuthenticated && currentRuntime.state.online) {
+    const hasStartupWork =
+      shouldScheduleStaleRootRecovery ||
       hasPendingRestorationSweep ||
-      (await hasStartupContainerSyncWork(state)))
-  ) {
-    state.runtime.util.log(
+      (await hasStartupContainerSyncWork(state));
+    if (!isCurrent() || !hasStartupWork) {
+      return;
+    }
+    currentRuntime.util.log(
       shouldScheduleStaleRootRecovery
         ? `${getContainerContentsStoreLogLabel(state)}: startup detected stale root recovery; scheduling lane pass`
         : `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
@@ -189,33 +191,86 @@ async function initializeContainerContentsStore(input: {
   }
 }
 
+function waitForStaleLocalRefreshBeforeInitialization(input: {
+  host: RemoteContainerHydrationHost;
+  resumeRecoveryWork: () => Promise<void>;
+  scheduleSync: () => void;
+  state: ContainerContentsStoreSyncState;
+}): boolean {
+  const { state } = input;
+  const activeRefresh = state.localContainerRefreshPromise;
+  if (
+    !activeRefresh ||
+    state.localContainerRefreshGeneration === state.lifecycleGeneration
+  ) {
+    return false;
+  }
+
+  const lifecycleGeneration = state.lifecycleGeneration;
+  state.initializeGeneration = lifecycleGeneration;
+  const releaseInitializationBarrier = () => {
+    if (state.initializePromise !== initializationBarrier) {
+      return;
+    }
+    state.initializePromise = null;
+    state.initializeGeneration = null;
+    if (state.runtime.infra.dbStatus === "ready") {
+      ensureContainerContentsStoreInitialized(input);
+    }
+  };
+  const initializationBarrier = activeRefresh.then(
+    releaseInitializationBarrier,
+    releaseInitializationBarrier,
+  );
+  state.initializePromise = initializationBarrier;
+  return true;
+}
+
 function ensureContainerContentsStoreInitialized(input: {
   host: RemoteContainerHydrationHost;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, scheduleSync, state } = input;
-  if (
-    state.initialized ||
-    state.initializePromise ||
-    state.runtime.infra.dbStatus !== "ready"
-  ) {
+  const { host, resumeRecoveryWork, scheduleSync, state } = input;
+  if (state.initialized || state.runtime.infra.dbStatus !== "ready") {
+    return;
+  }
+  if (state.initializePromise) {
+    return;
+  }
+  if (waitForStaleLocalRefreshBeforeInitialization(input)) {
     return;
   }
 
-  state.initializePromise = initializeContainerContentsStore({
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  state.initializeGeneration = lifecycleGeneration;
+  const initializePromise = initializeContainerContentsStore({
     host,
+    isCurrent,
+    resumeRecoveryWork,
     scheduleSync,
     state,
-  }).catch((error: unknown) => {
-    state.initializePromise = null;
+  })
+    .catch((error: unknown) => {
+      if (!isCurrent() || isDatabaseUnavailableError(error)) {
+        return;
+      }
 
-    if (isDatabaseUnavailableError(error)) {
-      return;
-    }
-
-    throw error;
-  });
+      throw error;
+    })
+    .finally(() => {
+      if (state.initializePromise !== initializePromise) {
+        return;
+      }
+      state.initializePromise = null;
+      state.initializeGeneration = null;
+      if (!isCurrent() && state.runtime.infra.dbStatus === "ready") {
+        ensureContainerContentsStoreInitialized(input);
+      }
+    });
+  state.initializePromise = initializePromise;
 }
 
 async function syncSingleContainerMetadata(input: {
@@ -355,11 +410,12 @@ export function createContainerContentsStoreSyncAgent(input: {
 }): ContainerContentsStoreSyncAgent {
   const { host, state } = input;
   const scheduleSync = () => requestContainerContentsStoreSync(state);
-  const ingestRemoteContainer = createSchedulingRemoteContainerIngestor({
+  const remoteContainerIngestion = createRemoteContainerIngestionController({
     host,
     scheduleSync,
     state,
   });
+  const resumeRecoveryWork = remoteContainerIngestion.resumeInterruptedWork;
 
   const requestHydration: ContainerContentsStoreSyncAgent["requestRemoteHydration"] =
     (options = {}) =>
@@ -367,6 +423,7 @@ export function createContainerContentsStoreSyncAgent(input: {
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
         parentIds: options.parentIds,
+        resumeRecoveryWork,
         scheduleSync,
         state,
       });
@@ -374,6 +431,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     requestContainerContentsRemoteHydration({
       ...options,
       host,
+      resumeRecoveryWork,
       scheduleSync,
       state,
     });
@@ -393,15 +451,22 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
 
   return {
-    ensureInitialized: () =>
-      ensureContainerContentsStoreInitialized({ host, scheduleSync, state }),
+    ensureInitialized: () => {
+      ensureContainerContentsStoreInitialized({
+        host,
+        resumeRecoveryWork,
+        scheduleSync,
+        state,
+      });
+      void resumeRecoveryWork();
+    },
     handleRemoteEvents: () =>
       handleContainerContentsRemoteEvents({
         requestHydration,
         scheduleSync,
         state,
       }),
-    ingestRemoteContainer,
+    ingestRemoteContainer: remoteContainerIngestion.ingest,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeStoreDocumentSubtree(state, rootContainerId),
     refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),

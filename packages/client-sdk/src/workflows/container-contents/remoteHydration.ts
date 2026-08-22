@@ -26,17 +26,67 @@ export type {
   RemoteContainerHydrationHost,
 } from "./remoteHydration/types";
 
+export class StaleRemoteHydrationError extends Error {}
+
+export function createGenerationGuardedHydrationHost(input: {
+  host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
+}): RemoteContainerHydrationHost {
+  const assertCurrent = () => {
+    if (!input.isCurrent()) {
+      throw new StaleRemoteHydrationError();
+    }
+  };
+
+  return {
+    persistContainerState: async (...args) => {
+      assertCurrent();
+      const record = await input.host.persistContainerState(...args);
+      assertCurrent();
+      return record;
+    },
+    ...(input.host.requestDocumentPriming
+      ? {
+          requestDocumentPriming: () => {
+            if (input.isCurrent()) {
+              input.host.requestDocumentPriming?.();
+            }
+          },
+        }
+      : {}),
+    updateSnapshot: () => {
+      if (input.isCurrent()) {
+        input.host.updateSnapshot();
+      }
+    },
+  };
+}
+
+type RemoteContainerIngestGeneration = number | undefined;
+type RemoteContainerIngestGenerationMap = Map<
+  string,
+  RemoteContainerIngestGeneration
+>;
+
 function isCurrentQueuedRemoteContainer(
+  generation: RemoteContainerIngestGeneration,
+  generationByContainerId: RemoteContainerIngestGenerationMap,
   queue: RemoteContainerIngestQueue,
   remoteContainer: RemoteContainer,
 ): boolean {
-  return queue.get(remoteContainer.id) === remoteContainer;
+  return (
+    queue.get(remoteContainer.id) === remoteContainer &&
+    generationByContainerId.get(remoteContainer.id) === generation
+  );
 }
 
 async function upsertQueuedRemoteContainer(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
+  generation: RemoteContainerIngestGeneration;
+  generationByContainerId: RemoteContainerIngestGenerationMap;
   host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
   queue: RemoteContainerIngestQueue;
   queuedRemoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -44,45 +94,93 @@ async function upsertQueuedRemoteContainer(input: {
   const {
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
+    generation,
+    generationByContainerId,
     host,
     queue,
     queuedRemoteContainer,
     state,
   } = input;
-  if (!isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
+  if (
+    !input.isCurrent() ||
+    !isCurrentQueuedRemoteContainer(
+      generation,
+      generationByContainerId,
+      queue,
+      queuedRemoteContainer,
+    )
+  ) {
     return false;
   }
 
-  await upsertRemoteContainerState({
+  const upserted = await upsertRemoteContainerState({
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
     host,
+    isCurrent: input.isCurrent,
     remoteContainer: queuedRemoteContainer,
     state,
   });
-  if (isCurrentQueuedRemoteContainer(queue, queuedRemoteContainer)) {
-    queue.delete(queuedRemoteContainer.id);
+  if (!upserted) {
+    return false;
   }
   return true;
 }
 
+function acknowledgeRemoteContainerIngestBatch(input: {
+  generation: RemoteContainerIngestGeneration;
+  generationByContainerId: RemoteContainerIngestGenerationMap;
+  isCurrent: () => boolean;
+  queue: RemoteContainerIngestQueue;
+  queuedRemoteContainers: ReadonlyArray<RemoteContainer>;
+}): void {
+  if (!input.isCurrent()) {
+    return;
+  }
+  for (const queuedRemoteContainer of input.queuedRemoteContainers) {
+    if (
+      isCurrentQueuedRemoteContainer(
+        input.generation,
+        input.generationByContainerId,
+        input.queue,
+        queuedRemoteContainer,
+      )
+    ) {
+      input.queue.delete(queuedRemoteContainer.id);
+      input.generationByContainerId.delete(queuedRemoteContainer.id);
+    }
+  }
+}
+
 async function drainRemoteContainerIngestQueue(input: {
+  generation: RemoteContainerIngestGeneration;
+  generationByContainerId: RemoteContainerIngestGenerationMap;
   host: RemoteContainerHydrationHost;
+  isCurrent: () => boolean;
   queue: RemoteContainerIngestQueue;
   state: RemoteContainerHydrationState;
 }) {
-  const { host, queue, state } = input;
+  const { generation, generationByContainerId, host, queue, state } = input;
   let shouldUpdateSnapshot = false;
 
   try {
-    while (queue.size > 0) {
-      const queuedRemoteContainers = Array.from(queue.values());
+    while (input.isCurrent()) {
+      const queuedRemoteContainers = Array.from(queue.values()).filter(
+        (remoteContainer) =>
+          generationByContainerId.get(remoteContainer.id) === generation,
+      );
+      if (queuedRemoteContainers.length === 0) {
+        return;
+      }
       await cacheRemoteContainerPrincipalPolicies({
         cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
           state.runtime,
         ),
         remoteContainers: queuedRemoteContainers,
       });
+      if (!input.isCurrent()) {
+        return;
+      }
       const [
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
@@ -96,18 +194,31 @@ async function drainRemoteContainerIngestQueue(input: {
           state,
         }),
       ]);
+      if (!input.isCurrent()) {
+        return;
+      }
 
       for (const queuedRemoteContainer of queuedRemoteContainers) {
         shouldUpdateSnapshot =
           (await upsertQueuedRemoteContainer({
             containerIdsWithPendingMetadataUpdates,
             containerIdsWithPendingStructuralIntents,
+            generation,
+            generationByContainerId,
             host,
+            isCurrent: input.isCurrent,
             queue,
             queuedRemoteContainer,
             state,
           })) || shouldUpdateSnapshot;
       }
+      acknowledgeRemoteContainerIngestBatch({
+        generation,
+        generationByContainerId,
+        isCurrent: input.isCurrent,
+        queue,
+        queuedRemoteContainers,
+      });
 
       if (shouldUpdateSnapshot) {
         host.updateSnapshot();
@@ -122,42 +233,131 @@ async function drainRemoteContainerIngestQueue(input: {
   }
 }
 
+function isRemoteContainerIngestGenerationCurrent(
+  state: RemoteContainerHydrationState,
+  generation: RemoteContainerIngestGeneration,
+): boolean {
+  return (
+    state.lifecycleGeneration === undefined ||
+    state.lifecycleGeneration === generation
+  );
+}
+
+function requeueRemoteContainerIngestGeneration(input: {
+  generation: RemoteContainerIngestGeneration;
+  generationByContainerId: RemoteContainerIngestGenerationMap;
+  state: RemoteContainerHydrationState;
+}): void {
+  for (const [containerId, generation] of input.generationByContainerId) {
+    if (generation === input.generation) {
+      input.generationByContainerId.set(
+        containerId,
+        input.state.lifecycleGeneration,
+      );
+    }
+  }
+}
+
+interface RemoteContainerIngestor {
+  (remoteContainer: RemoteContainer): Promise<void>;
+  hasPending: () => boolean;
+  resume: () => Promise<void>;
+}
+
 export function createRemoteContainerIngestor(input: {
+  getSerializationBarrier?: (() => Promise<void> | null) | undefined;
   host: RemoteContainerHydrationHost;
   state: RemoteContainerHydrationState;
-}): (remoteContainer: RemoteContainer) => Promise<void> {
+}): RemoteContainerIngestor {
   const { host, state } = input;
   const pendingRemoteContainersById: RemoteContainerIngestQueue = new Map();
+  const generationByContainerId: RemoteContainerIngestGenerationMap = new Map();
   let ingestRemoteContainersPromise: Promise<void> | null = null;
 
-  return async (remoteContainer: RemoteContainer) => {
-    pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
-
+  const runNextGeneration = (): Promise<void> => {
     if (ingestRemoteContainersPromise) {
-      return ingestRemoteContainersPromise;
+      return ingestRemoteContainersPromise.then(
+        runNextGeneration,
+        runNextGeneration,
+      );
     }
-
-    ingestRemoteContainersPromise = (async () => {
-      await Promise.resolve();
-
-      try {
-        await drainRemoteContainerIngestQueue({
-          host,
+    if (
+      state.runtime.infra.dbStatus !== undefined &&
+      state.runtime.infra.dbStatus !== "ready"
+    ) {
+      return Promise.resolve();
+    }
+    const serializationBarrier = input.getSerializationBarrier?.();
+    if (serializationBarrier) {
+      return serializationBarrier.then(runNextGeneration);
+    }
+    const nextContainerId = pendingRemoteContainersById.keys().next().value;
+    if (typeof nextContainerId !== "string") {
+      return Promise.resolve();
+    }
+    const generation = generationByContainerId.get(nextContainerId);
+    const isCurrent = () =>
+      isRemoteContainerIngestGenerationCurrent(state, generation);
+    const guardedHost = createGenerationGuardedHydrationHost({
+      host,
+      isCurrent,
+    });
+    const nextPromise = Promise.resolve()
+      .then(() =>
+        drainRemoteContainerIngestQueue({
+          generation,
+          generationByContainerId,
+          host: guardedHost,
+          isCurrent,
           queue: pendingRemoteContainersById,
           state,
-        });
-      } finally {
-        ingestRemoteContainersPromise = null;
-      }
-    })();
-
-    return ingestRemoteContainersPromise;
+        }),
+      )
+      .then(() => {
+        if (!isCurrent()) {
+          requeueRemoteContainerIngestGeneration({
+            generation,
+            generationByContainerId,
+            state,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent() || error instanceof StaleRemoteHydrationError) {
+          requeueRemoteContainerIngestGeneration({
+            generation,
+            generationByContainerId,
+            state,
+          });
+          return;
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (ingestRemoteContainersPromise === nextPromise) {
+          ingestRemoteContainersPromise = null;
+        }
+      });
+    ingestRemoteContainersPromise = nextPromise;
+    return nextPromise.then(() =>
+      pendingRemoteContainersById.size > 0 ? runNextGeneration() : undefined,
+    );
   };
+
+  const ingestRemoteContainer = (remoteContainer: RemoteContainer) => {
+    pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
+    generationByContainerId.set(remoteContainer.id, state.lifecycleGeneration);
+    return runNextGeneration();
+  };
+  ingestRemoteContainer.hasPending = () => pendingRemoteContainersById.size > 0;
+  ingestRemoteContainer.resume = runNextGeneration;
+  return ingestRemoteContainer;
 }
 
 export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
+  isCurrent?: (() => boolean) | undefined;
   onFullyHydrated?: (() => Promise<void> | void) | undefined;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
@@ -165,7 +365,7 @@ export async function hydrateRemoteContainers(input: {
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { host, state } = input;
-  if (!canHydrateRemoteContainers(state)) {
+  if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
     return 0;
   }
 
@@ -192,6 +392,7 @@ export async function hydrateRemoteContainers(input: {
   const result = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,
+    isCurrent: input.isCurrent,
     lanes,
     queueParentLane: queueDiscoveredParentLane,
     seenContainerIds,
@@ -200,9 +401,13 @@ export async function hydrateRemoteContainers(input: {
   const { changedCount } = result;
   await finishRemoteHydration({
     changedCount,
-    complete: !result.shouldStop && canHydrateRemoteContainers(state),
+    complete:
+      !result.shouldStop &&
+      canHydrateRemoteContainers(state) &&
+      input.isCurrent?.() !== false,
     containerIdsBeforeHydration,
     host,
+    isCurrent: input.isCurrent,
     onFullyHydrated: input.onFullyHydrated,
     seenContainerIds,
     state,
