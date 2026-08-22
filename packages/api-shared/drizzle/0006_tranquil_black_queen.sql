@@ -1,5 +1,8 @@
 DROP INDEX "blob_audit_objects_pending_delete_idx";--> statement-breakpoint
 ALTER TABLE "blob_audit_objects" ADD COLUMN "organization_id" uuid;--> statement-breakpoint
+-- Clean-break ownerless sentinel: a retained audit row without a signed write
+-- header has no recoverable tenant. The nil UUID is never a tenant identity;
+-- authorization conceals these rows as not found instead of assigning them.
 UPDATE "blob_audit_objects" AS "audit"
 SET "organization_id" = COALESCE(
 	(

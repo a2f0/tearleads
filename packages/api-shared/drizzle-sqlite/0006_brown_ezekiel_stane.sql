@@ -11,6 +11,9 @@ CREATE TABLE `__new_blob_audit_objects` (
 	`object_deleted_at` integer,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );--> statement-breakpoint
+-- Clean-break ownerless sentinel: a retained audit row without a signed write
+-- header has no recoverable tenant. The nil UUID is never a tenant identity;
+-- authorization conceals these rows as not found instead of assigning them.
 INSERT INTO `__new_blob_audit_objects`(
 	`blob_id`,
 	`organization_id`,

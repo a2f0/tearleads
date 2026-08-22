@@ -1,4 +1,7 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@symcrypt/api-shared/postgres";
 import { blobAuditObjects } from "@symcrypt/api-shared/schema";
 import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { wallClockNowExpression } from "../../../utils/sqlDialect";
@@ -103,7 +106,7 @@ export async function listPendingBlobObjectDeletions(
  * this timestamp on later runs, including in a single-slot queue.
  */
 export async function recordBlobObjectDeletionAttempt(
-  db: ApiDatabase,
+  db: DatabaseSession,
   input: PendingBlobObjectDeletion,
 ): Promise<boolean> {
   const updated = await db
@@ -123,7 +126,7 @@ export async function recordBlobObjectDeletionAttempt(
 
 /** Record physical deletion without erasing immutable blob audit metadata. */
 export async function recordBlobObjectDeleted(
-  db: ApiDatabase,
+  db: DatabaseSession,
   input: PendingBlobObjectDeletion,
 ): Promise<void> {
   const updated = await db

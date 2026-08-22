@@ -4,6 +4,7 @@ import { blobAuditObjects } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 import {
+  listPendingBlobObjectDeletions,
   recordBlobObjectDeleted,
   recordBlobObjectDeletionAttempt,
 } from "./pendingBlobObjectDeletion";
@@ -71,4 +72,106 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         .where(eq(blobAuditObjects.blobId, blobId));
     }
   },
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "two maintenance workers safely acknowledge the same deletion",
+  async () => {
+    const blobId = crypto.randomUUID();
+    const storageKey = `blob-object:${blobId}`;
+    await db.insert(blobAuditObjects).values({
+      blobId,
+      byteLength: 1,
+      historicalBytesRetained: false,
+      liveStorageKey: storageKey,
+      organizationId: crypto.randomUUID(),
+      prunedAt: new Date("2000-01-01T00:00:00.000Z"),
+      retentionMode: "live_only",
+      sha256: `sha256:${blobId}`,
+    });
+
+    let releaseFirstAck!: () => void;
+    const firstAckRelease = new Promise<void>((resolve) => {
+      releaseFirstAck = resolve;
+    });
+    let markFirstAckHeld!: () => void;
+    const firstAckHeld = new Promise<void>((resolve) => {
+      markFirstAckHeld = resolve;
+    });
+    let firstAck: Promise<void> | undefined;
+    let secondAck: Promise<void> | undefined;
+    try {
+      const [firstSelection, secondSelection] = await Promise.all([
+        listPendingBlobObjectDeletions(db, { limit: 1 }),
+        listPendingBlobObjectDeletions(db, { limit: 1 }),
+      ]);
+      expect(firstSelection).toEqual([{ blobId, storageKey }]);
+      expect(secondSelection).toEqual([{ blobId, storageKey }]);
+      const firstPending = firstSelection[0];
+      const secondPending = secondSelection[0];
+      if (!firstPending || !secondPending) {
+        throw new Error("Both maintenance workers must select the deletion");
+      }
+
+      expect(
+        await Promise.all([
+          recordBlobObjectDeletionAttempt(db, firstPending),
+          recordBlobObjectDeletionAttempt(db, secondPending),
+        ]),
+      ).toEqual([true, true]);
+
+      const physicallyDeleted = new Set<string>();
+      const deleteObject = (pending: typeof firstPending): Promise<void> => {
+        physicallyDeleted.add(pending.storageKey);
+        return Promise.resolve();
+      };
+      await Promise.all([
+        deleteObject(firstPending),
+        deleteObject(secondPending),
+      ]);
+      expect([...physicallyDeleted]).toEqual([storageKey]);
+
+      firstAck = db.transaction(async (tx) => {
+        await recordBlobObjectDeleted(tx, firstPending);
+        markFirstAckHeld();
+        await firstAckRelease;
+      });
+      await firstAckHeld;
+
+      let secondAckSettled = false;
+      secondAck = recordBlobObjectDeleted(db, secondPending).then(() => {
+        secondAckSettled = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(secondAckSettled).toBe(false);
+
+      releaseFirstAck();
+      await Promise.all([firstAck, secondAck]);
+      expect(secondAckSettled).toBe(true);
+      const [completed] = await db
+        .select({
+          liveStorageKey: blobAuditObjects.liveStorageKey,
+          objectDeletedAt: blobAuditObjects.objectDeletedAt,
+        })
+        .from(blobAuditObjects)
+        .where(eq(blobAuditObjects.blobId, blobId));
+      expect(completed?.liveStorageKey).toBeNull();
+      expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
+      expect(
+        (await listPendingBlobObjectDeletions(db, { limit: 1000 })).some(
+          (pending) => pending.blobId === blobId,
+        ),
+      ).toBe(false);
+    } finally {
+      releaseFirstAck();
+      await Promise.all([
+        firstAck?.catch(() => undefined),
+        secondAck?.catch(() => undefined),
+      ]);
+      await db
+        .delete(blobAuditObjects)
+        .where(eq(blobAuditObjects.blobId, blobId));
+    }
+  },
+  30_000,
 );
