@@ -177,6 +177,10 @@ test("a poison deletion does not starve newly pending object work", async () => 
     limit: 1,
   });
   expect(first.failedObjectDeletions).toBe(1);
+  await db
+    .update(blobAuditObjects)
+    .set({ objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS) })
+    .where(eq(blobAuditObjects.blobId, poisonBlobId));
 
   const healthyBlobId = crypto.randomUUID();
   const healthyStorageKey = `blob-object:${healthyBlobId}`;
@@ -197,8 +201,18 @@ test("a poison deletion does not starve newly pending object work", async () => 
     gracePeriodMs: 24 * HOUR_MS,
     limit: 1,
   });
-  expect(second.deletedObjectCount).toBe(1);
-  expect(second.failedObjectDeletions).toBe(0);
+  expect(second.deletedObjectCount).toBe(0);
+  expect(second.failedObjectDeletions).toBe(1);
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, healthyStorageKey),
+  ).toBe(healthyBytes);
+
+  const third = await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+  });
+  expect(third.deletedObjectCount).toBe(1);
+  expect(third.failedObjectDeletions).toBe(0);
   expect(
     await readBlobObjectText(runtime.blobObjectStore, healthyStorageKey),
   ).toBeNull();

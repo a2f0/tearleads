@@ -4,7 +4,6 @@ import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
-const SINGLE_SLOT_RETRY_DELAY_MS = 5 * 60 * 1000;
 
 interface PendingBlobObjectDeletion {
   readonly blobId: string;
@@ -65,9 +64,11 @@ function selectFairCandidates(
     throw new Error("Pending deletion queue selection lost a candidate");
   }
   if (limit === 1) {
-    const retryIsDue =
-      oldestRetry.queuedAt.getTime() <= Date.now() - SINGLE_SLOT_RETRY_DELAY_MS;
-    return [retryIsDue ? oldestRetry : oldestNew];
+    return [
+      oldestRetry.queuedAt.getTime() < oldestNew.queuedAt.getTime()
+        ? oldestRetry
+        : oldestNew,
+    ];
   }
 
   const newQuota = Math.ceil(limit / 2);
@@ -87,8 +88,8 @@ function selectFairCandidates(
 /**
  * Durable deletion work consists of pruned audit rows that still retain their
  * object-store key. New work and retries each receive batch capacity; a
- * single-slot maintenance run delays a fresh failure briefly, then gives the
- * due retry priority so neither class can starve the other.
+ * single-slot maintenance run chooses the oldest class timestamp, and each
+ * failed attempt rotates its retry behind work that was already waiting.
  */
 export async function listPendingBlobObjectDeletions(
   db: ApiDatabase,
@@ -142,7 +143,7 @@ export async function listPendingBlobObjectDeletions(
 
 /**
  * Persist an attempt before calling the object store. Failed work rotates by
- * this timestamp on later runs and becomes due in a single-slot queue.
+ * this timestamp on later runs, including in a single-slot queue.
  */
 export async function recordBlobObjectDeletionAttempt(
   db: ApiDatabase,
