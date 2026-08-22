@@ -14,6 +14,7 @@ import {
 type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
     containerParentIdsNeedingHydration: Set<string | null>;
+    initializePromise: Promise<void> | null;
     lifecycleGeneration: number;
     remoteHydrationGeneration: number | null;
     remoteHydrationPromise: Promise<void> | null;
@@ -59,6 +60,18 @@ function waitForActiveRemoteHydration(
   );
 }
 
+function waitForActiveInitialization(
+  input: RemoteHydrationRequestInput,
+): Promise<void> | null {
+  const activeInitialization = input.state.initializePromise;
+  if (!activeInitialization) {
+    return null;
+  }
+  return activeInitialization.then(() =>
+    requestContainerContentsRemoteHydration(input),
+  );
+}
+
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
@@ -72,6 +85,10 @@ export function requestContainerContentsRemoteHydration(
   const activeHydration = waitForActiveRemoteHydration(input);
   if (activeHydration) {
     return activeHydration;
+  }
+  const activeInitialization = waitForActiveInitialization(input);
+  if (activeInitialization) {
+    return activeInitialization;
   }
 
   const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);

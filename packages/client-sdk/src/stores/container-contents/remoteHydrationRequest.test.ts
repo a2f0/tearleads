@@ -17,6 +17,7 @@ function createRequestState(
   return {
     containerParentIdsNeedingHydration: new Set<string | null>(),
     containersById: new Map(),
+    initializePromise: null,
     initialized: true,
     lifecycleGeneration: 0,
     localContainerRefreshGeneration: null,
@@ -249,12 +250,21 @@ test("a request queued before reset rehydrates the replacement generation", asyn
     const queuedHydration = request(() => {
       replacementCompletionCount += 1;
     });
+    let resolveInitialization: () => void = () => {};
+    const replacementInitialization = new Promise<void>((resolve) => {
+      resolveInitialization = resolve;
+    });
     state.lifecycleGeneration += 1;
     state.containersById = new Map();
     state.containerParentIdsNeedingHydration = new Set();
+    state.initializePromise = replacementInitialization;
     state.rootLaneHydrated = false;
 
     resolvers[0]?.(laneResponse);
+    await activeHydration;
+    expect(resolvers).toHaveLength(1);
+    state.initializePromise = null;
+    resolveInitialization();
     await waitFor(() => resolvers.length === 2);
     expect(state.remoteHydrationGeneration).toBe(1);
     resolvers[1]?.(laneResponse);

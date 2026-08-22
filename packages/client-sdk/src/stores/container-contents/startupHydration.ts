@@ -107,6 +107,9 @@ export async function scheduleStaleStartupRemoteHydration(input: {
       input.isCurrent,
     );
   } catch (error: unknown) {
+    if (input.isCurrent?.() === false) {
+      return false;
+    }
     reportStartupHydrationError(
       "Failed to inspect startup container contents hydration:",
       error,
