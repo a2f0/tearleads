@@ -40,6 +40,7 @@ exec bun test \
   src/routes/documents/syncConcurrency.pg.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.pg.test.ts \
+  src/workflows/blobs/gc/reclaimDereferencedBlobsBindRace.pg.test.ts \
   src/workflows/blobs/gc/pendingBlobObjectDeletion.test.ts \
   src/workflows/blobs/mutations/authorization.test.ts \
   src/workflows/blobs/mutations/authorizationAncestors.pg.test.ts \
