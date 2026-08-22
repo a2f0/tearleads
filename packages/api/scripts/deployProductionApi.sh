@@ -2,7 +2,7 @@
 # Deploy the SymCrypt API to the production server
 #
 # Builds and deploys standalone API executables, runs database migrations,
-# and restarts the API service.
+# and starts the API service after the migration window.
 
 set -euo pipefail
 
@@ -30,6 +30,9 @@ echo "Building API executable..."
 
 bash "$REPO_ROOT/packages/api-cli/scripts/deployProductionApiCli.sh"
 
+echo "Stopping API database writers for the breaking migration window..."
+ssh "$SSH_TARGET" "sudo systemctl stop symcrypt-api symcrypt-blob-gc.timer symcrypt-blob-gc.service symcrypt-stripe-seat-sync.timer symcrypt-stripe-seat-sync.service"
+
 echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
 rsync -avz \
@@ -41,7 +44,7 @@ rsync -avz \
 echo "Running database migrations..."
 ssh "$SSH_TARGET" 'set -eu && set -a && . /etc/symcrypt/api.env && set +a && /opt/symcrypt/bin/symcrypt-api-cli migrate'
 
-echo "Restarting API service..."
-ssh "$SSH_TARGET" "sudo systemctl restart symcrypt-api"
+echo "Starting API service and maintenance timers..."
+ssh "$SSH_TARGET" "sudo systemctl start symcrypt-api symcrypt-blob-gc.timer symcrypt-stripe-seat-sync.timer"
 
 echo "API deployed."

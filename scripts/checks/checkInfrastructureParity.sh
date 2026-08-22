@@ -32,6 +32,23 @@ compare_tier_files() {
   fi
 }
 
+assert_api_deploy_ordering() {
+  local deploy_file="$1"
+  local stop_line
+  local migration_line
+  local start_line
+
+  stop_line="$(awk 'index($0, "systemctl stop symcrypt-api") { print NR; exit }' "$deploy_file")"
+  migration_line="$(awk 'index($0, "symcrypt-api-cli migrate") { print NR; exit }' "$deploy_file")"
+  start_line="$(awk 'index($0, "systemctl start symcrypt-api") { print NR; exit }' "$deploy_file")"
+
+  if [ -z "$stop_line" ] || [ -z "$migration_line" ] || [ -z "$start_line" ] ||
+    [ "$stop_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ]; then
+    echo "ERROR: API deploy must stop database writers before migration and restart them afterward: $deploy_file" >&2
+    return 1
+  fi
+}
+
 list_stack_files() {
   local stack_dir="$1"
 
@@ -64,5 +81,14 @@ compare_tier_files \
 compare_tier_files \
   "$REPO_ROOT/scripts/deployStaging.sh" \
   "$REPO_ROOT/scripts/deployProduction.sh"
+
+compare_tier_files \
+  "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh" \
+  "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+
+assert_api_deploy_ordering \
+  "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
+assert_api_deploy_ordering \
+  "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
 
 echo "Infrastructure tier parity passed."
