@@ -156,11 +156,18 @@ async function resolveExistingBlobTargetsForLock(input: {
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
 }) {
-  await assertStoredBlobOrganizationMatches({
-    blobId: input.blobId,
-    executor: input.executor,
-    expectedOrganizationId: input.organizationId,
-  });
+  try {
+    await assertStoredBlobOrganizationMatches({
+      blobId: input.blobId,
+      executor: input.executor,
+      expectedOrganizationId: input.organizationId,
+    });
+  } catch (error) {
+    if (error instanceof BlobMutationError && error.status === 404) {
+      return { concealed: true, targets: [] } as const;
+    }
+    throw error;
+  }
   try {
     const currentTargets = await resolveCurrentBlobKekTargets(
       input.blobId,
@@ -170,10 +177,10 @@ async function resolveExistingBlobTargetsForLock(input: {
       actualOrganizationId: currentTargets.organizationId,
       expectedOrganizationId: input.organizationId,
     });
-    return currentTargets.targets;
+    return { concealed: false, targets: currentTargets.targets } as const;
   } catch (error) {
     if (error instanceof BlobKekTargetError && error.status === 404) {
-      return [];
+      return { concealed: false, targets: [] } as const;
     }
     throw error;
   }
@@ -279,14 +286,15 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
-  const existingBlobTargets =
+  const existingBlobResolution =
     input.blobId === undefined || input.contentKeyTargets === undefined
-      ? []
+      ? { concealed: false, targets: [] }
       : await resolveExistingBlobTargetsForLock({
           blobId: input.blobId,
           executor: input.executor,
           organizationId: input.proof.documentManifest.state.organizationId,
         });
+  const existingBlobTargets = existingBlobResolution.targets;
   const linkedContainerIds =
     input.proof.documentManifest.state.linkedContainerIds;
   const authorizingContainerIds = input.proof.authorizingContainerPaths.flatMap(
@@ -299,6 +307,9 @@ export async function lockAttachmentAuthorizationForShare(input: {
       linkedContainerIds,
       requestedTargets: input.contentKeyTargets,
     });
+  }
+  if (existingBlobResolution.concealed) {
+    throw new BlobMutationError("Blob not found", 404);
   }
   const containerKekTargetSeedIds = uniqueSortedStrings([
     ...authorizingContainerIds,

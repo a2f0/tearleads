@@ -71,6 +71,44 @@ test("a cross-organization bind cannot revive a dereferenced blob", async () => 
     owner: targetOwner,
     root: targetRoot,
   });
+  const unknownBind = await buildBind({
+    blobId: crypto.randomUUID(),
+    document: targetDocument,
+    owner: targetOwner,
+    root: targetRoot,
+  });
+  const withUnknownTarget = (
+    request: typeof targetBind.request,
+  ): typeof targetBind.request => ({
+    ...request,
+    contentKeyBundle: {
+      ...request.contentKeyBundle,
+      targets: request.contentKeyBundle.targets.map((target) => ({
+        ...target,
+        containerId: crypto.randomUUID(),
+      })),
+    },
+  });
+  await expect(
+    bindForTest({
+      blobId,
+      owner: targetOwner,
+      request: withUnknownTarget(targetBind.request),
+    }),
+  ).rejects.toMatchObject({
+    message: "Blob content-key target heads are stale",
+    status: 409,
+  });
+  await expect(
+    bindForTest({
+      blobId: unknownBind.binding.blobId,
+      owner: targetOwner,
+      request: withUnknownTarget(unknownBind.request),
+    }),
+  ).rejects.toMatchObject({
+    message: "Blob content-key target heads are stale",
+    status: 409,
+  });
   await expect(
     bindForTest({
       blobId,
