@@ -35,6 +35,7 @@ interface RemoteHydrationRequestInput {
     | (() => () => Promise<void> | void)
     | undefined;
   recreateOnFullyHydratedAtStart?: boolean | undefined;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
@@ -100,11 +101,10 @@ function retryRemoteHydrationAfterReset(
     onFullyHydrated: undefined,
     recreateOnFullyHydratedAtStart: true,
   };
-  if (retryInput.state.runtime.infra.dbStatus !== "ready") {
-    queueRecoveryHydrationRequest(retryInput);
-    return Promise.resolve();
-  }
-  return requestContainerContentsRemoteHydration(retryInput);
+  queueRecoveryHydrationRequest(retryInput);
+  return retryInput.state.runtime.infra.dbStatus === "ready"
+    ? retryInput.resumeRecoveryWork()
+    : Promise.resolve();
 }
 
 export function resumeContainerContentsRecoveryHydration(

@@ -74,6 +74,12 @@ async function waitFor(condition: () => boolean): Promise<void> {
   throw new Error("condition was not reached");
 }
 
+function createResumeRecoveryWork(state: RequestState): () => Promise<void> {
+  return async () => {
+    await resumeContainerContentsRecoveryHydration(state);
+  };
+}
+
 test("first completed root hydration schedules recovery with no remote delta", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-root-lane-hydration-schedule",
@@ -85,6 +91,7 @@ test("first completed root hydration schedules recovery with no remote delta", a
     await requestContainerContentsRemoteHydration({
       host: emptyHydrationHost,
       parentIds: [null],
+      resumeRecoveryWork: createResumeRecoveryWork(state),
       scheduleSync: () => {
         scheduledCount += 1;
       },
@@ -109,6 +116,7 @@ test("restoration hydration can suppress change-driven lane rearming", async () 
     await requestContainerContentsRemoteHydration({
       host: emptyHydrationHost,
       parentIds: [null],
+      resumeRecoveryWork: createResumeRecoveryWork(state),
       scheduleSync: () => {
         scheduledCount += 1;
       },
@@ -164,6 +172,7 @@ test("reset preserves disjoint lanes from active and queued hydrations", async (
         onFullyHydrated,
         parentIds: [parentId],
         resetAllLaneWatermarks: true,
+        resumeRecoveryWork: createResumeRecoveryWork(state),
         scheduleSync: () => {
           scheduledCount += 1;
         },
@@ -243,6 +252,7 @@ test("a request queued before reset rehydrates the replacement generation", asyn
         host: emptyHydrationHost,
         onFullyHydrated,
         parentIds: [null],
+        resumeRecoveryWork: createResumeRecoveryWork(state),
         scheduleSync: () => {},
         state,
       });
@@ -335,6 +345,7 @@ test("completion recreation waits for readiness across consecutive resets", asyn
         staleCompletionCount += 1;
       },
       parentIds: [null],
+      resumeRecoveryWork: createResumeRecoveryWork(state),
       recreateOnFullyHydratedAfterReset: () => {
         recreatedCompletionFactoryCount += 1;
         recreatedCompletionContexts.push({
@@ -429,6 +440,7 @@ test("stale hydration suppresses a late non-database failure", async () => {
     const hydration = requestContainerContentsRemoteHydration({
       host: emptyHydrationHost,
       parentIds: [null],
+      resumeRecoveryWork: createResumeRecoveryWork(state),
       scheduleSync: () => {},
       state,
     });

@@ -114,10 +114,11 @@ function createContainerContentsStoreDocumentMoveHost(
 async function initializeContainerContentsStore(input: {
   host: RemoteContainerHydrationHost;
   isCurrent: () => boolean;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, isCurrent, scheduleSync, state } = input;
+  const { host, isCurrent, resumeRecoveryWork, scheduleSync, state } = input;
   const persistence = state.persistence;
   const loadRuntime = state.runtime;
   if (loadRuntime.infra.dbStatus !== "ready") {
@@ -144,6 +145,7 @@ async function initializeContainerContentsStore(input: {
       requestHydration: () =>
         requestContainerContentsRemoteHydration({
           host,
+          resumeRecoveryWork,
           scheduleSync,
           state,
         }),
@@ -191,6 +193,7 @@ async function initializeContainerContentsStore(input: {
 
 function waitForStaleLocalRefreshBeforeInitialization(input: {
   host: RemoteContainerHydrationHost;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }): boolean {
@@ -225,10 +228,11 @@ function waitForStaleLocalRefreshBeforeInitialization(input: {
 
 function ensureContainerContentsStoreInitialized(input: {
   host: RemoteContainerHydrationHost;
+  resumeRecoveryWork: () => Promise<void>;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }) {
-  const { host, scheduleSync, state } = input;
+  const { host, resumeRecoveryWork, scheduleSync, state } = input;
   if (state.initialized || state.runtime.infra.dbStatus !== "ready") {
     return;
   }
@@ -245,6 +249,7 @@ function ensureContainerContentsStoreInitialized(input: {
   const initializePromise = initializeContainerContentsStore({
     host,
     isCurrent,
+    resumeRecoveryWork,
     scheduleSync,
     state,
   })
@@ -410,6 +415,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     scheduleSync,
     state,
   });
+  const resumeRecoveryWork = remoteContainerIngestion.resumeInterruptedWork;
 
   const requestHydration: ContainerContentsStoreSyncAgent["requestRemoteHydration"] =
     (options = {}) =>
@@ -417,6 +423,7 @@ export function createContainerContentsStoreSyncAgent(input: {
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
         parentIds: options.parentIds,
+        resumeRecoveryWork,
         scheduleSync,
         state,
       });
@@ -424,6 +431,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     requestContainerContentsRemoteHydration({
       ...options,
       host,
+      resumeRecoveryWork,
       scheduleSync,
       state,
     });
@@ -444,8 +452,13 @@ export function createContainerContentsStoreSyncAgent(input: {
 
   return {
     ensureInitialized: () => {
-      ensureContainerContentsStoreInitialized({ host, scheduleSync, state });
-      void remoteContainerIngestion.resumeInterruptedWork();
+      ensureContainerContentsStoreInitialized({
+        host,
+        resumeRecoveryWork,
+        scheduleSync,
+        state,
+      });
+      void resumeRecoveryWork();
     },
     handleRemoteEvents: () =>
       handleContainerContentsRemoteEvents({
