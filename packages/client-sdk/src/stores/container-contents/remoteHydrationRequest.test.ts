@@ -246,12 +246,18 @@ test("a request queued before reset rehydrates the replacement generation", asyn
         resolvers.push(resolve);
       });
     const state = createRequestState(execSql, listContainerParentLanes);
+    let recreatedCompletionFactoryCount = 0;
     let replacementCompletionCount = 0;
-    const request = (onFullyHydrated: () => void) =>
+    let staleQueuedCompletionCount = 0;
+    const request = (
+      onFullyHydrated: () => void,
+      recreateOnFullyHydratedAfterReset?: () => () => void,
+    ) =>
       requestContainerContentsRemoteHydration({
         host: emptyHydrationHost,
         onFullyHydrated,
         parentIds: [null],
+        recreateOnFullyHydratedAfterReset,
         resumeRecoveryWork: createResumeRecoveryWork(state),
         scheduleSync: () => {},
         state,
@@ -272,9 +278,17 @@ test("a request queued before reset rehydrates the replacement generation", asyn
 
     const activeHydration = request(() => {});
     await waitFor(() => resolvers.length === 1);
-    const queuedHydration = request(() => {
-      replacementCompletionCount += 1;
-    });
+    const queuedHydration = request(
+      () => {
+        staleQueuedCompletionCount += 1;
+      },
+      () => {
+        recreatedCompletionFactoryCount += 1;
+        return () => {
+          replacementCompletionCount += 1;
+        };
+      },
+    );
     let resolveInitialization: () => void = () => {};
     const replacementInitialization = new Promise<void>((resolve) => {
       resolveInitialization = resolve;
@@ -297,6 +311,8 @@ test("a request queued before reset rehydrates the replacement generation", asyn
     resolvers[2]?.(laneResponse);
     await Promise.all([activeHydration, queuedHydration]);
 
+    expect(staleQueuedCompletionCount).toBe(0);
+    expect(recreatedCompletionFactoryCount).toBe(1);
     expect(replacementCompletionCount).toBe(1);
     expect(state.rootLaneHydrated).toBe(true);
   } finally {

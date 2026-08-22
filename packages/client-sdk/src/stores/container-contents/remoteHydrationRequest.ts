@@ -42,19 +42,62 @@ interface RemoteHydrationRequestInput {
   state: RemoteHydrationRequestState;
 }
 
+interface RecoveryHydrationRequest {
+  input: RemoteHydrationRequestInput;
+  lifecycleGeneration: number;
+}
+
 const recoveryHydrationRequestsByState = new WeakMap<
   RemoteHydrationRequestState,
-  RemoteHydrationRequestInput[]
+  RecoveryHydrationRequest[]
 >();
 function queueRecoveryHydrationRequest(
   input: RemoteHydrationRequestInput,
 ): void {
   const requests = recoveryHydrationRequestsByState.get(input.state);
   if (requests) {
-    requests.push(input);
+    if (!requests.some((request) => request.input === input)) {
+      requests.push({
+        input,
+        lifecycleGeneration: input.state.lifecycleGeneration,
+      });
+    }
     return;
   }
-  recoveryHydrationRequestsByState.set(input.state, [input]);
+  recoveryHydrationRequestsByState.set(input.state, [
+    { input, lifecycleGeneration: input.state.lifecycleGeneration },
+  ]);
+}
+
+function hasRemoteHydrationPrerequisites(
+  state: RemoteHydrationRequestState,
+): boolean {
+  return (
+    state.runtime.infra.dbStatus === "ready" &&
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online
+  );
+}
+
+function createResetRecoveryInput(
+  input: RemoteHydrationRequestInput,
+  parentIds: ReadonlyArray<string | null> | undefined = input.parentIds,
+): RemoteHydrationRequestInput {
+  return {
+    ...input,
+    onFullyHydrated: undefined,
+    parentIds,
+    recreateOnFullyHydratedAtStart: true,
+  };
+}
+
+function resumeRetainedRecoveryHydration(
+  input: RemoteHydrationRequestInput,
+): Promise<void> {
+  queueRecoveryHydrationRequest(input);
+  return hasRemoteHydrationPrerequisites(input.state)
+    ? input.resumeRecoveryWork()
+    : Promise.resolve();
 }
 
 function waitForActiveRemoteHydration(
@@ -69,8 +112,10 @@ function waitForActiveRemoteHydration(
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration;
   const requestQueuedHydration = () => {
-    return requestLifecycleGeneration !== state.lifecycleGeneration ||
-      needsCurrentGenerationHydration ||
+    if (requestLifecycleGeneration !== state.lifecycleGeneration) {
+      return retryRemoteHydrationAfterReset(input);
+    }
+    return needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
       : undefined;
@@ -84,37 +129,50 @@ function waitForActiveRemoteHydration(
 function waitForActiveInitialization(
   input: RemoteHydrationRequestInput,
 ): Promise<void> | null {
-  const activeInitialization = input.state.initializePromise;
+  const { state } = input;
+  const activeInitialization = state.initializePromise;
   if (!activeInitialization) {
     return null;
   }
-  return activeInitialization.then(() =>
-    requestContainerContentsRemoteHydration(input),
-  );
+  const requestLifecycleGeneration = state.lifecycleGeneration;
+  return activeInitialization.then(() => {
+    const recoveryInput =
+      requestLifecycleGeneration === state.lifecycleGeneration
+        ? input
+        : createResetRecoveryInput(input);
+    return resumeRetainedRecoveryHydration(recoveryInput);
+  });
 }
 
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
+  parentIds?: ReadonlyArray<string | null> | undefined,
 ): Promise<void> {
-  const retryInput = {
-    ...input,
-    onFullyHydrated: undefined,
-    recreateOnFullyHydratedAtStart: true,
-  };
-  queueRecoveryHydrationRequest(retryInput);
-  return retryInput.state.runtime.infra.dbStatus === "ready"
-    ? retryInput.resumeRecoveryWork()
-    : Promise.resolve();
+  return resumeRetainedRecoveryHydration(
+    createResetRecoveryInput(input, parentIds),
+  );
+}
+
+function retainResetRecoveryHydration(
+  input: RemoteHydrationRequestInput,
+  parentIds?: ReadonlyArray<string | null> | undefined,
+): void {
+  queueRecoveryHydrationRequest(createResetRecoveryInput(input, parentIds));
 }
 
 export function resumeContainerContentsRecoveryHydration(
   state: RemoteHydrationRequestState,
 ): Promise<void> | null {
-  const inputs = recoveryHydrationRequestsByState.get(state);
-  if (!inputs) {
+  const requests = recoveryHydrationRequestsByState.get(state);
+  if (!requests) {
     return null;
   }
   recoveryHydrationRequestsByState.delete(state);
+  const inputs = requests.map((request) =>
+    request.lifecycleGeneration === state.lifecycleGeneration
+      ? request.input
+      : createResetRecoveryInput(request.input),
+  );
   return Promise.all(inputs.map(requestContainerContentsRemoteHydration))
     .then(() => undefined)
     .catch((error: unknown) => {
@@ -145,7 +203,7 @@ function waitForRemoteHydrationReadiness(
   if (activeInitialization) {
     return activeInitialization;
   }
-  if (input.state.runtime.infra.dbStatus !== "ready") {
+  if (!hasRemoteHydrationPrerequisites(input.state)) {
     queueRecoveryHydrationRequest(input);
     return Promise.resolve();
   }
@@ -173,6 +231,7 @@ export function requestContainerContentsRemoteHydration(
   state.containerParentIdsNeedingHydration.clear();
 
   let appliedRemoteContainerChange = false;
+  let retainInterruptedHydration = false;
   const lifecycleGeneration = state.lifecycleGeneration;
   const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
   const onFullyHydrated = input.recreateOnFullyHydratedAtStart
@@ -205,13 +264,16 @@ export function requestContainerContentsRemoteHydration(
     })
     .then((changedCount) => {
       appliedRemoteContainerChange = changedCount > 0;
+      if (isCurrent() && !hasRemoteHydrationPrerequisites(state)) {
+        retainInterruptedHydration = true;
+      }
     })
     .catch((error: unknown) => {
-      if (
-        !isCurrent() ||
-        error instanceof StaleRemoteHydrationError ||
-        isDatabaseUnavailableError(error)
-      ) {
+      if (isCurrent() && isDatabaseUnavailableError(error)) {
+        retainInterruptedHydration = true;
+        return;
+      }
+      if (!isCurrent() || error instanceof StaleRemoteHydrationError) {
         return;
       }
 
@@ -237,7 +299,10 @@ export function requestContainerContentsRemoteHydration(
         scheduleSync();
       }
       if (shouldRetryAfterReset) {
-        return retryRemoteHydrationAfterReset(input);
+        return retryRemoteHydrationAfterReset(input, parentIds);
+      }
+      if (retainInterruptedHydration) {
+        retainResetRecoveryHydration(input, parentIds);
       }
       return undefined;
     });
