@@ -38,5 +38,8 @@ fi
 cd packages/api
 exec bun test \
   src/routes/documents/syncConcurrency.pg.test.ts \
+  src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
+  src/workflows/blobs/mutations/authorization.test.ts \
+  src/workflows/blobs/mutations/blobMutationLocks.test.ts \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
   src/workflows/containers/deleteContainerTimestamp.pg.test.ts
