@@ -34,17 +34,23 @@ compare_tier_files() {
 
 assert_api_deploy_ordering() {
   local deploy_file="$1"
+  local verify_line
   local stop_line
+  local install_line
   local migration_line
   local start_line
 
+  verify_line="$(awk 'index($0, "test -x") { print NR; exit }' "$deploy_file")"
   stop_line="$(awk 'index($0, "systemctl stop symcrypt-api") { print NR; exit }' "$deploy_file")"
+  install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
   migration_line="$(awk 'index($0, "symcrypt-api-cli migrate") { print NR; exit }' "$deploy_file")"
   start_line="$(awk 'index($0, "systemctl start symcrypt-api") { print NR; exit }' "$deploy_file")"
 
-  if [ -z "$stop_line" ] || [ -z "$migration_line" ] || [ -z "$start_line" ] ||
-    [ "$stop_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ]; then
-    echo "ERROR: API deploy must stop database writers before migration and restart them afterward: $deploy_file" >&2
+  if [ -z "$verify_line" ] || [ -z "$stop_line" ] || [ -z "$install_line" ] ||
+    [ -z "$migration_line" ] || [ -z "$start_line" ] ||
+    [ "$verify_line" -ge "$stop_line" ] || [ "$stop_line" -ge "$install_line" ] ||
+    [ "$install_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ]; then
+    echo "ERROR: API deploy must verify staged binaries, stop writers, install, migrate, and restart in that order: $deploy_file" >&2
     return 1
   fi
 }
