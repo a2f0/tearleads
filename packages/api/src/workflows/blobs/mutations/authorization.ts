@@ -10,6 +10,7 @@ import type {
   BlobAttachmentDetachRequest,
 } from "@symcrypt/validators/request";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import { uniqueSortedStrings } from "../../../utils/array";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
@@ -105,6 +106,16 @@ export async function assertAttachmentOrganizationCanSync(
   );
 }
 
+export function planAttachmentAuthorizationContainerIds(input: {
+  readonly authorizingContainerIds: readonly string[];
+  readonly linkedContainerIds: readonly string[];
+}): string[] {
+  return uniqueSortedStrings([
+    ...input.authorizingContainerIds,
+    ...input.linkedContainerIds,
+  ]);
+}
+
 /**
  * Pin the complete authorization frontier before an attachment write. The
  * container-then-document order matches document mutations, while holding the
@@ -117,12 +128,15 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
-  const authorizingContainerIds = input.proof.authorizingContainerPaths.flatMap(
-    (path) => path.map((manifest) => manifest.state.containerId),
-  );
+  const containerIds = planAttachmentAuthorizationContainerIds({
+    authorizingContainerIds: input.proof.authorizingContainerPaths.flatMap(
+      (path) => path.map((manifest) => manifest.state.containerId),
+    ),
+    linkedContainerIds: input.proof.documentManifest.state.linkedContainerIds,
+  });
   await lockAccessManifestHeadsForShare(
     "container",
-    authorizingContainerIds,
+    containerIds,
     input.executor,
   );
   await lockAccessManifestHeadsForShare(

@@ -25,16 +25,10 @@ interface ReclaimDereferencedBlobsSummary {
   readonly failedObjectDeletions: number;
 }
 
-// Reclaims blobs soft-deleted past the grace period. The workflow prunes live
-// database state and persists each storage key on its audit row; this service
-// drains those durable work items after commit. A failed object deletion or a
-// crash before its acknowledgement leaves the key eligible for the next sweep.
-export async function reclaimDereferencedBlobs(
+async function drainPendingBlobObjectDeletions(
   runtime: ApiServiceRuntime,
-  input: ReclaimDereferencedBlobsInput = {},
-): Promise<ReclaimDereferencedBlobsSummary> {
-  const result = await runReclaimDereferencedBlobsWorkflow(runtime.db, input);
-
+  input: ReclaimDereferencedBlobsInput,
+) {
   let deletedObjectCount = 0;
   let failedObjectDeletions = 0;
   const pendingDeletions = await listPendingBlobObjectDeletions(
@@ -75,11 +69,33 @@ export async function reclaimDereferencedBlobs(
     );
   }
 
+  return { deletedObjectCount, failedObjectDeletions };
+}
+
+// Reclaims blobs soft-deleted past the grace period. The workflow prunes live
+// database state and persists each storage key on its audit row; this service
+// drains durable work even when a separate reclaim candidate fails validation.
+// A failed object deletion or crash before acknowledgement remains retryable.
+export async function reclaimDereferencedBlobs(
+  runtime: ApiServiceRuntime,
+  input: ReclaimDereferencedBlobsInput = {},
+): Promise<ReclaimDereferencedBlobsSummary> {
+  const reclaimAttempt = await runReclaimDereferencedBlobsWorkflow(
+    runtime.db,
+    input,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
+  );
+  const deletionSummary = await drainPendingBlobObjectDeletions(runtime, input);
+  if (!reclaimAttempt.ok) {
+    throw reclaimAttempt.error;
+  }
+
   return {
-    reclaimedCount: result.reclaimedBlobIds.length,
-    revivedCount: result.revivedBlobIds.length,
-    deletedObjectCount,
-    failedObjectDeletions,
+    reclaimedCount: reclaimAttempt.result.reclaimedBlobIds.length,
+    revivedCount: reclaimAttempt.result.revivedBlobIds.length,
+    ...deletionSummary,
   };
 }
 

@@ -199,3 +199,54 @@ test("a poison deletion does not starve newly pending object work", async () => 
     await readBlobObjectText(runtime.blobObjectStore, poisonStorageKey),
   ).toBe(poisonBytes);
 });
+
+test("a corrupt reclaim candidate does not block the durable deletion queue", async () => {
+  const runtime = createServiceTestRuntime();
+  const pendingBlobId = crypto.randomUUID();
+  const pendingStorageKey = `blob-object:${pendingBlobId}`;
+  const pendingBytes = "already-pruned-pending-bytes";
+  await uploadBlobObject(
+    runtime.blobObjectStore,
+    pendingStorageKey,
+    pendingBytes,
+  );
+  await db.insert(blobAuditObjects).values({
+    blobId: pendingBlobId,
+    byteLength: pendingBytes.length,
+    historicalBytesRetained: false,
+    liveStorageKey: pendingStorageKey,
+    prunedAt: new Date(Date.now() - HOUR_MS),
+    retentionMode: "live_only",
+    sha256: await sha256Hex(pendingBytes),
+  });
+
+  const corruptBlobId = crypto.randomUUID();
+  const corruptStorageKey = `blob-object:${corruptBlobId}`;
+  const corruptBytes = "corrupt-audit-metadata-bytes";
+  await insertReclaimableBlob({
+    blobId: corruptBlobId,
+    byteLength: corruptBytes.length,
+    sha256: await sha256Hex(corruptBytes),
+    storageKey: corruptStorageKey,
+  });
+  await db
+    .update(blobAuditObjects)
+    .set({ sha256: "mismatched-audit-digest" })
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+
+  await expect(
+    reclaimDereferencedBlobs(runtime, { gracePeriodMs: 24 * HOUR_MS }),
+  ).rejects.toThrow("audit metadata does not match live storage");
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, pendingStorageKey),
+  ).toBeNull();
+  const [completed] = await db
+    .select({
+      liveStorageKey: blobAuditObjects.liveStorageKey,
+      objectDeletedAt: blobAuditObjects.objectDeletedAt,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, pendingBlobId));
+  expect(completed?.liveStorageKey).toBeNull();
+  expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
+});
