@@ -18,6 +18,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  or,
   sql,
 } from "drizzle-orm";
 import {
@@ -249,7 +250,7 @@ async function reclaimOneBlob(
   });
 }
 
-async function deferFailedBlobReclaim(
+export async function deferFailedBlobReclaim(
   db: ApiDatabase,
   input: {
     readonly blobId: string;
@@ -259,8 +260,9 @@ async function deferFailedBlobReclaim(
 ): Promise<void> {
   // A corrupt candidate must not remain at the front of every bounded batch.
   // Rotate its retry marker without changing the lifecycle-defining
-  // dereference timestamp. The cutoff makes a concurrent revive or fresh
-  // detach win and avoids PostgreSQL timestamp round-trip precision equality.
+  // dereference timestamp. A late failure from an older overlapping sweep
+  // cannot move a newer marker backward. The cutoff makes a concurrent revive
+  // or fresh detach win and avoids PostgreSQL timestamp precision equality.
   await db
     .update(blobs)
     .set({ reclaimAttemptedAt: input.retryAt })
@@ -269,6 +271,10 @@ async function deferFailedBlobReclaim(
         eq(blobs.id, input.blobId),
         isNotNull(blobs.dereferencedAt),
         lte(blobs.dereferencedAt, input.cutoff),
+        or(
+          isNull(blobs.reclaimAttemptedAt),
+          lte(blobs.reclaimAttemptedAt, input.retryAt),
+        ),
       ),
     );
 }

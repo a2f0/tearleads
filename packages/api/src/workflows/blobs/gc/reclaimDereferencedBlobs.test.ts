@@ -8,7 +8,10 @@ import {
 } from "@symcrypt/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { lockBlobMutationRows } from "../mutations/blobMutationLocks";
-import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
+import {
+  deferFailedBlobReclaim,
+  runReclaimDereferencedBlobsWorkflow,
+} from "./reclaimDereferencedBlobs";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -256,6 +259,54 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     await db
       .delete(blobAuditObjects)
       .where(eq(blobAuditObjects.blobId, blobId));
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a late overlapping sweep cannot move a newer retry marker backward",
+  async () => {
+    const blobId = crypto.randomUUID();
+    const olderSweepAt = new Date("2026-08-22T00:00:00.000Z");
+    const newerSweepAt = new Date("2026-08-22T01:00:00.000Z");
+    const dereferencedAt = new Date("2026-08-20T00:00:00.000Z");
+    await insertDereferencedBlob({ dereferencedAt, id: blobId });
+
+    let releaseOlderSweep!: () => void;
+    const olderSweepDelay = new Promise<void>((resolve) => {
+      releaseOlderSweep = resolve;
+    });
+    const olderSweep = (async () => {
+      await olderSweepDelay;
+      await deferFailedBlobReclaim(db, {
+        blobId,
+        cutoff: olderSweepAt,
+        retryAt: olderSweepAt,
+      });
+    })();
+
+    try {
+      await deferFailedBlobReclaim(db, {
+        blobId,
+        cutoff: newerSweepAt,
+        retryAt: newerSweepAt,
+      });
+      releaseOlderSweep();
+      await olderSweep;
+
+      const [row] = await db
+        .select({ reclaimAttemptedAt: blobs.reclaimAttemptedAt })
+        .from(blobs)
+        .where(eq(blobs.id, blobId));
+      expect(row?.reclaimAttemptedAt).toEqual(newerSweepAt);
+    } finally {
+      releaseOlderSweep();
+      await olderSweep.catch(() => undefined);
+      await db.delete(blobs).where(eq(blobs.id, blobId));
+      await db
+        .delete(blobAuditObjects)
+        .where(eq(blobAuditObjects.blobId, blobId));
+    }
   },
   30_000,
 );
