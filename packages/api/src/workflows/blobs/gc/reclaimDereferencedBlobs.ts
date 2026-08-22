@@ -9,9 +9,8 @@ import {
   blobContentKeyTargets,
   blobContentWriteHeaders,
   blobs,
-  documentAttachmentAuditEvents,
 } from "@symcrypt/api-shared/schema";
-import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
@@ -31,13 +30,12 @@ export interface ReclaimDereferencedBlobsInput {
 interface ReclaimDereferencedBlobsResult {
   readonly reclaimedBlobIds: string[];
   readonly revivedBlobIds: string[];
-  readonly reclaimedStorageKeys: string[];
 }
 
 type ReclaimOutcome =
   | { readonly kind: "skipped" }
   | { readonly kind: "revived" }
-  | { readonly kind: "reclaimed"; readonly storageKey: string };
+  | { readonly kind: "reclaimed" };
 
 function normalizeLimit(limit: number | undefined): number {
   if (limit === undefined) {
@@ -49,35 +47,24 @@ function normalizeLimit(limit: number | undefined): number {
   return Math.min(limit, MAX_LIMIT);
 }
 
-// "Referenced" mirrors purgeDocument's reachability: a blob is live if ANY
-// attachment binding (active OR detached history) references it, OR any
-// attachment audit event names it as blobId or previousBlobId. Such a blob must
-// be revived, never hard-deleted.
-async function isBlobReferenced(
+// Live reachability is intentionally narrower than audit history. Detached
+// bindings and attachment audit events preserve metadata, but only an ACTIVE
+// binding keeps blob bytes and key material live.
+async function isBlobActivelyReferenced(
   executor: DatabaseTransaction,
   blobId: string,
 ): Promise<boolean> {
   const [binding] = await executor
     .select({ id: attachmentBindings.id })
     .from(attachmentBindings)
-    .where(eq(attachmentBindings.blobId, blobId))
-    .limit(1);
-  if (binding) {
-    return true;
-  }
-
-  const [auditEvent] = await executor
-    .select({ blobId: documentAttachmentAuditEvents.blobId })
-    .from(documentAttachmentAuditEvents)
     .where(
-      or(
-        eq(documentAttachmentAuditEvents.blobId, blobId),
-        eq(documentAttachmentAuditEvents.previousBlobId, blobId),
+      and(
+        eq(attachmentBindings.blobId, blobId),
+        isNull(attachmentBindings.detachedAt),
       ),
     )
     .limit(1);
-
-  return Boolean(auditEvent);
+  return Boolean(binding);
 }
 
 async function deleteBlobKeyRows(
@@ -115,13 +102,18 @@ async function deleteBlobKeyRows(
 // re-reference, and a still-referenced blob is revived rather than deleted.
 async function reclaimOneBlob(
   db: ApiDatabase,
-  blobId: string,
+  input: { readonly blobId: string; readonly prunedAt: Date },
 ): Promise<ReclaimOutcome> {
   return db.transaction(async (tx) => {
     const lockQuery = tx
-      .select({ id: blobs.id, storageKey: blobs.storageKey })
+      .select({
+        byteLength: blobs.byteLength,
+        id: blobs.id,
+        sha256: blobs.sha256,
+        storageKey: blobs.storageKey,
+      })
       .from(blobs)
-      .where(and(eq(blobs.id, blobId), isNotNull(blobs.dereferencedAt)))
+      .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)))
       .limit(1);
     const [blob] = await lockRowForUpdate(lockQuery);
     if (!blob) {
@@ -129,29 +121,59 @@ async function reclaimOneBlob(
       return { kind: "skipped" };
     }
 
-    if (await isBlobReferenced(tx, blobId)) {
+    if (await isBlobActivelyReferenced(tx, input.blobId)) {
       await tx
         .update(blobs)
         .set({ dereferencedAt: null })
-        .where(eq(blobs.id, blobId));
+        .where(eq(blobs.id, input.blobId));
       return { kind: "revived" };
     }
 
-    await deleteBlobKeyRows(tx, blobId);
-    await tx
-      .delete(blobAuditObjects)
-      .where(eq(blobAuditObjects.blobId, blobId));
-    await tx.delete(blobs).where(eq(blobs.id, blobId));
+    const [auditObject] = await tx
+      .select({
+        blobId: blobAuditObjects.blobId,
+        byteLength: blobAuditObjects.byteLength,
+        liveStorageKey: blobAuditObjects.liveStorageKey,
+        retentionMode: blobAuditObjects.retentionMode,
+        sha256: blobAuditObjects.sha256,
+      })
+      .from(blobAuditObjects)
+      .where(eq(blobAuditObjects.blobId, input.blobId))
+      .limit(1);
+    if (
+      !auditObject ||
+      auditObject.byteLength !== blob.byteLength ||
+      auditObject.liveStorageKey !== blob.storageKey ||
+      auditObject.retentionMode !== "live_only" ||
+      auditObject.sha256 !== blob.sha256
+    ) {
+      throw new Error(
+        `Blob ${input.blobId} audit metadata does not match live storage`,
+      );
+    }
 
-    return { kind: "reclaimed", storageKey: blob.storageKey };
+    await deleteBlobKeyRows(tx, input.blobId);
+    await tx
+      .delete(attachmentBindings)
+      .where(eq(attachmentBindings.blobId, input.blobId));
+    await tx
+      .update(blobAuditObjects)
+      .set({
+        liveStorageKey: blob.storageKey,
+        objectDeletedAt: null,
+        prunedAt: input.prunedAt,
+      })
+      .where(eq(blobAuditObjects.blobId, input.blobId));
+    await tx.delete(blobs).where(eq(blobs.id, input.blobId));
+
+    return { kind: "reclaimed" };
   });
 }
 
-// Hard-deletes blobs that purge soft-deleted (dereferencedAt set) longer than
-// the grace period ago and that are still unreferenced, reviving any that were
-// re-bound since. Returns the object-store keys whose bytes the caller should
-// delete after commit (the workflow stays DB-only). Each blob is reclaimed in
-// its own transaction so one contended/failed blob does not block the rest.
+// Prunes live database state for blobs dereferenced longer than the grace
+// period, retaining the storage key on the audit row as a durable physical-
+// deletion work item. Each candidate is rechecked under the blob-row lock so a
+// concurrent active bind either revives it or fails closed after pruning.
 export async function runReclaimDereferencedBlobsWorkflow(
   db: ApiDatabase,
   input: ReclaimDereferencedBlobsInput = {},
@@ -172,17 +194,18 @@ export async function runReclaimDereferencedBlobsWorkflow(
 
   const reclaimedBlobIds: string[] = [];
   const revivedBlobIds: string[] = [];
-  const reclaimedStorageKeys: string[] = [];
 
   for (const candidate of candidates) {
-    const outcome = await reclaimOneBlob(db, candidate.id);
+    const outcome = await reclaimOneBlob(db, {
+      blobId: candidate.id,
+      prunedAt: now,
+    });
     if (outcome.kind === "reclaimed") {
       reclaimedBlobIds.push(candidate.id);
-      reclaimedStorageKeys.push(outcome.storageKey);
     } else if (outcome.kind === "revived") {
       revivedBlobIds.push(candidate.id);
     }
   }
 
-  return { reclaimedBlobIds, revivedBlobIds, reclaimedStorageKeys };
+  return { reclaimedBlobIds, revivedBlobIds };
 }

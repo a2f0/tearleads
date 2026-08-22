@@ -28,6 +28,7 @@ import { toMutationError } from "./errors";
 import {
   appendAttachmentAuditEvent,
   detachActiveSlotBinding,
+  markBlobDereferencedIfInactive,
   promoteStagedBlobIfPresent,
   requireSingleActiveAttachmentBindingForSlot,
   reviveBlobIfDereferenced,
@@ -263,6 +264,12 @@ async function bindBlobAttachmentTransaction(
     manifest: proof.documentManifest,
     userId: input.userId,
   });
+  if (activeBinding) {
+    await markBlobDereferencedIfInactive({
+      blobId: activeBinding.blobId,
+      executor: tx,
+    });
+  }
   await touchDocumentAndLinkedContainers(tx, {
     documentId: verifiedBinding.documentId,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,

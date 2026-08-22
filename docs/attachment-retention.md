@@ -18,9 +18,14 @@ When a signed attachment mutation deactivates an attachment binding through
 - the old binding is marked detached during the atomic mutation
 - if another active binding still references the old blob, the blob and its
  content-key material remain live
-- if no active binding references the old blob, the server prunes the blob row,
- blob content-key epochs, blob content-key target rows, and detached binding
- rows for that blob
+- if no active binding references the old blob, the same transaction stamps
+ `blobs.dereferencedAt`, starting the garbage-collection grace period
+- after the grace period, GC locks the blob and rechecks active reachability; a
+ rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
+ blob content-key target rows, write headers, and detached binding rows
+- pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
+ deletion work; object maintenance retries deletion until it succeeds, then
+ clears the storage key and records `objectDeletedAt`
 
 Detached attachment bindings are transient replacement metadata. They are not a
 historical attachment log, tombstone store, audit manifest, or recovery index.
@@ -35,7 +40,8 @@ Consequences:
 - current document attachments remain downloadable while active bindings reference
  their blobs
 - replacing or detaching an attachment can make the old blob bytes unavailable
- from the server once no active binding references them
+ from the API immediately once no active binding references them; physical
+ object deletion follows after the GC grace period
 - historical document updates may still contain encrypted metadata that once
  referenced an old attachment slot, but the system does not guarantee that the
  old blob bytes remain fetchable for historical replay

@@ -1,4 +1,8 @@
 import {
+  listPendingBlobObjectDeletions,
+  recordBlobObjectDeleted,
+} from "../../workflows/blobs/gc/pendingBlobObjectDeletion";
+import {
   type ReclaimDereferencedBlobsInput,
   runReclaimDereferencedBlobsWorkflow,
 } from "../../workflows/blobs/gc/reclaimDereferencedBlobs";
@@ -20,11 +24,10 @@ interface ReclaimDereferencedBlobsSummary {
   readonly failedObjectDeletions: number;
 }
 
-// Reclaims blobs that purge soft-deleted past the grace period: the workflow
-// hard-deletes the rows in their own transactions and returns the object-store
-// keys, then this deletes those bytes after commit (best-effort, mirroring
-// purgeDocument). Byte deletion is post-commit so a rollback never leaves a
-// dangling reference and a storage failure only leaks already-reclaimable bytes.
+// Reclaims blobs soft-deleted past the grace period. The workflow prunes live
+// database state and persists each storage key on its audit row; this service
+// drains those durable work items after commit. A failed object deletion or a
+// crash before its acknowledgement leaves the key eligible for the next sweep.
 export async function reclaimDereferencedBlobs(
   runtime: ApiServiceRuntime,
   input: ReclaimDereferencedBlobsInput = {},
@@ -33,21 +36,31 @@ export async function reclaimDereferencedBlobs(
 
   let deletedObjectCount = 0;
   let failedObjectDeletions = 0;
-  const storageKeys = result.reclaimedStorageKeys;
+  const pendingDeletions = await listPendingBlobObjectDeletions(
+    runtime.db,
+    input.limit === undefined ? {} : { limit: input.limit },
+  );
   for (
     let start = 0;
-    start < storageKeys.length;
+    start < pendingDeletions.length;
     start += OBJECT_DELETE_CONCURRENCY
   ) {
-    const batch = storageKeys.slice(start, start + OBJECT_DELETE_CONCURRENCY);
+    const batch = pendingDeletions.slice(
+      start,
+      start + OBJECT_DELETE_CONCURRENCY,
+    );
     await Promise.all(
-      batch.map(async (storageKey) => {
+      batch.map(async (pending) => {
         try {
-          await runtime.blobObjectStore.deleteObject(storageKey);
+          await runtime.blobObjectStore.deleteObject(pending.storageKey);
+          await recordBlobObjectDeleted(runtime.db, {
+            ...pending,
+            objectDeletedAt: new Date(),
+          });
           deletedObjectCount += 1;
         } catch {
-          // Best-effort: the blob row is already gone, so leave the bytes for the
-          // next sweep rather than failing the maintenance run.
+          // The audit row still retains the storage key, so the next sweep
+          // retries both an object-store failure and a lost DB acknowledgement.
           failedObjectDeletions += 1;
         }
       }),
@@ -73,8 +86,8 @@ interface BlobMaintenanceSummary {
 }
 
 // One entrypoint for scheduled blob storage reclamation: reclaim dereferenced
-// committed blobs and clean up expired stage uploads. Intended to be invoked by
-// an out-of-process trigger (see scripts/blobGc.ts); nothing schedules it yet.
+// committed blobs and clean up expired stage uploads. The deployed trigger is
+// scripts/blobGc.ts, run hourly by the Ansible-managed systemd timer.
 export async function runBlobMaintenance(
   runtime: ApiServiceRuntime,
   input: BlobMaintenanceInput = {},

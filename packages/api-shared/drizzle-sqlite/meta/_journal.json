@@ -36,6 +36,13 @@
       "when": 1786472085196,
       "tag": "0004_amazing_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787385287742,
+      "tag": "0005_spicy_pyro",
+      "breakpoints": true
     }
   ]
 }

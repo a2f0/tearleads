@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
-import { blobs } from "@symcrypt/api-shared/schema";
+import { attachmentBindings, blobs } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
-import { reviveBlobIfDereferenced } from "./persistence";
+import {
+  markBlobDereferencedIfInactive,
+  reviveBlobIfDereferenced,
+} from "./persistence";
 
 async function insertBlob(input: {
   readonly id: string;
@@ -49,6 +52,32 @@ test("reviveBlobIfDereferenced is a no-op for a live blob", async () => {
   );
 
   expect(await readDereferencedAt(blobId)).toBeNull();
+});
+
+test("markBlobDereferencedIfInactive starts the grace clock after the final detach", async () => {
+  const blobId = crypto.randomUUID();
+  const bindingId = crypto.randomUUID();
+  await insertBlob({ id: blobId, dereferencedAt: null });
+  await db.insert(attachmentBindings).values({
+    blobId,
+    documentId: crypto.randomUUID(),
+    id: bindingId,
+    slotId: "slot_grace_clock",
+  });
+
+  await db.transaction((tx) =>
+    markBlobDereferencedIfInactive({ blobId, executor: tx }),
+  );
+  expect(await readDereferencedAt(blobId)).toBeNull();
+
+  await db
+    .update(attachmentBindings)
+    .set({ detachedAt: new Date() })
+    .where(eq(attachmentBindings.id, bindingId));
+  await db.transaction((tx) =>
+    markBlobDereferencedIfInactive({ blobId, executor: tx }),
+  );
+  expect(await readDereferencedAt(blobId)).toBeInstanceOf(Date);
 });
 
 test("a second blob row aliasing one object-store key is rejected (unique storage_key)", async () => {

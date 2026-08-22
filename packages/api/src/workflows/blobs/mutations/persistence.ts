@@ -1,6 +1,7 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
+  blobAuditObjects,
   blobStages,
   blobs,
 } from "@symcrypt/api-shared/schema";
@@ -132,6 +133,19 @@ export async function promoteStagedBlobIfPresent(input: {
     throw new BlobMutationError("Blob already exists", 409);
   }
 
+  // Blob ids are generation identifiers. Once an id appears in immutable
+  // audit history it may not be promoted again, even after live-state pruning:
+  // a pending object-deletion work item for the old generation must never be
+  // able to target a newly uploaded object with the same id.
+  const [auditedBlob] = await input.executor
+    .select({ blobId: blobAuditObjects.blobId })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, input.blobId))
+    .limit(1);
+  if (auditedBlob) {
+    throw new BlobMutationError("Blob already exists", 409);
+  }
+
   const stage = await loadOwnedActiveBlobStage(input.executor, {
     error: (message, status) => new BlobMutationError(message, status),
     stageId: input.request.stagedBlob.stageId,
@@ -177,6 +191,49 @@ export async function reviveBlobIfDereferenced(input: {
     .update(blobs)
     .set({ dereferencedAt: null })
     .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)));
+}
+
+/**
+ * Start the delayed-reclamation clock when a detach or replacement removes the
+ * final active reference to a blob. Detached bindings and audit events preserve
+ * history metadata, but neither keeps live bytes or key material reachable.
+ *
+ * Locking the blob row serializes this decision against bind and GC, which lock
+ * the same row. A concurrent bind therefore either becomes visible to the
+ * active-reference check or runs afterward and clears `dereferencedAt`.
+ */
+export async function markBlobDereferencedIfInactive(input: {
+  readonly blobId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<void> {
+  const lockQuery = input.executor
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, input.blobId))
+    .limit(1);
+  const [blob] = await lockRowForUpdate(lockQuery);
+  if (!blob) {
+    throw new BlobMutationError("Blob not found", 404);
+  }
+
+  const [activeBinding] = await input.executor
+    .select({ id: attachmentBindings.id })
+    .from(attachmentBindings)
+    .where(
+      and(
+        eq(attachmentBindings.blobId, input.blobId),
+        isNull(attachmentBindings.detachedAt),
+      ),
+    )
+    .limit(1);
+  if (activeBinding) {
+    return;
+  }
+
+  await input.executor
+    .update(blobs)
+    .set({ dereferencedAt: nowExpression() })
+    .where(and(eq(blobs.id, input.blobId), isNull(blobs.dereferencedAt)));
 }
 
 export async function detachActiveSlotBinding(input: {

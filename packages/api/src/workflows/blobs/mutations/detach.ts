@@ -14,6 +14,7 @@ import { toMutationError } from "./errors";
 import {
   appendAttachmentDetachAuditEvent,
   loadActiveAttachmentBindingById,
+  markBlobDereferencedIfInactive,
 } from "./persistence";
 import {
   BlobMutationError,
@@ -84,6 +85,10 @@ export async function runDetachBlobAttachmentWorkflow(
         fingerprint: input.fingerprint,
         manifest: proof.documentManifest,
         userId: input.userId,
+      });
+      await markBlobDereferencedIfInactive({
+        blobId: verifiedDetach.value.blobId,
+        executor: tx,
       });
       await touchDocumentAndLinkedContainers(tx, {
         documentId: verifiedDetach.value.documentId,

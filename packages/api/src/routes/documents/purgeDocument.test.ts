@@ -1112,6 +1112,7 @@ async function seedBlobAuditHistory(input: {
   readonly actor: TestUser;
   readonly blobId: string;
   readonly documentId: string;
+  readonly storageKey: string;
   readonly accessManifestHash: string;
   readonly slotId: string;
 }): Promise<void> {
@@ -1121,7 +1122,7 @@ async function seedBlobAuditHistory(input: {
       blobId: input.blobId,
       sha256: `sha256:${input.blobId}`,
       byteLength: 16,
-      liveStorageKey: null,
+      liveStorageKey: input.storageKey,
       retentionMode: "live_only",
       historicalBytesRetained: false,
     })
@@ -1150,13 +1151,10 @@ async function seedBlobAuditHistory(input: {
   });
 }
 
-// Regression for the purge over-reclaim defect (issue #1041 / scrub finding #4):
-// a blob that another document still references only through a DETACHED binding
-// (plus retained attachment audit history) must NOT be reclaimed when purging an
-// unrelated document. The old orphan check looked only at ACTIVE bindings on
-// other documents, so it would destroy bytes + the immutable blobAuditObjects
-// row still referenced by the other document's history.
-test("DELETE /documents/:documentId preserves a blob another document references via a detached binding", async () => {
+// Detached bindings and audit events retain metadata, not live blob bytes. A
+// purge that removes the final active binding starts the GC grace clock even if
+// another document's audit history still names the blob.
+test("DELETE /documents/:documentId dereferences a blob retained only in another document's history", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1185,6 +1183,7 @@ test("DELETE /documents/:documentId preserves a blob another document references
     blobId: shared.blobId,
     documentId: survivingDocument.id,
     slotId: "slot_shared_image",
+    storageKey: shared.storageKey,
   });
 
   const response = await purgeDocumentViaRoute({
@@ -1195,15 +1194,14 @@ test("DELETE /documents/:documentId preserves a blob another document references
   expect(response.status).toBe(200);
   const purged = await response.json();
   expect(isDocumentPurgeResponse(purged)).toBe(true);
-  // The surviving document still references the blob (detached binding + audit
-  // history), so its bytes/row/audit-object must be preserved.
   expect(purged.reclaimedBlobStorageKeys).toEqual([]);
 
   const blobRows = await db
-    .select({ id: blobs.id })
+    .select({ dereferencedAt: blobs.dereferencedAt, id: blobs.id })
     .from(blobs)
     .where(eq(blobs.id, shared.blobId));
   expect(blobRows).toHaveLength(1);
+  expect(blobRows[0]?.dereferencedAt).toBeInstanceOf(Date);
 
   const auditObjectRows = await db
     .select({ blobId: blobAuditObjects.blobId })
@@ -1211,6 +1209,7 @@ test("DELETE /documents/:documentId preserves a blob another document references
     .where(eq(blobAuditObjects.blobId, shared.blobId));
   expect(auditObjectRows).toHaveLength(1);
 
+  // Physical deletion is delayed until the GC grace period expires.
   expect(
     await readBlobObjectText(
       getDefaultApiServiceRuntime().blobObjectStore,

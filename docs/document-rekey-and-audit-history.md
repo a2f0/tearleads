@@ -427,6 +427,7 @@ Columns:
 - `retention_mode TEXT NOT NULL`
 - `historical_bytes_retained BOOLEAN NOT NULL`
 - `pruned_at TIMESTAMP`
+- `object_deleted_at TIMESTAMP`
 - `created_at TIMESTAMP NOT NULL DEFAULT now()`
 
 The initial value should be:
@@ -436,6 +437,8 @@ The initial value should be:
 
 That makes the first retention policy explicit: the audit layer keeps durable
 metadata and event history for old blobs, but not durable old blob bytes.
+After `pruned_at`, `live_storage_key` remains a durable physical-deletion work
+item until success clears it and records `object_deleted_at`, preserving retries.
 
 #### `document_attachment_audit_events`
 

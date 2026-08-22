@@ -23,11 +23,11 @@ import {
  * - `sha256`: SHA-256 digest of the encrypted object.
  * - `byteLength`: Byte length of the encrypted object.
  * - `createdAt`: Server-side promotion timestamp.
- * - `dereferencedAt`: Set when a purge found this blob unreferenced by any other
- *   document and soft-deleted it. The bytes are retained; a later GC sweep
- *   re-checks reachability (a concurrent bind under READ COMMITTED is a phantom
- *   the purge scan cannot see) before any hard delete, and a bind that
- *   re-references the blob clears this back to `null`. Null while live.
+ * - `dereferencedAt`: Set when detach, replacement, or purge leaves this blob
+ *   without an active attachment binding. The bytes are retained during a GC
+ *   grace period; a later sweep locks the blob and re-checks active reachability
+ *   before pruning live state. A bind that re-references it clears this back to
+ *   `null`. Null while live.
  */
 export const blobs = pgTable(
   "blobs",
