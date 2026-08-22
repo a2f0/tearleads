@@ -134,9 +134,11 @@ async function createWriteHeader(input: {
 }
 
 export async function buildBind(input: {
+  readonly activeBindings?: readonly VerifiedAttachmentBinding[];
   readonly blobId: string;
   readonly contentKeyEpoch?: number;
   readonly document: DocumentCreateResponse;
+  readonly documents?: readonly DocumentCreateResponse[];
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
   readonly slotId?: string;
@@ -183,10 +185,12 @@ export async function buildBind(input: {
   }
 
   const targetsResult = await deriveBlobKekTargets({
-    activeBindings: [bindingResult.value],
+    activeBindings: [...(input.activeBindings ?? []), bindingResult.value],
     blobId: input.blobId,
     containerKekStates: [input.root.kekState],
-    documentManifests: [manifest],
+    documentManifests: (input.documents ?? [input.document]).map(
+      documentManifest,
+    ),
     linkedContainerManifests: [containerManifest],
   });
   expect(targetsResult.ok).toBe(true);

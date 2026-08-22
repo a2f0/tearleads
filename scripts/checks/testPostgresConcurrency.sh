@@ -47,4 +47,5 @@ exec bun test \
   src/workflows/blobs/mutations/blobMutationLocks.test.ts \
   src/workflows/blobs/mutations/finalizeAttachmentMutation.pg.test.ts \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
+  src/workflows/documents/mutations/purgeDocumentBlobRace.pg.test.ts \
   src/workflows/containers/deleteContainerTimestamp.pg.test.ts
