@@ -2,18 +2,29 @@ import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { createDomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import {
+  createContainerParentSyncLane,
+  defaultContainerContentsPersistence,
+  markContainerSyncLaneChecked,
+} from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
+  updateContainerContentsSnapshot,
   updateContainerContentsStoreRuntime,
 } from "./state";
-import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
+import {
+  type ContainerContentsStoreSyncAgent,
+  createContainerContentsStoreSyncAgent,
+} from "./syncAgent";
 
 function createRuntime(input: {
   dbStatus: "idle" | "ready";
+  domainScope?: ReturnType<typeof createDomainScope> | undefined;
   execSql?: ExecSql | undefined;
+  isAuthenticated?: boolean | undefined;
+  online?: boolean | undefined;
 }): ReturnType<typeof createContainerContentsTestRuntime> {
   return createContainerContentsTestRuntime({
     apiClient: {
@@ -34,8 +45,10 @@ function createRuntime(input: {
       typeof createContainerContentsTestRuntime
     >["apiClient"],
     dbStatus: input.dbStatus,
-    domainScope: createDomainScope(),
+    domainScope: input.domainScope ?? createDomainScope(),
     execSql: input.execSql ?? ((async () => []) as ExecSql),
+    isAuthenticated: input.isAuthenticated,
+    online: input.online,
     signingFingerprint: "signing-fingerprint-1",
   });
 }
@@ -156,6 +169,81 @@ test("reset serializes replacement initialization behind a stale load", async ()
 
     expect(maxActiveLoads).toBe(1);
     expect(store.getSnapshot()).toEqual({ nodes: [], ready: true });
+  } finally {
+    await close();
+  }
+});
+
+test("initialization observes login while the local load is pending", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-initialization-login-transition",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    let resolveLoad: (value: []) => void = () => {};
+    let loadStarted = false;
+    const persistence = {
+      ...defaultContainerContentsPersistence,
+      listDormantMetadataSweepRequests: async () => [
+        {
+          attemptCount: 0,
+          generation: 1,
+          lastAttemptedAt: null,
+          organizationId: "org-1",
+          requestedAt: "2026-08-21T00:00:00.000Z",
+          requesterUserId: "user-1",
+        },
+      ],
+      loadContainers: () =>
+        new Promise<[]>((resolve) => {
+          loadStarted = true;
+          resolveLoad = resolve;
+        }),
+    };
+    const domainScope = createDomainScope();
+    const offlineRuntime = createRuntime({
+      dbStatus: "ready",
+      domainScope,
+      execSql,
+      isAuthenticated: false,
+      online: false,
+    });
+    const onlineRuntime = createRuntime({
+      dbStatus: "ready",
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const state = createContainerContentsStoreState(
+      offlineRuntime,
+      persistence,
+    );
+    const syncAgent = createContainerContentsStoreSyncAgent({
+      host: {
+        persistContainerState: async () => {
+          throw new Error("the empty startup cache must not persist");
+        },
+        updateSnapshot: () => updateContainerContentsSnapshot(state),
+      },
+      state,
+    });
+    const requestSync = mock(() => {});
+    state.syncLane = { requestSync, requestSyncAfter: () => {} };
+
+    syncAgent.ensureInitialized();
+    const initialization = state.initializePromise;
+    await waitFor(() => loadStarted);
+    updateContainerContentsStoreRuntime(state, onlineRuntime, syncAgent);
+    resolveLoad([]);
+    await initialization;
+
+    expect(state.initialized).toBe(true);
+    expect(requestSync).toHaveBeenCalled();
   } finally {
     await close();
   }

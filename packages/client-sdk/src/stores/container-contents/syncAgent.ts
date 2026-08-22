@@ -138,14 +138,14 @@ async function initializeContainerContentsStore(input: {
 }) {
   const { host, isCurrent, scheduleSync, state } = input;
   const persistence = state.persistence;
-  const runtime = state.runtime;
-  if (runtime.infra.dbStatus !== "ready") {
+  const loadRuntime = state.runtime;
+  if (loadRuntime.infra.dbStatus !== "ready") {
     return;
   }
 
   const localContainerStates = await loadLocalContainerStates({
     persistence,
-    runtime,
+    runtime: loadRuntime,
   });
   if (!isCurrent()) {
     return;
@@ -171,11 +171,12 @@ async function initializeContainerContentsStore(input: {
   if (!isCurrent()) {
     return;
   }
+  const runtime = state.runtime;
   const hasPendingRestorationSweep =
     typeof runtime.auth.userId === "string" &&
     (
       await persistence.listDormantMetadataSweepRequests(
-        runtime.infra.execSql,
+        loadRuntime.infra.execSql,
         runtime.auth.userId,
       )
     ).length > 0;
@@ -189,7 +190,8 @@ async function initializeContainerContentsStore(input: {
     `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
-  if (runtime.auth.isAuthenticated && runtime.state.online) {
+  const currentRuntime = state.runtime;
+  if (currentRuntime.auth.isAuthenticated && currentRuntime.state.online) {
     const hasStartupWork =
       shouldScheduleStaleRootRecovery ||
       hasPendingRestorationSweep ||
@@ -197,7 +199,7 @@ async function initializeContainerContentsStore(input: {
     if (!isCurrent() || !hasStartupWork) {
       return;
     }
-    runtime.util.log(
+    currentRuntime.util.log(
       shouldScheduleStaleRootRecovery
         ? `${getContainerContentsStoreLogLabel(state)}: startup detected stale root recovery; scheduling lane pass`
         : `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
