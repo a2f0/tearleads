@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6fca58fb-1dc4-45ee-8508-b27177c46fb2",
-  "prevId": "447a3462-f19d-432c-ba02-f3ddfc35f01d",
+  "id": "d4570948-87a2-4c39-8db5-ad01bab706e1",
+  "prevId": "ac40b451-a909-4fb1-b5c3-1fa0aa0490a9",
   "tables": {
     "access_event_dependency_projection": {
       "name": "access_event_dependency_projection",

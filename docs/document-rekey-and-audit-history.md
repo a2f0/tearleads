@@ -226,8 +226,7 @@ later writes serves ordinary sync optimization.
 
 ## Tamper-Evident Document History
 
-Signed policy-state work is about tamper-evident authorization
-inputs:
+Signed policy-state work is about tamper-evident authorization inputs:
 
 - signed group / organization snapshots
 - hash-chained policy-state versions
@@ -424,6 +423,7 @@ history.
 Columns:
 
 - `blob_id UUID PRIMARY KEY`
+- `organization_id UUID NOT NULL`
 - `sha256 TEXT NOT NULL`
 - `byte_length INTEGER NOT NULL`
 - `live_storage_key TEXT`
