@@ -20,6 +20,7 @@ import {
   wallClockNowExpression,
 } from "../../../utils/sqlDialect";
 import { loadOwnedActiveBlobStage } from "../stageAccess";
+import { assertStoredBlobOrganizationMatches } from "./authorization";
 import {
   BlobMutationError,
   type PrevalidatedMultipartBlobStage,
@@ -180,12 +181,27 @@ export async function promoteStagedBlobIfPresent(input: {
     );
   }
 
-  await input.executor.insert(blobs).values({
-    id: input.blobId,
-    byteLength: stage.byteLength,
-    sha256: stage.sha256,
-    storageKey: stage.storageKey,
-  });
+  const [inserted] = await input.executor
+    .insert(blobs)
+    .values({
+      id: input.blobId,
+      byteLength: stage.byteLength,
+      sha256: stage.sha256,
+      storageKey: stage.storageKey,
+    })
+    .onConflictDoNothing({ target: blobs.id })
+    .returning({ id: blobs.id });
+  if (!inserted) {
+    // ON CONFLICT keeps PostgreSQL's transaction usable after a concurrent
+    // promotion wins. Re-read the committed winner so foreign ids retain the
+    // same concealed response as blobs that existed before this transaction.
+    await assertStoredBlobOrganizationMatches({
+      blobId: input.blobId,
+      executor: input.executor,
+      expectedOrganizationId: input.expectedOrganizationId,
+    });
+    throw new BlobMutationError("Blob already exists", 409);
+  }
   await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
 
   return { sha256: stage.sha256 };

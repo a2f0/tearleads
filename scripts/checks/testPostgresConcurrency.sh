@@ -45,6 +45,7 @@ exec bun test \
   src/workflows/blobs/mutations/authorization.test.ts \
   src/workflows/blobs/mutations/authorizationAncestors.pg.test.ts \
   src/workflows/blobs/mutations/blobOwnershipCreationRace.pg.test.ts \
+  src/workflows/blobs/mutations/blobOwnershipStageRace.pg.test.ts \
   src/workflows/blobs/mutations/blobMutationLocks.test.ts \
   src/workflows/blobs/mutations/finalizeAttachmentMutation.pg.test.ts \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
