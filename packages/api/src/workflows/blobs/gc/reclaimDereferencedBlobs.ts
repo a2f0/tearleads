@@ -184,19 +184,22 @@ async function deferFailedBlobReclaim(
   db: ApiDatabase,
   input: {
     readonly blobId: string;
-    readonly expectedDereferencedAt: Date;
+    readonly cutoff: Date;
     readonly retryAt: Date;
   },
 ): Promise<void> {
   // A corrupt candidate must not remain at the front of every bounded batch.
-  // Move only the unchanged marker; a concurrent revive or fresh detach wins.
+  // Move only a marker that remains beyond the grace cutoff; a concurrent
+  // revive or fresh detach wins. The cutoff avoids exact timestamp equality,
+  // which loses PostgreSQL microseconds when a value round-trips through Date.
   await db
     .update(blobs)
     .set({ dereferencedAt: input.retryAt })
     .where(
       and(
         eq(blobs.id, input.blobId),
-        eq(blobs.dereferencedAt, input.expectedDereferencedAt),
+        isNotNull(blobs.dereferencedAt),
+        lte(blobs.dereferencedAt, input.cutoff),
       ),
     );
 }
@@ -248,7 +251,7 @@ export async function runReclaimDereferencedBlobsWorkflow(
       try {
         await deferFailedBlobReclaim(db, {
           blobId: candidate.id,
-          expectedDereferencedAt: candidate.dereferencedAt,
+          cutoff,
           retryAt: now,
         });
       } catch (deferError) {

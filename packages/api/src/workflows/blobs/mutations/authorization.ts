@@ -11,6 +11,7 @@ import type {
   BlobContentKeyTargetEnvelopeRequest,
 } from "@symcrypt/validators/request";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
@@ -136,15 +137,54 @@ export function createAttachmentAuthorizationLockPlan(input: {
 async function resolveExistingBlobTargetsForLock(input: {
   readonly blobId: string;
   readonly executor: DatabaseTransaction;
+  readonly organizationId: string;
 }) {
+  await assertStoredBlobOrganizationMatches({
+    blobId: input.blobId,
+    executor: input.executor,
+    expectedOrganizationId: input.organizationId,
+  });
   try {
-    return (await resolveCurrentBlobKekTargets(input.blobId, input.executor))
-      .targets;
+    const currentTargets = await resolveCurrentBlobKekTargets(
+      input.blobId,
+      input.executor,
+    );
+    assertBlobTargetOrganizationMatches({
+      actualOrganizationId: currentTargets.organizationId,
+      expectedOrganizationId: input.organizationId,
+    });
+    return currentTargets.targets;
   } catch (error) {
     if (error instanceof BlobKekTargetError && error.status === 404) {
       return [];
     }
     throw error;
+  }
+}
+
+export async function assertStoredBlobOrganizationMatches(input: {
+  readonly blobId: string;
+  readonly executor: DatabaseTransaction;
+  readonly expectedOrganizationId: string;
+}): Promise<void> {
+  const storedHeader = (
+    await listBlobContentWriteHeaders([input.blobId], input.executor)
+  ).get(input.blobId);
+  if (storedHeader) {
+    assertBlobTargetOrganizationMatches({
+      actualOrganizationId: storedHeader.header.organizationId,
+      expectedOrganizationId: input.expectedOrganizationId,
+    });
+  }
+}
+
+export function assertBlobTargetOrganizationMatches(input: {
+  readonly actualOrganizationId: string;
+  readonly expectedOrganizationId: string;
+}): void {
+  if (input.actualOrganizationId !== input.expectedOrganizationId) {
+    // Match an unknown blob so callers cannot probe cross-organization ids.
+    throw new BlobMutationError("Blob not found", 404);
   }
 }
 
@@ -205,6 +245,7 @@ export async function lockAttachmentAuthorizationForShare(input: {
       : await resolveExistingBlobTargetsForLock({
           blobId: input.blobId,
           executor: input.executor,
+          organizationId: input.proof.documentManifest.state.organizationId,
         });
   const linkedContainerIds =
     input.proof.documentManifest.state.linkedContainerIds;

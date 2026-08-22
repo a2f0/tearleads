@@ -6,6 +6,7 @@ import {
   lockAccessManifestHeadsForUpdate,
 } from "../../../access/read/accessManifestStore";
 import {
+  assertBlobTargetOrganizationMatches,
   assertRequestedBlobTargetHeadsAreKnown,
   createAttachmentAuthorizationLockPlan,
 } from "./authorization";
@@ -53,6 +54,21 @@ test("attachment locks reject client-selected target heads", () => {
       ],
     }),
   ).toThrow("Blob content-key target heads are stale");
+});
+
+test("attachment locks hide cross-organization blob ids", () => {
+  expect(() =>
+    assertBlobTargetOrganizationMatches({
+      actualOrganizationId: "other-organization",
+      expectedOrganizationId: "request-organization",
+    }),
+  ).toThrow("Blob not found");
+  expect(() =>
+    assertBlobTargetOrganizationMatches({
+      actualOrganizationId: "request-organization",
+      expectedOrganizationId: "request-organization",
+    }),
+  ).not.toThrow();
 });
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(

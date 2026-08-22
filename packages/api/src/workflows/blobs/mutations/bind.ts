@@ -20,6 +20,7 @@ import {
   type AttachmentAuthorizationProof,
   applyAttachmentContainerRekeys,
   assertAttachmentOrganizationCanSync,
+  assertStoredBlobOrganizationMatches,
   lockAttachmentAuthorizationForShare,
   readBindRequestSession,
   verifyAttachmentAuthorizationProof,
@@ -197,6 +198,11 @@ async function verifyAndLockBindSlot(input: {
       ...(observedActiveBinding ? [observedActiveBinding.blobId] : []),
     ],
     executor: input.tx,
+  });
+  await assertStoredBlobOrganizationMatches({
+    blobId: input.blobId,
+    executor: input.tx,
+    expectedOrganizationId: input.proof.documentManifest.state.organizationId,
   });
   const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
     documentId: input.bindBody.documentId,

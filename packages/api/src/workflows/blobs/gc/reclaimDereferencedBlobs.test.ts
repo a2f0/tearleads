@@ -6,7 +6,7 @@ import {
   blobContentKeyEpochs,
   blobs,
 } from "@symcrypt/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { lockBlobMutationRows } from "../mutations/blobMutationLocks";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
 
@@ -179,6 +179,44 @@ test("a corrupt bounded candidate rotates behind healthy work", async () => {
     .delete(blobAuditObjects)
     .where(eq(blobAuditObjects.blobId, corruptBlobId));
 });
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a PostgreSQL timestamp with microseconds rotates after reclaim failure",
+  async () => {
+    const retryAt = new Date();
+    const blobId = crypto.randomUUID();
+    await insertDereferencedBlob({
+      dereferencedAt: new Date(retryAt.getTime() - 49 * HOUR_MS),
+      id: blobId,
+    });
+    await db
+      .update(blobs)
+      .set({ dereferencedAt: sql`now() - interval '49 hours'` })
+      .where(eq(blobs.id, blobId));
+    await db
+      .update(blobAuditObjects)
+      .set({ sha256: "mismatched-audit-digest" })
+      .where(eq(blobAuditObjects.blobId, blobId));
+
+    await expect(
+      runReclaimDereferencedBlobsWorkflow(db, {
+        gracePeriodMs: 24 * HOUR_MS,
+        limit: 1,
+        now: retryAt,
+      }),
+    ).rejects.toThrow("audit metadata does not match live storage");
+    const [rotated] = await db
+      .select({ dereferencedAt: blobs.dereferencedAt })
+      .from(blobs)
+      .where(eq(blobs.id, blobId));
+    expect(rotated?.dereferencedAt).toEqual(retryAt);
+    await db.delete(blobs).where(eq(blobs.id, blobId));
+    await db
+      .delete(blobAuditObjects)
+      .where(eq(blobAuditObjects.blobId, blobId));
+  },
+  30_000,
+);
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a fresh re-detach after selection restarts the grace period",
