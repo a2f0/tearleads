@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
+import { accessManifestHeads } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
+import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
+import { gateTransactionExecuteAfterExecution } from "../../../../test/helpers/gateDatabaseExecute";
 import { createChildContainer } from "../../../../test/helpers/keyingWriterProjectionChild";
 import { bootstrapRoot } from "../../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../../test/helpers/registerUser";
@@ -11,6 +14,17 @@ import {
 } from "../../../access/read/accessManifestStore";
 import { listCurrentContainerKekTargetClosureIdsMapped } from "../../../access/read/containerKekTargets";
 import { createAttachmentAuthorizationLockPlan } from "./authorization";
+
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolvePromise = () => {};
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "attachment locks block rekey on a key-target ancestor",
@@ -69,6 +83,69 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
 
     expect(settledWhileHeld).toBe(false);
     expect(rekeySettled).toBe(true);
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "attachment closure rejects an ancestor recreated after a missing-head read",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const child = await createChildContainer({ parent: root, signer: owner });
+    const rootContainerId = root.kekState.containerId;
+    const [rootHead] = await db
+      .select()
+      .from(accessManifestHeads)
+      .where(
+        and(
+          eq(accessManifestHeads.objectKind, "container"),
+          eq(accessManifestHeads.objectId, rootContainerId),
+        ),
+      )
+      .limit(1);
+    if (!rootHead) {
+      throw new Error("Expected root container manifest head");
+    }
+    await db
+      .delete(accessManifestHeads)
+      .where(
+        and(
+          eq(accessManifestHeads.objectKind, "container"),
+          eq(accessManifestHeads.objectId, rootContainerId),
+        ),
+      );
+
+    const closureReadReturned = deferred();
+    const releaseClosureRead = deferred();
+    const gatedDatabase = gateTransactionExecuteAfterExecution({
+      database: db,
+      occurrence: 1,
+      reached: closureReadReturned.resolve,
+      release: releaseClosureRead.promise,
+    });
+    const closure = gatedDatabase.transaction((tx) =>
+      listCurrentContainerKekTargetClosureIdsMapped(
+        [child.containerId],
+        tx,
+        (message) => new Error(message),
+      ),
+    );
+
+    try {
+      await closureReadReturned.promise;
+      await db.insert(accessManifestHeads).values(rootHead);
+      releaseClosureRead.resolve();
+
+      await expect(closure).rejects.toThrow(
+        "Container KEK parent target is missing",
+      );
+    } finally {
+      releaseClosureRead.resolve();
+      await closure.catch(() => undefined);
+    }
   },
   30_000,
 );

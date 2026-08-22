@@ -7,6 +7,22 @@ import {
   loadCurrentContainerManifestTargetClosure,
 } from "./containerKekTargets";
 
+function assertContainerAncestorClosureIsComplete(
+  targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>,
+): void {
+  for (const target of targetByContainerId.values()) {
+    if (
+      target.parentContainerId !== null &&
+      !targetByContainerId.has(target.parentContainerId)
+    ) {
+      throw new ContainerKekTargetError(
+        `Container KEK parent target is missing for container ${target.containerId} (parent: ${target.parentContainerId})`,
+        409,
+      );
+    }
+  }
+}
+
 export async function listCurrentContainerKekTargetClosureIdsMapped<
   E extends Error,
 >(
@@ -31,6 +47,7 @@ export async function listCurrentContainerKekTargetClosureIdsMapped<
     ) {
       throw new ContainerKekTargetError("Container manifest head missing", 409);
     }
+    assertContainerAncestorClosureIsComplete(targetByContainerId);
     return uniqueSortedStrings([...targetByContainerId.keys()]);
   } catch (error) {
     if (error instanceof ContainerKekTargetError) {
