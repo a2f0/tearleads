@@ -44,9 +44,11 @@ function waitForActiveRemoteHydration(
   if (!activeHydration) {
     return null;
   }
+  const requestLifecycleGeneration = state.lifecycleGeneration;
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration;
   const requestQueuedHydration = () =>
+    requestLifecycleGeneration !== state.lifecycleGeneration ||
     needsCurrentGenerationHydration ||
     state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)

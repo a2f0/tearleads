@@ -209,6 +209,64 @@ test("reset queues replacement hydration behind the stale generation", async () 
   }
 });
 
+test("a request queued before reset rehydrates the replacement generation", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-queued-hydration-reset-generation",
+  );
+  try {
+    type LaneResponse = Awaited<ReturnType<ListParentLanes>>;
+    const resolvers: Array<(value: LaneResponse) => void> = [];
+    const listContainerParentLanes: ListParentLanes = () =>
+      new Promise<LaneResponse>((resolve) => {
+        resolvers.push(resolve);
+      });
+    const state = createRequestState(execSql, listContainerParentLanes);
+    let replacementCompletionCount = 0;
+    const request = (onFullyHydrated: () => void) =>
+      requestContainerContentsRemoteHydration({
+        host: emptyHydrationHost,
+        onFullyHydrated,
+        parentIds: [null],
+        scheduleSync: () => {},
+        state,
+      });
+    const laneResponse: LaneResponse = {
+      results: [
+        {
+          laneId: "lane-0",
+          page: {
+            hasMore: false,
+            items: [],
+            nextWatermark: null,
+            tombstones: [],
+          },
+        },
+      ],
+    };
+
+    const activeHydration = request(() => {});
+    await waitFor(() => resolvers.length === 1);
+    const queuedHydration = request(() => {
+      replacementCompletionCount += 1;
+    });
+    state.lifecycleGeneration += 1;
+    state.containersById = new Map();
+    state.containerParentIdsNeedingHydration = new Set();
+    state.rootLaneHydrated = false;
+
+    resolvers[0]?.(laneResponse);
+    await waitFor(() => resolvers.length === 2);
+    expect(state.remoteHydrationGeneration).toBe(1);
+    resolvers[1]?.(laneResponse);
+    await Promise.all([activeHydration, queuedHydration]);
+
+    expect(replacementCompletionCount).toBe(1);
+    expect(state.rootLaneHydrated).toBe(true);
+  } finally {
+    close();
+  }
+});
+
 test("stale hydration suppresses a late non-database failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-stale-hydration-failure",
