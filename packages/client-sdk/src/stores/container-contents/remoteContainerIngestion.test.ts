@@ -33,20 +33,30 @@ test("recovery hydration waits for queued ingestion to settle", async () => {
   expect(projection).toBe("newer-page");
 });
 
-test("ingestion failure does not prevent recovery hydration", async () => {
+test("ingestion retry is followed by deferred recovery hydration", async () => {
   const errors: unknown[] = [];
+  let ingestionAttempt = 0;
   let hydrationRan = false;
-
-  await resumeRemoteContainerRecoveryWork({
-    onHydrationError: (error) => errors.push(error),
-    onIngestionError: (error) => errors.push(error),
+  const input = {
+    onHydrationError: (error: unknown) => errors.push(error),
+    onIngestionError: (error: unknown) => errors.push(error),
     resumeHydration: async () => {
       hydrationRan = true;
     },
     resumeIngestion: async () => {
-      throw new Error("ingestion failed");
+      ingestionAttempt += 1;
+      if (ingestionAttempt === 1) {
+        throw new Error("ingestion failed");
+      }
     },
-  });
+  };
+
+  await resumeRemoteContainerRecoveryWork(input);
+
+  expect(hydrationRan).toBe(false);
+  expect(errors).toHaveLength(1);
+
+  await resumeRemoteContainerRecoveryWork(input);
 
   expect(hydrationRan).toBe(true);
   expect(errors).toHaveLength(1);

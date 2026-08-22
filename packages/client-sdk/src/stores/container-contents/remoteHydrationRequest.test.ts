@@ -123,17 +123,20 @@ test("restoration hydration can suppress change-driven lane rearming", async () 
   }
 });
 
-test("reset queues replacement hydration behind the stale generation", async () => {
+test("reset preserves disjoint lanes from active and queued hydrations", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-reset-hydration-generation",
   );
   try {
     type LaneResponse = Awaited<ReturnType<ListParentLanes>>;
+    type LaneRequest = Parameters<ListParentLanes>[0];
+    const requests: LaneRequest[] = [];
     const resolvers: Array<(value: LaneResponse) => void> = [];
     let activeRequests = 0;
     let maxActiveRequests = 0;
-    const listContainerParentLanes: ListParentLanes = () =>
+    const listContainerParentLanes: ListParentLanes = (request) =>
       new Promise<LaneResponse>((resolve) => {
+        requests.push(request);
         activeRequests += 1;
         maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
         resolvers.push((value) => {
@@ -142,71 +145,80 @@ test("reset queues replacement hydration behind the stale generation", async () 
         });
       });
     const state = createRequestState(execSql, listContainerParentLanes);
+    const parentA = "550e8400-e29b-41d4-a716-446655440000";
+    const parentB = "550e8400-e29b-42d4-a716-446655440000";
+    const createLoadedParents = () =>
+      new Map(
+        [parentA, parentB].map((id) => [
+          id,
+          { container: { id, parentId: null } },
+        ]),
+      ) as RequestState["containersById"];
+    state.containersById = createLoadedParents();
     let staleCompletionCount = 0;
     let currentCompletionCount = 0;
     let scheduledCount = 0;
-    const request = (onFullyHydrated: () => void) =>
+    const request = (parentId: string, onFullyHydrated: () => void) =>
       requestContainerContentsRemoteHydration({
         host: emptyHydrationHost,
         onFullyHydrated,
-        parentIds: [null],
+        parentIds: [parentId],
+        resetAllLaneWatermarks: true,
         scheduleSync: () => {
           scheduledCount += 1;
         },
         state,
       });
+    const resolveRequest = (index: number) => {
+      const request = requests[index];
+      if (!request) {
+        throw new Error(`request ${index} was not initialized`);
+      }
+      resolvers[index]?.({
+        results: request.lanes.map(({ laneId }) => ({
+          laneId,
+          page: {
+            hasMore: false,
+            items: [],
+            nextWatermark: null,
+            tombstones: [],
+          },
+        })),
+      });
+    };
 
-    const staleHydration = request(() => {
+    const staleHydration = request(parentA, () => {
       staleCompletionCount += 1;
     });
     await waitFor(() => resolvers.length === 1);
 
     state.lifecycleGeneration += 1;
-    state.containersById = new Map();
+    state.containersById = createLoadedParents();
     state.containerParentIdsNeedingHydration = new Set();
     state.rootLaneHydrated = false;
-    const replacementHydration = request(() => {
+    const replacementHydration = request(parentB, () => {
       currentCompletionCount += 1;
     });
 
     expect(resolvers).toHaveLength(1);
-    resolvers[0]?.({
-      results: [
-        {
-          laneId: "lane-0",
-          page: {
-            hasMore: false,
-            items: [],
-            nextWatermark: null,
-            tombstones: [],
-          },
-        },
-      ],
-    });
+    resolveRequest(0);
     await waitFor(() => resolvers.length === 2);
 
     expect(state.remoteHydrationGeneration).toBe(1);
     expect(state.remoteHydrationPromise).not.toBeNull();
     expect(staleCompletionCount).toBe(0);
-    resolvers[1]?.({
-      results: [
-        {
-          laneId: "lane-0",
-          page: {
-            hasMore: false,
-            items: [],
-            nextWatermark: null,
-            tombstones: [],
-          },
-        },
-      ],
-    });
+    expect(requests[1]?.lanes.map(({ parentId }) => parentId).sort()).toEqual(
+      [parentA, parentB].sort(),
+    );
+    resolveRequest(1);
+    await waitFor(() => resolvers.length === 3);
+    resolveRequest(2);
     await Promise.all([staleHydration, replacementHydration]);
 
     expect(maxActiveRequests).toBe(1);
     expect(staleCompletionCount).toBe(0);
     expect(currentCompletionCount).toBe(1);
-    expect(scheduledCount).toBe(1);
+    expect(scheduledCount).toBe(0);
     expect(state.remoteHydrationPromise).toBeNull();
   } finally {
     close();
@@ -264,13 +276,15 @@ test("a request queued before reset rehydrates the replacement generation", asyn
     state.rootLaneHydrated = false;
 
     resolvers[0]?.(laneResponse);
-    await activeHydration;
+    await Bun.sleep(1);
     expect(resolvers).toHaveLength(1);
     state.initializePromise = null;
     resolveInitialization();
     await waitFor(() => resolvers.length === 2);
     expect(state.remoteHydrationGeneration).toBe(1);
     resolvers[1]?.(laneResponse);
+    await waitFor(() => resolvers.length === 3);
+    resolvers[2]?.(laneResponse);
     await Promise.all([activeHydration, queuedHydration]);
 
     expect(replacementCompletionCount).toBe(1);
@@ -280,7 +294,7 @@ test("a request queued before reset rehydrates the replacement generation", asyn
   }
 });
 
-test("active hydration recreates completion after reset without another request", async () => {
+test("completion recreation waits for readiness across consecutive resets", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-active-hydration-reset-retry",
   );
@@ -311,6 +325,10 @@ test("active hydration recreates completion after reset without another request"
     let staleCompletionCount = 0;
     let recreatedCompletionCount = 0;
     let recreatedCompletionFactoryCount = 0;
+    const recreatedCompletionContexts: Array<{
+      dbStatus: string;
+      lifecycleGeneration: number;
+    }> = [];
     const hydration = requestContainerContentsRemoteHydration({
       host: emptyHydrationHost,
       onFullyHydrated: () => {
@@ -319,6 +337,10 @@ test("active hydration recreates completion after reset without another request"
       parentIds: [null],
       recreateOnFullyHydratedAfterReset: () => {
         recreatedCompletionFactoryCount += 1;
+        recreatedCompletionContexts.push({
+          dbStatus: state.runtime.infra.dbStatus,
+          lifecycleGeneration: state.lifecycleGeneration,
+        });
         return () => {
           recreatedCompletionCount += 1;
         };
@@ -327,11 +349,6 @@ test("active hydration recreates completion after reset without another request"
       state,
     });
     await waitFor(() => resolvers.length === 1);
-    const coalescedHydration = requestContainerContentsRemoteHydration({
-      host: emptyHydrationHost,
-      scheduleSync: () => {},
-      state,
-    });
 
     state.lifecycleGeneration += 1;
     state.containersById = new Map();
@@ -343,7 +360,7 @@ test("active hydration recreates completion after reset without another request"
     expect(resolvers).toHaveLength(1);
     expect(staleCompletionCount).toBe(0);
     expect(recreatedCompletionCount).toBe(0);
-    expect(recreatedCompletionFactoryCount).toBe(1);
+    expect(recreatedCompletionFactoryCount).toBe(0);
 
     state.initializePromise = new Promise<void>((resolve) => {
       resolveInitialization = resolve;
@@ -357,8 +374,31 @@ test("active hydration recreates completion after reset without another request"
     state.initializePromise = null;
     resolveInitialization();
     await waitFor(() => resolvers.length === 2);
+    expect(recreatedCompletionContexts).toEqual([
+      { dbStatus: "ready", lifecycleGeneration: 1 },
+    ]);
+
+    state.lifecycleGeneration += 1;
+    state.containersById = new Map();
+    state.containerParentIdsNeedingHydration = new Set();
+    state.rootLaneHydrated = false;
+    (state.runtime.infra as { dbStatus: string }).dbStatus = "idle";
     resolvers[1]?.(laneResponse);
-    await Promise.all([recoveryHydration, coalescedHydration]);
+    await recoveryHydration;
+
+    expect(recreatedCompletionCount).toBe(0);
+    expect(recreatedCompletionFactoryCount).toBe(1);
+    (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+    const finalRecoveryHydration =
+      resumeContainerContentsRecoveryHydration(state);
+    expect(finalRecoveryHydration).not.toBeNull();
+    await waitFor(() => resolvers.length === 3);
+    expect(recreatedCompletionContexts).toEqual([
+      { dbStatus: "ready", lifecycleGeneration: 1 },
+      { dbStatus: "ready", lifecycleGeneration: 2 },
+    ]);
+    resolvers[2]?.(laneResponse);
+    await finalRecoveryHydration;
 
     expect(staleCompletionCount).toBe(0);
     expect(recreatedCompletionCount).toBe(1);

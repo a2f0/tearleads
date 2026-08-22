@@ -23,6 +23,7 @@ export async function resumeRemoteContainerRecoveryWork(input: {
     await input.resumeIngestion();
   } catch (error) {
     input.onIngestionError(error);
+    return;
   }
   try {
     await input.resumeHydration();

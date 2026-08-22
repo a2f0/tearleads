@@ -34,6 +34,7 @@ interface RemoteHydrationRequestInput {
   recreateOnFullyHydratedAfterReset?:
     | (() => () => Promise<void> | void)
     | undefined;
+  recreateOnFullyHydratedAtStart?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
@@ -44,9 +45,6 @@ const recoveryHydrationRequestsByState = new WeakMap<
   RemoteHydrationRequestState,
   RemoteHydrationRequestInput[]
 >();
-const statesWithQueuedHydrationRequest =
-  new WeakSet<RemoteHydrationRequestState>();
-
 function queueRecoveryHydrationRequest(
   input: RemoteHydrationRequestInput,
 ): void {
@@ -69,9 +67,7 @@ function waitForActiveRemoteHydration(
   const requestLifecycleGeneration = state.lifecycleGeneration;
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration;
-  statesWithQueuedHydrationRequest.add(state);
   const requestQueuedHydration = () => {
-    statesWithQueuedHydrationRequest.delete(state);
     return requestLifecycleGeneration !== state.lifecycleGeneration ||
       needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
@@ -101,7 +97,8 @@ function retryRemoteHydrationAfterReset(
 ): Promise<void> {
   const retryInput = {
     ...input,
-    onFullyHydrated: input.recreateOnFullyHydratedAfterReset?.(),
+    onFullyHydrated: undefined,
+    recreateOnFullyHydratedAtStart: true,
   };
   if (retryInput.state.runtime.infra.dbStatus !== "ready") {
     queueRecoveryHydrationRequest(retryInput);
@@ -178,6 +175,9 @@ export function requestContainerContentsRemoteHydration(
   let appliedRemoteContainerChange = false;
   const lifecycleGeneration = state.lifecycleGeneration;
   const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
+  const onFullyHydrated = input.recreateOnFullyHydratedAtStart
+    ? input.recreateOnFullyHydratedAfterReset?.()
+    : input.onFullyHydrated;
   const hydrationHost = createGenerationGuardedHydrationHost({
     host,
     isCurrent,
@@ -196,7 +196,7 @@ export function requestContainerContentsRemoteHydration(
         followDiscoveredParentLanes,
         host: hydrationHost,
         isCurrent,
-        onFullyHydrated: input.onFullyHydrated,
+        onFullyHydrated,
         parentIds,
         resetAllLaneWatermarks: input.resetAllLaneWatermarks,
         resetRootLaneWatermark: input.resetRootLaneWatermark,
@@ -218,10 +218,7 @@ export function requestContainerContentsRemoteHydration(
       throw error;
     })
     .finally(() => {
-      const shouldRetryAfterReset =
-        !isCurrent() &&
-        (input.recreateOnFullyHydratedAfterReset !== undefined ||
-          !statesWithQueuedHydrationRequest.has(state));
+      const shouldRetryAfterReset = !isCurrent();
       if (state.remoteHydrationPromise === hydrationPromise) {
         state.remoteHydrationPromise = null;
         state.remoteHydrationGeneration = null;
