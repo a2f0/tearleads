@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { db } from "@symcrypt/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
@@ -7,6 +7,7 @@ import {
   blobs,
 } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
+import { lockBlobMutationRows } from "../mutations/blobMutationLocks";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -135,6 +136,102 @@ test("a corrupt first candidate does not block later healthy reclamation", async
     .delete(blobAuditObjects)
     .where(eq(blobAuditObjects.blobId, corruptBlobId));
 });
+
+test("a corrupt bounded candidate rotates behind healthy work", async () => {
+  const now = new Date();
+  const corruptBlobId = crypto.randomUUID();
+  const healthyBlobId = crypto.randomUUID();
+  await insertDereferencedBlob({
+    dereferencedAt: new Date(now.getTime() - 49 * HOUR_MS),
+    id: corruptBlobId,
+  });
+  await db
+    .update(blobAuditObjects)
+    .set({ sha256: "mismatched-audit-digest" })
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+  await insertDereferencedBlob({
+    dereferencedAt: new Date(now.getTime() - 48 * HOUR_MS),
+    id: healthyBlobId,
+  });
+
+  await expect(
+    runReclaimDereferencedBlobsWorkflow(db, {
+      gracePeriodMs: 24 * HOUR_MS,
+      limit: 1,
+      now,
+    }),
+  ).rejects.toThrow("audit metadata does not match live storage");
+  const [rotated] = await db
+    .select({ dereferencedAt: blobs.dereferencedAt })
+    .from(blobs)
+    .where(eq(blobs.id, corruptBlobId));
+  expect(rotated?.dereferencedAt).toEqual(now);
+
+  const result = await runReclaimDereferencedBlobsWorkflow(db, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+    now,
+  });
+  expect(result.reclaimedBlobIds).toEqual([healthyBlobId]);
+  expect(await blobExists(corruptBlobId)).toBe(true);
+  await db.delete(blobs).where(eq(blobs.id, corruptBlobId));
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+});
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "a fresh re-detach after selection restarts the grace period",
+  async () => {
+    const now = new Date();
+    const blobId = crypto.randomUUID();
+    await insertDereferencedBlob({
+      dereferencedAt: new Date(now.getTime() - 48 * HOUR_MS),
+      id: blobId,
+    });
+
+    let markHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      markHeld = resolve;
+    });
+    let releaseHold!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const holder = db.transaction(async (tx) => {
+      await lockBlobMutationRows({ blobIds: [blobId], executor: tx });
+      markHeld();
+      await hold;
+      await tx
+        .update(blobs)
+        .set({ dereferencedAt: now })
+        .where(eq(blobs.id, blobId));
+    });
+
+    await held;
+    let reclaimSettled = false;
+    const reclaim = runReclaimDereferencedBlobsWorkflow(db, {
+      gracePeriodMs: 24 * HOUR_MS,
+      now,
+    }).then((result) => {
+      reclaimSettled = true;
+      return result;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const settledWhileHeld = reclaimSettled;
+    releaseHold();
+    const [, result] = await Promise.all([holder, reclaim]);
+
+    expect(settledWhileHeld).toBe(false);
+    expect(result.reclaimedBlobIds).not.toContain(blobId);
+    expect(await blobExists(blobId)).toBe(true);
+    await db.delete(blobs).where(eq(blobs.id, blobId));
+    await db
+      .delete(blobAuditObjects)
+      .where(eq(blobAuditObjects.blobId, blobId));
+  },
+  30_000,
+);
 
 test("revives a dereferenced blob that a binding re-references", async () => {
   const blobId = crypto.randomUUID();

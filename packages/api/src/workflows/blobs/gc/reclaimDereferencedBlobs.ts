@@ -102,7 +102,11 @@ async function deleteBlobKeyRows(
 // re-reference, and a still-referenced blob is revived rather than deleted.
 async function reclaimOneBlob(
   db: ApiDatabase,
-  input: { readonly blobId: string; readonly prunedAt: Date },
+  input: {
+    readonly blobId: string;
+    readonly cutoff: Date;
+    readonly prunedAt: Date;
+  },
 ): Promise<ReclaimOutcome> {
   return db.transaction(async (tx) => {
     const lockQuery = tx
@@ -113,7 +117,13 @@ async function reclaimOneBlob(
         storageKey: blobs.storageKey,
       })
       .from(blobs)
-      .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)))
+      .where(
+        and(
+          eq(blobs.id, input.blobId),
+          isNotNull(blobs.dereferencedAt),
+          lte(blobs.dereferencedAt, input.cutoff),
+        ),
+      )
       .limit(1);
     const [blob] = await lockRowForUpdate(lockQuery);
     if (!blob) {
@@ -170,10 +180,32 @@ async function reclaimOneBlob(
   });
 }
 
+async function deferFailedBlobReclaim(
+  db: ApiDatabase,
+  input: {
+    readonly blobId: string;
+    readonly expectedDereferencedAt: Date;
+    readonly retryAt: Date;
+  },
+): Promise<void> {
+  // A corrupt candidate must not remain at the front of every bounded batch.
+  // Move only the unchanged marker; a concurrent revive or fresh detach wins.
+  await db
+    .update(blobs)
+    .set({ dereferencedAt: input.retryAt })
+    .where(
+      and(
+        eq(blobs.id, input.blobId),
+        eq(blobs.dereferencedAt, input.expectedDereferencedAt),
+      ),
+    );
+}
+
 // Prunes live database state for blobs dereferenced longer than the grace
 // period, retaining the storage key on the audit row as a durable physical-
-// deletion work item. Each candidate is rechecked under the blob-row lock so a
-// concurrent active bind either revives it or fails closed after pruning.
+// deletion work item. Each candidate is rechecked against the cutoff under the
+// blob-row lock. A failed candidate moves behind the grace window so bounded
+// batches keep advancing, while an unchanged corrupt row is retried later.
 export async function runReclaimDereferencedBlobsWorkflow(
   db: ApiDatabase,
   input: ReclaimDereferencedBlobsInput = {},
@@ -184,12 +216,12 @@ export async function runReclaimDereferencedBlobsWorkflow(
   const limit = normalizeLimit(input.limit);
 
   const candidates = await db
-    .select({ id: blobs.id })
+    .select({ dereferencedAt: blobs.dereferencedAt, id: blobs.id })
     .from(blobs)
     .where(
       and(isNotNull(blobs.dereferencedAt), lte(blobs.dereferencedAt, cutoff)),
     )
-    .orderBy(asc(blobs.dereferencedAt))
+    .orderBy(asc(blobs.dereferencedAt), asc(blobs.id))
     .limit(limit);
 
   const reclaimedBlobIds: string[] = [];
@@ -197,9 +229,13 @@ export async function runReclaimDereferencedBlobsWorkflow(
   const failures: unknown[] = [];
 
   for (const candidate of candidates) {
+    if (candidate.dereferencedAt === null) {
+      continue;
+    }
     try {
       const outcome = await reclaimOneBlob(db, {
         blobId: candidate.id,
+        cutoff,
         prunedAt: now,
       });
       if (outcome.kind === "reclaimed") {
@@ -209,6 +245,15 @@ export async function runReclaimDereferencedBlobsWorkflow(
       }
     } catch (error) {
       failures.push(error);
+      try {
+        await deferFailedBlobReclaim(db, {
+          blobId: candidate.id,
+          expectedDereferencedAt: candidate.dereferencedAt,
+          retryAt: now,
+        });
+      } catch (deferError) {
+        failures.push(deferError);
+      }
     }
   }
 
@@ -218,7 +263,7 @@ export async function runReclaimDereferencedBlobsWorkflow(
       firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
     throw new AggregateError(
       failures,
-      `Failed to reclaim ${failures.length} blob candidate(s)${detail}`,
+      `Blob reclamation encountered ${failures.length} failure(s)${detail}`,
     );
   }
 
