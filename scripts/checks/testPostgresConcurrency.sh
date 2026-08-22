@@ -44,6 +44,7 @@ exec bun test \
   src/workflows/blobs/gc/pendingBlobObjectDeletion.test.ts \
   src/workflows/blobs/mutations/authorization.test.ts \
   src/workflows/blobs/mutations/authorizationAncestors.pg.test.ts \
+  src/workflows/blobs/mutations/authorizationMissingHead.pg.test.ts \
   src/workflows/blobs/mutations/blobOwnershipCreationRace.pg.test.ts \
   src/workflows/blobs/mutations/blobOwnershipStageRace.pg.test.ts \
   src/workflows/blobs/mutations/blobMutationLocks.test.ts \

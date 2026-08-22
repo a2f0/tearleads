@@ -704,10 +704,10 @@ async function lockAccessManifestHeads(
   objectIds: readonly string[],
   executor: DatabaseSession,
   mode: "share" | "update",
-): Promise<void> {
+): Promise<readonly string[]> {
   const uniqueObjectIds = unique(objectIds);
   if (uniqueObjectIds.length === 0) {
-    return;
+    return [];
   }
 
   const lockQuery = executor
@@ -725,18 +725,17 @@ async function lockAccessManifestHeads(
     .orderBy(asc(accessManifestHeads.objectId));
 
   if (isSqliteApiDatabase()) {
-    await lockQuery;
-    return;
+    return (await lockQuery).map((head) => head.objectId);
   }
 
-  await lockQuery.for(mode);
+  return (await lockQuery.for(mode)).map((head) => head.objectId);
 }
 
 export async function lockAccessManifestHeadsForShare(
   objectKind: AccessObjectKind,
   objectIds: readonly string[],
   executor: DatabaseSession,
-): Promise<void> {
+): Promise<readonly string[]> {
   return lockAccessManifestHeads(objectKind, objectIds, executor, "share");
 }
 
@@ -744,7 +743,7 @@ export async function lockAccessManifestHeadsForUpdate(
   objectKind: AccessObjectKind,
   objectIds: readonly string[],
   executor: DatabaseSession,
-): Promise<void> {
+): Promise<readonly string[]> {
   return lockAccessManifestHeads(objectKind, objectIds, executor, "update");
 }
 

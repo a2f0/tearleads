@@ -12,7 +12,6 @@ import type {
   BlobContentKeyTargetEnvelopeRequest,
 } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
-import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import {
   BlobKekTargetError,
@@ -27,6 +26,7 @@ import {
   loadCurrentDocumentManifest,
 } from "../../documents/mutations";
 import { loadPrincipalPoliciesForContainerPaths } from "../../principals/principalPolicyProjection";
+import { lockAttachmentAuthorizationHeadsForShare } from "./authorizationLocks";
 import {
   readBindBodyClaim,
   readBlobEvent,
@@ -331,16 +331,10 @@ export async function lockAttachmentAuthorizationForShare(input: {
     existingBlobTargets,
     linkedContainerIds,
   });
-  await lockAccessManifestHeadsForShare(
-    "container",
-    lockPlan.containerIds,
-    input.executor,
-  );
-  await lockAccessManifestHeadsForShare(
-    "document",
-    lockPlan.documentIds,
-    input.executor,
-  );
+  await lockAttachmentAuthorizationHeadsForShare({
+    ...lockPlan,
+    executor: input.executor,
+  });
 
   const lockedContainerKekTargetClosureIds =
     await listCurrentContainerKekTargetClosureIdsMapped(
