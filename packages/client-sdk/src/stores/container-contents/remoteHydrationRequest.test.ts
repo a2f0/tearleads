@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { RemoteContainerHydrationHost } from "../../workflows/container-contents/remoteHydration";
-import { requestContainerContentsRemoteHydration } from "./remoteHydrationRequest";
+import {
+  requestContainerContentsRemoteHydration,
+  resumeContainerContentsRecoveryHydration,
+} from "./remoteHydrationRequest";
 
 type RequestState = Parameters<
   typeof requestContainerContentsRemoteHydration
@@ -277,6 +280,73 @@ test("a request queued before reset rehydrates the replacement generation", asyn
   }
 });
 
+test("active hydration retries after reset without another request", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-active-hydration-reset-retry",
+  );
+  try {
+    type LaneResponse = Awaited<ReturnType<ListParentLanes>>;
+    const resolvers: Array<(value: LaneResponse) => void> = [];
+    const state = createRequestState(
+      execSql,
+      () =>
+        new Promise<LaneResponse>((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    const laneResponse: LaneResponse = {
+      results: [
+        {
+          laneId: "lane-0",
+          page: {
+            hasMore: false,
+            items: [],
+            nextWatermark: null,
+            tombstones: [],
+          },
+        },
+      ],
+    };
+    let resolveInitialization: () => void = () => {};
+    const hydration = requestContainerContentsRemoteHydration({
+      host: emptyHydrationHost,
+      parentIds: [null],
+      scheduleSync: () => {},
+      state,
+    });
+    await waitFor(() => resolvers.length === 1);
+
+    state.lifecycleGeneration += 1;
+    state.containersById = new Map();
+    state.containerParentIdsNeedingHydration = new Set();
+    state.rootLaneHydrated = false;
+    (state.runtime.infra as { dbStatus: string }).dbStatus = "idle";
+    resolvers[0]?.(laneResponse);
+    await hydration;
+    expect(resolvers).toHaveLength(1);
+
+    state.initializePromise = new Promise<void>((resolve) => {
+      resolveInitialization = resolve;
+    });
+    (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+    const recoveryHydration = resumeContainerContentsRecoveryHydration(state);
+    expect(recoveryHydration).not.toBeNull();
+    await Bun.sleep(1);
+    expect(resolvers).toHaveLength(1);
+
+    state.initializePromise = null;
+    resolveInitialization();
+    await waitFor(() => resolvers.length === 2);
+    resolvers[1]?.(laneResponse);
+    await recoveryHydration;
+
+    expect(state.rootLaneHydrated).toBe(true);
+    expect(state.remoteHydrationPromise).toBeNull();
+  } finally {
+    close();
+  }
+});
+
 test("stale hydration suppresses a late non-database failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-stale-hydration-failure",
@@ -303,6 +373,7 @@ test("stale hydration suppresses a late non-database failure", async () => {
     await waitFor(() => requestStarted);
 
     state.lifecycleGeneration += 1;
+    (state.runtime.infra as { dbStatus: string }).dbStatus = "idle";
     rejectRequest(new Error("old connection failed"));
 
     await expect(hydration).resolves.toBeUndefined();

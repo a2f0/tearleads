@@ -153,7 +153,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
   expect(state.containersById.size).toBe(0);
 });
 
-test("remote ingestion serializes a recovered generation behind stale work", async () => {
+test("remote ingestion replays after recovery without another event", async () => {
   const staleExecSql = {};
   const recoveredExecSql = {};
   const resolvers: Array<(record: null) => void> = [];
@@ -174,6 +174,8 @@ test("remote ingestion serializes a recovered generation behind stale work", asy
     Promise.resolve(container),
   );
   const updateSnapshot = mock(() => {});
+  let resolveInitialization: () => void = () => {};
+  let serializationBarrier: Promise<void> | null = null;
   const state = {
     containersById: new Map(),
     lifecycleGeneration: 0,
@@ -185,10 +187,11 @@ test("remote ingestion serializes a recovered generation behind stale work", asy
     },
     runtime: {
       auth: { organizationId: "organization-1" },
-      infra: { execSql: staleExecSql },
+      infra: { dbStatus: "ready", execSql: staleExecSql },
     },
   } as unknown as RemoteContainerHydrationState;
   const ingest = createRemoteContainerIngestor({
+    getSerializationBarrier: () => serializationBarrier,
     host: {
       persistContainerState: async () => {
         throw new Error("insert ingestion must use persistence directly");
@@ -202,17 +205,29 @@ test("remote ingestion serializes a recovered generation behind stale work", asy
   await waitFor(() => resolvers.length === 1);
   state.lifecycleGeneration = 1;
   (state.runtime.infra as { execSql: unknown }).execSql = recoveredExecSql;
-  const recoveredIngest = ingest(remoteContainer);
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "idle";
 
   expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
   resolvers[0]?.(null);
+  await staleIngest;
+  expect(activeLoads).toBe(0);
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+  serializationBarrier = new Promise<void>((resolve) => {
+    resolveInitialization = resolve;
+  });
+  const resumedIngest = ingest.resume();
+  await Bun.sleep(1);
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+  serializationBarrier = null;
+  resolveInitialization();
   await waitFor(() => resolvers.length === 2);
 
   expect(loadContainerMetadataRecord.mock.calls[0]?.[0]).toBe(staleExecSql);
   expect(loadContainerMetadataRecord.mock.calls[1]?.[0]).toBe(recoveredExecSql);
   expect(state.containersById.size).toBe(0);
   resolvers[1]?.(null);
-  await Promise.all([staleIngest, recoveredIngest]);
+  await resumedIngest;
 
   expect(maxActiveLoads).toBe(1);
   expect(saveContainer).toHaveBeenCalledTimes(1);

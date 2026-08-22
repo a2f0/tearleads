@@ -222,23 +222,32 @@ function isRemoteContainerIngestGenerationCurrent(
   );
 }
 
-function discardRemoteContainerIngestGeneration(input: {
+function requeueRemoteContainerIngestGeneration(input: {
   generation: RemoteContainerIngestGeneration;
   generationByContainerId: RemoteContainerIngestGenerationMap;
-  queue: RemoteContainerIngestQueue;
+  state: RemoteContainerHydrationState;
 }): void {
   for (const [containerId, generation] of input.generationByContainerId) {
     if (generation === input.generation) {
-      input.generationByContainerId.delete(containerId);
-      input.queue.delete(containerId);
+      input.generationByContainerId.set(
+        containerId,
+        input.state.lifecycleGeneration,
+      );
     }
   }
 }
 
+interface RemoteContainerIngestor {
+  (remoteContainer: RemoteContainer): Promise<void>;
+  hasPending: () => boolean;
+  resume: () => Promise<void>;
+}
+
 export function createRemoteContainerIngestor(input: {
+  getSerializationBarrier?: (() => Promise<void> | null) | undefined;
   host: RemoteContainerHydrationHost;
   state: RemoteContainerHydrationState;
-}): (remoteContainer: RemoteContainer) => Promise<void> {
+}): RemoteContainerIngestor {
   const { host, state } = input;
   const pendingRemoteContainersById: RemoteContainerIngestQueue = new Map();
   const generationByContainerId: RemoteContainerIngestGenerationMap = new Map();
@@ -250,6 +259,16 @@ export function createRemoteContainerIngestor(input: {
         runNextGeneration,
         runNextGeneration,
       );
+    }
+    if (
+      state.runtime.infra.dbStatus !== undefined &&
+      state.runtime.infra.dbStatus !== "ready"
+    ) {
+      return Promise.resolve();
+    }
+    const serializationBarrier = input.getSerializationBarrier?.();
+    if (serializationBarrier) {
+      return serializationBarrier.then(runNextGeneration);
     }
     const nextContainerId = pendingRemoteContainersById.keys().next().value;
     if (typeof nextContainerId !== "string") {
@@ -275,19 +294,19 @@ export function createRemoteContainerIngestor(input: {
       )
       .then(() => {
         if (!isCurrent()) {
-          discardRemoteContainerIngestGeneration({
+          requeueRemoteContainerIngestGeneration({
             generation,
             generationByContainerId,
-            queue: pendingRemoteContainersById,
+            state,
           });
         }
       })
       .catch((error: unknown) => {
         if (!isCurrent() || error instanceof StaleRemoteHydrationError) {
-          discardRemoteContainerIngestGeneration({
+          requeueRemoteContainerIngestGeneration({
             generation,
             generationByContainerId,
-            queue: pendingRemoteContainersById,
+            state,
           });
           return;
         }
@@ -304,11 +323,14 @@ export function createRemoteContainerIngestor(input: {
     );
   };
 
-  return (remoteContainer: RemoteContainer) => {
+  const ingestRemoteContainer = (remoteContainer: RemoteContainer) => {
     pendingRemoteContainersById.set(remoteContainer.id, remoteContainer);
     generationByContainerId.set(remoteContainer.id, state.lifecycleGeneration);
     return runNextGeneration();
   };
+  ingestRemoteContainer.hasPending = () => pendingRemoteContainersById.size > 0;
+  ingestRemoteContainer.resume = runNextGeneration;
+  return ingestRemoteContainer;
 }
 
 export async function hydrateRemoteContainers(input: {

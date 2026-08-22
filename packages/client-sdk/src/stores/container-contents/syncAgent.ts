@@ -6,11 +6,10 @@ import {
 } from "../../workflows/container-contents/documentMoveIntentSync";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
-import {
-  type ContainerState,
-  createRemoteContainerIngestor,
-  type RemoteContainer,
-  type RemoteContainerHydrationHost,
+import type {
+  ContainerState,
+  RemoteContainer,
+  RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import { createContainerContentsDocumentsRuntime } from "../../workflows/container-contents/runtime";
 import {
@@ -31,6 +30,7 @@ import {
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
+import { createRemoteContainerIngestionController } from "./remoteContainerIngestion";
 import { handleContainerContentsRemoteEvents } from "./remoteEventSync";
 import {
   type RemoteHydrationRefreshOptions,
@@ -108,25 +108,6 @@ function createContainerContentsStoreDocumentMoveHost(
         createContainerContentsDocumentsRuntime(state.runtime, containerId),
         documentId,
       ),
-  };
-}
-
-function createSchedulingRemoteContainerIngestor(input: {
-  host: RemoteContainerHydrationHost;
-  scheduleSync: () => void;
-  state: ContainerContentsStoreSyncState;
-}): ContainerContentsStoreSyncAgent["ingestRemoteContainer"] {
-  const { host, scheduleSync, state } = input;
-  const ingestRemoteContainer = createRemoteContainerIngestor({ host, state });
-  return async (remoteContainer) => {
-    const lifecycleGeneration = state.lifecycleGeneration;
-    await ingestRemoteContainer(remoteContainer);
-    if (
-      state.lifecycleGeneration === lifecycleGeneration &&
-      state.documentStoresNeedPriming
-    ) {
-      scheduleSync();
-    }
   };
 }
 
@@ -424,7 +405,7 @@ export function createContainerContentsStoreSyncAgent(input: {
 }): ContainerContentsStoreSyncAgent {
   const { host, state } = input;
   const scheduleSync = () => requestContainerContentsStoreSync(state);
-  const ingestRemoteContainer = createSchedulingRemoteContainerIngestor({
+  const remoteContainerIngestion = createRemoteContainerIngestionController({
     host,
     scheduleSync,
     state,
@@ -462,15 +443,17 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
 
   return {
-    ensureInitialized: () =>
-      ensureContainerContentsStoreInitialized({ host, scheduleSync, state }),
+    ensureInitialized: () => {
+      ensureContainerContentsStoreInitialized({ host, scheduleSync, state });
+      remoteContainerIngestion.resumeInterruptedWork();
+    },
     handleRemoteEvents: () =>
       handleContainerContentsRemoteEvents({
         requestHydration,
         scheduleSync,
         state,
       }),
-    ingestRemoteContainer,
+    ingestRemoteContainer: remoteContainerIngestion.ingest,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeStoreDocumentSubtree(state, rootContainerId),
     refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),
