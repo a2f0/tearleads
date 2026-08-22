@@ -14,7 +14,11 @@ import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import { lockRowForUpdate, nowExpression } from "../../../utils/sqlDialect";
+import {
+  lockRowForUpdate,
+  nowExpression,
+  wallClockNowExpression,
+} from "../../../utils/sqlDialect";
 import { loadOwnedActiveBlobStage } from "../stageAccess";
 import {
   BlobMutationError,
@@ -112,6 +116,7 @@ async function ensureBlobExists(input: {
 export async function promoteStagedBlobIfPresent(input: {
   readonly blobId: string;
   readonly executor: DatabaseTransaction;
+  readonly expectedOrganizationId: string;
   readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   readonly request: BlobAttachmentBindRequest;
   readonly userId: string;
@@ -124,25 +129,32 @@ export async function promoteStagedBlobIfPresent(input: {
     return null;
   }
 
+  // Blob ids are generation identifiers. Once an id appears in immutable
+  // audit history it may not be promoted again, even after live-state pruning:
+  // a pending object-deletion work item for the old generation must never be
+  // able to target a newly uploaded object with the same id. Retained ownership
+  // lets us conceal historical ids from every other organization.
+  const [auditedBlob] = await input.executor
+    .select({
+      blobId: blobAuditObjects.blobId,
+      organizationId: blobAuditObjects.organizationId,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, input.blobId))
+    .limit(1);
+  if (auditedBlob) {
+    if (auditedBlob.organizationId !== input.expectedOrganizationId) {
+      throw new BlobMutationError("Blob not found", 404);
+    }
+    throw new BlobMutationError("Blob already exists", 409);
+  }
+
   const [existingBlob] = await input.executor
     .select({ id: blobs.id })
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
     .limit(1);
   if (existingBlob) {
-    throw new BlobMutationError("Blob already exists", 409);
-  }
-
-  // Blob ids are generation identifiers. Once an id appears in immutable
-  // audit history it may not be promoted again, even after live-state pruning:
-  // a pending object-deletion work item for the old generation must never be
-  // able to target a newly uploaded object with the same id.
-  const [auditedBlob] = await input.executor
-    .select({ blobId: blobAuditObjects.blobId })
-    .from(blobAuditObjects)
-    .where(eq(blobAuditObjects.blobId, input.blobId))
-    .limit(1);
-  if (auditedBlob) {
     throw new BlobMutationError("Blob already exists", 409);
   }
 
@@ -232,7 +244,10 @@ export async function markBlobDereferencedIfInactive(input: {
 
   await input.executor
     .update(blobs)
-    .set({ dereferencedAt: nowExpression(), reclaimAttemptedAt: null })
+    .set({
+      dereferencedAt: wallClockNowExpression(),
+      reclaimAttemptedAt: null,
+    })
     .where(and(eq(blobs.id, input.blobId), isNull(blobs.dereferencedAt)));
 }
 
@@ -265,6 +280,7 @@ export async function appendAttachmentAuditEvent(input: {
     actorFingerprint: input.fingerprint,
     actorUserId: input.userId,
     documentId: input.binding.documentId,
+    organizationId: input.manifest.state.organizationId,
     events: [
       {
         action: input.activeBinding ? "replace" : "attach",
@@ -292,6 +308,7 @@ export async function appendAttachmentDetachAuditEvent(input: {
     actorFingerprint: input.fingerprint,
     actorUserId: input.userId,
     documentId: input.detach.documentId,
+    organizationId: input.manifest.state.organizationId,
     events: [
       {
         action: "detach",

@@ -26,6 +26,8 @@ When a signed attachment mutation deactivates an attachment binding through
 - a failed live-state reclaim records `blobs.reclaimAttemptedAt`; maintenance
  reserves capacity for new work and retries without changing the original
  `dereferencedAt` lifecycle timestamp
+- audit metadata permanently retains the blob generation's `organizationId`,
+ so pruned ids remain concealed from every other organization
 - pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
  deletion work; maintenance records `objectDeleteAttemptedAt` before each try,
  reserves batch capacity for both new work and retries, and then clears the

@@ -1,4 +1,5 @@
 ALTER TABLE "blob_audit_objects" ADD COLUMN "object_delete_attempted_at" timestamp;--> statement-breakpoint
+ALTER TABLE "blob_audit_objects" ADD COLUMN "organization_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "blobs" ADD COLUMN "reclaim_attempted_at" timestamp;--> statement-breakpoint
 CREATE INDEX "blobs_reclaim_attempted_at_idx" ON "blobs" USING btree ("reclaim_attempted_at","dereferenced_at","id") WHERE "blobs"."reclaim_attempted_at" is not null and "blobs"."dereferenced_at" is not null;--> statement-breakpoint
 DROP INDEX "blob_audit_objects_pending_delete_idx";--> statement-breakpoint

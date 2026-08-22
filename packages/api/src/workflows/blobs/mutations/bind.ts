@@ -268,6 +268,7 @@ async function bindBlobAttachmentTransaction(
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,
     executor: tx,
+    expectedOrganizationId: proof.documentManifest.state.organizationId,
     prevalidatedMultipartStage: input.prevalidatedMultipartStage,
     request: input.request,
     userId: input.userId,

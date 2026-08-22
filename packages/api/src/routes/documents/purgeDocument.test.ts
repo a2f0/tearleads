@@ -1097,8 +1097,7 @@ test("DELETE /documents/:documentId preserves a blob shared with another documen
   ).not.toBeNull();
 });
 
-// Mark an existing binding detached, simulating a replace/detach that retains
-// the binding row as history.
+// Simulate a replace/detach that retains its binding as history.
 async function markBindingDetached(bindingId: string): Promise<void> {
   await db
     .update(attachmentBindings)
@@ -1106,12 +1105,12 @@ async function markBindingDetached(bindingId: string): Promise<void> {
     .where(eq(attachmentBindings.id, bindingId));
 }
 
-// Seed the per-blob audit-object row plus an attachment audit event on a
-// document that references the blob, simulating retained attachment history.
+// Seed retained per-blob and attachment audit history for a document.
 async function seedBlobAuditHistory(input: {
   readonly actor: TestUser;
   readonly blobId: string;
   readonly documentId: string;
+  readonly organizationId: string;
   readonly storageKey: string;
   readonly accessManifestHash: string;
   readonly slotId: string;
@@ -1123,6 +1122,7 @@ async function seedBlobAuditHistory(input: {
       sha256: `sha256:${input.blobId}`,
       byteLength: 16,
       liveStorageKey: input.storageKey,
+      organizationId: input.organizationId,
       retentionMode: "live_only",
       historicalBytesRetained: false,
     })
@@ -1167,8 +1167,7 @@ test("DELETE /documents/:documentId dereferences a blob retained only in another
     documentManifestHash: documentToPurge.accessManifest.manifestHash,
     slotId: "slot_shared_image",
   });
-  // ...and only DETACHED (history) on the surviving document, which also has a
-  // retained attachment audit event + blob-audit-object row referencing it.
+  // ...and only retained as detached audit history on the surviving document.
   const survivingBinding = await seedExternalBlobAttachment({
     documentId: survivingDocument.id,
     documentManifestHash: survivingDocument.accessManifest.manifestHash,
@@ -1182,6 +1181,8 @@ test("DELETE /documents/:documentId dereferences a blob retained only in another
     actor: owner,
     blobId: shared.blobId,
     documentId: survivingDocument.id,
+    organizationId: asVerifiedContainerManifest(root.bundle).state
+      .organizationId,
     slotId: "slot_shared_image",
     storageKey: shared.storageKey,
   });

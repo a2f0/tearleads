@@ -38,6 +38,7 @@ async function insertReclaimableBlob(input: {
     byteLength: input.byteLength,
     historicalBytesRetained: false,
     liveStorageKey: input.storageKey,
+    organizationId: crypto.randomUUID(),
     retentionMode: "live_only",
     sha256: input.sha256,
   });
@@ -183,6 +184,7 @@ test("a sweep acknowledges an object deleted before its database acknowledgement
     historicalBytesRetained: false,
     liveStorageKey: storageKey,
     objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS),
+    organizationId: crypto.randomUUID(),
     prunedAt: new Date(Date.now() - 2 * HOUR_MS),
     retentionMode: "live_only",
     sha256: await sha256Hex(bytes),
@@ -378,6 +380,7 @@ test("a corrupt reclaim candidate does not block the durable deletion queue", as
     byteLength: pendingBytes.length,
     historicalBytesRetained: false,
     liveStorageKey: pendingStorageKey,
+    organizationId: crypto.randomUUID(),
     prunedAt: new Date(Date.now() - HOUR_MS),
     retentionMode: "live_only",
     sha256: await sha256Hex(pendingBytes),

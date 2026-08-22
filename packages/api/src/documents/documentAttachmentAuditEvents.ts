@@ -108,6 +108,7 @@ function listAttachmentEventBlobIds(
 async function ensureBlobAuditObjects(
   executor: DatabaseSession,
   blobIds: string[],
+  organizationId: string,
 ): Promise<void> {
   const uniqueBlobIds = uniqueSortedStrings(blobIds);
   if (uniqueBlobIds.length === 0) {
@@ -115,9 +116,15 @@ async function ensureBlobAuditObjects(
   }
 
   const existingRows = await executor
-    .select({ blobId: blobAuditObjects.blobId })
+    .select({
+      blobId: blobAuditObjects.blobId,
+      organizationId: blobAuditObjects.organizationId,
+    })
     .from(blobAuditObjects)
     .where(inArray(blobAuditObjects.blobId, uniqueBlobIds));
+  if (existingRows.some((row) => row.organizationId !== organizationId)) {
+    throw new Error("Blob audit organization does not match document");
+  }
   const existingBlobIds = new Set(existingRows.map((row) => row.blobId));
   const missingBlobIds = uniqueBlobIds.filter(
     (blobId) => !existingBlobIds.has(blobId),
@@ -150,12 +157,26 @@ async function ensureBlobAuditObjects(
         byteLength: blob.byteLength,
         historicalBytesRetained: false,
         liveStorageKey: blob.liveStorageKey,
+        organizationId,
         prunedAt: null,
         retentionMode: BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY,
         sha256: blob.sha256,
       })),
     )
     .onConflictDoNothing({ target: blobAuditObjects.blobId });
+
+  // Validate the conflict winner too: concurrent first-audit insertion must
+  // never let one blob generation acquire ownership in two organizations.
+  const storedRows = await executor
+    .select({ organizationId: blobAuditObjects.organizationId })
+    .from(blobAuditObjects)
+    .where(inArray(blobAuditObjects.blobId, uniqueBlobIds));
+  if (
+    storedRows.length !== uniqueBlobIds.length ||
+    storedRows.some((row) => row.organizationId !== organizationId)
+  ) {
+    throw new Error("Blob audit organization does not match document");
+  }
 }
 
 export async function appendDocumentAttachmentAuditEntries(
@@ -168,6 +189,7 @@ export async function appendDocumentAttachmentAuditEntries(
     actorUserId: string;
     documentId: string;
     events: ReadonlyArray<DocumentAttachmentAuditEventInput>;
+    organizationId: string;
   },
 ): Promise<void> {
   if (input.events.length === 0) {
@@ -184,6 +206,7 @@ export async function appendDocumentAttachmentAuditEntries(
   await ensureBlobAuditObjects(
     executor,
     listAttachmentEventBlobIds(input.events),
+    input.organizationId,
   );
 
   const [latest] = await executor

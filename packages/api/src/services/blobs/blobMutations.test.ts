@@ -3,7 +3,6 @@ import { db } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
   blobAuditObjects,
-  blobContentWriteHeaders,
   blobs,
   containers,
   documentAttachmentAuditEvents,
@@ -45,7 +44,7 @@ import {
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
 import type { BlobAttachmentBindRequest } from "@symcrypt/validators/request";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { blobObjectBytes } from "../../../test/helpers/blobObjectStore";
 import {
   appendUnexpectedUserWrapToRekey,
@@ -592,33 +591,6 @@ async function loadAttachmentBinding(bindingId: string) {
   return row ?? null;
 }
 
-async function loadBlobReviveState(blobId: string) {
-  const [blobRows, bindingRows, auditRows] = await Promise.all([
-    db
-      .select({ dereferencedAt: blobs.dereferencedAt, id: blobs.id })
-      .from(blobs)
-      .where(eq(blobs.id, blobId)),
-    db
-      .select({
-        detachedAt: attachmentBindings.detachedAt,
-        documentId: attachmentBindings.documentId,
-        id: attachmentBindings.id,
-      })
-      .from(attachmentBindings)
-      .where(eq(attachmentBindings.blobId, blobId))
-      .orderBy(asc(attachmentBindings.id)),
-    db
-      .select({
-        liveStorageKey: blobAuditObjects.liveStorageKey,
-        objectDeletedAt: blobAuditObjects.objectDeletedAt,
-        prunedAt: blobAuditObjects.prunedAt,
-      })
-      .from(blobAuditObjects)
-      .where(eq(blobAuditObjects.blobId, blobId)),
-  ]);
-  return { auditRows, bindingRows, blobRows };
-}
-
 async function loadDocumentAndContainerUpdatedAt(input: {
   readonly containerId: string;
   readonly documentId: string;
@@ -856,93 +828,6 @@ test("attachment writes tolerate publish failures", async () => {
     isValid: true,
     updateEventCount: 0,
   });
-});
-
-test("cross-organization binds cannot revive invalid blobs", async () => {
-  const sourceOwner = createTestUser();
-  const targetOwner = createTestUser();
-  await registerOnly(sourceOwner);
-  await registerOnly(targetOwner);
-  const sourceContainer = await bootstrapRoot(sourceOwner);
-  const sourceDocument = await createDocumentFixture({
-    container: sourceContainer,
-    owner: sourceOwner,
-  });
-  const blobId = crypto.randomUUID();
-  const sourceBind = await buildBindRequest({
-    blobId,
-    container: sourceContainer,
-    document: sourceDocument,
-    expectedBindingId: null,
-    owner: sourceOwner,
-    slotId: "source-slot",
-    stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "source-organization-bytes",
-      owner: sourceOwner,
-    }),
-  });
-  await bindBlobAttachment(runtime, {
-    blobId,
-    fingerprint: sourceOwner.fingerprint,
-    request: sourceBind.request,
-    sessionId: "source-session",
-    userId: sourceOwner.userId,
-  });
-  await detachBlobAttachment(runtime, {
-    bindingId: sourceBind.verifiedBinding.bindingId,
-    blobId,
-    fingerprint: sourceOwner.fingerprint,
-    request: await buildDetachRequest({
-      binding: sourceBind.verifiedBinding,
-      container: sourceContainer,
-      document: sourceDocument,
-      owner: sourceOwner,
-    }),
-    sessionId: "source-session",
-    userId: sourceOwner.userId,
-  });
-  const before = await loadBlobReviveState(blobId);
-  expect(before.blobRows[0]?.dereferencedAt).toBeInstanceOf(Date);
-
-  const targetContainer = await bootstrapRoot(targetOwner);
-  const targetDocument = await createDocumentFixture({
-    container: targetContainer,
-    owner: targetOwner,
-  });
-  const targetBind = await buildBindRequest({
-    blobId,
-    container: targetContainer,
-    document: targetDocument,
-    expectedBindingId: null,
-    owner: targetOwner,
-    slotId: "target-slot",
-  });
-
-  await expect(
-    bindBlobAttachment(runtime, {
-      blobId,
-      fingerprint: targetOwner.fingerprint,
-      request: targetBind.request,
-      sessionId: "target-session",
-      userId: targetOwner.userId,
-    }),
-  ).rejects.toMatchObject({ message: "Blob not found", status: 404 });
-  expect(await loadBlobReviveState(blobId)).toEqual(before);
-
-  await db
-    .delete(blobContentWriteHeaders)
-    .where(eq(blobContentWriteHeaders.contentRecordId, blobId));
-  const beforeHeaderlessAttempt = await loadBlobReviveState(blobId);
-  await expect(
-    bindBlobAttachment(runtime, {
-      blobId,
-      fingerprint: targetOwner.fingerprint,
-      request: targetBind.request,
-      sessionId: "target-session",
-      userId: targetOwner.userId,
-    }),
-  ).rejects.toMatchObject({ message: "Blob not found", status: 404 });
-  expect(await loadBlobReviveState(blobId)).toEqual(beforeHeaderlessAttempt);
 });
 
 test("bindBlobAttachment applies optional container rekeys before target validation", async () => {

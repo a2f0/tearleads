@@ -38,6 +38,15 @@ export function nowExpression(): SQL {
     : sql`now()`;
 }
 
+// PostgreSQL now() is fixed at transaction start. Lifecycle deadlines that
+// begin after lock acquisition must use the statement wall clock so time spent
+// waiting inside the transaction cannot consume their safety window.
+export function wallClockNowExpression(): SQL {
+  return isSqliteApiDatabase()
+    ? sql`cast((julianday('now') - 2440587.5)*86400000 as integer)`
+    : sql`clock_timestamp()`;
+}
+
 export function timestampValue(value: Date): SQL {
   return isSqliteApiDatabase() ? sql`${value.getTime()}` : sql`${value}`;
 }

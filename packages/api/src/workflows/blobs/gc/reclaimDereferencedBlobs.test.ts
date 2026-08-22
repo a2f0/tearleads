@@ -30,6 +30,7 @@ async function insertDereferencedBlob(input: {
     byteLength: 1,
     historicalBytesRetained: false,
     liveStorageKey: storageKey,
+    organizationId: crypto.randomUUID(),
     retentionMode: "live_only",
     sha256: `sha256:${input.id}`,
   });

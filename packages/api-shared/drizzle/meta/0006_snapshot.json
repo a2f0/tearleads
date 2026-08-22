@@ -1,6 +1,6 @@
 {
-  "id": "e7a4e5a0-fa5f-4285-a06b-92ec2a5438bb",
-  "prevId": "6330e6ee-08be-4248-ba00-661cf56f2c76",
+  "id": "0875a0d0-567b-4172-8afa-0790ce0a2652",
+  "prevId": "e7a4e5a0-fa5f-4285-a06b-92ec2a5438bb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1227,6 +1227,12 @@
           "name": "blob_id",
           "type": "uuid",
           "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
           "notNull": true
         },
         "sha256": {

@@ -214,6 +214,8 @@ export const documentUpdateAuditEvents = pgTable(
  *
  * Columns:
  * - `blobId`: Primary key matching the committed blob id.
+ * - `organizationId`: Organization that owns this blob generation. Retained
+ *   after pruning so historical ids cannot become cross-organization probes.
  * - `sha256`: SHA-256 digest of the encrypted blob bytes.
  * - `byteLength`: Byte length of the encrypted blob bytes.
  * - `liveStorageKey`: Storage key for the live blob object when available.
@@ -235,6 +237,7 @@ export const blobAuditObjects = pgTable(
   "blob_audit_objects",
   {
     blobId: uuid("blob_id").primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
     sha256: text("sha256").notNull(),
     byteLength: integer("byte_length").notNull(),
     liveStorageKey: text("live_storage_key"),

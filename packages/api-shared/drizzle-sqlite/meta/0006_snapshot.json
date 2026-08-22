@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "447a3462-f19d-432c-ba02-f3ddfc35f01d",
-  "prevId": "ac40b451-a909-4fb1-b5c3-1fa0aa0490a9",
+  "id": "6fca58fb-1dc4-45ee-8508-b27177c46fb2",
+  "prevId": "447a3462-f19d-432c-ba02-f3ddfc35f01d",
   "tables": {
     "access_event_dependency_projection": {
       "name": "access_event_dependency_projection",
@@ -831,6 +831,13 @@
           "name": "blob_id",
           "type": "text",
           "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },

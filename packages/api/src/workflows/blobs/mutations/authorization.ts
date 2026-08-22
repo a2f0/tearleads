@@ -1,5 +1,5 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { blobs } from "@symcrypt/api-shared/schema";
+import { blobAuditObjects, blobs } from "@symcrypt/api-shared/schema";
 import type {
   AccessEvent,
   VerifiedContainerAccessManifest,
@@ -182,6 +182,18 @@ export async function assertStoredBlobOrganizationMatches(input: {
       // Existing ciphertext without a verified organization claim is invalid
       // under the clean-break contract. Hide it like every foreign blob id.
       throw new BlobMutationError("Blob not found", 404);
+    }
+
+    const [auditedBlob] = await input.executor
+      .select({ organizationId: blobAuditObjects.organizationId })
+      .from(blobAuditObjects)
+      .where(eq(blobAuditObjects.blobId, input.blobId))
+      .limit(1);
+    if (auditedBlob) {
+      assertBlobTargetOrganizationMatches({
+        actualOrganizationId: auditedBlob.organizationId,
+        expectedOrganizationId: input.expectedOrganizationId,
+      });
     }
     return;
   }
