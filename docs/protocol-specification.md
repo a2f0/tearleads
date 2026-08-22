@@ -543,10 +543,11 @@ the peer discovery signal for the removal — removes the container row, then
 tears down the container's own metadata document, deleting the
 `containerMetadataDocuments` binding and, when the composite create path
 materialized document rows, those rows and any blobs they orphan (dereferenced
-at the same deletion timestamp). No purge tombstone is written for the metadata
-document, which is withheld from client discovery; the container tombstone is
-the sole peer signal. Any guard failure aborts and rolls the whole transaction
-back.
+after required row locks using the database wall clock, so lock waits cannot
+consume the garbage-collection grace period). No purge tombstone is written for
+the metadata document, which is withheld from client discovery; the container
+tombstone is the sole peer signal. Any guard failure aborts and rolls the whole
+transaction back.
 
 Trash is itself a system-slot container and so cannot be deleted or purged.
 Sending an item to Trash is an ordinary signed relocation — never a delete — and
