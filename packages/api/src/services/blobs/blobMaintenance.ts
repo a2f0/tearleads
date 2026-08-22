@@ -116,13 +116,33 @@ export async function runBlobMaintenance(
   runtime: ApiServiceRuntime,
   input: BlobMaintenanceInput = {},
 ): Promise<BlobMaintenanceSummary> {
-  const dereferencedBlobs = await reclaimDereferencedBlobs(
+  const dereferencedAttempt = await reclaimDereferencedBlobs(
     runtime,
     input.dereferencedBlobs,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
   );
-  const expiredStages = await cleanupExpiredBlobStages(
+  const expiredStageAttempt = await cleanupExpiredBlobStages(
     runtime,
     input.expiredStages,
+  ).then(
+    (result) => ({ ok: true as const, result }),
+    (error: unknown) => ({ error, ok: false as const }),
   );
-  return { dereferencedBlobs, expiredStages };
+  if (!dereferencedAttempt.ok || !expiredStageAttempt.ok) {
+    const failures: unknown[] = [];
+    if (!dereferencedAttempt.ok) {
+      failures.push(dereferencedAttempt.error);
+    }
+    if (!expiredStageAttempt.ok) {
+      failures.push(expiredStageAttempt.error);
+    }
+    throw new AggregateError(failures, "Blob maintenance failed");
+  }
+
+  return {
+    dereferencedBlobs: dereferencedAttempt.result,
+    expiredStages: expiredStageAttempt.result,
+  };
 }

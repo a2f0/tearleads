@@ -224,8 +224,8 @@ export const documentUpdateAuditEvents = pgTable(
  * - `prunedAt`: Timestamp when live database state was pruned and physical
  *   object deletion became pending.
  * - `objectDeleteAttemptedAt`: Timestamp of the most recent physical deletion
- *   attempt. Pending work is ordered so new items run before retries and failed
- *   items rotate fairly instead of starving the queue.
+ *   attempt. Pending batches reserve capacity for both new items and retries;
+ *   failed items rotate by this timestamp instead of starving the queue.
  * - `objectDeletedAt`: Timestamp when object-store deletion completed. While
  *   this is null on a pruned row, `liveStorageKey` is the durable deletion
  *   work item retried by blob maintenance.
@@ -249,7 +249,7 @@ export const blobAuditObjects = pgTable(
   },
   (table) => [
     index("blob_audit_objects_pending_delete_idx")
-      .on(table.prunedAt, table.blobId)
+      .on(table.objectDeleteAttemptedAt, table.prunedAt, table.blobId)
       .where(
         sql`${table.prunedAt} is not null and ${table.objectDeletedAt} is null and ${table.liveStorageKey} is not null`,
       ),

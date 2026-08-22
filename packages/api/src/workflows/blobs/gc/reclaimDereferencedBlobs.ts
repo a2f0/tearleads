@@ -194,17 +194,32 @@ export async function runReclaimDereferencedBlobsWorkflow(
 
   const reclaimedBlobIds: string[] = [];
   const revivedBlobIds: string[] = [];
+  const failures: unknown[] = [];
 
   for (const candidate of candidates) {
-    const outcome = await reclaimOneBlob(db, {
-      blobId: candidate.id,
-      prunedAt: now,
-    });
-    if (outcome.kind === "reclaimed") {
-      reclaimedBlobIds.push(candidate.id);
-    } else if (outcome.kind === "revived") {
-      revivedBlobIds.push(candidate.id);
+    try {
+      const outcome = await reclaimOneBlob(db, {
+        blobId: candidate.id,
+        prunedAt: now,
+      });
+      if (outcome.kind === "reclaimed") {
+        reclaimedBlobIds.push(candidate.id);
+      } else if (outcome.kind === "revived") {
+        revivedBlobIds.push(candidate.id);
+      }
+    } catch (error) {
+      failures.push(error);
     }
+  }
+
+  if (failures.length > 0) {
+    const firstFailure = failures[0];
+    const detail =
+      firstFailure instanceof Error ? `: ${firstFailure.message}` : "";
+    throw new AggregateError(
+      failures,
+      `Failed to reclaim ${failures.length} blob candidate(s)${detail}`,
+    );
   }
 
   return { reclaimedBlobIds, revivedBlobIds };

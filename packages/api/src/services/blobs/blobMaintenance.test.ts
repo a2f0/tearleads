@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
-import { blobAuditObjects, blobs } from "@symcrypt/api-shared/schema";
+import {
+  blobAuditObjects,
+  blobStages,
+  blobs,
+} from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
   readBlobObjectText,
@@ -9,7 +13,10 @@ import {
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { sha256Hex } from "../../utils/sha256";
-import { reclaimDereferencedBlobs } from "./blobMaintenance";
+import {
+  reclaimDereferencedBlobs,
+  runBlobMaintenance,
+} from "./blobMaintenance";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -200,6 +207,67 @@ test("a poison deletion does not starve newly pending object work", async () => 
   ).toBe(poisonBytes);
 });
 
+test("continuously arriving object work does not starve a due retry", async () => {
+  const objectStore = createMemoryBlobObjectStore();
+  const poisonBlobId = crypto.randomUUID();
+  const poisonStorageKey = `blob-object:${poisonBlobId}`;
+  const runtime = createServiceTestRuntime(db, {
+    blobObjectStore: {
+      ...objectStore,
+      async deleteObject(key) {
+        if (key === poisonStorageKey) {
+          throw new Error("permanent object-store rejection");
+        }
+        await objectStore.deleteObject(key);
+      },
+    },
+  });
+  const poisonBytes = "retry-must-get-capacity";
+  await uploadBlobObject(
+    runtime.blobObjectStore,
+    poisonStorageKey,
+    poisonBytes,
+  );
+  await insertReclaimableBlob({
+    blobId: poisonBlobId,
+    byteLength: poisonBytes.length,
+    sha256: await sha256Hex(poisonBytes),
+    storageKey: poisonStorageKey,
+  });
+  await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+  });
+  await db
+    .update(blobAuditObjects)
+    .set({ objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS) })
+    .where(eq(blobAuditObjects.blobId, poisonBlobId));
+
+  const newBlobId = crypto.randomUUID();
+  const newStorageKey = `blob-object:${newBlobId}`;
+  const newBytes = "new-work-waits-for-due-retry";
+  await uploadBlobObject(runtime.blobObjectStore, newStorageKey, newBytes);
+  await insertReclaimableBlob({
+    blobId: newBlobId,
+    byteLength: newBytes.length,
+    sha256: await sha256Hex(newBytes),
+    storageKey: newStorageKey,
+  });
+
+  const summary = await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+  });
+  expect(summary.failedObjectDeletions).toBe(1);
+  expect(summary.deletedObjectCount).toBe(0);
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, poisonStorageKey),
+  ).toBe(poisonBytes);
+  expect(await readBlobObjectText(runtime.blobObjectStore, newStorageKey)).toBe(
+    newBytes,
+  );
+});
+
 test("a corrupt reclaim candidate does not block the durable deletion queue", async () => {
   const runtime = createServiceTestRuntime();
   const pendingBlobId = crypto.randomUUID();
@@ -249,4 +317,56 @@ test("a corrupt reclaim candidate does not block the durable deletion queue", as
     .where(eq(blobAuditObjects.blobId, pendingBlobId));
   expect(completed?.liveStorageKey).toBeNull();
   expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
+  await db.delete(blobs).where(eq(blobs.id, corruptBlobId));
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+});
+
+test("a corrupt reclaim candidate does not block expired stage cleanup", async () => {
+  const runtime = createServiceTestRuntime();
+  const corruptBlobId = crypto.randomUUID();
+  const corruptStorageKey = `blob-object:${corruptBlobId}`;
+  const corruptBytes = "corrupt-candidate-before-stage-cleanup";
+  await insertReclaimableBlob({
+    blobId: corruptBlobId,
+    byteLength: corruptBytes.length,
+    sha256: await sha256Hex(corruptBytes),
+    storageKey: corruptStorageKey,
+  });
+  await db
+    .update(blobAuditObjects)
+    .set({ sha256: "mismatched-audit-digest" })
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+
+  const stageId = crypto.randomUUID();
+  const stageStorageKey = `blob-stages/${stageId}`;
+  const { uploadId } = await runtime.blobObjectStore.createMultipartUpload({
+    key: stageStorageKey,
+  });
+  await db.insert(blobStages).values({
+    byteLength: 1,
+    expiresAt: new Date("2000-01-01T00:00:00.000Z"),
+    id: stageId,
+    ownerUserId: crypto.randomUUID(),
+    sha256: "stage-digest",
+    storageKey: stageStorageKey,
+    uploadId,
+  });
+
+  await expect(
+    runBlobMaintenance(runtime, {
+      dereferencedBlobs: { gracePeriodMs: 24 * HOUR_MS },
+      expiredStages: { now: new Date("2000-01-02T00:00:00.000Z") },
+    }),
+  ).rejects.toThrow("Blob maintenance failed");
+  const remainingStages = await db
+    .select({ id: blobStages.id })
+    .from(blobStages)
+    .where(eq(blobStages.id, stageId));
+  expect(remainingStages).toEqual([]);
+  await db.delete(blobs).where(eq(blobs.id, corruptBlobId));
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
 });

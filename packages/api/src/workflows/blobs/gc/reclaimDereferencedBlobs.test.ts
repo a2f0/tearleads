@@ -102,6 +102,40 @@ test("fails closed when required audit deletion state is missing", async () => {
   await db.delete(blobs).where(eq(blobs.id, blobId));
 });
 
+test("a corrupt first candidate does not block later healthy reclamation", async () => {
+  const corruptBlobId = crypto.randomUUID();
+  const healthyBlobId = crypto.randomUUID();
+  await insertDereferencedBlob({
+    dereferencedAt: new Date(Date.now() - 49 * HOUR_MS),
+    id: corruptBlobId,
+  });
+  await db
+    .update(blobAuditObjects)
+    .set({ sha256: "mismatched-audit-digest" })
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+  await insertDereferencedBlob({
+    dereferencedAt: new Date(Date.now() - 48 * HOUR_MS),
+    id: healthyBlobId,
+  });
+
+  await expect(
+    runReclaimDereferencedBlobsWorkflow(db, {
+      gracePeriodMs: 24 * HOUR_MS,
+    }),
+  ).rejects.toThrow("audit metadata does not match live storage");
+  expect(await blobExists(corruptBlobId)).toBe(true);
+  expect(await blobExists(healthyBlobId)).toBe(false);
+  const [healthyAudit] = await db
+    .select({ prunedAt: blobAuditObjects.prunedAt })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, healthyBlobId));
+  expect(healthyAudit?.prunedAt).toBeInstanceOf(Date);
+  await db.delete(blobs).where(eq(blobs.id, corruptBlobId));
+  await db
+    .delete(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, corruptBlobId));
+});
+
 test("revives a dereferenced blob that a binding re-references", async () => {
   const blobId = crypto.randomUUID();
   await insertDereferencedBlob({

@@ -24,8 +24,9 @@ When a signed attachment mutation deactivates an attachment binding through
  rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
  blob content-key target rows, write headers, and detached binding rows
 - pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
- deletion work; maintenance records `objectDeleteAttemptedAt` before each try
- so new items run first and failures rotate fairly, then clears the storage key
+ deletion work; maintenance records `objectDeleteAttemptedAt` before each try,
+ reserves batch capacity for both new work and retries, and then clears the
+ storage key
  and records `objectDeletedAt` after deletion succeeds
 
 Detached attachment bindings are transient replacement metadata. They are not a
