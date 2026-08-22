@@ -46,7 +46,7 @@
       "bytes": 20904
     },
     "docs/document-rekey-and-audit-history.md": {
-      "lines": 540,
+      "lines": 543,
       "bytes": 21124
     },
     "docs/glossary.md": {
@@ -58,8 +58,8 @@
       "bytes": 47194
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 543,
-      "bytes": 23230
+      "lines": 548,
+      "bytes": 23535
     },
     "docs/openapi.json": {
       "lines": 53441,
@@ -162,8 +162,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1289,
-      "bytes": 38836
+      "lines": 1388,
+      "bytes": 41941
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 655,

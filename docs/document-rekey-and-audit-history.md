@@ -49,10 +49,13 @@ Distinction:
 
 Blob GC is based on active attachment reachability, not historical document
 replay. If a blob is no longer referenced by any active
-`attachment_bindings`, attachment bind/detach cleanup may prune the blob row,
-blob content-key epochs, blob content-key target rows, and detached binding rows
-for that blob. If another active binding still references the same blob, those
-rows remain live until the final active binding is deactivated.
+`attachment_bindings`, attachment bind/detach cleanup stamps `dereferencedAt`
+and starts a grace period. A bind during that window revives the blob. After
+the grace period, GC locks and rechecks reachability before pruning the blob
+row, blob content-key epochs, blob content-key target rows, write header, and
+detached binding rows. Audit metadata retains durable physical-deletion work.
+If another active binding still references the blob, the live rows remain until
+the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
 transient replacement metadata, not an attachment audit log.
@@ -311,8 +314,8 @@ The content and live-state tables keep distinct roles:
 - `attachment_bindings` is the live projection of active attachment slots
 - `access_manifest_heads` and key-target tables are the canonical
  access-plane rows
-- `blobs` is the live blob-byte store and is pruned when the final active
- binding disappears
+- `blobs` is the live blob-byte store; the final active binding's removal
+ starts a GC grace period before the row is pruned
 
 The audit tables do not duplicate ciphertext. They preserve independently
 verifiable hashes and visible metadata for the retained document updates and

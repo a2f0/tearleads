@@ -523,9 +523,13 @@ deleted. An unknown document id returns not found. Blobs the purge orphans —
 referenced only by the purged document once its rows are gone — are
 soft-deleted: `dereferencedAt` is stamped while the encrypted bytes, stored
 objects, and key material are retained for a later garbage-collection sweep. A
-blob still referenced by another document, or by a detached binding, is left
-untouched, and re-stamping an already-dereferenced blob preserves its original
-timestamp. The response returns `purgedAt`.
+blob still referenced by another active binding is left untouched. Detached
+bindings do not keep a blob live. Re-stamping an already-dereferenced blob
+preserves its original timestamp, while a bind during the grace period clears
+the marker and revives the blob. After the grace period, GC locks and rechecks
+the blob before pruning its live row, key material, and detached bindings; its
+audit metadata remains as durable physical-object deletion work. The response
+returns `purgedAt`.
 
 `DELETE /containers/:containerId` is an admin-only structural delete for empty,
 non-system, non-root leaf containers. A root or system-slot container cannot be

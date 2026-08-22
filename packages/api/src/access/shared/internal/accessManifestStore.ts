@@ -718,7 +718,11 @@ async function lockAccessManifestHeads(
         eq(accessManifestHeads.objectKind, objectKind),
         inArray(accessManifestHeads.objectId, uniqueObjectIds),
       ),
-    );
+    )
+    // PostgreSQL does not preserve the input order of an IN predicate. Sort
+    // the rows before FOR SHARE/UPDATE acquires locks so overlapping mutation
+    // plans cannot take the same manifest heads in opposite orders.
+    .orderBy(asc(accessManifestHeads.objectId));
 
   if (isSqliteApiDatabase()) {
     await lockQuery;

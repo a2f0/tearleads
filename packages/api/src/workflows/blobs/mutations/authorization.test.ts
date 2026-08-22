@@ -72,6 +72,60 @@ test("attachment locks hide cross-organization blob ids", () => {
 });
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "opposite manifest-head plans serialize without deadlocking",
+  async () => {
+    const firstId = crypto.randomUUID();
+    const secondId = crypto.randomUUID();
+    const organizationId = crypto.randomUUID();
+    await db.insert(accessManifestHeads).values(
+      [firstId, secondId].map((objectId) => ({
+        epoch: 1,
+        manifestHash: `manifest:${objectId}`,
+        objectId,
+        objectKind: "container" as const,
+        organizationId,
+      })),
+    );
+
+    let markHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      markHeld = resolve;
+    });
+    let releaseHold!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const holder = db.transaction(async (tx) => {
+      await lockAccessManifestHeadsForUpdate(
+        "container",
+        [firstId, secondId],
+        tx,
+      );
+      markHeld();
+      await hold;
+    });
+
+    await held;
+    let contenderSettled = false;
+    const contender = db
+      .transaction((tx) =>
+        lockAccessManifestHeadsForUpdate("container", [secondId, firstId], tx),
+      )
+      .then(() => {
+        contenderSettled = true;
+      });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const settledWhileHeld = contenderSettled;
+    releaseHold();
+    await Promise.all([holder, contender]);
+
+    expect(settledWhileHeld).toBe(false);
+    expect(contenderSettled).toBe(true);
+  },
+  30_000,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "attachment locks block rekey on a non-authorizing linked target",
   async () => {
     const authorizingContainerId = crypto.randomUUID();
