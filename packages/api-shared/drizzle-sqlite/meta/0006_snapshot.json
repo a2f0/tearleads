@@ -902,7 +902,7 @@
       "indexes": {
         "blob_audit_objects_pending_delete_idx": {
           "name": "blob_audit_objects_pending_delete_idx",
-          "columns": ["pruned_at", "blob_id"],
+          "columns": ["object_delete_attempted_at", "pruned_at", "blob_id"],
           "isUnique": false,
           "where": "\"blob_audit_objects\".\"pruned_at\" is not null and \"blob_audit_objects\".\"object_deleted_at\" is null and \"blob_audit_objects\".\"live_storage_key\" is not null"
         }

@@ -1290,6 +1290,12 @@
           "name": "blob_audit_objects_pending_delete_idx",
           "columns": [
             {
+              "expression": "object_delete_attempted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "pruned_at",
               "isExpression": false,
               "asc": true,
