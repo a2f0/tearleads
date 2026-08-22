@@ -124,18 +124,32 @@ async function upsertQueuedRemoteContainer(input: {
   if (!upserted) {
     return false;
   }
-  if (
-    isCurrentQueuedRemoteContainer(
-      generation,
-      generationByContainerId,
-      queue,
-      queuedRemoteContainer,
-    )
-  ) {
-    queue.delete(queuedRemoteContainer.id);
-    generationByContainerId.delete(queuedRemoteContainer.id);
-  }
   return true;
+}
+
+function acknowledgeRemoteContainerIngestBatch(input: {
+  generation: RemoteContainerIngestGeneration;
+  generationByContainerId: RemoteContainerIngestGenerationMap;
+  isCurrent: () => boolean;
+  queue: RemoteContainerIngestQueue;
+  queuedRemoteContainers: ReadonlyArray<RemoteContainer>;
+}): void {
+  if (!input.isCurrent()) {
+    return;
+  }
+  for (const queuedRemoteContainer of input.queuedRemoteContainers) {
+    if (
+      isCurrentQueuedRemoteContainer(
+        input.generation,
+        input.generationByContainerId,
+        input.queue,
+        queuedRemoteContainer,
+      )
+    ) {
+      input.queue.delete(queuedRemoteContainer.id);
+      input.generationByContainerId.delete(queuedRemoteContainer.id);
+    }
+  }
 }
 
 async function drainRemoteContainerIngestQueue(input: {
@@ -198,6 +212,13 @@ async function drainRemoteContainerIngestQueue(input: {
             state,
           })) || shouldUpdateSnapshot;
       }
+      acknowledgeRemoteContainerIngestBatch({
+        generation,
+        generationByContainerId,
+        isCurrent: input.isCurrent,
+        queue,
+        queuedRemoteContainers,
+      });
 
       if (shouldUpdateSnapshot) {
         host.updateSnapshot();

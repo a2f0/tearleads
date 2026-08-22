@@ -234,3 +234,96 @@ test("remote ingestion replays after recovery without another event", async () =
   expect(state.containersById.has(remoteContainer.id)).toBe(true);
   expect(updateSnapshot).toHaveBeenCalledTimes(1);
 });
+
+test("reset during a batch replays every item into the recovered database", async () => {
+  const staleExecSql = {};
+  const recoveredExecSql = {};
+  const secondRemoteContainer: RemoteContainer = {
+    ...remoteContainer,
+    id: "container-2",
+    metadataDocumentId: "metadata-2",
+  };
+  let resolveSecondStaleLoad: (record: null) => void = () => {
+    throw new Error("second stale load promise was not initialized");
+  };
+  const loadContainerMetadataRecord = mock(
+    (execSql: unknown, containerId: string) => {
+      if (
+        execSql === staleExecSql &&
+        containerId === secondRemoteContainer.id
+      ) {
+        return new Promise<null>((resolve) => {
+          resolveSecondStaleLoad = resolve;
+        });
+      }
+      return Promise.resolve(null);
+    },
+  );
+  const savedContainers: Array<{ execSql: unknown; id: string }> = [];
+  const saveContainer = mock(
+    async (execSql: unknown, container: { id: string }) => {
+      savedContainers.push({ execSql, id: container.id });
+      return container;
+    },
+  );
+  const updateSnapshot = mock(() => {});
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    persistence: {
+      listPendingCreateIntents: async () => [],
+      listUnsyncedMoveIntents: async () => [],
+      loadContainerMetadataRecord,
+      saveContainer,
+    },
+    runtime: {
+      auth: { organizationId: "organization-1" },
+      infra: { dbStatus: "ready", execSql: staleExecSql },
+    },
+  } as unknown as RemoteContainerHydrationState;
+  const ingest = createRemoteContainerIngestor({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("insert ingestion must use persistence directly");
+      },
+      updateSnapshot,
+    },
+    state,
+  });
+
+  const firstIngest = ingest(remoteContainer);
+  const secondIngest = ingest(secondRemoteContainer);
+  await waitFor(() => loadContainerMetadataRecord.mock.calls.length === 2);
+  expect(savedContainers).toEqual([
+    { execSql: staleExecSql, id: remoteContainer.id },
+  ]);
+
+  state.lifecycleGeneration = 1;
+  state.containersById = new Map();
+  (state.runtime.infra as { dbStatus: string; execSql: unknown }).dbStatus =
+    "idle";
+  (state.runtime.infra as { dbStatus: string; execSql: unknown }).execSql =
+    recoveredExecSql;
+  resolveSecondStaleLoad(null);
+  await Promise.all([firstIngest, secondIngest]);
+
+  expect(ingest.hasPending()).toBe(true);
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+  await ingest.resume();
+
+  expect(loadContainerMetadataRecord.mock.calls).toEqual([
+    [staleExecSql, remoteContainer.id],
+    [staleExecSql, secondRemoteContainer.id],
+    [recoveredExecSql, remoteContainer.id],
+    [recoveredExecSql, secondRemoteContainer.id],
+  ]);
+  expect(savedContainers).toEqual([
+    { execSql: staleExecSql, id: remoteContainer.id },
+    { execSql: recoveredExecSql, id: remoteContainer.id },
+    { execSql: recoveredExecSql, id: secondRemoteContainer.id },
+  ]);
+  expect(state.containersById.has(remoteContainer.id)).toBe(true);
+  expect(state.containersById.has(secondRemoteContainer.id)).toBe(true);
+  expect(ingest.hasPending()).toBe(false);
+  expect(updateSnapshot).toHaveBeenCalledTimes(1);
+});
