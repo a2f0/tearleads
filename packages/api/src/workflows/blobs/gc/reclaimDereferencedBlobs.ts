@@ -10,17 +10,9 @@ import {
   blobContentWriteHeaders,
   blobs,
 } from "@symcrypt/api-shared/schema";
-import {
-  and,
-  asc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  sql,
-} from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
+import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
 // an in-flight or shortly-following re-bind time to revive it before the
@@ -46,6 +38,17 @@ type ReclaimOutcome =
   | { readonly kind: "revived" }
   | { readonly kind: "reclaimed" };
 
+interface ReclaimCandidate {
+  readonly blobId: string;
+  readonly queuedAt: Date;
+}
+
+interface ReclaimCandidateRow {
+  readonly dereferencedAt: Date | null;
+  readonly id: string;
+  readonly reclaimAttemptedAt: Date | null;
+}
+
 function normalizeLimit(limit: number | undefined): number {
   if (limit === undefined) {
     return DEFAULT_LIMIT;
@@ -54,6 +57,39 @@ function normalizeLimit(limit: number | undefined): number {
     return DEFAULT_LIMIT;
   }
   return Math.min(limit, MAX_LIMIT);
+}
+
+function toNewReclaimCandidates(
+  rows: readonly ReclaimCandidateRow[],
+  gracePeriodMs: number,
+): ReclaimCandidate[] {
+  return rows.flatMap((row): ReclaimCandidate[] =>
+    row.dereferencedAt === null
+      ? []
+      : [
+          {
+            blobId: row.id,
+            // Compare the time work became eligible, not when the blob was
+            // dereferenced. That puts this queue on the same clock as retries.
+            queuedAt: new Date(row.dereferencedAt.getTime() + gracePeriodMs),
+          },
+        ],
+  );
+}
+
+function toRetryReclaimCandidates(
+  rows: readonly ReclaimCandidateRow[],
+): ReclaimCandidate[] {
+  return rows.flatMap((row): ReclaimCandidate[] =>
+    row.dereferencedAt === null || row.reclaimAttemptedAt === null
+      ? []
+      : [
+          {
+            blobId: row.id,
+            queuedAt: row.reclaimAttemptedAt,
+          },
+        ],
+  );
 }
 
 // Live reachability is intentionally narrower than audit history. Detached
@@ -227,45 +263,60 @@ export async function runReclaimDereferencedBlobsWorkflow(
   const cutoff = new Date(now.getTime() - gracePeriodMs);
   const limit = normalizeLimit(input.limit);
 
-  const candidates = await db
-    .select({ dereferencedAt: blobs.dereferencedAt, id: blobs.id })
-    .from(blobs)
-    .where(
-      and(isNotNull(blobs.dereferencedAt), lte(blobs.dereferencedAt, cutoff)),
-    )
-    // Never-attempted work sorts by dereference time. A failed candidate moves
-    // to its attempt time, behind the backlog that existed when it failed but
-    // ahead of newly eligible work, so neither class can starve the other.
-    .orderBy(
-      asc(sql`coalesce(${blobs.reclaimAttemptedAt}, ${blobs.dereferencedAt})`),
-      asc(blobs.id),
-    )
-    .limit(limit);
+  const candidateColumns = {
+    dereferencedAt: blobs.dereferencedAt,
+    id: blobs.id,
+    reclaimAttemptedAt: blobs.reclaimAttemptedAt,
+  };
+  const eligiblePredicate = and(
+    isNotNull(blobs.dereferencedAt),
+    lte(blobs.dereferencedAt, cutoff),
+  );
+  const [newRows, retryRows] = await Promise.all([
+    db
+      .select(candidateColumns)
+      .from(blobs)
+      .where(and(eligiblePredicate, isNull(blobs.reclaimAttemptedAt)))
+      .orderBy(asc(blobs.dereferencedAt), asc(blobs.id))
+      .limit(limit),
+    db
+      .select(candidateColumns)
+      .from(blobs)
+      .where(and(eligiblePredicate, isNotNull(blobs.reclaimAttemptedAt)))
+      .orderBy(
+        asc(blobs.reclaimAttemptedAt),
+        asc(blobs.dereferencedAt),
+        asc(blobs.id),
+      )
+      .limit(limit),
+  ]);
+  const candidates = selectFairBlobWorkCandidates(
+    toNewReclaimCandidates(newRows, gracePeriodMs),
+    toRetryReclaimCandidates(retryRows),
+    limit,
+  );
 
   const reclaimedBlobIds: string[] = [];
   const revivedBlobIds: string[] = [];
   const failures: unknown[] = [];
 
   for (const candidate of candidates) {
-    if (candidate.dereferencedAt === null) {
-      continue;
-    }
     try {
       const outcome = await reclaimOneBlob(db, {
-        blobId: candidate.id,
+        blobId: candidate.blobId,
         cutoff,
         prunedAt: now,
       });
       if (outcome.kind === "reclaimed") {
-        reclaimedBlobIds.push(candidate.id);
+        reclaimedBlobIds.push(candidate.blobId);
       } else if (outcome.kind === "revived") {
-        revivedBlobIds.push(candidate.id);
+        revivedBlobIds.push(candidate.blobId);
       }
     } catch (error) {
       failures.push(error);
       try {
         await deferFailedBlobReclaim(db, {
-          blobId: candidate.id,
+          blobId: candidate.blobId,
           cutoff,
           retryAt: now,
         });

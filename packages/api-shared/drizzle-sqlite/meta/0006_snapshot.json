@@ -1379,6 +1379,12 @@
           "columns": ["dereferenced_at"],
           "isUnique": false,
           "where": "\"blobs\".\"dereferenced_at\" is not null"
+        },
+        "blobs_reclaim_attempted_at_idx": {
+          "name": "blobs_reclaim_attempted_at_idx",
+          "columns": ["reclaim_attempted_at", "dereferenced_at", "id"],
+          "isUnique": false,
+          "where": "\"blobs\".\"reclaim_attempted_at\" is not null and \"blobs\".\"dereferenced_at\" is not null"
         }
       },
       "foreignKeys": {},

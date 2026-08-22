@@ -23,8 +23,9 @@ When a signed attachment mutation deactivates an attachment binding through
 - after the grace period, GC locks the blob and rechecks active reachability; a
  rebind revives it, otherwise GC prunes the blob row, blob content-key epochs,
  blob content-key target rows, write headers, and detached binding rows
-- a failed live-state reclaim records `blobs.reclaimAttemptedAt` for fair retry
- ordering without changing the original `dereferencedAt` lifecycle timestamp
+- a failed live-state reclaim records `blobs.reclaimAttemptedAt`; maintenance
+ reserves capacity for new work and retries without changing the original
+ `dereferencedAt` lifecycle timestamp
 - pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
  deletion work; maintenance records `objectDeleteAttemptedAt` before each try,
  reserves batch capacity for both new work and retries, and then clears the

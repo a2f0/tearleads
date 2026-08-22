@@ -1,6 +1,7 @@
 import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
 import { blobAuditObjects } from "@symcrypt/api-shared/schema";
 import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
@@ -38,55 +39,6 @@ function toPendingCandidates(
       ? []
       : [{ blobId: row.blobId, queuedAt, storageKey: row.storageKey }];
   });
-}
-
-function compareQueued(
-  left: PendingDeletionCandidate,
-  right: PendingDeletionCandidate,
-): number {
-  return (
-    left.queuedAt.getTime() - right.queuedAt.getTime() ||
-    left.blobId.localeCompare(right.blobId)
-  );
-}
-
-export function selectFairCandidates(
-  newWork: readonly PendingDeletionCandidate[],
-  retries: readonly PendingDeletionCandidate[],
-  limit: number,
-): PendingDeletionCandidate[] {
-  const retryBlobIds = new Set(retries.map((candidate) => candidate.blobId));
-  const disjointNewWork = newWork.filter(
-    (candidate) => !retryBlobIds.has(candidate.blobId),
-  );
-  if (disjointNewWork.length === 0 || retries.length === 0) {
-    return [...disjointNewWork, ...retries].slice(0, limit);
-  }
-  const oldestNew = disjointNewWork[0];
-  const oldestRetry = retries[0];
-  if (!oldestNew || !oldestRetry) {
-    throw new Error("Pending deletion queue selection lost a candidate");
-  }
-  if (limit === 1) {
-    return [
-      oldestRetry.queuedAt.getTime() < oldestNew.queuedAt.getTime()
-        ? oldestRetry
-        : oldestNew,
-    ];
-  }
-
-  const newQuota = Math.ceil(limit / 2);
-  const retryQuota = Math.floor(limit / 2);
-  const selected = [
-    ...disjointNewWork.slice(0, newQuota),
-    ...retries.slice(0, retryQuota),
-  ];
-  selected.push(
-    ...[...disjointNewWork.slice(newQuota), ...retries.slice(retryQuota)]
-      .sort(compareQueued)
-      .slice(0, limit - selected.length),
-  );
-  return selected;
 }
 
 /**
@@ -136,7 +88,7 @@ export async function listPendingBlobObjectDeletions(
       )
       .limit(limit),
   ]);
-  const selected = selectFairCandidates(
+  const selected = selectFairBlobWorkCandidates(
     toPendingCandidates(newRows, "prunedAt"),
     toPendingCandidates(retryRows, "attemptedAt"),
     limit,

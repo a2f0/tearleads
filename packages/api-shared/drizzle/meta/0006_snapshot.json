@@ -1971,6 +1971,34 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "blobs_reclaim_attempted_at_idx": {
+          "name": "blobs_reclaim_attempted_at_idx",
+          "columns": [
+            {
+              "expression": "reclaim_attempted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dereferenced_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"blobs\".\"reclaim_attempted_at\" is not null and \"blobs\".\"dereferenced_at\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},

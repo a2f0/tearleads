@@ -29,8 +29,8 @@ import {
  *   before pruning live state. A bind that re-references it clears this back to
  *   `null`. Null while live.
  * - `reclaimAttemptedAt`: Most recent failed live-state reclaim attempt. This
- *   rotates corrupt work behind healthy candidates without changing the
- *   lifecycle-defining `dereferencedAt`. Cleared when the blob is revived.
+ *   places corrupt work in a retry class with reserved batch capacity without
+ *   changing the lifecycle-defining `dereferencedAt`. Cleared when revived.
  */
 export const blobs = pgTable(
   "blobs",
@@ -53,6 +53,11 @@ export const blobs = pgTable(
     index("blobs_dereferenced_at_idx")
       .on(table.dereferencedAt)
       .where(sql`${table.dereferencedAt} is not null`),
+    index("blobs_reclaim_attempted_at_idx")
+      .on(table.reclaimAttemptedAt, table.dereferencedAt, table.id)
+      .where(
+        sql`${table.reclaimAttemptedAt} is not null and ${table.dereferencedAt} is not null`,
+      ),
   ],
 );
 
