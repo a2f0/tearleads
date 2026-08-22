@@ -72,47 +72,55 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     });
 
     let deletion: ReturnType<typeof deleteContainer> | undefined;
-    let blockerReleasedAt = 0;
-    await db.transaction(async (blocker) => {
-      const pidResult = await blocker.execute(
-        sql`select pg_backend_pid() as pid`,
-      );
-      const blockerPid = Number(Reflect.get(pidResult.rows[0] ?? {}, "pid"));
-      if (!Number.isInteger(blockerPid)) {
-        throw new Error("Expected PostgreSQL backend pid");
-      }
-      await blocker
-        .select({ id: blobs.id })
-        .from(blobs)
-        .where(eq(blobs.id, blobId))
-        .for("update");
+    try {
+      let blockerReleasedAt = 0;
+      await db.transaction(async (blocker) => {
+        const pidResult = await blocker.execute(
+          sql`select pg_backend_pid() as pid`,
+        );
+        const blockerPid = Number(Reflect.get(pidResult.rows[0] ?? {}, "pid"));
+        if (!Number.isInteger(blockerPid)) {
+          throw new Error("Expected PostgreSQL backend pid");
+        }
+        await blocker
+          .select({ id: blobs.id })
+          .from(blobs)
+          .where(eq(blobs.id, blobId))
+          .for("update");
 
-      deletion = deleteContainer(db, {
-        containerId: child.containerId,
-        userId: owner.userId,
+        deletion = deleteContainer(db, {
+          containerId: child.containerId,
+          userId: owner.userId,
+        });
+        await Promise.race([
+          waitForBlockedBackend(blockerPid),
+          deletion.then(() => {
+            throw new Error("Container deletion bypassed the blob lock");
+          }),
+        ]);
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        blockerReleasedAt = Date.now();
       });
-      await Promise.race([
-        waitForBlockedBackend(blockerPid),
-        deletion.then(() => {
-          throw new Error("Container deletion bypassed the blob lock");
-        }),
-      ]);
-      await new Promise<void>((resolve) => setTimeout(resolve, 100));
-      blockerReleasedAt = Date.now();
-    });
 
-    if (!deletion) {
-      throw new Error("Expected container deletion to start");
+      if (!deletion) {
+        throw new Error("Expected container deletion to start");
+      }
+      await deletion;
+      const [blob] = await db
+        .select({ dereferencedAt: blobs.dereferencedAt })
+        .from(blobs)
+        .where(eq(blobs.id, blobId));
+      expect(blob?.dereferencedAt).toBeInstanceOf(Date);
+      expect(blob?.dereferencedAt?.getTime()).toBeGreaterThanOrEqual(
+        blockerReleasedAt - 20,
+      );
+    } finally {
+      await deletion?.catch(() => undefined);
+      await db
+        .delete(attachmentBindings)
+        .where(eq(attachmentBindings.blobId, blobId));
+      await db.delete(blobs).where(eq(blobs.id, blobId));
     }
-    await deletion;
-    const [blob] = await db
-      .select({ dereferencedAt: blobs.dereferencedAt })
-      .from(blobs)
-      .where(eq(blobs.id, blobId));
-    expect(blob?.dereferencedAt).toBeInstanceOf(Date);
-    expect(blob?.dereferencedAt?.getTime()).toBeGreaterThanOrEqual(
-      blockerReleasedAt - 20,
-    );
   },
   15_000,
 );

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setSystemTime, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
 import {
   attachmentBindings,
@@ -84,6 +84,34 @@ test("does not reclaim a blob still within the grace period", async () => {
   expect(result.reclaimedBlobIds).not.toContain(blobId);
   expect(await blobExists(blobId)).toBe(true);
 });
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "uses the database clock for the default cutoff under API host skew",
+  async () => {
+    const actualNow = new Date();
+    const blobId = crypto.randomUUID();
+    await insertDereferencedBlob({
+      id: blobId,
+      dereferencedAt: actualNow,
+    });
+
+    setSystemTime(new Date(actualNow.getTime() + 48 * HOUR_MS));
+    try {
+      const result = await runReclaimDereferencedBlobsWorkflow(db, {
+        gracePeriodMs: 24 * HOUR_MS,
+      });
+
+      expect(result.reclaimedBlobIds).not.toContain(blobId);
+      expect(await blobExists(blobId)).toBe(true);
+    } finally {
+      setSystemTime();
+      await db.delete(blobs).where(eq(blobs.id, blobId));
+      await db
+        .delete(blobAuditObjects)
+        .where(eq(blobAuditObjects.blobId, blobId));
+    }
+  },
+);
 
 test("fails closed when required audit deletion state is missing", async () => {
   const blobId = crypto.randomUUID();

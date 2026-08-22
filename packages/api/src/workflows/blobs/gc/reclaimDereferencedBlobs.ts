@@ -10,8 +10,20 @@ import {
   blobContentWriteHeaders,
   blobs,
 } from "@symcrypt/api-shared/schema";
-import { and, asc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
-import { lockRowForUpdate } from "../../../utils/sqlDialect";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
+import {
+  lockRowForUpdate,
+  wallClockNowExpression,
+} from "../../../utils/sqlDialect";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
@@ -57,6 +69,18 @@ function normalizeLimit(limit: number | undefined): number {
     return DEFAULT_LIMIT;
   }
   return Math.min(limit, MAX_LIMIT);
+}
+
+async function readDatabaseWallClock(db: ApiDatabase): Promise<Date> {
+  const [row] = await db
+    .select({
+      now: wallClockNowExpression().mapWith(blobs.createdAt),
+    })
+    .from(sql`(select 1) as database_clock`);
+  if (!row) {
+    throw new Error("Database wall clock query returned no row");
+  }
+  return row.now;
 }
 
 function toNewReclaimCandidates(
@@ -258,7 +282,11 @@ export async function runReclaimDereferencedBlobsWorkflow(
   db: ApiDatabase,
   input: ReclaimDereferencedBlobsInput = {},
 ): Promise<ReclaimDereferencedBlobsResult> {
-  const now = input.now ?? new Date();
+  // Dereference timestamps are written by the database after reachability
+  // locks. Use that same clock for the default cutoff so API-host skew cannot
+  // shorten the grace period. Explicit `now` remains a deterministic test and
+  // maintenance override.
+  const now = input.now ?? (await readDatabaseWallClock(db));
   const gracePeriodMs = input.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const cutoff = new Date(now.getTime() - gracePeriodMs);
   const limit = normalizeLimit(input.limit);
