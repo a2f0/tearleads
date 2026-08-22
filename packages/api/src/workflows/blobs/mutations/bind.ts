@@ -209,6 +209,22 @@ async function verifyAndLockBindSlot(input: {
   return { activeBinding, verifiedBinding };
 }
 
+function lockBindAttachmentAuthorization(
+  input: BindBlobAttachmentInput,
+  documentId: string,
+  proof: AttachmentAuthorizationProof,
+  tx: DatabaseTransaction,
+): Promise<void> {
+  return lockAttachmentAuthorizationForShare({
+    blobId: input.blobId,
+    contentKeyTargets: input.request.contentKeyBundle.targets,
+    documentId,
+    executor: tx,
+    proof,
+    request: input.request,
+  });
+}
+
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
@@ -222,9 +238,7 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     userId: input.userId,
   });
-  // Run sequentially: both queries share the single transaction
-  // connection, so issuing them concurrently only trips pg's
-  // already-executing-query deprecation without any real parallelism.
+  // These queries share one transaction connection, so run sequentially.
   const signingPublicKey = await loadSignerPublicKey(tx, {
     ...input,
     error: (message, status) => new BlobMutationError(message, status),
@@ -235,12 +249,7 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
   });
   await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
-  await lockAttachmentAuthorizationForShare({
-    documentId: bindBody.documentId,
-    executor: tx,
-    proof,
-    request: input.request,
-  });
+  await lockBindAttachmentAuthorization(input, bindBody.documentId, proof, tx);
   const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
     blobId: input.blobId,

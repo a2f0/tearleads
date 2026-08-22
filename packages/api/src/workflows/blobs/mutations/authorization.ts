@@ -8,8 +8,13 @@ import type {
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
+  BlobContentKeyTargetEnvelopeRequest,
 } from "@symcrypt/validators/request";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import {
+  BlobKekTargetError,
+  resolveCurrentBlobKekTargets,
+} from "../../../access/read/blobKekTargets";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
@@ -108,7 +113,7 @@ export async function assertAttachmentOrganizationCanSync(
 
 export function createAttachmentAuthorizationLockPlan(input: {
   readonly authorizingContainerIds: readonly string[];
-  readonly contentKeyTargets: readonly {
+  readonly existingBlobTargets: readonly {
     readonly containerId: string;
     readonly documentId: string;
   }[];
@@ -119,13 +124,65 @@ export function createAttachmentAuthorizationLockPlan(input: {
     containerIds: uniqueSortedStrings([
       ...input.authorizingContainerIds,
       ...input.linkedContainerIds,
-      ...input.contentKeyTargets.map((target) => target.containerId),
+      ...input.existingBlobTargets.map((target) => target.containerId),
     ]),
     documentIds: uniqueSortedStrings([
       input.documentId,
-      ...input.contentKeyTargets.map((target) => target.documentId),
+      ...input.existingBlobTargets.map((target) => target.documentId),
     ]),
   };
+}
+
+async function resolveExistingBlobTargetsForLock(input: {
+  readonly blobId: string;
+  readonly executor: DatabaseTransaction;
+}) {
+  try {
+    return (await resolveCurrentBlobKekTargets(input.blobId, input.executor))
+      .targets;
+  } catch (error) {
+    if (error instanceof BlobKekTargetError && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export function assertRequestedBlobTargetHeadsAreKnown(input: {
+  readonly documentId: string;
+  readonly existingBlobTargets: readonly {
+    readonly containerId: string;
+    readonly documentId: string;
+  }[];
+  readonly linkedContainerIds: readonly string[];
+  readonly requestedTargets: readonly {
+    readonly containerId: string;
+    readonly documentId: string;
+  }[];
+}): void {
+  const maximumTargetCount =
+    input.existingBlobTargets.length + input.linkedContainerIds.length;
+  if (input.requestedTargets.length > maximumTargetCount) {
+    throw new BlobMutationError("Blob content-key target heads are stale", 409);
+  }
+
+  const knownContainerIds = new Set([
+    ...input.linkedContainerIds,
+    ...input.existingBlobTargets.map((target) => target.containerId),
+  ]);
+  const knownDocumentIds = new Set([
+    input.documentId,
+    ...input.existingBlobTargets.map((target) => target.documentId),
+  ]);
+  if (
+    input.requestedTargets.some(
+      (target) =>
+        !knownContainerIds.has(target.containerId) ||
+        !knownDocumentIds.has(target.documentId),
+    )
+  ) {
+    throw new BlobMutationError("Blob content-key target heads are stale", 409);
+  }
 }
 
 /**
@@ -135,22 +192,37 @@ export function createAttachmentAuthorizationLockPlan(input: {
  * a bind's wrappers stale before commit.
  */
 export async function lockAttachmentAuthorizationForShare(input: {
+  readonly blobId?: string;
+  readonly contentKeyTargets?: readonly BlobContentKeyTargetEnvelopeRequest[];
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
-  const contentKeyTargets =
-    "contentKeyBundle" in input.request
-      ? input.request.contentKeyBundle.targets
-      : [];
+  const existingBlobTargets =
+    input.blobId === undefined || input.contentKeyTargets === undefined
+      ? []
+      : await resolveExistingBlobTargetsForLock({
+          blobId: input.blobId,
+          executor: input.executor,
+        });
+  const linkedContainerIds =
+    input.proof.documentManifest.state.linkedContainerIds;
+  if (input.contentKeyTargets !== undefined) {
+    assertRequestedBlobTargetHeadsAreKnown({
+      documentId: input.documentId,
+      existingBlobTargets,
+      linkedContainerIds,
+      requestedTargets: input.contentKeyTargets,
+    });
+  }
   const lockPlan = createAttachmentAuthorizationLockPlan({
     authorizingContainerIds: input.proof.authorizingContainerPaths.flatMap(
       (path) => path.map((manifest) => manifest.state.containerId),
     ),
-    contentKeyTargets,
     documentId: input.documentId,
-    linkedContainerIds: input.proof.documentManifest.state.linkedContainerIds,
+    existingBlobTargets,
+    linkedContainerIds,
   });
   await lockAccessManifestHeadsForShare(
     "container",

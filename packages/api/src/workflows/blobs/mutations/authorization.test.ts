@@ -5,7 +5,10 @@ import {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
 } from "../../../access/read/accessManifestStore";
-import { createAttachmentAuthorizationLockPlan } from "./authorization";
+import {
+  assertRequestedBlobTargetHeadsAreKnown,
+  createAttachmentAuthorizationLockPlan,
+} from "./authorization";
 
 test("attachment authorization locks every path and key-target head", () => {
   const documentId = crypto.randomUUID();
@@ -13,17 +16,43 @@ test("attachment authorization locks every path and key-target head", () => {
   expect(
     createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: ["ancestor", "linked-a"],
-      contentKeyTargets: [
+      documentId,
+      existingBlobTargets: [
         { containerId: "target", documentId: targetDocumentId },
         { containerId: "linked-a", documentId },
       ],
-      documentId,
       linkedContainerIds: ["linked-b", "linked-a"],
     }),
   ).toEqual({
     containerIds: ["ancestor", "linked-a", "linked-b", "target"],
     documentIds: [documentId, targetDocumentId].sort(),
   });
+});
+
+test("attachment locks reject client-selected target heads", () => {
+  expect(() =>
+    assertRequestedBlobTargetHeadsAreKnown({
+      documentId: "document",
+      existingBlobTargets: [
+        { containerId: "existing-container", documentId: "existing-document" },
+      ],
+      linkedContainerIds: ["linked-container"],
+      requestedTargets: [
+        { containerId: "unrelated-container", documentId: "document" },
+      ],
+    }),
+  ).toThrow("Blob content-key target heads are stale");
+  expect(() =>
+    assertRequestedBlobTargetHeadsAreKnown({
+      documentId: "document",
+      existingBlobTargets: [],
+      linkedContainerIds: ["linked-container"],
+      requestedTargets: [
+        { containerId: "linked-container", documentId: "document" },
+        { containerId: "linked-container", documentId: "document" },
+      ],
+    }),
+  ).toThrow("Blob content-key target heads are stale");
 });
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
@@ -50,8 +79,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     ]);
     const lockPlan = createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: [authorizingContainerId],
-      contentKeyTargets: [],
       documentId: crypto.randomUUID(),
+      existingBlobTargets: [],
       linkedContainerIds: [authorizingContainerId, linkedTargetId],
     });
 
@@ -121,10 +150,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     );
     const lockPlan = createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: [authorizingContainerId],
-      contentKeyTargets: [
+      documentId,
+      existingBlobTargets: [
         { containerId: targetContainerId, documentId: targetDocumentId },
       ],
-      documentId,
       linkedContainerIds: [authorizingContainerId],
     });
 

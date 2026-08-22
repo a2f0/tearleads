@@ -50,15 +50,19 @@ function compareQueued(
   );
 }
 
-function selectFairCandidates(
+export function selectFairCandidates(
   newWork: readonly PendingDeletionCandidate[],
   retries: readonly PendingDeletionCandidate[],
   limit: number,
 ): PendingDeletionCandidate[] {
-  if (newWork.length === 0 || retries.length === 0) {
-    return [...newWork, ...retries].slice(0, limit);
+  const retryBlobIds = new Set(retries.map((candidate) => candidate.blobId));
+  const disjointNewWork = newWork.filter(
+    (candidate) => !retryBlobIds.has(candidate.blobId),
+  );
+  if (disjointNewWork.length === 0 || retries.length === 0) {
+    return [...disjointNewWork, ...retries].slice(0, limit);
   }
-  const oldestNew = newWork[0];
+  const oldestNew = disjointNewWork[0];
   const oldestRetry = retries[0];
   if (!oldestNew || !oldestRetry) {
     throw new Error("Pending deletion queue selection lost a candidate");
@@ -74,11 +78,11 @@ function selectFairCandidates(
   const newQuota = Math.ceil(limit / 2);
   const retryQuota = Math.floor(limit / 2);
   const selected = [
-    ...newWork.slice(0, newQuota),
+    ...disjointNewWork.slice(0, newQuota),
     ...retries.slice(0, retryQuota),
   ];
   selected.push(
-    ...[...newWork.slice(newQuota), ...retries.slice(retryQuota)]
+    ...[...disjointNewWork.slice(newQuota), ...retries.slice(retryQuota)]
       .sort(compareQueued)
       .slice(0, limit - selected.length),
   );

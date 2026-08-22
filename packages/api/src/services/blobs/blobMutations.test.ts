@@ -640,7 +640,7 @@ async function setDocumentAndContainerUpdatedAt(input: {
   ]);
 }
 
-test("bind and detach succeed when event publication fails", async () => {
+test("attachment writes tolerate publish failures", async () => {
   const owner = createTestUser();
   const publishedEvents: Array<Record<string, unknown>> = [];
   const failureRuntime = createFailingRuntime((event) =>
@@ -740,6 +740,7 @@ test("bind and detach succeed when event publication fails", async () => {
     document,
     owner,
   });
+  Reflect.set(detachRequest, "contentKeyBundle", 0);
   const detachResponse = await detachBlobAttachment(failureRuntime, {
     bindingId: replacementBind.verifiedBinding.bindingId,
     blobId: replacementBlobId,
@@ -810,7 +811,6 @@ test("bind and detach succeed when event publication fails", async () => {
       slotId: "slot-a",
     },
   ]);
-
   const auditedBlobs = await db
     .select({ blobId: blobAuditObjects.blobId })
     .from(blobAuditObjects)
@@ -926,7 +926,7 @@ async function expectStagePromotesToObjectStore(input: {
   expect(text).toBe(input.encryptedBytes);
 }
 
-test("bindBlobAttachment promotes multipart blob stages without storing payload bytes", async () => {
+test("bind promotes multipart stages without inline bytes", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
   const encryptedBytes = "multipart-bind-encrypted-bytes";
@@ -1181,7 +1181,7 @@ test("bindBlobAttachment rejects malformed staged blob write headers", async () 
   );
 });
 
-test("bindBlobAttachment rejects stale slot bindings and omitted shared blob targets", async () => {
+test("bind rejects stale slots and incomplete shared targets", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
   const container = await bootstrapRoot(owner);
