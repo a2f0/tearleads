@@ -217,7 +217,7 @@ test("reset preserves disjoint lanes from active and queued hydrations", async (
     expect(state.remoteHydrationPromise).not.toBeNull();
     expect(staleCompletionCount).toBe(0);
     expect(requests[1]?.lanes.map(({ parentId }) => parentId).sort()).toEqual(
-      [parentA, parentB].sort(),
+      [null, parentA, parentB].sort(),
     );
     resolveRequest(1);
     await waitFor(() => resolvers.length === 3);
@@ -227,7 +227,7 @@ test("reset preserves disjoint lanes from active and queued hydrations", async (
     expect(maxActiveRequests).toBe(1);
     expect(staleCompletionCount).toBe(0);
     expect(currentCompletionCount).toBe(1);
-    expect(scheduledCount).toBe(0);
+    expect(scheduledCount).toBe(1);
     expect(state.remoteHydrationPromise).toBeNull();
   } finally {
     close();

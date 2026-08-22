@@ -14,6 +14,10 @@ type ListParentLanes =
   RequestState["runtime"]["apiClient"]["listContainerParentLanes"];
 type LaneResponse = Awaited<ReturnType<ListParentLanes>>;
 type LaneRequest = Parameters<ListParentLanes>[0];
+type RequestContainerState =
+  RequestState["containersById"] extends Map<string, infer Value>
+    ? Value
+    : never;
 
 const laneResponse: LaneResponse = {
   results: [
@@ -323,12 +327,12 @@ test("network loss during hydration retains the lane for reconnect", async () =>
     let resolveFirstRequest: (value: LaneResponse) => void = () => {
       throw new Error("hydration promise was not initialized");
     };
-    let hydrationRequests = 0;
+    const requestedParentIds: Array<Array<string | null>> = [];
     const state = createRequestState({
       execSql,
       listContainerParentLanes: (request) => {
-        hydrationRequests += 1;
-        if (hydrationRequests > 1) {
+        requestedParentIds.push(request.lanes.map(({ parentId }) => parentId));
+        if (requestedParentIds.length > 1) {
           return Promise.resolve(createLaneResponse(request));
         }
         firstResponse = createLaneResponse(request);
@@ -361,8 +365,11 @@ test("network loss during hydration retains the lane for reconnect", async () =>
       scheduleSync: () => {},
       state,
     });
-    await waitFor(() => hydrationRequests === 1);
+    await waitFor(() => requestedParentIds.length === 1);
 
+    state.containersById.set("new-root", {
+      container: { id: "new-root", parentId: null },
+    } as RequestContainerState);
     (state.runtime.state as { online: boolean }).online = false;
     resolveFirstRequest(firstResponse);
     await hydration;
@@ -374,7 +381,7 @@ test("network loss during hydration retains the lane for reconnect", async () =>
     (state.runtime.state as { online: boolean }).online = true;
     await resumeRecoveryWork();
 
-    expect(hydrationRequests).toBe(2);
+    expect(requestedParentIds).toEqual([[null], [null, "new-root"]]);
     expect(staleCompletionCount).toBe(0);
     expect(recreatedCompletionFactoryCount).toBe(1);
     expect(recreatedCompletionCount).toBe(1);

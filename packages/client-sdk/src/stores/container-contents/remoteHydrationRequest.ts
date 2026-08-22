@@ -81,12 +81,12 @@ function hasRemoteHydrationPrerequisites(
 
 function createResetRecoveryInput(
   input: RemoteHydrationRequestInput,
-  parentIds: ReadonlyArray<string | null> | undefined = input.parentIds,
 ): RemoteHydrationRequestInput {
   return {
     ...input,
+    followDiscoveredParentLanes: true,
     onFullyHydrated: undefined,
-    parentIds,
+    parentIds: undefined,
     recreateOnFullyHydratedAtStart: true,
   };
 }
@@ -146,18 +146,14 @@ function waitForActiveInitialization(
 
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
-  parentIds?: ReadonlyArray<string | null> | undefined,
 ): Promise<void> {
-  return resumeRetainedRecoveryHydration(
-    createResetRecoveryInput(input, parentIds),
-  );
+  return resumeRetainedRecoveryHydration(createResetRecoveryInput(input));
 }
 
 function retainResetRecoveryHydration(
   input: RemoteHydrationRequestInput,
-  parentIds?: ReadonlyArray<string | null> | undefined,
 ): void {
-  queueRecoveryHydrationRequest(createResetRecoveryInput(input, parentIds));
+  queueRecoveryHydrationRequest(createResetRecoveryInput(input));
 }
 
 export function resumeContainerContentsRecoveryHydration(
@@ -299,10 +295,10 @@ export function requestContainerContentsRemoteHydration(
         scheduleSync();
       }
       if (shouldRetryAfterReset) {
-        return retryRemoteHydrationAfterReset(input, parentIds);
+        return retryRemoteHydrationAfterReset(input);
       }
       if (retainInterruptedHydration) {
-        retainResetRecoveryHydration(input, parentIds);
+        retainResetRecoveryHydration(input);
       }
       return undefined;
     });
