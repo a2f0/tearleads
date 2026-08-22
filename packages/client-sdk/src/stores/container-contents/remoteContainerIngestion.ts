@@ -10,7 +10,25 @@ import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
 interface RemoteContainerIngestionController {
   ingest: (remoteContainer: RemoteContainer) => Promise<void>;
-  resumeInterruptedWork: () => void;
+  resumeInterruptedWork: () => Promise<void>;
+}
+
+export async function resumeRemoteContainerRecoveryWork(input: {
+  onIngestionError: (error: unknown) => void;
+  onHydrationError: (error: unknown) => void;
+  resumeHydration: () => Promise<void>;
+  resumeIngestion: () => Promise<void>;
+}): Promise<void> {
+  try {
+    await input.resumeIngestion();
+  } catch (error) {
+    input.onIngestionError(error);
+  }
+  try {
+    await input.resumeHydration();
+  } catch (error) {
+    input.onHydrationError(error);
+  }
 }
 
 export function createRemoteContainerIngestionController(input: {
@@ -45,19 +63,22 @@ export function createRemoteContainerIngestionController(input: {
       await remoteContainerIngestor(remoteContainer);
       scheduleAfterIngestion();
     },
-    resumeInterruptedWork: () => {
-      void resumeIngestion().catch((error: unknown) => {
-        state.runtime.util.log(
-          `${getContainerContentsStoreLogLabel(state)}: failed to resume remote container ingestion: ${errorMessage(error)}`,
-        );
-      });
-      void resumeContainerContentsRecoveryHydration(state)?.catch(
-        (error: unknown) => {
+    resumeInterruptedWork: () =>
+      resumeRemoteContainerRecoveryWork({
+        onHydrationError: (error) => {
           state.runtime.util.log(
             `${getContainerContentsStoreLogLabel(state)}: failed to resume remote hydration: ${errorMessage(error)}`,
           );
         },
-      );
-    },
+        onIngestionError: (error) => {
+          state.runtime.util.log(
+            `${getContainerContentsStoreLogLabel(state)}: failed to resume remote container ingestion: ${errorMessage(error)}`,
+          );
+        },
+        resumeHydration: async () => {
+          await resumeContainerContentsRecoveryHydration(state);
+        },
+        resumeIngestion,
+      }),
   };
 }

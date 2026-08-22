@@ -280,7 +280,7 @@ test("a request queued before reset rehydrates the replacement generation", asyn
   }
 });
 
-test("active hydration retries after reset without another request", async () => {
+test("active hydration recreates completion after reset without another request", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-active-hydration-reset-retry",
   );
@@ -308,13 +308,30 @@ test("active hydration retries after reset without another request", async () =>
       ],
     };
     let resolveInitialization: () => void = () => {};
+    let staleCompletionCount = 0;
+    let recreatedCompletionCount = 0;
+    let recreatedCompletionFactoryCount = 0;
     const hydration = requestContainerContentsRemoteHydration({
       host: emptyHydrationHost,
+      onFullyHydrated: () => {
+        staleCompletionCount += 1;
+      },
       parentIds: [null],
+      recreateOnFullyHydratedAfterReset: () => {
+        recreatedCompletionFactoryCount += 1;
+        return () => {
+          recreatedCompletionCount += 1;
+        };
+      },
       scheduleSync: () => {},
       state,
     });
     await waitFor(() => resolvers.length === 1);
+    const coalescedHydration = requestContainerContentsRemoteHydration({
+      host: emptyHydrationHost,
+      scheduleSync: () => {},
+      state,
+    });
 
     state.lifecycleGeneration += 1;
     state.containersById = new Map();
@@ -324,6 +341,9 @@ test("active hydration retries after reset without another request", async () =>
     resolvers[0]?.(laneResponse);
     await hydration;
     expect(resolvers).toHaveLength(1);
+    expect(staleCompletionCount).toBe(0);
+    expect(recreatedCompletionCount).toBe(0);
+    expect(recreatedCompletionFactoryCount).toBe(1);
 
     state.initializePromise = new Promise<void>((resolve) => {
       resolveInitialization = resolve;
@@ -338,8 +358,10 @@ test("active hydration retries after reset without another request", async () =>
     resolveInitialization();
     await waitFor(() => resolvers.length === 2);
     resolvers[1]?.(laneResponse);
-    await recoveryHydration;
+    await Promise.all([recoveryHydration, coalescedHydration]);
 
+    expect(staleCompletionCount).toBe(0);
+    expect(recreatedCompletionCount).toBe(1);
     expect(state.rootLaneHydrated).toBe(true);
     expect(state.remoteHydrationPromise).toBeNull();
   } finally {

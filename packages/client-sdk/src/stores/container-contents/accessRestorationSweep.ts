@@ -19,6 +19,18 @@ interface RestorationSweepSession {
   state: ContainerContentsStoreSyncState;
 }
 
+function createRestorationSweepSession(
+  state: ContainerContentsStoreSyncState,
+  lifecycleGeneration: number,
+): RestorationSweepSession {
+  return {
+    isCurrent: () => state.lifecycleGeneration === lifecycleGeneration,
+    persistence: state.persistence,
+    runtime: state.runtime,
+    state,
+  };
+}
+
 const DELETION_PROBE_CONCURRENCY = 4;
 const SWEEP_ATTEMPT_LIMIT = 5;
 const SWEEP_RETRY_BASE_MS = 60_000;
@@ -231,12 +243,10 @@ async function reconcileRestoredAccess(input: {
   state: ContainerContentsStoreSyncState;
 }): Promise<void> {
   const { requestHydration, state } = input;
-  const session: RestorationSweepSession = {
-    isCurrent: () => state.lifecycleGeneration === input.lifecycleGeneration,
-    persistence: state.persistence,
-    runtime: state.runtime,
+  const session = createRestorationSweepSession(
     state,
-  };
+    input.lifecycleGeneration,
+  );
   const requesterUserId = session.runtime.auth.userId;
   if (!requesterUserId) {
     return;
@@ -256,6 +266,13 @@ async function reconcileRestoredAccess(input: {
 
   await refreshAllRemoteHydration({
     onFullyHydrated: () => completeRestorationSweeps(session, sweeps),
+    recreateOnFullyHydratedAfterReset: () => {
+      const retrySession = createRestorationSweepSession(
+        state,
+        state.lifecycleGeneration,
+      );
+      return () => completeRestorationSweeps(retrySession, sweeps);
+    },
     requestHydration,
     resetAllLaneWatermarks: true,
     scheduleSyncAfterHydration: false,

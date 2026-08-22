@@ -31,6 +31,9 @@ interface RemoteHydrationRequestInput {
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetAllLaneWatermarks?: boolean | undefined;
   resetRootLaneWatermark?: boolean | undefined;
+  recreateOnFullyHydratedAfterReset?:
+    | (() => () => Promise<void> | void)
+    | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
@@ -96,7 +99,10 @@ function waitForActiveInitialization(
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
-  const retryInput = { ...input, onFullyHydrated: undefined };
+  const retryInput = {
+    ...input,
+    onFullyHydrated: input.recreateOnFullyHydratedAfterReset?.(),
+  };
   if (retryInput.state.runtime.infra.dbStatus !== "ready") {
     queueRecoveryHydrationRequest(retryInput);
     return Promise.resolve();
@@ -213,7 +219,9 @@ export function requestContainerContentsRemoteHydration(
     })
     .finally(() => {
       const shouldRetryAfterReset =
-        !isCurrent() && !statesWithQueuedHydrationRequest.has(state);
+        !isCurrent() &&
+        (input.recreateOnFullyHydratedAfterReset !== undefined ||
+          !statesWithQueuedHydrationRequest.has(state));
       if (state.remoteHydrationPromise === hydrationPromise) {
         state.remoteHydrationPromise = null;
         state.remoteHydrationGeneration = null;

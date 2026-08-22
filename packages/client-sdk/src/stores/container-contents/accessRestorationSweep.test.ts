@@ -134,7 +134,13 @@ test("reset cancels restoration cleanup that is awaiting candidates", async () =
   let resolveCandidates: (containerIds: readonly string[]) => void = () => {
     throw new Error("candidate promise was not initialized");
   };
-  let candidateExecSql: unknown;
+  const candidateExecSql: unknown[] = [];
+  let candidateLoadCount = 0;
+  let completionCount = 0;
+  let recreateCompletionAfterReset:
+    | (() => () => Promise<void> | void)
+    | undefined;
+  const purgeExecSql: unknown[] = [];
   let purgeCount = 0;
   let projectionProbeCount = 0;
   const state = {
@@ -144,18 +150,28 @@ test("reset cancels restoration cleanup that is awaiting candidates", async () =
     lifecycleGeneration: 0,
     persistence: {
       claimDormantMetadataSweepAttempt: async () => true,
-      completeDormantMetadataSweepRequest: async () => {},
+      completeDormantMetadataSweepRequest: async () => {
+        completionCount += 1;
+      },
       listDormantMetadataSweepCandidates: (execSql: unknown) => {
-        candidateExecSql = execSql;
+        candidateExecSql.push(execSql);
+        candidateLoadCount += 1;
+        if (candidateLoadCount === 2) {
+          return Promise.resolve(["container-1"]);
+        }
+        if (candidateLoadCount > 2) {
+          return Promise.resolve([]);
+        }
         candidateLoadStarted = true;
         return new Promise<readonly string[]>((resolve) => {
           resolveCandidates = resolve;
         });
       },
       listDormantMetadataSweepRequests: async () => [sweep],
-      purgeDormantContainerMetadataCandidates: async () => {
+      purgeDormantContainerMetadataCandidates: async (execSql: unknown) => {
+        purgeExecSql.push(execSql);
         purgeCount += 1;
-        return 0;
+        return 1;
       },
     },
     remoteHydrationPromise: null,
@@ -164,7 +180,16 @@ test("reset cancels restoration cleanup that is awaiting candidates", async () =
         evictContainerWriterProjection: () => {},
         getContainerWriterProjectionResult: async () => {
           projectionProbeCount += 1;
-          throw new Error("stale cleanup must not probe the recovered runtime");
+          return {
+            kind: "http" as const,
+            message: "missing",
+            method: "GET" as const,
+            ok: false as const,
+            path: "/containers/container-1/writer-projection",
+            report: () => {},
+            status: 404,
+            statusText: "Not Found",
+          };
         },
       },
       auth: { isAuthenticated: true, userId: "user-1" },
@@ -175,6 +200,7 @@ test("reset cancels restoration cleanup that is awaiting candidates", async () =
   } as unknown as ContainerContentsStoreSyncState;
   const reconcile = createRestoredAccessReconciler({
     requestHydration: async (options) => {
+      recreateCompletionAfterReset = options.recreateOnFullyHydratedAfterReset;
       await options.onFullyHydrated?.();
     },
     state,
@@ -191,9 +217,23 @@ test("reset cancels restoration cleanup that is awaiting candidates", async () =
   resolveCandidates(["container-1"]);
   await restoration;
 
-  expect(candidateExecSql).toBe(staleExecSql);
+  expect(candidateExecSql).toEqual([staleExecSql]);
   expect(projectionProbeCount).toBe(0);
   expect(purgeCount).toBe(0);
+
+  const retryCompletion = recreateCompletionAfterReset?.();
+  expect(retryCompletion).toBeDefined();
+  await retryCompletion?.();
+
+  expect(candidateExecSql).toEqual([
+    staleExecSql,
+    recoveredExecSql,
+    recoveredExecSql,
+  ]);
+  expect(purgeExecSql).toEqual([recoveredExecSql]);
+  expect(projectionProbeCount).toBe(1);
+  expect(purgeCount).toBe(1);
+  expect(completionCount).toBe(1);
 });
 
 test("restoration sweep waits for a complete recursive hydration", async () => {

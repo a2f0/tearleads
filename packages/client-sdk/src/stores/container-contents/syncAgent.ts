@@ -445,7 +445,7 @@ export function createContainerContentsStoreSyncAgent(input: {
   return {
     ensureInitialized: () => {
       ensureContainerContentsStoreInitialized({ host, scheduleSync, state });
-      remoteContainerIngestion.resumeInterruptedWork();
+      void remoteContainerIngestion.resumeInterruptedWork();
     },
     handleRemoteEvents: () =>
       handleContainerContentsRemoteEvents({
