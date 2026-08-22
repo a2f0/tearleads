@@ -171,6 +171,49 @@ test("failed object deletion remains durable and a later sweep records completio
   expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
 });
 
+test("a sweep acknowledges an object deleted before its database acknowledgement", async () => {
+  const runtime = createServiceTestRuntime();
+  const blobId = crypto.randomUUID();
+  const storageKey = `blob-object:${blobId}`;
+  const bytes = "deleted-before-acknowledgement";
+  await uploadBlobObject(runtime.blobObjectStore, storageKey, bytes);
+  await db.insert(blobAuditObjects).values({
+    blobId,
+    byteLength: bytes.length,
+    historicalBytesRetained: false,
+    liveStorageKey: storageKey,
+    objectDeleteAttemptedAt: new Date(Date.now() - HOUR_MS),
+    prunedAt: new Date(Date.now() - 2 * HOUR_MS),
+    retentionMode: "live_only",
+    sha256: await sha256Hex(bytes),
+  });
+
+  // Simulate the crash window after the object store accepted the delete but
+  // before recordBlobObjectDeleted committed its acknowledgement.
+  await runtime.blobObjectStore.deleteObject(storageKey);
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, storageKey),
+  ).toBeNull();
+
+  const summary = await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+  });
+
+  expect(summary.reclaimedCount).toBe(0);
+  expect(summary.deletedObjectCount).toBeGreaterThanOrEqual(1);
+  const [completed] = await db
+    .select({
+      liveStorageKey: blobAuditObjects.liveStorageKey,
+      objectDeleteAttemptedAt: blobAuditObjects.objectDeleteAttemptedAt,
+      objectDeletedAt: blobAuditObjects.objectDeletedAt,
+    })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, blobId));
+  expect(completed?.liveStorageKey).toBeNull();
+  expect(completed?.objectDeleteAttemptedAt).toBeInstanceOf(Date);
+  expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
+});
+
 test("a poison deletion does not starve newly pending object work", async () => {
   const objectStore = createMemoryBlobObjectStore();
   const poisonBlobId = crypto.randomUUID();
