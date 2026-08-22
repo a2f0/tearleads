@@ -175,7 +175,6 @@ async function reclaimOneBlob(
   input: {
     readonly blobId: string;
     readonly cutoff: Date;
-    readonly prunedAt: Date;
   },
 ): Promise<ReclaimOutcome> {
   return db.transaction(async (tx) => {
@@ -241,7 +240,7 @@ async function reclaimOneBlob(
       .set({
         liveStorageKey: blob.storageKey,
         objectDeletedAt: null,
-        prunedAt: input.prunedAt,
+        prunedAt: wallClockNowExpression(),
       })
       .where(eq(blobAuditObjects.blobId, input.blobId));
     await tx.delete(blobs).where(eq(blobs.id, input.blobId));
@@ -339,7 +338,6 @@ export async function runReclaimDereferencedBlobsWorkflow(
       const outcome = await reclaimOneBlob(db, {
         blobId: candidate.blobId,
         cutoff,
-        prunedAt: now,
       });
       if (outcome.kind === "reclaimed") {
         reclaimedBlobIds.push(candidate.blobId);
