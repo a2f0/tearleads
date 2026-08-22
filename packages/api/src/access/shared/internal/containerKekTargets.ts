@@ -19,9 +19,9 @@ import {
 } from "../../../utils/sqlDialect";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
-type ContainerKekTargetStatus = 404 | 409;
+export type ContainerKekTargetStatus = 404 | 409;
 
-class ContainerKekTargetError extends Error {
+export class ContainerKekTargetError extends Error {
   constructor(
     message: string,
     readonly status: ContainerKekTargetStatus,
@@ -123,7 +123,7 @@ function readContainerManifestTarget(input: {
   return { containerKeyEpochId, parentContainerId };
 }
 
-type ContainerManifestTarget = {
+export type ContainerManifestTarget = {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
   readonly containerManifestHash: string;
@@ -188,7 +188,7 @@ interface ContainerManifestBindingHistory {
   readonly manifestHashes: Set<string>;
 }
 
-async function loadCurrentContainerManifestTargetClosure(input: {
+export async function loadCurrentContainerManifestTargetClosure(input: {
   readonly containerIds: readonly string[];
   readonly executor: DatabaseSession;
 }): Promise<Map<string, ContainerManifestTarget>> {

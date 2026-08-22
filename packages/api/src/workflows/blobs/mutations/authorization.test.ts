@@ -17,6 +17,7 @@ test("attachment authorization locks every path and key-target head", () => {
   expect(
     createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: ["ancestor", "linked-a"],
+      containerKekTargetClosureIds: ["target-ancestor"],
       documentId,
       existingBlobTargets: [
         { containerId: "target", documentId: targetDocumentId },
@@ -25,7 +26,13 @@ test("attachment authorization locks every path and key-target head", () => {
       linkedContainerIds: ["linked-b", "linked-a"],
     }),
   ).toEqual({
-    containerIds: ["ancestor", "linked-a", "linked-b", "target"],
+    containerIds: [
+      "ancestor",
+      "linked-a",
+      "linked-b",
+      "target",
+      "target-ancestor",
+    ],
     documentIds: [documentId, targetDocumentId].sort(),
   });
 });
@@ -149,6 +156,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     ]);
     const lockPlan = createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: [authorizingContainerId],
+      containerKekTargetClosureIds: [authorizingContainerId, linkedTargetId],
       documentId: crypto.randomUUID(),
       existingBlobTargets: [],
       linkedContainerIds: [authorizingContainerId, linkedTargetId],
@@ -220,6 +228,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     );
     const lockPlan = createAttachmentAuthorizationLockPlan({
       authorizingContainerIds: [authorizingContainerId],
+      containerKekTargetClosureIds: [authorizingContainerId, targetContainerId],
       documentId,
       existingBlobTargets: [
         { containerId: targetContainerId, documentId: targetDocumentId },

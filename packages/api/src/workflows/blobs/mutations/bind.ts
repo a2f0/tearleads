@@ -14,7 +14,6 @@ import {
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
-import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   type AttachmentAuthorizationProof,
@@ -27,10 +26,10 @@ import {
 } from "./authorization";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
+import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 import {
   appendAttachmentAuditEvent,
   detachActiveSlotBinding,
-  markBlobDereferencedIfInactive,
   promoteStagedBlobIfPresent,
   requireSingleActiveAttachmentBindingForSlot,
   reviveBlobIfDereferenced,
@@ -305,14 +304,10 @@ async function bindBlobAttachmentTransaction(
     manifest: proof.documentManifest,
     userId: input.userId,
   });
-  if (activeBinding) {
-    await markBlobDereferencedIfInactive({
-      blobId: activeBinding.blobId,
-      executor: tx,
-    });
-  }
-  await touchDocumentAndLinkedContainers(tx, {
+  await finalizeAttachmentMutation({
+    ...(activeBinding ? { dereferencedBlobId: activeBinding.blobId } : {}),
     documentId: verifiedBinding.documentId,
+    executor: tx,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
   });
   return toBindResponse({

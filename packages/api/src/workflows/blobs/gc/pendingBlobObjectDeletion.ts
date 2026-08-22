@@ -1,6 +1,7 @@
 import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
 import { blobAuditObjects } from "@symcrypt/api-shared/schema";
 import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
 const DEFAULT_LIMIT = 100;
@@ -103,11 +104,11 @@ export async function listPendingBlobObjectDeletions(
  */
 export async function recordBlobObjectDeletionAttempt(
   db: ApiDatabase,
-  input: PendingBlobObjectDeletion & { readonly attemptedAt: Date },
+  input: PendingBlobObjectDeletion,
 ): Promise<boolean> {
   const updated = await db
     .update(blobAuditObjects)
-    .set({ objectDeleteAttemptedAt: input.attemptedAt })
+    .set({ objectDeleteAttemptedAt: wallClockNowExpression() })
     .where(
       and(
         eq(blobAuditObjects.blobId, input.blobId),
@@ -123,13 +124,13 @@ export async function recordBlobObjectDeletionAttempt(
 /** Record physical deletion without erasing immutable blob audit metadata. */
 export async function recordBlobObjectDeleted(
   db: ApiDatabase,
-  input: PendingBlobObjectDeletion & { readonly objectDeletedAt: Date },
+  input: PendingBlobObjectDeletion,
 ): Promise<void> {
   const updated = await db
     .update(blobAuditObjects)
     .set({
       liveStorageKey: null,
-      objectDeletedAt: input.objectDeletedAt,
+      objectDeletedAt: wallClockNowExpression(),
     })
     .where(
       and(

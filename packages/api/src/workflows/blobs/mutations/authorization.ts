@@ -18,6 +18,7 @@ import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
 } from "../../../access/read/blobKekTargets";
+import { listCurrentContainerKekTargetClosureIdsMapped } from "../../../access/read/containerKekTargets";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
@@ -116,6 +117,7 @@ export async function assertAttachmentOrganizationCanSync(
 
 export function createAttachmentAuthorizationLockPlan(input: {
   readonly authorizingContainerIds: readonly string[];
+  readonly containerKekTargetClosureIds: readonly string[];
   readonly existingBlobTargets: readonly {
     readonly containerId: string;
     readonly documentId: string;
@@ -126,6 +128,7 @@ export function createAttachmentAuthorizationLockPlan(input: {
   return {
     containerIds: uniqueSortedStrings([
       ...input.authorizingContainerIds,
+      ...input.containerKekTargetClosureIds,
       ...input.linkedContainerIds,
       ...input.existingBlobTargets.map((target) => target.containerId),
     ]),
@@ -134,6 +137,18 @@ export function createAttachmentAuthorizationLockPlan(input: {
       ...input.existingBlobTargets.map((target) => target.documentId),
     ]),
   };
+}
+
+function assertContainerKekTargetClosureUnchanged(
+  expectedIds: readonly string[],
+  actualIds: readonly string[],
+): void {
+  if (
+    expectedIds.length !== actualIds.length ||
+    expectedIds.some((containerId, index) => containerId !== actualIds[index])
+  ) {
+    throw new BlobMutationError("Blob content-key target heads are stale", 409);
+  }
 }
 
 async function resolveExistingBlobTargetsForLock(input: {
@@ -274,6 +289,9 @@ export async function lockAttachmentAuthorizationForShare(input: {
         });
   const linkedContainerIds =
     input.proof.documentManifest.state.linkedContainerIds;
+  const authorizingContainerIds = input.proof.authorizingContainerPaths.flatMap(
+    (path) => path.map((manifest) => manifest.state.containerId),
+  );
   if (input.contentKeyTargets !== undefined) {
     assertRequestedBlobTargetHeadsAreKnown({
       documentId: input.documentId,
@@ -282,10 +300,22 @@ export async function lockAttachmentAuthorizationForShare(input: {
       requestedTargets: input.contentKeyTargets,
     });
   }
+  const containerKekTargetSeedIds = uniqueSortedStrings([
+    ...authorizingContainerIds,
+    ...linkedContainerIds,
+    ...existingBlobTargets.map((target) => target.containerId),
+  ]);
+  const mapContainerKekTargetError = (message: string, status: 404 | 409) =>
+    new BlobMutationError(message, status);
+  const containerKekTargetClosureIds =
+    await listCurrentContainerKekTargetClosureIdsMapped(
+      containerKekTargetSeedIds,
+      input.executor,
+      mapContainerKekTargetError,
+    );
   const lockPlan = createAttachmentAuthorizationLockPlan({
-    authorizingContainerIds: input.proof.authorizingContainerPaths.flatMap(
-      (path) => path.map((manifest) => manifest.state.containerId),
-    ),
+    authorizingContainerIds,
+    containerKekTargetClosureIds,
     documentId: input.documentId,
     existingBlobTargets,
     linkedContainerIds,
@@ -299,6 +329,17 @@ export async function lockAttachmentAuthorizationForShare(input: {
     "document",
     lockPlan.documentIds,
     input.executor,
+  );
+
+  const lockedContainerKekTargetClosureIds =
+    await listCurrentContainerKekTargetClosureIdsMapped(
+      containerKekTargetSeedIds,
+      input.executor,
+      mapContainerKekTargetError,
+    );
+  assertContainerKekTargetClosureUnchanged(
+    containerKekTargetClosureIds,
+    lockedContainerKekTargetClosureIds,
   );
 
   const lockedManifest = await loadCurrentDocumentManifest(

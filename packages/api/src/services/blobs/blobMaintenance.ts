@@ -48,16 +48,13 @@ async function drainPendingBlobObjectDeletions(
         try {
           const shouldAttempt = await recordBlobObjectDeletionAttempt(
             runtime.db,
-            { ...pending, attemptedAt: new Date() },
+            pending,
           );
           if (!shouldAttempt) {
             return;
           }
           await runtime.blobObjectStore.deleteObject(pending.storageKey);
-          await recordBlobObjectDeleted(runtime.db, {
-            ...pending,
-            objectDeletedAt: new Date(),
-          });
+          await recordBlobObjectDeleted(runtime.db, pending);
           deletedObjectCount += 1;
         } catch (error) {
           // The audit row still retains the storage key, so the next sweep

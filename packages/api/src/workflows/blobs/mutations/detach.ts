@@ -5,7 +5,6 @@ import type {
 import { verifyAttachmentDetachEvent } from "@symcrypt/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
-import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   applyAttachmentContainerRekeys,
@@ -16,10 +15,10 @@ import {
 } from "./authorization";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
+import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 import {
   appendAttachmentDetachAuditEvent,
   loadActiveAttachmentBindingById,
-  markBlobDereferencedIfInactive,
 } from "./persistence";
 import {
   BlobMutationError,
@@ -101,12 +100,10 @@ async function detachBlobAttachmentTransaction(
     manifest: proof.documentManifest,
     userId: input.userId,
   });
-  await markBlobDereferencedIfInactive({
-    blobId: verifiedDetach.value.blobId,
-    executor: tx,
-  });
-  await touchDocumentAndLinkedContainers(tx, {
+  await finalizeAttachmentMutation({
+    dereferencedBlobId: verifiedDetach.value.blobId,
     documentId: verifiedDetach.value.documentId,
+    executor: tx,
     linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
   });
 
