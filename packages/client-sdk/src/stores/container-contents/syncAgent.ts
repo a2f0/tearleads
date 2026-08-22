@@ -119,8 +119,12 @@ function createSchedulingRemoteContainerIngestor(input: {
   const { host, scheduleSync, state } = input;
   const ingestRemoteContainer = createRemoteContainerIngestor({ host, state });
   return async (remoteContainer) => {
+    const lifecycleGeneration = state.lifecycleGeneration;
     await ingestRemoteContainer(remoteContainer);
-    if (state.documentStoresNeedPriming) {
+    if (
+      state.lifecycleGeneration === lifecycleGeneration &&
+      state.documentStoresNeedPriming
+    ) {
       scheduleSync();
     }
   };
@@ -202,6 +206,40 @@ async function initializeContainerContentsStore(input: {
   }
 }
 
+function waitForStaleLocalRefreshBeforeInitialization(input: {
+  host: RemoteContainerHydrationHost;
+  scheduleSync: () => void;
+  state: ContainerContentsStoreSyncState;
+}): boolean {
+  const { state } = input;
+  const activeRefresh = state.localContainerRefreshPromise;
+  if (
+    !activeRefresh ||
+    state.localContainerRefreshGeneration === state.lifecycleGeneration
+  ) {
+    return false;
+  }
+
+  const lifecycleGeneration = state.lifecycleGeneration;
+  state.initializeGeneration = lifecycleGeneration;
+  const releaseInitializationBarrier = () => {
+    if (state.initializePromise !== initializationBarrier) {
+      return;
+    }
+    state.initializePromise = null;
+    state.initializeGeneration = null;
+    if (state.runtime.infra.dbStatus === "ready") {
+      ensureContainerContentsStoreInitialized(input);
+    }
+  };
+  const initializationBarrier = activeRefresh.then(
+    releaseInitializationBarrier,
+    releaseInitializationBarrier,
+  );
+  state.initializePromise = initializationBarrier;
+  return true;
+}
+
 function ensureContainerContentsStoreInitialized(input: {
   host: RemoteContainerHydrationHost;
   scheduleSync: () => void;
@@ -212,6 +250,9 @@ function ensureContainerContentsStoreInitialized(input: {
     return;
   }
   if (state.initializePromise) {
+    return;
+  }
+  if (waitForStaleLocalRefreshBeforeInitialization(input)) {
     return;
   }
 

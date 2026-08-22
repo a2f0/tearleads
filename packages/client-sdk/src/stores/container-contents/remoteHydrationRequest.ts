@@ -1,6 +1,8 @@
 import {
+  createGenerationGuardedHydrationHost,
   hydrateRemoteContainers,
   type RemoteContainerHydrationHost,
+  StaleRemoteHydrationError,
 } from "../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../workflows/container-contents/remoteHydration/types";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
@@ -32,42 +34,6 @@ interface RemoteHydrationRequestInput {
   scheduleSyncOnHydrationChange?: boolean | undefined;
   scheduleSync: () => void;
   state: RemoteHydrationRequestState;
-}
-
-class StaleRemoteHydrationError extends Error {}
-
-function createGenerationGuardedHydrationHost(input: {
-  host: RemoteContainerHydrationHost;
-  isCurrent: () => boolean;
-}): RemoteContainerHydrationHost {
-  const assertCurrent = () => {
-    if (!input.isCurrent()) {
-      throw new StaleRemoteHydrationError();
-    }
-  };
-
-  return {
-    persistContainerState: async (...args) => {
-      assertCurrent();
-      const record = await input.host.persistContainerState(...args);
-      assertCurrent();
-      return record;
-    },
-    ...(input.host.requestDocumentPriming
-      ? {
-          requestDocumentPriming: () => {
-            if (input.isCurrent()) {
-              input.host.requestDocumentPriming?.();
-            }
-          },
-        }
-      : {}),
-    updateSnapshot: () => {
-      if (input.isCurrent()) {
-        input.host.updateSnapshot();
-      }
-    },
-  };
 }
 
 function waitForActiveRemoteHydration(

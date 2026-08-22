@@ -160,3 +160,59 @@ test("reset serializes replacement initialization behind a stale load", async ()
     await close();
   }
 });
+
+test("recovery initialization waits for a stale local refresh", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-refresh-reset-generation",
+  );
+  try {
+    type LoadResult = Awaited<
+      ReturnType<typeof defaultContainerContentsPersistence.loadContainers>
+    >;
+    const resolvers: Array<(value: LoadResult) => void> = [];
+    let activeLoads = 0;
+    let maxActiveLoads = 0;
+    const loadContainers = mock(
+      () =>
+        new Promise<LoadResult>((resolve) => {
+          activeLoads += 1;
+          maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+          resolvers.push((value) => {
+            activeLoads -= 1;
+            resolve(value);
+          });
+        }),
+    );
+    const persistence = {
+      ...defaultContainerContentsPersistence,
+      loadContainers,
+    };
+    const readyRuntime = createRuntime({ dbStatus: "ready", execSql });
+    const idleRuntime = createRuntime({ dbStatus: "idle", execSql });
+    const recoveredRuntime = createRuntime({ dbStatus: "ready", execSql });
+    const store = createContainerContentsStore(readyRuntime, persistence);
+
+    store.updateRuntime(readyRuntime);
+    await waitFor(() => resolvers.length === 1);
+    resolvers[0]?.([]);
+    await waitFor(() => store.getSnapshot().ready);
+
+    const staleRefresh = store.refreshLocalContainers();
+    await waitFor(() => resolvers.length === 2);
+    store.updateRuntime(idleRuntime);
+    store.updateRuntime(recoveredRuntime);
+
+    expect(loadContainers).toHaveBeenCalledTimes(2);
+    resolvers[1]?.([]);
+    await staleRefresh;
+    await waitFor(() => resolvers.length === 3);
+
+    expect(store.getSnapshot()).toEqual({ nodes: [], ready: false });
+    resolvers[2]?.([]);
+    await waitFor(() => store.getSnapshot().ready);
+
+    expect(maxActiveLoads).toBe(1);
+  } finally {
+    await close();
+  }
+});
