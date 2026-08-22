@@ -249,7 +249,6 @@ async function purgeDocumentWithExecutor(input: {
   const purgedAt = new Date();
 
   await deleteDocumentRows({
-    dereferencedAt: purgedAt,
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,
@@ -312,13 +311,12 @@ export async function runPurgeDocumentWorkflow(
  * plain /containers path carries only the binding and a manifest pointer, with
  * no document rows. Tear the document down only when it exists.
  *
- * Runs inside the caller's transaction. `dereferencedAt` is the container
- * deletion's timestamp, threaded through so any dereferenced blob is stamped at
- * the same logical time as the container tombstone (one clock read per delete).
+ * Runs inside the caller's transaction. Any orphaned blob starts its grace
+ * period from the database wall clock after the reachability locks below have
+ * been acquired; time spent waiting for those locks must not consume it.
  */
 export async function teardownContainerMetadataDocument(input: {
   readonly containerId: string;
-  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
@@ -352,7 +350,6 @@ export async function teardownContainerMetadataDocument(input: {
     executor: input.executor,
   });
   await deleteDocumentRows({
-    dereferencedAt: input.dereferencedAt,
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,

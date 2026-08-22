@@ -44,7 +44,7 @@ export function nowExpression(): SQL {
 export function wallClockNowExpression(): SQL {
   return isSqliteApiDatabase()
     ? sql`cast((julianday('now') - 2440587.5)*86400000 as integer)`
-    : sql`clock_timestamp()`;
+    : sql`timezone('UTC', clock_timestamp())`;
 }
 
 export function timestampValue(value: Date): SQL {

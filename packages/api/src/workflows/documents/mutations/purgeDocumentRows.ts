@@ -20,6 +20,7 @@ import {
   documentUpdates,
 } from "@symcrypt/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { DocumentMutationError } from "./errors";
 
 // Audit event detail tables reference documentAuditEntries(id); clear them
@@ -90,7 +91,6 @@ async function deleteDocumentContentRows(
 // READ COMMITTED is invisible here) and hard-delete only truly-unreachable
 // blobs. `IS NULL` keeps an already-dereferenced blob's original timestamp.
 async function deleteDocumentAttachmentRows(input: {
-  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
@@ -102,7 +102,10 @@ async function deleteDocumentAttachmentRows(input: {
     await input.executor
       .update(blobs)
       .set({
-        dereferencedAt: input.dereferencedAt,
+        // Start the grace period only after the caller has acquired the
+        // document and blob reachability locks. PostgreSQL's transaction clock
+        // is fixed at BEGIN, so this must use the statement wall clock.
+        dereferencedAt: wallClockNowExpression(),
         reclaimAttemptedAt: null,
       })
       .where(
@@ -157,7 +160,6 @@ async function deleteDocumentAccessHistory(
 }
 
 export async function deleteDocumentRows(input: {
-  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];

@@ -36,4 +36,7 @@ fi
 # Workspace packages must already be built (bun run build:packages); the lane
 # itself only runs the multi-connection concurrency tests.
 cd packages/api
-exec bun test src/routes/documents/syncConcurrency.pg.test.ts
+exec bun test \
+  src/routes/documents/syncConcurrency.pg.test.ts \
+  src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
+  src/workflows/containers/deleteContainerTimestamp.pg.test.ts
