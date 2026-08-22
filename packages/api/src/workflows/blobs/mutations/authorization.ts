@@ -106,21 +106,33 @@ export async function assertAttachmentOrganizationCanSync(
   );
 }
 
-export function planAttachmentAuthorizationContainerIds(input: {
+export function createAttachmentAuthorizationLockPlan(input: {
   readonly authorizingContainerIds: readonly string[];
+  readonly contentKeyTargets: readonly {
+    readonly containerId: string;
+    readonly documentId: string;
+  }[];
+  readonly documentId: string;
   readonly linkedContainerIds: readonly string[];
-}): string[] {
-  return uniqueSortedStrings([
-    ...input.authorizingContainerIds,
-    ...input.linkedContainerIds,
-  ]);
+}): { readonly containerIds: string[]; readonly documentIds: string[] } {
+  return {
+    containerIds: uniqueSortedStrings([
+      ...input.authorizingContainerIds,
+      ...input.linkedContainerIds,
+      ...input.contentKeyTargets.map((target) => target.containerId),
+    ]),
+    documentIds: uniqueSortedStrings([
+      input.documentId,
+      ...input.contentKeyTargets.map((target) => target.documentId),
+    ]),
+  };
 }
 
 /**
- * Pin the complete authorization frontier before an attachment write. The
- * container-then-document order matches document mutations, while holding the
- * document head prevents purge from deleting rows under an in-flight bind or
- * detach.
+ * Pin the complete authorization and key-target frontiers before an attachment
+ * write. The container-then-document order matches document mutations, while
+ * holding every target head prevents a concurrent relink or rekey from making
+ * a bind's wrappers stale before commit.
  */
 export async function lockAttachmentAuthorizationForShare(input: {
   readonly documentId: string;
@@ -128,20 +140,26 @@ export async function lockAttachmentAuthorizationForShare(input: {
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<void> {
-  const containerIds = planAttachmentAuthorizationContainerIds({
+  const contentKeyTargets =
+    "contentKeyBundle" in input.request
+      ? input.request.contentKeyBundle.targets
+      : [];
+  const lockPlan = createAttachmentAuthorizationLockPlan({
     authorizingContainerIds: input.proof.authorizingContainerPaths.flatMap(
       (path) => path.map((manifest) => manifest.state.containerId),
     ),
+    contentKeyTargets,
+    documentId: input.documentId,
     linkedContainerIds: input.proof.documentManifest.state.linkedContainerIds,
   });
   await lockAccessManifestHeadsForShare(
     "container",
-    containerIds,
+    lockPlan.containerIds,
     input.executor,
   );
   await lockAccessManifestHeadsForShare(
     "document",
-    [input.documentId],
+    lockPlan.documentIds,
     input.executor,
   );
 
