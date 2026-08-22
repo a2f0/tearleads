@@ -272,6 +272,16 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     userId: input.userId,
   });
+  if (!input.request.stagedBlob) {
+    // An absent blob cannot be row-locked during the earlier authorization
+    // checks. ensureBlobExists above has now locked the row, so repeat the
+    // ownership check in case another organization created it in that window.
+    await assertStoredBlobOrganizationMatches({
+      blobId: input.blobId,
+      executor: tx,
+      expectedOrganizationId: proof.documentManifest.state.organizationId,
+    });
+  }
   await detachActiveSlotBinding({ activeBinding, executor: tx });
   await storeVerifiedAttachmentBindingInTransaction(verifiedBinding, tx);
   // The blob now has an active binding again; clear any prior purge soft-delete
