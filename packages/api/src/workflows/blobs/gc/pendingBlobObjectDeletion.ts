@@ -1,6 +1,6 @@
 import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
 import { blobAuditObjects } from "@symcrypt/api-shared/schema";
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
@@ -39,7 +39,12 @@ export async function listPendingBlobObjectDeletions(
         isNotNull(blobAuditObjects.liveStorageKey),
       ),
     )
-    .orderBy(asc(blobAuditObjects.prunedAt), asc(blobAuditObjects.blobId))
+    .orderBy(
+      sql`case when ${blobAuditObjects.objectDeleteAttemptedAt} is null then 0 else 1 end`,
+      asc(blobAuditObjects.objectDeleteAttemptedAt),
+      asc(blobAuditObjects.prunedAt),
+      asc(blobAuditObjects.blobId),
+    )
     .limit(normalizeLimit(input.limit));
 
   return rows.flatMap((row) =>
@@ -47,6 +52,29 @@ export async function listPendingBlobObjectDeletions(
       ? []
       : [{ blobId: row.blobId, storageKey: row.storageKey }],
   );
+}
+
+/**
+ * Persist an attempt before calling the object store. Never-attempted work is
+ * selected first, while failed work rotates by this timestamp on later runs.
+ */
+export async function recordBlobObjectDeletionAttempt(
+  db: ApiDatabase,
+  input: PendingBlobObjectDeletion & { readonly attemptedAt: Date },
+): Promise<boolean> {
+  const updated = await db
+    .update(blobAuditObjects)
+    .set({ objectDeleteAttemptedAt: input.attemptedAt })
+    .where(
+      and(
+        eq(blobAuditObjects.blobId, input.blobId),
+        eq(blobAuditObjects.liveStorageKey, input.storageKey),
+        isNotNull(blobAuditObjects.prunedAt),
+        isNull(blobAuditObjects.objectDeletedAt),
+      ),
+    )
+    .returning({ blobId: blobAuditObjects.blobId });
+  return updated.length > 0;
 }
 
 /** Record physical deletion without erasing immutable blob audit metadata. */

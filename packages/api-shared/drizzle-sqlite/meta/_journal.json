@@ -43,6 +43,13 @@
       "when": 1787385287742,
       "tag": "0005_spicy_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787387750181,
+      "tag": "0006_first_bastion",
+      "breakpoints": true
     }
   ]
 }

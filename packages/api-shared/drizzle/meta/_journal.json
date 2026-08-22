@@ -43,6 +43,13 @@
       "when": 1787385287416,
       "tag": "0005_fancy_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787387749837,
+      "tag": "0006_glossy_nemesis",
+      "breakpoints": true
     }
   ]
 }

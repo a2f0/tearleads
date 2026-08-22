@@ -1,0 +1,1 @@
+ALTER TABLE `blob_audit_objects` ADD `object_delete_attempted_at` integer;

@@ -12,6 +12,7 @@ import {
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
+import { lockBlobMutationRows } from "../../blobs/mutations/blobMutationLocks";
 import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
@@ -169,6 +170,15 @@ async function resolveOrphanedBlobIds(input: {
   if (candidateBlobIds.length === 0) {
     return [];
   }
+
+  // Attachment mutations take the document head before these same blob locks.
+  // The purge already holds that head exclusively, so locking every candidate
+  // now makes reachability stable through the binding delete below and keeps
+  // the global document -> blob -> binding order.
+  await lockBlobMutationRows({
+    blobIds: candidateBlobIds,
+    executor: input.executor,
+  });
 
   const referencedElsewhere = await resolveBlobIdsReferencedByOtherDocuments({
     candidateBlobIds,

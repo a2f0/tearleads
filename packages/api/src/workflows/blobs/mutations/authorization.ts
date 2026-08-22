@@ -9,6 +9,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@symcrypt/validators/request";
+import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
@@ -101,6 +102,48 @@ export async function assertAttachmentOrganizationCanSync(
     executor,
     proof.documentManifest.state.organizationId,
     userId,
+  );
+}
+
+/**
+ * Pin the complete authorization frontier before an attachment write. The
+ * container-then-document order matches document mutations, while holding the
+ * document head prevents purge from deleting rows under an in-flight bind or
+ * detach.
+ */
+export async function lockAttachmentAuthorizationForShare(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly proof: AttachmentAuthorizationProof;
+  readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
+}): Promise<void> {
+  const authorizingContainerIds = input.proof.authorizingContainerPaths.flatMap(
+    (path) => path.map((manifest) => manifest.state.containerId),
+  );
+  await lockAccessManifestHeadsForShare(
+    "container",
+    authorizingContainerIds,
+    input.executor,
+  );
+  await lockAccessManifestHeadsForShare(
+    "document",
+    [input.documentId],
+    input.executor,
+  );
+
+  const lockedManifest = await loadCurrentDocumentManifest(
+    input.documentId,
+    input.executor,
+  );
+  if (
+    lockedManifest.manifestHash !== input.proof.documentManifest.manifestHash
+  ) {
+    throw new BlobMutationError("Document manifest changed concurrently", 409);
+  }
+  await assertCurrentContainerPathRefGroups(
+    input.executor,
+    input.request.authorizingContainerPathRefs,
+    "authorizingContainerPathRefs",
   );
 }
 

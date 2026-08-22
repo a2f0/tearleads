@@ -1,6 +1,7 @@
 import {
   listPendingBlobObjectDeletions,
   recordBlobObjectDeleted,
+  recordBlobObjectDeletionAttempt,
 } from "../../workflows/blobs/gc/pendingBlobObjectDeletion";
 import {
   type ReclaimDereferencedBlobsInput,
@@ -52,6 +53,13 @@ export async function reclaimDereferencedBlobs(
     await Promise.all(
       batch.map(async (pending) => {
         try {
+          const shouldAttempt = await recordBlobObjectDeletionAttempt(
+            runtime.db,
+            { ...pending, attemptedAt: new Date() },
+          );
+          if (!shouldAttempt) {
+            return;
+          }
           await runtime.blobObjectStore.deleteObject(pending.storageKey);
           await recordBlobObjectDeleted(runtime.db, {
             ...pending,

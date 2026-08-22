@@ -107,12 +107,14 @@ test("failed object deletion remains durable and a later sweep records completio
   const [pending] = await db
     .select({
       liveStorageKey: blobAuditObjects.liveStorageKey,
+      objectDeleteAttemptedAt: blobAuditObjects.objectDeleteAttemptedAt,
       objectDeletedAt: blobAuditObjects.objectDeletedAt,
       prunedAt: blobAuditObjects.prunedAt,
     })
     .from(blobAuditObjects)
     .where(eq(blobAuditObjects.blobId, blobId));
   expect(pending?.liveStorageKey).toBe(storageKey);
+  expect(pending?.objectDeleteAttemptedAt).toBeInstanceOf(Date);
   expect(pending?.prunedAt).toBeInstanceOf(Date);
   expect(pending?.objectDeletedAt).toBeNull();
 
@@ -133,4 +135,67 @@ test("failed object deletion remains durable and a later sweep records completio
     .where(eq(blobAuditObjects.blobId, blobId));
   expect(completed?.liveStorageKey).toBeNull();
   expect(completed?.objectDeletedAt).toBeInstanceOf(Date);
+});
+
+test("a poison deletion does not starve newly pending object work", async () => {
+  const objectStore = createMemoryBlobObjectStore();
+  const poisonBlobId = crypto.randomUUID();
+  const poisonStorageKey = `blob-object:${poisonBlobId}`;
+  const runtime = createServiceTestRuntime(db, {
+    blobObjectStore: {
+      ...objectStore,
+      async deleteObject(key) {
+        if (key === poisonStorageKey) {
+          throw new Error("permanent object-store rejection");
+        }
+        await objectStore.deleteObject(key);
+      },
+    },
+  });
+  const poisonBytes = "poison-reclaim-bytes";
+  await uploadBlobObject(
+    runtime.blobObjectStore,
+    poisonStorageKey,
+    poisonBytes,
+  );
+  await insertReclaimableBlob({
+    blobId: poisonBlobId,
+    byteLength: poisonBytes.length,
+    sha256: await sha256Hex(poisonBytes),
+    storageKey: poisonStorageKey,
+  });
+
+  const first = await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+  });
+  expect(first.failedObjectDeletions).toBe(1);
+
+  const healthyBlobId = crypto.randomUUID();
+  const healthyStorageKey = `blob-object:${healthyBlobId}`;
+  const healthyBytes = "healthy-reclaim-bytes";
+  await uploadBlobObject(
+    runtime.blobObjectStore,
+    healthyStorageKey,
+    healthyBytes,
+  );
+  await insertReclaimableBlob({
+    blobId: healthyBlobId,
+    byteLength: healthyBytes.length,
+    sha256: await sha256Hex(healthyBytes),
+    storageKey: healthyStorageKey,
+  });
+
+  const second = await reclaimDereferencedBlobs(runtime, {
+    gracePeriodMs: 24 * HOUR_MS,
+    limit: 1,
+  });
+  expect(second.deletedObjectCount).toBe(1);
+  expect(second.failedObjectDeletions).toBe(0);
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, healthyStorageKey),
+  ).toBeNull();
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, poisonStorageKey),
+  ).toBe(poisonBytes);
 });

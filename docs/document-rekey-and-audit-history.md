@@ -427,6 +427,7 @@ Columns:
 - `retention_mode TEXT NOT NULL`
 - `historical_bytes_retained BOOLEAN NOT NULL`
 - `pruned_at TIMESTAMP`
+- `object_delete_attempted_at TIMESTAMP`
 - `object_deleted_at TIMESTAMP`
 - `created_at TIMESTAMP NOT NULL DEFAULT now()`
 
@@ -435,10 +436,9 @@ The initial value should be:
 - `retention_mode = 'live_only'`
 - `historical_bytes_retained = false`
 
-That makes the first retention policy explicit: the audit layer keeps durable
-metadata and event history for old blobs, but not durable old blob bytes.
-After `pruned_at`, `live_storage_key` remains a durable physical-deletion work
-item until success clears it and records `object_deleted_at`, preserving retries.
+Audit history keeps blob metadata, not old bytes. After `pruned_at`, the key is
+pending work. `object_delete_attempted_at` rotates retries; success clears the
+key and records `object_deleted_at`.
 
 #### `document_attachment_audit_events`
 

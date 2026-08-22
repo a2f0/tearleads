@@ -7,7 +7,6 @@ import {
   verifyWriteHeader,
 } from "@symcrypt/crypto";
 import type { BlobAttachmentBindResponse } from "@symcrypt/validators/response";
-import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { listBlobContentWriteHeaders } from "../../../access/read/blobContentKeyStore";
 import { storeVerifiedAttachmentBindingInTransaction } from "../../../access/write/attachmentBindingStore";
 import {
@@ -21,9 +20,11 @@ import {
   type AttachmentAuthorizationProof,
   applyAttachmentContainerRekeys,
   assertAttachmentOrganizationCanSync,
+  lockAttachmentAuthorizationForShare,
   readBindRequestSession,
   verifyAttachmentAuthorizationProof,
 } from "./authorization";
+import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
 import {
   appendAttachmentAuditEvent,
@@ -166,22 +167,46 @@ async function verifyBindEvent(input: {
   return verified.value;
 }
 
-// Serialize the blob content-key write against a concurrent container.rekey on
-// any authorizing container — same hazard as document sync. Under READ COMMITTED
-// a rekey committing between the current blob-KEK-target resolution and the
-// content-key-bundle write would wrap the blob content key to a superseded
-// (pre-revocation) recipient set. FOR SHARE on the linked container heads blocks
-// such a rekey until this bind commits (or fails closed on a stale target hash
-// if the rekey already committed).
-async function lockBindAuthorizingContainersForShare(
-  proof: AttachmentAuthorizationProof,
-  tx: DatabaseTransaction,
-): Promise<void> {
-  await lockAccessManifestHeadsForShare(
-    "container",
-    proof.documentManifest.state.linkedContainerIds,
-    tx,
-  );
+async function verifyAndLockBindSlot(input: {
+  readonly bindBody: ReturnType<typeof readBindRequestSession>["bindBody"];
+  readonly event: ReturnType<typeof readBindRequestSession>["event"];
+  readonly proof: AttachmentAuthorizationProof;
+  readonly request: BindBlobAttachmentInput["request"];
+  readonly signingPublicKey: Uint8Array;
+  readonly blobId: string;
+  readonly tx: DatabaseTransaction;
+}) {
+  const observedActiveBinding =
+    await requireSingleActiveAttachmentBindingForSlot({
+      documentId: input.bindBody.documentId,
+      executor: input.tx,
+      slotId: input.bindBody.slotId,
+    });
+  const verifiedBinding = await verifyBindEvent({
+    activeBinding: observedActiveBinding,
+    bindBody: input.bindBody,
+    blobId: input.blobId,
+    event: input.event,
+    proof: input.proof,
+    request: input.request,
+    signingPublicKey: input.signingPublicKey,
+  });
+  await lockBlobMutationRows({
+    blobIds: [
+      input.blobId,
+      ...(observedActiveBinding ? [observedActiveBinding.blobId] : []),
+    ],
+    executor: input.tx,
+  });
+  const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
+    documentId: input.bindBody.documentId,
+    executor: input.tx,
+    slotId: input.bindBody.slotId,
+  });
+  if (activeBinding?.id !== observedActiveBinding?.id) {
+    throw new BlobMutationError("Attachment slot changed concurrently", 409);
+  }
+  return { activeBinding, verifiedBinding };
 }
 
 async function bindBlobAttachmentTransaction(
@@ -210,20 +235,20 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
   });
   await assertAttachmentOrganizationCanSync(tx, proof, input.userId);
-  await lockBindAuthorizingContainersForShare(proof, tx);
-  const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
+  await lockAttachmentAuthorizationForShare({
     documentId: bindBody.documentId,
     executor: tx,
-    slotId: bindBody.slotId,
+    proof,
+    request: input.request,
   });
-  const verifiedBinding = await verifyBindEvent({
-    activeBinding,
+  const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
     blobId: input.blobId,
     event,
     proof,
     request: input.request,
     signingPublicKey,
+    tx,
   });
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,
