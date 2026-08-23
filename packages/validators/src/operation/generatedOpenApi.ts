@@ -11143,6 +11143,13 @@ export interface operations {
                 };
             };
             /** @description Response without a declared body */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Response without a declared body */
             500: {
                 headers: {
                     [name: string]: unknown;

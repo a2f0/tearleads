@@ -89,6 +89,7 @@ export async function requestRemoteDocumentSync(input: {
   encapsulationKeyPair: EncapsulationKeyPair;
   generation: DocumentStoreSyncGeneration;
   pendingUpdates: PendingUpdateRecord[];
+  queuedUpdateCount?: number | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }): Promise<DocumentSyncAttempt | null> {
@@ -169,7 +170,7 @@ export async function requestRemoteDocumentSync(input: {
   }
 
   return {
-    outgoingUpdateCount: pendingUpdates.length,
+    outgoingUpdateCount: input.queuedUpdateCount ?? pendingUpdates.length,
     synced,
   };
 }

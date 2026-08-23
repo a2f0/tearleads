@@ -100,6 +100,29 @@ assert_contains "$unused_ignore_output" \
   "unused OpenAPI compatibility ignore entry"
 rm "$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
 
+cp "$FIXTURE_ROOT/maxLength.json" "$TEST_ROOT/docs/openapi.json"
+if max_length_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$base_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a request maxLength tightening was accepted without an ignore."
+fi
+assert_contains "$max_length_output" "[request-property-max-length-set]"
+printf '%s\n' \
+  "POST /widgets the \`name\` request property's maxLength was set to \`10\`" \
+  >"$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
+(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$base_commit" \
+    "$CHECK_SCRIPT"
+)
+rm "$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
+
 cp "$FIXTURE_ROOT/refinementAdded.json" "$TEST_ROOT/docs/openapi.json"
 
 if refinement_output=$(

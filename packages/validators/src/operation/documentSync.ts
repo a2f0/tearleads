@@ -32,7 +32,7 @@ export const documentSyncOperation = defineJsonOperation({
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
+  failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",
   method: "POST",
   params: DocumentSyncPathParamsSchema,

@@ -224,6 +224,7 @@ export async function finalizeDocumentSync(
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
       rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
+      submittedRecoveryBaseline: synced.submittedRecoveryBaseline,
     })
   ) {
     requestDocumentStoreSync(state);

@@ -18,8 +18,10 @@ import {
 } from "../jsonSchema";
 import {
   arraySchema,
+  boundedNonEmptyArraySchema,
+  boundedNonEmptyStringSchema,
+  boundedStringSchema,
   loosePlainObject,
-  nonEmptyArraySchema,
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
@@ -27,6 +29,15 @@ import {
 } from "../schema";
 import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
+import {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
+  MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+  MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
+  MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+} from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
 import {
@@ -49,12 +60,14 @@ export const ContainerManifestRefSchema = loosePlainObject({
 
 export type ContainerManifestRef = z.infer<typeof ContainerManifestRefSchema>;
 
-export const ContainerManifestPathSchema = nonEmptyArraySchema(
+export const ContainerManifestPathSchema = boundedNonEmptyArraySchema(
   ContainerManifestRefSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
 );
 
 export const ContainerManifestRefArrayArraySchema = arraySchema(
   ContainerManifestPathSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
 );
 
 export const DocumentContentKeyTargetEnvelopeSchema = loosePlainObject({
@@ -74,7 +87,10 @@ export const DocumentContentKeyBundleRequestSchema = loosePlainObject({
   contentKeyEpoch: positiveIntegerSchema,
   linkSetManifestHash: nonEmptyStringSchema,
   targetHash: nonEmptyStringSchema,
-  targets: arraySchema(DocumentContentKeyTargetEnvelopeSchema),
+  targets: arraySchema(
+    DocumentContentKeyTargetEnvelopeSchema,
+    MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+  ),
 });
 
 export type DocumentContentKeyBundleRequest = z.infer<
@@ -90,15 +106,23 @@ export const DocumentOutgoingUpdateSchema =
       checkpointPayloadKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
-      encryptedData: nonEmptyStringSchema,
+      encryptedData: boundedNonEmptyStringSchema(
+        MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
+      ),
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
         type: "string",
       }),
-      partialEndVersionVector: nonEmptyStringSchema,
-      partialStartVersionVector: nonEmptyStringSchema,
+      partialEndVersionVector: boundedNonEmptyStringSchema(
+        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+      ),
+      partialStartVersionVector: boundedNonEmptyStringSchema(
+        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+      ),
       plaintextHash: nonEmptyStringSchema,
-      sourceVersionVector: nonEmptyStringSchema.optional(),
+      sourceVersionVector: boundedNonEmptyStringSchema(
+        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+      ).optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
       if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
@@ -166,13 +190,32 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     contentKeyEpoch: positiveIntegerSchema,
     expectedLinkSetManifestHash: nonEmptyStringSchema,
     expectedTargetHash: nonEmptyStringSchema,
-    localVersionVector: z.string().nullable(),
+    localVersionVector: boundedStringSchema(
+      MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+    ).nullable(),
     minLsn: WalLsnSchema.optional(),
-    outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
+    outgoingUpdates: arraySchema(
+      DocumentOutgoingUpdateSchema,
+      MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+    ),
     supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
       return;
+    }
+
+    const pathRefCount = Array.isArray(request.authorizingContainerPathRefs)
+      ? request.authorizingContainerPathRefs.reduce(
+          (total, path) => total + (Array.isArray(path) ? path.length : 0),
+          0,
+        )
+      : 0;
+    if (pathRefCount > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS) {
+      context.addIssue({
+        code: "custom",
+        message: `authorization paths exceed ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} total references`,
+        path: ["authorizingContainerPathRefs"],
+      });
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;

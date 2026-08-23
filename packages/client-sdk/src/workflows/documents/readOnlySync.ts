@@ -364,6 +364,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         rekeyedPendingUpdateIds: [],
         response: submitted.response,
         settledPendingUpdateIds: [],
+        submittedRecoveryBaseline: false,
       },
     };
   } catch {

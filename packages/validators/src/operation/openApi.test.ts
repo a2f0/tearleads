@@ -95,6 +95,7 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
     "403",
     "404",
     "409",
+    "413",
     "500",
     "503",
   ]);

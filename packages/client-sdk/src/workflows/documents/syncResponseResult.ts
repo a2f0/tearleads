@@ -95,6 +95,8 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     rekeyedPendingUpdateIds,
     response: input.response,
     settledPendingUpdateIds,
+    submittedRecoveryBaseline:
+      input.materializedPlan.staleRecoveryBaselineUpdateId !== undefined,
     writerProjection: input.writerProjection,
   };
 }

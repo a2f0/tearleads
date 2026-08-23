@@ -7,6 +7,11 @@
  * from a finite pending pool, so a progress-gated re-arm strictly shrinks that
  * pool and is guaranteed to terminate.
  *
+ * A synthetic recovery baseline is also durable progress even though its id
+ * has no pending-queue row to settle. Re-arm when it left queued updates so a
+ * large baseline cannot strand the ordinary edits it displaced from the
+ * bounded request.
+ *
  * Also re-arm when the pass re-keyed conflicted pending updates: the fresh
  * ids exist precisely so the next pass can submit them, and without a re-arm
  * they wait for an unrelated edit or remote event. For an honest server this
@@ -38,6 +43,7 @@ interface OutgoingSettlementPass {
   readonly outgoingUpdateCount: number;
   readonly rekeyedUpdateCount: number;
   readonly settledUpdateCount: number;
+  readonly submittedRecoveryBaseline?: boolean | undefined;
 }
 
 function isRekeyOnlyPass(pass: OutgoingSettlementPass): boolean {
@@ -60,6 +66,8 @@ export function settleOutgoingPassAndDecideReArm(
   return (
     (isRekeyOnlyPass(pass) &&
       rekeyOnlyPassCount < MAX_CONSECUTIVE_REKEY_ONLY_PASSES) ||
+    (pass.submittedRecoveryBaseline === true &&
+      pass.outgoingUpdateCount > pass.settledUpdateCount) ||
     (pass.settledUpdateCount > 0 &&
       pass.outgoingUpdateCount > pass.settledUpdateCount)
   );

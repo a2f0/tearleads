@@ -21,8 +21,10 @@ import {
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
 } from "@symcrypt/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import type { SessionEnv } from "../../middleware/session";
 import {
   createDocument,
@@ -390,6 +392,10 @@ export function createDocumentMutationsRoute({
     operationRoutePath(documentSyncOperation),
     requireAuth,
     pathParamsValidator(documentSyncOperation.params),
+    bodyLimit({
+      maxSize: MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+      onError: (c) => c.json({ error: "Request body too large" }, 413),
+    }),
     jsonRequestValidator(documentSyncOperation.body),
     (c) =>
       respondWithDocumentSync(c, {

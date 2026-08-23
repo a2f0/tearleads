@@ -33,6 +33,7 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import {
@@ -184,6 +185,13 @@ async function resolveStaleHealMaterial(
   const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
     input.buildRotationSnapshot,
   );
+  const selectedOrdinaryPendingUpdates = selectDocumentSyncOutgoingBatch(
+    ordinaryPendingUpdates,
+    {
+      reservedDataCharacters: recoveryBaseline.updateData.length,
+      reservedUpdateCount: 1,
+    },
+  );
   assertRecoveryBaselineCoversCheckpoints(
     recoveryBaseline,
     heldBackCheckpoints,
@@ -199,7 +207,7 @@ async function resolveStaleHealMaterial(
     fromEpoch: staleEpoch,
     heldBack: heldBackCheckpoints.length,
     toEpoch: contentKeyBundle.contentKeyEpoch,
-    updates: ordinaryPendingUpdates.length,
+    updates: selectedOrdinaryPendingUpdates.length,
   });
   return {
     contentKey,
@@ -208,7 +216,7 @@ async function resolveStaleHealMaterial(
     documentManifest: input.writerProjection.documentManifest,
     healedStaleContentKeyBundle: true,
     heldBackPendingUpdateIds: heldBackCheckpoints.map((update) => update.id),
-    pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
+    pendingUpdates: [recoveryBaseline, ...selectedOrdinaryPendingUpdates],
     staleRecoveryBaselineUpdateId: recoveryBaseline.id,
   };
 }
@@ -237,16 +245,23 @@ async function resolveCheckpointRegenerationMaterial(
   const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
     input.buildRotationSnapshot,
   );
+  const selectedOrdinaryPendingUpdates = selectDocumentSyncOutgoingBatch(
+    ordinaryPendingUpdates,
+    {
+      reservedDataCharacters: recoveryBaseline.updateData.length,
+      reservedUpdateCount: 1,
+    },
+  );
   assertRecoveryBaselineCoversCheckpoints(recoveryBaseline, queuedCheckpoints);
   traceCheckpointRegeneration(input.onSyncTrace, {
     checkpoints: queuedCheckpoints.length,
     documentId: input.writerProjection.documentId,
-    updates: ordinaryPendingUpdates.length,
+    updates: selectedOrdinaryPendingUpdates.length,
   });
   return {
     ...base,
     heldBackPendingUpdateIds: queuedCheckpoints.map((update) => update.id),
-    pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
+    pendingUpdates: [recoveryBaseline, ...selectedOrdinaryPendingUpdates],
     staleRecoveryBaselineUpdateId: recoveryBaseline.id,
   };
 }
@@ -257,7 +272,9 @@ async function resolveSyncPlanContentMaterial(
     ReturnType<typeof collectContainerKeksForDocumentSync>
   >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
-  const pendingUpdates = input.pendingUpdates ?? [];
+  const pendingUpdates = selectDocumentSyncOutgoingBatch(
+    input.pendingUpdates ?? [],
+  );
   const staleContentKeyBundle =
     input.writerProjection.contentKeyBundleStale === true;
 

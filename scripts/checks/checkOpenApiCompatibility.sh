@@ -110,6 +110,7 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
     reduced_exit=0
     mise exec github:oasdiff/oasdiff -- oasdiff "$@" \
       --err-ignore "$reduced_ignore" \
+      --warn-ignore "$reduced_ignore" \
       --format text --color never >"$reduced_output" 2>&1 ||
       reduced_exit=$?
     if [ "$reduced_exit" -eq 0 ]; then
@@ -124,7 +125,8 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
   done <<EOF
 $ignore_entries
 EOF
-  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH"
+  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH" \
+    --warn-ignore "$ERROR_IGNORE_PATH"
 fi
 
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then

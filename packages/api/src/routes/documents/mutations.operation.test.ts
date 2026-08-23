@@ -7,6 +7,7 @@ import {
   operationRoutePath,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -92,6 +93,21 @@ test("document sync preserves the invalid-request response", async () => {
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: "Invalid request" });
+});
+
+test("document sync rejects oversized bodies before parsing", async () => {
+  const route = createTestRoute((_c, next) => next());
+  const response = await route.request("/documents/document-1/sync", {
+    body: "{}",
+    headers: {
+      "Content-Length": String(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
+      "Content-Type": "application/json",
+    },
+    method: documentSyncOperation.method,
+  });
+
+  expect(response.status).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
 });
 
 test("document mutations preserve malformed JSON behavior", async () => {

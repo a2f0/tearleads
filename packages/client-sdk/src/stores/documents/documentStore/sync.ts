@@ -3,8 +3,10 @@ import {
   type DocumentRecord,
   type DocumentSyncLane,
   isDatabaseUnavailableError,
+  type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
+  selectDocumentSyncOutgoingBatch,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
@@ -13,6 +15,7 @@ import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidati
 import {
   type DocumentState,
   type DocumentStoreState,
+  type DocumentSyncAttempt,
   type EncapsulationKeyPair,
   setDocumentSyncing,
 } from "./state";
@@ -46,6 +49,38 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
   );
+}
+
+async function requestOutgoingDocumentBatch(input: {
+  readonly currentDoc: DocumentState;
+  readonly encapsulationKeyPair: EncapsulationKeyPair;
+  readonly generation: DocumentStoreSyncGeneration;
+  readonly pendingUpdates: PendingUpdateRecord[];
+  readonly record: DocumentRecord;
+  readonly state: DocumentStoreState;
+}): Promise<{
+  sentUpdateIds: string[];
+  syncAttempt: DocumentSyncAttempt | null;
+}> {
+  const outgoingBatch = selectDocumentSyncOutgoingBatch(input.pendingUpdates);
+  const sentUpdateIds = preRegisterUpdateIds(input.state, outgoingBatch);
+  const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
+    input.state,
+    sentUpdateIds,
+    () =>
+      requestRemoteDocumentSync({
+        currentDoc: input.currentDoc,
+        currentRecord: input.record,
+        encapsulationKeyPair: input.encapsulationKeyPair,
+        generation: input.generation,
+        pendingUpdates: outgoingBatch,
+        queuedUpdateCount: input.pendingUpdates.length,
+        state: input.state,
+        unavailableWriterLogMessage:
+          "Documents: skipped sync because the writer context is unavailable.",
+      }),
+  );
+  return { sentUpdateIds, syncAttempt };
 }
 
 async function syncDocumentState(
@@ -123,23 +158,14 @@ async function syncDocumentState(
   // network await closes the race where the echo lands before
   // finalizeDocumentSync records the accepted IDs — the gap that turned every
   // fast keystroke into an extra self-triggered sync.
-  const sentUpdateIds = preRegisterUpdateIds(state, pendingUpdates);
-
-  const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
+  const { sentUpdateIds, syncAttempt } = await requestOutgoingDocumentBatch({
+    currentDoc,
+    encapsulationKeyPair,
+    generation,
+    pendingUpdates,
+    record: nextRemoteRecord,
     state,
-    sentUpdateIds,
-    () =>
-      requestRemoteDocumentSync({
-        state,
-        currentDoc,
-        currentRecord: nextRemoteRecord,
-        pendingUpdates,
-        encapsulationKeyPair,
-        generation,
-        unavailableWriterLogMessage:
-          "Documents: skipped sync because the writer context is unavailable.",
-      }),
-  );
+  });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);

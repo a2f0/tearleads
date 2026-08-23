@@ -28,6 +28,18 @@ test("does not re-arm when the server settled nothing (under-settle)", () => {
   ).toBe(false);
 });
 
+test("re-arms after a synthetic recovery baseline leaves queued updates", () => {
+  const lane = { rekeyOnlyPassCount: 0 };
+  expect(
+    settleOutgoingPassAndDecideReArm(lane, {
+      outgoingUpdateCount: 3,
+      rekeyedUpdateCount: 0,
+      settledUpdateCount: 0,
+      submittedRecoveryBaseline: true,
+    }),
+  ).toBe(true);
+});
+
 test("does not re-arm once everything sent was settled", () => {
   const lane = { rekeyOnlyPassCount: 0 };
   expect(

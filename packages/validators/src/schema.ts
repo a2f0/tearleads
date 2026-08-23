@@ -158,6 +158,22 @@ export function boundedStringSchema(maxLength: number) {
   );
 }
 
+export function boundedNonEmptyStringSchema(maxLength: number) {
+  return registerJsonSchemaFragment(
+    z.custom<string>(
+      (value) =>
+        typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= maxLength,
+    ),
+    {
+      maxLength,
+      minLength: 1,
+      type: "string",
+    },
+  );
+}
+
 /**
  * Validates array items without rebuilding the array. This preserves signed
  * input identity and the runtime contract's treatment of sparse array holes.
