@@ -65,9 +65,9 @@ For accepted writes, the API verifies:
 - the caller has write access through at least one linked container path
 - content-key targets match the active document KEK target hash
 - the write header matches document id, organization id, manifest hash, target
- hash, content-key epoch, metadata hash, and ciphertext hash
+  hash, content-key epoch, metadata hash, and ciphertext hash
 - duplicate update ids are idempotent only when the encrypted content and write
- header match the already accepted update
+  header match the already accepted update
 
 The sync response returns accepted outgoing ids, a `commitLsn`, an optional
 `commitLsnMode`, the active content-key bundle, a required array of any
@@ -94,9 +94,15 @@ checkpoint must satisfy the prior page's `commitLsn`.
 One response page contains at most 64 updates and 128 MiB including its key
 envelope. Until durable cursor resumption is available, the SDK aggregates at
 most two pages (and at most 64 updates) per submission, persists any verified
-progress, and schedules a fresh bounded pull when more remain. An incomplete
-pull with no accepted write or returned update is a failure, not success-path
-progress, so an unavailable continuation cannot create a busy loop.
+progress, retains the next cursor in the live document or metadata state, and
+schedules another bounded pull when more remain. This live cursor prevents an
+oversized local version vector from restarting at page one; PR3 persists it
+across process restarts. Queued writes wait until the frozen read snapshot is
+drained. A key-identity conflict invalidates the cursor and retries from a fresh
+snapshot. Rotation recovery persists verified partial pages but cannot rotate
+until the pull finishes. An incomplete pull with no accepted write or returned
+update is a failure, not success-path progress, so an unavailable continuation
+cannot create a busy loop.
 
 Tracked checkpoints are durable backend positions and must satisfy a requested
 `minLsn`. A client advertises `supportsUntrackedCommitLsn: true` to accept an
@@ -107,11 +113,11 @@ their `minLsn` echoed as a compatibility token, which is not a durability claim.
 
 JSON `409` responses retain `error` for diagnostics and carry a normative code:
 
-| Code | Client action |
-| --- | --- |
-| `document_sync_state_stale` | Refetch the writer projection and replan. |
-| `document_sync_update_id_conflict` | Run pending-update ID recovery. |
-| `document_sync_conflict` | Report the terminal conflict without retrying. |
+| Code                               | Client action                                  |
+| ---------------------------------- | ---------------------------------------------- |
+| `document_sync_state_stale`        | Refetch the writer projection and replan.      |
+| `document_sync_update_id_conflict` | Run pending-update ID recovery.                |
+| `document_sync_conflict`           | Report the terminal conflict without retrying. |
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
 missing or unknown code fails closed as a terminal conflict.

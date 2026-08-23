@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import {
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+} from "@symcrypt/validators/util";
+import { limitDocumentSyncRequestBytes } from "../../sync/documentSyncOutgoingBatch";
 import { submitDocumentSync } from "./syncResponses";
 import type { DocumentSyncApi, DocumentSyncPlan } from "./types";
 
@@ -165,6 +170,87 @@ test("submitDocumentSync bounds an in-memory drain to two pages", async () => {
     "update-2",
   ]);
   expect(result.response.pullPage?.hasMore).toBe(true);
+});
+
+test("an oversized version vector resumes beyond the first 64 updates", async () => {
+  const oversizedRequest: DocumentSyncRequest = {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "targets-1",
+    localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+    outgoingUpdates: [],
+    supportsPullPagination: true,
+    supportsUntrackedCommitLsn: true,
+  };
+  const firstRequest = limitDocumentSyncRequestBytes(oversizedRequest);
+  expect(firstRequest.localVersionVector).toBeNull();
+
+  const firstPage = {
+    ...response({
+      commitLsn: "0/2",
+      cursor: "cursor-65",
+      updateId: "update-000",
+    }),
+    acceptedOutgoingUpdateIds: [],
+    updates: Array.from(
+      { length: MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES },
+      (_, index) => ({ id: `update-${String(index).padStart(3, "0")}` }),
+    ) as DocumentSyncResponse["updates"],
+  };
+  const requests: DocumentSyncRequest[] = [];
+  const firstResult = await submitDocumentSync({
+    apiClient: {
+      getDocumentWriterProjection: async () => null,
+      syncDocument: async () => null,
+      syncDocumentResult: async (_documentId, request) => {
+        requests.push(request);
+        return { data: firstPage, ok: true as const };
+      },
+    },
+    plan: {
+      documentId: DOCUMENT_ID,
+      request: firstRequest,
+    } as DocumentSyncPlan,
+  });
+  expect(firstResult?.ok).toBe(true);
+  if (!firstResult?.ok) throw new Error("Expected first bounded pull page");
+  expect(firstResult.pullComplete).toBe(false);
+  expect(requests).toHaveLength(1);
+
+  const resumeCursor = firstResult.response.pullPage.nextCursor;
+  if (resumeCursor === null) throw new Error("Expected a resume cursor");
+  const resumedRequest: DocumentSyncRequest = {
+    ...firstRequest,
+    minLsn: firstResult.response.commitLsn ?? undefined,
+    pullCursor: resumeCursor,
+  };
+  const finalPage = response({
+    commitLsn: "0/3",
+    cursor: null,
+    updateId: "update-064",
+  });
+  const resumedResult = await submitDocumentSync({
+    apiClient: {
+      getDocumentWriterProjection: async () => null,
+      syncDocument: async () => null,
+      syncDocumentResult: async (_documentId, request) => {
+        requests.push(request);
+        return { data: finalPage, ok: true as const };
+      },
+    },
+    plan: {
+      documentId: DOCUMENT_ID,
+      request: resumedRequest,
+    } as DocumentSyncPlan,
+  });
+
+  expect(resumedResult?.ok).toBe(true);
+  if (!resumedResult?.ok) throw new Error("Expected resumed pull to finish");
+  expect(resumedResult.pullComplete).toBe(true);
+  expect(requests[1]?.pullCursor).toBe("cursor-65");
+  expect(resumedResult.response.updates.map(({ id }) => id)).toEqual([
+    "update-064",
+  ]);
 });
 
 test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {

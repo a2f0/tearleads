@@ -10,6 +10,8 @@ export interface ContainerMetadataState {
     | DocumentWriterProjectionResponse
     | null
     | undefined;
+  /** In-memory continuation for the current bounded metadata pull. */
+  pullCursor?: string | null | undefined;
   record: ContainerMetadataRecord;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates

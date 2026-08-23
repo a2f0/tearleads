@@ -245,6 +245,24 @@ test("buildDocumentSyncPlan omits write-only fields for read-only syncs", async 
   expect(plan.request.contentKeyBundle).toBeUndefined();
 });
 
+test("buildDocumentSyncPlan creates a read-only resumed pull", async () => {
+  const { author, createResponse } = await createSyncFixture();
+  const plan = await buildDocumentSyncPlan({
+    author,
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    localVersionVector: null,
+    pullCursor: "resume-page-2",
+  });
+
+  expect(isDocumentSyncRequest(plan.request)).toBe(true);
+  expect(plan.request.pullCursor).toBe("resume-page-2");
+  expect(plan.request.outgoingUpdates).toEqual([]);
+  expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
+  expect(plan.request.contentKeyBundle).toBeUndefined();
+});
+
 test("buildDocumentSyncPlan rejects manifest bundles whose state does not derive the manifest", async () => {
   const { author, createResponse, projection } = await createSyncFixture();
 

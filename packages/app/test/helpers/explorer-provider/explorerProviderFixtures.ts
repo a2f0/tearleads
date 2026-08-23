@@ -263,6 +263,7 @@ export async function createExplorerMetadataSyncResponse(input: {
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
+    pullPage: { hasMore: false, nextCursor: null },
     updates,
   };
 }

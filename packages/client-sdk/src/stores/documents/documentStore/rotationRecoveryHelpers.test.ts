@@ -45,6 +45,12 @@ export function createRotationRecoveryRuntime(input: {
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>;
   execSql: DocumentsRuntime["infra"]["execSql"];
   online?: boolean | undefined;
+  responseForRequest?:
+    | ((
+        request: DocumentSyncRequest,
+        response: DocumentSyncResponse,
+      ) => DocumentSyncResponse)
+    | undefined;
   syncCalls?: { count: number } | undefined;
 }): DocumentsRuntime {
   const { author, publicKey, response, secretKey, signingPublicKey } =
@@ -80,13 +86,16 @@ export function createRotationRecoveryRuntime(input: {
           : { sourceVersionVector: update.sourceVersionVector }),
         writeHeader: update.writeHeader,
       }));
-      return {
+      const defaultResponse = {
         ...response,
         acceptedOutgoingUpdateIds: request.outgoingUpdates.map(
           (update) => update.id,
         ),
         updates: [...response.updates, ...echoedUpdates],
       };
+      return input.responseForRequest
+        ? input.responseForRequest(request, defaultResponse)
+        : defaultResponse;
     },
   } as unknown as DocumentsRuntime["apiClient"];
 

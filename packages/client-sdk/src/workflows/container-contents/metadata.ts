@@ -114,7 +114,7 @@ function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   );
 }
 
-async function syncRemoteContainerMetadata(input: {
+interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
   documentId: string | null;
@@ -123,14 +123,20 @@ async function syncRemoteContainerMetadata(input: {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
+  onPullCursorInvalidated?: (() => void) | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
+  pullCursor?: string | undefined;
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-}): Promise<ContainerMetadataSyncAttempt | null> {
+}
+
+async function syncRemoteContainerMetadata(
+  input: SyncRemoteContainerMetadataInput,
+): Promise<ContainerMetadataSyncAttempt | null> {
   const {
     buildRotationSnapshot,
     containerId,
@@ -174,6 +180,7 @@ async function syncRemoteContainerMetadata(input: {
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     onOutgoingUpdatesMaterialized,
+    onPullCursorInvalidated: input.onPullCursorInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: (failure) =>
       recordDocumentSyncFailure(execSql, metadataScope, {
@@ -183,6 +190,7 @@ async function syncRemoteContainerMetadata(input: {
       }),
     pendingUpdates,
     persistedState,
+    pullCursor: input.pullCursor,
     rekeyPendingUpdate,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -346,8 +354,12 @@ export async function syncContainerMetadataState(
             sentUpdateIds,
             updateIds,
           ),
+        onPullCursorInvalidated: () => {
+          metadataState.pullCursor = null;
+        },
         pendingUpdates,
         persistedState: metadataState.record,
+        pullCursor: metadataState.pullCursor ?? undefined,
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey,
         runtime,
@@ -469,6 +481,7 @@ async function finalizeContainerMetadataSync(input: {
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
+  metadataState.pullCursor = synced.response.pullPage.nextCursor;
 
   return {
     ...persisted,

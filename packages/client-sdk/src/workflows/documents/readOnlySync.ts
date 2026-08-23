@@ -55,6 +55,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
+    pullCursor: input.pullCursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
     signedAt: input.signedAt,
@@ -141,6 +142,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   documentId: string;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullCursor?: string | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   signedAt?: string | undefined;
 }): Promise<DocumentSyncPlan | null> {
@@ -161,6 +163,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates: [],
+    pullCursor: input.pullCursor,
     signedAt: input.signedAt,
   });
   const request = limitDocumentSyncRequestBytes(plan.request);
@@ -183,6 +186,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullCursor?: string | undefined;
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
@@ -400,6 +404,7 @@ export interface SyncRemoteDocumentInput {
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullCursor?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   // Receives the reason whenever this sync returns null, so callers that
   // convert a null result into their own error can name the real cause.
@@ -418,6 +423,8 @@ export interface SyncRemoteDocumentInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
+  /** Clears an in-memory resume cursor after the server rejects its snapshot. */
+  onPullCursorInvalidated?: (() => void) | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

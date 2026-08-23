@@ -416,6 +416,7 @@ export interface BuildDocumentSyncPlanInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
+  pullCursor?: string | undefined;
   signedAt?: string | undefined;
 }
 
@@ -473,11 +474,7 @@ export interface SyncRemoteDocumentResult {
    * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
-  /**
-   * A bounded pull persisted durable page progress but left remote pages to
-   * fetch. This is separate from queued-write deferral so settlement and its
-   * exhaustion anti-spin guards always run.
-   */
+  /** Verified page progress was persisted, but remote pages remain. */
   hasIncompletePull: boolean;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;

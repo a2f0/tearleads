@@ -141,12 +141,18 @@ export async function requestRemoteDocumentSync(input: {
       generation,
     ),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
+    onPullCursorInvalidated: () => {
+      if (isDocumentStoreSyncGenerationCurrent(state, generation)) {
+        state.pullCursor = null;
+      }
+    },
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,
     ),
     pendingUpdates,
     persistedState: currentRecord,
+    pullCursor: state.pullCursor ?? undefined,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({

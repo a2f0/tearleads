@@ -29,6 +29,7 @@ import {
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
@@ -100,12 +101,20 @@ async function pullVerifiedHistoryForRotation(input: {
             sentUpdateIds,
             updateIds,
           ),
+        onPullCursorInvalidated: () => {
+          if (
+            isDocumentStoreSyncGenerationCurrent(input.state, input.generation)
+          ) {
+            input.state.pullCursor = null;
+          }
+        },
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
           input.state,
           input.generation,
         ),
         pendingUpdates: input.pendingUpdates,
         persistedState: input.currentRecord,
+        pullCursor: input.state.pullCursor ?? undefined,
         rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
         resolveProjectionUserKey: input.state.resolveProjectionUserKey,
         resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -202,12 +211,19 @@ async function recoverFullHistoryForRotation(
       await enqueuePendingUpdate(state, uncoveredLocalDelta);
     }
 
-    return await installRebuiltDocument({
+    const fullHistorySnapshot = await installRebuiltDocument({
       currentRecord,
       rebuiltDoc,
       state,
       synced,
     });
+    state.pullCursor = synced.response.pullPage.nextCursor;
+    if (synced.hasIncompletePull) {
+      throw new Error(
+        "Rotation full-history recovery persisted a partial pull; retry after sync completes",
+      );
+    }
+    return fullHistorySnapshot;
   } finally {
     // Durable progress that left queued work needs a follow-up lane pass; the
     // rotation that follows may abort before syncing again. Terminal recovery

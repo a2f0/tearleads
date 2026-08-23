@@ -107,19 +107,24 @@ async function submittedDocumentSyncResult(input: {
   });
   return {
     ...result,
-    hasDeferredPendingUpdates: hasDeferredPendingUpdatesAfterSubmit({
-      acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-      exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-      pendingUpdateIds: input.pendingUpdateIds,
-      rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-      settledPendingUpdateIds: result.settledPendingUpdateIds,
-    }),
+    hasDeferredPendingUpdates:
+      (input.materializedPlan.plan.request.pullCursor !== undefined &&
+        input.pendingUpdateIds.length > 0 &&
+        result.exhaustedPendingUpdateCount === 0) ||
+      hasDeferredPendingUpdatesAfterSubmit({
+        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+        pendingUpdateIds: input.pendingUpdateIds,
+        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+        settledPendingUpdateIds: result.settledPendingUpdateIds,
+      }),
     hasIncompletePull: !input.pullComplete,
   };
 }
 
 function buildRemoteDocumentSyncPlan(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
+  pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
@@ -132,6 +137,7 @@ function buildRemoteDocumentSyncPlan(input: {
     minLsn: input.sync.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,
+    pullCursor: input.pullCursor,
     regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
     signedAt: input.sync.signedAt,
     targetSecretKey: input.sync.targetSecretKey,
@@ -264,6 +270,7 @@ async function abandonOversizedSyncPlan(
 
 async function planDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
+  pullCursor?: string | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
   writeBearing: boolean;
@@ -274,7 +281,9 @@ async function planDocumentSyncAttempt(input: {
       apiClient: input.sync.apiClient,
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
-          pendingUpdates: input.pendingUpdates,
+          pendingUpdates:
+            input.pullCursor === undefined ? input.pendingUpdates : [],
+          pullCursor: input.pullCursor,
           projection,
           regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
           sync: input.sync,
@@ -304,6 +313,36 @@ function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
   );
 }
 
+function invalidatePullCursor(
+  input: SyncRemoteDocumentInput,
+  pullCursor: string | undefined,
+): undefined {
+  if (pullCursor !== undefined) input.onPullCursorInvalidated?.();
+  return undefined;
+}
+
+function pullCursorAfterPersistedSync(input: {
+  readonly persistedSync: Awaited<
+    ReturnType<typeof tryPersistedReadOnlyDocumentSync>
+  >;
+  readonly sync: SyncRemoteDocumentInput;
+}): string | undefined {
+  return input.persistedSync?.kind === "not_completed"
+    ? invalidatePullCursor(input.sync, input.sync.pullCursor)
+    : input.sync.pullCursor;
+}
+
+function isWriteBearingSyncAttempt(input: {
+  readonly pendingUpdates: readonly PendingUpdateRecord[];
+  readonly pullCursor: string | undefined;
+  readonly recoveryPendingUpdateCount: number;
+}): boolean {
+  return (
+    input.pullCursor === undefined &&
+    (input.pendingUpdates.length > 0 || input.recoveryPendingUpdateCount > 0)
+  );
+}
+
 export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
@@ -322,10 +361,14 @@ export async function syncRemoteDocument(
   if (persistedSync?.kind === "completed") {
     return persistedSync.result;
   }
+  let pullCursor = pullCursorAfterPersistedSync({ persistedSync, sync: input });
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const writeBearing =
-      pendingUpdates.length > 0 || recoveryPendingUpdatesById.size > 0;
+    const writeBearing = isWriteBearingSyncAttempt({
+      pendingUpdates,
+      pullCursor,
+      recoveryPendingUpdateCount: recoveryPendingUpdatesById.size,
+    });
     const writerProjection = await resolveAttemptProjection(
       input,
       writeBearing,
@@ -335,6 +378,7 @@ export async function syncRemoteDocument(
     if (!writerProjection) return null;
     const planned = await planDocumentSyncAttempt({
       pendingUpdates,
+      pullCursor,
       regenerateQueuedCheckpoints,
       sync: input,
       writeBearing,
@@ -358,6 +402,7 @@ export async function syncRemoteDocument(
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);
+      pullCursor = invalidatePullCursor(input, pullCursor);
       continue;
     }
     if (submitted === "stop") {

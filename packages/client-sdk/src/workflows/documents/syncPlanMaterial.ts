@@ -374,6 +374,7 @@ export async function buildMaterializedDocumentSyncPlan(
     execSql?: ExecSql | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
+    pullCursor?: string | undefined;
     /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
     onSyncTrace?: DocumentSyncTraceEmitter | undefined;
     pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
@@ -466,6 +467,7 @@ export async function buildMaterializedDocumentSyncPlan(
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
+    pullCursor: input.pullCursor,
     signedAt: input.signedAt,
   });
   const unboundedPlan = writerAuthorization

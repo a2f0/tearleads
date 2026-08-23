@@ -217,6 +217,7 @@ export async function finalizeDocumentSync(
       return { record: state.record ?? currentRecord };
     }
 
+    state.pullCursor = synced.response.pullPage.nextCursor;
     responseApplied = true;
     return persisted;
   });

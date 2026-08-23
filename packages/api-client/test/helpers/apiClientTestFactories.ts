@@ -280,6 +280,7 @@ export function createDocumentSyncRequest(): DocumentSyncRequest {
     expectedTargetHash: "target-hash",
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   };
 }
 
@@ -293,6 +294,7 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     contentKeyBundles: [mutationResponse.contentKeyBundle],
     documentId: mutationResponse.id,
     documentKekTargets: mutationResponse.documentKekTargets,
+    pullPage: { hasMore: false, nextCursor: null },
     updates: [],
   };
 }
