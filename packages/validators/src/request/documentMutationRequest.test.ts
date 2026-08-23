@@ -341,6 +341,60 @@ test("document link mutations bound post-link authorization references", () => {
   ).toBe(false);
 });
 
+test("document link aggregate validation tolerates malformed paths", () => {
+  const validRequest = {
+    event: { eventType: "document.link" },
+    body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
+    expectedManifestHash: "manifest-hash",
+    manifest: { objectType: "document", objectId: "doc-1" },
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "manifest-1" },
+    ],
+    authorizingContainerPathRefs: [null],
+    contentKeyBundle: createDocumentContentKeyBundle(),
+  };
+
+  expect(() => isDocumentLinkSetMutationRequest(validRequest)).not.toThrow();
+  expect(isDocumentLinkSetMutationRequest(validRequest)).toBe(false);
+});
+
+test("document link aggregate validation does not rescan oversized path sets", () => {
+  let itemReads = 0;
+  const authorizingContainerPathRefs = Array.from(
+    { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS + 1 },
+    () => [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+  );
+  Object.defineProperty(authorizingContainerPathRefs, 0, {
+    enumerable: true,
+    get: () => {
+      itemReads += 1;
+      return [
+        {
+          containerId: "container-1",
+          manifestHash: "container-manifest-hash",
+        },
+      ];
+    },
+  });
+
+  expect(
+    isDocumentLinkSetMutationRequest({
+      event: { eventType: "document.link" },
+      body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
+      expectedManifestHash: "manifest-hash",
+      manifest: { objectType: "document", objectId: "doc-1" },
+      targetContainerPathRefs: [
+        { containerId: "container-1", manifestHash: "manifest-1" },
+      ],
+      authorizingContainerPathRefs,
+      contentKeyBundle: createDocumentContentKeyBundle(),
+    }),
+  ).toBe(false);
+  expect(itemReads).toBe(0);
+});
+
 test("isDocumentSyncRequest", () => {
   const validOutgoingUpdate = {
     checkpointKind: "rotate_baseline" as const,

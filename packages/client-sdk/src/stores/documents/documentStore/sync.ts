@@ -21,7 +21,7 @@ import {
 import {
   cleanupPreRegisteredUpdateIdsOnFailure,
   discardPreRegisteredUpdateIds,
-  preRegisterUpdateIds,
+  preRegisterMaterializedDocumentSyncUpdateIds,
 } from "./syncAcceptedUpdateIds";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
@@ -105,23 +105,6 @@ export function prepareDocumentStoreSyncQueue(
     planningUpdates: pendingUpdates,
     queuedUpdateCount: pendingUpdates.length,
   };
-}
-
-export function preRegisterMaterializedDocumentSyncUpdateIds(
-  state: DocumentStoreState,
-  registeredUpdateIds: string[],
-  materializedUpdateIds: readonly string[],
-): void {
-  const alreadyRegistered = new Set(registeredUpdateIds);
-  const freshUpdateIds = materializedUpdateIds.filter(
-    (updateId) => !alreadyRegistered.has(updateId),
-  );
-  registeredUpdateIds.push(
-    ...preRegisterUpdateIds(
-      state,
-      freshUpdateIds.map((id) => ({ id })),
-    ),
-  );
 }
 
 async function syncDocumentState(

@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { base64ToBytes } from "@symcrypt/encoding";
 import {
   createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
   getTextValue,
   importSnapshot,
   importUpdates,
@@ -32,6 +34,7 @@ import {
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
+import { hasRemoteDocumentUpdateEvent } from "./syncRemoteSignals";
 
 test("a full-history preflight settles pending writes before returning its baseline", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -79,6 +82,90 @@ test("a full-history preflight settles pending writes before returning its basel
     const freshReader = await createDocument("pending-rotation-reader");
     importSnapshot(freshReader, baseline);
     expect(getTextValue(freshReader)).toBe("pending local edit");
+  } finally {
+    close();
+  }
+});
+
+test("a fast regenerated-baseline echo stays local during rotation recovery", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-fast-baseline-echo",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-recovery-fast-baseline-echo-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({ execSql, fixture }),
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    if (!state.doc) throw new Error("Expected full-history document");
+
+    await enqueuePendingUpdate(
+      state,
+      exportFullHistorySnapshot(state.doc),
+      encodeVersionVector(state.doc),
+    );
+    const queuedCheckpoint = (await listPendingUpdates(state))[0];
+    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+
+    const submittedIds: string[][] = [];
+    const fastEchoWasRemote: boolean[] = [];
+    const baseRuntime = state.runtime;
+    state.runtime = {
+      ...baseRuntime,
+      apiClient: {
+        ...baseRuntime.apiClient,
+        syncDocumentResult: async (documentId, request) => {
+          const updateIds = request.outgoingUpdates.map((update) => update.id);
+          submittedIds.push(updateIds);
+          fastEchoWasRemote.push(
+            hasRemoteDocumentUpdateEvent(state, [
+              {
+                documentId,
+                type: "document_update_created",
+                updateIds,
+              },
+            ]),
+          );
+          if (submittedIds.length === 1) {
+            return {
+              message: `POST /documents/${documentId}/sync: 409 Conflict: Document content-key rotation baseline does not cover the committed frontier`,
+              ok: false as const,
+              report: () => undefined,
+              status: 409,
+            };
+          }
+          return {
+            message: "Write access denied by the server (403)",
+            ok: false as const,
+            report: () => undefined,
+            status: 403,
+          };
+        },
+      } as DocumentsRuntime["apiClient"],
+    };
+
+    await expect(
+      assertDocumentStoreCanRotateContentKey(state),
+    ).rejects.toThrow();
+
+    expect(submittedIds).toHaveLength(2);
+    expect(submittedIds[0]).toEqual([queuedCheckpoint.id]);
+    expect(submittedIds[1]).toHaveLength(1);
+    expect(submittedIds[1]?.[0]).not.toBe(queuedCheckpoint.id);
+    expect(fastEchoWasRemote).toEqual([false, false]);
   } finally {
     close();
   }

@@ -24,7 +24,7 @@ import {
   cleanupPreRegisteredUpdateIdsOnFailure,
   discardPreRegisteredUpdateIds,
   discardUnacceptedPreRegisteredUpdateIds,
-  preRegisterUpdateIds,
+  preRegisterMaterializedDocumentSyncUpdateIds,
 } from "./syncAcceptedUpdateIds";
 import {
   captureDocumentStoreSyncGeneration,
@@ -66,7 +66,7 @@ async function pullVerifiedHistoryForRotation(input: {
 }) {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
-  const sentUpdateIds = preRegisterUpdateIds(input.state, input.pendingUpdates);
+  const sentUpdateIds: string[] = [];
 
   let abandonReason: string | null = null;
   const synced = await cleanupPreRegisteredUpdateIdsOnFailure(
@@ -93,6 +93,12 @@ async function pullVerifiedHistoryForRotation(input: {
         },
         onSyncTrace: (line) =>
           input.state.runtime.util.log(`Documents: ${line}`),
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedDocumentSyncUpdateIds(
+            input.state,
+            sentUpdateIds,
+            updateIds,
+          ),
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
           input.state,
           input.generation,

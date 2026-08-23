@@ -10,7 +10,9 @@ import {
 } from "../schema";
 import {
   AccessManifestBundleWireSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
@@ -84,6 +86,22 @@ export const DocumentLinkSetMutationRequestSchema =
       if (
         !Array.isArray(request.authorizingContainerPathRefs) ||
         !Array.isArray(request.targetContainerPathRefs)
+      ) {
+        return;
+      }
+      // The nested schemas have already reported their shape/cardinality
+      // errors. Keep this aggregate refinement bounded and never dereference a
+      // malformed path after those continuable issues have been replayed.
+      if (
+        request.authorizingContainerPathRefs.length >
+          MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS ||
+        request.targetContainerPathRefs.length >
+          MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH ||
+        request.authorizingContainerPathRefs.some(
+          (path) =>
+            !Array.isArray(path) ||
+            path.length > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+        )
       ) {
         return;
       }

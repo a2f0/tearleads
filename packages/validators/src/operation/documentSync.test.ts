@@ -84,3 +84,21 @@ test("operation definitions reject bodies for undeclared failure statuses", () =
     ]),
   ).toThrow("body for unregistered failure status 409");
 });
+
+test("operation definitions reject descriptions for undeclared statuses", () => {
+  expect(() =>
+    createOpenApiDocument([
+      defineJsonOperation({
+        auth: "none",
+        body: z.unknown(),
+        failureStatuses: [],
+        id: "test.invalid-description",
+        method: "POST",
+        params: z.strictObject({ id: z.string() }),
+        path: "/test/{id}",
+        responseDescriptions: { 409: "Conflict" },
+        responses: { 200: z.object({ ok: z.literal(true) }) },
+      }),
+    ]),
+  ).toThrow("description for unregistered response status 409");
+});

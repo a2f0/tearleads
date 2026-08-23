@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { createPendingUpdateRecord } from "../../../../test/helpers/documentFixtures";
 import type { DocumentStoreState } from "./state";
-import {
-  prepareDocumentStoreSyncQueue,
-  preRegisterMaterializedDocumentSyncUpdateIds,
-} from "./sync";
+import { prepareDocumentStoreSyncQueue } from "./sync";
+import { preRegisterMaterializedDocumentSyncUpdateIds } from "./syncAcceptedUpdateIds";
 
 test("store sync keeps a tail checkpoint visible to stale-heal planning", () => {
   const ordinaryUpdates = Array.from({ length: 64 }, (_, index) =>

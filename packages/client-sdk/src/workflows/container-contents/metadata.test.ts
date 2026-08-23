@@ -14,6 +14,7 @@ import {
   hasContainerMetadataDocumentUpdateEvent,
   listContainerMetadataDocumentUpdateIds,
   persistContainerMetadataStateFromRuntime,
+  preRegisterMaterializedContainerMetadataUpdateIds,
   renameContainerMetadataStateFromRuntime,
   settleContainerMetadataOutgoingPass,
   syncContainerMetadataState,
@@ -228,6 +229,25 @@ test("listContainerMetadataDocumentUpdateIds suppresses the author's own metadat
       new Set(["unrelated"]),
     ),
   ).toEqual(["metadata-document-1"]);
+});
+
+test("metadata sync pre-registers only exact materialized batches", () => {
+  const registry = new Set<string>();
+  const registeredUpdateIds: string[] = [];
+
+  preRegisterMaterializedContainerMetadataUpdateIds(
+    registry,
+    registeredUpdateIds,
+    ["synthetic-recovery", "bounded-update"],
+  );
+  preRegisterMaterializedContainerMetadataUpdateIds(
+    registry,
+    registeredUpdateIds,
+    ["bounded-update"],
+  );
+
+  expect(registeredUpdateIds).toEqual(["synthetic-recovery", "bounded-update"]);
+  expect([...registry]).toEqual(registeredUpdateIds);
 });
 
 test("hasContainerMetadataDocumentUpdateEvent does not consume the caller's registry", () => {
