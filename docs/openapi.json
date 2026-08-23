@@ -2710,6 +2710,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -4241,6 +4250,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -5507,6 +5525,15 @@
                             },
                             "maxItems": 64,
                             "type": "array"
+                          },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -6799,6 +6826,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -7761,6 +7797,15 @@
                             },
                             "maxItems": 64,
                             "type": "array"
+                          },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -9054,6 +9099,15 @@
                               },
                               "maxItems": 64,
                               "type": "array"
+                            },
+                            "pullCursor": {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "supportsPullPagination": {
+                              "type": "boolean",
+                              "const": true
                             },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",
@@ -11476,6 +11530,14 @@
           {
             "description": "outgoing update ids must be unique within the request",
             "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "pullCursor may be present only when supportsPullPagination is true",
+            "id": "request.pull-cursor-requires-pagination"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, or a content-key bundle",
+            "id": "request.pull-continuation-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -24919,6 +24981,15 @@
                     "maxItems": 64,
                     "type": "array"
                   },
+                  "pullCursor": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "supportsPullPagination": {
+                    "type": "boolean",
+                    "const": true
+                  },
                   "supportsUntrackedCommitLsn": {
                     "type": "boolean",
                     "const": true
@@ -24945,10 +25016,11 @@
                   "type": "object",
                   "properties": {
                     "acceptedOutgoingUpdateIds": {
-                      "type": "array",
                       "items": {
                         "type": "string"
-                      }
+                      },
+                      "maxItems": 64,
+                      "type": "array"
                     },
                     "commitLsn": {
                       "anyOf": [
@@ -25171,6 +25243,31 @@
                         "linkedContainerManifestHashes",
                         "linkSetManifestHash",
                         "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "pullPage": {
+                      "type": "object",
+                      "properties": {
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "anyOf": [
+                            {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hasMore",
+                        "nextCursor"
                       ],
                       "additionalProperties": {}
                     },
@@ -25402,6 +25499,14 @@
             "id": "request.unique-outgoing-update-ids"
           },
           {
+            "description": "pullCursor may be present only when supportsPullPagination is true",
+            "id": "request.pull-cursor-requires-pagination"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, or a content-key bundle",
+            "id": "request.pull-continuation-read-only"
+          },
+          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
@@ -25416,6 +25521,10 @@
           {
             "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
             "id": "response.untracked-commit-lsn-mode"
+          },
+          {
+            "description": "pullPage.hasMore is true exactly when pullPage.nextCursor is non-null",
+            "id": "response.pull-page-continuation"
           }
         ]
       }
@@ -42459,6 +42568,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -43990,6 +44108,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -45256,6 +45383,15 @@
                             },
                             "maxItems": 64,
                             "type": "array"
+                          },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -46548,6 +46684,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -47510,6 +47655,15 @@
                             },
                             "maxItems": 64,
                             "type": "array"
+                          },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -48803,6 +48957,15 @@
                               },
                               "maxItems": 64,
                               "type": "array"
+                            },
+                            "pullCursor": {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "supportsPullPagination": {
+                              "type": "boolean",
+                              "const": true
                             },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",
@@ -51219,6 +51382,14 @@
           {
             "description": "outgoing update ids must be unique within the request",
             "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "pullCursor may be present only when supportsPullPagination is true",
+            "id": "request.pull-cursor-requires-pagination"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, or a content-key bundle",
+            "id": "request.pull-continuation-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",

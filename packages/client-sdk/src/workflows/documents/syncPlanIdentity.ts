@@ -247,6 +247,7 @@ export async function buildDocumentSyncPlan(
     localVersionVector: input.localVersionVector,
     ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
     outgoingUpdates,
+    supportsPullPagination: true,
     // Capability negotiation keeps this additive request compatible with old
     // servers while allowing a Turso server to reset an old tracked checkpoint.
     supportsUntrackedCommitLsn: true,

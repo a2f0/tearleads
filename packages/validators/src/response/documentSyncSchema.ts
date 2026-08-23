@@ -8,17 +8,23 @@ import {
 import {
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
+  documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
+  boundedNonEmptyStringSchema,
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
+import {
+  MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
+} from "../util/documentSyncLimits";
 
 export const DocumentContentKeyTargetEnvelopeResponseSchema = loosePlainObject({
   containerId: nonEmptyStringSchema,
@@ -103,9 +109,23 @@ export type DocumentSyncUpdateResponse = z.infer<
   typeof DocumentSyncUpdateResponseSchema
 >;
 
+export const DocumentSyncPullPageResponseSchema = loosePlainObject({
+  hasMore: z.boolean(),
+  nextCursor: boundedNonEmptyStringSchema(
+    MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
+  ).nullable(),
+});
+
+export type DocumentSyncPullPageResponse = z.infer<
+  typeof DocumentSyncPullPageResponseSchema
+>;
+
 export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
-    acceptedOutgoingUpdateIds: arraySchema(z.string()),
+    acceptedOutgoingUpdateIds: arraySchema(
+      z.string(),
+      MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+    ),
     commitLsn: z.string().nullable(),
     commitLsnMode: z
       .union([z.literal("tracked"), z.literal("untracked")])
@@ -114,8 +134,19 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
     contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
     documentId: z.string(),
     documentKekTargets: DocumentKekTargetsResponseSchema,
+    pullPage: DocumentSyncPullPageResponseSchema.optional(),
     updates: arraySchema(DocumentSyncUpdateResponseSchema),
   }).superRefine((response, context) => {
+    if (
+      response.pullPage !== undefined &&
+      response.pullPage.hasMore !== (response.pullPage.nextCursor !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "pull page continuation does not match hasMore",
+        path: ["pullPage", "nextCursor"],
+      });
+    }
     if (
       response.commitLsnMode === "untracked" &&
       response.commitLsn !== "0/0"
@@ -140,6 +171,7 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
   [
     documentSyncResponseCommitLsnModeRefinement,
     documentSyncResponseCommitLsnSentinelRefinement,
+    documentSyncResponsePullPageRefinement,
   ],
 );
 

@@ -1761,6 +1761,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -2412,6 +2415,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -2847,6 +2853,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -3141,6 +3150,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -3611,6 +3623,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -3905,6 +3920,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -10979,6 +10997,9 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    pullCursor?: string;
+                    /** @constant */
+                    supportsPullPagination?: true;
                     /** @constant */
                     supportsUntrackedCommitLsn?: true;
                 } & {
@@ -11047,6 +11068,12 @@ export interface operations {
                             targets: {
                                 [key: string]: unknown;
                             }[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        pullPage?: {
+                            hasMore: boolean;
+                            nextCursor: string | null;
                         } & {
                             [key: string]: unknown;
                         };
@@ -12475,6 +12502,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -13126,6 +13156,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -13561,6 +13594,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -13855,6 +13891,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -14325,6 +14364,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {
@@ -14619,6 +14661,9 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             })[];
+                            pullCursor?: string;
+                            /** @constant */
+                            supportsPullPagination?: true;
                             /** @constant */
                             supportsUntrackedCommitLsn?: true;
                         } & {

@@ -22,6 +22,7 @@ import {
   serializeCanonical,
   serializedPersistedDocumentState,
 } from "./readers";
+import { submitDocumentSyncPages } from "./syncPagination";
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 import type {
   DocumentSyncApi,
@@ -475,26 +476,23 @@ export async function submitDocumentSync(input: {
   | DocumentSyncSubmitFailure
   | null
 > {
-  if (input.apiClient.syncDocumentResult) {
-    const result = await input.apiClient.syncDocumentResult(
-      input.plan.documentId,
-      input.plan.request,
-      { reportErrors: false },
-    );
+  return submitDocumentSyncPages({
+    plan: input.plan,
+    submit: async (request) => {
+      if (input.apiClient.syncDocumentResult) {
+        const result = await input.apiClient.syncDocumentResult(
+          input.plan.documentId,
+          request,
+          { reportErrors: false },
+        );
+        return result.ok ? { ok: true, response: result.data } : result;
+      }
 
-    if (result.ok) {
-      return {
-        ok: true,
-        response: result.data,
-      };
-    }
-
-    return result;
-  }
-
-  const response = await input.apiClient.syncDocument(
-    input.plan.documentId,
-    input.plan.request,
-  );
-  return response ? { ok: true, response } : null;
+      const response = await input.apiClient.syncDocument(
+        input.plan.documentId,
+        request,
+      );
+      return response ? { ok: true, response } : null;
+    },
+  });
 }

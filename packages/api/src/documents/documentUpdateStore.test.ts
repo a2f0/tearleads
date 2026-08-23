@@ -12,7 +12,11 @@ import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   assertMinLsnSatisfied,
   DocumentUpdateReadError,
+  listMissingDocumentUpdatePage,
   listMissingDocumentUpdates,
+  readDocumentUpdateSequenceUpperBound,
+  readDocumentUpdateUpperBound,
+  resolveDocumentUpdateCursorBounds,
 } from "./documentUpdateStore";
 
 const textEncoder = new TextEncoder();
@@ -121,6 +125,111 @@ test("listMissingDocumentUpdates returns only causally missing document updates"
     localVersionVector: encodeVersionVector(bobDoc),
   });
   expect(missingAfterSecondUpdate).toEqual([]);
+});
+
+test("document update pages retain their upper bound across concurrent writes", async () => {
+  const documentId = await createStoredDocument();
+  const loro = await createDocument("document-update-page-author");
+
+  const firstStart = encodeVersionVector(loro);
+  loro.getText("text").update("first");
+  const first = getUpdateVersionVectors(exportUpdatesSince(loro, firstStart));
+  const firstId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-first",
+    id: firstId,
+    partialEndVersionVector: first.partialEndVersionVector,
+    partialStartVersionVector: first.partialStartVersionVector,
+  });
+
+  const secondStart = encodeVersionVector(loro);
+  loro.getText("text").update("second");
+  const second = getUpdateVersionVectors(exportUpdatesSince(loro, secondStart));
+  const secondId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-second",
+    id: secondId,
+    partialEndVersionVector: second.partialEndVersionVector,
+    partialStartVersionVector: second.partialStartVersionVector,
+  });
+
+  const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  expect(await readDocumentUpdateUpperBound(db, documentId)).toEqual({
+    id: secondId,
+    sequence: upperBoundSequence,
+  });
+  const firstPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
+    documentId,
+    localVersionVector: null,
+    maxEncryptedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence,
+  });
+  expect(firstPage.updates.map(({ id }) => id)).toEqual([firstId]);
+  expect(firstPage.hasMore).toBe(true);
+
+  const thirdStart = encodeVersionVector(loro);
+  loro.getText("text").update("third");
+  const third = getUpdateVersionVectors(exportUpdatesSince(loro, thirdStart));
+  const thirdId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-third",
+    id: thirdId,
+    partialEndVersionVector: third.partialEndVersionVector,
+    partialStartVersionVector: third.partialStartVersionVector,
+  });
+
+  const secondPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: firstPage.lastSequence,
+    documentId,
+    localVersionVector: null,
+    maxEncryptedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence,
+  });
+  expect(secondPage.updates.map(({ id }) => id)).toEqual([secondId]);
+  expect(secondPage.hasMore).toBe(false);
+  expect(
+    await resolveDocumentUpdateCursorBounds(db, {
+      afterUpdateId: firstId,
+      documentId,
+      upperBoundUpdateId: secondId,
+    }),
+  ).toEqual({
+    afterSequence: firstPage.lastSequence,
+    upperBoundSequence,
+  });
+
+  const foreignDocumentId = await createStoredDocument();
+  const foreignCursorError = await expectDocumentUpdateReadError(
+    resolveDocumentUpdateCursorBounds(db, {
+      afterUpdateId: firstId,
+      documentId: foreignDocumentId,
+      upperBoundUpdateId: secondId,
+    }),
+  );
+  expect(foreignCursorError.status).toBe(400);
+
+  const freshUpperBound = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  const freshPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: secondPage.lastSequence,
+    documentId,
+    localVersionVector: null,
+    maxEncryptedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence: freshUpperBound,
+  });
+  expect(freshPage.updates.map(({ id }) => id)).toEqual([thirdId]);
 });
 
 test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {

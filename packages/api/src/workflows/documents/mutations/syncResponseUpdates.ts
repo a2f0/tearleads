@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { documentAuditCheckpoints } from "@symcrypt/api-shared/schema";
 import {
@@ -5,10 +6,17 @@ import {
   type DocumentContentKeyTarget,
   type WriteHeader,
 } from "@symcrypt/crypto";
+import {
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+  MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
+} from "@symcrypt/validators/util";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
-import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
+import {
+  listMissingDocumentUpdatePage,
+  listMissingDocumentUpdates,
+} from "../../../documents/documentUpdateStore";
 import { DocumentMutationError } from "./errors";
 import { writeHeaderRecord } from "./shared/records";
 
@@ -142,17 +150,77 @@ function toSyncUpdate(
   };
 }
 
+export function trimSyncResponseEntriesToBytes<
+  Entry extends {
+    readonly sequence: number;
+    readonly update: { readonly id: string };
+  },
+>(
+  entries: readonly Entry[],
+  page: {
+    readonly hasMore: boolean;
+    readonly lastSequence: number;
+    readonly lastUpdateId: string | null;
+  },
+  maxBytes = MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
+) {
+  const selected: Entry[] = [];
+  let serializedBytes = 2; // JSON array brackets.
+  for (const entry of entries) {
+    const item = JSON.stringify(entry.update);
+    const addedBytes =
+      Buffer.byteLength(item, "utf8") + (selected.length === 0 ? 0 : 1);
+    if (serializedBytes + addedBytes > maxBytes) {
+      break;
+    }
+    selected.push(entry);
+    serializedBytes += addedBytes;
+  }
+  if (entries.length > 0 && selected.length === 0) {
+    throw new DocumentMutationError(
+      "Document update exceeds the pull page byte ceiling",
+      409,
+    );
+  }
+  return {
+    entries: selected,
+    page: {
+      hasMore: page.hasMore || selected.length < entries.length,
+      lastUpdateId: selected.at(-1)?.update.id ?? page.lastUpdateId,
+      lastSequence: selected.at(-1)?.sequence ?? page.lastSequence,
+    },
+  };
+}
+
 export async function listMissingSyncUpdateEntries(input: {
   readonly documentId: string;
   readonly executor: DatabaseSession;
   readonly localVersionVector: string | null;
   readonly minLsn?: string | undefined;
+  readonly pullPage?:
+    | {
+        readonly afterSequence: number;
+        readonly upperBoundSequence: number;
+      }
+    | undefined;
 }) {
-  const updates = await listMissingDocumentUpdates(input.executor, {
-    documentId: input.documentId,
-    localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
-  });
+  const page = input.pullPage
+    ? await listMissingDocumentUpdatePage(input.executor, {
+        ...input.pullPage,
+        documentId: input.documentId,
+        localVersionVector: input.localVersionVector,
+        maxEncryptedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
+        maxUpdates: MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+        minLsn: input.minLsn,
+      })
+    : undefined;
+  const updates = page
+    ? page.updates
+    : await listMissingDocumentUpdates(input.executor, {
+        documentId: input.documentId,
+        localVersionVector: input.localVersionVector,
+        minLsn: input.minLsn,
+      });
   const updateIds = updates.map((update) => update.id);
   const writeHeadersByUpdateId = await listDocumentContentWriteHeaders(
     updateIds,
@@ -163,7 +231,7 @@ export async function listMissingSyncUpdateEntries(input: {
     updateIds,
   );
 
-  return Promise.all(
+  const entries = await Promise.all(
     updates.map(async (update) => {
       const writeHeader = writeHeadersByUpdateId.get(update.id);
       if (!writeHeader) {
@@ -180,9 +248,14 @@ export async function listMissingSyncUpdateEntries(input: {
       });
 
       return {
+        sequence: update.sequence,
         update: toSyncUpdate(update, writeHeader, checkpoint),
         writeHeader: writeHeader.header,
       };
     }),
   );
+
+  return page === undefined
+    ? { entries }
+    : trimSyncResponseEntriesToBytes(entries, page);
 }

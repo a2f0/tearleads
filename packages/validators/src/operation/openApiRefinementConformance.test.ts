@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 import {
   documentSyncRequestEnvelopeRefinements,
+  documentSyncRequestPullRefinements,
   documentSyncRequestRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
+  documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
 import { DocumentSyncRequestSchema } from "../request";
@@ -79,6 +81,24 @@ const witnesses = {
     expectedMessage: "outgoing update ids must be unique",
     kind: "request",
   },
+  [documentSyncRequestPullRefinements[0].id]: {
+    createInput: () => ({
+      ...createSyncRequest(),
+      outgoingUpdates: [],
+      pullCursor: "cursor",
+    }),
+    expectedMessage: "pull cursor requires paginated pull support",
+    kind: "request",
+  },
+  [documentSyncRequestPullRefinements[1].id]: {
+    createInput: () => ({
+      ...createSyncRequest(),
+      pullCursor: "cursor",
+      supportsPullPagination: true,
+    }),
+    expectedMessage: "continued pulls must be read-only",
+    kind: "request",
+  },
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),
@@ -106,6 +126,17 @@ const witnesses = {
       commitLsnMode: "tracked",
     }),
     expectedMessage: "0/0 commit LSN must be declared untracked",
+    kind: "response",
+  },
+  [documentSyncResponsePullPageRefinement.id]: {
+    createInput: () => ({
+      ...createSyncResponse(),
+      pullPage: {
+        hasMore: true,
+        nextCursor: null,
+      },
+    }),
+    expectedMessage: "pull page continuation does not match hasMore",
     kind: "response",
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;

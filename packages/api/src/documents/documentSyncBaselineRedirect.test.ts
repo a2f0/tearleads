@@ -137,7 +137,7 @@ async function insertBaselineCheckpoint(input: {
   corruptMetadataHash?: boolean;
   documentId: string;
   sourceVersionVector: string;
-}): Promise<void> {
+}): Promise<number> {
   const partialStartVersionVector = emptyVersionVector();
   const plaintextHash = `plaintext-${input.baselineUpdateId}`;
   const metadataHash = input.corruptMetadataHash
@@ -152,17 +152,21 @@ async function insertBaselineCheckpoint(input: {
         sourceVersionVector: input.sourceVersionVector,
         updateId: input.baselineUpdateId,
       });
-  await db.insert(documentUpdates).values({
-    id: input.baselineUpdateId,
-    documentId: input.documentId,
-    accessEpoch: 1,
-    authorFingerprint: "baseline-redirect-test",
-    encryptedData: "encrypted-baseline",
-    byteLength: 18,
-    partialStartVersionVector,
-    partialEndVersionVector: input.sourceVersionVector,
-    plaintextHash,
-  });
+  const [insertedUpdate] = await db
+    .insert(documentUpdates)
+    .values({
+      id: input.baselineUpdateId,
+      documentId: input.documentId,
+      accessEpoch: 1,
+      authorFingerprint: "baseline-redirect-test",
+      encryptedData: "encrypted-baseline",
+      byteLength: 18,
+      partialStartVersionVector,
+      partialEndVersionVector: input.sourceVersionVector,
+      plaintextHash,
+    })
+    .returning({ sequence: documentUpdates.sequence });
+  if (!insertedUpdate) throw new Error("Failed to insert baseline update");
   await db.insert(documentContentWriteHeaders).values({
     updateId: input.baselineUpdateId,
     documentId: input.documentId,
@@ -187,6 +191,7 @@ async function insertBaselineCheckpoint(input: {
     actorUserId: randomUUID(),
     actorFingerprint: "baseline-redirect-test",
   });
+  return insertedUpdate.sequence;
 }
 
 test("loadLatestReadableBaselineCoverage returns the latest baseline under the readable epoch", async () => {
@@ -200,7 +205,7 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
     sourceVersionVector: vv1,
   });
   // Two current-epoch (epoch 2) baselines; the later sequence must win.
-  await insertBaselineCheckpoint({
+  const boundedSequence = await insertBaselineCheckpoint({
     baselineUpdateId: randomUUID(),
     contentKeyEpoch: 2,
     documentId,
@@ -213,6 +218,13 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
     sourceVersionVector: vv3,
   });
 
+  expect(
+    await loadLatestReadableBaselineCoverage(db, {
+      documentId,
+      contentKeyEpoch: 2,
+      upperBoundSequence: boundedSequence,
+    }),
+  ).toBe(vv2);
   expect(
     await loadLatestReadableBaselineCoverage(db, {
       documentId,

@@ -10,10 +10,9 @@ import {
 import { decodeVersionVector } from "@symcrypt/loro";
 import type { DocumentUpdateRecord } from "@symcrypt/loro/server";
 import { parseWalLsn } from "@symcrypt/validators/util";
-import { sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   isSqliteApiDatabase,
-  readDateValue,
   textExpression,
   uuidValue,
 } from "../utils/sqlDialect";
@@ -23,18 +22,22 @@ interface SqlNamedColumn {
   name: string;
 }
 
-interface MissingDocumentUpdateRow {
-  accessEpoch: number;
-  authorFingerprint: string;
+interface MissingDocumentUpdateCandidate {
   byteLength: number;
-  createdAt: Date | number | string;
-  documentId: string;
-  encryptedData: string;
   id: string;
-  partialEndVersionVector: string;
-  partialStartVersionVector: string;
-  plaintextHash: string;
   sequence: number;
+}
+
+interface MissingDocumentUpdatePage {
+  readonly hasMore: boolean;
+  readonly lastUpdateId: string | null;
+  readonly lastSequence: number;
+  readonly updates: readonly DocumentUpdateRecord[];
+}
+
+export interface DocumentUpdateCursorPosition {
+  readonly id: string;
+  readonly sequence: number;
 }
 
 interface ClientFrontierRow {
@@ -56,45 +59,25 @@ function aliasedColumn(alias: string, column: SqlNamedColumn) {
   return sql.raw(`${alias}.${column.name}`);
 }
 
-function isMissingDocumentUpdateRow(
+function isMissingDocumentUpdateCandidate(
   value: unknown,
-): value is MissingDocumentUpdateRow {
+): value is MissingDocumentUpdateCandidate {
   if (typeof value !== "object" || value === null) {
     return false;
   }
 
-  const accessEpoch = Reflect.get(value, "accessEpoch");
-  const authorFingerprint = Reflect.get(value, "authorFingerprint");
   const byteLength = Reflect.get(value, "byteLength");
-  const createdAt = Reflect.get(value, "createdAt");
-  const documentId = Reflect.get(value, "documentId");
-  const encryptedData = Reflect.get(value, "encryptedData");
   const id = Reflect.get(value, "id");
-  const partialEndVersionVector = Reflect.get(value, "partialEndVersionVector");
-  const partialStartVersionVector = Reflect.get(
-    value,
-    "partialStartVersionVector",
-  );
-  const plaintextHash = Reflect.get(value, "plaintextHash");
   const sequence = Reflect.get(value, "sequence");
 
   return (
-    typeof accessEpoch === "number" &&
-    Number.isInteger(accessEpoch) &&
-    typeof authorFingerprint === "string" &&
     typeof byteLength === "number" &&
-    Number.isInteger(byteLength) &&
-    (createdAt instanceof Date ||
-      typeof createdAt === "number" ||
-      typeof createdAt === "string") &&
-    typeof documentId === "string" &&
-    typeof encryptedData === "string" &&
+    Number.isSafeInteger(byteLength) &&
+    byteLength >= 0 &&
     typeof id === "string" &&
-    typeof partialEndVersionVector === "string" &&
-    typeof partialStartVersionVector === "string" &&
-    typeof plaintextHash === "string" &&
     typeof sequence === "number" &&
-    Number.isInteger(sequence)
+    Number.isSafeInteger(sequence) &&
+    sequence > 0
   );
 }
 
@@ -164,57 +147,44 @@ export async function assertMinLsnSatisfied(
   }
 }
 
-export async function listMissingDocumentUpdates(
+async function listMissingDocumentUpdateCandidates(
   executor: DatabaseSession,
   input: {
-    documentId: string;
-    localVersionVector: string | null;
-    minLsn?: string | undefined;
+    readonly afterSequence?: number | undefined;
+    readonly documentId: string;
+    readonly limit?: number | undefined;
+    readonly localVersionVector: string | null;
+    readonly upperBoundSequence?: number | undefined;
   },
-): Promise<DocumentUpdateRecord[]> {
-  await assertMinLsnSatisfied(executor, input.minLsn);
-
+): Promise<MissingDocumentUpdateCandidate[]> {
   const updateId = aliasedColumn("u", documentUpdates.id);
   const updateDocumentId = aliasedColumn("u", documentUpdates.documentId);
   const updateSequence = aliasedColumn("u", documentUpdates.sequence);
-  const updateAccessEpoch = aliasedColumn("u", documentUpdates.accessEpoch);
-  const updateAuthorFingerprint = aliasedColumn(
-    "u",
-    documentUpdates.authorFingerprint,
-  );
-  const updateEncryptedData = aliasedColumn("u", documentUpdates.encryptedData);
   const updateByteLength = aliasedColumn("u", documentUpdates.byteLength);
-  const updatePartialStartVersionVector = aliasedColumn(
-    "u",
-    documentUpdates.partialStartVersionVector,
-  );
-  const updatePartialEndVersionVector = aliasedColumn(
-    "u",
-    documentUpdates.partialEndVersionVector,
-  );
-  const updatePlaintextHash = aliasedColumn("u", documentUpdates.plaintextHash);
-  const updateCreatedAt = aliasedColumn("u", documentUpdates.createdAt);
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
   const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
   const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
   const clientFrontierJson = buildClientFrontierJson(input.localVersionVector);
   const frontier = buildFrontierRecordset(clientFrontierJson);
+  const lowerBound =
+    input.afterSequence === undefined
+      ? sql``
+      : sql`and ${updateSequence} > ${input.afterSequence}`;
+  const upperBound =
+    input.upperBoundSequence === undefined
+      ? sql``
+      : sql`and ${updateSequence} <= ${input.upperBoundSequence}`;
+  const limit = input.limit === undefined ? sql`` : sql`limit ${input.limit}`;
   const result = await executor.execute(sql`
     select
       ${updateSequence} as "sequence",
       ${textExpression(updateId)} as "id",
-      ${textExpression(updateDocumentId)} as "documentId",
-      ${updateAccessEpoch} as "accessEpoch",
-      ${updateAuthorFingerprint} as "authorFingerprint",
-      ${updateEncryptedData} as "encryptedData",
-      ${updateByteLength} as "byteLength",
-      ${updatePartialStartVersionVector} as "partialStartVersionVector",
-      ${updatePartialEndVersionVector} as "partialEndVersionVector",
-      ${updatePlaintextHash} as "plaintextHash",
-      ${updateCreatedAt} as "createdAt"
+      ${updateByteLength} as "byteLength"
     from ${documentUpdates} u
     where ${updateDocumentId} = ${uuidValue(input.documentId)}
+      ${lowerBound}
+      ${upperBound}
       and (
         not exists (
           select 1
@@ -233,35 +203,163 @@ export async function listMissingDocumentUpdates(
         )
       )
     order by ${updateSequence} asc
+    ${limit}
   `);
-  const missingUpdates: DocumentUpdateRecord[] = [];
+  const candidates: MissingDocumentUpdateCandidate[] = [];
 
   for (const row of result.rows) {
-    if (!isMissingDocumentUpdateRow(row)) {
+    if (!isMissingDocumentUpdateCandidate(row)) {
       throw new Error(
-        "Unexpected row shape from missing document updates query",
+        "Unexpected row shape from missing document update candidates query",
       );
     }
+    candidates.push(row);
+  }
+  return candidates;
+}
 
-    const createdAt = readDateValue(
-      row.createdAt,
-      "createdAt from missing document updates query",
+async function loadDocumentUpdatesByCandidate(
+  executor: DatabaseSession,
+  candidates: readonly MissingDocumentUpdateCandidate[],
+): Promise<DocumentUpdateRecord[]> {
+  if (candidates.length === 0) {
+    return [];
+  }
+  const rows = await executor
+    .select()
+    .from(documentUpdates)
+    .where(
+      inArray(
+        documentUpdates.id,
+        candidates.map(({ id }) => id),
+      ),
     );
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return candidates.map((candidate) => {
+    const row = byId.get(candidate.id);
+    if (!row || row.sequence !== candidate.sequence) {
+      throw new DocumentUpdateReadError(
+        "Document update changed while loading page; retry",
+        409,
+      );
+    }
+    return row;
+  });
+}
 
-    missingUpdates.push({
-      accessEpoch: row.accessEpoch,
-      authorFingerprint: row.authorFingerprint,
-      byteLength: row.byteLength,
-      createdAt,
-      documentId: row.documentId,
-      encryptedData: row.encryptedData,
-      id: row.id,
-      partialEndVersionVector: row.partialEndVersionVector,
-      partialStartVersionVector: row.partialStartVersionVector,
-      plaintextHash: row.plaintextHash,
-      sequence: row.sequence,
-    });
+export async function readDocumentUpdateUpperBound(
+  executor: DatabaseSession,
+  documentId: string,
+): Promise<DocumentUpdateCursorPosition | null> {
+  const [row] = await executor
+    .select({ id: documentUpdates.id, sequence: documentUpdates.sequence })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, documentId))
+    .orderBy(desc(documentUpdates.sequence))
+    .limit(1);
+  if (!row) return null;
+  if (!Number.isSafeInteger(row.sequence) || row.sequence < 1) {
+    throw new Error("Invalid document update sequence upper bound");
+  }
+  return row;
+}
+
+export async function readDocumentUpdateSequenceUpperBound(
+  executor: DatabaseSession,
+  documentId: string,
+): Promise<number> {
+  return (
+    (await readDocumentUpdateUpperBound(executor, documentId))?.sequence ?? 0
+  );
+}
+
+export async function resolveDocumentUpdateCursorBounds(
+  executor: DatabaseSession,
+  input: {
+    readonly afterUpdateId: string;
+    readonly documentId: string;
+    readonly upperBoundUpdateId: string;
+  },
+): Promise<{
+  readonly afterSequence: number;
+  readonly upperBoundSequence: number;
+}> {
+  const ids = [...new Set([input.afterUpdateId, input.upperBoundUpdateId])];
+  const rows = await executor
+    .select({ id: documentUpdates.id, sequence: documentUpdates.sequence })
+    .from(documentUpdates)
+    .where(
+      and(
+        eq(documentUpdates.documentId, input.documentId),
+        inArray(documentUpdates.id, ids),
+      ),
+    );
+  const sequenceById = new Map(rows.map((row) => [row.id, row.sequence]));
+  const afterSequence = sequenceById.get(input.afterUpdateId);
+  const upperBoundSequence = sequenceById.get(input.upperBoundUpdateId);
+  if (
+    afterSequence === undefined ||
+    upperBoundSequence === undefined ||
+    afterSequence > upperBoundSequence
+  ) {
+    throw new DocumentUpdateReadError("Document pull cursor is invalid", 400);
+  }
+  return { afterSequence, upperBoundSequence };
+}
+
+export async function listMissingDocumentUpdates(
+  executor: DatabaseSession,
+  input: {
+    documentId: string;
+    localVersionVector: string | null;
+    minLsn?: string | undefined;
+  },
+): Promise<DocumentUpdateRecord[]> {
+  await assertMinLsnSatisfied(executor, input.minLsn);
+  const candidates = await listMissingDocumentUpdateCandidates(executor, input);
+  return loadDocumentUpdatesByCandidate(executor, candidates);
+}
+
+export async function listMissingDocumentUpdatePage(
+  executor: DatabaseSession,
+  input: {
+    readonly afterSequence: number;
+    readonly documentId: string;
+    readonly localVersionVector: string | null;
+    readonly maxEncryptedBytes: number;
+    readonly maxUpdates: number;
+    readonly minLsn?: string | undefined;
+    readonly upperBoundSequence: number;
+  },
+): Promise<MissingDocumentUpdatePage> {
+  await assertMinLsnSatisfied(executor, input.minLsn);
+  const candidates = await listMissingDocumentUpdateCandidates(executor, {
+    afterSequence: input.afterSequence,
+    documentId: input.documentId,
+    limit: input.maxUpdates + 1,
+    localVersionVector: input.localVersionVector,
+    upperBoundSequence: input.upperBoundSequence,
+  });
+  const selected: MissingDocumentUpdateCandidate[] = [];
+  let selectedBytes = 0;
+  for (const candidate of candidates.slice(0, input.maxUpdates)) {
+    if (selectedBytes + candidate.byteLength > input.maxEncryptedBytes) {
+      break;
+    }
+    selected.push(candidate);
+    selectedBytes += candidate.byteLength;
+  }
+  if (candidates.length > 0 && selected.length === 0) {
+    throw new DocumentUpdateReadError(
+      "Document update exceeds the pull page byte ceiling",
+      409,
+    );
   }
 
-  return missingUpdates;
+  return {
+    hasMore: selected.length < candidates.length,
+    lastUpdateId: selected.at(-1)?.id ?? null,
+    lastSequence: selected.at(-1)?.sequence ?? input.afterSequence,
+    updates: await loadDocumentUpdatesByCandidate(executor, selected),
+  };
 }

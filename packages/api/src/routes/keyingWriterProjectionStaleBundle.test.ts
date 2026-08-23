@@ -102,6 +102,7 @@ test("read-only document sync pulls stay served against the stored bundle while 
     expectedTargetHash: created.contentKeyBundle.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   });
   expect(readOnlyResponse.status).toBe(200);
   const readOnly = await readOnlyResponse.json();
@@ -115,6 +116,10 @@ test("read-only document sync pulls stay served against the stored bundle while 
   expect(readOnly.documentKekTargets.documentKeyTargetHash).toBe(
     created.contentKeyBundle.targetHash,
   );
+  expect(readOnly.pullPage).toMatchObject({
+    hasMore: false,
+    nextCursor: null,
+  });
 }, 10_000);
 
 test("a write-bearing sync heals the stale bundle at the next content-key epoch", async () => {

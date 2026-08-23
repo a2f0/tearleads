@@ -8,6 +8,7 @@ import {
 import {
   authenticateSyncCheckpointForResponse,
   type SyncCheckpointMetadata,
+  trimSyncResponseEntriesToBytes,
 } from "./syncResponseUpdates";
 
 const CHECKPOINT: SyncCheckpointMetadata = {
@@ -168,5 +169,26 @@ test("fails closed when an authenticated checkpoint lost its checkpoint row", as
   ).rejects.toMatchObject({
     message: "Document update metadata failed integrity validation",
     status: 409,
+  });
+});
+
+test("serialized response byte trimming preserves the next unserved sequence", () => {
+  const entries = [
+    { sequence: 7, update: { encryptedData: "first", id: "first" } },
+    { sequence: 11, update: { encryptedData: "second", id: "second" } },
+  ];
+  const firstItemBytes = new TextEncoder().encode(
+    JSON.stringify([entries[0]?.update]),
+  ).byteLength;
+
+  expect(
+    trimSyncResponseEntriesToBytes(
+      entries,
+      { hasMore: false, lastSequence: 11, lastUpdateId: "second" },
+      firstItemBytes,
+    ),
+  ).toEqual({
+    entries: entries.slice(0, 1),
+    page: { hasMore: true, lastSequence: 7, lastUpdateId: "first" },
   });
 });

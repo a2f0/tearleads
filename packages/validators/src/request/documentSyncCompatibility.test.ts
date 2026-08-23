@@ -7,7 +7,6 @@ import {
 import { DocumentSyncRequestSchema, isDocumentSyncRequest } from "./index";
 
 const UPDATE_ID = "550e8400-e29b-41d4-a716-446655440111";
-
 function createSyncRequest() {
   return {
     authorizingContainerPathRefs: [
@@ -45,7 +44,6 @@ function createSyncRequest() {
     ],
   };
 }
-
 function createContentKeyBundleResponse() {
   return {
     contentKeyEpoch: 1,
@@ -64,7 +62,6 @@ function createContentKeyBundleResponse() {
     ],
   };
 }
-
 function createKekTargetsResponse() {
   return {
     documentId: "document-1",
@@ -484,4 +481,19 @@ test("document sync response schema preserves signed and extension fields", () =
     "preserved",
   );
   expect(result.data.updates[0]?.writeHeader).toBe(writeHeader);
+});
+
+test("document sync response pull page requires a consistent continuation", () => {
+  const valid = createSyncResponse();
+  const pullPage = {
+    hasMore: true,
+    nextCursor: "next-page",
+  };
+  expect(isDocumentSyncResponse({ ...valid, pullPage })).toBe(true);
+  expect(
+    isDocumentSyncResponse({
+      ...valid,
+      pullPage: { ...pullPage, hasMore: false },
+    }),
+  ).toBe(false);
 });

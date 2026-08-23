@@ -4,7 +4,7 @@ import {
   documentContentWriteHeaders,
   documentUpdates,
 } from "@symcrypt/api-shared/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 
@@ -89,7 +89,11 @@ export function selectServedSyncUpdates<
  */
 export async function loadLatestReadableBaselineCoverage(
   executor: DatabaseSession,
-  input: { readonly documentId: string; readonly contentKeyEpoch: number },
+  input: {
+    readonly documentId: string;
+    readonly contentKeyEpoch: number;
+    readonly upperBoundSequence?: number | undefined;
+  },
 ): Promise<string | null> {
   const rows = await executor
     .select({
@@ -119,6 +123,9 @@ export async function loadLatestReadableBaselineCoverage(
         eq(documentAuditCheckpoints.documentId, input.documentId),
         eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
         eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
+        ...(input.upperBoundSequence === undefined
+          ? []
+          : [lte(documentUpdates.sequence, input.upperBoundSequence)]),
       ),
     )
     .orderBy(desc(documentAuditCheckpoints.sequence));
@@ -153,6 +160,7 @@ export async function selectServedSyncUpdateEntries<
   readonly documentId: string;
   readonly entries: readonly Entry[];
   readonly executor: DatabaseSession;
+  readonly upperBoundSequence?: number | undefined;
 }): Promise<Entry[]> {
   const hasOlderEpochUpdate = input.entries.some(
     (entry) => entry.writeHeader.contentKeyEpoch < input.currentContentKeyEpoch,
@@ -166,6 +174,7 @@ export async function selectServedSyncUpdateEntries<
     {
       documentId: input.documentId,
       contentKeyEpoch: input.currentContentKeyEpoch,
+      upperBoundSequence: input.upperBoundSequence,
     },
   );
 

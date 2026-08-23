@@ -1,6 +1,5 @@
 import type {
   ApiDatabase,
-  DatabaseSession,
   DatabaseTransaction,
 } from "@symcrypt/api-shared/postgres";
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
@@ -8,17 +7,18 @@ import {
   type DocumentSyncResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@symcrypt/validators/response";
-import {
-  getDocumentContentKeyBundle,
-  type StoredDocumentContentKeyBundle,
-} from "../../../access/read/documentContentKeyStore";
+import type { StoredDocumentContentKeyBundle } from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   readCommitLsnMode,
   readCurrentCommitLsn,
 } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
+import {
+  assertMinLsnSatisfied,
+  readDocumentUpdateUpperBound,
+  resolveDocumentUpdateCursorBounds,
+} from "../../../documents/documentUpdateStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -38,53 +38,17 @@ import {
 import { verifySyncWriteAuthorizationProof } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
 import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
-import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
+import { resolveSyncPullPagePlan } from "./syncPullPagination";
+import {
+  buildPaginatedSyncPullResponse,
+  listMissingSyncUpdatesWithBundles,
+} from "./syncPullResponse";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
 import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
 import type {
   DocumentWriteAuthorizationProof,
   SyncDocumentInput,
 } from "./types";
-
-function uniqueContentKeyEpochs(contentKeyEpochs: Iterable<number>): number[] {
-  return [...new Set(contentKeyEpochs)].sort((left, right) => left - right);
-}
-
-async function listContentKeyBundlesForSyncResponse(input: {
-  readonly contentKeyEpochs: Iterable<number>;
-  readonly currentBundle: StoredDocumentContentKeyBundle;
-  readonly documentId: string;
-  readonly executor: DatabaseSession;
-}): Promise<StoredDocumentContentKeyBundle[]> {
-  const bundleByEpoch = new Map<number, StoredDocumentContentKeyBundle>([
-    [input.currentBundle.contentKeyEpoch, input.currentBundle],
-  ]);
-
-  for (const contentKeyEpoch of uniqueContentKeyEpochs(
-    input.contentKeyEpochs,
-  )) {
-    if (bundleByEpoch.has(contentKeyEpoch)) {
-      continue;
-    }
-
-    const bundle = await getDocumentContentKeyBundle(
-      input.documentId,
-      contentKeyEpoch,
-      input.executor,
-    );
-    if (!bundle) {
-      throw new DocumentMutationError(
-        "Document content-key bundle missing",
-        409,
-      );
-    }
-    bundleByEpoch.set(contentKeyEpoch, bundle);
-  }
-
-  return [...bundleByEpoch.values()].sort(
-    (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
-  );
-}
 
 async function resolveSyncAuditAccess(input: {
   readonly currentTargets: Awaited<
@@ -120,43 +84,6 @@ async function touchAcceptedSyncTargets(input: {
       (target) => target.containerId,
     ),
   });
-}
-
-async function listMissingSyncUpdatesWithBundles(input: {
-  readonly contentKeyBundle: StoredDocumentContentKeyBundle;
-  readonly documentId: string;
-  readonly executor: DatabaseSession;
-  readonly request: DocumentSyncRequest;
-}) {
-  const missingUpdateEntries = await listMissingSyncUpdateEntries({
-    documentId: input.documentId,
-    executor: input.executor,
-    localVersionVector: input.request.localVersionVector,
-    minLsn: input.request.minLsn,
-  });
-  // Redirect readers who are behind a content-key rotation to the current-epoch
-  // baseline instead of shipping pre-rotation updates they cannot decrypt (which
-  // would poison their all-or-nothing client decrypt). Safe: only drops older
-  // updates a readable baseline provably covers, else serves everything.
-  const servedUpdateEntries = await selectServedSyncUpdateEntries({
-    currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
-    documentId: input.documentId,
-    entries: missingUpdateEntries,
-    executor: input.executor,
-  });
-  const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
-    contentKeyEpochs: servedUpdateEntries.map(
-      (entry) => entry.writeHeader.contentKeyEpoch,
-    ),
-    currentBundle: input.contentKeyBundle,
-    documentId: input.documentId,
-    executor: input.executor,
-  });
-
-  return {
-    contentKeyBundles,
-    missingUpdates: servedUpdateEntries.map((entry) => entry.update),
-  };
 }
 
 // The wire schema deliberately accepts any non-empty container id, so the
@@ -298,23 +225,80 @@ async function buildSyncDocumentTransactionResult(input: {
   readonly request: DocumentSyncRequest;
   readonly servedStaleBundle: boolean;
 }) {
-  const { contentKeyBundles, missingUpdates } =
+  if (input.request.supportsPullPagination === true) {
+    // A replica may advance between statements, which is safe only in this
+    // order: first prove it reached the requested commit, then freeze a
+    // snapshot bound at that point or later.
+    await assertMinLsnSatisfied(input.executor, input.request.minLsn);
+  }
+  const upperBound =
+    input.request.supportsPullPagination === true
+      ? await readDocumentUpdateUpperBound(input.executor, input.documentId)
+      : null;
+  const pullIdentity = {
+    contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+    documentId: input.documentId,
+    linkSetManifestHash: input.contentKeyBundle.linkSetManifestHash,
+    targetHash: input.contentKeyBundle.targetHash,
+  };
+  const pullPagePlan = await resolveSyncPullPagePlan({
+    identity: pullIdentity,
+    request: input.request,
+    resolveCursorBounds: (cursor) =>
+      resolveDocumentUpdateCursorBounds(input.executor, {
+        ...cursor,
+        documentId: input.documentId,
+      }),
+    upperBound,
+  });
+  const { contentKeyBundles, entries, page } =
     await listMissingSyncUpdatesWithBundles({
       contentKeyBundle: input.contentKeyBundle,
       documentId: input.documentId,
       executor: input.executor,
+      pullPagePlan,
       request: input.request,
     });
-
-  return {
-    accessEpoch: input.currentTargets.linkSetEpoch,
+  const contentKeyBundle = toContentKeyBundleResponse(input.contentKeyBundle);
+  const responseBase = {
     acceptedOutgoingUpdateIds: input.appendResult.acceptedOutgoingUpdateIds,
-    contentKeyBundle: input.contentKeyBundle,
-    contentKeyBundles,
-    currentTargets: input.currentTargets,
+    contentKeyBundle,
+    documentId: input.documentId,
+    // A stale-served read-only pull must echo the targets the bundle actually
+    // wraps to; mixing the stale bundle with current targets would fail the
+    // client's plan/response consistency checks.
+    documentKekTargets: input.servedStaleBundle
+      ? documentKekTargetsFromContentKeyBundle(contentKeyBundle)
+      : toDocumentKekTargetsResponse(input.currentTargets),
+  };
+  let responseWithoutCommit: Omit<
+    DocumentSyncResponse,
+    "commitLsn" | "commitLsnMode"
+  >;
+  if (pullPagePlan === null) {
+    responseWithoutCommit = {
+      ...responseBase,
+      contentKeyBundles: contentKeyBundles.map((bundle) =>
+        toContentKeyBundleResponse(bundle),
+      ),
+      updates: entries.map(({ update }) => update),
+    };
+  } else {
+    if (page === undefined) {
+      throw new Error("Paginated document pull did not return page metadata");
+    }
+    responseWithoutCommit = buildPaginatedSyncPullResponse({
+      base: responseBase,
+      contentKeyBundles,
+      entries,
+      identity: pullIdentity,
+      page,
+      plan: pullPagePlan,
+    });
+  }
+  return {
     insertedUpdateIds: [...input.appendResult.insertedUpdateIds],
-    missingUpdates,
-    servedStaleBundle: input.servedStaleBundle,
+    responseWithoutCommit,
   };
 }
 
@@ -389,9 +373,6 @@ export async function runDocumentSyncWorkflow(
         userId: input.userId,
       }),
     );
-    const contentKeyBundle = toContentKeyBundleResponse(
-      transactionResult.contentKeyBundle,
-    );
     const clientSupportsUntracked =
       input.request.supportsUntrackedCommitLsn === true;
     const commitLsnMode = readCommitLsnMode(undefined, {
@@ -405,25 +386,14 @@ export async function runDocumentSyncWorkflow(
             clientSupportsUntracked,
             minimumLsn: input.request.minLsn,
           });
+    const response: DocumentSyncResponse = {
+      ...transactionResult.responseWithoutCommit,
+      commitLsn,
+      ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
+    };
     return {
       insertedUpdateIds: transactionResult.insertedUpdateIds,
-      response: {
-        acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
-        commitLsn,
-        ...(commitLsnMode === undefined ? {} : { commitLsnMode }),
-        contentKeyBundle,
-        contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
-          toContentKeyBundleResponse(bundle),
-        ),
-        documentId: input.documentId,
-        // A stale-served read-only pull must echo the targets the bundle
-        // actually wraps to; mixing the stale bundle with current targets
-        // would fail the client's plan/response consistency checks.
-        documentKekTargets: transactionResult.servedStaleBundle
-          ? documentKekTargetsFromContentKeyBundle(contentKeyBundle)
-          : toDocumentKekTargetsResponse(transactionResult.currentTargets),
-        updates: transactionResult.missingUpdates,
-      },
+      response,
     };
   } catch (error) {
     const mutationError = toMutationError(error);
