@@ -66,6 +66,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           }),
         );
         await waitForPostgresLockWait({
+          blockerPid: headLock.backendPid,
           queryFragment: "access_manifest_heads",
         });
         contenders.push(
@@ -76,6 +77,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           }),
         );
         await waitForPostgresLockWait({
+          blockerPid: headLock.backendPid,
           queryFragment: "organization_read_model_heads",
         });
       } catch (error) {

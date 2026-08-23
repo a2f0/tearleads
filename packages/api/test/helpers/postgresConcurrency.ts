@@ -26,7 +26,7 @@ interface PostgresLockHandle {
   readonly release: () => Promise<void>;
 }
 
-async function holdPostgresLock(
+export async function holdPostgresLock(
   acquire: (tx: DatabaseTransaction) => Promise<void>,
 ): Promise<PostgresLockHandle> {
   const acquired = deferred<number>();
@@ -71,6 +71,7 @@ export function holdAccessManifestHeadForUpdate(input: {
 }
 
 export async function waitForPostgresLockWait(input: {
+  readonly blockerPid: number;
   readonly minimumWaiters?: number;
   readonly queryFragment: string;
 }): Promise<void> {
@@ -78,12 +79,23 @@ export async function waitForPostgresLockWait(input: {
   const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const result = await db.execute(sql`
+      with recursive blocked_pids(pid) as (
+        select activity.pid
+        from pg_stat_activity activity
+        where activity.datname = current_database()
+          and ${input.blockerPid} = any(pg_blocking_pids(activity.pid))
+        union
+        select activity.pid
+        from pg_stat_activity activity
+        join blocked_pids blocker
+          on blocker.pid = any(pg_blocking_pids(activity.pid))
+        where activity.datname = current_database()
+      )
       select count(*)::integer as "waiting"
-      from pg_stat_activity
-      where datname = current_database()
-        and pid <> pg_backend_pid()
-        and wait_event_type = 'Lock'
-        and query like ${`%${input.queryFragment}%`}
+      from blocked_pids
+      join pg_stat_activity activity using (pid)
+      where activity.wait_event_type = 'Lock'
+        and activity.query like ${`%${input.queryFragment}%`}
     `);
     const waiting = Number(Reflect.get(result.rows[0] ?? {}, "waiting"));
     if (waiting >= minimumWaiters) {
@@ -92,6 +104,6 @@ export async function waitForPostgresLockWait(input: {
     await Bun.sleep(10);
   }
   throw new Error(
-    `Timed out waiting for ${minimumWaiters} PostgreSQL lock waiter(s): ${input.queryFragment}`,
+    `Timed out waiting for ${minimumWaiters} PostgreSQL lock waiter(s) behind backend ${input.blockerPid}: ${input.queryFragment}`,
   );
 }

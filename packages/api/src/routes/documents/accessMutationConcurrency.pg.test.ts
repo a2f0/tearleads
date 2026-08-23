@@ -134,7 +134,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           request: revokeRequest,
         }),
       );
-      await waitForPostgresLockWait({ queryFragment: "access_manifest_heads" });
+      await waitForPostgresLockWait({
+        blockerPid: headLock.backendPid,
+        queryFragment: "access_manifest_heads",
+      });
       contenders.push(
         postDocumentMutation({
           documentId: created.id,
@@ -144,6 +147,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         }),
       );
       await waitForPostgresLockWait({
+        blockerPid: headLock.backendPid,
         minimumWaiters: 2,
         queryFragment: "access_manifest_heads",
       });
@@ -198,7 +202,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           token: owner.token,
         }),
       );
-      await waitForPostgresLockWait({ queryFragment: "access_manifest_heads" });
+      await waitForPostgresLockWait({
+        blockerPid: headLock.backendPid,
+        queryFragment: "access_manifest_heads",
+      });
       contenders.push(
         postDocumentMutation({
           documentId: created.id,
@@ -208,6 +215,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         }),
       );
       await waitForPostgresLockWait({
+        blockerPid: headLock.backendPid,
         minimumWaiters: 2,
         queryFragment: "access_manifest_heads",
       });

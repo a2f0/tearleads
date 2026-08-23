@@ -14,7 +14,10 @@ import {
 } from "./keyingWriterProjectionKit";
 import { removeMemberGroupUser } from "./organizationMember";
 import { getDefaultOrganizationId } from "./organizationMembership";
-import { waitForPostgresLockWait } from "./postgresConcurrency";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "./postgresConcurrency";
 import { registerUser } from "./registerUser";
 
 export async function runDirectGrantRosterRemovalRace(): Promise<void> {
@@ -33,16 +36,7 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
     signer: owner,
   });
 
-  let markRosterLockHeld: () => void = () => undefined;
-  const rosterLockHeld = new Promise<void>((resolve) => {
-    markRosterLockHeld = resolve;
-  });
-  let releaseRosterLock: () => void = () => undefined;
-  const rosterLockRelease = new Promise<void>((resolve) => {
-    releaseRosterLock = resolve;
-  });
-
-  const rosterLock = db.transaction(async (tx) => {
+  const rosterLock = await holdPostgresLock(async (tx) => {
     const [entry] = await tx
       .select({ userId: organizationRosterEntries.userId })
       .from(organizationRosterEntries)
@@ -55,11 +49,8 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
       .limit(1)
       .for("update");
     expect(entry?.userId).toBe(member.userId);
-    markRosterLockHeld();
-    await rosterLockRelease;
   });
 
-  await rosterLockHeld;
   const removal = removeMemberGroupUser({
     actor: owner,
     memberUserId: member.userId,
@@ -71,6 +62,7 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
     // The signed Members-policy route now holds the organization mutation lock
     // and is blocked only on its final roster update.
     await waitForPostgresLockWait({
+      blockerPid: rosterLock.backendPid,
       queryFragment: "organization_roster_entries",
     });
     grant = Promise.resolve(
@@ -87,13 +79,13 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
     // Observing the grant route waiting on the same organization head proves
     // both production mutations overlap in the intended serialization order.
     await waitForPostgresLockWait({
+      blockerPid: rosterLock.backendPid,
       queryFragment: "organization_read_model_heads",
     });
   } catch (error) {
     synchronizationError = error;
   } finally {
-    releaseRosterLock();
-    await rosterLock;
+    await rosterLock.release();
   }
 
   if (synchronizationError) {
