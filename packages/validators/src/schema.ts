@@ -191,6 +191,7 @@ export function arraySchema<ItemSchema extends z.ZodType>(
     if (maxItems !== undefined && values.length > maxItems) {
       context.addIssue({
         code: "custom",
+        continue: false,
         message: `array exceeds ${maxItems} items`,
       });
       // The cardinality error already makes the value invalid. Stop here so a

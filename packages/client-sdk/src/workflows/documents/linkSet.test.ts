@@ -17,6 +17,7 @@ import {
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import {
+  assertDocumentLinkAuthorizationPathCapacity,
   assertDocumentLinkTargetCapacity,
   buildMaterializedDocumentLinkSetMutationPlan,
 } from "./linkSet";
@@ -26,6 +27,17 @@ test("document links enforce the greenfield content-key target maximum", () => {
   expect(() => assertDocumentLinkTargetCapacity(63)).not.toThrow();
   expect(() => assertDocumentLinkTargetCapacity(64)).toThrow(
     "A document cannot be linked to more than 64 containers",
+  );
+});
+
+test("document links enforce the future sync authorization-reference maximum", () => {
+  expect(() =>
+    assertDocumentLinkAuthorizationPathCapacity([100, 100], 56),
+  ).not.toThrow();
+  expect(() =>
+    assertDocumentLinkAuthorizationPathCapacity([100, 100], 57),
+  ).toThrow(
+    "Document links cannot require more than 256 authorization references",
   );
 });
 

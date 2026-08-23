@@ -468,9 +468,9 @@ export interface SyncRemoteDocumentResult {
    */
   exhaustedPendingUpdateCount: number;
   /**
-   * True when this bounded pass did not settle every pending update supplied
-   * by the caller. Headless hosts should refresh their durable queue and
-   * schedule another pass; one call intentionally does not drain the queue.
+   * True only when this bounded pass made durable progress but left pending
+   * work. Headless hosts should refresh the queue and schedule another
+   * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
   persistedState: PersistedDocumentSyncState;

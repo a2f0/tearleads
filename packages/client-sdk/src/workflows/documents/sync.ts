@@ -102,13 +102,17 @@ async function submittedDocumentSyncResult(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
   const settledPendingUpdateIds = new Set(result.settledPendingUpdateIds);
+  const madeDurableProgress =
+    result.settledPendingUpdateIds.length > 0 ||
+    result.rekeyedPendingUpdateIds.length > 0;
   return {
     ...result,
     hasDeferredPendingUpdates:
-      result.rekeyedPendingUpdateIds.length > 0 ||
-      input.pendingUpdateIds.some(
-        (updateId) => !settledPendingUpdateIds.has(updateId),
-      ),
+      madeDurableProgress &&
+      (result.rekeyedPendingUpdateIds.length > 0 ||
+        input.pendingUpdateIds.some(
+          (updateId) => !settledPendingUpdateIds.has(updateId),
+        )),
   };
 }
 
