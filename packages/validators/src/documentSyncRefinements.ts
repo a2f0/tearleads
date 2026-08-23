@@ -26,12 +26,7 @@ export const documentSyncRequestEnvelopeRefinements = [
 export const documentSyncRequestPullRefinements = [
   {
     description:
-      "pullCursor may be present only when supportsPullPagination is true",
-    id: "request.pull-cursor-requires-pagination",
-  },
-  {
-    description:
-      "a request carrying pullCursor must not contain outgoing updates, container rekeys, or a content-key bundle",
+      "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
     id: "request.pull-continuation-read-only",
   },
 ] as const;

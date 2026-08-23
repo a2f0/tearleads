@@ -142,6 +142,13 @@ function hasDurablePageProgress(response: DocumentSyncResponse): boolean {
   );
 }
 
+function requirePullPage(response: DocumentSyncResponse) {
+  if (response.pullPage === undefined) {
+    throw new Error("Document sync response is missing pull page metadata");
+  }
+  return response.pullPage;
+}
+
 function reachedPullDrainLimit(input: {
   readonly pageCount: number;
   readonly updateCount: number;
@@ -173,9 +180,7 @@ export async function submitDocumentSyncPages(input: {
     minLsn: input.plan.request.minLsn,
     response: first.response,
   });
-  if (first.response.pullPage === undefined) {
-    return incompletePullResult(first.response);
-  }
+  const firstPullPage = requirePullPage(first.response);
 
   let aggregate = first.response;
   let previousResponse = first.response;
@@ -183,7 +188,7 @@ export async function submitDocumentSyncPages(input: {
   const updateIds = new Set<string>();
   assertUniquePageUpdates(updateIds, first.response);
 
-  let cursor = first.response.pullPage?.nextCursor ?? null;
+  let cursor = firstPullPage.nextCursor;
   while (cursor !== null) {
     if (
       reachedPullDrainLimit({
@@ -221,12 +226,10 @@ export async function submitDocumentSyncPages(input: {
       return incompletePullResult(aggregate);
     }
     assertUniquePageUpdates(updateIds, continuation.response);
+    const continuationPullPage = requirePullPage(continuation.response);
     aggregate = mergeDocumentSyncPages(aggregate, continuation.response);
-    if (continuation.response.pullPage === undefined) {
-      return incompletePullResult(aggregate);
-    }
     previousResponse = continuation.response;
-    cursor = continuation.response.pullPage?.nextCursor ?? null;
+    cursor = continuationPullPage.nextCursor;
   }
 
   return { ok: true, pullComplete: true, response: aggregate };

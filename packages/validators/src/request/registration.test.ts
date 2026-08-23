@@ -116,6 +116,7 @@ test("isRegistrationRequest", () => {
     expectedTargetHash: "target-hash",
     localVersionVector: '{"actor":1}',
     outgoingUpdates: [initialUpdate],
+    supportsPullPagination: true as const,
   });
   const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
     userId,

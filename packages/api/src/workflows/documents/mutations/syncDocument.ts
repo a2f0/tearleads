@@ -314,31 +314,20 @@ async function buildSyncDocumentTransactionResult(input: {
       ? documentKekTargetsFromContentKeyBundle(contentKeyBundle)
       : toDocumentKekTargetsResponse(input.currentTargets),
   };
-  let responseWithoutCommit: Omit<
-    DocumentSyncResponse,
-    "commitLsn" | "commitLsnMode"
-  >;
-  if (pullPagePlan === null) {
-    responseWithoutCommit = {
-      ...responseBase,
-      contentKeyBundles: contentKeyBundles.map((bundle) =>
-        toContentKeyBundleResponse(bundle),
-      ),
-      updates: entries.map(({ update }) => update),
-    };
-  } else {
-    if (page === undefined) {
-      throw new Error("Paginated document pull did not return page metadata");
-    }
-    responseWithoutCommit = buildPaginatedSyncPullResponse({
-      base: responseBase,
-      contentKeyBundles,
-      entries,
-      identity: pullIdentity,
-      page,
-      plan: pullPagePlan,
-    });
+  if (pullPagePlan === null || page === undefined) {
+    throw new DocumentMutationError(
+      "Paginated document pull support is required",
+      400,
+    );
   }
+  const responseWithoutCommit = buildPaginatedSyncPullResponse({
+    base: responseBase,
+    contentKeyBundles,
+    entries,
+    identity: pullIdentity,
+    page,
+    plan: pullPagePlan,
+  });
   return {
     insertedUpdateIds: [...input.appendResult.insertedUpdateIds],
     responseWithoutCommit,

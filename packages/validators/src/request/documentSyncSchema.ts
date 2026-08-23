@@ -211,7 +211,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     pullCursor: boundedNonEmptyStringSchema(
       MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
     ).optional(),
-    supportsPullPagination: z.literal(true).optional(),
+    supportsPullPagination: z.literal(true),
     supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
@@ -234,19 +234,10 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
     if (
       request.pullCursor !== undefined &&
-      request.supportsPullPagination !== true
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "pull cursor requires paginated pull support",
-        path: ["pullCursor"],
-      });
-    }
-    if (
-      request.pullCursor !== undefined &&
       (hasOutgoingUpdates ||
         (request.containerRekeys?.length ?? 0) > 0 ||
-        request.contentKeyBundle !== undefined)
+        request.contentKeyBundle !== undefined ||
+        request.authorizingContainerPathRefs !== undefined)
     ) {
       context.addIssue({
         code: "custom",

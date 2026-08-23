@@ -75,6 +75,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     ],
     localVersionVector: null,
     outgoingUpdates: [preRevokeBaseline],
+    supportsPullPagination: true,
   });
   expect(preRevokeBaselineResponse.status).toBe(200);
 
@@ -108,6 +109,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     },
     authorizingContainerPathRefs: revokedPathRefs,
     localVersionVector: null,
+    supportsPullPagination: true,
   };
 
   // An epoch advance with no baseline would orphan the committed pre-rotation
@@ -218,6 +220,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     expectedTargetHash: created.contentKeyBundle.targetHash,
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   });
   expect(supersededReadOnlyResponse.status).toBe(409);
   expect((await supersededReadOnlyResponse.json()).code).toBe(

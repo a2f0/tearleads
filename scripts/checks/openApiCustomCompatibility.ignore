@@ -1,12 +1,6 @@
 # #2096; remove after main contains the paginated document-sync contract.
 POST /auth/register: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
 # #2096; remove after main contains the paginated document-sync contract.
-POST /auth/register: request refinement 'request.pull-cursor-requires-pagination' was added; existing clients were not rejected by it.
-# #2096; remove after main contains the paginated document-sync contract.
 POST /documents/{documentId}/sync: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
 # #2096; remove after main contains the paginated document-sync contract.
-POST /documents/{documentId}/sync: request refinement 'request.pull-cursor-requires-pagination' was added; existing clients were not rejected by it.
-# #2096; remove after main contains the paginated document-sync contract.
 POST /organizations: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
-# #2096; remove after main contains the paginated document-sync contract.
-POST /organizations: request refinement 'request.pull-cursor-requires-pagination' was added; existing clients were not rejected by it.

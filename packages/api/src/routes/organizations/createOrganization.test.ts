@@ -91,6 +91,7 @@ async function expectProvisionedDocumentReadable(input: {
     expectedTargetHash: input.initialSync.expectedTargetHash,
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   } satisfies DocumentSyncRequest;
   const response = await routeApp.request(
     `/documents/${input.documentId}/sync`,
@@ -360,6 +361,7 @@ test("POST /organizations atomically stores provisioned Trash metadata readable 
     expectedTargetHash: trash.initialMetadataSync.expectedTargetHash,
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   } satisfies DocumentSyncRequest;
   const readResponse = await routeApp.request(`/documents/${documentId}/sync`, {
     method: "POST",

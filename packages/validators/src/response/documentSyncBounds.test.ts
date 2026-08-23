@@ -20,3 +20,19 @@ test("document sync responses reject more than one bounded update page", () => {
     }).success,
   ).toBe(false);
 });
+
+test("document sync responses require a consistent pull continuation", () => {
+  const response = createSyncResponse();
+  expect(
+    DocumentSyncResponseSchema.safeParse({
+      ...response,
+      pullPage: { hasMore: true, nextCursor: "next-page" },
+    }).success,
+  ).toBe(true);
+  expect(
+    DocumentSyncResponseSchema.safeParse({
+      ...response,
+      pullPage: { hasMore: false, nextCursor: "next-page" },
+    }).success,
+  ).toBe(false);
+});

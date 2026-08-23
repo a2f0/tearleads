@@ -30,6 +30,7 @@ function seedRequest(input: {
         writeHeader: {},
       },
     ],
+    supportsPullPagination: true,
   };
 }
 

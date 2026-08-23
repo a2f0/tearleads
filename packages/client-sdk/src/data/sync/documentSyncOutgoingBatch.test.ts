@@ -89,6 +89,7 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
         writeHeader: { index },
       }),
     ),
+    supportsPullPagination: true,
   };
 
   expect(
@@ -141,6 +142,7 @@ test("document sync fitting stops before serializing a large deferred tail", () 
     expectedTargetHash: "target-1",
     localVersionVector: null,
     outgoingUpdates,
+    supportsPullPagination: true,
   } as DocumentSyncRequest;
 
   expect(() => limitDocumentSyncRequestBytes(request)).toThrow(
@@ -157,6 +159,7 @@ test("document sync falls back to a full pull when the local vector cannot fit",
     expectedTargetHash: "target-1",
     localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
     outgoingUpdates: [],
+    supportsPullPagination: true,
   } as DocumentSyncRequest;
 
   const bounded = limitDocumentSyncRequestBytes(request);
@@ -186,6 +189,7 @@ test("document sync preserves a high-actor write above the old vector ceiling", 
         writeHeader: {},
       },
     ],
+    supportsPullPagination: true,
   } as DocumentSyncRequest;
 
   expect(limitDocumentSyncRequestBytes(request)).toEqual(request);

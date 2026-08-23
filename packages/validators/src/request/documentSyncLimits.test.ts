@@ -45,6 +45,7 @@ function createSyncRequest() {
     expectedTargetHash: "target-hash",
     localVersionVector: null,
     outgoingUpdates: [UPDATE],
+    supportsPullPagination: true,
   };
 }
 
@@ -122,6 +123,12 @@ test("document sync bounds and gates pull continuations", () => {
   expect(
     isDocumentSyncRequest({
       ...valid,
+      supportsPullPagination: undefined,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
       pullCursor: "A".repeat(MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH + 1),
       supportsPullPagination: true,
     }),
@@ -139,6 +146,14 @@ test("document sync bounds and gates pull continuations", () => {
       supportsPullPagination: true,
     }),
   ).toBe(true);
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      contentKeyBundle: undefined,
+      outgoingUpdates: [],
+      pullCursor: "valid-cursor",
+    }),
+  ).toBe(false);
   expect(
     isDocumentSyncRequest({
       ...valid,

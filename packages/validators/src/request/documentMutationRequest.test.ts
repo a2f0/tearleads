@@ -432,6 +432,7 @@ test("isDocumentSyncRequest", () => {
     localVersionVector: null,
     minLsn: "0/16B6C50",
     outgoingUpdates: [validOutgoingUpdate],
+    supportsPullPagination: true,
   };
 
   expect(isDocumentSyncRequest(validRequest)).toBe(true);

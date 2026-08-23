@@ -174,6 +174,7 @@ export async function createSignedDocumentSyncRequest(input: {
           writeHeader: update.writeHeader,
         },
       ],
+      supportsPullPagination: true,
     },
   };
 }

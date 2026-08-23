@@ -222,6 +222,7 @@ export async function createProvisionedDocumentFixture(input: {
           ),
         },
       ],
+      supportsPullPagination: true,
     },
   };
 }

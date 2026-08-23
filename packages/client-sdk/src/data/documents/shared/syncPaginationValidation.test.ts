@@ -45,7 +45,7 @@ function page(input: {
       input.updateId === undefined
         ? []
         : ([{ id: input.updateId }] as DocumentSyncResponse["updates"]),
-  };
+  } as DocumentSyncResponse;
 }
 
 function plan(): DocumentSyncPlan {
@@ -104,8 +104,8 @@ test("an empty page followed by failure does not success-loop", async () => {
   expect(result).toBe(failure);
 });
 
-test("a continuation without pull metadata remains incomplete", async () => {
-  const result = await submitDocumentSync({
+test("a continuation without pull metadata is rejected", async () => {
+  const submitted = submitDocumentSync({
     apiClient: apiWithResults([
       {
         data: page({
@@ -123,13 +123,9 @@ test("a continuation without pull metadata remains incomplete", async () => {
     plan: plan(),
   });
 
-  expect(result?.ok).toBe(true);
-  if (!result?.ok) throw new Error("Expected partial progress");
-  expect(result.pullComplete).toBe(false);
-  expect(result.response.updates.map(({ id }) => id)).toEqual([
-    "update-1",
-    "update-2",
-  ]);
+  await expect(submitted).rejects.toThrow(
+    "Document sync response is missing pull page metadata",
+  );
 });
 
 test("a continuation cannot regress its tracked commit checkpoint", async () => {

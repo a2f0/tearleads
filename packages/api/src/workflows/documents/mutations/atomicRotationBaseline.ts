@@ -142,6 +142,7 @@ export async function appendAtomicRotationBaseline(input: {
       expectedTargetHash: input.request.contentKeyBundle.targetHash,
       localVersionVector: null,
       outgoingUpdates: [input.baseline],
+      supportsPullPagination: true,
     },
     signingPublicKey: await loadSignerPublicKey(input.executor, {
       ...input,

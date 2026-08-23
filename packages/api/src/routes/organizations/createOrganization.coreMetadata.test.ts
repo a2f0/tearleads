@@ -44,6 +44,7 @@ async function expectProvisionedDocumentReadable(input: {
     expectedTargetHash: input.initialSync.expectedTargetHash,
     localVersionVector: null,
     outgoingUpdates: [],
+    supportsPullPagination: true,
   } satisfies DocumentSyncRequest;
   const request = (localVersionVector: string | null) =>
     routeApp.request(`/documents/${input.documentId}/sync`, {

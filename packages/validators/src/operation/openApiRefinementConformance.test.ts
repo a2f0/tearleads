@@ -84,17 +84,10 @@ const witnesses = {
   [documentSyncRequestPullRefinements[0].id]: {
     createInput: () => ({
       ...createSyncRequest(),
+      containerRekeys: undefined,
+      contentKeyBundle: undefined,
       outgoingUpdates: [],
       pullCursor: "cursor",
-    }),
-    expectedMessage: "pull cursor requires paginated pull support",
-    kind: "request",
-  },
-  [documentSyncRequestPullRefinements[1].id]: {
-    createInput: () => ({
-      ...createSyncRequest(),
-      pullCursor: "cursor",
-      supportsPullPagination: true,
     }),
     expectedMessage: "continued pulls must be read-only",
     kind: "request",

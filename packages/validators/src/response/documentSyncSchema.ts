@@ -135,7 +135,7 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
     contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
     documentId: z.string(),
     documentKekTargets: DocumentKekTargetsResponseSchema,
-    pullPage: DocumentSyncPullPageResponseSchema.optional(),
+    pullPage: DocumentSyncPullPageResponseSchema,
     updates: arraySchema(
       DocumentSyncUpdateResponseSchema,
       MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,

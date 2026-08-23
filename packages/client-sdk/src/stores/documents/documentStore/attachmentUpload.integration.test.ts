@@ -44,6 +44,7 @@ function createDocumentSyncResponse(input: {
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
+    pullPage: { hasMore: false, nextCursor: null },
     updates: input.request.outgoingUpdates.map((update) => {
       const writeHeader = readWriteHeader(
         update.writeHeader,

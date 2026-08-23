@@ -802,6 +802,7 @@ test("read-only document sync works for a user with read access to a linked cont
       expectedTargetHash: projection.contentKeyBundle.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
+      supportsPullPagination: true,
     } satisfies DocumentSyncRequest),
   });
 
@@ -828,6 +829,7 @@ test("read-only document sync works for a user with read access to a linked cont
         expectedTargetHash: projection.contentKeyBundle.targetHash,
         localVersionVector: null,
         outgoingUpdates: [],
+        supportsPullPagination: true,
       } satisfies DocumentSyncRequest),
     },
   );
@@ -1344,6 +1346,7 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
       expectedTargetHash: unlinkedDocument.contentKeyBundle.targetHash,
       localVersionVector: null,
       outgoingUpdates: [],
+      supportsPullPagination: true,
     } satisfies DocumentSyncRequest),
   });
 

@@ -42,6 +42,7 @@ function createSyncRequest() {
         writeHeader: { updateId: UPDATE_ID },
       },
     ],
+    supportsPullPagination: true,
   };
 }
 function createContentKeyBundleResponse() {
@@ -81,6 +82,7 @@ function createSyncResponse() {
     contentKeyBundles: [createContentKeyBundleResponse()],
     documentId: "document-1",
     documentKekTargets: createKekTargetsResponse(),
+    pullPage: { hasMore: false, nextCursor: null },
     updates: [
       {
         accessEpoch: 1,
@@ -481,19 +483,4 @@ test("document sync response schema preserves signed and extension fields", () =
     "preserved",
   );
   expect(result.data.updates[0]?.writeHeader).toBe(writeHeader);
-});
-
-test("document sync response pull page requires a consistent continuation", () => {
-  const valid = createSyncResponse();
-  const pullPage = {
-    hasMore: true,
-    nextCursor: "next-page",
-  };
-  expect(isDocumentSyncResponse({ ...valid, pullPage })).toBe(true);
-  expect(
-    isDocumentSyncResponse({
-      ...valid,
-      pullPage: { ...pullPage, hasMore: false },
-    }),
-  ).toBe(false);
 });

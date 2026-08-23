@@ -76,7 +76,9 @@ missing from the client-supplied frontier, and `pullPage`. `pullPage.hasMore`
 and `pullPage.nextCursor` are consistent: a continuation is present exactly
 when more updates remain in the frozen pull snapshot.
 
-The first paginated pull proves `minLsn` before freezing its upper update bound.
+Every sync request must set `supportsPullPagination: true`, and every successful
+response must carry `pullPage`; there is no legacy unbounded response mode. The
+first paginated pull proves `minLsn` before freezing its upper update bound.
 Update inserts and watermark capture serialize on the document manifest head,
 so PostgreSQL identity allocation cannot place a later-committing lower sequence
 behind the cursor. The opaque cursor binds the document id, content-key epoch,
