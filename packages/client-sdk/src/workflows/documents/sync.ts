@@ -25,6 +25,7 @@ import {
 } from "./syncFailures";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import {
+  hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
   submittedPendingUpdates,
 } from "./syncPlanRequestBounds";
@@ -101,18 +102,15 @@ async function submittedDocumentSyncResult(input: {
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
-  const settledPendingUpdateIds = new Set(result.settledPendingUpdateIds);
-  const madeDurableProgress =
-    result.settledPendingUpdateIds.length > 0 ||
-    result.rekeyedPendingUpdateIds.length > 0;
   return {
     ...result,
-    hasDeferredPendingUpdates:
-      madeDurableProgress &&
-      (result.rekeyedPendingUpdateIds.length > 0 ||
-        input.pendingUpdateIds.some(
-          (updateId) => !settledPendingUpdateIds.has(updateId),
-        )),
+    hasDeferredPendingUpdates: hasDeferredPendingUpdatesAfterSubmit({
+      acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+      exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+      pendingUpdateIds: input.pendingUpdateIds,
+      rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+      settledPendingUpdateIds: result.settledPendingUpdateIds,
+    }),
   };
 }
 

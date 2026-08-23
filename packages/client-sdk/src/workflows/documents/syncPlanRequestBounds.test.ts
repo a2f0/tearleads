@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createPendingUpdateRecord } from "../../../test/helpers/documentFixtures";
 import {
   acceptedHeldBackPendingUpdateIds,
+  hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
   submittedPendingUpdates,
 } from "./syncPlanRequestBounds";
@@ -45,4 +46,28 @@ test("recovery baseline progress requires an explicit server acceptance", () => 
       acceptedOutgoingUpdateIds: [baselineId],
     } as never),
   ).toEqual(["checkpoint-1"]);
+});
+
+test("an accepted recovery baseline re-arms displaced pending edits", () => {
+  expect(
+    hasDeferredPendingUpdatesAfterSubmit({
+      acceptedRecoveryBaseline: true,
+      exhaustedPendingUpdateCount: 0,
+      pendingUpdateIds: ["displaced-edit"],
+      rekeyedPendingUpdateIds: [],
+      settledPendingUpdateIds: [],
+    }),
+  ).toBe(true);
+});
+
+test("mixed recovery stops rescheduling when any pending row is exhausted", () => {
+  expect(
+    hasDeferredPendingUpdatesAfterSubmit({
+      acceptedRecoveryBaseline: false,
+      exhaustedPendingUpdateCount: 1,
+      pendingUpdateIds: ["exhausted", "rekeyed"],
+      rekeyedPendingUpdateIds: ["replacement"],
+      settledPendingUpdateIds: [],
+    }),
+  ).toBe(false);
 });

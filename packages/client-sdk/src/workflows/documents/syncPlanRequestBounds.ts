@@ -47,6 +47,34 @@ export function submittedPendingUpdates(
   return pendingUpdates.filter((update) => submittedIds.has(update.id));
 }
 
+export function hasDeferredPendingUpdatesAfterSubmit(input: {
+  acceptedRecoveryBaseline: boolean;
+  exhaustedPendingUpdateCount: number;
+  pendingUpdateIds: readonly string[];
+  rekeyedPendingUpdateIds: readonly string[];
+  settledPendingUpdateIds: readonly string[];
+}): boolean {
+  if (input.exhaustedPendingUpdateCount > 0) {
+    return false;
+  }
+
+  const madeDurableProgress =
+    input.acceptedRecoveryBaseline ||
+    input.settledPendingUpdateIds.length > 0 ||
+    input.rekeyedPendingUpdateIds.length > 0;
+  if (!madeDurableProgress) {
+    return false;
+  }
+
+  const settledPendingUpdateIds = new Set(input.settledPendingUpdateIds);
+  return (
+    input.rekeyedPendingUpdateIds.length > 0 ||
+    input.pendingUpdateIds.some(
+      (updateId) => !settledPendingUpdateIds.has(updateId),
+    )
+  );
+}
+
 export function responseAcceptedRecoveryBaseline(
   materializedPlan: MaterializedDocumentSyncPlan,
   response: DocumentSyncResponse,
