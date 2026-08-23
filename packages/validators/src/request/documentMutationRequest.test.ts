@@ -272,9 +272,23 @@ test("isDocumentLinkSetMutationRequest", () => {
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
+      event: { eventType: "document.unlink" },
       rotationBaseline: {
         ...rotationBaseline,
         encryptedData: "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
+      },
+    }),
+  ).toBe(true);
+  const largeRotationVector = "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
+  expect(
+    isDocumentLinkSetMutationRequest({
+      ...validRequest,
+      event: { eventType: "document.unlink" },
+      rotationBaseline: {
+        ...rotationBaseline,
+        partialEndVersionVector: largeRotationVector,
+        partialStartVersionVector: largeRotationVector,
+        sourceVersionVector: largeRotationVector,
       },
     }),
   ).toBe(true);

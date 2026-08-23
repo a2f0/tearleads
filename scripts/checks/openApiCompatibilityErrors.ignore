@@ -89,15 +89,6 @@ POST /auth/register the `initialSystemContainers/items/initialMetadataSync/outgo
 POST /auth/register the `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` request property's maxLength was set to `16777216`
 
 # #2096; remove after merge to main.
-POST /documents/{documentId}/link the `rotationBaseline/partialEndVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/link the `rotationBaseline/partialStartVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/link the `rotationBaseline/sourceVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
 POST /documents/{documentId}/sync the `localVersionVector/anyOf[subschema #1]/` request property's maxLength was set to `16777216`
 
 # #2096; remove after merge to main.
@@ -111,15 +102,6 @@ POST /documents/{documentId}/sync the `outgoingUpdates/items/partialStartVersion
 
 # #2096; remove after merge to main.
 POST /documents/{documentId}/sync the `outgoingUpdates/items/sourceVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink the `rotationBaseline/partialEndVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink the `rotationBaseline/partialStartVersionVector` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink the `rotationBaseline/sourceVersionVector` request property's maxLength was set to `16777216`
 
 # #2096; remove after merge to main.
 POST /organizations the `initialOrganizationMetadataContainer/initialMetadataSync/localVersionVector/anyOf[subschema #1]/` request property's maxLength was set to `16777216`

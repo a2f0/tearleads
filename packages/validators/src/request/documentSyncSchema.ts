@@ -97,6 +97,7 @@ export type DocumentContentKeyBundleRequest = z.infer<
 
 function createDocumentOutgoingUpdateSchema(
   encryptedDataSchema: z.ZodType<string>,
+  versionVectorSchema: z.ZodType<string>,
 ) {
   return registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
@@ -111,16 +112,10 @@ function createDocumentOutgoingUpdateSchema(
         pattern: UUID_V4_PATTERN.source,
         type: "string",
       }),
-      partialEndVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-      ),
-      partialStartVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-      ),
+      partialEndVersionVector: versionVectorSchema,
+      partialStartVersionVector: versionVectorSchema,
       plaintextHash: nonEmptyStringSchema,
-      sourceVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-      ).optional(),
+      sourceVersionVector: versionVectorSchema.optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
       if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
@@ -138,10 +133,13 @@ function createDocumentOutgoingUpdateSchema(
 // single sync request. Their route has its own ingress policy, so keep the
 // shared update contract unbounded and apply the sync-specific ceiling only
 // where an update is embedded in DocumentSyncRequest.
-export const DocumentOutgoingUpdateSchema =
-  createDocumentOutgoingUpdateSchema(nonEmptyStringSchema);
+export const DocumentOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
+  nonEmptyStringSchema,
+  nonEmptyStringSchema,
+);
 
 const DocumentSyncOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
+  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
   boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
 );
 
