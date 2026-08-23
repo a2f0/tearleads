@@ -223,6 +223,35 @@ test("a zero-row deferred tail is materialized before clean skip", async () => {
   }
 });
 
+test("a live cursor after a 64-update page bypasses the clean lane skip", async () => {
+  const fixture = await createCoverageFixture(
+    "outgoing-coverage-pull-cursor",
+    false,
+  );
+  try {
+    const currentRecord = fixture.state.record;
+    if (!currentRecord) throw new Error("Expected a persisted document record");
+    expect(
+      shouldSkipCleanScheduledDocumentSync({
+        currentRecord,
+        pendingUpdates: [],
+        state: fixture.state,
+      }),
+    ).toBe(true);
+
+    fixture.state.pullCursor = "page-after-update-64";
+    expect(
+      shouldSkipCleanScheduledDocumentSync({
+        currentRecord,
+        pendingUpdates: [],
+        state: fixture.state,
+      }),
+    ).toBe(false);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("the repair persist advances the frontier with the marker", async () => {
   const fixture = await createCoverageFixture(
     "outgoing-coverage-frontier",

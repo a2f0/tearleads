@@ -327,6 +327,7 @@ export async function syncContainerMetadataState(
   );
   if (
     pendingUpdates.length === 0 &&
+    metadataState.pullCursor == null &&
     !input.forceReadSync &&
     hasCurrentContainerMetadataReadState(metadataState.record)
   ) {
