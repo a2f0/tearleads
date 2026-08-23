@@ -37,6 +37,15 @@ test("document sync outgoing batches reserve recovery capacity", () => {
   expect(selected.map(({ id }) => id)).toEqual(["update-0", "update-1"]);
 });
 
+test("document sync rejects recovery data that can never fit", () => {
+  expect(() =>
+    selectDocumentSyncOutgoingBatch(updates([1]), {
+      reservedDataCharacters: MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1,
+      reservedUpdateCount: 1,
+    }),
+  ).toThrow(DocumentSyncRequestLimitError);
+});
+
 test("document sync rejects an update that can never fit", () => {
   expect(() =>
     selectDocumentSyncOutgoingBatch(

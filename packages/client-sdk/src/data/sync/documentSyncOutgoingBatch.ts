@@ -35,7 +35,9 @@ function assertReservedCapacity(
     reservedDataCharacters < 0 ||
     reservedDataCharacters > MAX_DOCUMENT_SYNC_REQUEST_BYTES
   ) {
-    throw new Error("Document sync reserved update data exceeds its limit");
+    throw new DocumentSyncRequestLimitError(
+      "Document sync reserved update data exceeds its limit",
+    );
   }
   if (
     !Number.isSafeInteger(reservedUpdateCount) ||

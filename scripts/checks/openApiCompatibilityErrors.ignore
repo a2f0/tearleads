@@ -89,9 +89,6 @@ POST /auth/register the `initialSystemContainers/items/initialMetadataSync/outgo
 POST /auth/register the `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` request property's maxLength was set to `65536`
 
 # #2096; remove after merge to main.
-POST /documents/{documentId}/link the `rotationBaseline/encryptedData` request property's maxLength was set to `16777216`
-
-# #2096; remove after merge to main.
 POST /documents/{documentId}/link the `rotationBaseline/partialEndVersionVector` request property's maxLength was set to `65536`
 
 # #2096; remove after merge to main.
@@ -114,9 +111,6 @@ POST /documents/{documentId}/sync the `outgoingUpdates/items/partialStartVersion
 
 # #2096; remove after merge to main.
 POST /documents/{documentId}/sync the `outgoingUpdates/items/sourceVersionVector` request property's maxLength was set to `65536`
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink the `rotationBaseline/encryptedData` request property's maxLength was set to `16777216`
 
 # #2096; remove after merge to main.
 POST /documents/{documentId}/unlink the `rotationBaseline/partialEndVersionVector` request property's maxLength was set to `65536`

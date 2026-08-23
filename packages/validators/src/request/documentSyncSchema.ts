@@ -96,8 +96,10 @@ export type DocumentContentKeyBundleRequest = z.infer<
   typeof DocumentContentKeyBundleRequestSchema
 >;
 
-export const DocumentOutgoingUpdateSchema =
-  registerJsonSchemaRuntimeRefinements(
+function createDocumentOutgoingUpdateSchema(
+  encryptedDataSchema: z.ZodType<string>,
+) {
+  return registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       checkpointKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
@@ -105,9 +107,7 @@ export const DocumentOutgoingUpdateSchema =
       checkpointPayloadKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
-      encryptedData: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-      ),
+      encryptedData: encryptedDataSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
         type: "string",
@@ -133,6 +133,18 @@ export const DocumentOutgoingUpdateSchema =
     }),
     [documentSyncRequestRotationRefinement],
   );
+}
+
+// Link-set rotations may carry a full-history baseline that is larger than a
+// single sync request. Their route has its own ingress policy, so keep the
+// shared update contract unbounded and apply the sync-specific ceiling only
+// where an update is embedded in DocumentSyncRequest.
+export const DocumentOutgoingUpdateSchema =
+  createDocumentOutgoingUpdateSchema(nonEmptyStringSchema);
+
+const DocumentSyncOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
+  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+);
 
 export type DocumentOutgoingUpdate = z.infer<
   typeof DocumentOutgoingUpdateSchema
@@ -194,7 +206,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     ).nullable(),
     minLsn: WalLsnSchema.optional(),
     outgoingUpdates: arraySchema(
-      DocumentOutgoingUpdateSchema,
+      DocumentSyncOutgoingUpdateSchema,
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
     supportsUntrackedCommitLsn: z.literal(true).optional(),
