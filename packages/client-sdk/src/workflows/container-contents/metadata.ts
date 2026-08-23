@@ -92,7 +92,11 @@ export function settleContainerMetadataOutgoingPass(
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
   });
-  return shouldReArmOutgoing || attempt.synced.hasIncompletePull;
+  return (
+    attempt.synced.hasDeferredPendingUpdates ||
+    shouldReArmOutgoing ||
+    attempt.synced.hasIncompletePull
+  );
 }
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {

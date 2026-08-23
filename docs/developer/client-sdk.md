@@ -124,10 +124,10 @@ Host adapters that still need the raw workflow runtime contract should use
 bundle themselves. This host-facing input omits API access and incident
 reporting; SDK facades own both.
 
-Root exports include `syncRemoteDocument(...)` for headless hosts. A call
-processes a bounded batch. `hasDeferredPendingUpdates` requests another
-pass after durable progress; terminal exhaustion uses
-the failure callback and `exhaustedPendingUpdateCount` without rescheduling.
+`syncRemoteDocument(...)` supports headless hosts. A call reports
+`hasDeferredPendingUpdates` or `hasIncompletePull`; repeat for either. Resume
+the latter with `response.pullPage.nextCursor`
+as `pullCursor`; continuations are read-only. Exhaustion does not reschedule.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

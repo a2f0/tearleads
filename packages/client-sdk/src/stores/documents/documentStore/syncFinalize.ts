@@ -111,7 +111,7 @@ function coveredSyncFrontier(
   };
 }
 
-function shouldReArmDocumentSync(
+export function shouldReArmDocumentSync(
   state: DocumentStoreState,
   syncAttempt: DocumentSyncAttempt,
 ): boolean {
@@ -123,7 +123,11 @@ function shouldReArmDocumentSync(
     settledUpdateCount: synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
   });
-  return synced.hasIncompletePull || shouldReArmOutgoing;
+  return (
+    synced.hasDeferredPendingUpdates ||
+    synced.hasIncompletePull ||
+    shouldReArmOutgoing
+  );
 }
 
 export async function finalizeDocumentSync(

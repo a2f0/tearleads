@@ -444,6 +444,28 @@ test("metadata sync re-arms an incomplete paginated pull", () => {
   ).toBe(true);
 });
 
+test("a completed metadata cursor re-arms its queued writes", () => {
+  const metadataState = {
+    container: createContainerRecord({ id: "container-6", parentId: null }),
+    doc: {} as never,
+    record: createDocumentRecord({ id: "container-6" }),
+  };
+
+  expect(
+    settleContainerMetadataOutgoingPass(metadataState, {
+      outgoingUpdateCount: 1,
+      synced: {
+        acceptedRecoveryBaseline: false,
+        exhaustedPendingUpdateCount: 0,
+        hasDeferredPendingUpdates: true,
+        hasIncompletePull: false,
+        rekeyedPendingUpdateIds: [],
+        settledPendingUpdateIds: [],
+      } as never,
+    }),
+  ).toBe(true);
+});
+
 test("hasContainerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {
   const metadataState = {
     record: createDocumentRecord({

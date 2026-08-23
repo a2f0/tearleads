@@ -24,6 +24,7 @@ import {
   resetDocumentStore,
   setReadySnapshot,
 } from "./state";
+import { shouldReArmDocumentSync } from "./syncFinalize";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { shouldSkipCleanScheduledDocumentSync } from "./syncShared";
@@ -247,6 +248,30 @@ test("a live cursor after a 64-update page bypasses the clean lane skip", async 
         state: fixture.state,
       }),
     ).toBe(false);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("a completed cursor re-arms queued document writes", async () => {
+  const fixture = await createCoverageFixture(
+    "outgoing-coverage-cursor-complete",
+    false,
+  );
+  try {
+    expect(
+      shouldReArmDocumentSync(fixture.state, {
+        outgoingUpdateCount: 1,
+        synced: {
+          acceptedRecoveryBaseline: false,
+          exhaustedPendingUpdateCount: 0,
+          hasDeferredPendingUpdates: true,
+          hasIncompletePull: false,
+          rekeyedPendingUpdateIds: [],
+          settledPendingUpdateIds: [],
+        } as never,
+      }),
+    ).toBe(true);
   } finally {
     fixture.close();
   }
