@@ -92,6 +92,7 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
 
   expect(result?.ok).toBe(true);
   if (!result?.ok) throw new Error("Expected successful paginated sync");
+  expect(result.pullComplete).toBe(true);
   expect(requests).toHaveLength(3);
   expect(requests[0]).toBe(request);
   expect(requests[1]).toEqual({
@@ -118,4 +119,56 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
     hasMore: false,
     nextCursor: null,
   });
+});
+
+test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {
+  const request: DocumentSyncRequest = {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "targets-1",
+    localVersionVector: null,
+    outgoingUpdates: [
+      { id: "outgoing-1" },
+    ] as DocumentSyncRequest["outgoingUpdates"],
+    supportsPullPagination: true,
+    supportsUntrackedCommitLsn: true,
+  };
+  const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
+  const firstPage = response({
+    commitLsn: "0/2",
+    cursor: "cursor-2",
+    updateId: "update-1",
+  });
+  let requestCount = 0;
+  let reported = false;
+  const apiClient = {
+    getDocumentWriterProjection: async () => null,
+    syncDocument: async () => {
+      throw new Error("Expected result-aware document sync");
+    },
+    syncDocumentResult: async () => {
+      requestCount += 1;
+      if (requestCount === 1) {
+        return { data: firstPage, ok: true as const };
+      }
+      return {
+        message: "offline",
+        ok: false as const,
+        report: () => {
+          reported = true;
+        },
+        status: null,
+      };
+    },
+  } satisfies DocumentSyncApi;
+
+  const result = await submitDocumentSync({ apiClient, plan });
+
+  expect(result).toEqual({
+    ok: true,
+    pullComplete: false,
+    response: firstPage,
+  });
+  expect(reported).toBe(true);
+  expect(requestCount).toBe(2);
 });

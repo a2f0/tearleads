@@ -63,7 +63,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     ...projectionVerificationOptions(input),
   });
 
-  return syncRemoteDocumentResultFromResponse({
+  const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input),
     execSql: input.execSql,
     materializedPlan,
@@ -74,6 +74,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
+  return {
+    ...result,
+    hasDeferredPendingUpdates: !input.pullComplete,
+  };
 }
 
 function parsePersistedDocumentSyncRecord<T>(
@@ -182,6 +186,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  pullComplete: boolean;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
@@ -290,7 +295,10 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
 }
 
 async function syncReadOnlyRemoteDocumentFromPersistedState(
-  input: Omit<ReadOnlyDocumentSyncCompletionInput, "response"> & {
+  input: Omit<
+    ReadOnlyDocumentSyncCompletionInput,
+    "pullComplete" | "response"
+  > & {
     persistedState?: PersistedDocumentSyncState | null | undefined;
   },
 ): Promise<PersistedReadOnlyDocumentSyncResult> {
@@ -345,6 +353,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   if (submitted.response.updates.length > 0) {
     return completeReadOnlyRemoteDocumentSyncWithUpdates({
       ...input,
+      pullComplete: submitted.pullComplete,
       response: submitted.response,
     });
   }
@@ -362,7 +371,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
-        hasDeferredPendingUpdates: false,
+        hasDeferredPendingUpdates: !submitted.pullComplete,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

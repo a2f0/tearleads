@@ -111,6 +111,23 @@ function coveredSyncFrontier(
   };
 }
 
+function shouldReArmDocumentSync(
+  state: DocumentStoreState,
+  syncAttempt: DocumentSyncAttempt,
+): boolean {
+  const { synced } = syncAttempt;
+  return (
+    synced.hasDeferredPendingUpdates ||
+    settleOutgoingPassAndDecideReArm(state, {
+      exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
+      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
+      settledUpdateCount: synced.settledPendingUpdateIds.length,
+      acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
+    })
+  );
+}
+
 export async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -219,15 +236,7 @@ export async function finalizeDocumentSync(
 
   clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
 
-  if (
-    settleOutgoingPassAndDecideReArm(state, {
-      exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
-      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
-      settledUpdateCount: synced.settledPendingUpdateIds.length,
-      acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
-    })
-  ) {
+  if (shouldReArmDocumentSync(state, syncAttempt)) {
     requestDocumentStoreSync(state);
   }
 

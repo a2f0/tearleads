@@ -70,6 +70,7 @@ function evictHealedWriterProjection(
 async function submittedDocumentSyncResult(input: {
   materializedPlan: MaterializedDocumentSyncPlan;
   pendingUpdateIds: readonly string[];
+  pullComplete: boolean;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   response: DocumentSyncResponse;
@@ -106,13 +107,15 @@ async function submittedDocumentSyncResult(input: {
   });
   return {
     ...result,
-    hasDeferredPendingUpdates: hasDeferredPendingUpdatesAfterSubmit({
-      acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-      exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-      pendingUpdateIds: input.pendingUpdateIds,
-      rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-      settledPendingUpdateIds: result.settledPendingUpdateIds,
-    }),
+    hasDeferredPendingUpdates:
+      !input.pullComplete ||
+      hasDeferredPendingUpdatesAfterSubmit({
+        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+        pendingUpdateIds: input.pendingUpdateIds,
+        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+        settledPendingUpdateIds: result.settledPendingUpdateIds,
+      }),
   };
 }
 
@@ -375,6 +378,7 @@ export async function syncRemoteDocument(
     return submittedDocumentSyncResult({
       materializedPlan,
       pendingUpdateIds,
+      pullComplete: submitted.pullComplete,
       recoveryPendingUpdatesById,
       resolveProjectionUserKey,
       response: submitted.response,

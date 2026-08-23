@@ -471,6 +471,7 @@ export async function submitDocumentSync(input: {
 }): Promise<
   | {
       readonly ok: true;
+      readonly pullComplete: boolean;
       readonly response: DocumentSyncResponse;
     }
   | DocumentSyncSubmitFailure

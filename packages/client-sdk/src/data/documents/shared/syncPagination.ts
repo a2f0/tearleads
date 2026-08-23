@@ -3,9 +3,18 @@ import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { serializeCanonical } from "./readers";
 import type { DocumentSyncPlan, DocumentSyncSubmitFailure } from "./types";
 
+type DocumentSyncPageSubmission =
+  | {
+      readonly ok: true;
+      readonly response: DocumentSyncResponse;
+    }
+  | DocumentSyncSubmitFailure
+  | null;
+
 type DocumentSyncSubmission =
   | {
       readonly ok: true;
+      readonly pullComplete: boolean;
       readonly response: DocumentSyncResponse;
     }
   | DocumentSyncSubmitFailure
@@ -101,7 +110,7 @@ export async function submitDocumentSyncPages(input: {
   readonly plan: DocumentSyncPlan;
   readonly submit: (
     request: DocumentSyncRequest,
-  ) => Promise<DocumentSyncSubmission>;
+  ) => Promise<DocumentSyncPageSubmission>;
 }): Promise<DocumentSyncSubmission> {
   const first = await input.submit(input.plan.request);
   if (!first || !first.ok) return first;
@@ -121,7 +130,10 @@ export async function submitDocumentSyncPages(input: {
     const continuation = await input.submit(
       continuationRequest({ cursor, plan: input.plan, previousResponse }),
     );
-    if (!continuation || !continuation.ok) return continuation;
+    if (!continuation || !continuation.ok) {
+      continuation?.report();
+      return { ok: true, pullComplete: false, response: aggregate };
+    }
 
     assertContinuationIdentity(first.response, continuation.response);
     assertUniquePageUpdates(updateIds, continuation.response);
@@ -130,5 +142,5 @@ export async function submitDocumentSyncPages(input: {
     cursor = continuation.response.pullPage?.nextCursor ?? null;
   }
 
-  return { ok: true, response: aggregate };
+  return { ok: true, pullComplete: true, response: aggregate };
 }

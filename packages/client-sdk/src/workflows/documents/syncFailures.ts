@@ -47,6 +47,7 @@ type FailedDocumentSyncAction =
 type DocumentSyncAttemptSubmission =
   | {
       readonly kind: "completed";
+      readonly pullComplete: boolean;
       readonly response: DocumentSyncResponse;
     }
   | FailedDocumentSyncAction;
@@ -158,6 +159,7 @@ async function submitDocumentSyncAttempt(input: {
   if (submitted.ok) {
     return {
       kind: "completed",
+      pullComplete: submitted.pullComplete,
       response: submitted.response,
     };
   }
