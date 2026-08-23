@@ -62,8 +62,9 @@ async function requestOutgoingDocumentBatch(input: {
   sentUpdateIds: string[];
   syncAttempt: DocumentSyncAttempt | null;
 }> {
-  const outgoingBatch = selectDocumentSyncOutgoingBatch(input.pendingUpdates);
-  const sentUpdateIds = preRegisterUpdateIds(input.state, outgoingBatch);
+  const { planningUpdates, preRegisteredUpdates } =
+    selectDocumentStoreSyncQueues(input.pendingUpdates);
+  const sentUpdateIds = preRegisterUpdateIds(input.state, preRegisteredUpdates);
   const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
     input.state,
     sentUpdateIds,
@@ -73,7 +74,7 @@ async function requestOutgoingDocumentBatch(input: {
         currentRecord: input.record,
         encapsulationKeyPair: input.encapsulationKeyPair,
         generation: input.generation,
-        pendingUpdates: outgoingBatch,
+        pendingUpdates: planningUpdates,
         queuedUpdateCount: input.pendingUpdates.length,
         state: input.state,
         unavailableWriterLogMessage:
@@ -81,6 +82,23 @@ async function requestOutgoingDocumentBatch(input: {
       }),
   );
   return { sentUpdateIds, syncAttempt };
+}
+
+/**
+ * Keep the full durable queue visible to stale-heal/checkpoint classification,
+ * while pre-registering only the ordinary bounded prefix that can be echoed by
+ * this request. The workflow planner owns the final count and byte bounds.
+ */
+export function selectDocumentStoreSyncQueues(
+  pendingUpdates: PendingUpdateRecord[],
+): {
+  planningUpdates: PendingUpdateRecord[];
+  preRegisteredUpdates: PendingUpdateRecord[];
+} {
+  return {
+    planningUpdates: pendingUpdates,
+    preRegisteredUpdates: selectDocumentSyncOutgoingBatch(pendingUpdates),
+  };
 }
 
 async function syncDocumentState(
