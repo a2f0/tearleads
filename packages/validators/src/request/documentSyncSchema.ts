@@ -35,7 +35,6 @@ import {
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-  MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
@@ -113,14 +112,14 @@ function createDocumentOutgoingUpdateSchema(
         type: "string",
       }),
       partialEndVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
       ),
       partialStartVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
       ),
       plaintextHash: nonEmptyStringSchema,
       sourceVersionVector: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
       ).optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
@@ -202,7 +201,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     expectedLinkSetManifestHash: nonEmptyStringSchema,
     expectedTargetHash: nonEmptyStringSchema,
     localVersionVector: boundedStringSchema(
-      MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
+      MAX_DOCUMENT_SYNC_REQUEST_BYTES,
     ).nullable(),
     minLsn: WalLsnSchema.optional(),
     outgoingUpdates: arraySchema(

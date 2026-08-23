@@ -3,7 +3,6 @@ import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-  MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "@symcrypt/validators/util";
 import {
   DocumentSyncRequestLimitError,
@@ -69,7 +68,7 @@ test("document sync selects a single update above the old half-body estimate", (
 });
 
 test("document sync outgoing batches fit the serialized request byte limit", () => {
-  const vector = "V".repeat(MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS);
+  const vector = "V".repeat(1_024);
   const request: DocumentSyncRequest = {
     authorizingContainerPathRefs: [
       [{ containerId: "container-1", manifestHash: "manifest-1" }],
@@ -81,7 +80,7 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
     outgoingUpdates: Array.from(
       { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
       (_, index) => ({
-        encryptedData: "A".repeat(100_000),
+        encryptedData: "A".repeat(300_000),
         id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         partialEndVersionVector: vector,
         partialStartVersionVector: vector,
@@ -106,4 +105,46 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
   expect(bounded.outgoingUpdates).toEqual(
     request.outgoingUpdates.slice(0, bounded.outgoingUpdates.length),
   );
+});
+
+test("document sync falls back to a full pull when the local vector cannot fit", () => {
+  const request = {
+    authorizingContainerPathRefs: [],
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "target-1",
+    localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+    outgoingUpdates: [],
+  } as DocumentSyncRequest;
+
+  const bounded = limitDocumentSyncRequestBytes(request);
+
+  expect(bounded.localVersionVector).toBeNull();
+  expect(bounded.outgoingUpdates).toEqual([]);
+  expect(
+    new TextEncoder().encode(JSON.stringify(bounded)).byteLength,
+  ).toBeLessThanOrEqual(MAX_DOCUMENT_SYNC_REQUEST_BYTES);
+});
+
+test("document sync preserves a high-actor write above the old vector ceiling", () => {
+  const vector = "V".repeat(64 * 1024 + 1);
+  const request = {
+    authorizingContainerPathRefs: [],
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "target-1",
+    localVersionVector: vector,
+    outgoingUpdates: [
+      {
+        encryptedData: "ciphertext",
+        id: "00000000-0000-4000-8000-000000000001",
+        partialEndVersionVector: vector,
+        partialStartVersionVector: vector,
+        plaintextHash: "plaintext",
+        writeHeader: {},
+      },
+    ],
+  } as DocumentSyncRequest;
+
+  expect(limitDocumentSyncRequestBytes(request)).toEqual(request);
 });

@@ -104,37 +104,56 @@ export function limitDocumentSyncRequestBytes(
   ) {
     throw new Error("Document sync required update is not first in its batch");
   }
-  if (serializedBytes(request) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
-    return request;
-  }
 
-  const selected: DocumentSyncRequest["outgoingUpdates"] = [];
-  let selectedRequestBytes = serializedBytes({
-    ...request,
-    outgoingUpdates: [],
-  });
-  for (const update of request.outgoingUpdates) {
-    // The empty request already contains the array brackets. Each selected
-    // item contributes its own serialization and, after the first, one comma.
-    // This keeps exact UTF-8 accounting linear in the request size.
-    const addedBytes = serializedBytes(update) + (selected.length > 0 ? 1 : 0);
-    if (selectedRequestBytes + addedBytes > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
-      break;
+  const fitRequest = (
+    candidate: DocumentSyncRequest,
+  ): DocumentSyncRequest | null => {
+    if (serializedBytes(candidate) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+      return candidate;
     }
-    selected.push(update);
-    selectedRequestBytes += addedBytes;
-  }
 
-  if (selected.length === 0) {
+    const selected: DocumentSyncRequest["outgoingUpdates"] = [];
+    let selectedRequestBytes = serializedBytes({
+      ...candidate,
+      outgoingUpdates: [],
+    });
+    if (selectedRequestBytes > MAX_DOCUMENT_SYNC_REQUEST_BYTES) return null;
+    for (const update of candidate.outgoingUpdates) {
+      // The empty request already contains the array brackets. Each selected
+      // item contributes its own serialization and, after the first, one comma.
+      // This keeps exact UTF-8 accounting linear in the request size.
+      const addedBytes =
+        serializedBytes(update) + (selected.length > 0 ? 1 : 0);
+      if (selectedRequestBytes + addedBytes > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+        break;
+      }
+      selected.push(update);
+      selectedRequestBytes += addedBytes;
+    }
+
+    return selected.length > 0
+      ? { ...candidate, outgoingUpdates: selected }
+      : null;
+  };
+
+  const bounded =
+    fitRequest(request) ??
+    (request.localVersionVector === null
+      ? null
+      : fitRequest({ ...request, localVersionVector: null }));
+  if (!bounded) {
     throw new DocumentSyncRequestLimitError(
       "Document sync update cannot fit within the request limit",
     );
   }
-  if (requiredUpdateId !== undefined && selected[0]?.id !== requiredUpdateId) {
+  if (
+    requiredUpdateId !== undefined &&
+    bounded.outgoingUpdates[0]?.id !== requiredUpdateId
+  ) {
     throw new DocumentSyncRequestLimitError(
       "Document sync required update exceeds the request limit",
     );
   }
 
-  return { ...request, outgoingUpdates: selected };
+  return bounded;
 }

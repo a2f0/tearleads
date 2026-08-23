@@ -20,6 +20,7 @@ import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/type
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { syncRemoteDocument } from "./sync";
+import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 let execSql: ExecSql;
@@ -203,4 +204,97 @@ test("an encrypted update that cannot fit records a terminal queue failure", asy
   expect(abandonedReasons).toEqual([
     "a queued update cannot fit within the document sync request limit",
   ]);
+});
+
+test("a high-actor write above the old vector ceiling remains syncable", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const highActorVector = "V".repeat(64 * 1024 + 1);
+  const pendingUpdate = createPendingUpdateRecord({
+    partialEndVersionVector: highActorVector,
+    partialStartVersionVector: highActorVector,
+  });
+  let submittedVectorLength = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      syncDocument: async (documentId, request) => {
+        submittedVectorLength =
+          request.outgoingUpdates[0]?.partialEndVersionVector.length ?? 0;
+        const plan = await buildDocumentSyncPlan({
+          author: fixture.author,
+          contentKeyBundle: fixture.writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: fixture.writerProjection.documentKekTargets,
+          documentManifest: fixture.writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse(
+          { ...plan, request },
+          {
+            acceptedOutgoingUpdateIds: request.outgoingUpdates.map(
+              (update) => update.id,
+            ),
+            updates: [],
+          },
+        );
+      },
+    },
+    author: fixture.author,
+    documentId: fixture.writerProjection.documentId,
+    execSql,
+    localVersionVector: highActorVector,
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({
+      author: fixture.author,
+      signingPublicKey: fixture.signingPublicKey,
+    }),
+    targetSecretKey: fixture.secretKey,
+    writerProjection: fixture.writerProjection,
+  });
+
+  expect(submittedVectorLength).toBe(highActorVector.length);
+  expect(synced?.settledPendingUpdateIds).toEqual([pendingUpdate.id]);
+});
+
+test("an oversized read frontier falls back to a complete pull", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  let submittedLocalVersionVector: string | null | undefined;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      syncDocument: async (documentId, request) => {
+        submittedLocalVersionVector = request.localVersionVector;
+        const plan = await buildDocumentSyncPlan({
+          author: fixture.author,
+          contentKeyBundle: fixture.writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: fixture.writerProjection.documentKekTargets,
+          documentManifest: fixture.writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse(
+          { ...plan, request },
+          { acceptedOutgoingUpdateIds: [], updates: [] },
+        );
+      },
+    },
+    author: fixture.author,
+    documentId: fixture.writerProjection.documentId,
+    execSql,
+    localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+    pendingUpdates: [],
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({
+      author: fixture.author,
+      signingPublicKey: fixture.signingPublicKey,
+    }),
+    targetSecretKey: fixture.secretKey,
+    writerProjection: fixture.writerProjection,
+  });
+
+  expect(submittedLocalVersionVector).toBeNull();
+  expect(synced).not.toBeNull();
 });

@@ -6,7 +6,6 @@ import {
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-  MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "../util/documentSyncLimits";
 import { isDocumentSyncRequest } from "./index";
 
@@ -112,11 +111,28 @@ test("document sync accepts ciphertext above the old half-body estimate", () => 
 
 test("document sync bounds version vectors", () => {
   const valid = createSyncRequest();
-  const localVersionVector = "A".repeat(
-    MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS + 1,
-  );
+  const localVersionVector = "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
 
   expect(isDocumentSyncRequest({ ...valid, localVersionVector })).toBe(false);
+});
+
+test("document sync accepts high-actor vectors above the old ceiling", () => {
+  const valid = createSyncRequest();
+  const highActorVector = "A".repeat(64 * 1024 + 1);
+
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      localVersionVector: highActorVector,
+      outgoingUpdates: [
+        {
+          ...UPDATE,
+          partialEndVersionVector: highActorVector,
+          partialStartVersionVector: highActorVector,
+        },
+      ],
+    }),
+  ).toBe(true);
 });
 
 test("document sync bounds authorization path count", () => {

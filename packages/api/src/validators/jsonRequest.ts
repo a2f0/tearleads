@@ -32,8 +32,9 @@ export function requestBodyLimit({
     // Use Bun's native body consumption. A hand-rolled reader over the native
     // request stream can intermittently segfault behind the ingress tunnel.
     // Browsers and chunked clients do not expose Content-Length here, so nginx
-    // applies the pre-buffer ceiling and this exact check protects direct Bun
-    // requests and verifies declared lengths rather than trusting them.
+    // applies the pre-buffer ceiling. The Bun listener is enforced loopback-only
+    // in index.ts; this exact post-read check protects trusted direct diagnostics
+    // and verifies declared lengths rather than trusting them.
     const body = await context.req.arrayBuffer();
     if (body.byteLength > maxBytes) {
       return onTooLarge(context);
