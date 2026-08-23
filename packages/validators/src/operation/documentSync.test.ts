@@ -23,15 +23,12 @@ test("document sync operation owns its HTTP contract metadata", () => {
   expect(documentSyncOperation.path).toBe("/documents/{documentId}/sync");
   expect(documentSyncOperation.auth).toBe("session");
   expect(documentSyncOperation.failureStatuses).toEqual([
-    400, 401, 402, 403, 404, 409, 411, 413, 500, 503,
+    400, 401, 402, 403, 404, 409, 413, 500, 503,
   ]);
   expect(documentSyncOperation.params).toBe(DocumentSyncPathParamsSchema);
   expect(documentSyncOperation.body).toBe(DocumentSyncRequestSchema);
   expect(documentSyncOperation.failureResponses?.[409]).toBe(
     DocumentSyncErrorResponseSchema,
-  );
-  expect(documentSyncOperation.failureResponses?.[411]).toBe(
-    ErrorResponseSchema,
   );
   expect(documentSyncOperation.failureResponses?.[413]).toBe(
     ErrorResponseSchema,

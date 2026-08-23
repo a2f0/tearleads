@@ -95,16 +95,12 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
     "403",
     "404",
     "409",
-    "411",
     "413",
     "500",
     "503",
   ]);
   expect(syncPost.responses["400"]?.content).toBeUndefined();
   expect(syncPost.responses["409"]?.description).toBe("Failure JSON response");
-  expect(syncPost.responses["411"]?.description).toBe(
-    "Content-Length is required for document sync requests",
-  );
   expect(syncPost.responses["413"]?.description).toBe(
     "Serialized document sync requests are limited to 16777216 bytes",
   );

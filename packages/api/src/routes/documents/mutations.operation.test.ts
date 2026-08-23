@@ -98,7 +98,7 @@ test("document sync preserves the invalid-request response", async () => {
   expect(await response.json()).toEqual({ error: "Invalid request" });
 });
 
-test("document sync requires a bounded body length before parsing", async () => {
+test("document sync rejects oversized headerless bodies after reading", async () => {
   const route = createTestRoute((_c, next) => next());
   const chunk = new Uint8Array(1024 * 1024);
   let remainingBytes = MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1;
@@ -123,8 +123,8 @@ test("document sync requires a bounded body length before parsing", async () => 
 
   const response = await route.request(request);
 
-  expect(response.status).toBe(411);
-  expect(await response.json()).toEqual({ error: "Content-Length required" });
+  expect(response.status).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
 });
 
 test("document sync rejects oversized declared bodies before parsing", async () => {

@@ -4,13 +4,11 @@ import type { SafeParseSchema } from "./schema";
 
 interface RequestBodyLimitOptions {
   readonly maxBytes: number;
-  readonly onLengthRequired: (context: Context) => Response | Promise<Response>;
   readonly onTooLarge: (context: Context) => Response | Promise<Response>;
 }
 
 export function requestBodyLimit({
   maxBytes,
-  onLengthRequired,
   onTooLarge,
 }: RequestBodyLimitOptions): MiddlewareHandler {
   return async (context, next) => {
@@ -20,22 +18,22 @@ export function requestBodyLimit({
     }
 
     const declaredLengthHeader = request.headers.get("Content-Length");
-    const declaredLength = Number(declaredLengthHeader);
-    if (
-      declaredLengthHeader === null ||
-      !Number.isSafeInteger(declaredLength) ||
-      declaredLength < 0
-    ) {
-      return onLengthRequired(context);
-    }
-    if (declaredLength > maxBytes) {
-      return onTooLarge(context);
+    if (declaredLengthHeader !== null) {
+      const declaredLength = Number(declaredLengthHeader);
+      if (
+        Number.isSafeInteger(declaredLength) &&
+        declaredLength >= 0 &&
+        declaredLength > maxBytes
+      ) {
+        return onTooLarge(context);
+      }
     }
 
     // Use Bun's native body consumption. A hand-rolled reader over the native
     // request stream can intermittently segfault behind the ingress tunnel.
-    // Requiring Content-Length bounds Bun's allocation before this read; nginx
-    // independently applies the same route-specific ceiling before proxying.
+    // Browsers and chunked clients do not expose Content-Length here, so nginx
+    // applies the pre-buffer ceiling and this exact check protects direct Bun
+    // requests and verifies declared lengths rather than trusting them.
     const body = await context.req.arrayBuffer();
     if (body.byteLength > maxBytes) {
       return onTooLarge(context);

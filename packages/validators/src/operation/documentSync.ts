@@ -33,16 +33,14 @@ export const documentSyncOperation = defineJsonOperation({
   failureResponses: {
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
-    411: ErrorResponseSchema,
     413: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 402, 403, 404, 409, 411, 413, 500, 503],
+  failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",
   method: "POST",
   params: DocumentSyncPathParamsSchema,
   path: "/documents/{documentId}/sync",
   responseDescriptions: {
-    411: "Content-Length is required for document sync requests",
     413: `Serialized document sync requests are limited to ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} bytes`,
   },
   responses: {

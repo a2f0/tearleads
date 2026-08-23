@@ -25361,25 +25361,6 @@
             },
             "description": "Failure JSON response"
           },
-          "411": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Content-Length is required for document sync requests"
-          },
           "413": {
             "content": {
               "application/json": {
