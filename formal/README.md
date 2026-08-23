@@ -273,7 +273,7 @@ with an empty committed frontier cannot produce a baseline at all — a
 zero-span full-history snapshot encodes no replayable history — so the server
 accepts a baseline-less unlink only after proving the committed frontier is
 empty inside the mutation transaction, under the document manifest-head write
-lock that sync writers take in shared mode.
+lock that sync writers also take exclusively.
 
 The abstraction maps to production at these seams:
 
@@ -281,7 +281,7 @@ The abstraction maps to production at these seams:
 | --- | --- |
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
 | `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
-| `WriterMayCommit` | the manifest-head write lock in `lockDocumentLinkSetMutationFrontier` versus the sync writers' shared lock |
+| `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | the client never sending an empty baseline | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
