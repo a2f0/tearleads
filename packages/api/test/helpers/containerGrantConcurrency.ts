@@ -5,7 +5,7 @@ import {
   organizationRosterEntries,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
 import {
@@ -14,31 +14,8 @@ import {
 } from "./keyingWriterProjectionKit";
 import { removeMemberGroupUser } from "./organizationMember";
 import { getDefaultOrganizationId } from "./organizationMembership";
+import { waitForPostgresLockWait } from "./postgresConcurrency";
 import { registerUser } from "./registerUser";
-
-const LOCK_WAIT_TIMEOUT_MS = 10_000;
-
-async function waitForPostgresLockWait(queryFragment: string): Promise<void> {
-  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const result = await db.execute(sql`
-      select exists (
-        select 1
-        from pg_stat_activity
-        where datname = current_database()
-          and pid <> pg_backend_pid()
-          and wait_event_type = 'Lock'
-          and query like ${`%${queryFragment}%`}
-      ) as "waiting"
-    `);
-    const [row] = result.rows as { waiting: boolean }[];
-    if (row?.waiting === true) {
-      return;
-    }
-    await Bun.sleep(10);
-  }
-  throw new Error(`Timed out waiting for Postgres lock: ${queryFragment}`);
-}
 
 export async function runDirectGrantRosterRemovalRace(): Promise<void> {
   const owner = createTestUser();
@@ -93,7 +70,9 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
   try {
     // The signed Members-policy route now holds the organization mutation lock
     // and is blocked only on its final roster update.
-    await waitForPostgresLockWait("organization_roster_entries");
+    await waitForPostgresLockWait({
+      queryFragment: "organization_roster_entries",
+    });
     grant = Promise.resolve(
       routeApp.request(`/containers/${root.kekState.containerId}/share`, {
         method: "POST",
@@ -107,7 +86,9 @@ export async function runDirectGrantRosterRemovalRace(): Promise<void> {
 
     // Observing the grant route waiting on the same organization head proves
     // both production mutations overlap in the intended serialization order.
-    await waitForPostgresLockWait("organization_read_model_heads");
+    await waitForPostgresLockWait({
+      queryFragment: "organization_read_model_heads",
+    });
   } catch (error) {
     synchronizationError = error;
   } finally {
