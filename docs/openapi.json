@@ -2664,7 +2664,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -4195,7 +4195,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -5462,7 +5462,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -6753,7 +6753,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -7716,7 +7716,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -9009,7 +9009,7 @@
                                     "const": "full_history_snapshot"
                                   },
                                   "encryptedData": {
-                                    "maxLength": 8392704,
+                                    "maxLength": 16777216,
                                     "minLength": 1,
                                     "type": "string"
                                   },
@@ -23991,7 +23991,7 @@
                         "const": "full_history_snapshot"
                       },
                       "encryptedData": {
-                        "maxLength": 8392704,
+                        "maxLength": 16777216,
                         "minLength": 1,
                         "type": "string"
                       },
@@ -24877,7 +24877,7 @@
                           "const": "full_history_snapshot"
                         },
                         "encryptedData": {
-                          "maxLength": 8392704,
+                          "maxLength": 16777216,
                           "minLength": 1,
                           "type": "string"
                         },
@@ -25896,7 +25896,7 @@
                         "const": "full_history_snapshot"
                       },
                       "encryptedData": {
-                        "maxLength": 8392704,
+                        "maxLength": 16777216,
                         "minLength": 1,
                         "type": "string"
                       },
@@ -42440,7 +42440,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -43971,7 +43971,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -45238,7 +45238,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -46529,7 +46529,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -47492,7 +47492,7 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "maxLength": 8392704,
+                                  "maxLength": 16777216,
                                   "minLength": 1,
                                   "type": "string"
                                 },
@@ -48785,7 +48785,7 @@
                                     "const": "full_history_snapshot"
                                   },
                                   "encryptedData": {
-                                    "maxLength": 8392704,
+                                    "maxLength": 16777216,
                                     "minLength": 1,
                                     "type": "string"
                                   },

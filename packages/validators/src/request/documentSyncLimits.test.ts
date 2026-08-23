@@ -6,6 +6,7 @@ import {
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "../util/documentSyncLimits";
 import { isDocumentSyncRequest } from "./index";
@@ -96,6 +97,20 @@ test("document sync bounds encrypted update data", () => {
       outgoingUpdates: [{ ...UPDATE, encryptedData }],
     }),
   ).toBe(false);
+});
+
+test("document sync accepts ciphertext above the old half-body estimate", () => {
+  const valid = createSyncRequest();
+  const encryptedData = "A".repeat(
+    Math.floor(MAX_DOCUMENT_SYNC_REQUEST_BYTES / 2) + 1,
+  );
+
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      outgoingUpdates: [{ ...UPDATE, encryptedData }],
+    }),
+  ).toBe(true);
 });
 
 test("document sync bounds version vectors", () => {

@@ -45,6 +45,15 @@ test("document sync rejects an update that can never fit", () => {
   ).toThrow("Document sync update exceeds its data limit");
 });
 
+test("document sync selects a single update above the old half-body estimate", () => {
+  const update = updates([
+    Math.floor(MAX_DOCUMENT_SYNC_REQUEST_BYTES / 2) + 1,
+  ])[0];
+  if (!update) throw new Error("Expected one update fixture");
+
+  expect(selectDocumentSyncOutgoingBatch([update])).toEqual([update]);
+});
+
 test("document sync outgoing batches fit the serialized request byte limit", () => {
   const vector = "V".repeat(MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS);
   const request: DocumentSyncRequest = {

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS } from "../util";
 import {
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
@@ -9,6 +10,22 @@ import {
   isDocumentSyncRequest,
 } from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
+
+test("document content-key bundles enforce the greenfield link maximum", () => {
+  const bundle = createDocumentContentKeyBundle();
+  const target = bundle.targets[0];
+  if (!target) throw new Error("Expected one content-key target fixture");
+
+  expect(
+    isDocumentContentKeyBundleRequest({
+      ...bundle,
+      targets: Array.from(
+        { length: MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS + 1 },
+        () => target,
+      ),
+    }),
+  ).toBe(false);
+});
 
 function createBlobContentKeyBundle(overrides: Record<string, unknown> = {}) {
   return {

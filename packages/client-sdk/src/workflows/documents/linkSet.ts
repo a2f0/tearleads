@@ -14,6 +14,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
+import { MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS } from "@symcrypt/validators/util";
 import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/events";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -72,6 +73,7 @@ function deriveDocumentLinkSetTargetState(input: {
     if (currentTarget) {
       throw new Error("Document link target is already linked");
     }
+    assertDocumentLinkTargetCapacity(currentTargets.length);
 
     return {
       currentTargets,
@@ -106,6 +108,16 @@ function deriveDocumentLinkSetTargetState(input: {
       (candidate) => candidate.containerId !== target.containerId,
     ),
   };
+}
+
+export function assertDocumentLinkTargetCapacity(
+  currentTargetCount: number,
+): void {
+  if (currentTargetCount >= MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS) {
+    throw new RangeError(
+      `A document cannot be linked to more than ${MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS} containers`,
+    );
+  }
 }
 
 async function wrapDocumentContentKeyForTargets(input: {

@@ -16,8 +16,18 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "./create";
-import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+import {
+  assertDocumentLinkTargetCapacity,
+  buildMaterializedDocumentLinkSetMutationPlan,
+} from "./linkSet";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
+
+test("document links enforce the greenfield content-key target maximum", () => {
+  expect(() => assertDocumentLinkTargetCapacity(63)).not.toThrow();
+  expect(() => assertDocumentLinkTargetCapacity(64)).toThrow(
+    "A document cannot be linked to more than 64 containers",
+  );
+});
 
 test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
   const { author } = await createAuthor();
