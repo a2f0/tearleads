@@ -4,9 +4,11 @@ import {
   documentContentWriteHeaders,
   documentUpdates,
 } from "@symcrypt/api-shared/schema";
+import { mergeVersionVectors } from "@symcrypt/loro";
 import { and, desc, eq, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
+import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore";
 
 /**
  * Coverage-gated baseline redirect for document sync pulls.
@@ -87,14 +89,18 @@ export function selectServedSyncUpdates<
  * update was written under `contentKeyEpoch` (the reader-readable current
  * epoch). Returns `null` when no such baseline exists.
  */
-export async function loadLatestReadableBaselineCoverage(
+async function loadLatestReadableBaseline(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
     readonly contentKeyEpoch: number;
     readonly upperBoundSequence?: number | undefined;
   },
-): Promise<string | null> {
+): Promise<{
+  readonly sequence: number;
+  readonly sourceVersionVector: string;
+  readonly updateId: string;
+} | null> {
   const rows = await executor
     .select({
       checkpointKind: documentAuditCheckpoints.checkpointKind,
@@ -103,6 +109,7 @@ export async function loadLatestReadableBaselineCoverage(
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
       plaintextHash: documentUpdates.plaintextHash,
+      sequence: documentUpdates.sequence,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
       updateId: documentAuditCheckpoints.baselineUpdateId,
     })
@@ -143,10 +150,72 @@ export async function loadLatestReadableBaselineCoverage(
         updateId: row.updateId,
       })
     ) {
-      return row.sourceVersionVector;
+      return {
+        sequence: row.sequence,
+        sourceVersionVector: row.sourceVersionVector,
+        updateId: row.updateId,
+      };
     }
   }
   return null;
+}
+
+export async function loadLatestReadableBaselineCoverage(
+  executor: DatabaseSession,
+  input: {
+    readonly documentId: string;
+    readonly contentKeyEpoch: number;
+    readonly upperBoundSequence?: number | undefined;
+  },
+): Promise<string | null> {
+  return (
+    (await loadLatestReadableBaseline(executor, input))?.sourceVersionVector ??
+    null
+  );
+}
+
+/**
+ * Move an initial pull directly to a readable baseline when it covers every
+ * update the client is missing before that baseline. This decision happens
+ * before the bounded page query, so a long run of covered old-epoch updates
+ * cannot consume empty pages and starve the baseline itself.
+ */
+export async function resolveBaselineRedirectAfterSequence(input: {
+  readonly afterSequence: number;
+  readonly contentKeyEpoch: number;
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+  readonly localVersionVector: string | null;
+  readonly upperBoundSequence: number;
+}): Promise<number> {
+  if (input.afterSequence !== 0) return input.afterSequence;
+  const baseline = await loadLatestReadableBaseline(input.executor, {
+    contentKeyEpoch: input.contentKeyEpoch,
+    documentId: input.documentId,
+    upperBoundSequence: input.upperBoundSequence,
+  });
+  if (!baseline || baseline.sequence <= 1) return input.afterSequence;
+
+  const beforeBaseline = baseline.sequence - 1;
+  const hasMissingBeforeBaseline =
+    await hasMissingDocumentUpdatesThroughSequence(input.executor, {
+      documentId: input.documentId,
+      localVersionVector: input.localVersionVector,
+      upperBoundSequence: beforeBaseline,
+    });
+  if (!hasMissingBeforeBaseline) return input.afterSequence;
+
+  const coveredFrontier = mergeVersionVectors([
+    ...(input.localVersionVector === null ? [] : [input.localVersionVector]),
+    baseline.sourceVersionVector,
+  ]);
+  const hasUncoveredBeforeBaseline =
+    await hasMissingDocumentUpdatesThroughSequence(input.executor, {
+      documentId: input.documentId,
+      localVersionVector: coveredFrontier,
+      upperBoundSequence: beforeBaseline,
+    });
+  return hasUncoveredBeforeBaseline ? input.afterSequence : beforeBaseline;
 }
 
 /**

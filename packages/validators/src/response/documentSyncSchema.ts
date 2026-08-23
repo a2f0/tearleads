@@ -24,6 +24,7 @@ import {
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "../util/documentSyncLimits";
 
 export const DocumentContentKeyTargetEnvelopeResponseSchema = loosePlainObject({
@@ -135,7 +136,10 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
     documentId: z.string(),
     documentKekTargets: DocumentKekTargetsResponseSchema,
     pullPage: DocumentSyncPullPageResponseSchema.optional(),
-    updates: arraySchema(DocumentSyncUpdateResponseSchema),
+    updates: arraySchema(
+      DocumentSyncUpdateResponseSchema,
+      MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+    ),
   }).superRefine((response, context) => {
     if (
       response.pullPage !== undefined &&

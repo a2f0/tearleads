@@ -10,7 +10,10 @@ import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
+import {
+  resolveBaselineRedirectAfterSequence,
+  selectServedSyncUpdateEntries,
+} from "../../../documents/documentSyncBaselineRedirect";
 import { DocumentMutationError, documentSyncStateStale } from "./errors";
 import { toContentKeyBundleResponse } from "./shared/records";
 import {
@@ -95,12 +98,28 @@ export async function listMissingSyncUpdatesWithBundles(input: {
   readonly pullPagePlan: SyncPullPagePlan | null;
   readonly request: DocumentSyncRequest;
 }) {
+  const effectivePullPagePlan =
+    input.pullPagePlan === null
+      ? null
+      : {
+          ...input.pullPagePlan,
+          afterSequence: await resolveBaselineRedirectAfterSequence({
+            afterSequence: input.pullPagePlan.afterSequence,
+            contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+            documentId: input.documentId,
+            executor: input.executor,
+            localVersionVector: input.request.localVersionVector,
+            upperBoundSequence: input.pullPagePlan.upperBoundSequence,
+          }),
+        };
   const missingUpdateResult = await listMissingSyncUpdateEntries({
     documentId: input.documentId,
     executor: input.executor,
     localVersionVector: input.request.localVersionVector,
     minLsn: input.request.minLsn,
-    ...(input.pullPagePlan === null ? {} : { pullPage: input.pullPagePlan }),
+    ...(effectivePullPagePlan === null
+      ? {}
+      : { pullPage: effectivePullPagePlan }),
   });
   const missingUpdateEntries = missingUpdateResult.entries;
   if (
@@ -118,13 +137,15 @@ export async function listMissingSyncUpdatesWithBundles(input: {
   // older ciphertext only when that authenticated baseline covers every
   // omitted update. The sequence ceiling keeps a newer concurrent baseline
   // from redirecting a snapshot that cannot include it.
-  const servedUpdateEntries = await selectServedSyncUpdateEntries({
-    currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
-    documentId: input.documentId,
-    entries: missingUpdateEntries,
-    executor: input.executor,
-    upperBoundSequence: input.pullPagePlan?.upperBoundSequence,
-  });
+  const servedUpdateEntries =
+    effectivePullPagePlan === null
+      ? await selectServedSyncUpdateEntries({
+          currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+          documentId: input.documentId,
+          entries: missingUpdateEntries,
+          executor: input.executor,
+        })
+      : missingUpdateEntries;
   const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
     contentKeyEpochs: servedUpdateEntries.map(
       (entry) => entry.writeHeader.contentKeyEpoch,

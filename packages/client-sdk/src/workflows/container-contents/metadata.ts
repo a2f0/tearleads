@@ -85,13 +85,14 @@ export function settleContainerMetadataOutgoingPass(
   metadataState: ContainerMetadataState,
   attempt: ContainerMetadataSyncAttempt,
 ): boolean {
-  return settleOutgoingPassAndDecideReArm(metadataState, {
+  const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(metadataState, {
     exhaustedPendingUpdateCount: attempt.synced.exhaustedPendingUpdateCount,
     outgoingUpdateCount: attempt.outgoingUpdateCount,
     rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
   });
+  return shouldReArmOutgoing || attempt.synced.hasIncompletePull;
 }
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {

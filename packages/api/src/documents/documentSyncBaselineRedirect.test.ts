@@ -17,15 +17,19 @@ import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
   getTextValue,
   getUpdateVersionVectors,
   importSnapshot,
 } from "@symcrypt/loro";
 import {
   loadLatestReadableBaselineCoverage,
+  resolveBaselineRedirectAfterSequence,
   selectServedSyncUpdateEntries,
   selectServedSyncUpdates,
 } from "./documentSyncBaselineRedirect";
+import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
+import { listMissingDocumentUpdatePage } from "./documentUpdateStore";
 
 function entry(contentKeyEpoch: number, partialEndVersionVector: string) {
   return {
@@ -237,6 +241,58 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
       contentKeyEpoch: 3,
     }),
   ).toBeNull();
+});
+
+test("pagination redirects past a long covered history to its readable baseline", async () => {
+  const documentId = randomUUID();
+  const author = await createDocument("baseline-pagination-author");
+  const oldUpdates = [];
+  for (let index = 0; index < 129; index += 1) {
+    const start = encodeVersionVector(author);
+    author.getText("text").update(`revision-${index}`);
+    const vectors = getUpdateVersionVectors(exportUpdatesSince(author, start));
+    oldUpdates.push({
+      accessEpoch: 1,
+      authorFingerprint: "baseline-pagination-author",
+      byteLength: 16,
+      documentId,
+      encryptedData: `encrypted-${index}`,
+      id: randomUUID(),
+      partialEndVersionVector: vectors.partialEndVersionVector,
+      partialStartVersionVector: vectors.partialStartVersionVector,
+      plaintextHash: `plaintext-${index}`,
+    });
+  }
+  await db.insert(documentUpdates).values(oldUpdates);
+  await insertDocumentUpdateSpans(db, { documentId, updates: oldUpdates });
+  const baselineUpdateId = randomUUID();
+  const baselineSequence = await insertBaselineCheckpoint({
+    baselineUpdateId,
+    contentKeyEpoch: 2,
+    documentId,
+    sourceVersionVector: encodeVersionVector(author),
+  });
+
+  const afterSequence = await resolveBaselineRedirectAfterSequence({
+    afterSequence: 0,
+    contentKeyEpoch: 2,
+    documentId,
+    executor: db,
+    localVersionVector: null,
+    upperBoundSequence: baselineSequence,
+  });
+  const page = await listMissingDocumentUpdatePage(db, {
+    afterSequence,
+    documentId,
+    localVersionVector: null,
+    maxEncryptedBytes: 1_000,
+    maxUpdates: 64,
+    upperBoundSequence: baselineSequence,
+  });
+
+  expect(afterSequence).toBe(baselineSequence - 1);
+  expect(page.updates.map(({ id }) => id)).toEqual([baselineUpdateId]);
+  expect(page.hasMore).toBe(false);
 });
 
 // Every epoch advance normally carries a rotate_baseline, but a sync-carried

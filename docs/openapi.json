@@ -25272,7 +25272,6 @@
                       "additionalProperties": {}
                     },
                     "updates": {
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -25370,7 +25369,9 @@
                           "writeHeader"
                         ],
                         "additionalProperties": {}
-                      }
+                      },
+                      "maxItems": 64,
+                      "type": "array"
                     }
                   },
                   "required": [

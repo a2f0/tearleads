@@ -81,6 +81,9 @@ Update inserts and watermark capture serialize on the document manifest head,
 so PostgreSQL identity allocation cannot place a later-committing lower sequence
 behind the cursor. The opaque cursor binds the document id, content-key epoch,
 link-set hash, target hash, last returned update, and the original upper bound.
+A readable authenticated rotation baseline may move the initial lower bound
+forward before page selection only after its source frontier proves that it
+covers every update the client is missing before that baseline.
 A continuation must opt into pagination, carry that cursor, and be read-only:
 it has no outgoing updates, rekeys, key bundle, or authorizing paths. Every page
 must retain the first page's key identity and commit-LSN mode, and its tracked

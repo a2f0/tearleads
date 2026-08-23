@@ -320,6 +320,23 @@ export async function listMissingDocumentUpdates(
   return loadDocumentUpdatesByCandidate(executor, candidates);
 }
 
+export async function hasMissingDocumentUpdatesThroughSequence(
+  executor: DatabaseSession,
+  input: {
+    readonly documentId: string;
+    readonly localVersionVector: string | null;
+    readonly upperBoundSequence: number;
+  },
+): Promise<boolean> {
+  const candidates = await listMissingDocumentUpdateCandidates(executor, {
+    documentId: input.documentId,
+    limit: 1,
+    localVersionVector: input.localVersionVector,
+    upperBoundSequence: input.upperBoundSequence,
+  });
+  return candidates.length > 0;
+}
+
 export async function listMissingDocumentUpdatePage(
   executor: DatabaseSession,
   input: {

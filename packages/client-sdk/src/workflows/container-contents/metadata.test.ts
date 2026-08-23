@@ -423,6 +423,27 @@ test("metadata sync re-arms when a recovery baseline displaces queued edits", ()
   ).toBe(true);
 });
 
+test("metadata sync re-arms an incomplete paginated pull", () => {
+  const metadataState = {
+    container: createContainerRecord({ id: "container-5", parentId: null }),
+    doc: {} as never,
+    record: createDocumentRecord({ id: "container-5" }),
+  };
+
+  expect(
+    settleContainerMetadataOutgoingPass(metadataState, {
+      outgoingUpdateCount: 0,
+      synced: {
+        acceptedRecoveryBaseline: false,
+        exhaustedPendingUpdateCount: 0,
+        hasIncompletePull: true,
+        rekeyedPendingUpdateIds: [],
+        settledPendingUpdateIds: [],
+      } as never,
+    }),
+  ).toBe(true);
+});
+
 test("hasContainerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {
   const metadataState = {
     record: createDocumentRecord({
