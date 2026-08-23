@@ -88,6 +88,9 @@ export async function requestRemoteDocumentSync(input: {
   currentRecord: DocumentRecord;
   encapsulationKeyPair: EncapsulationKeyPair;
   generation: DocumentStoreSyncGeneration;
+  onOutgoingUpdatesMaterialized?:
+    | ((updateIds: readonly string[]) => void)
+    | undefined;
   pendingUpdates: PendingUpdateRecord[];
   queuedUpdateCount?: number | undefined;
   state: DocumentStoreState;
@@ -137,6 +140,7 @@ export async function requestRemoteDocumentSync(input: {
       state,
       generation,
     ),
+    onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,

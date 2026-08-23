@@ -188,6 +188,15 @@ function submitPlannedSyncAttempt(args: {
   });
 }
 
+function notifyMaterializedOutgoingUpdates(
+  input: SyncRemoteDocumentInput,
+  materializedPlan: MaterializedDocumentSyncPlan,
+): void {
+  input.onOutgoingUpdatesMaterialized?.(
+    materializedPlan.plan.request.outgoingUpdates.map(({ id }) => id),
+  );
+}
+
 /**
  * A write-bearing pass records through the submit handler (its queued writes
  * are what the failure blocks). A read-only pass records through the
@@ -257,9 +266,7 @@ export async function syncRemoteDocument(
       reusableWriterProjection,
     );
     reusableWriterProjection = null;
-    if (!writerProjection) {
-      return null;
-    }
+    if (!writerProjection) return null;
     const planned = await retrySyncPlanOrAbandon({
       apiClient: input.apiClient,
       buildWithProjection: (projection) =>
@@ -280,6 +287,7 @@ export async function syncRemoteDocument(
       return null;
     }
     const [materializedPlan, plannedWriterProjection] = planned;
+    notifyMaterializedOutgoingUpdates(input, materializedPlan);
     const submitted = await submitPlannedSyncAttempt({
       attempt,
       materializedPlan,

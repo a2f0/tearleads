@@ -193,6 +193,10 @@ export function arraySchema<ItemSchema extends z.ZodType>(
         code: "custom",
         message: `array exceeds ${maxItems} items`,
       });
+      // The cardinality error already makes the value invalid. Stop here so a
+      // small request body containing a very large array cannot force us to
+      // parse every item and allocate an issue for each one.
+      return;
     }
     values.forEach((value, index) => {
       const result = itemSchema.safeParse(value);

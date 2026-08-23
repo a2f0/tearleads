@@ -71,8 +71,10 @@ export function selectDocumentSyncOutgoingBatch<
   return selected;
 }
 
-function serializedRequestBytes(request: DocumentSyncRequest): number {
-  return new TextEncoder().encode(JSON.stringify(request)).byteLength;
+const TEXT_ENCODER = new TextEncoder();
+
+function serializedBytes(value: unknown): number {
+  return TEXT_ENCODER.encode(JSON.stringify(value)).byteLength;
 }
 
 export function limitDocumentSyncRequestBytes(
@@ -86,17 +88,25 @@ export function limitDocumentSyncRequestBytes(
   ) {
     throw new Error("Document sync required update is not first in its batch");
   }
-  if (serializedRequestBytes(request) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+  if (serializedBytes(request) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
     return request;
   }
 
   const selected: DocumentSyncRequest["outgoingUpdates"] = [];
+  let selectedRequestBytes = serializedBytes({
+    ...request,
+    outgoingUpdates: [],
+  });
   for (const update of request.outgoingUpdates) {
-    const candidate = { ...request, outgoingUpdates: [...selected, update] };
-    if (serializedRequestBytes(candidate) > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+    // The empty request already contains the array brackets. Each selected
+    // item contributes its own serialization and, after the first, one comma.
+    // This keeps exact UTF-8 accounting linear in the request size.
+    const addedBytes = serializedBytes(update) + (selected.length > 0 ? 1 : 0);
+    if (selectedRequestBytes + addedBytes > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
       break;
     }
     selected.push(update);
+    selectedRequestBytes += addedBytes;
   }
 
   if (selected.length === 0) {

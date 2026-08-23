@@ -400,6 +400,10 @@ export interface SyncRemoteDocumentInput {
    * explain why (edge-case row 13).
    */
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
+  /** Fires immediately before a materialized outgoing batch is submitted. */
+  onOutgoingUpdatesMaterialized?:
+    | ((updateIds: readonly string[]) => void)
+    | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

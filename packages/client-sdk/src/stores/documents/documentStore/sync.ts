@@ -6,7 +6,6 @@ import {
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
-  selectDocumentSyncOutgoingBatch,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
@@ -62,9 +61,10 @@ async function requestOutgoingDocumentBatch(input: {
   sentUpdateIds: string[];
   syncAttempt: DocumentSyncAttempt | null;
 }> {
-  const { planningUpdates, preRegisteredUpdates } =
-    selectDocumentStoreSyncQueues(input.pendingUpdates);
-  const sentUpdateIds = preRegisterUpdateIds(input.state, preRegisteredUpdates);
+  const { planningUpdates, queuedUpdateCount } = prepareDocumentStoreSyncQueue(
+    input.pendingUpdates,
+  );
+  const sentUpdateIds: string[] = [];
   const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
     input.state,
     sentUpdateIds,
@@ -74,8 +74,14 @@ async function requestOutgoingDocumentBatch(input: {
         currentRecord: input.record,
         encapsulationKeyPair: input.encapsulationKeyPair,
         generation: input.generation,
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedDocumentSyncUpdateIds(
+            input.state,
+            sentUpdateIds,
+            updateIds,
+          ),
         pendingUpdates: planningUpdates,
-        queuedUpdateCount: input.pendingUpdates.length,
+        queuedUpdateCount,
         state: input.state,
         unavailableWriterLogMessage:
           "Documents: skipped sync because the writer context is unavailable.",
@@ -85,20 +91,37 @@ async function requestOutgoingDocumentBatch(input: {
 }
 
 /**
- * Keep the full durable queue visible to stale-heal/checkpoint classification,
- * while pre-registering only the ordinary bounded prefix that can be echoed by
- * this request. The workflow planner owns the final count and byte bounds.
+ * Keep the full durable queue visible to stale-heal/checkpoint classification.
+ * The workflow planner owns the final count and byte bounds, and the exact
+ * materialized batch is pre-registered immediately before each submit.
  */
-export function selectDocumentStoreSyncQueues(
+export function prepareDocumentStoreSyncQueue(
   pendingUpdates: PendingUpdateRecord[],
 ): {
   planningUpdates: PendingUpdateRecord[];
-  preRegisteredUpdates: PendingUpdateRecord[];
+  queuedUpdateCount: number;
 } {
   return {
     planningUpdates: pendingUpdates,
-    preRegisteredUpdates: selectDocumentSyncOutgoingBatch(pendingUpdates),
+    queuedUpdateCount: pendingUpdates.length,
   };
+}
+
+export function preRegisterMaterializedDocumentSyncUpdateIds(
+  state: DocumentStoreState,
+  registeredUpdateIds: string[],
+  materializedUpdateIds: readonly string[],
+): void {
+  const alreadyRegistered = new Set(registeredUpdateIds);
+  const freshUpdateIds = materializedUpdateIds.filter(
+    (updateId) => !alreadyRegistered.has(updateId),
+  );
+  registeredUpdateIds.push(
+    ...preRegisterUpdateIds(
+      state,
+      freshUpdateIds.map((id) => ({ id })),
+    ),
+  );
 }
 
 async function syncDocumentState(
