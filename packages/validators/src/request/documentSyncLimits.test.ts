@@ -146,23 +146,24 @@ test("document sync bounds authorization path depth", () => {
   ).toBe(false);
 });
 
-test("document sync bounds total authorization references", () => {
+test("document sync admits the structurally maximal authorization reference set", () => {
   const valid = createSyncRequest();
-  const pathCount =
-    Math.floor(
-      MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS /
-        MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
-    ) + 1;
-  const authorizingContainerPathRefs = Array.from({ length: pathCount }, () =>
-    Array.from(
-      { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH },
-      () => MANIFEST_REF,
-    ),
+  const authorizingContainerPathRefs = Array.from(
+    { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS },
+    () =>
+      Array.from(
+        { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH },
+        () => MANIFEST_REF,
+      ),
   );
 
+  expect(MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS).toBe(
+    MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS *
+      MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  );
   expect(
     isDocumentSyncRequest({ ...valid, authorizingContainerPathRefs }),
-  ).toBe(false);
+  ).toBe(true);
 });
 
 test("document sync bounds content-key targets", () => {

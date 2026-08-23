@@ -38,9 +38,11 @@ server {
   }
 {% endif %}
 
-  location ^~ /documents/ {
-    # Covers every document route, including paths containing encoded
-    # separators, so no request can evade the sync body's 16 MiB ceiling.
+  location ~ ^/documents/.+/sync$ {
+    # Nginx selects regex locations against the normalized URI, so encoded
+    # separators cannot evade the sync body's 16 MiB ceiling. Link/unlink keep
+    # the server-wide ceiling because rotation baselines can legitimately be
+    # larger than a sync request.
     # This mirrors MAX_DOCUMENT_SYNC_REQUEST_BYTES and keeps Bun's native
     # buffered read bounded without using its unstable request-stream reader.
     client_max_body_size 16M;

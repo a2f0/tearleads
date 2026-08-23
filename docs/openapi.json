@@ -11478,10 +11478,6 @@
             "id": "request.unique-outgoing-update-ids"
           },
           {
-            "description": "authorizingContainerPathRefs may contain at most 256 references in total",
-            "id": "request.authorization-path-total-references"
-          },
-          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
@@ -24438,7 +24434,7 @@
         ],
         "x-symcrypt-runtime-refinements": [
           {
-            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 256 references in total",
+            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
             "id": "request.post-link-authorization-path-total-references"
           },
           {
@@ -25410,10 +25406,6 @@
             "id": "request.unique-outgoing-update-ids"
           },
           {
-            "description": "authorizingContainerPathRefs may contain at most 256 references in total",
-            "id": "request.authorization-path-total-references"
-          },
-          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
@@ -26328,7 +26320,7 @@
         ],
         "x-symcrypt-runtime-refinements": [
           {
-            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 256 references in total",
+            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
             "id": "request.post-link-authorization-path-total-references"
           },
           {
@@ -51235,10 +51227,6 @@
           {
             "description": "outgoing update ids must be unique within the request",
             "id": "request.unique-outgoing-update-ids"
-          },
-          {
-            "description": "authorizingContainerPathRefs may contain at most 256 references in total",
-            "id": "request.authorization-path-total-references"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",

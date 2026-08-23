@@ -31,7 +31,6 @@ import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
 import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
@@ -215,20 +214,6 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
         MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS
     ) {
       return;
-    }
-
-    const pathRefCount = Array.isArray(request.authorizingContainerPathRefs)
-      ? request.authorizingContainerPathRefs.reduce(
-          (total, path) => total + (Array.isArray(path) ? path.length : 0),
-          0,
-        )
-      : 0;
-    if (pathRefCount > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS) {
-      context.addIssue({
-        code: "custom",
-        message: `authorization paths exceed ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} total references`,
-        path: ["authorizingContainerPathRefs"],
-      });
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;

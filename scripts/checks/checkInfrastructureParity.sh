@@ -78,10 +78,10 @@ assert_document_sync_ingress_cors() {
     return 1
   fi
 
-  sync_location="$(sed -n '/location \^~ \/documents\/ {/,/^  }/p' "$rendered_api")"
+  sync_location="$(sed -n '/location ~ \^\/documents\/\.\+\/sync\$ {/,/^  }/p' "$rendered_api")"
   sync_error_location="$(sed -n '/location @document_sync_body_too_large {/,/^  }/p' "$rendered_api")"
-  if [ "$(grep -Fc 'location ^~ /documents/ {' "$rendered_api")" -ne 1 ] ||
-    grep -Fq 'location ~ ^/documents/' "$rendered_api" ||
+  if [ "$(grep -Fc 'location ~ ^/documents/.+/sync$ {' "$rendered_api")" -ne 1 ] ||
+    grep -Fq 'location ^~ /documents/' "$rendered_api" ||
     ! grep -Fq 'client_max_body_size 16M;' <<<"$sync_location" ||
     ! grep -Fq 'error_page 413 = @document_sync_body_too_large;' <<<"$sync_location" ||
     ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" <<<"$sync_error_location" ||
@@ -89,7 +89,7 @@ assert_document_sync_ingress_cors() {
     ! grep -Fq 'return 413' <<<"$sync_error_location" ||
     [ "$(grep -Fc "$app_origin_rule" "$rendered_api")" -ne 1 ] ||
     [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ]; then
-    echo "ERROR: Rendered document ingress must use an encoded-separator-safe 16 MiB prefix limit with JSON errors and the deduplicated API CORS allowlist." >&2
+    echo "ERROR: Rendered document sync ingress must use an encoded-separator-safe 16 MiB route limit with JSON errors and the deduplicated API CORS allowlist." >&2
     return 1
   fi
 }

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
 } from "../util";
 import {
@@ -301,27 +302,30 @@ test("document link mutations bound post-link authorization references", () => {
     containerId: "container-1",
     manifestHash: "container-manifest-hash",
   };
-  const authorizingPath = Array.from({ length: 100 }, () => reference);
+  const authorizingPath = Array.from(
+    { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH },
+    () => reference,
+  );
   const validRequest = {
-    authorizingContainerPathRefs: [authorizingPath, authorizingPath],
+    authorizingContainerPathRefs: Array.from(
+      { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS - 1 },
+      () => authorizingPath,
+    ),
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
     contentKeyBundle: createDocumentContentKeyBundle(),
     event: { eventType: "document.link" },
     expectedManifestHash: "manifest-hash",
     manifest: { objectType: "document", objectId: "doc-1" },
-    targetContainerPathRefs: Array.from(
-      { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS - 200 },
-      () => reference,
-    ),
+    targetContainerPathRefs: authorizingPath,
   };
 
   expect(isDocumentLinkSetMutationRequest(validRequest)).toBe(true);
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
-      targetContainerPathRefs: [
-        ...validRequest.targetContainerPathRefs,
-        reference,
+      authorizingContainerPathRefs: [
+        ...validRequest.authorizingContainerPathRefs,
+        authorizingPath,
       ],
     }),
   ).toBe(false);

@@ -8,7 +8,13 @@ export const MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS = 64 * 1024;
 
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS = 64;
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH = 100;
-export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS = 256;
+// Derive the aggregate ceiling from the structural limits so every valid link
+// set remains syncable after later container moves deepen its paths. This is
+// still a finite verification bound; the serialized request has a separate
+// 16 MiB ceiling.
+export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS =
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS *
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH;
 // Flag-day product maximum for every document content-key bundle. Create/link
 // request validation and the client link preflight keep a greenfield database
 // from ever producing a document that cannot fit this sync contract.

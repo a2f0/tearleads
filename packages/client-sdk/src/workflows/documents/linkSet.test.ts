@@ -31,13 +31,20 @@ test("document links enforce the greenfield content-key target maximum", () => {
 });
 
 test("document links enforce the future sync authorization-reference maximum", () => {
+  const maximalExistingPathLengths = Array.from({ length: 63 }, () => 100);
   expect(() =>
-    assertDocumentLinkAuthorizationPathCapacity([100, 100], 56),
+    assertDocumentLinkAuthorizationPathCapacity(
+      maximalExistingPathLengths,
+      100,
+    ),
   ).not.toThrow();
   expect(() =>
-    assertDocumentLinkAuthorizationPathCapacity([100, 100], 57),
+    assertDocumentLinkAuthorizationPathCapacity(
+      [...maximalExistingPathLengths, 100],
+      100,
+    ),
   ).toThrow(
-    "Document links cannot require more than 256 authorization references",
+    "Document links cannot require more than 6400 authorization references",
   );
 });
 

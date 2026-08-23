@@ -1,13 +1,4 @@
 # #2096; remove after merge to main.
-POST /auth/register: request refinement 'request.authorization-path-total-references' was added; existing clients were not rejected by it.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/sync: request refinement 'request.authorization-path-total-references' was added; existing clients were not rejected by it.
-
-# #2096; remove after merge to main.
-POST /organizations: request refinement 'request.authorization-path-total-references' was added; existing clients were not rejected by it.
-
-# #2096; remove after merge to main.
 POST /auth/register: 48 request maxItems constraint(s) tightened [sha256:5768abc15daa3d9e949d6dcf9823b032809a64062f431eb019d8b5ac5cf036a1]; existing clients could send larger arrays.
 
 # #2096; remove after merge to main.
