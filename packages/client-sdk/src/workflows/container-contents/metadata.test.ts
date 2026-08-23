@@ -357,7 +357,7 @@ test("metadata sync re-arms when a recovery baseline displaces queued edits", ()
       synced: {
         rekeyedPendingUpdateIds: [],
         settledPendingUpdateIds: [],
-        submittedRecoveryBaseline: true,
+        acceptedRecoveryBaseline: true,
       } as never,
     }),
   ).toBe(true);

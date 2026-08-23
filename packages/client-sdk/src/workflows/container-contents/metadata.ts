@@ -86,7 +86,7 @@ export function settleContainerMetadataOutgoingPass(
     outgoingUpdateCount: attempt.outgoingUpdateCount,
     rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
-    submittedRecoveryBaseline: attempt.synced.submittedRecoveryBaseline,
+    acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
   });
 }
 

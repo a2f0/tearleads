@@ -35,7 +35,7 @@ test("re-arms after a synthetic recovery baseline leaves queued updates", () => 
       outgoingUpdateCount: 3,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 0,
-      submittedRecoveryBaseline: true,
+      acceptedRecoveryBaseline: true,
     }),
   ).toBe(true);
 });

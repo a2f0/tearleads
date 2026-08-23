@@ -472,7 +472,7 @@ export interface SyncRemoteDocumentResult {
   rekeyedPendingUpdateIds: readonly string[];
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
-  submittedRecoveryBaseline: boolean;
+  acceptedRecoveryBaseline: boolean;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 

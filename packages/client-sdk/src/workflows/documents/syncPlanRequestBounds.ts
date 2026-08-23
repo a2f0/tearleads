@@ -1,4 +1,6 @@
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import type { MaterializedDocumentSyncPlan } from "../../data/documents/shared/types";
+import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";
 
 interface SyncPlanMaterial {
@@ -33,4 +35,34 @@ export function materializedDocumentSyncPlan(
           staleRecoveryBaselineUpdateId: material.staleRecoveryBaselineUpdateId,
         }),
   };
+}
+
+export function submittedPendingUpdates(
+  pendingUpdates: readonly PendingUpdateRecord[],
+  plan: MaterializedDocumentSyncPlan["plan"],
+): PendingUpdateRecord[] {
+  const submittedIds = new Set(
+    plan.request.outgoingUpdates.map((update) => update.id),
+  );
+  return pendingUpdates.filter((update) => submittedIds.has(update.id));
+}
+
+export function responseAcceptedRecoveryBaseline(
+  materializedPlan: MaterializedDocumentSyncPlan,
+  response: DocumentSyncResponse,
+): boolean {
+  const recoveryBaselineId = materializedPlan.staleRecoveryBaselineUpdateId;
+  return (
+    recoveryBaselineId !== undefined &&
+    response.acceptedOutgoingUpdateIds.includes(recoveryBaselineId)
+  );
+}
+
+export function acceptedHeldBackPendingUpdateIds(
+  materializedPlan: MaterializedDocumentSyncPlan,
+  response: DocumentSyncResponse,
+): readonly string[] {
+  return responseAcceptedRecoveryBaseline(materializedPlan, response)
+    ? materializedPlan.heldBackPendingUpdateIds
+    : [];
 }

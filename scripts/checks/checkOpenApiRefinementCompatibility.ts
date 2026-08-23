@@ -1,6 +1,6 @@
 /**
- * Fail when a revision spec changes an operation's runtime refinements in a
- * direction existing clients can observe as breaking.
+ * Fail when a revision spec changes an operation contract in a direction that
+ * existing clients can observe but the pinned oasdiff does not detect.
  *
  * oasdiff ignores x-symcrypt-runtime-refinements, so these server-side rules
  * invisible to the JSON Schema would otherwise change with a green
@@ -13,11 +13,14 @@
  * an operation that does not exist in the base. Ids with any other prefix
  * fail on every change until they are classified.
  *
- * Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]
+ * The custom checks cover runtime-refinement direction and request maxItems
+ * tightenings. Usage:
+ * bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]
  * Set OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 to acknowledge an intentional
  * breaking change and let the check pass loudly.
  */
 
+import { createHash } from "node:crypto";
 import process from "node:process";
 
 const REFINEMENTS_KEY = "x-symcrypt-runtime-refinements";
@@ -39,6 +42,11 @@ interface Refinement {
 }
 
 type RefinementsByOperation = Map<string, Map<string, string>>;
+type RequestSchemaNodesByOperation = Map<string, Map<string, number | null>>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function isRefinement(value: unknown): value is Refinement {
   return (
@@ -99,6 +107,79 @@ function collectRefinements(
       }
       const key = `${method.toUpperCase()} ${path}`;
       collected.set(key, operationRefinements(operation, `${source}: ${key}`));
+    }
+  }
+  return collected;
+}
+
+function escapeJsonPointerToken(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function collectRequestSchemaNodes(
+  value: unknown,
+  pointer: string,
+  nodes: Map<string, number | null>,
+): void {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      collectRequestSchemaNodes(item, `${pointer}/${index}`, nodes);
+    }
+    return;
+  }
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const maxItems = Reflect.get(value, "maxItems");
+  nodes.set(pointer, typeof maxItems === "number" ? maxItems : null);
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "maxItems") {
+      continue;
+    }
+    collectRequestSchemaNodes(
+      child,
+      `${pointer}/${escapeJsonPointerToken(key)}`,
+      nodes,
+    );
+  }
+}
+
+function jsonRequestSchema(operation: Record<string, unknown>): unknown {
+  const requestBody = Reflect.get(operation, "requestBody");
+  const content = isRecord(requestBody)
+    ? Reflect.get(requestBody, "content")
+    : undefined;
+  const jsonContent = isRecord(content)
+    ? content["application/json"]
+    : undefined;
+  return isRecord(jsonContent) ? Reflect.get(jsonContent, "schema") : undefined;
+}
+
+function collectRequestMaxItems(spec: unknown): RequestSchemaNodesByOperation {
+  const collected: RequestSchemaNodesByOperation = new Map();
+  if (!isRecord(spec)) {
+    return collected;
+  }
+  const paths = Reflect.get(spec, "paths");
+  if (!isRecord(paths)) {
+    return collected;
+  }
+  for (const [path, operations] of Object.entries(paths)) {
+    if (!isRecord(operations)) {
+      continue;
+    }
+    for (const [method, operation] of Object.entries(operations)) {
+      if (!HTTP_METHODS.has(method) || !isRecord(operation)) {
+        continue;
+      }
+      const schema = jsonRequestSchema(operation);
+      if (schema === undefined) {
+        continue;
+      }
+      const nodes = new Map<string, number | null>();
+      collectRequestSchemaNodes(schema, "#", nodes);
+      collected.set(`${method.toUpperCase()} ${path}`, nodes);
     }
   }
   return collected;
@@ -195,6 +276,47 @@ function collectViolations(
   return violations;
 }
 
+function collectRequestMaxItemsViolations(
+  base: RequestSchemaNodesByOperation,
+  revision: RequestSchemaNodesByOperation,
+): string[] {
+  const violations: string[] = [];
+  for (const [operation, revisionNodes] of [...revision.entries()].sort()) {
+    const baseNodes = base.get(operation);
+    if (baseNodes === undefined) {
+      continue;
+    }
+    const operationChanges: string[] = [];
+    for (const [pointer, revisionMaxItems] of [
+      ...revisionNodes.entries(),
+    ].sort()) {
+      if (revisionMaxItems === null || !baseNodes.has(pointer)) {
+        continue;
+      }
+      const baseMaxItems = baseNodes.get(pointer);
+      if (baseMaxItems === null) {
+        operationChanges.push(`${pointer}:unbounded->${revisionMaxItems}`);
+      } else if (
+        baseMaxItems !== undefined &&
+        revisionMaxItems < baseMaxItems
+      ) {
+        operationChanges.push(
+          `${pointer}:${baseMaxItems}->${revisionMaxItems}`,
+        );
+      }
+    }
+    if (operationChanges.length > 0) {
+      const digest = createHash("sha256")
+        .update(operationChanges.join("\n"))
+        .digest("hex");
+      violations.push(
+        `${operation}: ${operationChanges.length} request maxItems constraint(s) tightened [sha256:${digest}]; existing clients could send larger arrays.`,
+      );
+    }
+  }
+  return violations;
+}
+
 async function main(): Promise<number> {
   const [basePath, revisionPath, ignorePath] = Bun.argv.slice(2);
   if (basePath === undefined || revisionPath === undefined) {
@@ -204,12 +326,17 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const base = collectRefinements(await loadSpec(basePath), "base spec");
-  const revision = collectRefinements(
-    await loadSpec(revisionPath),
-    "revision spec",
-  );
-  const violations = collectViolations(base, revision);
+  const baseSpec = await loadSpec(basePath);
+  const revisionSpec = await loadSpec(revisionPath);
+  const base = collectRefinements(baseSpec, "base spec");
+  const revision = collectRefinements(revisionSpec, "revision spec");
+  const violations = [
+    ...collectViolations(base, revision),
+    ...collectRequestMaxItemsViolations(
+      collectRequestMaxItems(baseSpec),
+      collectRequestMaxItems(revisionSpec),
+    ),
+  ].sort();
   const ignoredViolations =
     ignorePath === undefined ? [] : await loadIgnoredViolations(ignorePath);
   const unusedIgnores = ignoredViolations.filter(
@@ -218,7 +345,7 @@ async function main(): Promise<number> {
   if (unusedIgnores.length > 0) {
     for (const unused of unusedIgnores) {
       console.error(
-        `unused OpenAPI runtime-refinement compatibility ignore entry: ${unused}`,
+        `unused custom OpenAPI compatibility ignore entry: ${unused}`,
       );
     }
     return 1;
@@ -228,13 +355,13 @@ async function main(): Promise<number> {
     (violation) => !ignoredSet.has(violation),
   );
   for (const ignored of ignoredViolations) {
-    console.warn(`Ignored intentional runtime-refinement change: ${ignored}`);
+    console.warn(`Ignored intentional custom compatibility change: ${ignored}`);
   }
   if (unignoredViolations.length === 0) {
     return 0;
   }
 
-  const heading = `${unignoredViolations.length} breaking runtime-refinement change(s) not visible to oasdiff:`;
+  const heading = `${unignoredViolations.length} breaking custom OpenAPI compatibility change(s) not visible to oasdiff:`;
   const { OPENAPI_ALLOW_REFINEMENT_TIGHTENING: allowTightening } = process.env;
   if (allowTightening === "1") {
     console.warn(

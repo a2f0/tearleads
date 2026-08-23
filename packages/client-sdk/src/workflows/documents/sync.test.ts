@@ -2,7 +2,6 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  computeDocumentContentKeyTargetHash,
   generateKemSeedAndKeyPair,
   verifyWriteHeader,
   type WriteHeader,
@@ -44,11 +43,14 @@ import {
   createSignedSyncResponseUpdate,
   createSyncFixture,
   createSyncResponse,
-  getOnlyTarget,
   projectionPathRefs,
   writerKeyResolver,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
+import {
+  createFullHistoryRotationSnapshot,
+  createStaleBundleSyncFixture,
+} from "../../../test/helpers/staleBundleSyncFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/syncResponses";
@@ -1376,61 +1378,6 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
     submittedRequests[1]?.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
 });
-
-/**
- * Simulates the state after a linked container's KEK rotated under a stored
- * content-key bundle (e.g. a revoke on the container): the projection carries
- * the old bundle marked stale plus CURRENT KEK targets that point at a fresh
- * container key epoch the bundle does not reference.
- */
-async function createStaleBundleSyncFixture() {
-  const fixture = await createMaterializedSyncFixture();
-  const staleBundle = fixture.writerProjection.contentKeyBundle;
-  const containerId = staleBundle.targets[0]?.containerId;
-  if (!containerId) {
-    throw new Error("Expected the fixture bundle to carry a container target");
-  }
-  const rotatedProjection = await createContainerWriterProjectionFixture({
-    containerId,
-    encapsulationPublicKey: fixture.publicKey,
-    organizationId: fixture.author.organizationId,
-    signerKeyFingerprint: fixture.author.signerKeyFingerprint,
-    signerPrivateKey: fixture.author.signerPrivateKey,
-    userId: fixture.author.signerUserId,
-  });
-  const derivedTarget = getOnlyTarget(rotatedProjection);
-  const rotatedTarget = {
-    containerId: derivedTarget.containerId,
-    containerManifestHash: derivedTarget.containerManifestHash,
-    containerKeyEpochId: derivedTarget.containerKeyEpochId,
-    containerKeyEpoch: derivedTarget.containerKeyEpoch,
-  };
-  const staleWriterProjection: DocumentWriterProjectionResponse = {
-    ...fixture.writerProjection,
-    contentKeyBundleStale: true,
-    documentKekTargets: {
-      documentId: fixture.writerProjection.documentId,
-      documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
-        rotatedTarget,
-      ]),
-      linkSetManifestHash:
-        fixture.writerProjection.documentManifest.manifestHash,
-      linkedContainerKeyEpochIds: [rotatedTarget.containerKeyEpochId],
-      linkedContainerManifestHashes: [rotatedTarget.containerManifestHash],
-      targets: [rotatedTarget],
-    },
-    authorizingContainerPaths: [rotatedProjection],
-  };
-
-  return { ...fixture, rotatedTarget, staleBundle, staleWriterProjection };
-}
-
-async function createFullHistoryRotationSnapshot(): Promise<Uint8Array> {
-  const doc = await createDocument("stale-heal-source");
-  doc.getText("text").update("healed content");
-  doc.commit();
-  return exportFullHistorySnapshot(doc);
-}
 
 function writeHeaderEpoch(update: { writeHeader: Record<string, unknown> }) {
   return Reflect.get(update.writeHeader, "contentKeyEpoch");

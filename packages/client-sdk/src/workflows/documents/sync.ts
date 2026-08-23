@@ -24,6 +24,10 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
+import {
+  responseAcceptedRecoveryBaseline,
+  submittedPendingUpdates,
+} from "./syncPlanRequestBounds";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { traceHealed } from "./syncTrace";
 
@@ -50,8 +54,12 @@ export function hasDocumentUpdateEvent(
 function evictHealedWriterProjection(
   input: SyncRemoteDocumentInput,
   materializedPlan: MaterializedDocumentSyncPlan,
+  response: DocumentSyncResponse,
 ): void {
-  if (materializedPlan.healedStaleContentKeyBundle) {
+  if (
+    materializedPlan.healedStaleContentKeyBundle &&
+    responseAcceptedRecoveryBaseline(materializedPlan, response)
+  ) {
     input.apiClient.evictDocumentWriterProjection?.(input.documentId);
   }
 }
@@ -64,8 +72,15 @@ function submittedDocumentSyncResult(input: {
   sync: SyncRemoteDocumentInput;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
-  evictHealedWriterProjection(input.sync, input.materializedPlan);
-  if (input.materializedPlan.healedStaleContentKeyBundle) {
+  evictHealedWriterProjection(
+    input.sync,
+    input.materializedPlan,
+    input.response,
+  );
+  if (
+    input.materializedPlan.healedStaleContentKeyBundle &&
+    responseAcceptedRecoveryBaseline(input.materializedPlan, input.response)
+  ) {
     traceHealed(input.sync.onSyncTrace, {
       accepted: input.response.acceptedOutgoingUpdateIds.length,
       documentId: input.materializedPlan.plan.documentId,
@@ -207,6 +222,11 @@ function resolveAttemptProjection(
   });
 }
 
+function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
+  input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
+  return null;
+}
+
 export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
@@ -264,7 +284,10 @@ export async function syncRemoteDocument(
       attempt,
       materializedPlan,
       maxAttempts,
-      pendingUpdates,
+      pendingUpdates: submittedPendingUpdates(
+        pendingUpdates,
+        materializedPlan.plan,
+      ),
       regenerateQueuedCheckpoints,
       sync: input,
       writeBearing,
@@ -297,6 +320,5 @@ export async function syncRemoteDocument(
     });
   }
 
-  input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
-  return null;
+  return abandonAfterRetryableConflicts(input);
 }

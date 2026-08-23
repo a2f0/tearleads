@@ -276,24 +276,24 @@ async function resolveSyncPlanContentMaterial(
     ReturnType<typeof collectContainerKeksForDocumentSync>
   >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
-  const pendingUpdates = selectDocumentSyncOutgoingBatch(
-    input.pendingUpdates ?? [],
-  );
+  const allPendingUpdates = input.pendingUpdates ?? [];
   const staleContentKeyBundle =
     input.writerProjection.contentKeyBundleStale === true;
 
-  if (staleContentKeyBundle && pendingUpdates.length > 0) {
+  if (staleContentKeyBundle && allPendingUpdates.length > 0) {
     traceStaleBundle(input.onSyncTrace, {
       documentId: input.writerProjection.documentId,
       epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
-      pending: pendingUpdates.length,
+      pending: allPendingUpdates.length,
     });
     return resolveStaleHealMaterial(
       input,
       collectedKeks.keksByEpochId,
-      pendingUpdates,
+      allPendingUpdates,
     );
   }
+
+  const pendingUpdates = selectDocumentSyncOutgoingBatch(allPendingUpdates);
 
   if (staleContentKeyBundle) {
     traceStaleRead(input.onSyncTrace, {
@@ -349,12 +349,12 @@ async function resolveSyncPlanContentMaterial(
   };
   if (
     input.regenerateQueuedCheckpoints === true &&
-    pendingUpdates.some((update) => update.sourceVersionVector != null)
+    allPendingUpdates.some((update) => update.sourceVersionVector != null)
   ) {
     return resolveCheckpointRegenerationMaterial(
       input,
       normalMaterial,
-      pendingUpdates,
+      allPendingUpdates,
     );
   }
 

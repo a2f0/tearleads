@@ -1,0 +1,150 @@
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import {
+  createDocument,
+  exportAllUpdates,
+  exportFullHistorySnapshot,
+  getUpdateVersionVectors,
+} from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import {
+  createMaterializedSyncFixture,
+  createPendingUpdateRecord,
+  createSyncResponse,
+  writerKeyResolver,
+} from "../../../test/helpers/documentFixtures";
+import { createStaleBundleSyncFixture } from "../../../test/helpers/staleBundleSyncFixture";
+import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { syncRemoteDocument } from "./sync";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
+
+let execSql: ExecSql;
+let closeExecSql: () => void;
+
+beforeEach(async () => {
+  ({ close: closeExecSql, execSql } = await createTestExecSql(
+    "document-sync-bounds",
+  ));
+  await ensureDocumentTables(execSql);
+});
+
+afterEach(() => closeExecSql());
+
+test("conflict recovery re-keys only updates submitted by a bounded request", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const pendingUpdates = Array.from({ length: 65 }, (_, index) =>
+    createPendingUpdateRecord({
+      id: `550e8400-e29b-41d4-a716-${String(index).padStart(12, "0")}`,
+    }),
+  );
+  const submittedIds: string[] = [];
+  const rekeyedIds: string[] = [];
+  let submitCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submitCount += 1;
+        if (submitCount === 1) {
+          submittedIds.push(...request.outgoingUpdates.map(({ id }) => id));
+          return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+            message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+            ok: false,
+            report: () => undefined,
+            status: 409,
+          };
+        }
+
+        const readPlan = await buildMaterializedDocumentSyncPlan({
+          author,
+          execSql,
+          localVersionVector: null,
+          pendingUpdates: [],
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+          writerProjection,
+        });
+        return {
+          data: await createSyncResponse(
+            { ...readPlan.plan, documentId, request },
+            { acceptedOutgoingUpdateIds: [], updates: [] },
+          ),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    pendingUpdates,
+    rekeyPendingUpdate: async (_execSql, id) => {
+      rekeyedIds.push(id);
+      return crypto.randomUUID();
+    },
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+    targetSecretKey: secretKey,
+  });
+
+  expect(submittedIds).toHaveLength(64);
+  expect(rekeyedIds).toEqual(submittedIds);
+  expect(rekeyedIds).not.toContain(pendingUpdates[64]?.id);
+  expect(synced?.rekeyedPendingUpdateIds).toHaveLength(64);
+});
+
+test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+  const doc = await createDocument("tail-checkpoint-source");
+  doc.getText("text").update("history covered by the tail checkpoint");
+  doc.commit();
+  const update = exportAllUpdates(doc);
+  const vectors = getUpdateVersionVectors(update);
+  const ordinaryUpdates = Array.from({ length: 64 }, (_, index) =>
+    createPendingUpdateRecord({
+      id: `550e8400-e29b-41d4-a716-${String(index).padStart(12, "0")}`,
+      updateData: bytesToBase64(update),
+      ...vectors,
+    }),
+  );
+  const tailCheckpoint = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440999",
+    sourceVersionVector: vectors.partialEndVersionVector,
+    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: vectors.partialEndVersionVector,
+  });
+
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
+    localVersionVector: null,
+    pendingUpdates: [...ordinaryUpdates, tailCheckpoint],
+    signedAt: "2026-07-26T00:00:00.000Z",
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.staleWriterProjection,
+  });
+
+  expect(materialized.plan.request.outgoingUpdates).toHaveLength(64);
+  expect(materialized.plan.request.outgoingUpdates[0]?.checkpointKind).toBe(
+    "rotate_baseline",
+  );
+  expect(
+    materialized.plan.request.outgoingUpdates.map(({ id }) => id),
+  ).not.toContain(tailCheckpoint.id);
+  expect(materialized.heldBackPendingUpdateIds).toEqual([tailCheckpoint.id]);
+});

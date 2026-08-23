@@ -123,6 +123,41 @@ printf '%s\n' \
 )
 rm "$TEST_ROOT/scripts/checks/openApiCompatibilityErrors.ignore"
 
+cp "$FIXTURE_ROOT/maxItemsBase.json" "$TEST_ROOT/docs/openapi.json"
+git -C "$TEST_ROOT" add docs/openapi.json
+git -C "$TEST_ROOT" commit --quiet -m "add unbounded request array"
+max_items_base_commit=$(git -C "$TEST_ROOT" rev-parse HEAD)
+cp "$FIXTURE_ROOT/maxItems.json" "$TEST_ROOT/docs/openapi.json"
+
+if max_items_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$max_items_base_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a request maxItems tightening was accepted without an ignore."
+fi
+assert_contains "$max_items_output" "request maxItems constraint(s) tightened"
+max_items_diagnostic=$(
+  printf '%s\n' "$max_items_output" |
+    sed -n 's/^  \(POST \/widgets: .*request maxItems.*\)$/\1/p'
+)
+[ -n "$max_items_diagnostic" ] ||
+  fail "could not extract the maxItems compatibility diagnostic."
+printf '%s\n' \
+  "# #2096; remove after merge to main." \
+  "$max_items_diagnostic" \
+  >"$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
+(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$max_items_base_commit" \
+    "$CHECK_SCRIPT"
+) || fail "an exact request maxItems compatibility ignore should pass."
+rm "$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
+
 cp "$FIXTURE_ROOT/refinementAdded.json" "$TEST_ROOT/docs/openapi.json"
 
 if refinement_output=$(
@@ -145,7 +180,7 @@ assert_contains "$refinement_output" "request.unique-widget-name"
 printf '%s\n' \
   "# #2096; remove after merge to main." \
   "POST /widgets: request refinement 'request.unique-widget-name' was added; existing clients were not rejected by it." \
-  >"$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+  >"$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
 ignored_refinement_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
@@ -154,10 +189,10 @@ ignored_refinement_output=$(
     "$CHECK_SCRIPT" 2>&1
 ) || fail "an exact runtime-refinement compatibility ignore should pass."
 assert_contains "$ignored_refinement_output" \
-  "Ignored intentional runtime-refinement change"
+  "Ignored intentional custom compatibility change"
 
 printf '%s\n' "POST /widgets: stale runtime refinement" \
-  >"$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+  >"$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
 if unused_refinement_ignore_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
@@ -168,8 +203,8 @@ if unused_refinement_ignore_output=$(
   fail "an unused runtime-refinement compatibility ignore was accepted."
 fi
 assert_contains "$unused_refinement_ignore_output" \
-  "unused OpenAPI runtime-refinement compatibility ignore entry"
-rm "$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+  "unused custom OpenAPI compatibility ignore entry"
+rm "$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
 
 allowed_output=$(
   cd "$TEST_ROOT"
