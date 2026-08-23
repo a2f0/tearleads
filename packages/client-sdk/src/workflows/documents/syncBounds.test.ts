@@ -104,6 +104,7 @@ test("conflict recovery re-keys only updates submitted by a bounded request", as
   expect(rekeyedIds).toEqual(submittedIds);
   expect(rekeyedIds).not.toContain(pendingUpdates[64]?.id);
   expect(synced?.rekeyedPendingUpdateIds).toHaveLength(64);
+  expect(synced?.hasDeferredPendingUpdates).toBe(true);
 });
 
 test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", async () => {

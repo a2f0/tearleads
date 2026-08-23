@@ -16,6 +16,7 @@ import {
   DocumentSyncErrorResponseSchema,
 } from "../response/documentSyncError";
 import { ErrorResponseSchema } from "../response/error";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "../util/documentSyncLimits";
 import { defineJsonOperation } from "./definition";
 
 export const DocumentSyncPathParamsSchema = z.strictObject({
@@ -40,6 +41,10 @@ export const documentSyncOperation = defineJsonOperation({
   method: "POST",
   params: DocumentSyncPathParamsSchema,
   path: "/documents/{documentId}/sync",
+  responseDescriptions: {
+    411: "Content-Length is required for document sync requests",
+    413: `Serialized document sync requests are limited to ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} bytes`,
+  },
   responses: {
     200: DocumentSyncResponseSchema,
   },

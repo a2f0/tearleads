@@ -62,6 +62,28 @@ test("document sync bounds outgoing update count", () => {
   expect(isDocumentSyncRequest({ ...valid, outgoingUpdates })).toBe(false);
 });
 
+test("complete request validation does not rescan an oversized update array", () => {
+  const valid = createSyncRequest();
+  let idReads = 0;
+  const outgoingUpdates = Array.from(
+    { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES + 1 },
+    (_, index) => {
+      const update = { ...UPDATE };
+      Object.defineProperty(update, "id", {
+        enumerable: true,
+        get: () => {
+          idReads += 1;
+          return updateId(index);
+        },
+      });
+      return update;
+    },
+  );
+
+  expect(isDocumentSyncRequest({ ...valid, outgoingUpdates })).toBe(false);
+  expect(idReads).toBe(0);
+});
+
 test("document sync bounds encrypted update data", () => {
   const valid = createSyncRequest();
   const encryptedData = "A".repeat(

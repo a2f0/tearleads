@@ -64,8 +64,9 @@ function evictHealedWriterProjection(
   }
 }
 
-function submittedDocumentSyncResult(input: {
+async function submittedDocumentSyncResult(input: {
   materializedPlan: MaterializedDocumentSyncPlan;
+  pendingUpdateIds: readonly string[];
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   response: DocumentSyncResponse;
@@ -87,7 +88,7 @@ function submittedDocumentSyncResult(input: {
       epoch: input.materializedPlan.plan.contentKeyEpoch,
     });
   }
-  return syncRemoteDocumentResultFromResponse({
+  const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input.sync),
     execSql: input.sync.execSql,
     materializedPlan: input.materializedPlan,
@@ -100,6 +101,15 @@ function submittedDocumentSyncResult(input: {
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
+  const settledPendingUpdateIds = new Set(result.settledPendingUpdateIds);
+  return {
+    ...result,
+    hasDeferredPendingUpdates:
+      result.rekeyedPendingUpdateIds.length > 0 ||
+      input.pendingUpdateIds.some(
+        (updateId) => !settledPendingUpdateIds.has(updateId),
+      ),
+  };
 }
 
 function buildRemoteDocumentSyncPlan(input: {
@@ -236,15 +246,20 @@ function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   return null;
 }
 
-export async function syncRemoteDocument(
-  input: SyncRemoteDocumentInput,
-): Promise<SyncRemoteDocumentResult | null> {
-  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
+  return requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document sync",
   );
+}
+
+export async function syncRemoteDocument(
+  input: SyncRemoteDocumentInput,
+): Promise<SyncRemoteDocumentResult | null> {
+  const resolveProjectionUserKey = resolveRemoteSyncProjectionUserKey(input);
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
+  const pendingUpdateIds = pendingUpdates.map((update) => update.id);
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
   let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
@@ -320,6 +335,7 @@ export async function syncRemoteDocument(
 
     return submittedDocumentSyncResult({
       materializedPlan,
+      pendingUpdateIds,
       recoveryPendingUpdatesById,
       resolveProjectionUserKey,
       response: submitted.response,

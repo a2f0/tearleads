@@ -97,6 +97,7 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
+    hasDeferredPendingUpdates: false,
     persistedState,
     plan,
     rekeyedPendingUpdateIds,

@@ -29,6 +29,7 @@ export interface HttpOperation {
   readonly responseMediaTypes?: Readonly<
     Record<number, HttpOperationMediaType>
   >;
+  readonly responseDescriptions?: Readonly<Record<number, string>>;
   readonly responses: Readonly<Record<number, z.ZodType>>;
   readonly runtimeRefinements?: readonly RuntimeRefinement[];
 }

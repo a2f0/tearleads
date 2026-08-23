@@ -294,6 +294,7 @@ function openApiResponse(
   successSchema: z.ZodType | undefined,
   failureSchema: z.ZodType | undefined,
   runtimeRefinementIds: Set<string>,
+  description?: string,
 ): OpenApiResponse {
   const schema = successSchema ?? failureSchema;
   const mediaType =
@@ -307,7 +308,7 @@ function openApiResponse(
   );
   if (schema === undefined) {
     return {
-      description: "Response without a declared body",
+      description: description ?? "Response without a declared body",
       ...(headers === undefined ? {} : { headers }),
     };
   }
@@ -317,7 +318,7 @@ function openApiResponse(
       mediaType,
       openApiSchema(schema, runtimeRefinementIds),
     ),
-    description: responseDescription(successful, mediaType),
+    description: description ?? responseDescription(successful, mediaType),
     ...(headers === undefined ? {} : { headers }),
   };
 }
@@ -365,6 +366,7 @@ function openApiResponses(
       successResponses.get(status),
       failureResponses.get(status),
       runtimeRefinementIds,
+      operation.responseDescriptions?.[status],
     );
   }
 

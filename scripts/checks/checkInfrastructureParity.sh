@@ -57,12 +57,37 @@ assert_api_deploy_ordering() {
 
 assert_document_sync_ingress_cors() {
   local api_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/api.conf.j2"
+  local render_dir
+  local rendered_api
+  local sync_location
+  local sync_error_location
+  local app_origin_rule="\"https://app.example.test\" \$http_origin;"
+  local capacitor_origin_rule="\"https://localhost\" \$http_origin;"
 
-  if ! grep -Fq "map \$http_origin \$document_sync_cors_origin {" "$api_template" ||
-    ! grep -Fq "{{ api_cors_origin | trim | to_json }} \$http_origin;" "$api_template" ||
-    ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" "$api_template" ||
-    ! grep -Fq 'add_header Vary Origin always;' "$api_template"; then
-    echo "ERROR: Document sync ingress errors must mirror the API CORS allowlist." >&2
+  render_dir="$(mktemp -d)"
+  trap 'rm -rf "$render_dir"' RETURN
+  rendered_api="$render_dir/api.conf"
+  if ! ANSIBLE_LOCALHOST_WARNING=false \
+    ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
+    ansible localhost --connection local \
+      -m ansible.builtin.template \
+      -a "src=$api_template dest=$rendered_api mode=0600" \
+      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost","code_assist_enabled":false,"code_assist_port":3002}' \
+      </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
+    sed -n '1,120p' "$render_dir/ansible.stderr" >&2
+    return 1
+  fi
+
+  sync_location="$(sed -n '/location ~ \^\/documents/,/^  }/p' "$rendered_api")"
+  sync_error_location="$(sed -n '/location @document_sync_body_too_large {/,/^  }/p' "$rendered_api")"
+  if ! grep -Fq 'client_max_body_size 16M;' <<<"$sync_location" ||
+    ! grep -Fq 'error_page 413 = @document_sync_body_too_large;' <<<"$sync_location" ||
+    ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" <<<"$sync_error_location" ||
+    ! grep -Fq 'add_header Vary Origin always;' <<<"$sync_error_location" ||
+    ! grep -Fq 'return 413' <<<"$sync_error_location" ||
+    [ "$(grep -Fc "$app_origin_rule" "$rendered_api")" -ne 1 ] ||
+    [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ]; then
+    echo "ERROR: Rendered document sync ingress must enforce 16 MiB JSON errors with the deduplicated API CORS allowlist." >&2
     return 1
   fi
 }

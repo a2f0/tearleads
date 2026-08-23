@@ -203,6 +203,19 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     if (!Array.isArray(request.outgoingUpdates)) {
       return;
     }
+    // The field schemas have already recorded their cardinality errors. Do
+    // not let the cross-field checks below rescan attacker-sized arrays after
+    // those bounded schemas deliberately stopped before item validation.
+    if (request.outgoingUpdates.length > MAX_DOCUMENT_SYNC_OUTGOING_UPDATES) {
+      return;
+    }
+    if (
+      Array.isArray(request.authorizingContainerPathRefs) &&
+      request.authorizingContainerPathRefs.length >
+        MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS
+    ) {
+      return;
+    }
 
     const pathRefCount = Array.isArray(request.authorizingContainerPathRefs)
       ? request.authorizingContainerPathRefs.reduce(

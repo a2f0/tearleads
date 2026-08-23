@@ -6,7 +6,8 @@ map $http_origin $document_sync_cors_origin {
   default "*";
 {% else %}
   default "";
-{% for api_cors_origin in api_cors_origins.split(',') %}
+{% set configured_api_cors_origins = api_cors_origins.split(',') | map('trim') | reject('equalto', '') | unique | list %}
+{% for api_cors_origin in configured_api_cors_origins %}
   {{ api_cors_origin | trim | to_json }} $http_origin;
 {% endfor %}
 {% endif %}

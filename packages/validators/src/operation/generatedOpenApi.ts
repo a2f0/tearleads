@@ -11142,7 +11142,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Failure JSON response */
+            /** @description Content-Length is required for document sync requests */
             411: {
                 headers: {
                     [name: string]: unknown;
@@ -11155,7 +11155,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Failure JSON response */
+            /** @description Serialized document sync requests are limited to 16777216 bytes */
             413: {
                 headers: {
                     [name: string]: unknown;

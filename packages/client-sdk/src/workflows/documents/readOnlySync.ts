@@ -359,6 +359,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
+        hasDeferredPendingUpdates: false,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

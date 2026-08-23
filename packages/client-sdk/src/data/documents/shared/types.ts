@@ -467,6 +467,12 @@ export interface SyncRemoteDocumentResult {
    * the pass as clean and clear it.
    */
   exhaustedPendingUpdateCount: number;
+  /**
+   * True when this bounded pass did not settle every pending update supplied
+   * by the caller. Headless hosts should refresh their durable queue and
+   * schedule another pass; one call intentionally does not drain the queue.
+   */
+  hasDeferredPendingUpdates: boolean;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];
