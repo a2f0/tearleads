@@ -37,6 +37,10 @@ import { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOut
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import {
+  boundDocumentSyncPlanRequest,
+  materializedDocumentSyncPlan,
+} from "./syncPlanRequestBounds";
+import {
   type DocumentSyncTraceEmitter,
   traceCheckpointRegeneration,
   traceHealBlocked,
@@ -437,8 +441,6 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKeyBundle,
     documentKekTargets,
     documentManifest,
-    healedStaleContentKeyBundle,
-    heldBackPendingUpdateIds,
     pendingUpdates,
     staleRecoveryBaselineUpdateId,
   } = material;
@@ -466,17 +468,13 @@ export async function buildMaterializedDocumentSyncPlan(
     outgoingUpdates,
     signedAt: input.signedAt,
   });
-  const plan = writerAuthorization
+  const unboundedPlan = writerAuthorization
     ? { ...basePlan, documentWriterAuthorization: writerAuthorization }
     : basePlan;
+  const plan = boundDocumentSyncPlanRequest(
+    unboundedPlan,
+    staleRecoveryBaselineUpdateId,
+  );
 
-  return {
-    contentKey,
-    healedStaleContentKeyBundle,
-    heldBackPendingUpdateIds,
-    plan,
-    ...(staleRecoveryBaselineUpdateId === undefined
-      ? {}
-      : { staleRecoveryBaselineUpdateId }),
-  };
+  return materializedDocumentSyncPlan(material, plan);
 }

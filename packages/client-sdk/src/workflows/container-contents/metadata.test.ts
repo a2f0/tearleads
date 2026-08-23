@@ -15,6 +15,7 @@ import {
   listContainerMetadataDocumentUpdateIds,
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
+  settleContainerMetadataOutgoingPass,
   syncContainerMetadataState,
 } from "./metadata";
 import {
@@ -341,6 +342,25 @@ test("syncContainerMetadataState skips clean metadata with current read state", 
   expect(synced).toBeNull();
   expect(listPendingUpdateCalls).toBe(1);
   expect(writerProjectionCalls).toBe(0);
+});
+
+test("metadata sync re-arms when a recovery baseline displaces queued edits", () => {
+  const metadataState = {
+    container: createContainerRecord({ id: "container-4", parentId: null }),
+    doc: {} as never,
+    record: createDocumentRecord({ id: "container-4" }),
+  };
+
+  expect(
+    settleContainerMetadataOutgoingPass(metadataState, {
+      outgoingUpdateCount: 2,
+      synced: {
+        rekeyedPendingUpdateIds: [],
+        settledPendingUpdateIds: [],
+        submittedRecoveryBaseline: true,
+      } as never,
+    }),
+  ).toBe(true);
 });
 
 test("hasContainerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {

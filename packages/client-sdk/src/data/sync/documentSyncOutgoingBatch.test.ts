@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS,
+  MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "@symcrypt/validators/util";
-import { selectDocumentSyncOutgoingBatch } from "./documentSyncOutgoingBatch";
+import {
+  limitDocumentSyncRequestBytes,
+  selectDocumentSyncOutgoingBatch,
+} from "./documentSyncOutgoingBatch";
 
 function updates(lengths: readonly number[]) {
   return lengths.map((length, index) => ({
@@ -37,4 +43,44 @@ test("document sync rejects an update that can never fit", () => {
       updates([MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS + 1]),
     ),
   ).toThrow("Document sync update exceeds its data limit");
+});
+
+test("document sync outgoing batches fit the serialized request byte limit", () => {
+  const vector = "V".repeat(MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS);
+  const request: DocumentSyncRequest = {
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "manifest-1" }],
+    ],
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "target-1",
+    localVersionVector: vector,
+    outgoingUpdates: Array.from(
+      { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
+      (_, index) => ({
+        encryptedData: "A".repeat(100_000),
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        partialEndVersionVector: vector,
+        partialStartVersionVector: vector,
+        plaintextHash: `plaintext-${index}`,
+        sourceVersionVector: vector,
+        writeHeader: { index },
+      }),
+    ),
+  };
+
+  expect(
+    new TextEncoder().encode(JSON.stringify(request)).byteLength,
+  ).toBeGreaterThan(MAX_DOCUMENT_SYNC_REQUEST_BYTES);
+  const bounded = limitDocumentSyncRequestBytes(request);
+
+  expect(bounded.outgoingUpdates.length).toBeLessThan(
+    request.outgoingUpdates.length,
+  );
+  expect(
+    new TextEncoder().encode(JSON.stringify(bounded)).byteLength,
+  ).toBeLessThanOrEqual(MAX_DOCUMENT_SYNC_REQUEST_BYTES);
+  expect(bounded.outgoingUpdates).toEqual(
+    request.outgoingUpdates.slice(0, bounded.outgoingUpdates.length),
+  );
 });

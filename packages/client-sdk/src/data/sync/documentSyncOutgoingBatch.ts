@@ -1,5 +1,7 @@
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS,
 } from "@symcrypt/validators/util";
 
@@ -67,4 +69,42 @@ export function selectDocumentSyncOutgoingBatch<
   }
 
   return selected;
+}
+
+function serializedRequestBytes(request: DocumentSyncRequest): number {
+  return new TextEncoder().encode(JSON.stringify(request)).byteLength;
+}
+
+export function limitDocumentSyncRequestBytes(
+  request: DocumentSyncRequest,
+  options: { readonly requiredOutgoingUpdateId?: string | undefined } = {},
+): DocumentSyncRequest {
+  const requiredUpdateId = options.requiredOutgoingUpdateId;
+  if (
+    requiredUpdateId !== undefined &&
+    request.outgoingUpdates[0]?.id !== requiredUpdateId
+  ) {
+    throw new Error("Document sync required update is not first in its batch");
+  }
+  if (serializedRequestBytes(request) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+    return request;
+  }
+
+  const selected: DocumentSyncRequest["outgoingUpdates"] = [];
+  for (const update of request.outgoingUpdates) {
+    const candidate = { ...request, outgoingUpdates: [...selected, update] };
+    if (serializedRequestBytes(candidate) > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
+      break;
+    }
+    selected.push(update);
+  }
+
+  if (selected.length === 0) {
+    throw new Error("Document sync update cannot fit within the request limit");
+  }
+  if (requiredUpdateId !== undefined && selected[0]?.id !== requiredUpdateId) {
+    throw new Error("Document sync required update exceeds the request limit");
+  }
+
+  return { ...request, outgoingUpdates: selected };
 }

@@ -78,6 +78,18 @@ interface ContainerMetadataSyncAttempt {
   synced: ContainerMetadataSyncResult;
 }
 
+export function settleContainerMetadataOutgoingPass(
+  metadataState: ContainerMetadataState,
+  attempt: ContainerMetadataSyncAttempt,
+): boolean {
+  return settleOutgoingPassAndDecideReArm(metadataState, {
+    outgoingUpdateCount: attempt.outgoingUpdateCount,
+    rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
+    settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
+    submittedRecoveryBaseline: attempt.synced.submittedRecoveryBaseline,
+  });
+}
+
 export function hasContainerMetadataDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
@@ -454,10 +466,9 @@ export async function syncContainerMetadataState(input: {
 
   return {
     ...persisted,
-    shouldRequestFollowupSync: settleOutgoingPassAndDecideReArm(metadataState, {
-      outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
-      settledUpdateCount: synced.settledPendingUpdateIds.length,
-    }),
+    shouldRequestFollowupSync: settleContainerMetadataOutgoingPass(
+      metadataState,
+      syncAttempt,
+    ),
   };
 }
