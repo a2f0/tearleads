@@ -11,6 +11,7 @@ import type {
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  cleanupContainerMetadataRegistrationsOnFailure,
   hasContainerMetadataDocumentUpdateEvent,
   listContainerMetadataDocumentUpdateIds,
   persistContainerMetadataStateFromRuntime,
@@ -248,6 +249,45 @@ test("metadata sync pre-registers only exact materialized batches", () => {
 
   expect(registeredUpdateIds).toEqual(["synthetic-recovery", "bounded-update"]);
   expect([...registry]).toEqual(registeredUpdateIds);
+});
+
+test("failed metadata recovery attempts discard synthetic registrations", async () => {
+  const registry = new Set<string>();
+
+  for (const updateId of ["synthetic-recovery-1", "synthetic-recovery-2"]) {
+    const sentUpdateIds: string[] = [];
+    const result = await cleanupContainerMetadataRegistrationsOnFailure(
+      registry,
+      sentUpdateIds,
+      async () => {
+        preRegisterMaterializedContainerMetadataUpdateIds(
+          registry,
+          sentUpdateIds,
+          [updateId],
+        );
+        return null;
+      },
+    );
+    expect(result).toBeNull();
+    expect(registry.size).toBe(0);
+  }
+
+  const sentUpdateIds: string[] = [];
+  await expect(
+    cleanupContainerMetadataRegistrationsOnFailure(
+      registry,
+      sentUpdateIds,
+      async () => {
+        preRegisterMaterializedContainerMetadataUpdateIds(
+          registry,
+          sentUpdateIds,
+          ["synthetic-recovery-error"],
+        );
+        throw new Error("metadata sync failed");
+      },
+    ),
+  ).rejects.toThrow("metadata sync failed");
+  expect(registry.size).toBe(0);
 });
 
 test("hasContainerMetadataDocumentUpdateEvent does not consume the caller's registry", () => {

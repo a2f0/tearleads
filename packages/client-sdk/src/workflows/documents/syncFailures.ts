@@ -178,16 +178,28 @@ async function submitDocumentSyncAttempt(input: {
 export async function submitDocumentSyncAttemptIfAllowed(
   input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
     isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+    onOutgoingUpdatesMaterialized?:
+      | ((updateIds: readonly string[]) => void)
+      | undefined;
     writeBearing?: boolean | undefined;
   },
 ): Promise<DocumentSyncAttemptSubmission> {
-  const { isRemoteSyncBlocked, writeBearing, ...submissionInput } = input;
+  const {
+    isRemoteSyncBlocked,
+    onOutgoingUpdatesMaterialized,
+    writeBearing,
+    ...submissionInput
+  } = input;
   const hasRemoteWrites =
     input.plan.request.outgoingUpdates.length > 0 ||
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
   if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
     return "stop";
   }
+
+  onOutgoingUpdatesMaterialized?.(
+    input.plan.request.outgoingUpdates.map(({ id }) => id),
+  );
 
   return submitDocumentSyncAttempt({
     ...submissionInput,

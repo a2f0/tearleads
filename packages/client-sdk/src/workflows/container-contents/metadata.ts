@@ -329,29 +329,34 @@ export async function syncContainerMetadataState(
   // introduce a synthetic baseline that was never present in the queue.
   const sentUpdateIds: string[] = [];
 
-  const syncAttempt = await syncRemoteContainerMetadata({
-    buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
-    containerId: metadataState.container.id,
-    documentId,
-    lastCommitLsn: metadataState.record.lastCommitLsn,
-    localVersionVector: encodeVersionVector(metadataState.doc),
-    onOutgoingUpdatesMaterialized: (updateIds) =>
-      preRegisterMaterializedContainerMetadataUpdateIds(
-        input.locallyAcceptedUpdateIds,
-        sentUpdateIds,
-        updateIds,
-      ),
-    pendingUpdates,
-    persistedState: metadataState.record,
-    rekeyPendingUpdate: persistence.rekeyPendingUpdate,
-    resolveProjectionUserKey,
-    runtime,
-    targetSecretKey,
-    writerProjection:
-      metadataState.metadataWriterProjection?.documentId === documentId
-        ? metadataState.metadataWriterProjection
-        : undefined,
-  });
+  const syncAttempt = await cleanupContainerMetadataRegistrationsOnFailure(
+    input.locallyAcceptedUpdateIds,
+    sentUpdateIds,
+    () =>
+      syncRemoteContainerMetadata({
+        buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
+        containerId: metadataState.container.id,
+        documentId,
+        lastCommitLsn: metadataState.record.lastCommitLsn,
+        localVersionVector: encodeVersionVector(metadataState.doc),
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedContainerMetadataUpdateIds(
+            input.locallyAcceptedUpdateIds,
+            sentUpdateIds,
+            updateIds,
+          ),
+        pendingUpdates,
+        persistedState: metadataState.record,
+        rekeyPendingUpdate: persistence.rekeyPendingUpdate,
+        resolveProjectionUserKey,
+        runtime,
+        targetSecretKey,
+        writerProjection:
+          metadataState.metadataWriterProjection?.documentId === documentId
+            ? metadataState.metadataWriterProjection
+            : undefined,
+      }),
+  );
   if (!syncAttempt) {
     return null;
   }
@@ -391,6 +396,31 @@ function discardUnacceptedContainerMetadataUpdateIds(
     if (!acceptedOutgoing.has(sentUpdateId)) {
       locallyAcceptedUpdateIds.delete(sentUpdateId);
     }
+  }
+}
+
+export async function cleanupContainerMetadataRegistrationsOnFailure<T>(
+  locallyAcceptedUpdateIds: Set<string> | undefined,
+  sentUpdateIds: readonly string[],
+  task: () => Promise<T | null>,
+): Promise<T | null> {
+  try {
+    const result = await task();
+    if (result === null) {
+      discardUnacceptedContainerMetadataUpdateIds(
+        locallyAcceptedUpdateIds,
+        sentUpdateIds,
+        [],
+      );
+    }
+    return result;
+  } catch (error) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      locallyAcceptedUpdateIds,
+      sentUpdateIds,
+      [],
+    );
+    throw error;
   }
 }
 

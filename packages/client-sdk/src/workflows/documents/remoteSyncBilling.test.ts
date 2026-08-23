@@ -77,6 +77,7 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
   } = await createMaterializedSyncFixture();
   const { close, execSql } = await createTestExecSql("blocked-document-sync");
   const checkedOrganizationIds: string[] = [];
+  const materializedUpdateIds: string[][] = [];
   let submissionCount = 0;
 
   const synced = await syncRemoteDocument({
@@ -95,6 +96,9 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
       return true;
     },
     localVersionVector: null,
+    onOutgoingUpdatesMaterialized: (updateIds) => {
+      materializedUpdateIds.push([...updateIds]);
+    },
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
     resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
@@ -105,6 +109,7 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
 
   expect(checkedOrganizationIds).toEqual([author.organizationId]);
   expect(submissionCount).toBe(0);
+  expect(materializedUpdateIds).toEqual([]);
   expect(synced).toBeNull();
 });
 

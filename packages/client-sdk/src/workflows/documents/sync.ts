@@ -194,21 +194,13 @@ function submitPlannedSyncAttempt(args: {
     isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
     maxAttempts: args.maxAttempts,
     onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
+    onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
     onSyncTrace: args.sync.onSyncTrace,
     onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
     pendingUpdates: args.pendingUpdates,
     plan: args.materializedPlan.plan,
     writeBearing: args.writeBearing,
   });
-}
-
-function notifyMaterializedOutgoingUpdates(
-  input: SyncRemoteDocumentInput,
-  materializedPlan: MaterializedDocumentSyncPlan,
-): void {
-  input.onOutgoingUpdatesMaterialized?.(
-    materializedPlan.plan.request.outgoingUpdates.map(({ id }) => id),
-  );
 }
 
 /**
@@ -350,7 +342,6 @@ export async function syncRemoteDocument(
       return null;
     }
     const [materializedPlan, plannedWriterProjection] = planned;
-    notifyMaterializedOutgoingUpdates(input, materializedPlan);
     const submitted = await submitPlannedSyncAttempt({
       attempt,
       materializedPlan,
