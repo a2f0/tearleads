@@ -2,7 +2,6 @@ import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-  MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS,
 } from "@symcrypt/validators/util";
 
 interface DocumentSyncPendingUpdate {
@@ -21,7 +20,7 @@ function assertReservedCapacity(
   if (
     !Number.isSafeInteger(reservedDataCharacters) ||
     reservedDataCharacters < 0 ||
-    reservedDataCharacters > MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS
+    reservedDataCharacters > MAX_DOCUMENT_SYNC_REQUEST_BYTES
   ) {
     throw new Error("Document sync reserved update data exceeds its limit");
   }
@@ -47,7 +46,7 @@ export function selectDocumentSyncOutgoingBatch<
   const availableCount =
     MAX_DOCUMENT_SYNC_OUTGOING_UPDATES - reservedUpdateCount;
   const availableDataCharacters =
-    MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS - reservedDataCharacters;
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES - reservedDataCharacters;
   const selected: Update[] = [];
   let selectedDataCharacters = 0;
 
@@ -55,7 +54,7 @@ export function selectDocumentSyncOutgoingBatch<
     if (selected.length >= availableCount) {
       break;
     }
-    if (update.updateData.length > MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS) {
+    if (update.updateData.length > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
       throw new Error("Document sync update exceeds its data limit");
     }
     if (

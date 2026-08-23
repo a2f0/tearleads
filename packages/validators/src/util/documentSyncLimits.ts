@@ -4,10 +4,6 @@ export const MAX_DOCUMENT_SYNC_OUTGOING_UPDATES = 64;
 // Individual updates may use the request's remaining budget. The SDK applies
 // the exact serialized-byte ceiling after encryption and trims the batch; a
 // smaller estimate here would permanently strand an otherwise valid update.
-export const MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS =
-  MAX_DOCUMENT_SYNC_REQUEST_BYTES;
-export const MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS =
-  MAX_DOCUMENT_SYNC_REQUEST_BYTES;
 export const MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS = 64 * 1024;
 
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS = 64;

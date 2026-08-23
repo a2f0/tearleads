@@ -4,7 +4,6 @@ import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
-  MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
@@ -87,9 +86,7 @@ test("complete request validation does not rescan an oversized update array", ()
 
 test("document sync bounds encrypted update data", () => {
   const valid = createSyncRequest();
-  const encryptedData = "A".repeat(
-    MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS + 1,
-  );
+  const encryptedData = "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
 
   expect(
     isDocumentSyncRequest({

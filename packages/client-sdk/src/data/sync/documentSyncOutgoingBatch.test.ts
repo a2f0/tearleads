@@ -3,7 +3,6 @@ import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
-  MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS,
   MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "@symcrypt/validators/util";
 import {
@@ -30,7 +29,7 @@ test("document sync outgoing batches cap count and preserve order", () => {
 
 test("document sync outgoing batches reserve recovery capacity", () => {
   const selected = selectDocumentSyncOutgoingBatch(updates([3, 3, 3]), {
-    reservedDataCharacters: MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS - 6,
+    reservedDataCharacters: MAX_DOCUMENT_SYNC_REQUEST_BYTES - 6,
     reservedUpdateCount: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES - 2,
   });
 
@@ -40,7 +39,7 @@ test("document sync outgoing batches reserve recovery capacity", () => {
 test("document sync rejects an update that can never fit", () => {
   expect(() =>
     selectDocumentSyncOutgoingBatch(
-      updates([MAX_DOCUMENT_SYNC_UPDATE_DATA_CHARACTERS + 1]),
+      updates([MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1]),
     ),
   ).toThrow("Document sync update exceeds its data limit");
 });

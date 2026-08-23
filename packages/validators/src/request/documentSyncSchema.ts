@@ -34,8 +34,8 @@ import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
-  MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
@@ -107,7 +107,7 @@ export const DocumentOutgoingUpdateSchema =
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
       encryptedData: boundedNonEmptyStringSchema(
-        MAX_DOCUMENT_SYNC_ENCRYPTED_DATA_CHARACTERS,
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
       ),
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
