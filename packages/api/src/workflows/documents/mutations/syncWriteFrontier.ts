@@ -1,5 +1,8 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
+import {
+  lockAccessManifestHeadsForShare,
+  lockAccessManifestHeadsForUpdate,
+} from "../../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { documentSyncStateStale } from "./errors";
 
@@ -28,7 +31,7 @@ export async function lockSyncDocumentWriteFrontier(input: {
     ],
     input.tx,
   );
-  await lockAccessManifestHeadsForShare(
+  await lockAccessManifestHeadsForUpdate(
     "document",
     [input.documentId],
     input.tx,
@@ -44,4 +47,21 @@ export async function lockSyncDocumentWriteFrontier(input: {
     throw documentSyncStateStale("Document manifest is stale");
   }
   return lockedTargets;
+}
+
+/**
+ * Freeze a pagination watermark behind every update insert for this document.
+ * Writers take the same exclusive head lock before PostgreSQL allocates their
+ * identity sequence, so a lower sequence can never commit after the watermark
+ * reader has advanced past it.
+ */
+export async function lockSyncDocumentPullWatermark(input: {
+  readonly documentId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  await lockAccessManifestHeadsForUpdate(
+    "document",
+    [input.documentId],
+    input.tx,
+  );
 }

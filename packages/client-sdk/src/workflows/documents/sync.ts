@@ -107,15 +107,14 @@ async function submittedDocumentSyncResult(input: {
   });
   return {
     ...result,
-    hasDeferredPendingUpdates:
-      !input.pullComplete ||
-      hasDeferredPendingUpdatesAfterSubmit({
-        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-        pendingUpdateIds: input.pendingUpdateIds,
-        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-        settledPendingUpdateIds: result.settledPendingUpdateIds,
-      }),
+    hasDeferredPendingUpdates: hasDeferredPendingUpdatesAfterSubmit({
+      acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+      exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+      pendingUpdateIds: input.pendingUpdateIds,
+      rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+      settledPendingUpdateIds: result.settledPendingUpdateIds,
+    }),
+    hasIncompletePull: !input.pullComplete,
   };
 }
 

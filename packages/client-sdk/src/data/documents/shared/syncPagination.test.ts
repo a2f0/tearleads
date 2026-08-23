@@ -71,8 +71,7 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
   const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
   const pages = [
     response({ commitLsn: "0/2", cursor: "cursor-2", updateId: "update-1" }),
-    response({ commitLsn: "0/3", cursor: "cursor-3", updateId: "update-2" }),
-    response({ commitLsn: "0/4", cursor: null, updateId: "update-3" }),
+    response({ commitLsn: "0/3", cursor: null, updateId: "update-2" }),
   ];
   const requests: DocumentSyncRequest[] = [];
   const apiClient = {
@@ -93,7 +92,7 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
   expect(result?.ok).toBe(true);
   if (!result?.ok) throw new Error("Expected successful paginated sync");
   expect(result.pullComplete).toBe(true);
-  expect(requests).toHaveLength(3);
+  expect(requests).toHaveLength(2);
   expect(requests[0]).toBe(request);
   expect(requests[1]).toEqual({
     contentKeyEpoch: 1,
@@ -106,19 +105,66 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
     supportsPullPagination: true,
     supportsUntrackedCommitLsn: true,
   });
-  expect(requests[2]?.minLsn).toBe("0/3");
   expect(result.response.updates.map(({ id }) => id)).toEqual([
     "update-1",
     "update-2",
-    "update-3",
   ]);
   expect(result.response.acceptedOutgoingUpdateIds).toEqual(["outgoing-1"]);
   expect(result.response.contentKeyBundles).toHaveLength(1);
-  expect(result.response.commitLsn).toBe("0/4");
+  expect(result.response.commitLsn).toBe("0/3");
   expect(result.response.pullPage).toEqual({
     hasMore: false,
     nextCursor: null,
   });
+});
+
+test("submitDocumentSync bounds an in-memory drain to two pages", async () => {
+  const request: DocumentSyncRequest = {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "targets-1",
+    localVersionVector: null,
+    outgoingUpdates: [],
+    supportsPullPagination: true,
+    supportsUntrackedCommitLsn: true,
+  };
+  const pages = [
+    {
+      ...response({
+        commitLsn: "0/2",
+        cursor: "cursor-2",
+        updateId: "update-1",
+      }),
+      acceptedOutgoingUpdateIds: [],
+    },
+    response({ commitLsn: "0/3", cursor: "cursor-3", updateId: "update-2" }),
+  ];
+  const requests: DocumentSyncRequest[] = [];
+  const apiClient = {
+    getDocumentWriterProjection: async () => null,
+    syncDocument: async () => null,
+    syncDocumentResult: async (_documentId, nextRequest) => {
+      requests.push(nextRequest);
+      const nextPage = pages.shift();
+      if (!nextPage) throw new Error("Unexpected document sync request");
+      return { data: nextPage, ok: true as const };
+    },
+  } satisfies DocumentSyncApi;
+
+  const result = await submitDocumentSync({
+    apiClient,
+    plan: { documentId: DOCUMENT_ID, request } as DocumentSyncPlan,
+  });
+
+  expect(result?.ok).toBe(true);
+  if (!result?.ok) throw new Error("Expected a bounded partial pull");
+  expect(result.pullComplete).toBe(false);
+  expect(requests).toHaveLength(2);
+  expect(result.response.updates.map(({ id }) => id)).toEqual([
+    "update-1",
+    "update-2",
+  ]);
+  expect(result.response.pullPage?.hasMore).toBe(true);
 });
 
 test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {

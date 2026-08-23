@@ -473,6 +473,12 @@ export interface SyncRemoteDocumentResult {
    * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
+  /**
+   * A bounded pull persisted durable page progress but left remote pages to
+   * fetch. This is separate from queued-write deferral so settlement and its
+   * exhaustion anti-spin guards always run.
+   */
+  hasIncompletePull: boolean;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];

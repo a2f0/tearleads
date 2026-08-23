@@ -1,7 +1,15 @@
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
+import {
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+  parseWalLsn,
+} from "@symcrypt/validators/util";
 import { serializeCanonical } from "./readers";
 import type { DocumentSyncPlan, DocumentSyncSubmitFailure } from "./types";
+
+// Until page-at-a-time persistence lands, retain at most one continuation in
+// memory. The aggregate is also bounded to one server page's update count.
+const MAX_DOCUMENT_SYNC_PULL_PAGES_PER_SUBMISSION = 2;
 
 type DocumentSyncPageSubmission =
   | {
@@ -46,6 +54,9 @@ function assertContinuationIdentity(
   if (continuation.documentId !== first.documentId) {
     throw new Error("Document sync continuation document mismatch");
   }
+  if (continuation.commitLsnMode !== first.commitLsnMode) {
+    throw new Error("Document sync continuation commit LSN mode changed");
+  }
   if (
     serializeCanonical(
       continuation.contentKeyBundle,
@@ -64,6 +75,25 @@ function assertContinuationIdentity(
   }
   if (continuation.acceptedOutgoingUpdateIds.length !== 0) {
     throw new Error("Document sync continuation accepted outgoing updates");
+  }
+}
+
+function assertPageCheckpoint(input: {
+  readonly minLsn: string | undefined;
+  readonly response: DocumentSyncResponse;
+}): void {
+  if (input.response.commitLsnMode === "untracked") {
+    if (input.response.commitLsn !== "0/0") {
+      throw new Error("Document sync continuation untracked LSN is invalid");
+    }
+    return;
+  }
+  if (input.minLsn === undefined) return;
+  if (
+    input.response.commitLsn === null ||
+    parseWalLsn(input.response.commitLsn) < parseWalLsn(input.minLsn)
+  ) {
+    throw new Error("Document sync continuation commit LSN regressed");
   }
 }
 
@@ -106,6 +136,31 @@ function assertUniquePageUpdates(
   }
 }
 
+function hasDurablePageProgress(response: DocumentSyncResponse): boolean {
+  return (
+    response.acceptedOutgoingUpdateIds.length > 0 || response.updates.length > 0
+  );
+}
+
+function reachedPullDrainLimit(input: {
+  readonly pageCount: number;
+  readonly updateCount: number;
+}): boolean {
+  return (
+    input.pageCount >= MAX_DOCUMENT_SYNC_PULL_PAGES_PER_SUBMISSION ||
+    input.updateCount >= MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES
+  );
+}
+
+function incompletePullResult(
+  response: DocumentSyncResponse,
+): Extract<DocumentSyncSubmission, { readonly ok: true }> {
+  if (!hasDurablePageProgress(response)) {
+    throw new Error("Document sync incomplete pull made no durable progress");
+  }
+  return { ok: true, pullComplete: false, response };
+}
+
 export async function submitDocumentSyncPages(input: {
   readonly plan: DocumentSyncPlan;
   readonly submit: (
@@ -114,6 +169,13 @@ export async function submitDocumentSyncPages(input: {
 }): Promise<DocumentSyncSubmission> {
   const first = await input.submit(input.plan.request);
   if (!first || !first.ok) return first;
+  assertPageCheckpoint({
+    minLsn: input.plan.request.minLsn,
+    response: first.response,
+  });
+  if (first.response.pullPage === undefined) {
+    return incompletePullResult(first.response);
+  }
 
   let aggregate = first.response;
   let previousResponse = first.response;
@@ -123,21 +185,46 @@ export async function submitDocumentSyncPages(input: {
 
   let cursor = first.response.pullPage?.nextCursor ?? null;
   while (cursor !== null) {
+    if (
+      reachedPullDrainLimit({
+        pageCount: seenCursors.size + 1,
+        updateCount: updateIds.size,
+      })
+    ) {
+      return incompletePullResult(aggregate);
+    }
     if (seenCursors.has(cursor)) {
       throw new Error("Document sync continuation cursor repeated");
     }
     seenCursors.add(cursor);
-    const continuation = await input.submit(
-      continuationRequest({ cursor, plan: input.plan, previousResponse }),
-    );
+    const request = continuationRequest({
+      cursor,
+      plan: input.plan,
+      previousResponse,
+    });
+    const continuation = await input.submit(request);
     if (!continuation || !continuation.ok) {
+      if (!hasDurablePageProgress(aggregate)) return continuation;
       continuation?.report();
-      return { ok: true, pullComplete: false, response: aggregate };
+      return incompletePullResult(aggregate);
     }
 
     assertContinuationIdentity(first.response, continuation.response);
+    assertPageCheckpoint({
+      minLsn: request.minLsn,
+      response: continuation.response,
+    });
+    if (
+      updateIds.size + continuation.response.updates.length >
+      MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES
+    ) {
+      return incompletePullResult(aggregate);
+    }
     assertUniquePageUpdates(updateIds, continuation.response);
     aggregate = mergeDocumentSyncPages(aggregate, continuation.response);
+    if (continuation.response.pullPage === undefined) {
+      return incompletePullResult(aggregate);
+    }
     previousResponse = continuation.response;
     cursor = continuation.response.pullPage?.nextCursor ?? null;
   }

@@ -76,7 +76,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
   });
   return {
     ...result,
-    hasDeferredPendingUpdates: !input.pullComplete,
+    hasIncompletePull: !input.pullComplete,
   };
 }
 
@@ -371,7 +371,8 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
-        hasDeferredPendingUpdates: !submitted.pullComplete,
+        hasDeferredPendingUpdates: false,
+        hasIncompletePull: !submitted.pullComplete,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

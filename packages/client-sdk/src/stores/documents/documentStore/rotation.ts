@@ -35,8 +35,9 @@ import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 export function shouldRequestRotationRecoverySync(input: {
   readonly hasDeferredPendingUpdates: boolean;
+  readonly hasIncompletePull: boolean;
 }): boolean {
-  return input.hasDeferredPendingUpdates;
+  return input.hasDeferredPendingUpdates || input.hasIncompletePull;
 }
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {

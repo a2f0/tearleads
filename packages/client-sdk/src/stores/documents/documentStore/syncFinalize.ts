@@ -116,16 +116,14 @@ function shouldReArmDocumentSync(
   syncAttempt: DocumentSyncAttempt,
 ): boolean {
   const { synced } = syncAttempt;
-  return (
-    synced.hasDeferredPendingUpdates ||
-    settleOutgoingPassAndDecideReArm(state, {
-      exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
-      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
-      settledUpdateCount: synced.settledPendingUpdateIds.length,
-      acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
-    })
-  );
+  const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(state, {
+    exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
+    outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+    rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
+    settledUpdateCount: synced.settledPendingUpdateIds.length,
+    acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
+  });
+  return synced.hasIncompletePull || shouldReArmOutgoing;
 }
 
 export async function finalizeDocumentSync(

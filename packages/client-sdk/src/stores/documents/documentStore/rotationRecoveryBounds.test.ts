@@ -78,9 +78,21 @@ test("a bounded rotation preflight re-arms its unsent queue tail", async () => {
 
 test("rotation recovery only re-arms for deferred durable progress", () => {
   expect(
-    shouldRequestRotationRecoverySync({ hasDeferredPendingUpdates: true }),
+    shouldRequestRotationRecoverySync({
+      hasDeferredPendingUpdates: true,
+      hasIncompletePull: false,
+    }),
   ).toBe(true);
   expect(
-    shouldRequestRotationRecoverySync({ hasDeferredPendingUpdates: false }),
+    shouldRequestRotationRecoverySync({
+      hasDeferredPendingUpdates: false,
+      hasIncompletePull: false,
+    }),
   ).toBe(false);
+  expect(
+    shouldRequestRotationRecoverySync({
+      hasDeferredPendingUpdates: false,
+      hasIncompletePull: true,
+    }),
+  ).toBe(true);
 });

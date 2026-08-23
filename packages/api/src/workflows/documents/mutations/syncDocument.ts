@@ -23,7 +23,11 @@ import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibi
 import { applyContainerRekeys } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
-import { DocumentMutationError, toMutationError } from "./errors";
+import {
+  DocumentMutationError,
+  documentSyncStateStale,
+  toMutationError,
+} from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
 import {
   ensureDocumentExists,
@@ -44,7 +48,10 @@ import {
   listMissingSyncUpdatesWithBundles,
 } from "./syncPullResponse";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
-import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
+import {
+  lockSyncDocumentPullWatermark,
+  lockSyncDocumentWriteFrontier,
+} from "./syncWriteFrontier";
 import type {
   DocumentWriteAuthorizationProof,
   SyncDocumentInput,
@@ -108,6 +115,45 @@ async function assertDocumentSyncAllowed(
   await assertOrganizationCanSync(input.tx, organizationId, input.userId);
 }
 
+async function lockSyncDocumentFrontier(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly request: DocumentSyncRequest;
+  readonly tx: DatabaseTransaction;
+}) {
+  if (input.request.outgoingUpdates.length > 0) {
+    return lockSyncDocumentWriteFrontier({
+      authorizingContainerIds: syncAuthorizingContainerIds(input.request),
+      currentTargets: input.currentTargets,
+      documentId: input.documentId,
+      tx: input.tx,
+    });
+  }
+  if (input.request.supportsPullPagination !== true) {
+    return input.currentTargets;
+  }
+
+  await lockSyncDocumentPullWatermark({
+    documentId: input.documentId,
+    tx: input.tx,
+  });
+  const lockedTargets = await resolveCurrentDocumentKekTargets(
+    input.documentId,
+    input.tx,
+  );
+  if (
+    lockedTargets.linkSetManifestHash !==
+    input.currentTargets.linkSetManifestHash
+  ) {
+    throw documentSyncStateStale(
+      "Document manifest changed while freezing the pull watermark",
+    );
+  }
+  return lockedTargets;
+}
+
 async function syncDocumentTransaction(input: {
   readonly documentId: string;
   readonly enforceSyncEligibility: boolean;
@@ -137,17 +183,14 @@ async function syncDocumentTransaction(input: {
   );
   const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
   const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
-  if (hasOutgoingUpdates) {
-    // Serialize accepted content against concurrent container.rekey writes so a
-    // stale target set cannot land under a superseded container key epoch.
-    // Empty read-only syncs write no content and take no lock.
-    currentTargets = await lockSyncDocumentWriteFrontier({
-      authorizingContainerIds: syncAuthorizingContainerIds(input.request),
-      currentTargets,
-      documentId: input.documentId,
-      tx: input.tx,
-    });
-  }
+  // Serialize writes against rekeys and serialize paginated watermark capture
+  // against update-sequence allocation.
+  currentTargets = await lockSyncDocumentFrontier({
+    currentTargets,
+    documentId: input.documentId,
+    request: input.request,
+    tx: input.tx,
+  });
   await ensureSyncDocumentAccess({
     currentTargets,
     executor: input.tx,

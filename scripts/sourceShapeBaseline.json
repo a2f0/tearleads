@@ -250,8 +250,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 559,
-      "bytes": 18291
+      "lines": 565,
+      "bytes": 18529
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
