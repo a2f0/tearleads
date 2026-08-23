@@ -13,7 +13,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { assertDocumentStoreCanRotateContentKey } from "./rotation";
+import {
+  assertDocumentStoreCanRotateContentKey,
+  shouldRequestRotationRecoverySync,
+} from "./rotation";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
@@ -71,4 +74,13 @@ test("a bounded rotation preflight re-arms its unsent queue tail", async () => {
   } finally {
     close();
   }
+});
+
+test("rotation recovery only re-arms for deferred durable progress", () => {
+  expect(
+    shouldRequestRotationRecoverySync({ hasDeferredPendingUpdates: true }),
+  ).toBe(true);
+  expect(
+    shouldRequestRotationRecoverySync({ hasDeferredPendingUpdates: false }),
+  ).toBe(false);
 });

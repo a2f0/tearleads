@@ -6,6 +6,7 @@ import {
   MAX_DOCUMENT_SYNC_VERSION_VECTOR_CHARACTERS,
 } from "@symcrypt/validators/util";
 import {
+  DocumentSyncRequestLimitError,
   limitDocumentSyncRequestBytes,
   selectDocumentSyncOutgoingBatch,
 } from "./documentSyncOutgoingBatch";
@@ -42,6 +43,11 @@ test("document sync rejects an update that can never fit", () => {
       updates([MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1]),
     ),
   ).toThrow("Document sync update exceeds its data limit");
+  expect(() =>
+    selectDocumentSyncOutgoingBatch(
+      updates([MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1]),
+    ),
+  ).toThrow(DocumentSyncRequestLimitError);
 });
 
 test("document sync selects a single update above the old half-body estimate", () => {

@@ -158,6 +158,24 @@ printf '%s\n' \
 ) || fail "an exact request maxItems compatibility ignore should pass."
 rm "$TEST_ROOT/scripts/checks/openApiCustomCompatibility.ignore"
 
+cp "$FIXTURE_ROOT/maxItemsRefBase.json" "$TEST_ROOT/docs/openapi.json"
+git -C "$TEST_ROOT" add docs/openapi.json
+git -C "$TEST_ROOT" commit --quiet -m "add referenced unbounded request array"
+max_items_ref_base_commit=$(git -C "$TEST_ROOT" rev-parse HEAD)
+cp "$FIXTURE_ROOT/maxItemsRef.json" "$TEST_ROOT/docs/openapi.json"
+
+if max_items_ref_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$max_items_ref_base_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a referenced request maxItems tightening was accepted."
+fi
+assert_contains "$max_items_ref_output" \
+  "POST /widgets: 1 request maxItems constraint(s) tightened"
+
 cp "$FIXTURE_ROOT/refinementAdded.json" "$TEST_ROOT/docs/openapi.json"
 
 if refinement_output=$(

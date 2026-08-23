@@ -83,6 +83,7 @@ export function settleContainerMetadataOutgoingPass(
   attempt: ContainerMetadataSyncAttempt,
 ): boolean {
   return settleOutgoingPassAndDecideReArm(metadataState, {
+    exhaustedPendingUpdateCount: attempt.synced.exhaustedPendingUpdateCount,
     outgoingUpdateCount: attempt.outgoingUpdateCount,
     rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,

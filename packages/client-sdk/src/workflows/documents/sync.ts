@@ -4,6 +4,7 @@ import type {
 } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type {
+  DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
@@ -13,6 +14,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
+import { isDocumentSyncRequestLimitError } from "../../data/sync/documentSyncOutgoingBatch";
 import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
@@ -248,6 +250,59 @@ function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   return null;
 }
 
+async function abandonOversizedSyncPlan(
+  input: SyncRemoteDocumentInput,
+  error: Error,
+): Promise<null> {
+  const failure: DocumentSyncSubmitFailure = {
+    code: "document_sync_request_too_large",
+    message: error.message,
+    ok: false,
+    report: () => undefined,
+    status: null,
+  };
+  await input.onTerminalSubmitFailure?.(failure);
+  input.onSyncAbandoned?.(
+    "a queued update cannot fit within the document sync request limit",
+  );
+  return null;
+}
+
+async function planDocumentSyncAttempt(input: {
+  pendingUpdates: readonly PendingUpdateRecord[];
+  regenerateQueuedCheckpoints: boolean;
+  sync: SyncRemoteDocumentInput;
+  writeBearing: boolean;
+  writerProjection: DocumentWriterProjectionResponse;
+}) {
+  try {
+    return await retrySyncPlanOrAbandon({
+      apiClient: input.sync.apiClient,
+      buildWithProjection: (projection) =>
+        buildRemoteDocumentSyncPlan({
+          pendingUpdates: input.pendingUpdates,
+          projection,
+          regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
+          sync: input.sync,
+        }),
+      documentId: input.sync.documentId,
+      onRemoteDocumentDeleted: input.sync.onRemoteDocumentDeleted,
+      onSyncAbandoned: input.sync.onSyncAbandoned,
+      onSyncTrace: input.sync.onSyncTrace,
+      onTerminalFailure: projectionFailureHandler(
+        input.sync,
+        input.writeBearing,
+      ),
+      writerProjection: input.writerProjection,
+    });
+  } catch (error) {
+    if (!isDocumentSyncRequestLimitError(error)) {
+      throw error;
+    }
+    return abandonOversizedSyncPlan(input.sync, error);
+  }
+}
+
 function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
   return requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -284,20 +339,11 @@ export async function syncRemoteDocument(
     );
     reusableWriterProjection = null;
     if (!writerProjection) return null;
-    const planned = await retrySyncPlanOrAbandon({
-      apiClient: input.apiClient,
-      buildWithProjection: (projection) =>
-        buildRemoteDocumentSyncPlan({
-          pendingUpdates,
-          projection,
-          regenerateQueuedCheckpoints,
-          sync: input,
-        }),
-      documentId: input.documentId,
-      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
-      onSyncAbandoned: input.onSyncAbandoned,
-      onSyncTrace: input.onSyncTrace,
-      onTerminalFailure: projectionFailureHandler(input, writeBearing),
+    const planned = await planDocumentSyncAttempt({
+      pendingUpdates,
+      regenerateQueuedCheckpoints,
+      sync: input,
+      writeBearing,
       writerProjection,
     });
     if (!planned) {

@@ -13,6 +13,19 @@ interface DocumentSyncOutgoingBatchOptions {
   readonly reservedUpdateCount?: number | undefined;
 }
 
+export class DocumentSyncRequestLimitError extends Error {
+  override readonly name = "DocumentSyncRequestLimitError";
+}
+
+export function isDocumentSyncRequestLimitError(
+  error: unknown,
+): error is DocumentSyncRequestLimitError {
+  return (
+    error instanceof DocumentSyncRequestLimitError ||
+    (error instanceof Error && error.name === "DocumentSyncRequestLimitError")
+  );
+}
+
 function assertReservedCapacity(
   reservedDataCharacters: number,
   reservedUpdateCount: number,
@@ -55,7 +68,9 @@ export function selectDocumentSyncOutgoingBatch<
       break;
     }
     if (update.updateData.length > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
-      throw new Error("Document sync update exceeds its data limit");
+      throw new DocumentSyncRequestLimitError(
+        "Document sync update exceeds its data limit",
+      );
     }
     if (
       selectedDataCharacters + update.updateData.length >
@@ -109,10 +124,14 @@ export function limitDocumentSyncRequestBytes(
   }
 
   if (selected.length === 0) {
-    throw new Error("Document sync update cannot fit within the request limit");
+    throw new DocumentSyncRequestLimitError(
+      "Document sync update cannot fit within the request limit",
+    );
   }
   if (requiredUpdateId !== undefined && selected[0]?.id !== requiredUpdateId) {
-    throw new Error("Document sync required update exceeds the request limit");
+    throw new DocumentSyncRequestLimitError(
+      "Document sync required update exceeds the request limit",
+    );
   }
 
   return { ...request, outgoingUpdates: selected };

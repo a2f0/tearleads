@@ -116,14 +116,65 @@ function escapeJsonPointerToken(value: string): string {
   return value.replaceAll("~", "~0").replaceAll("/", "~1");
 }
 
+function resolveLocalReference(
+  spec: Record<string, unknown>,
+  reference: string,
+  source: string,
+): unknown {
+  if (reference === "#") {
+    return spec;
+  }
+  if (!reference.startsWith("#/")) {
+    throw new Error(`${source} contains unsupported reference '${reference}'.`);
+  }
+
+  let resolved: unknown = spec;
+  for (const encodedToken of reference.slice(2).split("/")) {
+    const token = decodeURIComponent(encodedToken)
+      .replaceAll("~1", "/")
+      .replaceAll("~0", "~");
+    if (!isRecord(resolved) || !Object.hasOwn(resolved, token)) {
+      throw new Error(`${source} cannot resolve reference '${reference}'.`);
+    }
+    resolved = resolved[token];
+  }
+  return resolved;
+}
+
+function recordMaxItems(
+  nodes: Map<string, number | null>,
+  pointer: string,
+  value: unknown,
+): void {
+  if (typeof value !== "number") {
+    if (!nodes.has(pointer)) nodes.set(pointer, null);
+    return;
+  }
+  const existing = nodes.get(pointer);
+  nodes.set(
+    pointer,
+    typeof existing === "number" ? Math.min(existing, value) : value,
+  );
+}
+
 function collectRequestSchemaNodes(
   value: unknown,
   pointer: string,
   nodes: Map<string, number | null>,
+  spec: Record<string, unknown>,
+  source: string,
+  activeReferences: Set<string> = new Set(),
 ): void {
   if (Array.isArray(value)) {
     for (const [index, item] of value.entries()) {
-      collectRequestSchemaNodes(item, `${pointer}/${index}`, nodes);
+      collectRequestSchemaNodes(
+        item,
+        `${pointer}/${index}`,
+        nodes,
+        spec,
+        source,
+        activeReferences,
+      );
     }
     return;
   }
@@ -131,24 +182,52 @@ function collectRequestSchemaNodes(
     return;
   }
 
-  const maxItems = Reflect.get(value, "maxItems");
-  nodes.set(pointer, typeof maxItems === "number" ? maxItems : null);
+  const reference = Reflect.get(value, "$ref");
+  if (typeof reference === "string" && !activeReferences.has(reference)) {
+    activeReferences.add(reference);
+    collectRequestSchemaNodes(
+      resolveLocalReference(spec, reference, source),
+      pointer,
+      nodes,
+      spec,
+      source,
+      activeReferences,
+    );
+    activeReferences.delete(reference);
+  }
+
+  recordMaxItems(nodes, pointer, Reflect.get(value, "maxItems"));
   for (const [key, child] of Object.entries(value)) {
-    if (key === "maxItems") {
+    if (key === "$ref" || key === "maxItems") {
       continue;
     }
     collectRequestSchemaNodes(
       child,
       `${pointer}/${escapeJsonPointerToken(key)}`,
       nodes,
+      spec,
+      source,
+      activeReferences,
     );
   }
 }
 
-function jsonRequestSchema(operation: Record<string, unknown>): unknown {
-  const requestBody = Reflect.get(operation, "requestBody");
-  const content = isRecord(requestBody)
-    ? Reflect.get(requestBody, "content")
+function jsonRequestSchema(
+  spec: Record<string, unknown>,
+  operation: Record<string, unknown>,
+  source: string,
+): unknown {
+  const unresolvedRequestBody = Reflect.get(operation, "requestBody");
+  const requestBodyReference = isRecord(unresolvedRequestBody)
+    ? Reflect.get(unresolvedRequestBody, "$ref")
+    : undefined;
+  const requestBody =
+    typeof requestBodyReference === "string"
+      ? resolveLocalReference(spec, requestBodyReference, source)
+      : unresolvedRequestBody;
+  const content = isRecord(unresolvedRequestBody)
+    ? (Reflect.get(unresolvedRequestBody, "content") ??
+      (isRecord(requestBody) ? Reflect.get(requestBody, "content") : undefined))
     : undefined;
   const jsonContent = isRecord(content)
     ? content["application/json"]
@@ -156,7 +235,10 @@ function jsonRequestSchema(operation: Record<string, unknown>): unknown {
   return isRecord(jsonContent) ? Reflect.get(jsonContent, "schema") : undefined;
 }
 
-function collectRequestMaxItems(spec: unknown): RequestSchemaNodesByOperation {
+function collectRequestMaxItems(
+  spec: unknown,
+  source: string,
+): RequestSchemaNodesByOperation {
   const collected: RequestSchemaNodesByOperation = new Map();
   if (!isRecord(spec)) {
     return collected;
@@ -173,12 +255,13 @@ function collectRequestMaxItems(spec: unknown): RequestSchemaNodesByOperation {
       if (!HTTP_METHODS.has(method) || !isRecord(operation)) {
         continue;
       }
-      const schema = jsonRequestSchema(operation);
+      const operationSource = `${source}: ${method.toUpperCase()} ${path}`;
+      const schema = jsonRequestSchema(spec, operation, operationSource);
       if (schema === undefined) {
         continue;
       }
       const nodes = new Map<string, number | null>();
-      collectRequestSchemaNodes(schema, "#", nodes);
+      collectRequestSchemaNodes(schema, "#", nodes, spec, operationSource);
       collected.set(`${method.toUpperCase()} ${path}`, nodes);
     }
   }
@@ -333,8 +416,8 @@ async function main(): Promise<number> {
   const violations = [
     ...collectViolations(base, revision),
     ...collectRequestMaxItemsViolations(
-      collectRequestMaxItems(baseSpec),
-      collectRequestMaxItems(revisionSpec),
+      collectRequestMaxItems(baseSpec, "base spec"),
+      collectRequestMaxItems(revisionSpec, "revision spec"),
     ),
   ].sort();
   const ignoredViolations =

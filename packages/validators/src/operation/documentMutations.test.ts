@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
+import {
+  documentLinkSetPathRefinement,
+  documentSyncRequestRotationRefinement,
+} from "../documentSyncRefinements";
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
@@ -60,7 +63,10 @@ test("document mutation operations own their complete wire metadata", () => {
       failureResponses,
       failureStatuses,
       method: "POST",
-      runtimeRefinements: [documentSyncRequestRotationRefinement],
+      runtimeRefinements: [
+        documentLinkSetPathRefinement,
+        documentSyncRequestRotationRefinement,
+      ],
     });
   }
   expect(deleteDocumentOperation).toMatchObject({
@@ -127,6 +133,7 @@ test("OpenAPI declares the link-set runtime-only invariant", () => {
     openApiDocument.paths["/documents/{documentId}/unlink"]?.post,
   ]) {
     expect(operation?.["x-symcrypt-runtime-refinements"]).toEqual([
+      documentLinkSetPathRefinement,
       documentSyncRequestRotationRefinement,
     ]);
   }

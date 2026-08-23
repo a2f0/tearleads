@@ -41,6 +41,7 @@ interface OutgoingSettlementLane {
 }
 
 interface OutgoingSettlementPass {
+  readonly exhaustedPendingUpdateCount: number;
   readonly outgoingUpdateCount: number;
   readonly rekeyedUpdateCount: number;
   readonly settledUpdateCount: number;
@@ -61,6 +62,11 @@ export function settleOutgoingPassAndDecideReArm(
   lane: OutgoingSettlementLane,
   pass: OutgoingSettlementPass,
 ): boolean {
+  if (pass.exhaustedPendingUpdateCount > 0) {
+    lane.rekeyOnlyPassCount = 0;
+    return false;
+  }
+
   const rekeyOnlyPassCount = lane.rekeyOnlyPassCount ?? 0;
   lane.rekeyOnlyPassCount = isRekeyOnlyPass(pass) ? rekeyOnlyPassCount + 1 : 0;
 

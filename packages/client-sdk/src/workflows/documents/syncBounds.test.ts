@@ -8,6 +8,7 @@ import {
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -15,6 +16,7 @@ import {
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { createStaleBundleSyncFixture } from "../../../test/helpers/staleBundleSyncFixture";
+import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { syncRemoteDocument } from "./sync";
@@ -148,4 +150,57 @@ test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", a
     materialized.plan.request.outgoingUpdates.map(({ id }) => id),
   ).not.toContain(tailCheckpoint.id);
   expect(materialized.heldBackPendingUpdateIds).toEqual([tailCheckpoint.id]);
+});
+
+test("an encrypted update that cannot fit records a terminal queue failure", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const terminalFailures: DocumentSyncSubmitFailure[] = [];
+  const abandonedReasons: string[] = [];
+  let submitCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        submitCount += 1;
+        throw new Error("An oversized plan must not reach the network");
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onSyncAbandoned: (reason) => abandonedReasons.push(reason),
+    onTerminalSubmitFailure: (failure) => {
+      terminalFailures.push(failure);
+    },
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        // This fits the preliminary plaintext-character bound. Encryption and
+        // the signed request envelope make the final JSON exceed 16 MiB.
+        updateData: "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+      }),
+    ],
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+
+  expect(synced).toBeNull();
+  expect(submitCount).toBe(0);
+  expect(terminalFailures).toHaveLength(1);
+  expect(terminalFailures[0]?.code).toBe("document_sync_request_too_large");
+  expect(terminalFailures[0]?.message).toContain(
+    "cannot fit within the request limit",
+  );
+  expect(abandonedReasons).toEqual([
+    "a queued update cannot fit within the document sync request limit",
+  ]);
 });

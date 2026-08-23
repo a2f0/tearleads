@@ -33,6 +33,12 @@ import {
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
+export function shouldRequestRotationRecoverySync(input: {
+  readonly hasDeferredPendingUpdates: boolean;
+}): boolean {
+  return input.hasDeferredPendingUpdates;
+}
+
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   const author = resolveDocumentCreateAuthor(state.runtime);
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
@@ -196,20 +202,13 @@ async function recoverFullHistoryForRotation(
       synced,
     });
   } finally {
-    const settledPendingUpdateIds = new Set(synced.settledPendingUpdateIds);
-    const hasUnsettledQueuedUpdates = pendingUpdates.some(
-      (update) => !settledPendingUpdateIds.has(update.id),
-    );
-    // Conflicted updates re-keyed during the pull and any bounded batch tail
-    // both need a follow-up lane pass; the rotation that follows may abort
-    // before syncing again. Request that pass only AFTER the rebuild/install
-    // window has closed (successfully or not) —
+    // Durable progress that left queued work needs a follow-up lane pass; the
+    // rotation that follows may abort before syncing again. Terminal recovery
+    // exhaustion and no-progress responses deliberately do not self-arm.
+    // Request the follow-up only AFTER the rebuild/install window has closed —
     // scheduling it mid-window deterministically raced the lane's import
     // against the version check above and the rebuilt-document install.
-    if (
-      synced.rekeyedPendingUpdateIds.length > 0 ||
-      hasUnsettledQueuedUpdates
-    ) {
+    if (shouldRequestRotationRecoverySync(synced)) {
       requestDocumentStoreSync(state);
     }
   }

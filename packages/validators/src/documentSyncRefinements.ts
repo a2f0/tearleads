@@ -31,6 +31,12 @@ export const documentSyncRequestRuntimeRefinements = [
   documentSyncRequestRotationRefinement,
 ] as const;
 
+export const documentLinkSetPathRefinement = {
+  description:
+    "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 256 references in total",
+  id: "request.post-link-authorization-path-total-references",
+} as const;
+
 export const documentSyncResponseRotationRefinement = {
   description:
     "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
