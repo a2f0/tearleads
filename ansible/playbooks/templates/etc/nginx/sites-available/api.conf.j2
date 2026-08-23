@@ -6,7 +6,10 @@ server {
   listen [::1]:80;
   server_name {{ api_hostname }};
 
-  client_max_body_size 100M;
+  # JSON requests, including document sync, are capped before proxying. This
+  # mirrors MAX_DOCUMENT_SYNC_REQUEST_BYTES; the sole large-body exception is
+  # the bounded multipart-part route below.
+  client_max_body_size 16M;
 
 {% if code_assist_enabled | bool %}
   location = /code-assist/health {
@@ -25,6 +28,20 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 {% endif %}
+
+  location ~ ^/blobs/stages/multipart/[^/]+/parts/[^/]+/bytes$ {
+    client_max_body_size 100M;
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_read_timeout 86400s;
+  }
 
   location / {
     proxy_pass http://127.0.0.1:3001;

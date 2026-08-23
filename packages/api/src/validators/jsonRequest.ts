@@ -17,30 +17,14 @@ export function requestBodyLimit(
       return onError(context);
     }
 
-    const chunks: Uint8Array[] = [];
-    const reader = request.body.getReader();
-    let totalBytes = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) {
-        await reader.cancel().catch(() => undefined);
-        return onError(context);
-      }
-      chunks.push(value);
+    // Use Bun's native body consumption. A hand-rolled reader over the native
+    // request stream can intermittently segfault behind the ingress tunnel.
+    // Bun's server ceiling bounds direct requests, while nginx applies this
+    // route's tighter JSON ceiling before proxying in deployed environments.
+    const body = await context.req.arrayBuffer();
+    if (body.byteLength > maxBytes) {
+      return onError(context);
     }
-
-    const body = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      body.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    context.req.raw = new Request(request, { body });
     return next();
   };
 }
