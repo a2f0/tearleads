@@ -74,7 +74,7 @@ export function createRouteRequestBindings(
   }
 }
 
-const LOOPBACK_API_HOSTS = new Set(["127.0.0.1", "::1"]);
+const LOOPBACK_API_HOSTS = new Set(["127.0.0.1"]);
 
 export function resolveApiHost(configuredHost?: string): string {
   const host = configuredHost ?? "127.0.0.1";

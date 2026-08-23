@@ -107,6 +107,48 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
   );
 });
 
+test("document sync fitting stops before serializing a large deferred tail", () => {
+  const largeVector = "V".repeat(
+    Math.floor(MAX_DOCUMENT_SYNC_REQUEST_BYTES / 2),
+  );
+  let deferredVectorReads = 0;
+  const outgoingUpdates = Array.from(
+    { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
+    (_, index) => {
+      const update = {
+        encryptedData: "ciphertext",
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        partialEndVersionVector: largeVector,
+        partialStartVersionVector: largeVector,
+        plaintextHash: `plaintext-${index}`,
+        writeHeader: { index },
+      };
+      if (index === 0) return update;
+      Object.defineProperty(update, "partialEndVersionVector", {
+        enumerable: true,
+        get: () => {
+          deferredVectorReads += 1;
+          return largeVector;
+        },
+      });
+      return update;
+    },
+  );
+  const request = {
+    authorizingContainerPathRefs: [],
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "target-1",
+    localVersionVector: null,
+    outgoingUpdates,
+  } as DocumentSyncRequest;
+
+  expect(() => limitDocumentSyncRequestBytes(request)).toThrow(
+    DocumentSyncRequestLimitError,
+  );
+  expect(deferredVectorReads).toBe(0);
+});
+
 test("document sync falls back to a full pull when the local vector cannot fit", () => {
   const request = {
     authorizingContainerPathRefs: [],

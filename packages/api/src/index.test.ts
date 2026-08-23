@@ -17,7 +17,7 @@ const TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440001";
 test("the Bun listener is restricted to loopback hosts", () => {
   expect(resolveApiHost()).toBe("127.0.0.1");
   expect(resolveApiHost("127.0.0.1")).toBe("127.0.0.1");
-  expect(resolveApiHost("::1")).toBe("::1");
+  expect(() => resolveApiHost("::1")).toThrow("API_HOST must be loopback-only");
   expect(() => resolveApiHost("localhost")).toThrow(
     "API_HOST must be loopback-only",
   );

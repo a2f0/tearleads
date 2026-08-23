@@ -258,13 +258,15 @@ test("a high-actor write above the old vector ceiling remains syncable", async (
   expect(synced?.settledPendingUpdateIds).toEqual([pendingUpdate.id]);
 });
 
-test("an oversized read frontier falls back to a complete pull", async () => {
+test("a persisted oversized read frontier falls back to a complete pull", async () => {
   const fixture = await createMaterializedSyncFixture();
   let submittedLocalVersionVector: string | null | undefined;
 
   const synced = await syncRemoteDocument({
     apiClient: {
-      getDocumentWriterProjection: async () => fixture.writerProjection,
+      getDocumentWriterProjection: async () => {
+        throw new Error("Persisted read-only sync must not fetch a projection");
+      },
       syncDocument: async (documentId, request) => {
         submittedLocalVersionVector = request.localVersionVector;
         const plan = await buildDocumentSyncPlan({
@@ -286,6 +288,18 @@ test("an oversized read frontier falls back to a complete pull", async () => {
     execSql,
     localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
     pendingUpdates: [],
+    persistedState: {
+      contentKeyBundle: JSON.stringify(
+        fixture.writerProjection.contentKeyBundle,
+      ),
+      documentId: fixture.writerProjection.documentId,
+      documentKekTargets: JSON.stringify(
+        fixture.writerProjection.documentKekTargets,
+      ),
+      documentManifestBundle: JSON.stringify(
+        fixture.writerProjection.documentManifest,
+      ),
+    },
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     resolveWriterPublicKey: writerKeyResolver({
       author: fixture.author,

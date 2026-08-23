@@ -108,10 +108,6 @@ export function limitDocumentSyncRequestBytes(
   const fitRequest = (
     candidate: DocumentSyncRequest,
   ): DocumentSyncRequest | null => {
-    if (serializedBytes(candidate) <= MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
-      return candidate;
-    }
-
     const selected: DocumentSyncRequest["outgoingUpdates"] = [];
     let selectedRequestBytes = serializedBytes({
       ...candidate,
@@ -131,6 +127,7 @@ export function limitDocumentSyncRequestBytes(
       selectedRequestBytes += addedBytes;
     }
 
+    if (selected.length === candidate.outgoingUpdates.length) return candidate;
     return selected.length > 0
       ? { ...candidate, outgoingUpdates: selected }
       : null;
