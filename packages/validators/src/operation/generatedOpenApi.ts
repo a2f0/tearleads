@@ -11142,12 +11142,18 @@ export interface operations {
                     };
                 };
             };
-            /** @description Response without a declared body */
+            /** @description Failure JSON response */
             413: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Response without a declared body */
             500: {

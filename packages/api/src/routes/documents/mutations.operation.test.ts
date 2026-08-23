@@ -97,14 +97,28 @@ test("document sync preserves the invalid-request response", async () => {
 
 test("document sync rejects oversized bodies before parsing", async () => {
   const route = createTestRoute((_c, next) => next());
-  const response = await route.request("/documents/document-1/sync", {
-    body: "{}",
-    headers: {
-      "Content-Length": String(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
-      "Content-Type": "application/json",
+  const chunk = new Uint8Array(1024 * 1024);
+  let remainingBytes = MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (remainingBytes === 0) {
+        controller.close();
+        return;
+      }
+
+      const byteLength = Math.min(remainingBytes, chunk.byteLength);
+      controller.enqueue(chunk.subarray(0, byteLength));
+      remainingBytes -= byteLength;
     },
+  });
+  const request = new Request("http://localhost/documents/document-1/sync", {
+    body,
+    headers: { "Content-Type": "application/json" },
     method: documentSyncOperation.method,
   });
+  expect(request.headers.has("Content-Length")).toBe(false);
+
+  const response = await route.request(request);
 
   expect(response.status).toBe(413);
   expect(await response.json()).toEqual({ error: "Request body too large" });

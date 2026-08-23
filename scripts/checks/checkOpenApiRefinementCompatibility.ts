@@ -13,7 +13,7 @@
  * an operation that does not exist in the base. Ids with any other prefix
  * fail on every change until they are classified.
  *
- * Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json>
+ * Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]
  * Set OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 to acknowledge an intentional
  * breaking change and let the check pass loudly.
  */
@@ -108,6 +108,17 @@ async function loadSpec(filePath: string): Promise<unknown> {
   return JSON.parse(await Bun.file(filePath).text());
 }
 
+async function loadIgnoredViolations(filePath: string): Promise<string[]> {
+  const entries = (await Bun.file(filePath).text())
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  if (new Set(entries).size !== entries.length) {
+    throw new Error(`${filePath} repeats a runtime-refinement ignore entry.`);
+  }
+  return entries;
+}
+
 function addedRefinementViolation(
   operation: string,
   id: string,
@@ -185,10 +196,10 @@ function collectViolations(
 }
 
 async function main(): Promise<number> {
-  const [basePath, revisionPath] = Bun.argv.slice(2);
+  const [basePath, revisionPath, ignorePath] = Bun.argv.slice(2);
   if (basePath === undefined || revisionPath === undefined) {
     console.error(
-      "Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json>",
+      "Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]",
     );
     return 2;
   }
@@ -199,24 +210,44 @@ async function main(): Promise<number> {
     "revision spec",
   );
   const violations = collectViolations(base, revision);
-  if (violations.length === 0) {
+  const ignoredViolations =
+    ignorePath === undefined ? [] : await loadIgnoredViolations(ignorePath);
+  const unusedIgnores = ignoredViolations.filter(
+    (ignored) => !violations.includes(ignored),
+  );
+  if (unusedIgnores.length > 0) {
+    for (const unused of unusedIgnores) {
+      console.error(
+        `unused OpenAPI runtime-refinement compatibility ignore entry: ${unused}`,
+      );
+    }
+    return 1;
+  }
+  const ignoredSet = new Set(ignoredViolations);
+  const unignoredViolations = violations.filter(
+    (violation) => !ignoredSet.has(violation),
+  );
+  for (const ignored of ignoredViolations) {
+    console.warn(`Ignored intentional runtime-refinement change: ${ignored}`);
+  }
+  if (unignoredViolations.length === 0) {
     return 0;
   }
 
-  const heading = `${violations.length} breaking runtime-refinement change(s) not visible to oasdiff:`;
+  const heading = `${unignoredViolations.length} breaking runtime-refinement change(s) not visible to oasdiff:`;
   const { OPENAPI_ALLOW_REFINEMENT_TIGHTENING: allowTightening } = process.env;
   if (allowTightening === "1") {
     console.warn(
       `Allowed by OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 — ${heading}`,
     );
-    for (const violation of violations) {
+    for (const violation of unignoredViolations) {
       console.warn(`  ${violation}`);
     }
     return 0;
   }
 
   console.error(heading);
-  for (const violation of violations) {
+  for (const violation of unignoredViolations) {
     console.error(`  ${violation}`);
   }
   console.error(

@@ -79,6 +79,27 @@ const witnesses = {
     expectedMessage: "outgoing update ids must be unique",
     kind: "request",
   },
+  [documentSyncRequestEnvelopeRefinements[3].id]: {
+    createInput: () => ({
+      ...createSyncRequest(),
+      authorizingContainerPathRefs: [
+        Array.from({ length: 100 }, () => ({
+          containerId: "container-1",
+          manifestHash: "manifest-1",
+        })),
+        Array.from({ length: 100 }, () => ({
+          containerId: "container-2",
+          manifestHash: "manifest-2",
+        })),
+        Array.from({ length: 57 }, () => ({
+          containerId: "container-3",
+          manifestHash: "manifest-3",
+        })),
+      ],
+    }),
+    expectedMessage: "authorization paths exceed 256 total references",
+    kind: "request",
+  },
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),

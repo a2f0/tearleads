@@ -4,6 +4,7 @@ import { DocumentSyncRequestSchema } from "../request";
 import {
   DocumentSyncErrorResponseSchema,
   DocumentSyncResponseSchema,
+  ErrorResponseSchema,
 } from "../response";
 import {
   defineJsonOperation,
@@ -28,6 +29,9 @@ test("document sync operation owns its HTTP contract metadata", () => {
   expect(documentSyncOperation.body).toBe(DocumentSyncRequestSchema);
   expect(documentSyncOperation.failureResponses?.[409]).toBe(
     DocumentSyncErrorResponseSchema,
+  );
+  expect(documentSyncOperation.failureResponses?.[413]).toBe(
+    ErrorResponseSchema,
   );
   expect(documentSyncOperation.responses[200]).toBe(DocumentSyncResponseSchema);
   expect(Object.keys(documentSyncOperation.responses)).toEqual(["200"]);

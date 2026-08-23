@@ -15,6 +15,7 @@ import {
   DocumentNotFoundErrorResponseSchema,
   DocumentSyncErrorResponseSchema,
 } from "../response/documentSyncError";
+import { ErrorResponseSchema } from "../response/error";
 import { defineJsonOperation } from "./definition";
 
 export const DocumentSyncPathParamsSchema = z.strictObject({
@@ -31,6 +32,7 @@ export const documentSyncOperation = defineJsonOperation({
   failureResponses: {
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
+    413: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",

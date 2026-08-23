@@ -142,6 +142,35 @@ fi
   fail "expected exit 1 for an added refinement, received $refinement_exit."
 assert_contains "$refinement_output" "request.unique-widget-name"
 
+printf '%s\n' \
+  "# #2096; remove after merge to main." \
+  "POST /widgets: request refinement 'request.unique-widget-name' was added; existing clients were not rejected by it." \
+  >"$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+ignored_refinement_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$revision_commit" \
+    "$CHECK_SCRIPT" 2>&1
+) || fail "an exact runtime-refinement compatibility ignore should pass."
+assert_contains "$ignored_refinement_output" \
+  "Ignored intentional runtime-refinement change"
+
+printf '%s\n' "POST /widgets: stale runtime refinement" \
+  >"$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+if unused_refinement_ignore_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$revision_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "an unused runtime-refinement compatibility ignore was accepted."
+fi
+assert_contains "$unused_refinement_ignore_output" \
+  "unused OpenAPI runtime-refinement compatibility ignore entry"
+rm "$TEST_ROOT/scripts/checks/openApiRefinementCompatibility.ignore"
+
 allowed_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \

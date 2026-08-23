@@ -4,6 +4,7 @@ set -eu
 
 OPENAPI_PATH=docs/openapi.json
 ERROR_IGNORE_PATH=scripts/checks/openApiCompatibilityErrors.ignore
+REFINEMENT_IGNORE_PATH=scripts/checks/openApiRefinementCompatibility.ignore
 
 fail() {
   echo "Error: $*" >&2
@@ -83,8 +84,13 @@ if [ "$revision_title" = "SymCrypt Protocol API" ] &&
   exit 0
 fi
 
-bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
-  "$base_spec_file" "$OPENAPI_PATH"
+if [ -f "$REFINEMENT_IGNORE_PATH" ]; then
+  bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
+    "$base_spec_file" "$OPENAPI_PATH" "$REFINEMENT_IGNORE_PATH"
+else
+  bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
+    "$base_spec_file" "$OPENAPI_PATH"
+fi
 rm -f "$base_spec_file"
 trap - EXIT
 

@@ -19,6 +19,11 @@ export const documentSyncRequestEnvelopeRefinements = [
     description: "outgoing update ids must be unique within the request",
     id: "request.unique-outgoing-update-ids",
   },
+  {
+    description:
+      "authorizingContainerPathRefs may contain at most 256 references in total",
+    id: "request.authorization-path-total-references",
+  },
 ] as const;
 
 export const documentSyncRequestRuntimeRefinements = [
