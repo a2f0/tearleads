@@ -2,28 +2,43 @@ import type { Context, MiddlewareHandler } from "hono";
 import { validator } from "hono/validator";
 import type { SafeParseSchema } from "./schema";
 
-export function requestBodyLimit(
-  maxBytes: number,
-  onError: (context: Context) => Response | Promise<Response>,
-): MiddlewareHandler {
+interface RequestBodyLimitOptions {
+  readonly maxBytes: number;
+  readonly onLengthRequired: (context: Context) => Response | Promise<Response>;
+  readonly onTooLarge: (context: Context) => Response | Promise<Response>;
+}
+
+export function requestBodyLimit({
+  maxBytes,
+  onLengthRequired,
+  onTooLarge,
+}: RequestBodyLimitOptions): MiddlewareHandler {
   return async (context, next) => {
     const request = context.req.raw;
     if (request.body === null) {
       return next();
     }
 
-    const declaredLength = Number(request.headers.get("Content-Length"));
-    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
-      return onError(context);
+    const declaredLengthHeader = request.headers.get("Content-Length");
+    const declaredLength = Number(declaredLengthHeader);
+    if (
+      declaredLengthHeader === null ||
+      !Number.isSafeInteger(declaredLength) ||
+      declaredLength < 0
+    ) {
+      return onLengthRequired(context);
+    }
+    if (declaredLength > maxBytes) {
+      return onTooLarge(context);
     }
 
     // Use Bun's native body consumption. A hand-rolled reader over the native
     // request stream can intermittently segfault behind the ingress tunnel.
-    // Bun's server ceiling bounds direct requests, while nginx applies this
-    // route's tighter JSON ceiling before proxying in deployed environments.
+    // Requiring Content-Length bounds Bun's allocation before this read; nginx
+    // independently applies the same route-specific ceiling before proxying.
     const body = await context.req.arrayBuffer();
     if (body.byteLength > maxBytes) {
-      return onError(context);
+      return onTooLarge(context);
     }
     return next();
   };

@@ -6,10 +6,7 @@ server {
   listen [::1]:80;
   server_name {{ api_hostname }};
 
-  # JSON requests, including document sync, are capped before proxying. This
-  # mirrors MAX_DOCUMENT_SYNC_REQUEST_BYTES; the sole large-body exception is
-  # the bounded multipart-part route below.
-  client_max_body_size 16M;
+  client_max_body_size 100M;
 
 {% if code_assist_enabled | bool %}
   location = /code-assist/health {
@@ -29,8 +26,11 @@ server {
   }
 {% endif %}
 
-  location ~ ^/blobs/stages/multipart/[^/]+/parts/[^/]+/bytes$ {
-    client_max_body_size 100M;
+  location ~ ^/documents/[^/]+/sync$ {
+    # Mirrors MAX_DOCUMENT_SYNC_REQUEST_BYTES and keeps Bun's native buffered
+    # read bounded without using its unstable request-stream reader.
+    client_max_body_size 16M;
+    error_page 413 = @document_sync_body_too_large;
     proxy_pass http://127.0.0.1:3001;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
@@ -41,6 +41,12 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Host $host;
     proxy_read_timeout 86400s;
+  }
+
+  location @document_sync_body_too_large {
+    internal;
+    default_type application/json;
+    return 413 '{"error":"Request body too large"}';
   }
 
   location / {

@@ -196,13 +196,20 @@ async function recoverFullHistoryForRotation(
       synced,
     });
   } finally {
-    // Conflicted pending updates re-keyed during the preflight pull need a
-    // follow-up lane pass to submit their fresh ids, and the rotation that
-    // follows may abort before syncing again. Request that pass only AFTER
-    // the rebuild/install window has closed (successfully or not) —
+    const settledPendingUpdateIds = new Set(synced.settledPendingUpdateIds);
+    const hasUnsettledQueuedUpdates = pendingUpdates.some(
+      (update) => !settledPendingUpdateIds.has(update.id),
+    );
+    // Conflicted updates re-keyed during the pull and any bounded batch tail
+    // both need a follow-up lane pass; the rotation that follows may abort
+    // before syncing again. Request that pass only AFTER the rebuild/install
+    // window has closed (successfully or not) —
     // scheduling it mid-window deterministically raced the lane's import
     // against the version check above and the rebuilt-document install.
-    if (synced.rekeyedPendingUpdateIds.length > 0) {
+    if (
+      synced.rekeyedPendingUpdateIds.length > 0 ||
+      hasUnsettledQueuedUpdates
+    ) {
       requestDocumentStoreSync(state);
     }
   }

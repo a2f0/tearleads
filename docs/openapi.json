@@ -25361,6 +25361,25 @@
             },
             "description": "Failure JSON response"
           },
+          "411": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
           "413": {
             "content": {
               "application/json": {

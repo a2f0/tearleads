@@ -394,9 +394,12 @@ export function createDocumentMutationsRoute({
     operationRoutePath(documentSyncOperation),
     requireAuth,
     pathParamsValidator(documentSyncOperation.params),
-    requestBodyLimit(MAX_DOCUMENT_SYNC_REQUEST_BYTES, (c) =>
-      c.json({ error: "Request body too large" }, 413),
-    ),
+    requestBodyLimit({
+      maxBytes: MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+      onLengthRequired: (c) =>
+        c.json({ error: "Content-Length required" }, 411),
+      onTooLarge: (c) => c.json({ error: "Request body too large" }, 413),
+    }),
     jsonRequestValidator(documentSyncOperation.body),
     (c) =>
       respondWithDocumentSync(c, {

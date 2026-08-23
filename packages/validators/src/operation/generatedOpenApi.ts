@@ -11143,6 +11143,19 @@ export interface operations {
                 };
             };
             /** @description Failure JSON response */
+            411: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
             413: {
                 headers: {
                     [name: string]: unknown;
