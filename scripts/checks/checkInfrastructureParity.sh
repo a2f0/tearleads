@@ -55,6 +55,18 @@ assert_api_deploy_ordering() {
   fi
 }
 
+assert_document_sync_ingress_cors() {
+  local api_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/api.conf.j2"
+
+  if ! grep -Fq "map \$http_origin \$document_sync_cors_origin {" "$api_template" ||
+    ! grep -Fq "{{ api_cors_origin | trim | to_json }} \$http_origin;" "$api_template" ||
+    ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" "$api_template" ||
+    ! grep -Fq 'add_header Vary Origin always;' "$api_template"; then
+    echo "ERROR: Document sync ingress errors must mirror the API CORS allowlist." >&2
+    return 1
+  fi
+}
+
 list_stack_files() {
   local stack_dir="$1"
 
@@ -96,5 +108,6 @@ assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+assert_document_sync_ingress_cors
 
 echo "Infrastructure tier parity passed."
