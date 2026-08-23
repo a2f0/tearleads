@@ -78,7 +78,9 @@ assert_document_sync_ingress_cors() {
     return 1
   fi
 
-  sync_location="$(sed -n '/location ~ \^\/documents\/\.\+\/sync\$ {/,/^  }/p' "$rendered_api")"
+  # `[+]` is a literal plus in both BSD and GNU basic regular expressions;
+  # `\+` is a GNU extension meaning repetition and would miss nginx's `.+`.
+  sync_location="$(sed -n '/location ~ \^\/documents\/\.[+]\/sync\$ {/,/^  }/p' "$rendered_api")"
   sync_error_location="$(sed -n '/location @document_sync_body_too_large {/,/^  }/p' "$rendered_api")"
   if [ "$(grep -Fc 'location ~ ^/documents/.+/sync$ {' "$rendered_api")" -ne 1 ] ||
     grep -Fq 'location ^~ /documents/' "$rendered_api" ||
