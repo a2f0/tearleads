@@ -120,6 +120,15 @@ test("rejects malformed parent ids and watermarks", () => {
   ).toBe(false);
 });
 
+test("oversized malformed lane batches abort before composed refinements", () => {
+  const request = { lanes: Array.from({ length: 5 }, () => null) };
+
+  expect(() =>
+    ListContainerParentLanesRequestSchema.safeParse(request),
+  ).not.toThrow();
+  expect(isListContainerParentLanesRequest(request)).toBe(false);
+});
+
 test("bounds per-lane and aggregate requested pages", () => {
   expect(
     isListContainerParentLanesRequest({

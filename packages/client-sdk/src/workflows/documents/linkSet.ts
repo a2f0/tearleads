@@ -14,6 +14,10 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
+import {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+} from "@symcrypt/validators/util";
 import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/events";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -72,6 +76,13 @@ function deriveDocumentLinkSetTargetState(input: {
     if (currentTarget) {
       throw new Error("Document link target is already linked");
     }
+    assertDocumentLinkTargetCapacity(currentTargets.length);
+    assertDocumentLinkAuthorizationPathCapacity(
+      input.writerProjection.authorizingContainerPaths.map(
+        (projection) => projection.path.length,
+      ),
+      input.targetContainerProjection.path.length,
+    );
 
     return {
       currentTargets,
@@ -106,6 +117,31 @@ function deriveDocumentLinkSetTargetState(input: {
       (candidate) => candidate.containerId !== target.containerId,
     ),
   };
+}
+
+export function assertDocumentLinkTargetCapacity(
+  currentTargetCount: number,
+): void {
+  if (currentTargetCount >= MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS) {
+    throw new RangeError(
+      `A document cannot be linked to more than ${MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS} containers`,
+    );
+  }
+}
+
+export function assertDocumentLinkAuthorizationPathCapacity(
+  currentPathLengths: readonly number[],
+  targetPathLength: number,
+): void {
+  const totalReferences = currentPathLengths.reduce(
+    (total, length) => total + length,
+    targetPathLength,
+  );
+  if (totalReferences > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS) {
+    throw new RangeError(
+      `Document links cannot require more than ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} authorization references`,
+    );
+  }
 }
 
 async function wrapDocumentContentKeyForTargets(input: {

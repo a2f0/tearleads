@@ -11,10 +11,13 @@ import type {
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  cleanupContainerMetadataRegistrationsOnFailure,
   hasContainerMetadataDocumentUpdateEvent,
   listContainerMetadataDocumentUpdateIds,
   persistContainerMetadataStateFromRuntime,
+  preRegisterMaterializedContainerMetadataUpdateIds,
   renameContainerMetadataStateFromRuntime,
+  settleContainerMetadataOutgoingPass,
   syncContainerMetadataState,
 } from "./metadata";
 import {
@@ -229,6 +232,64 @@ test("listContainerMetadataDocumentUpdateIds suppresses the author's own metadat
   ).toEqual(["metadata-document-1"]);
 });
 
+test("metadata sync pre-registers only exact materialized batches", () => {
+  const registry = new Set<string>();
+  const registeredUpdateIds: string[] = [];
+
+  preRegisterMaterializedContainerMetadataUpdateIds(
+    registry,
+    registeredUpdateIds,
+    ["synthetic-recovery", "bounded-update"],
+  );
+  preRegisterMaterializedContainerMetadataUpdateIds(
+    registry,
+    registeredUpdateIds,
+    ["bounded-update"],
+  );
+
+  expect(registeredUpdateIds).toEqual(["synthetic-recovery", "bounded-update"]);
+  expect([...registry]).toEqual(registeredUpdateIds);
+});
+
+test("failed metadata recovery attempts discard synthetic registrations", async () => {
+  const registry = new Set<string>();
+
+  for (const updateId of ["synthetic-recovery-1", "synthetic-recovery-2"]) {
+    const sentUpdateIds: string[] = [];
+    const result = await cleanupContainerMetadataRegistrationsOnFailure(
+      registry,
+      sentUpdateIds,
+      async () => {
+        preRegisterMaterializedContainerMetadataUpdateIds(
+          registry,
+          sentUpdateIds,
+          [updateId],
+        );
+        return null;
+      },
+    );
+    expect(result).toBeNull();
+    expect(registry.size).toBe(0);
+  }
+
+  const sentUpdateIds: string[] = [];
+  await expect(
+    cleanupContainerMetadataRegistrationsOnFailure(
+      registry,
+      sentUpdateIds,
+      async () => {
+        preRegisterMaterializedContainerMetadataUpdateIds(
+          registry,
+          sentUpdateIds,
+          ["synthetic-recovery-error"],
+        );
+        throw new Error("metadata sync failed");
+      },
+    ),
+  ).rejects.toThrow("metadata sync failed");
+  expect(registry.size).toBe(0);
+});
+
 test("hasContainerMetadataDocumentUpdateEvent does not consume the caller's registry", () => {
   const metadataState = {
     record: createDocumentRecord({
@@ -341,6 +402,25 @@ test("syncContainerMetadataState skips clean metadata with current read state", 
   expect(synced).toBeNull();
   expect(listPendingUpdateCalls).toBe(1);
   expect(writerProjectionCalls).toBe(0);
+});
+
+test("metadata sync re-arms when a recovery baseline displaces queued edits", () => {
+  const metadataState = {
+    container: createContainerRecord({ id: "container-4", parentId: null }),
+    doc: {} as never,
+    record: createDocumentRecord({ id: "container-4" }),
+  };
+
+  expect(
+    settleContainerMetadataOutgoingPass(metadataState, {
+      outgoingUpdateCount: 2,
+      synced: {
+        rekeyedPendingUpdateIds: [],
+        settledPendingUpdateIds: [],
+        acceptedRecoveryBaseline: true,
+      } as never,
+    }),
+  ).toBe(true);
 });
 
 test("hasContainerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {

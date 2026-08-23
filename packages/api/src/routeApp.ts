@@ -112,6 +112,35 @@ function organizationSyncErrorBody(error: OrganizationSyncDisabledError) {
   };
 }
 
+/**
+ * Hono's `.request()` test helper bypasses the HTTP transport that supplies a
+ * Content-Length for string bodies. Mirror that transport behavior for
+ * in-process route tests while leaving prebuilt Request objects untouched so
+ * missing-length boundary cases can still be exercised explicitly.
+ */
+function installInProcessStringBodyLength(app: Hono<SessionEnv>): void {
+  const request = app.request.bind(app);
+  app.request = (input, requestInit, env, executionContext) => {
+    if (input instanceof Request || typeof requestInit?.body !== "string") {
+      return request(input, requestInit, env, executionContext);
+    }
+    const headers = new Headers(requestInit.headers);
+    if (!headers.has("Content-Length")) {
+      headers.set(
+        "Content-Length",
+        new TextEncoder().encode(requestInit.body).byteLength.toString(),
+      );
+    }
+    return request(input, { ...requestInit, headers }, env, executionContext);
+  };
+}
+
+function createApiRouteApp(): Hono<SessionEnv> {
+  const app = new Hono<SessionEnv>();
+  installInProcessStringBodyLength(app);
+  return app;
+}
+
 export function createRouteApp(
   overrides: RouteAppOverrides,
   options: RouteAppOptions = {},
@@ -124,7 +153,7 @@ export function createRouteApp(
     requireAuth: resolvedRequireAuth,
     runtime: resolvedRuntime,
   } = resolveRouteAppDeps(overrides);
-  const routeApp = new Hono<SessionEnv>();
+  const routeApp = createApiRouteApp();
 
   const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
   routeApp.use("*", createApiCorsMiddleware(corsOrigins));

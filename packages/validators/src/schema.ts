@@ -158,6 +158,22 @@ export function boundedStringSchema(maxLength: number) {
   );
 }
 
+export function boundedNonEmptyStringSchema(maxLength: number) {
+  return registerJsonSchemaFragment(
+    z.custom<string>(
+      (value) =>
+        typeof value === "string" &&
+        value.length > 0 &&
+        value.length <= maxLength,
+    ),
+    {
+      maxLength,
+      minLength: 1,
+      type: "string",
+    },
+  );
+}
+
 /**
  * Validates array items without rebuilding the array. This preserves signed
  * input identity and the runtime contract's treatment of sparse array holes.
@@ -175,8 +191,13 @@ export function arraySchema<ItemSchema extends z.ZodType>(
     if (maxItems !== undefined && values.length > maxItems) {
       context.addIssue({
         code: "custom",
+        continue: false,
         message: `array exceeds ${maxItems} items`,
       });
+      // The cardinality error already makes the value invalid. Stop here so a
+      // small request body containing a very large array cannot force us to
+      // parse every item and allocate an issue for each one.
+      return;
     }
     values.forEach((value, index) => {
       const result = itemSchema.safeParse(value);

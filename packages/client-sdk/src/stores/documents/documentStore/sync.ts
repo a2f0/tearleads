@@ -3,6 +3,7 @@ import {
   type DocumentRecord,
   type DocumentSyncLane,
   isDatabaseUnavailableError,
+  type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
@@ -13,13 +14,14 @@ import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidati
 import {
   type DocumentState,
   type DocumentStoreState,
+  type DocumentSyncAttempt,
   type EncapsulationKeyPair,
   setDocumentSyncing,
 } from "./state";
 import {
   cleanupPreRegisteredUpdateIdsOnFailure,
   discardPreRegisteredUpdateIds,
-  preRegisterUpdateIds,
+  preRegisterMaterializedDocumentSyncUpdateIds,
 } from "./syncAcceptedUpdateIds";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
@@ -46,6 +48,63 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
   );
+}
+
+async function requestOutgoingDocumentBatch(input: {
+  readonly currentDoc: DocumentState;
+  readonly encapsulationKeyPair: EncapsulationKeyPair;
+  readonly generation: DocumentStoreSyncGeneration;
+  readonly pendingUpdates: PendingUpdateRecord[];
+  readonly record: DocumentRecord;
+  readonly state: DocumentStoreState;
+}): Promise<{
+  sentUpdateIds: string[];
+  syncAttempt: DocumentSyncAttempt | null;
+}> {
+  const { planningUpdates, queuedUpdateCount } = prepareDocumentStoreSyncQueue(
+    input.pendingUpdates,
+  );
+  const sentUpdateIds: string[] = [];
+  const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
+    input.state,
+    sentUpdateIds,
+    () =>
+      requestRemoteDocumentSync({
+        currentDoc: input.currentDoc,
+        currentRecord: input.record,
+        encapsulationKeyPair: input.encapsulationKeyPair,
+        generation: input.generation,
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedDocumentSyncUpdateIds(
+            input.state,
+            sentUpdateIds,
+            updateIds,
+          ),
+        pendingUpdates: planningUpdates,
+        queuedUpdateCount,
+        state: input.state,
+        unavailableWriterLogMessage:
+          "Documents: skipped sync because the writer context is unavailable.",
+      }),
+  );
+  return { sentUpdateIds, syncAttempt };
+}
+
+/**
+ * Keep the full durable queue visible to stale-heal/checkpoint classification.
+ * The workflow planner owns the final count and byte bounds, and the exact
+ * materialized batch is pre-registered immediately before each submit.
+ */
+export function prepareDocumentStoreSyncQueue(
+  pendingUpdates: PendingUpdateRecord[],
+): {
+  planningUpdates: PendingUpdateRecord[];
+  queuedUpdateCount: number;
+} {
+  return {
+    planningUpdates: pendingUpdates,
+    queuedUpdateCount: pendingUpdates.length,
+  };
 }
 
 async function syncDocumentState(
@@ -123,23 +182,14 @@ async function syncDocumentState(
   // network await closes the race where the echo lands before
   // finalizeDocumentSync records the accepted IDs — the gap that turned every
   // fast keystroke into an extra self-triggered sync.
-  const sentUpdateIds = preRegisterUpdateIds(state, pendingUpdates);
-
-  const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
+  const { sentUpdateIds, syncAttempt } = await requestOutgoingDocumentBatch({
+    currentDoc,
+    encapsulationKeyPair,
+    generation,
+    pendingUpdates,
+    record: nextRemoteRecord,
     state,
-    sentUpdateIds,
-    () =>
-      requestRemoteDocumentSync({
-        state,
-        currentDoc,
-        currentRecord: nextRemoteRecord,
-        pendingUpdates,
-        encapsulationKeyPair,
-        generation,
-        unavailableWriterLogMessage:
-          "Documents: skipped sync because the writer context is unavailable.",
-      }),
-  );
+  });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);

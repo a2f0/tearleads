@@ -18,8 +18,10 @@ import {
 } from "../jsonSchema";
 import {
   arraySchema,
+  boundedNonEmptyArraySchema,
+  boundedNonEmptyStringSchema,
+  boundedStringSchema,
   loosePlainObject,
-  nonEmptyArraySchema,
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
@@ -27,6 +29,13 @@ import {
 } from "../schema";
 import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
+import {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
+  MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+  MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
 import {
@@ -49,12 +58,14 @@ export const ContainerManifestRefSchema = loosePlainObject({
 
 export type ContainerManifestRef = z.infer<typeof ContainerManifestRefSchema>;
 
-export const ContainerManifestPathSchema = nonEmptyArraySchema(
+export const ContainerManifestPathSchema = boundedNonEmptyArraySchema(
   ContainerManifestRefSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
 );
 
 export const ContainerManifestRefArrayArraySchema = arraySchema(
   ContainerManifestPathSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
 );
 
 export const DocumentContentKeyTargetEnvelopeSchema = loosePlainObject({
@@ -74,15 +85,21 @@ export const DocumentContentKeyBundleRequestSchema = loosePlainObject({
   contentKeyEpoch: positiveIntegerSchema,
   linkSetManifestHash: nonEmptyStringSchema,
   targetHash: nonEmptyStringSchema,
-  targets: arraySchema(DocumentContentKeyTargetEnvelopeSchema),
+  targets: arraySchema(
+    DocumentContentKeyTargetEnvelopeSchema,
+    MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+  ),
 });
 
 export type DocumentContentKeyBundleRequest = z.infer<
   typeof DocumentContentKeyBundleRequestSchema
 >;
 
-export const DocumentOutgoingUpdateSchema =
-  registerJsonSchemaRuntimeRefinements(
+function createDocumentOutgoingUpdateSchema(
+  encryptedDataSchema: z.ZodType<string>,
+  versionVectorSchema: z.ZodType<string>,
+) {
+  return registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       checkpointKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
@@ -90,15 +107,15 @@ export const DocumentOutgoingUpdateSchema =
       checkpointPayloadKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
-      encryptedData: nonEmptyStringSchema,
+      encryptedData: encryptedDataSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
         type: "string",
       }),
-      partialEndVersionVector: nonEmptyStringSchema,
-      partialStartVersionVector: nonEmptyStringSchema,
+      partialEndVersionVector: versionVectorSchema,
+      partialStartVersionVector: versionVectorSchema,
       plaintextHash: nonEmptyStringSchema,
-      sourceVersionVector: nonEmptyStringSchema.optional(),
+      sourceVersionVector: versionVectorSchema.optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
       if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
@@ -110,6 +127,21 @@ export const DocumentOutgoingUpdateSchema =
     }),
     [documentSyncRequestRotationRefinement],
   );
+}
+
+// Link-set rotations may carry a full-history baseline that is larger than a
+// single sync request. Their route has its own ingress policy, so keep the
+// shared update contract unbounded and apply the sync-specific ceiling only
+// where an update is embedded in DocumentSyncRequest.
+export const DocumentOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
+  nonEmptyStringSchema,
+  nonEmptyStringSchema,
+);
+
+const DocumentSyncOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
+  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+  boundedNonEmptyStringSchema(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
+);
 
 export type DocumentOutgoingUpdate = z.infer<
   typeof DocumentOutgoingUpdateSchema
@@ -166,12 +198,30 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     contentKeyEpoch: positiveIntegerSchema,
     expectedLinkSetManifestHash: nonEmptyStringSchema,
     expectedTargetHash: nonEmptyStringSchema,
-    localVersionVector: z.string().nullable(),
+    localVersionVector: boundedStringSchema(
+      MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+    ).nullable(),
     minLsn: WalLsnSchema.optional(),
-    outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
+    outgoingUpdates: arraySchema(
+      DocumentSyncOutgoingUpdateSchema,
+      MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+    ),
     supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
+      return;
+    }
+    // The field schemas have already recorded their cardinality errors. Do
+    // not let the cross-field checks below rescan attacker-sized arrays after
+    // those bounded schemas deliberately stopped before item validation.
+    if (request.outgoingUpdates.length > MAX_DOCUMENT_SYNC_OUTGOING_UPDATES) {
+      return;
+    }
+    if (
+      Array.isArray(request.authorizingContainerPathRefs) &&
+      request.authorizingContainerPathRefs.length >
+        MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS
+    ) {
       return;
     }
 

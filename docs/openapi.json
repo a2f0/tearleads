@@ -1752,10 +1752,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -1773,8 +1770,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "body": {},
                           "containerRekeys": {
@@ -2099,7 +2101,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -2139,7 +2140,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -2203,8 +2206,6 @@
                             ]
                           },
                           "targetContainerPathRefs": {
-                            "minItems": 1,
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -2222,7 +2223,10 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -2249,10 +2253,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -2270,8 +2271,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -2565,7 +2571,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -2605,7 +2610,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -2632,6 +2639,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -2644,7 +2652,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -2657,28 +2664,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -2695,7 +2706,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -3291,10 +3304,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -3312,8 +3322,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -3638,7 +3653,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -3678,7 +3692,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -3742,8 +3758,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -3761,16 +3775,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -3788,8 +3802,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -4083,7 +4102,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -4123,7 +4141,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -4150,6 +4170,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -4162,7 +4183,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -4175,28 +4195,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -4213,7 +4237,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -4545,10 +4571,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -4566,8 +4589,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -4892,7 +4920,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -4932,7 +4959,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -4996,8 +5025,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -5015,16 +5042,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -5042,8 +5069,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -5337,7 +5369,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -5377,7 +5408,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -5404,6 +5437,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -5416,7 +5450,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -5429,28 +5462,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -5467,7 +5504,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -5802,10 +5841,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -5823,8 +5859,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "body": {},
                           "containerRekeys": {
@@ -6149,7 +6190,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -6189,7 +6229,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -6253,8 +6295,6 @@
                             ]
                           },
                           "targetContainerPathRefs": {
-                            "minItems": 1,
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -6272,7 +6312,10 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -6299,10 +6342,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -6320,8 +6360,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -6615,7 +6660,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -6655,7 +6699,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -6682,6 +6728,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -6694,7 +6741,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -6707,28 +6753,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -6745,7 +6795,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -6773,10 +6825,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -6794,8 +6843,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -7120,7 +7174,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -7160,7 +7213,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -7224,8 +7279,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -7243,16 +7296,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -7270,8 +7323,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -7565,7 +7623,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -7605,7 +7662,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -7632,6 +7691,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -7644,7 +7704,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -7657,28 +7716,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -7695,7 +7758,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -8032,10 +8097,7 @@
                           "type": "object",
                           "properties": {
                             "authorizingContainerPathRefs": {
-                              "type": "array",
                               "items": {
-                                "minItems": 1,
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -8053,8 +8115,13 @@
                                     "manifestHash"
                                   ],
                                   "additionalProperties": {}
-                                }
-                              }
+                                },
+                                "maxItems": 100,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "body": {},
                             "containerRekeys": {
@@ -8379,7 +8446,6 @@
                                   "minLength": 1
                                 },
                                 "targets": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -8419,7 +8485,9 @@
                                       "wrappingMetadata"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 64,
+                                  "type": "array"
                                 }
                               },
                               "required": [
@@ -8483,8 +8551,6 @@
                               ]
                             },
                             "targetContainerPathRefs": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -8502,7 +8568,10 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
                             }
                           },
                           "required": [
@@ -8529,10 +8598,7 @@
                           "type": "object",
                           "properties": {
                             "authorizingContainerPathRefs": {
-                              "type": "array",
                               "items": {
-                                "minItems": 1,
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -8550,8 +8616,13 @@
                                     "manifestHash"
                                   ],
                                   "additionalProperties": {}
-                                }
-                              }
+                                },
+                                "maxItems": 100,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "containerRekeys": {
                               "items": {
@@ -8845,7 +8916,6 @@
                                   "minLength": 1
                                 },
                                 "targets": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -8885,7 +8955,9 @@
                                       "wrappingMetadata"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 64,
+                                  "type": "array"
                                 }
                               },
                               "required": [
@@ -8912,6 +8984,7 @@
                             "localVersionVector": {
                               "anyOf": [
                                 {
+                                  "maxLength": 16777216,
                                   "type": "string"
                                 },
                                 {
@@ -8924,7 +8997,6 @@
                               "type": "string"
                             },
                             "outgoingUpdates": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -8937,28 +9009,32 @@
                                     "const": "full_history_snapshot"
                                   },
                                   "encryptedData": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "id": {
                                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                     "type": "string"
                                   },
                                   "partialEndVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "partialStartVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "plaintextHash": {
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "sourceVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "writeHeader": {
                                     "type": "object",
@@ -8975,7 +9051,9 @@
                                   "writeHeader"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",
@@ -13501,10 +13579,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -13522,8 +13597,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "body": {},
                   "containerRekeys": {
@@ -14074,10 +14154,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -14095,8 +14172,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "body": {},
                   "containerRekeys": {
@@ -15864,10 +15946,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -15885,8 +15964,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -16211,7 +16295,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -16251,7 +16334,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -16315,8 +16400,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -16334,7 +16417,10 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -23474,10 +23560,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -23495,8 +23578,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "body": {},
                   "containerRekeys": {
@@ -23821,7 +23909,6 @@
                         "minLength": 1
                       },
                       "targets": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -23861,7 +23948,9 @@
                             "wrappingMetadata"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -23938,8 +24027,6 @@
                     "additionalProperties": {}
                   },
                   "targetContainerPathRefs": {
-                    "minItems": 1,
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -23957,7 +24044,10 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -24340,6 +24430,10 @@
         ],
         "x-symcrypt-runtime-refinements": [
           {
+            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
+            "id": "request.post-link-authorization-path-total-references"
+          },
+          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           }
@@ -24368,10 +24462,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -24389,8 +24480,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "containerRekeys": {
                     "items": {
@@ -24684,7 +24780,6 @@
                         "minLength": 1
                       },
                       "targets": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -24724,7 +24819,9 @@
                             "wrappingMetadata"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -24751,6 +24848,7 @@
                   "localVersionVector": {
                     "anyOf": [
                       {
+                        "maxLength": 16777216,
                         "type": "string"
                       },
                       {
@@ -24763,7 +24861,6 @@
                     "type": "string"
                   },
                   "outgoingUpdates": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -24776,28 +24873,32 @@
                           "const": "full_history_snapshot"
                         },
                         "encryptedData": {
-                          "type": "string",
-                          "minLength": 1
+                          "maxLength": 16777216,
+                          "minLength": 1,
+                          "type": "string"
                         },
                         "id": {
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                           "type": "string"
                         },
                         "partialEndVersionVector": {
-                          "type": "string",
-                          "minLength": 1
+                          "maxLength": 16777216,
+                          "minLength": 1,
+                          "type": "string"
                         },
                         "partialStartVersionVector": {
-                          "type": "string",
-                          "minLength": 1
+                          "maxLength": 16777216,
+                          "minLength": 1,
+                          "type": "string"
                         },
                         "plaintextHash": {
                           "type": "string",
                           "minLength": 1
                         },
                         "sourceVersionVector": {
-                          "type": "string",
-                          "minLength": 1
+                          "maxLength": 16777216,
+                          "minLength": 1,
+                          "type": "string"
                         },
                         "writeHeader": {
                           "type": "object",
@@ -24814,7 +24915,9 @@
                         "writeHeader"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "supportsUntrackedCommitLsn": {
                     "type": "boolean",
@@ -25254,6 +25357,25 @@
             },
             "description": "Failure JSON response"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Serialized document sync requests are limited to 16777216 bytes"
+          },
           "500": {
             "description": "Response without a declared body"
           },
@@ -25320,10 +25442,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -25341,8 +25460,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "body": {},
                   "containerRekeys": {
@@ -25667,7 +25791,6 @@
                         "minLength": 1
                       },
                       "targets": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -25707,7 +25830,9 @@
                             "wrappingMetadata"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -25784,8 +25909,6 @@
                     "additionalProperties": {}
                   },
                   "targetContainerPathRefs": {
-                    "minItems": 1,
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -25803,7 +25926,10 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -26185,6 +26311,10 @@
           }
         ],
         "x-symcrypt-runtime-refinements": [
+          {
+            "description": "authorizingContainerPathRefs and targetContainerPathRefs may contain at most 6400 references in total",
+            "id": "request.post-link-authorization-path-total-references"
+          },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
@@ -27200,10 +27330,7 @@
                 "type": "object",
                 "properties": {
                   "authorizingContainerPathRefs": {
-                    "type": "array",
                     "items": {
-                      "minItems": 1,
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -27221,8 +27348,13 @@
                           "manifestHash"
                         ],
                         "additionalProperties": {}
-                      }
-                    }
+                      },
+                      "maxItems": 100,
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
                   },
                   "body": {},
                   "containerRekeys": {
@@ -27547,7 +27679,6 @@
                         "minLength": 1
                       },
                       "targets": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -27587,7 +27718,9 @@
                             "wrappingMetadata"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       }
                     },
                     "required": [
@@ -27651,8 +27784,6 @@
                     ]
                   },
                   "targetContainerPathRefs": {
-                    "minItems": 1,
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -27670,7 +27801,10 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 100,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -41367,10 +41501,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -41388,8 +41519,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "body": {},
                           "containerRekeys": {
@@ -41714,7 +41850,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -41754,7 +41889,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -41818,8 +41955,6 @@
                             ]
                           },
                           "targetContainerPathRefs": {
-                            "minItems": 1,
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -41837,7 +41972,10 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -41864,10 +42002,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -41885,8 +42020,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -42180,7 +42320,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -42220,7 +42359,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -42247,6 +42388,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -42259,7 +42401,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -42272,28 +42413,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -42310,7 +42455,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -42906,10 +43053,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -42927,8 +43071,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -43253,7 +43402,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -43293,7 +43441,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -43357,8 +43507,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -43376,16 +43524,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -43403,8 +43551,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -43698,7 +43851,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -43738,7 +43890,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -43765,6 +43919,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -43777,7 +43932,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -43790,28 +43944,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -43828,7 +43986,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -44160,10 +44320,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -44181,8 +44338,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -44507,7 +44669,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -44547,7 +44708,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -44611,8 +44774,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -44630,16 +44791,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -44657,8 +44818,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -44952,7 +45118,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -44992,7 +45157,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -45019,6 +45186,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -45031,7 +45199,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -45044,28 +45211,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -45082,7 +45253,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -45417,10 +45590,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -45438,8 +45608,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "body": {},
                           "containerRekeys": {
@@ -45764,7 +45939,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -45804,7 +45978,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -45868,8 +46044,6 @@
                             ]
                           },
                           "targetContainerPathRefs": {
-                            "minItems": 1,
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -45887,7 +46061,10 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -45914,10 +46091,7 @@
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -45935,8 +46109,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -46230,7 +46409,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -46270,7 +46448,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -46297,6 +46477,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -46309,7 +46490,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -46322,28 +46502,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -46360,7 +46544,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -46388,10 +46574,7 @@
                     "type": "object",
                     "properties": {
                       "authorizingContainerPathRefs": {
-                        "type": "array",
                         "items": {
-                          "minItems": 1,
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -46409,8 +46592,13 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
-                        }
+                          },
+                          "maxItems": 100,
+                          "minItems": 1,
+                          "type": "array"
+                        },
+                        "maxItems": 64,
+                        "type": "array"
                       },
                       "body": {},
                       "containerRekeys": {
@@ -46735,7 +46923,6 @@
                             "minLength": 1
                           },
                           "targets": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -46775,7 +46962,9 @@
                                 "wrappingMetadata"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -46839,8 +47028,6 @@
                         ]
                       },
                       "targetContainerPathRefs": {
-                        "minItems": 1,
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -46858,16 +47045,16 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
                       },
                       "initialSync": {
                         "type": "object",
                         "properties": {
                           "authorizingContainerPathRefs": {
-                            "type": "array",
                             "items": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -46885,8 +47072,13 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
-                            }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "containerRekeys": {
                             "items": {
@@ -47180,7 +47372,6 @@
                                 "minLength": 1
                               },
                               "targets": {
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -47220,7 +47411,9 @@
                                     "wrappingMetadata"
                                   ],
                                   "additionalProperties": {}
-                                }
+                                },
+                                "maxItems": 64,
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -47247,6 +47440,7 @@
                           "localVersionVector": {
                             "anyOf": [
                               {
+                                "maxLength": 16777216,
                                 "type": "string"
                               },
                               {
@@ -47259,7 +47453,6 @@
                             "type": "string"
                           },
                           "outgoingUpdates": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -47272,28 +47465,32 @@
                                   "const": "full_history_snapshot"
                                 },
                                 "encryptedData": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "id": {
                                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                   "type": "string"
                                 },
                                 "partialEndVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "partialStartVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "plaintextHash": {
                                   "type": "string",
                                   "minLength": 1
                                 },
                                 "sourceVersionVector": {
-                                  "type": "string",
-                                  "minLength": 1
+                                  "maxLength": 16777216,
+                                  "minLength": 1,
+                                  "type": "string"
                                 },
                                 "writeHeader": {
                                   "type": "object",
@@ -47310,7 +47507,9 @@
                                 "writeHeader"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 64,
+                            "type": "array"
                           },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
@@ -47647,10 +47846,7 @@
                           "type": "object",
                           "properties": {
                             "authorizingContainerPathRefs": {
-                              "type": "array",
                               "items": {
-                                "minItems": 1,
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -47668,8 +47864,13 @@
                                     "manifestHash"
                                   ],
                                   "additionalProperties": {}
-                                }
-                              }
+                                },
+                                "maxItems": 100,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "body": {},
                             "containerRekeys": {
@@ -47994,7 +48195,6 @@
                                   "minLength": 1
                                 },
                                 "targets": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -48034,7 +48234,9 @@
                                       "wrappingMetadata"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 64,
+                                  "type": "array"
                                 }
                               },
                               "required": [
@@ -48098,8 +48300,6 @@
                               ]
                             },
                             "targetContainerPathRefs": {
-                              "minItems": 1,
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -48117,7 +48317,10 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
                             }
                           },
                           "required": [
@@ -48144,10 +48347,7 @@
                           "type": "object",
                           "properties": {
                             "authorizingContainerPathRefs": {
-                              "type": "array",
                               "items": {
-                                "minItems": 1,
-                                "type": "array",
                                 "items": {
                                   "type": "object",
                                   "properties": {
@@ -48165,8 +48365,13 @@
                                     "manifestHash"
                                   ],
                                   "additionalProperties": {}
-                                }
-                              }
+                                },
+                                "maxItems": 100,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "containerRekeys": {
                               "items": {
@@ -48460,7 +48665,6 @@
                                   "minLength": 1
                                 },
                                 "targets": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -48500,7 +48704,9 @@
                                       "wrappingMetadata"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 64,
+                                  "type": "array"
                                 }
                               },
                               "required": [
@@ -48527,6 +48733,7 @@
                             "localVersionVector": {
                               "anyOf": [
                                 {
+                                  "maxLength": 16777216,
                                   "type": "string"
                                 },
                                 {
@@ -48539,7 +48746,6 @@
                               "type": "string"
                             },
                             "outgoingUpdates": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -48552,28 +48758,32 @@
                                     "const": "full_history_snapshot"
                                   },
                                   "encryptedData": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "id": {
                                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                                     "type": "string"
                                   },
                                   "partialEndVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "partialStartVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "plaintextHash": {
                                     "type": "string",
                                     "minLength": 1
                                   },
                                   "sourceVersionVector": {
-                                    "type": "string",
-                                    "minLength": 1
+                                    "maxLength": 16777216,
+                                    "minLength": 1,
+                                    "type": "string"
                                   },
                                   "writeHeader": {
                                     "type": "object",
@@ -48590,7 +48800,9 @@
                                   "writeHeader"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 64,
+                              "type": "array"
                             },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",

@@ -24,7 +24,7 @@ import {
   cleanupPreRegisteredUpdateIdsOnFailure,
   discardPreRegisteredUpdateIds,
   discardUnacceptedPreRegisteredUpdateIds,
-  preRegisterUpdateIds,
+  preRegisterMaterializedDocumentSyncUpdateIds,
 } from "./syncAcceptedUpdateIds";
 import {
   captureDocumentStoreSyncGeneration,
@@ -32,6 +32,12 @@ import {
 } from "./syncGeneration";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
+
+export function shouldRequestRotationRecoverySync(input: {
+  readonly hasDeferredPendingUpdates: boolean;
+}): boolean {
+  return input.hasDeferredPendingUpdates;
+}
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   const author = resolveDocumentCreateAuthor(state.runtime);
@@ -60,7 +66,7 @@ async function pullVerifiedHistoryForRotation(input: {
 }) {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
-  const sentUpdateIds = preRegisterUpdateIds(input.state, input.pendingUpdates);
+  const sentUpdateIds: string[] = [];
 
   let abandonReason: string | null = null;
   const synced = await cleanupPreRegisteredUpdateIdsOnFailure(
@@ -87,6 +93,12 @@ async function pullVerifiedHistoryForRotation(input: {
         },
         onSyncTrace: (line) =>
           input.state.runtime.util.log(`Documents: ${line}`),
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedDocumentSyncUpdateIds(
+            input.state,
+            sentUpdateIds,
+            updateIds,
+          ),
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
           input.state,
           input.generation,
@@ -196,13 +208,13 @@ async function recoverFullHistoryForRotation(
       synced,
     });
   } finally {
-    // Conflicted pending updates re-keyed during the preflight pull need a
-    // follow-up lane pass to submit their fresh ids, and the rotation that
-    // follows may abort before syncing again. Request that pass only AFTER
-    // the rebuild/install window has closed (successfully or not) —
+    // Durable progress that left queued work needs a follow-up lane pass; the
+    // rotation that follows may abort before syncing again. Terminal recovery
+    // exhaustion and no-progress responses deliberately do not self-arm.
+    // Request the follow-up only AFTER the rebuild/install window has closed —
     // scheduling it mid-window deterministically raced the lane's import
     // against the version check above and the rebuilt-document install.
-    if (synced.rekeyedPendingUpdateIds.length > 0) {
+    if (shouldRequestRotationRecoverySync(synced)) {
       requestDocumentStoreSync(state);
     }
   }

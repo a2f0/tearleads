@@ -33,8 +33,13 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
+import {
+  boundDocumentSyncPlanRequest,
+  materializedDocumentSyncPlan,
+} from "./syncPlanRequestBounds";
 import {
   type DocumentSyncTraceEmitter,
   traceCheckpointRegeneration,
@@ -184,6 +189,13 @@ async function resolveStaleHealMaterial(
   const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
     input.buildRotationSnapshot,
   );
+  const selectedOrdinaryPendingUpdates = selectDocumentSyncOutgoingBatch(
+    ordinaryPendingUpdates,
+    {
+      reservedDataCharacters: recoveryBaseline.updateData.length,
+      reservedUpdateCount: 1,
+    },
+  );
   assertRecoveryBaselineCoversCheckpoints(
     recoveryBaseline,
     heldBackCheckpoints,
@@ -199,7 +211,7 @@ async function resolveStaleHealMaterial(
     fromEpoch: staleEpoch,
     heldBack: heldBackCheckpoints.length,
     toEpoch: contentKeyBundle.contentKeyEpoch,
-    updates: ordinaryPendingUpdates.length,
+    updates: selectedOrdinaryPendingUpdates.length,
   });
   return {
     contentKey,
@@ -208,7 +220,7 @@ async function resolveStaleHealMaterial(
     documentManifest: input.writerProjection.documentManifest,
     healedStaleContentKeyBundle: true,
     heldBackPendingUpdateIds: heldBackCheckpoints.map((update) => update.id),
-    pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
+    pendingUpdates: [recoveryBaseline, ...selectedOrdinaryPendingUpdates],
     staleRecoveryBaselineUpdateId: recoveryBaseline.id,
   };
 }
@@ -237,16 +249,23 @@ async function resolveCheckpointRegenerationMaterial(
   const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
     input.buildRotationSnapshot,
   );
+  const selectedOrdinaryPendingUpdates = selectDocumentSyncOutgoingBatch(
+    ordinaryPendingUpdates,
+    {
+      reservedDataCharacters: recoveryBaseline.updateData.length,
+      reservedUpdateCount: 1,
+    },
+  );
   assertRecoveryBaselineCoversCheckpoints(recoveryBaseline, queuedCheckpoints);
   traceCheckpointRegeneration(input.onSyncTrace, {
     checkpoints: queuedCheckpoints.length,
     documentId: input.writerProjection.documentId,
-    updates: ordinaryPendingUpdates.length,
+    updates: selectedOrdinaryPendingUpdates.length,
   });
   return {
     ...base,
     heldBackPendingUpdateIds: queuedCheckpoints.map((update) => update.id),
-    pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
+    pendingUpdates: [recoveryBaseline, ...selectedOrdinaryPendingUpdates],
     staleRecoveryBaselineUpdateId: recoveryBaseline.id,
   };
 }
@@ -257,22 +276,24 @@ async function resolveSyncPlanContentMaterial(
     ReturnType<typeof collectContainerKeksForDocumentSync>
   >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
-  const pendingUpdates = input.pendingUpdates ?? [];
+  const allPendingUpdates = input.pendingUpdates ?? [];
   const staleContentKeyBundle =
     input.writerProjection.contentKeyBundleStale === true;
 
-  if (staleContentKeyBundle && pendingUpdates.length > 0) {
+  if (staleContentKeyBundle && allPendingUpdates.length > 0) {
     traceStaleBundle(input.onSyncTrace, {
       documentId: input.writerProjection.documentId,
       epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
-      pending: pendingUpdates.length,
+      pending: allPendingUpdates.length,
     });
     return resolveStaleHealMaterial(
       input,
       collectedKeks.keksByEpochId,
-      pendingUpdates,
+      allPendingUpdates,
     );
   }
+
+  const pendingUpdates = selectDocumentSyncOutgoingBatch(allPendingUpdates);
 
   if (staleContentKeyBundle) {
     traceStaleRead(input.onSyncTrace, {
@@ -328,12 +349,12 @@ async function resolveSyncPlanContentMaterial(
   };
   if (
     input.regenerateQueuedCheckpoints === true &&
-    pendingUpdates.some((update) => update.sourceVersionVector != null)
+    allPendingUpdates.some((update) => update.sourceVersionVector != null)
   ) {
     return resolveCheckpointRegenerationMaterial(
       input,
       normalMaterial,
-      pendingUpdates,
+      allPendingUpdates,
     );
   }
 
@@ -420,8 +441,6 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKeyBundle,
     documentKekTargets,
     documentManifest,
-    healedStaleContentKeyBundle,
-    heldBackPendingUpdateIds,
     pendingUpdates,
     staleRecoveryBaselineUpdateId,
   } = material;
@@ -449,17 +468,13 @@ export async function buildMaterializedDocumentSyncPlan(
     outgoingUpdates,
     signedAt: input.signedAt,
   });
-  const plan = writerAuthorization
+  const unboundedPlan = writerAuthorization
     ? { ...basePlan, documentWriterAuthorization: writerAuthorization }
     : basePlan;
+  const plan = boundDocumentSyncPlanRequest(
+    unboundedPlan,
+    staleRecoveryBaselineUpdateId,
+  );
 
-  return {
-    contentKey,
-    healedStaleContentKeyBundle,
-    heldBackPendingUpdateIds,
-    plan,
-    ...(staleRecoveryBaselineUpdateId === undefined
-      ? {}
-      : { staleRecoveryBaselineUpdateId }),
-  };
+  return materializedDocumentSyncPlan(material, plan);
 }

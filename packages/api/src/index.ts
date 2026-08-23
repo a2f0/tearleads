@@ -74,10 +74,25 @@ export function createRouteRequestBindings(
   }
 }
 
-const { API_HOST = "0.0.0.0", API_PORT = "3001" } = process.env;
+const LOOPBACK_API_HOSTS = new Set(["127.0.0.1"]);
+
+export function resolveApiHost(configuredHost?: string): string {
+  const host = configuredHost ?? "127.0.0.1";
+  if (!LOOPBACK_API_HOSTS.has(host)) {
+    throw new Error(
+      "API_HOST must be loopback-only; public traffic must pass through nginx",
+    );
+  }
+  return host;
+}
+
+const { API_HOST, API_PORT = "3001" } = process.env;
 
 const server = {
-  hostname: API_HOST,
+  // Route-specific JSON ceilings rely on nginx rejecting chunked/headerless
+  // bodies before Bun buffers them. Never expose this upload-capable Bun
+  // listener directly to the network.
+  hostname: resolveApiHost(API_HOST),
   port: Number(API_PORT),
   // Bound every request body to the multipart part ceiling. The part route reads
   // its body with c.req.arrayBuffer() (Bun's native read, which sidesteps the

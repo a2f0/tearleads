@@ -4,7 +4,6 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -33,6 +32,10 @@ import {
   persistContainerMetadataStateFromRuntime,
 } from "./metadataPersistence";
 
+export {
+  hasContainerMetadataDocumentUpdateEvent,
+  listContainerMetadataDocumentUpdateIds,
+} from "./metadataEvents";
 export {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
@@ -78,88 +81,17 @@ interface ContainerMetadataSyncAttempt {
   synced: ContainerMetadataSyncResult;
 }
 
-export function hasContainerMetadataDocumentUpdateEvent(
-  events: ReadonlyArray<unknown>,
-  metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
-  locallyAcceptedUpdateIds?: Set<string>,
+export function settleContainerMetadataOutgoingPass(
+  metadataState: ContainerMetadataState,
+  attempt: ContainerMetadataSyncAttempt,
 ): boolean {
-  // Pass a copy: listContainerMetadataDocumentUpdateIds consumes (deletes)
-  // matched ids from the set, and a boolean predicate must not mutate the
-  // caller's registry — otherwise a `has` check before the real list pass would
-  // prematurely consume the self-echo ids, so the later list would miss them
-  // and arm a redundant sync.
-  return (
-    listContainerMetadataDocumentUpdateIds(
-      events,
-      metadataStates,
-      locallyAcceptedUpdateIds ? new Set(locallyAcceptedUpdateIds) : undefined,
-    ).length > 0
-  );
-}
-
-/**
- * Consume this client's own metadata update ids from a `document_update_created`
- * event and report whether any UNKNOWN (peer-authored) update id remains.
- * Mirrors the document store's self-echo suppression: a fully self-authored echo
- * returns false so it does not arm a redundant forced read-sync; an event with
- * an unknown id — or one carrying no updateIds at all — returns true and stays a
- * lossy hint that forces the sync.
- */
-function metadataEventHasRemoteUpdate(
-  event: { updateIds?: readonly string[] | undefined },
-  locallyAcceptedUpdateIds: Set<string> | undefined,
-): boolean {
-  if (
-    !locallyAcceptedUpdateIds ||
-    !event.updateIds ||
-    event.updateIds.length === 0
-  ) {
-    return true;
-  }
-
-  let remoteUpdateFound = false;
-  for (const updateId of event.updateIds) {
-    if (locallyAcceptedUpdateIds.has(updateId)) {
-      locallyAcceptedUpdateIds.delete(updateId);
-    } else {
-      remoteUpdateFound = true;
-    }
-  }
-  return remoteUpdateFound;
-}
-
-export function listContainerMetadataDocumentUpdateIds(
-  events: ReadonlyArray<unknown>,
-  metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
-  locallyAcceptedUpdateIds?: Set<string>,
-): string[] {
-  const metadataDocumentIds = new Set<string>();
-  for (const metadataState of metadataStates) {
-    if (typeof metadataState.record.documentId === "string") {
-      metadataDocumentIds.add(metadataState.record.documentId);
-    }
-  }
-  if (metadataDocumentIds.size === 0) {
-    return [];
-  }
-
-  const eventDocumentIds = new Set<string>();
-  for (const event of events) {
-    if (
-      !isDocumentUpdateCreatedEvent(event) ||
-      !metadataDocumentIds.has(event.documentId)
-    ) {
-      continue;
-    }
-
-    if (!metadataEventHasRemoteUpdate(event, locallyAcceptedUpdateIds)) {
-      continue;
-    }
-
-    eventDocumentIds.add(event.documentId);
-  }
-
-  return Array.from(eventDocumentIds);
+  return settleOutgoingPassAndDecideReArm(metadataState, {
+    exhaustedPendingUpdateCount: attempt.synced.exhaustedPendingUpdateCount,
+    outgoingUpdateCount: attempt.outgoingUpdateCount,
+    rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
+    settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
+    acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
+  });
 }
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
@@ -187,6 +119,9 @@ async function syncRemoteContainerMetadata(input: {
   documentId: string | null;
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
+  onOutgoingUpdatesMaterialized?:
+    | ((updateIds: readonly string[]) => void)
+    | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
   rekeyPendingUpdate: RekeyPendingUpdate;
@@ -201,6 +136,7 @@ async function syncRemoteContainerMetadata(input: {
     documentId,
     lastCommitLsn,
     localVersionVector,
+    onOutgoingUpdatesMaterialized,
     pendingUpdates,
     persistedState,
     rekeyPendingUpdate,
@@ -236,6 +172,7 @@ async function syncRemoteContainerMetadata(input: {
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
+    onOutgoingUpdatesMaterialized,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: (failure) =>
       recordDocumentSyncFailure(execSql, metadataScope, {
@@ -342,7 +279,7 @@ function metadataRotationSnapshotProvider(
   return async () => exportFullHistorySnapshot(metadataState.doc);
 }
 
-export async function syncContainerMetadataState(input: {
+interface SyncContainerMetadataStateInput {
   forceReadSync?: boolean | undefined;
   /**
    * Self-echo registry shared with {@link listContainerMetadataDocumentUpdateIds}:
@@ -357,7 +294,11 @@ export async function syncContainerMetadataState(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
-}): Promise<SyncedContainerMetadataState | null> {
+}
+
+export async function syncContainerMetadataState(
+  input: SyncContainerMetadataStateInput,
+): Promise<SyncedContainerMetadataState | null> {
   const {
     metadataState,
     persistence,
@@ -383,48 +324,124 @@ export async function syncContainerMetadataState(input: {
     return null;
   }
 
-  // Pre-register the ids we are about to send so the author's own echo is
-  // classified as self-authored even when it beats the response processing.
-  // Mirrors the document store lane (stores/documents/documentStore/sync.ts).
-  const sentUpdateIds = pendingUpdates.map((pendingUpdate) => pendingUpdate.id);
-  for (const sentUpdateId of sentUpdateIds) {
-    input.locallyAcceptedUpdateIds?.add(sentUpdateId);
-  }
+  // Register only the exact signed batches as they are materialized, before
+  // each network await. Bounded batching and recovery can omit queued ids or
+  // introduce a synthetic baseline that was never present in the queue.
+  const sentUpdateIds: string[] = [];
 
-  const syncAttempt = await syncRemoteContainerMetadata({
-    buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
-    containerId: metadataState.container.id,
-    documentId,
-    lastCommitLsn: metadataState.record.lastCommitLsn,
-    localVersionVector: encodeVersionVector(metadataState.doc),
-    pendingUpdates,
-    persistedState: metadataState.record,
-    rekeyPendingUpdate: persistence.rekeyPendingUpdate,
-    resolveProjectionUserKey,
-    runtime,
-    targetSecretKey,
-    writerProjection:
-      metadataState.metadataWriterProjection?.documentId === documentId
-        ? metadataState.metadataWriterProjection
-        : undefined,
-  });
+  const syncAttempt = await cleanupContainerMetadataRegistrationsOnFailure(
+    input.locallyAcceptedUpdateIds,
+    sentUpdateIds,
+    () =>
+      syncRemoteContainerMetadata({
+        buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
+        containerId: metadataState.container.id,
+        documentId,
+        lastCommitLsn: metadataState.record.lastCommitLsn,
+        localVersionVector: encodeVersionVector(metadataState.doc),
+        onOutgoingUpdatesMaterialized: (updateIds) =>
+          preRegisterMaterializedContainerMetadataUpdateIds(
+            input.locallyAcceptedUpdateIds,
+            sentUpdateIds,
+            updateIds,
+          ),
+        pendingUpdates,
+        persistedState: metadataState.record,
+        rekeyPendingUpdate: persistence.rekeyPendingUpdate,
+        resolveProjectionUserKey,
+        runtime,
+        targetSecretKey,
+        writerProjection:
+          metadataState.metadataWriterProjection?.documentId === documentId
+            ? metadataState.metadataWriterProjection
+            : undefined,
+      }),
+  );
   if (!syncAttempt) {
     return null;
   }
+  return finalizeContainerMetadataSync({
+    documentId,
+    locallyAcceptedUpdateIds: input.locallyAcceptedUpdateIds,
+    metadataState,
+    persistence,
+    runtime,
+    sentUpdateIds,
+    syncAttempt,
+  });
+}
 
-  const { outgoingUpdateCount, synced } = syncAttempt;
-  // Reconcile the pre-registered ids against what the server actually accepted:
-  // an id we sent but the server did not accept will never be echoed, so drop
-  // it to keep the registry from leaking. Accepted ids stay registered until
-  // their echo consumes them.
-  if (input.locallyAcceptedUpdateIds) {
-    const acceptedOutgoing = new Set(synced.response.acceptedOutgoingUpdateIds);
-    for (const sentUpdateId of sentUpdateIds) {
-      if (!acceptedOutgoing.has(sentUpdateId)) {
-        input.locallyAcceptedUpdateIds.delete(sentUpdateId);
-      }
+export function preRegisterMaterializedContainerMetadataUpdateIds(
+  locallyAcceptedUpdateIds: Set<string> | undefined,
+  registeredUpdateIds: string[],
+  materializedUpdateIds: readonly string[],
+): void {
+  const alreadyRegistered = new Set(registeredUpdateIds);
+  for (const updateId of materializedUpdateIds) {
+    if (alreadyRegistered.has(updateId)) continue;
+    alreadyRegistered.add(updateId);
+    registeredUpdateIds.push(updateId);
+    locallyAcceptedUpdateIds?.add(updateId);
+  }
+}
+
+function discardUnacceptedContainerMetadataUpdateIds(
+  locallyAcceptedUpdateIds: Set<string> | undefined,
+  sentUpdateIds: readonly string[],
+  acceptedUpdateIds: readonly string[],
+): void {
+  if (!locallyAcceptedUpdateIds) return;
+  const acceptedOutgoing = new Set(acceptedUpdateIds);
+  for (const sentUpdateId of sentUpdateIds) {
+    if (!acceptedOutgoing.has(sentUpdateId)) {
+      locallyAcceptedUpdateIds.delete(sentUpdateId);
     }
   }
+}
+
+export async function cleanupContainerMetadataRegistrationsOnFailure<T>(
+  locallyAcceptedUpdateIds: Set<string> | undefined,
+  sentUpdateIds: readonly string[],
+  task: () => Promise<T | null>,
+): Promise<T | null> {
+  try {
+    const result = await task();
+    if (result === null) {
+      discardUnacceptedContainerMetadataUpdateIds(
+        locallyAcceptedUpdateIds,
+        sentUpdateIds,
+        [],
+      );
+    }
+    return result;
+  } catch (error) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      locallyAcceptedUpdateIds,
+      sentUpdateIds,
+      [],
+    );
+    throw error;
+  }
+}
+
+async function finalizeContainerMetadataSync(input: {
+  documentId: string;
+  locallyAcceptedUpdateIds: Set<string> | undefined;
+  metadataState: ContainerMetadataState;
+  persistence: ContainerContentsPersistence;
+  runtime: ContainerMetadataSyncRuntime;
+  sentUpdateIds: readonly string[];
+  syncAttempt: ContainerMetadataSyncAttempt;
+}): Promise<SyncedContainerMetadataState> {
+  const { metadataState, syncAttempt } = input;
+  const { outgoingUpdateCount, synced } = syncAttempt;
+  // An id sent but not accepted will never be echoed. Accepted ids stay
+  // registered until their realtime echo consumes them.
+  discardUnacceptedContainerMetadataUpdateIds(
+    input.locallyAcceptedUpdateIds,
+    input.sentUpdateIds,
+    synced.response.acceptedOutgoingUpdateIds,
+  );
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {
@@ -439,13 +456,13 @@ export async function syncContainerMetadataState(input: {
     metadataState,
     patch: {
       ...synced.persistedState,
-      documentId,
+      documentId: input.documentId,
       lastCommitLsn:
         synced.response.commitLsn ?? metadataState.record.lastCommitLsn ?? null,
-      metadataDocumentId: documentId,
+      metadataDocumentId: input.documentId,
     },
-    persistence,
-    runtime,
+    persistence: input.persistence,
+    runtime: input.runtime,
     saveOptions:
       outgoingUpdateCount === 0
         ? createReadOnlyMetadataSyncSaveOptions()
@@ -454,10 +471,9 @@ export async function syncContainerMetadataState(input: {
 
   return {
     ...persisted,
-    shouldRequestFollowupSync: settleOutgoingPassAndDecideReArm(metadataState, {
-      outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
-      settledUpdateCount: synced.settledPendingUpdateIds.length,
-    }),
+    shouldRequestFollowupSync: settleContainerMetadataOutgoingPass(
+      metadataState,
+      syncAttempt,
+    ),
   };
 }

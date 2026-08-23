@@ -79,12 +79,17 @@ type GeneratedErrorResponse =
   GeneratedResponses[409]["content"]["application/json"];
 type GeneratedNotFoundResponse =
   GeneratedResponses[404]["content"]["application/json"];
+type GeneratedTooLargeResponse =
+  GeneratedResponses[413]["content"]["application/json"];
 type FixtureRequest = ReturnType<typeof createSyncRequest>;
 type FixtureResponse = ReturnType<typeof createSyncResponse>;
 type GeneratedFailureStatus = Exclude<keyof GeneratedResponses, 200>;
 type DeclaredFailureStatus =
   (typeof documentSyncOperation.failureStatuses)[number];
-type GeneratedStatusOnlyFailure = Exclude<GeneratedFailureStatus, 404 | 409>;
+type GeneratedStatusOnlyFailure = Exclude<
+  GeneratedFailureStatus,
+  404 | 409 | 413
+>;
 type GeneratedStatusOnlyFailuresHaveNoContent =
   GeneratedResponses[GeneratedStatusOnlyFailure] extends { content?: never }
     ? true
@@ -204,6 +209,12 @@ test("generated OpenAPI types match the document sync structural contract", () =
     IsEqual<
       NormalizeWireType<GeneratedNotFoundResponse>,
       NormalizeWireType<DocumentNotFoundErrorResponse>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedTooLargeResponse>,
+      NormalizeWireType<ErrorResponse>
     >
   >();
   assertType<IsAssignable<FixtureRequest, GeneratedRequest>>();

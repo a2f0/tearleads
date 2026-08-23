@@ -27,6 +27,14 @@ export {
   sealedContainerKekKeyringBytes,
 } from "./containerKekKeyringWire";
 export {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
+  MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
+  MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "./documentSyncLimits";
+export {
   isSerializedKeyEnvelope,
   isSerializedKeyEnvelopeArray,
   type SerializedKeyEnvelope,

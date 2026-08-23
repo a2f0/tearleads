@@ -4,6 +4,7 @@ set -eu
 
 OPENAPI_PATH=docs/openapi.json
 ERROR_IGNORE_PATH=scripts/checks/openApiCompatibilityErrors.ignore
+CUSTOM_IGNORE_PATH=scripts/checks/openApiCustomCompatibility.ignore
 
 fail() {
   echo "Error: $*" >&2
@@ -49,9 +50,10 @@ echo "Checking $OPENAPI_PATH compatibility against $base_description ($base_comm
 command -v bun >/dev/null 2>&1 ||
   fail "bun is unavailable; it is required for the runtime-refinement check."
 
-# oasdiff ignores x-symcrypt-runtime-refinements, so tightening them must be
-# caught separately. The helper lives next to this script, not in $REPO_ROOT,
-# so fixture repositories exercise the real implementation.
+# Run compatibility checks the pinned oasdiff cannot currently express,
+# including runtime-refinement direction and request maxItems tightening. The
+# helper lives next to this script, not in $REPO_ROOT, so fixture repositories
+# exercise the real implementation.
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
 trap 'rm -f "$base_spec_file"' EXIT
@@ -83,8 +85,13 @@ if [ "$revision_title" = "SymCrypt Protocol API" ] &&
   exit 0
 fi
 
-bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
-  "$base_spec_file" "$OPENAPI_PATH"
+if [ -f "$CUSTOM_IGNORE_PATH" ]; then
+  bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
+    "$base_spec_file" "$OPENAPI_PATH" "$CUSTOM_IGNORE_PATH"
+else
+  bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
+    "$base_spec_file" "$OPENAPI_PATH"
+fi
 rm -f "$base_spec_file"
 trap - EXIT
 
@@ -110,6 +117,7 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
     reduced_exit=0
     mise exec github:oasdiff/oasdiff -- oasdiff "$@" \
       --err-ignore "$reduced_ignore" \
+      --warn-ignore "$reduced_ignore" \
       --format text --color never >"$reduced_output" 2>&1 ||
       reduced_exit=$?
     if [ "$reduced_exit" -eq 0 ]; then
@@ -124,7 +132,8 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
   done <<EOF
 $ignore_entries
 EOF
-  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH"
+  set -- "$@" --err-ignore "$ERROR_IGNORE_PATH" \
+    --warn-ignore "$ERROR_IGNORE_PATH"
 fi
 
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then

@@ -9,7 +9,7 @@ export function discardPreRegisteredUpdateIds(
   }
 }
 
-export function preRegisterUpdateIds(
+function preRegisterUpdateIds(
   state: DocumentStoreState,
   pendingUpdates: ReadonlyArray<{ readonly id: string }>,
 ): string[] {
@@ -18,6 +18,23 @@ export function preRegisterUpdateIds(
     state.locallyAcceptedUpdateIds.add(sentUpdateId);
   }
   return sentUpdateIds;
+}
+
+export function preRegisterMaterializedDocumentSyncUpdateIds(
+  state: DocumentStoreState,
+  registeredUpdateIds: string[],
+  materializedUpdateIds: readonly string[],
+): void {
+  const alreadyRegistered = new Set(registeredUpdateIds);
+  const freshUpdateIds = materializedUpdateIds.filter(
+    (updateId) => !alreadyRegistered.has(updateId),
+  );
+  registeredUpdateIds.push(
+    ...preRegisterUpdateIds(
+      state,
+      freshUpdateIds.map((id) => ({ id })),
+    ),
+  );
 }
 
 export function discardUnacceptedPreRegisteredUpdateIds(

@@ -221,9 +221,11 @@ export async function finalizeDocumentSync(
 
   if (
     settleOutgoingPassAndDecideReArm(state, {
+      exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
       rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
+      acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
     })
   ) {
     requestDocumentStoreSync(state);

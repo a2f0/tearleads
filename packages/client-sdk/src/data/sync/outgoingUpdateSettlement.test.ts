@@ -8,6 +8,7 @@ test("re-arms on partial settlement progress (more remain, some settled)", () =>
   const lane = { rekeyOnlyPassCount: 0 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 5,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 2,
@@ -21,6 +22,7 @@ test("does not re-arm when the server settled nothing (under-settle)", () => {
   const lane = { rekeyOnlyPassCount: 0 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 3,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 0,
@@ -28,10 +30,24 @@ test("does not re-arm when the server settled nothing (under-settle)", () => {
   ).toBe(false);
 });
 
+test("re-arms after a synthetic recovery baseline leaves queued updates", () => {
+  const lane = { rekeyOnlyPassCount: 0 };
+  expect(
+    settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
+      outgoingUpdateCount: 3,
+      rekeyedUpdateCount: 0,
+      settledUpdateCount: 0,
+      acceptedRecoveryBaseline: true,
+    }),
+  ).toBe(true);
+});
+
 test("does not re-arm once everything sent was settled", () => {
   const lane = { rekeyOnlyPassCount: 0 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 5,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 5,
@@ -43,6 +59,7 @@ test("does not re-arm when nothing was sent", () => {
   const lane = { rekeyOnlyPassCount: 0 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 0,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 0,
@@ -56,6 +73,7 @@ test("re-arms when conflicted pending updates were re-keyed", () => {
   const lane = { rekeyOnlyPassCount: 0 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 2,
       rekeyedUpdateCount: 2,
       settledUpdateCount: 0,
@@ -73,6 +91,7 @@ test("a rekey-only loop stops self-arming once it hits the cap", () => {
   for (let pass = 0; pass < MAX_CONSECUTIVE_REKEY_ONLY_PASSES + 2; pass += 1) {
     decisions.push(
       settleOutgoingPassAndDecideReArm(lane, {
+        exhaustedPendingUpdateCount: 0,
         outgoingUpdateCount: 2,
         rekeyedUpdateCount: 2,
         settledUpdateCount: 0,
@@ -87,6 +106,7 @@ test("settlement progress resets the rekey-only counter and keeps re-arming", ()
   const lane = { rekeyOnlyPassCount: MAX_CONSECUTIVE_REKEY_ONLY_PASSES };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 5,
       rekeyedUpdateCount: 2,
       settledUpdateCount: 2,
@@ -99,9 +119,24 @@ test("a pass without re-keys resets the rekey-only counter", () => {
   const lane = { rekeyOnlyPassCount: 2 };
   expect(
     settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 0,
       outgoingUpdateCount: 3,
       rekeyedUpdateCount: 0,
       settledUpdateCount: 0,
+    }),
+  ).toBe(false);
+  expect(lane.rekeyOnlyPassCount).toBe(0);
+});
+
+test("terminal recovery exhaustion suppresses mixed-pass re-arming", () => {
+  const lane = { rekeyOnlyPassCount: 2 };
+  expect(
+    settleOutgoingPassAndDecideReArm(lane, {
+      exhaustedPendingUpdateCount: 1,
+      outgoingUpdateCount: 3,
+      rekeyedUpdateCount: 1,
+      settledUpdateCount: 1,
+      acceptedRecoveryBaseline: true,
     }),
   ).toBe(false);
   expect(lane.rekeyOnlyPassCount).toBe(0);

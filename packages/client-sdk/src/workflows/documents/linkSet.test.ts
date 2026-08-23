@@ -16,8 +16,37 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "./create";
-import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
+import {
+  assertDocumentLinkAuthorizationPathCapacity,
+  assertDocumentLinkTargetCapacity,
+  buildMaterializedDocumentLinkSetMutationPlan,
+} from "./linkSet";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
+
+test("document links enforce the greenfield content-key target maximum", () => {
+  expect(() => assertDocumentLinkTargetCapacity(63)).not.toThrow();
+  expect(() => assertDocumentLinkTargetCapacity(64)).toThrow(
+    "A document cannot be linked to more than 64 containers",
+  );
+});
+
+test("document links enforce the future sync authorization-reference maximum", () => {
+  const maximalExistingPathLengths = Array.from({ length: 63 }, () => 100);
+  expect(() =>
+    assertDocumentLinkAuthorizationPathCapacity(
+      maximalExistingPathLengths,
+      100,
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertDocumentLinkAuthorizationPathCapacity(
+      [...maximalExistingPathLengths, 100],
+      100,
+    ),
+  ).toThrow(
+    "Document links cannot require more than 6400 authorization references",
+  );
+});
 
 test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating and unlinks with a rotated content key", async () => {
   const { author } = await createAuthor();

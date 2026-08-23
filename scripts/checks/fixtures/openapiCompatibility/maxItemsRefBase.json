@@ -1,0 +1,50 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI compatibility reference fixture",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/widgets": {
+      "post": {
+        "requestBody": {
+          "$ref": "#/components/requestBodies/WidgetRequest"
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "requestBodies": {
+      "WidgetRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/WidgetRequest"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "WidgetRequest": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "$ref": "#/components/schemas/Tags"
+          }
+        }
+      },
+      "Tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

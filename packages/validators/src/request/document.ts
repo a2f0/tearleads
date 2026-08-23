@@ -1,4 +1,6 @@
 import type { z } from "zod";
+import { documentLinkSetPathRefinement } from "../documentSyncRefinements";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -8,6 +10,9 @@ import {
 } from "../schema";
 import {
   AccessManifestBundleWireSchema,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
@@ -60,22 +65,60 @@ export type DocumentCreateRequest = z.infer<typeof DocumentCreateRequestSchema>;
 // The prior link-set manifest is the document's current head. The server
 // resolves it from its own store, while the signed event's previous manifest
 // hash pins freshness, so the writer does not echo the bundle back.
-export const DocumentLinkSetMutationRequestSchema = loosePlainObject({
-  authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
-  body: requiredUnknownSchema,
-  containerRekeys: arraySchema(
-    ContainerMutationRequestSchema,
-    MAX_INLINE_CONTAINER_REKEYS,
-  ).optional(),
-  contentKeyBundle: DocumentContentKeyBundleRequestSchema,
-  event: plainObjectSchema,
-  expectedManifestHash: nonEmptyStringSchema,
-  manifest: plainObjectSchema,
-  rotationBaseline: DocumentOutgoingUpdateSchema.optional(),
-  // A container path (root→leaf chain) must carry at least one manifest
-  // reference; an empty path authorizes nothing and is never legitimately built.
-  targetContainerPathRefs: ContainerManifestPathSchema,
-});
+export const DocumentLinkSetMutationRequestSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
+      body: requiredUnknownSchema,
+      containerRekeys: arraySchema(
+        ContainerMutationRequestSchema,
+        MAX_INLINE_CONTAINER_REKEYS,
+      ).optional(),
+      contentKeyBundle: DocumentContentKeyBundleRequestSchema,
+      event: plainObjectSchema,
+      expectedManifestHash: nonEmptyStringSchema,
+      manifest: plainObjectSchema,
+      rotationBaseline: DocumentOutgoingUpdateSchema.optional(),
+      // A container path (root→leaf chain) must carry at least one manifest
+      // reference; an empty path authorizes nothing and is never legitimately built.
+      targetContainerPathRefs: ContainerManifestPathSchema,
+    }).superRefine((request, context) => {
+      if (
+        !Array.isArray(request.authorizingContainerPathRefs) ||
+        !Array.isArray(request.targetContainerPathRefs)
+      ) {
+        return;
+      }
+      // The nested schemas have already reported their shape/cardinality
+      // errors. Keep this aggregate refinement bounded and never dereference a
+      // malformed path after those continuable issues have been replayed.
+      if (
+        request.authorizingContainerPathRefs.length >
+          MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS ||
+        request.targetContainerPathRefs.length >
+          MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH ||
+        request.authorizingContainerPathRefs.some(
+          (path) =>
+            !Array.isArray(path) ||
+            path.length > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+        )
+      ) {
+        return;
+      }
+      const totalReferences = request.authorizingContainerPathRefs.reduce(
+        (total, path) => total + path.length,
+        request.targetContainerPathRefs.length,
+      );
+      if (totalReferences > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS) {
+        context.addIssue({
+          code: "custom",
+          message: documentLinkSetPathRefinement.description,
+          path: ["authorizingContainerPathRefs"],
+        });
+      }
+    }),
+    [documentLinkSetPathRefinement],
+  );
 
 export type DocumentLinkSetMutationRequest = z.infer<
   typeof DocumentLinkSetMutationRequestSchema

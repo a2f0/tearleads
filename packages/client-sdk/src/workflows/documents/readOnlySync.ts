@@ -31,6 +31,7 @@ import type {
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
@@ -147,7 +148,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     return null;
   }
 
-  return buildDocumentSyncPlan({
+  const plan = await buildDocumentSyncPlan({
     author: input.author,
     contentKeyBundle: persisted.contentKeyBundle,
     documentId: input.documentId,
@@ -158,6 +159,8 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     outgoingUpdates: [],
     signedAt: input.signedAt,
   });
+  const request = limitDocumentSyncRequestBytes(plan.request);
+  return request === plan.request ? plan : { ...plan, request };
 }
 
 type PersistedReadOnlyDocumentSyncResult =
@@ -359,11 +362,13 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
+        hasDeferredPendingUpdates: false,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],
         response: submitted.response,
         settledPendingUpdateIds: [],
+        acceptedRecoveryBaseline: false,
       },
     };
   } catch {
@@ -399,6 +404,10 @@ export interface SyncRemoteDocumentInput {
    * explain why (edge-case row 13).
    */
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
+  /** Fires immediately before a materialized outgoing batch is submitted. */
+  onOutgoingUpdatesMaterialized?:
+    | ((updateIds: readonly string[]) => void)
+    | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

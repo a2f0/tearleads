@@ -1,6 +1,6 @@
 /**
- * Fail when a revision spec changes an operation's runtime refinements in a
- * direction existing clients can observe as breaking.
+ * Fail when a revision spec changes an operation contract in a direction that
+ * existing clients can observe but the pinned oasdiff does not detect.
  *
  * oasdiff ignores x-symcrypt-runtime-refinements, so these server-side rules
  * invisible to the JSON Schema would otherwise change with a green
@@ -13,11 +13,14 @@
  * an operation that does not exist in the base. Ids with any other prefix
  * fail on every change until they are classified.
  *
- * Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json>
+ * The custom checks cover runtime-refinement direction and request maxItems
+ * tightenings. Usage:
+ * bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]
  * Set OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 to acknowledge an intentional
  * breaking change and let the check pass loudly.
  */
 
+import { createHash } from "node:crypto";
 import process from "node:process";
 
 const REFINEMENTS_KEY = "x-symcrypt-runtime-refinements";
@@ -39,6 +42,11 @@ interface Refinement {
 }
 
 type RefinementsByOperation = Map<string, Map<string, string>>;
+type RequestSchemaNodesByOperation = Map<string, Map<string, number | null>>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function isRefinement(value: unknown): value is Refinement {
   return (
@@ -104,8 +112,175 @@ function collectRefinements(
   return collected;
 }
 
+function escapeJsonPointerToken(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function resolveLocalReference(
+  spec: Record<string, unknown>,
+  reference: string,
+  source: string,
+): unknown {
+  if (reference === "#") {
+    return spec;
+  }
+  if (!reference.startsWith("#/")) {
+    throw new Error(`${source} contains unsupported reference '${reference}'.`);
+  }
+
+  let resolved: unknown = spec;
+  for (const encodedToken of reference.slice(2).split("/")) {
+    const token = decodeURIComponent(encodedToken)
+      .replaceAll("~1", "/")
+      .replaceAll("~0", "~");
+    if (!isRecord(resolved) || !Object.hasOwn(resolved, token)) {
+      throw new Error(`${source} cannot resolve reference '${reference}'.`);
+    }
+    resolved = resolved[token];
+  }
+  return resolved;
+}
+
+function recordMaxItems(
+  nodes: Map<string, number | null>,
+  pointer: string,
+  value: unknown,
+): void {
+  if (typeof value !== "number") {
+    if (!nodes.has(pointer)) nodes.set(pointer, null);
+    return;
+  }
+  const existing = nodes.get(pointer);
+  nodes.set(
+    pointer,
+    typeof existing === "number" ? Math.min(existing, value) : value,
+  );
+}
+
+function collectRequestSchemaNodes(
+  value: unknown,
+  pointer: string,
+  nodes: Map<string, number | null>,
+  spec: Record<string, unknown>,
+  source: string,
+  activeReferences: Set<string> = new Set(),
+): void {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      collectRequestSchemaNodes(
+        item,
+        `${pointer}/${index}`,
+        nodes,
+        spec,
+        source,
+        activeReferences,
+      );
+    }
+    return;
+  }
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const reference = Reflect.get(value, "$ref");
+  if (typeof reference === "string" && !activeReferences.has(reference)) {
+    activeReferences.add(reference);
+    collectRequestSchemaNodes(
+      resolveLocalReference(spec, reference, source),
+      pointer,
+      nodes,
+      spec,
+      source,
+      activeReferences,
+    );
+    activeReferences.delete(reference);
+  }
+
+  recordMaxItems(nodes, pointer, Reflect.get(value, "maxItems"));
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "$ref" || key === "maxItems") {
+      continue;
+    }
+    collectRequestSchemaNodes(
+      child,
+      `${pointer}/${escapeJsonPointerToken(key)}`,
+      nodes,
+      spec,
+      source,
+      activeReferences,
+    );
+  }
+}
+
+function jsonRequestSchema(
+  spec: Record<string, unknown>,
+  operation: Record<string, unknown>,
+  source: string,
+): unknown {
+  const unresolvedRequestBody = Reflect.get(operation, "requestBody");
+  const requestBodyReference = isRecord(unresolvedRequestBody)
+    ? Reflect.get(unresolvedRequestBody, "$ref")
+    : undefined;
+  const requestBody =
+    typeof requestBodyReference === "string"
+      ? resolveLocalReference(spec, requestBodyReference, source)
+      : unresolvedRequestBody;
+  const content = isRecord(unresolvedRequestBody)
+    ? (Reflect.get(unresolvedRequestBody, "content") ??
+      (isRecord(requestBody) ? Reflect.get(requestBody, "content") : undefined))
+    : undefined;
+  const jsonContent = isRecord(content)
+    ? content["application/json"]
+    : undefined;
+  return isRecord(jsonContent) ? Reflect.get(jsonContent, "schema") : undefined;
+}
+
+function collectRequestMaxItems(
+  spec: unknown,
+  source: string,
+): RequestSchemaNodesByOperation {
+  const collected: RequestSchemaNodesByOperation = new Map();
+  if (!isRecord(spec)) {
+    return collected;
+  }
+  const paths = Reflect.get(spec, "paths");
+  if (!isRecord(paths)) {
+    return collected;
+  }
+  for (const [path, operations] of Object.entries(paths)) {
+    if (!isRecord(operations)) {
+      continue;
+    }
+    for (const [method, operation] of Object.entries(operations)) {
+      if (!HTTP_METHODS.has(method) || !isRecord(operation)) {
+        continue;
+      }
+      const operationSource = `${source}: ${method.toUpperCase()} ${path}`;
+      const schema = jsonRequestSchema(spec, operation, operationSource);
+      if (schema === undefined) {
+        continue;
+      }
+      const nodes = new Map<string, number | null>();
+      collectRequestSchemaNodes(schema, "#", nodes, spec, operationSource);
+      collected.set(`${method.toUpperCase()} ${path}`, nodes);
+    }
+  }
+  return collected;
+}
+
 async function loadSpec(filePath: string): Promise<unknown> {
   return JSON.parse(await Bun.file(filePath).text());
+}
+
+async function loadIgnoredViolations(filePath: string): Promise<string[]> {
+  const entries = (await Bun.file(filePath).text())
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  if (new Set(entries).size !== entries.length) {
+    throw new Error(`${filePath} repeats a runtime-refinement ignore entry.`);
+  }
+  return entries;
 }
 
 function addedRefinementViolation(
@@ -184,39 +359,105 @@ function collectViolations(
   return violations;
 }
 
+function collectRequestMaxItemsViolations(
+  base: RequestSchemaNodesByOperation,
+  revision: RequestSchemaNodesByOperation,
+): string[] {
+  const violations: string[] = [];
+  for (const [operation, revisionNodes] of [...revision.entries()].sort()) {
+    const baseNodes = base.get(operation);
+    if (baseNodes === undefined) {
+      continue;
+    }
+    const operationChanges: string[] = [];
+    for (const [pointer, revisionMaxItems] of [
+      ...revisionNodes.entries(),
+    ].sort()) {
+      if (revisionMaxItems === null || !baseNodes.has(pointer)) {
+        continue;
+      }
+      const baseMaxItems = baseNodes.get(pointer);
+      if (baseMaxItems === null) {
+        operationChanges.push(`${pointer}:unbounded->${revisionMaxItems}`);
+      } else if (
+        baseMaxItems !== undefined &&
+        revisionMaxItems < baseMaxItems
+      ) {
+        operationChanges.push(
+          `${pointer}:${baseMaxItems}->${revisionMaxItems}`,
+        );
+      }
+    }
+    if (operationChanges.length > 0) {
+      const digest = createHash("sha256")
+        .update(operationChanges.join("\n"))
+        .digest("hex");
+      violations.push(
+        `${operation}: ${operationChanges.length} request maxItems constraint(s) tightened [sha256:${digest}]; existing clients could send larger arrays.`,
+      );
+    }
+  }
+  return violations;
+}
+
 async function main(): Promise<number> {
-  const [basePath, revisionPath] = Bun.argv.slice(2);
+  const [basePath, revisionPath, ignorePath] = Bun.argv.slice(2);
   if (basePath === undefined || revisionPath === undefined) {
     console.error(
-      "Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json>",
+      "Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json> [ignore-file]",
     );
     return 2;
   }
 
-  const base = collectRefinements(await loadSpec(basePath), "base spec");
-  const revision = collectRefinements(
-    await loadSpec(revisionPath),
-    "revision spec",
+  const baseSpec = await loadSpec(basePath);
+  const revisionSpec = await loadSpec(revisionPath);
+  const base = collectRefinements(baseSpec, "base spec");
+  const revision = collectRefinements(revisionSpec, "revision spec");
+  const violations = [
+    ...collectViolations(base, revision),
+    ...collectRequestMaxItemsViolations(
+      collectRequestMaxItems(baseSpec, "base spec"),
+      collectRequestMaxItems(revisionSpec, "revision spec"),
+    ),
+  ].sort();
+  const ignoredViolations =
+    ignorePath === undefined ? [] : await loadIgnoredViolations(ignorePath);
+  const unusedIgnores = ignoredViolations.filter(
+    (ignored) => !violations.includes(ignored),
   );
-  const violations = collectViolations(base, revision);
-  if (violations.length === 0) {
+  if (unusedIgnores.length > 0) {
+    for (const unused of unusedIgnores) {
+      console.error(
+        `unused custom OpenAPI compatibility ignore entry: ${unused}`,
+      );
+    }
+    return 1;
+  }
+  const ignoredSet = new Set(ignoredViolations);
+  const unignoredViolations = violations.filter(
+    (violation) => !ignoredSet.has(violation),
+  );
+  for (const ignored of ignoredViolations) {
+    console.warn(`Ignored intentional custom compatibility change: ${ignored}`);
+  }
+  if (unignoredViolations.length === 0) {
     return 0;
   }
 
-  const heading = `${violations.length} breaking runtime-refinement change(s) not visible to oasdiff:`;
+  const heading = `${unignoredViolations.length} breaking custom OpenAPI compatibility change(s) not visible to oasdiff:`;
   const { OPENAPI_ALLOW_REFINEMENT_TIGHTENING: allowTightening } = process.env;
   if (allowTightening === "1") {
     console.warn(
       `Allowed by OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 — ${heading}`,
     );
-    for (const violation of violations) {
+    for (const violation of unignoredViolations) {
       console.warn(`  ${violation}`);
     }
     return 0;
   }
 
   console.error(heading);
-  for (const violation of violations) {
+  for (const violation of unignoredViolations) {
     console.error(`  ${violation}`);
   }
   console.error(

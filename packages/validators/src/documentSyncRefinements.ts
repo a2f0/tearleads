@@ -1,3 +1,5 @@
+import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS } from "./util/documentSyncLimits";
+
 export const documentSyncRequestRotationRefinement = {
   description:
     "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -25,6 +27,11 @@ export const documentSyncRequestRuntimeRefinements = [
   ...documentSyncRequestEnvelopeRefinements,
   documentSyncRequestRotationRefinement,
 ] as const;
+
+export const documentLinkSetPathRefinement = {
+  description: `authorizingContainerPathRefs and targetContainerPathRefs may contain at most ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS} references in total`,
+  id: "request.post-link-authorization-path-total-references",
+} as const;
 
 export const documentSyncResponseRotationRefinement = {
   description:

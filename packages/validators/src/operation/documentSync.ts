@@ -15,6 +15,8 @@ import {
   DocumentNotFoundErrorResponseSchema,
   DocumentSyncErrorResponseSchema,
 } from "../response/documentSyncError";
+import { ErrorResponseSchema } from "../response/error";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "../util/documentSyncLimits";
 import { defineJsonOperation } from "./definition";
 
 export const DocumentSyncPathParamsSchema = z.strictObject({
@@ -31,12 +33,16 @@ export const documentSyncOperation = defineJsonOperation({
   failureResponses: {
     404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
+    413: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
+  failureStatuses: [400, 401, 402, 403, 404, 409, 413, 500, 503],
   id: "documents.sync",
   method: "POST",
   params: DocumentSyncPathParamsSchema,
   path: "/documents/{documentId}/sync",
+  responseDescriptions: {
+    413: `Serialized document sync requests are limited to ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} bytes`,
+  },
   responses: {
     200: DocumentSyncResponseSchema,
   },

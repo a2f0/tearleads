@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -9,11 +9,6 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import type { DocumentSyncResponse } from "@symcrypt/validators/response";
-import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
@@ -34,131 +29,12 @@ import {
   persistDocument,
 } from "./persistence";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
+import {
+  createRotationRecoveryRuntime,
+  persistFullHistoryDocument,
+} from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
-
-/**
- * Persist a document the way production does: content into the durable
- * history (checkpoint, no tail) and the record row carrying only the encoded
- * content frontier.
- */
-async function persistFullHistoryDocument(input: {
-  doc: Awaited<ReturnType<typeof createDocument>>;
-  documentId: string;
-  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
-  localId: string;
-}): Promise<void> {
-  const endVersion = encodeVersionVector(input.doc);
-  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(input.execSql, {
-    coveredTailIds: [],
-    endVersionVector: endVersion,
-    force: true,
-    localId: input.localId,
-    snapshot: bytesToBase64(exportFullHistorySnapshot(input.doc)),
-  });
-  await sqlDocumentsPersistence.saveDocument(input.execSql, {
-    id: input.localId,
-    containerId: "source-container",
-    documentId: input.documentId,
-    text: getTextValue(input.doc),
-    snapshotEndVersion: endVersion,
-    accessEpoch: 1,
-    effectiveAccessLevel: "admin",
-    pendingBaseVersion: endVersion,
-  });
-}
-
-function createRuntime(input: {
-  fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>;
-  execSql: DocumentsRuntime["infra"]["execSql"];
-  online?: boolean | undefined;
-  syncCalls?: { count: number } | undefined;
-}): DocumentsRuntime {
-  const { author, publicKey, response, secretKey, signingPublicKey } =
-    input.fixture;
-  const apiClient = {
-    getDocumentWriterProjection: async () => input.fixture.writerProjection,
-    getUserIdentity: async () => null,
-    syncDocument: async (
-      documentId: string,
-      request: DocumentSyncRequest,
-    ): Promise<DocumentSyncResponse> => {
-      if (input.syncCalls) {
-        input.syncCalls.count += 1;
-      }
-      const echoedUpdates = request.outgoingUpdates.map((update) => ({
-        accessEpoch: 1,
-        ...(update.checkpointKind === undefined
-          ? {}
-          : { checkpointKind: update.checkpointKind }),
-        ...(update.checkpointPayloadKind === undefined
-          ? {}
-          : { checkpointPayloadKind: update.checkpointPayloadKind }),
-        authorFingerprint: author.signerKeyFingerprint,
-        createdAt: "2026-04-27T00:00:00.000Z",
-        documentId,
-        encryptedData: update.encryptedData,
-        id: update.id,
-        partialEndVersionVector: update.partialEndVersionVector,
-        partialStartVersionVector: update.partialStartVersionVector,
-        plaintextHash: update.plaintextHash,
-        ...(update.sourceVersionVector === undefined
-          ? {}
-          : { sourceVersionVector: update.sourceVersionVector }),
-        writeHeader: update.writeHeader,
-      }));
-      return {
-        ...response,
-        acceptedOutgoingUpdateIds: request.outgoingUpdates.map(
-          (update) => update.id,
-        ),
-        updates: [...response.updates, ...echoedUpdates],
-      };
-    },
-  } as unknown as DocumentsRuntime["apiClient"];
-
-  return {
-    apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId: author.organizationId,
-      userId: author.signerUserId,
-    },
-    crypto: {
-      encapsulationKeyPair: { publicKey, secretKey },
-      signingFingerprint: author.signerKeyFingerprint,
-      signingKeyPair: {
-        signingPrivateKey: author.signerPrivateKey,
-        signingPublicKey,
-      },
-    },
-    infra: {
-      blobStore: null as never,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: input.execSql,
-    },
-    resolveTrustedUserIdentity: async (userId) =>
-      userId === author.signerUserId
-        ? createTestTrustedUserIdentity({
-            encapsulationPublicKey: publicKey,
-            signingKeyFingerprint: author.signerKeyFingerprint,
-            signingPublicKey: signingPublicKey,
-            userId,
-          })
-        : null,
-    state: {
-      containerId: "source-container",
-      domainScope: createDomainScope(),
-      events: [],
-      online: input.online ?? true,
-      peerScope: "rotation-recovery-restart",
-    },
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
-  };
-}
+import { hasRemoteDocumentUpdateEvent } from "./syncRemoteSignals";
 
 test("a full-history preflight settles pending writes before returning its baseline", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -176,7 +52,11 @@ test("a full-history preflight settles pending writes before returning its basel
     });
 
     const syncCalls = { count: 0 };
-    const runtime = createRuntime({ execSql, fixture, syncCalls });
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      syncCalls,
+    });
     const state = createDocumentStoreState(
       localId,
       runtime,
@@ -207,6 +87,90 @@ test("a full-history preflight settles pending writes before returning its basel
   }
 });
 
+test("a fast regenerated-baseline echo stays local during rotation recovery", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-fast-baseline-echo",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-recovery-fast-baseline-echo-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({ execSql, fixture }),
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    if (!state.doc) throw new Error("Expected full-history document");
+
+    await enqueuePendingUpdate(
+      state,
+      exportFullHistorySnapshot(state.doc),
+      encodeVersionVector(state.doc),
+    );
+    const queuedCheckpoint = (await listPendingUpdates(state))[0];
+    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+
+    const submittedIds: string[][] = [];
+    const fastEchoWasRemote: boolean[] = [];
+    const baseRuntime = state.runtime;
+    state.runtime = {
+      ...baseRuntime,
+      apiClient: {
+        ...baseRuntime.apiClient,
+        syncDocumentResult: async (documentId, request) => {
+          const updateIds = request.outgoingUpdates.map((update) => update.id);
+          submittedIds.push(updateIds);
+          fastEchoWasRemote.push(
+            hasRemoteDocumentUpdateEvent(state, [
+              {
+                documentId,
+                type: "document_update_created",
+                updateIds,
+              },
+            ]),
+          );
+          if (submittedIds.length === 1) {
+            return {
+              message: `POST /documents/${documentId}/sync: 409 Conflict: Document content-key rotation baseline does not cover the committed frontier`,
+              ok: false as const,
+              report: () => undefined,
+              status: 409,
+            };
+          }
+          return {
+            message: "Write access denied by the server (403)",
+            ok: false as const,
+            report: () => undefined,
+            status: 403,
+          };
+        },
+      } as DocumentsRuntime["apiClient"],
+    };
+
+    await expect(
+      assertDocumentStoreCanRotateContentKey(state),
+    ).rejects.toThrow();
+
+    expect(submittedIds).toHaveLength(2);
+    expect(submittedIds[0]).toEqual([queuedCheckpoint.id]);
+    expect(submittedIds[1]).toHaveLength(1);
+    expect(submittedIds[1]?.[0]).not.toBe(queuedCheckpoint.id);
+    expect(fastEchoWasRemote).toEqual([false, false]);
+  } finally {
+    close();
+  }
+});
+
 test("a clean full-history preflight pulls a newer committed remote frontier", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-remote-ahead",
@@ -227,7 +191,7 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
     const syncCalls = { count: 0 };
     const state = createDocumentStoreState(
       localId,
-      createRuntime({ execSql, fixture, syncCalls }),
+      createRotationRecoveryRuntime({ execSql, fixture, syncCalls }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -264,7 +228,7 @@ test("a text edit queued during rotation applies to the rebuilt document", async
 
     const state = createDocumentStoreState(
       localId,
-      createRuntime({ execSql, fixture }),
+      createRotationRecoveryRuntime({ execSql, fixture }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -305,7 +269,7 @@ test("rotation preflight fails closed offline and can retry once online", async 
     });
 
     const syncCalls = { count: 0 };
-    const runtime = createRuntime({
+    const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
       online: false,
@@ -355,7 +319,7 @@ test("an edit after preflight remains replayable after the new key metadata is p
     });
     const state = createDocumentStoreState(
       localId,
-      createRuntime({ execSql, fixture }),
+      createRotationRecoveryRuntime({ execSql, fixture }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -422,7 +386,7 @@ test("a torn-down store records no rotation preflight failure", async () => {
       localId,
     });
 
-    const baseRuntime = createRuntime({ execSql, fixture });
+    const baseRuntime = createRotationRecoveryRuntime({ execSql, fixture });
     let tearDownStore = () => {};
     const runtime = {
       ...baseRuntime,

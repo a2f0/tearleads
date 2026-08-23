@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 559,
-      "bytes": 26324
+      "lines": 561,
+      "bytes": 26402
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -62,8 +62,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 53441,
-      "bytes": 2215410
+      "lines": 53609,
+      "bytes": 2222866
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -251,7 +251,7 @@
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
       "lines": 559,
-      "bytes": 18084
+      "bytes": 18291
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20571,
-      "bytes": 848795
+      "lines": 20595,
+      "bytes": 849122
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

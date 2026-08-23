@@ -212,6 +212,7 @@ test("an exhausted pending update surfaces terminally and survives the pass", as
   // count so callers keep the recorded failure instead of clearing it.
   expect(synced?.exhaustedPendingUpdateCount).toBe(1);
   expect(synced?.rekeyedPendingUpdateIds).toEqual([]);
+  expect(synced?.hasDeferredPendingUpdates).toBe(false);
   expect(terminalFailures).toEqual([
     `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (1 update)`,
   ]);

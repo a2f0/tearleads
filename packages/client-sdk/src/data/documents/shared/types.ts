@@ -467,11 +467,18 @@ export interface SyncRemoteDocumentResult {
    * the pass as clean and clear it.
    */
   exhaustedPendingUpdateCount: number;
+  /**
+   * True only when this bounded pass made durable progress but left pending
+   * work. Headless hosts should refresh the queue and schedule another
+   * pass. Terminal exhaustion reports false and uses the failure callback.
+   */
+  hasDeferredPendingUpdates: boolean;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
+  acceptedRecoveryBaseline: boolean;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 

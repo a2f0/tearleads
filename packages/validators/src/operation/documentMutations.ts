@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { documentSyncRequestRotationRefinement } from "../documentSyncRefinements";
+import {
+  documentLinkSetPathRefinement,
+  documentSyncRequestRotationRefinement,
+} from "../documentSyncRefinements";
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
@@ -68,7 +71,10 @@ function defineDocumentLinkSetMutationOperation<
     params: DocumentMutationPathParamsSchema,
     path: input.path,
     responses: { 200: DocumentLinkSetMutationResponseSchema },
-    runtimeRefinements: [documentSyncRequestRotationRefinement],
+    runtimeRefinements: [
+      documentLinkSetPathRefinement,
+      documentSyncRequestRotationRefinement,
+    ],
   });
 }
 

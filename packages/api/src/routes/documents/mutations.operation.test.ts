@@ -7,6 +7,7 @@ import {
   operationRoutePath,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -86,12 +87,59 @@ test("document sync preserves the invalid-request response", async () => {
   const route = createTestRoute((_c, next) => next());
   const response = await route.request("/documents/document-1/sync", {
     body: "{}",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Length": "2",
+      "Content-Type": "application/json",
+    },
     method: documentSyncOperation.method,
   });
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: "Invalid request" });
+});
+
+test("document sync rejects oversized headerless bodies after reading", async () => {
+  const route = createTestRoute((_c, next) => next());
+  const chunk = new Uint8Array(1024 * 1024);
+  let remainingBytes = MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (remainingBytes === 0) {
+        controller.close();
+        return;
+      }
+
+      const byteLength = Math.min(remainingBytes, chunk.byteLength);
+      controller.enqueue(chunk.subarray(0, byteLength));
+      remainingBytes -= byteLength;
+    },
+  });
+  const request = new Request("http://localhost/documents/document-1/sync", {
+    body,
+    headers: { "Content-Type": "application/json" },
+    method: documentSyncOperation.method,
+  });
+  expect(request.headers.has("Content-Length")).toBe(false);
+
+  const response = await route.request(request);
+
+  expect(response.status).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
+});
+
+test("document sync rejects oversized declared bodies before parsing", async () => {
+  const route = createTestRoute((_c, next) => next());
+  const response = await route.request("/documents/document-1/sync", {
+    body: "{}",
+    headers: {
+      "Content-Length": String(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
+      "Content-Type": "application/json",
+    },
+    method: documentSyncOperation.method,
+  });
+
+  expect(response.status).toBe(413);
+  expect(await response.json()).toEqual({ error: "Request body too large" });
 });
 
 test("document mutations preserve malformed JSON behavior", async () => {

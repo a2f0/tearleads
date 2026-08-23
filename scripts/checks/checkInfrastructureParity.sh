@@ -55,6 +55,47 @@ assert_api_deploy_ordering() {
   fi
 }
 
+assert_document_sync_ingress_cors() {
+  local api_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/api.conf.j2"
+  local render_dir
+  local rendered_api
+  local sync_location
+  local sync_error_location
+  local app_origin_rule="\"https://app.example.test\" \$http_origin;"
+  local capacitor_origin_rule="\"https://localhost\" \$http_origin;"
+
+  render_dir="$(mktemp -d)"
+  trap 'rm -rf "$render_dir"' RETURN
+  rendered_api="$render_dir/api.conf"
+  if ! ANSIBLE_LOCALHOST_WARNING=false \
+    ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
+    ansible localhost --connection local \
+      -m ansible.builtin.template \
+      -a "src=$api_template dest=$rendered_api mode=0600" \
+      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost","code_assist_enabled":false,"code_assist_port":3002}' \
+      </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
+    sed -n '1,120p' "$render_dir/ansible.stderr" >&2
+    return 1
+  fi
+
+  # `[+]` is a literal plus in both BSD and GNU basic regular expressions;
+  # `\+` is a GNU extension meaning repetition and would miss nginx's `.+`.
+  sync_location="$(sed -n '/location ~ \^\/documents\/\.[+]\/sync\$ {/,/^  }/p' "$rendered_api")"
+  sync_error_location="$(sed -n '/location @document_sync_body_too_large {/,/^  }/p' "$rendered_api")"
+  if [ "$(grep -Fc 'location ~ ^/documents/.+/sync$ {' "$rendered_api")" -ne 1 ] ||
+    grep -Fq 'location ^~ /documents/' "$rendered_api" ||
+    ! grep -Fq 'client_max_body_size 16M;' <<<"$sync_location" ||
+    ! grep -Fq 'error_page 413 = @document_sync_body_too_large;' <<<"$sync_location" ||
+    ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" <<<"$sync_error_location" ||
+    ! grep -Fq 'add_header Vary Origin always;' <<<"$sync_error_location" ||
+    ! grep -Fq 'return 413' <<<"$sync_error_location" ||
+    [ "$(grep -Fc "$app_origin_rule" "$rendered_api")" -ne 1 ] ||
+    [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ]; then
+    echo "ERROR: Rendered document sync ingress must use an encoded-separator-safe 16 MiB route limit with JSON errors and the deduplicated API CORS allowlist." >&2
+    return 1
+  fi
+}
+
 list_stack_files() {
   local stack_dir="$1"
 
@@ -96,5 +137,6 @@ assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
 assert_api_deploy_ordering \
   "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
+assert_document_sync_ingress_cors
 
 echo "Infrastructure tier parity passed."

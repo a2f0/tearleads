@@ -19,6 +19,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { unwrapDocumentSyncResponseContentKeys } from "./syncContentKeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
+  acceptedHeldBackPendingUpdateIds,
+  responseAcceptedRecoveryBaseline,
+} from "./syncPlanRequestBounds";
+import {
   type RekeyPendingUpdate,
   rekeyAndReportUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
@@ -60,6 +64,12 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
+  const recoveryBaselineId =
+    input.materializedPlan.staleRecoveryBaselineUpdateId;
+  const acceptedRecoveryBaseline = responseAcceptedRecoveryBaseline(
+    input.materializedPlan,
+    input.response,
+  );
   // Two heal-specific corrections: the synthetic heal baseline matches no
   // pending-queue row, so its ack must not count as a settled pending update;
   // and checkpoints the heal held back ARE settled by it — the committed
@@ -71,11 +81,8 @@ export async function syncRemoteDocumentResultFromResponse(input: {
       decryptedUpdates,
       recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
       response: input.response,
-    }).filter(
-      (updateId) =>
-        updateId !== input.materializedPlan.staleRecoveryBaselineUpdateId,
-    ),
-    ...input.materializedPlan.heldBackPendingUpdateIds,
+    }).filter((updateId) => updateId !== recoveryBaselineId),
+    ...acceptedHeldBackPendingUpdateIds(input.materializedPlan, input.response),
   ];
   const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({
@@ -90,11 +97,13 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
+    hasDeferredPendingUpdates: false,
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
     response: input.response,
     settledPendingUpdateIds,
+    acceptedRecoveryBaseline,
     writerProjection: input.writerProjection,
   };
 }

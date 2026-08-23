@@ -21,6 +21,7 @@ import {
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
 } from "@symcrypt/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -34,7 +35,10 @@ import {
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
-import { jsonRequestValidator } from "../../validators/jsonRequest";
+import {
+  jsonRequestValidator,
+  requestBodyLimit,
+} from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 
 interface DocumentMutationsRouteDeps {
@@ -390,6 +394,10 @@ export function createDocumentMutationsRoute({
     operationRoutePath(documentSyncOperation),
     requireAuth,
     pathParamsValidator(documentSyncOperation.params),
+    requestBodyLimit({
+      maxBytes: MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+      onTooLarge: (c) => c.json({ error: "Request body too large" }, 413),
+    }),
     jsonRequestValidator(documentSyncOperation.body),
     (c) =>
       respondWithDocumentSync(c, {
