@@ -11,7 +11,7 @@
 # gallery manifest, and `immutable` for content-hashed assets; this rule only
 # grants the edge permission to honor them.
 locals {
-  website_cache_hostnames = concat([var.hostname], var.additional_hostnames)
+  website_cache_hostnames = distinct(concat([var.hostname], var.additional_hostnames))
 }
 
 resource "cloudflare_ruleset" "website_cache" {
