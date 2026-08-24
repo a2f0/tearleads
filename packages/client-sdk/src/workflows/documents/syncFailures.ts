@@ -186,13 +186,13 @@ export async function submitDocumentSyncAttemptIfAllowed(
     onOutgoingUpdatesMaterialized?:
       | ((updateIds: readonly string[]) => void)
       | undefined;
-    writeBearing?: boolean | undefined;
+    failureBlocksQueuedWrites?: boolean | undefined;
   },
 ): Promise<DocumentSyncAttemptSubmission> {
   const {
+    failureBlocksQueuedWrites,
     isRemoteSyncBlocked,
     onOutgoingUpdatesMaterialized,
-    writeBearing,
     ...submissionInput
   } = input;
   const hasRemoteWrites =
@@ -210,12 +210,11 @@ export async function submitDocumentSyncAttemptIfAllowed(
     ...submissionInput,
     // A read-only pass carries no writes, so a terminal failure describes a
     // pull, not queued local data — recording it would flag the next local
-    // edit as failed before it was ever attempted. `writeBearing` keeps the
-    // handler through update-id recovery, whose retry submits an empty
-    // request while the durable rows still exist: a terminal 403 there IS
-    // what blocks the queued edits.
+    // edit as failed before it was ever attempted. A cursor continuation and
+    // update-id recovery both submit an empty request while durable rows still
+    // exist; a terminal 403 there IS what blocks the queued edits.
     onTerminalSubmitFailure:
-      hasRemoteWrites || writeBearing
+      hasRemoteWrites || failureBlocksQueuedWrites
         ? submissionInput.onTerminalSubmitFailure
         : undefined,
   });

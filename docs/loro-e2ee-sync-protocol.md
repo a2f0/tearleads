@@ -53,23 +53,22 @@ Document write routes:
   - syncs encrypted Loro updates against the current signed link-set manifest
     and current derived KEK targets
   - request shape: `DocumentSyncRequest`
-  - key fields: optional `contentKeyBundle`, optional signed
-    `containerRekeys[]`, `contentKeyEpoch`, `expectedLinkSetManifestHash`,
-    `expectedTargetHash`, optional `authorizingContainerPathRefs`,
-    `localVersionVector`, optional `minLsn`, and `outgoingUpdates[]`
-  - each authorizing path contains `{containerId, manifestHash}` references; the
-    server resolves the signed container manifests it already stores, while
-    `expectedLinkSetManifestHash` pins the document head without echoing its bundle
+  - key fields: optional `contentKeyBundle`, optional signed `containerRekeys[]`,
+    `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
+    `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`, required
+    `supportsPullPagination: true`, optional read-only `pullCursor`, and `outgoingUpdates[]`
+  - path references name stored signed container manifests;
+    `expectedLinkSetManifestHash` pins the document head
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
     `partialStartVersionVector`, visible `partialEndVersionVector`, required
     `plaintextHash`, optional `sourceVersionVector`, optional `checkpointKind`,
-    and a signed `writeHeader`; the header's authenticated metadata hash commits
-    the domain-separated, record-key-derived plaintext HMAC, which is opaque to
-    the server
+    and a signed `writeHeader`; its metadata hash commits the opaque,
+    record-key-derived plaintext HMAC
   - response shape: `DocumentSyncResponse`
   - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`, optional
     `commitLsnMode`, `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
-    `documentKekTargets`, and encrypted `updates[]`
+    `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
+    encrypted `updates[]`
   - `contentKeyBundles[]` covers every served update's signed content-key epoch
   - each returned update includes its stored `accessEpoch`, visible causal
     metadata, `plaintextHash`, and signed `writeHeader`, which names that

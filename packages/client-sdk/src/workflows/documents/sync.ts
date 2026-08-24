@@ -194,7 +194,7 @@ async function submitPlannedSyncAttempt(args: {
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
-  writeBearing: boolean;
+  failureBlocksQueuedWrites: boolean;
 }) {
   try {
     return await submitDocumentSyncAttemptIfAllowed({
@@ -216,7 +216,7 @@ async function submitPlannedSyncAttempt(args: {
       onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
       pendingUpdates: args.pendingUpdates,
       plan: args.materializedPlan.plan,
-      writeBearing: args.writeBearing,
+      failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
     });
   } catch (error) {
     if (
@@ -233,23 +233,24 @@ async function submitPlannedSyncAttempt(args: {
  * A write-bearing pass records through the submit handler (its queued writes
  * are what the failure blocks). A read-only pass records through the
  * revalidation handler so the refusal still leaves a durable trail instead
- * of silently never revalidating (edge-case row 13). `writeBearing` is the
- * pass's character, not the momentary array length: update-id recovery
- * empties the in-flight batch while the durable rows still exist, and that
- * retry must keep the submit classification (and its 403 handling).
+ * of silently never revalidating (edge-case row 13). A cursor continuation is
+ * wire-level read-only, but its failure still blocks the queued writes it
+ * deliberately deferred. Update-id recovery likewise empties the in-flight
+ * batch while durable rows remain. Both keep the submit classification and
+ * its 403 handling.
  */
 function projectionFailureHandler(
   input: SyncRemoteDocumentInput,
-  writeBearing: boolean,
+  failureBlocksQueuedWrites: boolean,
 ): TerminalSubmitFailureHandler | undefined {
-  return writeBearing
+  return failureBlocksQueuedWrites
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
 
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
-  writeBearing: boolean,
+  failureBlocksQueuedWrites: boolean,
   reusableWriterProjection: DocumentWriterProjectionResponse | null,
 ) {
   return resolveSyncAttemptWriterProjection({
@@ -258,7 +259,10 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    onTerminalFailure: projectionFailureHandler(input, writeBearing),
+    onTerminalFailure: projectionFailureHandler(
+      input,
+      failureBlocksQueuedWrites,
+    ),
     reusableWriterProjection,
   });
 }
@@ -291,7 +295,7 @@ async function planDocumentSyncAttempt(input: {
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
-  writeBearing: boolean;
+  failureBlocksQueuedWrites: boolean;
   writerProjection: DocumentWriterProjectionResponse;
 }) {
   try {
@@ -316,7 +320,7 @@ async function planDocumentSyncAttempt(input: {
       onSyncTrace: input.sync.onSyncTrace,
       onTerminalFailure: projectionFailureHandler(
         input.sync,
-        input.writeBearing,
+        input.failureBlocksQueuedWrites,
       ),
       writerProjection: input.writerProjection,
     });
@@ -375,14 +379,12 @@ async function preparePersistedDocumentSync(
   return { kind: "continue", pullContinuation };
 }
 
-function isWriteBearingSyncAttempt(input: {
+function failureBlocksQueuedWrites(input: {
   readonly pendingUpdates: readonly PendingUpdateRecord[];
-  readonly pullCursor: string | undefined;
   readonly recoveryPendingUpdateCount: number;
 }): boolean {
   return (
-    input.pullCursor === undefined &&
-    (input.pendingUpdates.length > 0 || input.recoveryPendingUpdateCount > 0)
+    input.pendingUpdates.length > 0 || input.recoveryPendingUpdateCount > 0
   );
 }
 
@@ -405,14 +407,13 @@ export async function syncRemoteDocument(
   let pullContinuation = persistedSync.pullContinuation;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const writeBearing = isWriteBearingSyncAttempt({
+    const blocksQueuedWrites = failureBlocksQueuedWrites({
       pendingUpdates,
-      pullCursor: pullContinuation?.cursor,
       recoveryPendingUpdateCount: recoveryPendingUpdatesById.size,
     });
     const writerProjection = await resolveAttemptProjection(
       input,
-      writeBearing,
+      blocksQueuedWrites,
       reusableWriterProjection,
     );
     reusableWriterProjection = null;
@@ -422,7 +423,7 @@ export async function syncRemoteDocument(
       pullContinuation,
       regenerateQueuedCheckpoints,
       sync: input,
-      writeBearing,
+      failureBlocksQueuedWrites: blocksQueuedWrites,
       writerProjection,
     });
     if (!planned) {
@@ -440,7 +441,7 @@ export async function syncRemoteDocument(
       pullContinuation,
       regenerateQueuedCheckpoints,
       sync: input,
-      writeBearing,
+      failureBlocksQueuedWrites: blocksQueuedWrites,
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);
