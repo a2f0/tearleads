@@ -255,7 +255,7 @@ async function deleteContainerWithExecutor(input: {
     userIds: [...visibleUserIds.allUserIds, input.userId],
   });
   // Lock the metadata document's manifest head BEFORE touching the container
-  // row. A concurrent sync of that document holds the head FOR SHARE and later
+  // row. A concurrent sync write holds the head FOR UPDATE and later
   // updates the linked container row; locking the container row first (via its
   // delete) and the head second would wait on that sync while it waits on the
   // row — a deadlock. Head-then-row here matches the sync path's order.

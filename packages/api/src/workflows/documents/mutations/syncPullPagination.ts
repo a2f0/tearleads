@@ -22,6 +22,20 @@ interface SyncPullCursor extends SyncPullIdentity {
   readonly version: 1;
 }
 
+/**
+ * This cursor is a validated read-progress hint, not an authorization
+ * capability. Every continuation re-runs document authorization and key-state
+ * checks, and both update ids must resolve inside that authenticated document.
+ * A caller can edit its own hint to omit or revisit its own readable rows, just
+ * as it can choose a different version vector; it cannot cross documents,
+ * mutate state, or make the server accept a false storage sequence.
+ *
+ * `minLsn` and untracked-LSN support intentionally remain request consistency
+ * controls rather than server authority. The SDK carries the prior response's
+ * checkpoint and rejects LSN/mode regression; a caller that drops those checks
+ * can only weaken its own read, not the fixed cursor snapshot or shared state.
+ */
+
 export interface SyncPullPagePlan {
   readonly afterSequence: number;
   readonly upperBoundUpdateId: string | null;

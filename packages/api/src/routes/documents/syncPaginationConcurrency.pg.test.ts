@@ -79,3 +79,38 @@ test.skipIf(databaseKind !== "postgres")(
   },
   30_000,
 );
+
+test.skipIf(databaseKind !== "postgres")(
+  "concurrent paginated pull watermark readers share the document head",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const created = await createDocument({ owner, root });
+    const holder = await holdPostgresLock((tx) =>
+      lockSyncDocumentPullWatermark({ documentId: created.id, tx }),
+    );
+    let secondReaderCompleted = false;
+    const secondReader = db.transaction(async (tx) => {
+      await lockSyncDocumentPullWatermark({ documentId: created.id, tx });
+      secondReaderCompleted = true;
+    });
+
+    try {
+      await Promise.race([
+        secondReader,
+        Bun.sleep(2_000).then(() => {
+          if (!secondReaderCompleted) {
+            throw new Error("A pull watermark reader blocked another reader");
+          }
+        }),
+      ]);
+    } finally {
+      await holder.release();
+      await secondReader;
+    }
+    expect(secondReaderCompleted).toBe(true);
+  },
+  30_000,
+);

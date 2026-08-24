@@ -59,7 +59,7 @@ export async function lockSyncDocumentPullWatermark(input: {
   readonly documentId: string;
   readonly tx: DatabaseTransaction;
 }): Promise<void> {
-  await lockAccessManifestHeadsForUpdate(
+  await lockAccessManifestHeadsForShare(
     "document",
     [input.documentId],
     input.tx,

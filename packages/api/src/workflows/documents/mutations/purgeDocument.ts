@@ -216,7 +216,7 @@ async function purgeDocumentWithExecutor(input: {
   readonly userId: string;
 }): Promise<PurgeDocumentWorkflowResult> {
   // Take the document manifest-head lock BEFORE any read or delete, mirroring
-  // the link-set mutation path. Sync writers hold this head FOR SHARE while
+  // the link-set mutation path. Sync writers hold this head FOR UPDATE while
   // inserting content rows, so without it a purge interleaving with an
   // in-flight sync write silently skips the writer's uncommitted rows
   // (invisible under READ COMMITTED), commits the head/document delete after
