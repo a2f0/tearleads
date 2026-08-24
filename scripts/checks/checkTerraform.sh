@@ -28,6 +28,19 @@ run_terraform_fmt() {
   return 0
 }
 
+run_terraform_tests() {
+  local module_dir="$TERRAFORM_DIR/modules/cloudflare-website-cache"
+  local terraform_test_dir
+
+  terraform_test_dir="$(mktemp -d)"
+  trap 'rm -rf -- "$terraform_test_dir"' RETURN
+  cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"
+
+  echo "Running terraform tests..."
+  terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null
+  terraform -chdir="$terraform_test_dir" test -no-color
+}
+
 run_tflint() {
   echo "Running tflint..."
   tflint --init --chdir="$TERRAFORM_DIR"
@@ -41,6 +54,9 @@ run_tflint() {
 # HCL file format check (terraform fmt)
 if check_command terraform; then
   if ! run_terraform_fmt; then
+    errors=$((errors + 1))
+  fi
+  if ! run_terraform_tests; then
     errors=$((errors + 1))
   fi
 fi
