@@ -71,6 +71,8 @@ test("native product matching rejects unknown suffixes and malformed ids", () =>
     "sync_team_10_monthly_extra:monthly",
     "symcrypt_sync_monthly",
     "symcrypt_sync_monthly_staging",
+    "symcrypt_sync_team_10_monthly:monthly",
+    "symcrypt_sync_team_10_monthly:anything",
     "symcrypt_sync_team_10_monthly_preview",
     "SYNC_SOLO_MONTHLY",
     "",

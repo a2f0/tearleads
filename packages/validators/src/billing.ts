@@ -107,13 +107,13 @@ export function getSyncBillingTierForNativeProduct(
   }
   const storeProductId = productId.split(":", 1)[0] ?? "";
   const normalized =
-    storeProductId === "symcrypt_sync_solo_monthly" ||
-    storeProductId === "symcrypt_sync_solo_monthly_staging" ||
-    storeProductId === "symcrypt_sync_team_5_monthly" ||
-    storeProductId === "symcrypt_sync_team_5_monthly_staging" ||
-    storeProductId === "symcrypt_sync_team_10_monthly" ||
-    storeProductId === "symcrypt_sync_team_10_monthly_staging"
-      ? storeProductId.slice("symcrypt_".length)
+    productId === "symcrypt_sync_solo_monthly" ||
+    productId === "symcrypt_sync_solo_monthly_staging" ||
+    productId === "symcrypt_sync_team_5_monthly" ||
+    productId === "symcrypt_sync_team_5_monthly_staging" ||
+    productId === "symcrypt_sync_team_10_monthly" ||
+    productId === "symcrypt_sync_team_10_monthly_staging"
+      ? productId.slice("symcrypt_".length)
       : storeProductId;
   if (
     normalized === "sync_monthly" ||
