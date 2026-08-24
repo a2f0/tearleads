@@ -58,7 +58,11 @@ test("stale existing-container persistence cannot publish after reset", async ()
     containersById: new Map([[existingState.container.id, existingState]]),
   } as unknown as RemoteContainerHydrationState;
   let current = true;
-  let resolvePersist: (record: ContainerState["record"]) => void = () => {
+  let resolvePersist: (
+    result: Awaited<
+      ReturnType<RemoteContainerHydrationHost["persistContainerState"]>
+    >,
+  ) => void = () => {
     throw new Error("persist promise was not initialized");
   };
   let persistedCandidate: ContainerState | null = null;
@@ -83,7 +87,7 @@ test("stale existing-container persistence cannot publish after reset", async ()
   expect(persistedCandidate).not.toBe(existingState);
 
   current = false;
-  resolvePersist(existingState.record);
+  resolvePersist({ record: existingState.record, status: "persisted" });
   await hydration;
 
   expect(existingState.container.metadataDocumentId).toBe("metadata-old");
@@ -114,7 +118,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
         resolveDormantRecord = resolve;
       }),
   );
-  const saveContainer = mock(async () => {
+  const commitHydratedContainer = mock(async () => {
     throw new Error("stale insert must stop before save");
   });
   const host: RemoteContainerHydrationHost = {
@@ -128,7 +132,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
     containersById: new Map(),
     persistence: {
       loadContainerMetadataRecord,
-      saveContainer,
+      commitHydratedContainer,
     },
     runtime: { infra: { execSql: staleExecSql } },
   } as unknown as RemoteContainerHydrationState;
@@ -149,7 +153,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
 
   await expect(hydration).resolves.toBeNull();
   expect(loadContainerMetadataRecord.mock.calls[0]?.[0]).toBe(staleExecSql);
-  expect(saveContainer).not.toHaveBeenCalled();
+  expect(commitHydratedContainer).not.toHaveBeenCalled();
   expect(state.containersById.size).toBe(0);
 });
 
@@ -170,8 +174,11 @@ test("remote ingestion replays after recovery without another event", async () =
         });
       }),
   );
-  const saveContainer = mock(async (_execSql: unknown, container: unknown) =>
-    Promise.resolve(container),
+  const commitHydratedContainer = mock(
+    async (_execSql: unknown, input: { container: unknown }) => ({
+      committed: true as const,
+      container: input.container,
+    }),
   );
   const updateSnapshot = mock(() => {});
   let resolveInitialization: () => void = () => {};
@@ -183,7 +190,7 @@ test("remote ingestion replays after recovery without another event", async () =
       listPendingCreateIntents: async () => [],
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
-      saveContainer,
+      commitHydratedContainer,
     },
     runtime: {
       auth: { organizationId: "organization-1" },
@@ -230,7 +237,7 @@ test("remote ingestion replays after recovery without another event", async () =
   await resumedIngest;
 
   expect(maxActiveLoads).toBe(1);
-  expect(saveContainer).toHaveBeenCalledTimes(1);
+  expect(commitHydratedContainer).toHaveBeenCalledTimes(1);
   expect(state.containersById.has(remoteContainer.id)).toBe(true);
   expect(updateSnapshot).toHaveBeenCalledTimes(1);
 });
@@ -260,10 +267,10 @@ test("reset during a batch replays every item into the recovered database", asyn
     },
   );
   const savedContainers: Array<{ execSql: unknown; id: string }> = [];
-  const saveContainer = mock(
-    async (execSql: unknown, container: { id: string }) => {
-      savedContainers.push({ execSql, id: container.id });
-      return container;
+  const commitHydratedContainer = mock(
+    async (execSql: unknown, input: { container: { id: string } }) => {
+      savedContainers.push({ execSql, id: input.container.id });
+      return { committed: true as const, container: input.container };
     },
   );
   const updateSnapshot = mock(() => {});
@@ -274,7 +281,7 @@ test("reset during a batch replays every item into the recovered database", asyn
       listPendingCreateIntents: async () => [],
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
-      saveContainer,
+      commitHydratedContainer,
     },
     runtime: {
       auth: { organizationId: "organization-1" },

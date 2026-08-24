@@ -428,8 +428,10 @@ export interface SyncRemoteDocumentInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
-  /** Clears an in-memory continuation after the server rejects its snapshot. */
-  onPullContinuationInvalidated?: (() => void) | undefined;
+  /** Invalidates continuation state after the server rejects its snapshot. */
+  onPullContinuationInvalidated?:
+    | ((continuation: DocumentSyncPullContinuation) => void | Promise<void>)
+    | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

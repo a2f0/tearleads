@@ -4,7 +4,7 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
-import { enqueuePendingContainerUpdate } from "../../workflows/container-contents/containerPersistence";
+import type { PersistContainerStateResult } from "../../workflows/container-contents/remoteHydration";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -14,7 +14,8 @@ import type { ContainerContentsStoreState } from "./types";
 type PersistSystemContainerIcon = (
   containerState: ContainerState,
   icon: string | null,
-) => Promise<void>;
+  update: Uint8Array,
+) => Promise<PersistContainerStateResult["status"]>;
 
 function normalizeSystemContainerIcon(
   icon: string | null | undefined,
@@ -28,11 +29,11 @@ export async function applySystemContainerIcon(input: {
   readonly persistIcon: PersistSystemContainerIcon;
   readonly state: ContainerContentsStoreState;
   readonly syncAgent: ContainerContentsStoreSyncAgent;
-}): Promise<void> {
+}): Promise<boolean> {
   const icon = normalizeSystemContainerIcon(input.icon);
   const currentIcon = input.containerState.container.icon ?? null;
   if (currentIcon === icon) {
-    return;
+    return true;
   }
 
   const metadata = readContainerMetadataValue(
@@ -48,19 +49,16 @@ export async function applySystemContainerIcon(input: {
     input.containerState.doc,
     sourceVersionVector,
   );
-  if (input.containerState.record.documentId) {
-    await enqueuePendingContainerUpdate(
-      input.state.runtime.infra.execSql,
-      input.state.persistence,
-      {
-        containerId: input.containerState.container.id,
-        sourceVersionVector,
-        update,
-      },
-    );
+  const persistenceStatus = await input.persistIcon(
+    input.containerState,
+    icon,
+    update,
+  );
+  if (persistenceStatus !== "persisted") {
+    return false;
   }
-  await input.persistIcon(input.containerState, icon);
   if (input.containerState.record.documentId) {
     input.syncAgent.scheduleSync();
   }
+  return true;
 }

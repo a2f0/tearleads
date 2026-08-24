@@ -2,6 +2,7 @@ import {
   createContainerParentSyncLane,
   loadContainerSyncWatermark,
 } from "../containerPersistence";
+import { createContainerStateFingerprint } from "./containerStateFingerprint";
 import type {
   ContainerParentHydrationLane,
   FetchedContainerParentLanePage,
@@ -32,6 +33,15 @@ export async function fetchContainerParentLaneBatch(input: {
   state: RemoteContainerHydrationState;
 }): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
   const { batch, state } = input;
+  const expectedContainerStates = new Map(
+    Array.from(state.containersById, ([containerId, containerState]) => [
+      containerId,
+      {
+        container: { ...containerState.container },
+        fingerprint: createContainerStateFingerprint(containerState),
+      },
+    ]),
+  );
   const preparedPages = await Promise.all(
     batch.map((lane, index) =>
       prepareContainerParentLanePage({
@@ -40,6 +50,16 @@ export async function fetchContainerParentLaneBatch(input: {
         state,
       }),
     ),
+  );
+  if (input.isCurrent?.() === false) {
+    return null;
+  }
+  const expectedHydrationTombstones = new Map(
+    (
+      await state.persistence.loadContainerHydrationTombstones(
+        state.runtime.infra.execSql,
+      )
+    ).map((tombstone) => [tombstone.containerId, tombstone]),
   );
   if (input.isCurrent?.() === false) {
     return null;
@@ -67,6 +87,8 @@ export async function fetchContainerParentLaneBatch(input: {
       throw new Error("Container parent lane batch response mismatch");
     }
     return {
+      expectedContainerStates,
+      expectedHydrationTombstones,
       lane: preparedPage.lane,
       response: page,
       syncLane: preparedPage.syncLane,

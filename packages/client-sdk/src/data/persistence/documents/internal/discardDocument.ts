@@ -49,6 +49,7 @@ function buildDiscardShellDocument(
     effectiveAccessLevel: existingDocument.effectiveAccessLevel ?? null,
     lastCommitLsn: null,
     pendingBaseVersion: null,
+    pullContinuation: null,
     snapshotEndVersion: "",
     text: "",
     ...(existingDocument.documentKind === undefined

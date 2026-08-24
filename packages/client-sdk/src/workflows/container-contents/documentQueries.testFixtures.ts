@@ -1,6 +1,9 @@
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { defaultContainerContentsPersistence } from "./containerPersistence";
+import {
+  type ContainerDocumentRecord,
+  defaultContainerContentsPersistence,
+} from "./containerPersistence";
 import { listPendingWrites } from "./pendingWrites";
 
 /** Run the pending-write listing once so its tables exist. */
@@ -54,6 +57,7 @@ export async function saveTestSyncedContainer(input: {
   name: string;
   organizationId: string;
   parentId?: string | null | undefined;
+  pullContinuation?: ContainerDocumentRecord["pullContinuation"];
   snapshotEndVersion?: string;
   timestamp: string;
 }) {
@@ -75,6 +79,9 @@ export async function saveTestSyncedContainer(input: {
       documentId: metadataDocumentId,
       id: input.id,
       metadataUpdates: input.metadataUpdates ?? "",
+      ...(input.pullContinuation === undefined
+        ? {}
+        : { pullContinuation: input.pullContinuation }),
       snapshotEndVersion: input.snapshotEndVersion ?? "",
     },
     {

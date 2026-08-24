@@ -1,10 +1,8 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
-  getImportBlobMetadata,
-  importSnapshot,
   mergeVersionVectors,
 } from "@symcrypt/loro";
 import {
@@ -16,15 +14,24 @@ import {
   readStoredDocumentState,
 } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import {
   type DocumentRecord,
-  type DocumentsPersistence,
-  importDocumentHistoryTailUpdates,
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
 import type { DocumentStoreRelinkInput } from "../types";
 import { chainIdentityWrite } from "./identityWriteChain";
+import {
+  installPersistedAttachments,
+  type LoadedDocumentStoreState,
+} from "./initializationAttachments";
+import {
+  installRestoredDocumentContent,
+  type RestoredHistoryState,
+  restoredRemoteTailCoverage,
+  restorePersistedDocumentContent,
+} from "./initializationHistory";
 import {
   healLocalAttachmentDetachState,
   recoverDroppedAttachmentSlots,
@@ -33,7 +40,6 @@ import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
   documentSummaryFromRecord,
-  enqueuePendingUpdate,
   persistDocument,
   saveDocumentRecord,
 } from "./persistence";
@@ -46,72 +52,10 @@ import {
 import { createStoredDocument } from "./storedDocument";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
-/**
- * Restore the persisted content into a fresh document from the durable
- * full-history state (checkpoint + tail) — the ONLY persisted content
- * source. Every document seeds its checkpoint at birth, so a record without
- * one is a discovered shell that has not hydrated yet: the document starts
- * empty and the remote pull supplies the content.
- */
-type RestoredHistoryState = NonNullable<
-  Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>
->;
-
-async function restorePersistedDocumentContent(
-  state: DocumentStoreState,
-  nextDoc: DocumentState,
-): Promise<RestoredHistoryState | null> {
-  const history = await state.persistence.loadHistoryRestoreState(
-    state.runtime.infra.execSql,
-    state.localId,
-  );
-  if (!history) {
-    return null;
-  }
-
-  // A tail-only state (crash before the birth checkpoint landed) has an
-  // empty snapshot; the tail rows alone carry the content.
-  if (history.snapshot.length > 0) {
-    importSnapshot(nextDoc, base64ToBytes(history.snapshot));
-  }
-  importDocumentHistoryTailUpdates(
-    nextDoc,
-    history.tailUpdates.map((update) => update.updateData),
-  );
-  return history;
-}
-
-/**
- * End versions of the restored REMOTE tail rows — ops the server already
- * holds, so the outgoing-delta marker may advance across them. Unparseable
- * rows are skipped (they never advance the marker; failing toward re-sending
- * is the recoverable direction).
- */
-function restoredRemoteTailCoverage(
-  history: RestoredHistoryState | null,
-): string[] {
-  if (!history) {
-    return [];
-  }
-  return history.tailUpdates.flatMap((update) => {
-    if (update.origin !== "remote") {
-      return [];
-    }
-    try {
-      return [
-        getImportBlobMetadata(base64ToBytes(update.updateData))
-          .partialEndVersionVector,
-      ];
-    } catch {
-      return [];
-    }
-  });
-}
-
 async function createInitialDocumentRecord(
   state: DocumentStoreState,
   nextDoc: DocumentState,
-): Promise<void> {
+): ReturnType<typeof saveDocumentRecord> {
   initializeStoredDocumentKind(
     nextDoc,
     state.initialDocumentKind,
@@ -124,6 +68,12 @@ async function createInitialDocumentRecord(
     nextDoc,
     state.runtime.infra.documentProjectors,
   );
+  const hasInitialContent =
+    state.initialText.length > 0 ||
+    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND;
+  const initialUpdate = hasInitialContent
+    ? createPendingUpdateFields(exportAllUpdates(nextDoc))
+    : null;
 
   const created: DocumentRecord = {
     id: state.localId,
@@ -141,35 +91,109 @@ async function createInitialDocumentRecord(
     documentKekTargets: null,
     documentManifestBundle: null,
   };
-  // Seed the durable-history checkpoint at birth, BEFORE the record row:
-  // creation may be the only persist this document sees before a restart
-  // (offline note, app closed pre-sync), and initialization only runs this
-  // branch for missing records — a crash after the record write but before
-  // a later checkpoint write would permanently disable durable history for
-  // this document. Written first, a crash instead leaves an orphan
-  // checkpoint that the re-run simply overwrites. A fresh document is tiny,
-  // so the export is cheap.
-  await state.persistence.replaceHistoryCheckpoint(
-    state.runtime.infra.execSql,
+  // The create-only persistence primitive commits the canonical row and birth
+  // checkpoint together. A concurrent initializer either wins both or adopts
+  // both, so it cannot replace another pane's history or keying state.
+  const persisted = await saveDocumentRecord(
+    state,
+    nextDoc,
     {
-      coveredTailIds: [],
-      endVersionVector: encodeVersionVector(nextDoc),
-      force: true,
-      localId: state.localId,
-      snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
+      ...created,
+      snapshotEndVersion: encodeVersionVector(nextDoc),
+    },
+    {
+      historyCheckpoint: {
+        coveredTailIds: [],
+        endVersionVector: encodeVersionVector(nextDoc),
+        snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
+      },
+      ...(initialUpdate ? { pendingUpdate: initialUpdate } : {}),
     },
   );
-  // The birth checkpoint just written covers exactly this frontier.
-  await saveDocumentRecord(state, nextDoc, {
-    ...created,
-    snapshotEndVersion: encodeVersionVector(nextDoc),
-  });
-  if (
-    state.initialText.length > 0 ||
-    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
-  ) {
-    await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
+  return persisted;
+}
+
+function installPersistedDocumentRecord(
+  state: DocumentStoreState,
+  record: NonNullable<DocumentStoreState["record"]>,
+): void {
+  state.record = record;
+  state.pullContinuation = record.pullContinuation ?? null;
+}
+
+interface RestoredInitialDocumentState {
+  activeRecord: NonNullable<DocumentStoreState["record"]>;
+  creationSuperseded?: true;
+  doc: DocumentState;
+  history: RestoredHistoryState | null;
+}
+
+async function restoreOrCreateInitialDocument(input: {
+  initializeGeneration: number;
+  nextDoc: DocumentState;
+  persistedRecord: LoadedDocumentStoreState["document"];
+  state: DocumentStoreState;
+}): Promise<RestoredInitialDocumentState | null> {
+  const { initializeGeneration, persistedRecord, state } = input;
+  if (persistedRecord) {
+    const history = await restorePersistedDocumentContent(state, input.nextDoc);
+    if (state.localWriteGeneration !== initializeGeneration) {
+      return null;
+    }
+    installPersistedDocumentRecord(state, persistedRecord);
+    return { activeRecord: persistedRecord, doc: input.nextDoc, history };
   }
+
+  const created = await createInitialDocumentRecord(state, input.nextDoc);
+  if (!created || state.localWriteGeneration !== initializeGeneration) {
+    return null;
+  }
+  if (!created.creationSuperseded) {
+    return { activeRecord: created.record, doc: input.nextDoc, history: null };
+  }
+
+  const replacementDoc = await createStoredDocument(state);
+  const history = created.historyRestoreState;
+  if (history === undefined) {
+    throw new Error("Concurrent document creation omitted durable history");
+  }
+  if (history) {
+    installRestoredDocumentContent(replacementDoc, history);
+  }
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return null;
+  }
+  installPersistedDocumentRecord(state, created.record);
+  return {
+    activeRecord: created.record,
+    creationSuperseded: true,
+    doc: replacementDoc,
+    history,
+  };
+}
+
+function restorePendingBaseVersion(input: {
+  activeRecord: NonNullable<DocumentStoreState["record"]>;
+  doc: DocumentState;
+  history: RestoredHistoryState | null;
+  state: DocumentStoreState;
+}): void {
+  const { activeRecord, doc, history, state } = input;
+  const markerBase =
+    activeRecord.pendingBaseVersion ??
+    (activeRecord.snapshotEndVersion.length > 0
+      ? activeRecord.snapshotEndVersion
+      : null);
+  if (markerBase === null) {
+    advancePendingBaseVersion(state, doc);
+    return;
+  }
+
+  const remoteCoverage = restoredRemoteTailCoverage(history);
+  state.pendingBaseVersion =
+    remoteCoverage.length > 0
+      ? mergeVersionVectors([markerBase, ...remoteCoverage])
+      : markerBase;
 }
 
 async function initializeDocumentStore(
@@ -196,38 +220,28 @@ async function initializeDocumentStore(
   if (state.localWriteGeneration !== initializeGeneration) {
     return;
   }
-  state.pendingAttachments = persistedState.pendingAttachments;
-  state.attachmentBlobIdBySlotId = Object.fromEntries(
-    persistedState.localAttachments.map((attachment) => [
-      attachment.slotId,
-      attachment.blobId,
-    ]),
-  );
-  state.attachmentStorageKeyBySlotId = Object.fromEntries(
-    persistedState.localAttachments.map((attachment) => [
-      attachment.slotId,
-      attachment.storageKey,
-    ]),
-  );
-
-  const existing = persistedState.document;
-  let restoredHistory: RestoredHistoryState | null = null;
-  if (existing) {
-    restoredHistory = await restorePersistedDocumentContent(state, nextDoc);
-    // Check BEFORE assigning: a reset during the restore's I/O must not see
-    // the pre-reset record written back over the replacement's state.
-    if (state.localWriteGeneration !== initializeGeneration) {
-      return;
-    }
-    state.record = existing;
-  } else {
-    await createInitialDocumentRecord(state, nextDoc);
-    if (state.localWriteGeneration !== initializeGeneration) {
-      return;
-    }
+  const restored = await restoreOrCreateInitialDocument({
+    initializeGeneration,
+    nextDoc,
+    persistedRecord: persistedState.document,
+    state,
+  });
+  if (!restored) {
+    return;
   }
+  const activePersistedState = restored.creationSuperseded
+    ? await loadPersistedDocumentStoreState({
+        execSql: state.runtime.infra.execSql,
+        localId: state.localId,
+        persistence: state.persistence,
+      })
+    : persistedState;
+  if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
+  installPersistedAttachments(state, activePersistedState);
 
-  state.doc = nextDoc;
+  state.doc = restored.doc;
   // Restore the durable outgoing-delta marker. Re-seeding it to the restored
   // document's version would move it PAST any device-first `deferRemoteSync`
   // op (persisted into the durable history but deliberately left un-enqueued
@@ -239,45 +253,33 @@ async function initializeDocumentStore(
   // resurrect ops the outgoing queue never durably received, and seeding from
   // the restored document would classify those as covered and orphan them
   // from sync forever.
-  const persistedMarker = existing?.pendingBaseVersion ?? null;
-  const markerBase =
-    persistedMarker ??
-    (existing && existing.snapshotEndVersion.length > 0
-      ? existing.snapshotEndVersion
-      : null);
-  if (markerBase !== null) {
-    // Extend the base across the restored REMOTE tail rows: a crash between
-    // the pulled-updates append and the record persist leaves the durable
-    // marker behind ops the server already holds, and without this merge the
-    // next edit's delta would re-upload all of that pulled content. Local
-    // rows never advance it — an un-enqueued deferred op must stay below the
-    // marker so the next edit re-derives and sends it.
-    const remoteCoverage = restoredRemoteTailCoverage(restoredHistory);
-    state.pendingBaseVersion =
-      remoteCoverage.length > 0
-        ? mergeVersionVectors([markerBase, ...remoteCoverage])
-        : markerBase;
-  } else {
-    advancePendingBaseVersion(state, nextDoc);
-  }
+  restorePendingBaseVersion({
+    activeRecord: restored.activeRecord,
+    doc: restored.doc,
+    history: restored.history,
+    state,
+  });
   // Heal attachment slots lost to an interrupted attach write before marking
   // ready, so the recovered slots are in the snapshot the editor first renders
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
   // again for whatever it re-derives. Both helpers gate every durable write
   // on this generation (validated inside the writes' serialized mutations),
   // so a reset mid-helper cannot repopulate discarded state.
-  const writeGeneration = captureDocumentStoreSyncGeneration(state, nextDoc);
+  const writeGeneration = captureDocumentStoreSyncGeneration(
+    state,
+    restored.doc,
+  );
   if (!writeGeneration) {
     return;
   }
-  await recoverDroppedAttachmentSlots(state, nextDoc, writeGeneration);
+  await recoverDroppedAttachmentSlots(state, restored.doc, writeGeneration);
   if (state.localWriteGeneration !== initializeGeneration) {
     return;
   }
   await healLocalAttachmentDetachState(
     state,
-    nextDoc,
-    persistedState,
+    restored.doc,
+    activePersistedState,
     writeGeneration,
   );
   if (state.localWriteGeneration !== initializeGeneration) {
@@ -285,9 +287,9 @@ async function initializeDocumentStore(
   }
   state.initialized = true;
   state.initializePromise = null;
-  setReadySnapshot(state, nextDoc, false);
+  setReadySnapshot(state, restored.doc, false);
 
-  if (existing?.documentId) {
+  if (restored.activeRecord.documentId) {
     // Websocket invalidations are intentionally session-local. A process can
     // stop before receiving a peer device's update event, and no event survives
     // the restart to distinguish a clean local snapshot from a stale one. Probe
@@ -417,6 +419,9 @@ export async function relinkDocumentStore(
   // A refused persist means the durable row vanished mid-relink (resurrect
   // guard); there is no summary to report.
   if (!persisted) {
+    return null;
+  }
+  if (persisted.updatedAt === undefined) {
     return null;
   }
   return documentSummaryFromRecord(

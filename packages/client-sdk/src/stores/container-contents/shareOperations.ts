@@ -1,0 +1,119 @@
+import {
+  shareContainerState,
+  shareContainerStateWithGroup,
+} from "../../workflows/container-contents/container-state/share";
+import type { SharedContainerStateResult } from "../../workflows/container-contents/container-state/types";
+import { installContainerMetadataRecord } from "../../workflows/container-contents/metadata";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
+import { removeMissingContainerState } from "./missingContainerState";
+import { updateContainerContentsSnapshot } from "./state";
+import type {
+  ContainerContentsStoreSyncAgent,
+  ContainerState,
+} from "./syncAgent";
+import type {
+  ContainerContentsShareAccessLevel,
+  ContainerContentsStoreState,
+} from "./types";
+import { toContainerNode } from "./utils";
+
+export async function shareContainerUsing(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  share: (
+    containerState: ContainerState,
+  ) => Promise<SharedContainerStateResult | null>,
+  logMessage: string,
+) {
+  if (
+    state.runtime.infra.dbStatus !== "ready" ||
+    !state.snapshot.ready ||
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
+  ) {
+    return null;
+  }
+
+  const existingState = state.containersById.get(containerId);
+  const expectedAccessStateHash = existingState?.record.accessStateHash;
+  if (
+    !existingState?.record.documentId ||
+    typeof expectedAccessStateHash !== "string" ||
+    expectedAccessStateHash.length === 0
+  ) {
+    return null;
+  }
+
+  const shared = await share(existingState);
+  if (!shared) return null;
+  if (shared.status === "missing") {
+    removeMissingContainerState(state, existingState);
+    return null;
+  }
+
+  existingState.container = shared.container;
+  installContainerMetadataRecord(existingState, shared.record);
+  updateContainerContentsSnapshot(state);
+  if (shared.status === "identity-superseded") return null;
+
+  await syncAgent.primeDocumentsForSharedSubtree(containerId);
+  syncAgent.scheduleSync();
+  state.runtime.util.log(
+    `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
+  );
+  return toContainerNode(existingState);
+}
+
+export async function shareContainerWithUser(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  userId: string,
+) {
+  return shareContainerUsing(
+    state,
+    syncAgent,
+    containerId,
+    (containerState) =>
+      shareContainerState({
+        accessLevel: "write",
+        containerState,
+        persistence: state.persistence,
+        recipientUserId: userId,
+        resolveProjectionUserKey: state.resolveProjectionUserKey,
+        runtime: state.runtime,
+      }),
+    `shared container ${containerId} with ${userId}`,
+  );
+}
+
+export async function shareContainerWithGroup(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  groupId: string,
+  accessLevel: ContainerContentsShareAccessLevel,
+  options: {
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    requireExistingGrant?: boolean | undefined;
+  } = {},
+) {
+  return shareContainerUsing(
+    state,
+    syncAgent,
+    containerId,
+    (containerState) =>
+      shareContainerStateWithGroup({
+        accessLevel,
+        containerState,
+        knownContainerKeks: options.knownContainerKeks,
+        persistence: state.persistence,
+        recipientGroupId: groupId,
+        requireExistingGrant: options.requireExistingGrant,
+        resolveProjectionUserKey: state.resolveProjectionUserKey,
+        runtime: state.runtime,
+      }),
+    `shared container ${containerId} with group ${groupId}`,
+  );
+}

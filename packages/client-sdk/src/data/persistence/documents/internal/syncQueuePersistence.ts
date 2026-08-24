@@ -135,13 +135,15 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
       },
     );
   },
-  async enqueuePendingUpdate(execSql, pendingUpdate) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await enqueueDocumentPendingUpdateWithHistory(
+  async enqueuePendingUpdate(execSql, pendingUpdate, options) {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const pendingUpdateId = await enqueueDocumentPendingUpdateWithHistory(
         lockedExecSql,
         getDocumentScope(pendingUpdate.localId),
         pendingUpdate,
+        options,
       );
+      return pendingUpdateId !== null;
     });
   },
   async saveLocalAttachment(execSql, attachment) {

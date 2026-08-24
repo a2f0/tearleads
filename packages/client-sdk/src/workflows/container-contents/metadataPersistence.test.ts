@@ -5,7 +5,10 @@ import type { ContainerMetadataRecord } from "../../data/persistence/container-c
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createContainerContentsPersistence } from "./metadata.testFixtures";
-import { persistContainerMetadataStateFromRuntime } from "./metadataPersistence";
+import {
+  installContainerMetadataRecord,
+  persistContainerMetadataStateFromRuntime,
+} from "./metadataPersistence";
 import type {
   ContainerMetadataPatch,
   ContainerMetadataState,
@@ -70,6 +73,11 @@ async function createMetadataState(): Promise<ContainerMetadataState> {
     id: container.id,
     lastCommitLsn: "0/1",
     metadataUpdates: "",
+    pullContinuation: {
+      commitLsn: "0/2",
+      commitLsnMode: "tracked",
+      cursor: "metadata-page-2",
+    },
     snapshotEndVersion: "",
   };
 
@@ -81,6 +89,19 @@ async function createMetadataState(): Promise<ContainerMetadataState> {
     ),
     record,
   };
+}
+
+function createPersistenceForMetadataState(
+  metadataState: ContainerMetadataState,
+) {
+  return createContainerContentsPersistence({
+    storedContainers: [
+      {
+        container: metadataState.container,
+        record: metadataState.record,
+      },
+    ],
+  });
 }
 
 test.each([
@@ -107,29 +128,89 @@ test.each([
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState,
     patch,
-    persistence: createContainerContentsPersistence({}),
+    persistence: createPersistenceForMetadataState(metadataState),
     runtime,
   });
+  if (!persisted) throw new Error("Expected persisted metadata state");
 
   expect(metadataState.metadataWriterProjection).toBeNull();
   expect(persisted.record).toMatchObject({
     contentKeyBundle: null,
     documentKekTargets: null,
     documentManifestBundle: null,
+    pullContinuation: null,
     ...patch,
   });
+  installContainerMetadataRecord(metadataState, persisted.record);
+  expect(metadataState.pullContinuation).toBeNull();
 });
 
-test("preserves the cached metadata writer projection for metadata-only changes", async () => {
+test("metadata-only changes preserve writer projection and pull progress", async () => {
   const metadataState = await createMetadataState();
   const writerProjection = metadataState.metadataWriterProjection;
 
-  await persistContainerMetadataStateFromRuntime({
+  const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState,
     patch: { name: "Renamed container" },
-    persistence: createContainerContentsPersistence({}),
+    persistence: createPersistenceForMetadataState(metadataState),
     runtime,
   });
+  if (!persisted) throw new Error("Expected persisted metadata state");
 
   expect(metadataState.metadataWriterProjection).toBe(writerProjection);
+  expect(persisted.record.pullContinuation).toEqual({
+    commitLsn: "0/2",
+    commitLsnMode: "tracked",
+    cursor: "metadata-page-2",
+  });
+  installContainerMetadataRecord(metadataState, persisted.record);
+  expect(metadataState.pullContinuation).toEqual(
+    persisted.record.pullContinuation,
+  );
+});
+
+test("an explicit cursor invalidation clears with a metadata save", async () => {
+  const metadataState = await createMetadataState();
+
+  const persisted = await persistContainerMetadataStateFromRuntime({
+    metadataState,
+    patch: {
+      name: "Renamed after invalidation",
+      pullContinuation: null,
+    },
+    persistence: createPersistenceForMetadataState(metadataState),
+    runtime,
+  });
+  if (!persisted) throw new Error("Expected persisted metadata state");
+
+  expect(persisted.record.pullContinuation).toBeNull();
+});
+
+test("metadata mutation conflict exhaustion fails instead of dropping the edit", async () => {
+  const metadataState = await createMetadataState();
+  const storedState = {
+    container: metadataState.container,
+    record: metadataState.record,
+  };
+  const basePersistence = createPersistenceForMetadataState(metadataState);
+  let conflictCount = 0;
+  const persistence = {
+    ...basePersistence,
+    commitMetadataMutation: async () => {
+      conflictCount += 1;
+      return { committed: false as const, currentState: storedState };
+    },
+  };
+
+  await expect(
+    persistContainerMetadataStateFromRuntime({
+      metadataState,
+      patch: { name: "Unsaved local rename" },
+      persistence,
+      runtime,
+    }),
+  ).rejects.toThrow(
+    "Container metadata mutation commit gave up after 8 concurrent conflicts",
+  );
+  expect(conflictCount).toBe(8);
 });

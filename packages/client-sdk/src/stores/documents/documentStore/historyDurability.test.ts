@@ -20,7 +20,11 @@ import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";
-import { pendingDeltaSinceBase, persistDocument } from "./persistence";
+import {
+  listPendingUpdates,
+  pendingDeltaSinceBase,
+  persistDocument,
+} from "./persistence";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
 
 // Offline runtime: history durability is a purely local property, so these
@@ -79,6 +83,14 @@ test("a document created offline is fully durable from birth", async () => {
     const reopened = await openStore(execSql, "born-offline");
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("created and closed");
+    const pendingUpdates = await listPendingUpdates(reopened);
+    expect(pendingUpdates).toHaveLength(1);
+    expect(
+      satisfiesVersionVector(
+        pendingUpdates[0]?.partialEndVersionVector ?? "",
+        encodeVersionVector(reopened.doc),
+      ),
+    ).toBe(true);
     expect(() => {
       if (!reopened.doc) throw new Error("expected restored doc");
       exportFullHistorySnapshot(reopened.doc);

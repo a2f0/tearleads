@@ -1,3 +1,4 @@
+import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
   PendingUpdateFields,
@@ -73,18 +74,68 @@ export interface StoredContainerState {
   record: ContainerMetadataRecord | null;
 }
 
+export interface ContainerRemoval {
+  containerId: string;
+  reason: "access_revoked" | "deleted";
+  updatedAt: string;
+}
+
+export interface ContainerDeletionGuard {
+  containerId: string;
+  expectedContainer: ContainerRecord | null;
+}
+
 export interface ContainerContentsPersistence
   extends DormantMetadataSweepPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
+  /**
+   * Create an absent remotely hydrated container only when no newer durable
+   * tombstone or concurrent container/dormant-metadata mutation won first.
+   */
+  commitHydratedContainer: (
+    execSql: ExecSql,
+    input: {
+      container: ContainerRecord;
+      expectedDormantRecord: ContainerMetadataRecord | null;
+      /** Tombstone observed before the remote request began, or null. */
+      expectedHydrationTombstone?: ContainerRemoval | null | undefined;
+      purgeDormantMetadata: boolean;
+      record: ContainerMetadataRecord;
+      remoteUpdatedAt: string;
+      saveOptions: {
+        localUpdatedAt?: string;
+        serverTimestamps?:
+          | {
+              createdAt?: string | null;
+              updatedAt?: string | null;
+            }
+          | undefined;
+      };
+    },
+  ) => Promise<
+    { committed: true; container: ContainerRecord } | { committed: false }
+  >;
+  /** Capture anti-resurrection fences immediately before a remote fetch. */
+  loadContainerHydrationTombstones: (
+    execSql: ExecSql,
+  ) => Promise<ReadonlyArray<ContainerRemoval>>;
   deleteContainer: (
     execSql: ExecSql,
     containerId: string,
-    options?: { updatedAt?: string },
+    options?: {
+      reason?: ContainerRemoval["reason"];
+      updatedAt?: string;
+    },
   ) => Promise<void>;
   deleteContainers: (
     execSql: ExecSql,
-    containerIds: ReadonlyArray<string>,
+    removals: ReadonlyArray<ContainerRemoval>,
     options?: {
+      /**
+       * Request-time states rechecked inside the deletion transaction. An
+       * absent or changed row means another pane won and aborts the cascade.
+       */
+      expectedContainers?: ReadonlyArray<ContainerDeletionGuard>;
       /**
        * Containers whose own container-metadata document (record, queued
        * updates, failure rows) must survive the cascade — the access_revoked
@@ -92,18 +143,18 @@ export interface ContainerContentsPersistence
        * container id when access restoration rehydrates the container.
        */
       retainMetadataForContainerIds?: ReadonlyArray<string>;
-      updatedAt?: string;
     },
-  ) => Promise<void>;
+  ) => Promise<ReadonlyArray<string>>;
   deletePendingUpdates: (
     execSql: ExecSql,
     containerId: string,
   ) => Promise<void>;
+  deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
     input: PendingUpdateFields & { containerId: string },
-  ) => Promise<void>;
+  ) => Promise<string>;
   listPendingCreateIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerCreateIntentRecord[]>;
@@ -116,6 +167,10 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
   ) => Promise<ContainerMoveIntentRecord[]>;
   listContainerIdsWithPendingUpdates: (
+    execSql: ExecSql,
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<string[]>;
+  listContainerIdsWithPullContinuations: (
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,
   ) => Promise<string[]>;
@@ -167,6 +222,10 @@ export interface ContainerContentsPersistence
   loadContainers: (
     execSql: ExecSql,
   ) => Promise<ReadonlyArray<StoredContainerState>>;
+  loadContainerMetadataState: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<StoredContainerState | null>;
   /**
    * Load a container-metadata record by container id alone, without
    * requiring a containers row — the dormant shape row 4's access_revoked
@@ -176,6 +235,70 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     containerId: string,
   ) => Promise<ContainerMetadataRecord | null>;
+  /**
+   * Atomically replace the exact rejected metadata pull continuation with its
+   * durable recovery marker and return the authoritative current record.
+   */
+  invalidateMetadataPullContinuation: (
+    execSql: ExecSql,
+    input: {
+      accessEpoch: number;
+      accessStateHash: string | null;
+      continuation: DocumentSyncPullContinuation;
+      containerId: string;
+      contentKeyBundle: string | null;
+      documentId: string;
+      documentKekTargets: string | null;
+      documentManifestBundle: string | null;
+      lastCommitLsn: string | null;
+    },
+  ) => Promise<ContainerMetadataRecord | null>;
+  /**
+   * Conditionally commit metadata content, its outgoing row, accepted queue
+   * settlement, container fields, and the canonical record in one transaction.
+   */
+  commitMetadataMutation: (
+    execSql: ExecSql,
+    input: {
+      acceptedPendingUpdateIds: readonly string[];
+      container: ContainerRecord;
+      expectedContainer: ContainerRecord;
+      expectedRecord: ContainerMetadataRecord;
+      pendingUpdate?: PendingUpdateFields | undefined;
+      preserveDurableStructureWhenPending?: boolean | undefined;
+      record: ContainerMetadataRecord;
+      saveOptions?:
+        | {
+            createIntent?: ContainerCreateIntentInput;
+            localUpdatedAt?: string;
+            moveIntent?: ContainerMoveIntentInput | undefined;
+            serverTimestamps?:
+              | {
+                  createdAt?: string | null;
+                  updatedAt?: string | null;
+                }
+              | undefined;
+            updatedAt?: string;
+          }
+        | undefined;
+      settleAcceptedPendingOnConflict: boolean;
+    },
+  ) => Promise<
+    | { committed: true; container: ContainerRecord }
+    | {
+        committed: false;
+        currentState: StoredContainerState | null;
+        staleServerState?: true;
+      }
+  >;
+  settleAcceptedMetadataPendingUpdates: (
+    execSql: ExecSql,
+    input: {
+      containerId: string;
+      expectedRecord: ContainerMetadataRecord;
+      pendingUpdateIds: readonly string[];
+    },
+  ) => Promise<StoredContainerState | null>;
   /**
    * Destroy a dormant container-metadata scope whose remote metadata document
    * was replaced while access was revoked: its record, queued updates, and

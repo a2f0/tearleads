@@ -185,11 +185,13 @@ test("queue items keep their org id after the shared container is removed", asyn
     // Access revocation tombstones the shared container locally; the pending
     // document update survives it. The org id must survive too instead of
     // rendering as "-" in the write queue.
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["shared-container"],
-      { updatedAt: T2 },
-    );
+    await defaultContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: "shared-container",
+        reason: "access_revoked",
+        updatedAt: T2,
+      },
+    ]);
 
     const items = await listPendingWrites(execSql);
     const document = items.find((item) => item.localId === "local-document");

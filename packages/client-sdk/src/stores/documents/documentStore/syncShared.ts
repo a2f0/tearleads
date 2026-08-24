@@ -125,6 +125,7 @@ export function shouldSkipCleanScheduledDocumentSync(input: {
     input.pendingUpdates.length === 0 &&
     input.state.pendingAttachments.length === 0 &&
     input.state.pullContinuation === null &&
+    !input.currentRecord.pullContinuationRecoveryRequired &&
     !input.state.remoteUpdatePending &&
     hasPersistedRemoteDocumentSyncState(input.currentRecord)
   );

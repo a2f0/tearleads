@@ -1,6 +1,7 @@
 import { base64ToBytes } from "@symcrypt/encoding";
 import { getImportBlobMetadata } from "@symcrypt/loro";
 import { and, eq } from "drizzle-orm";
+import { serializeDocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import {
   documentRecordSelection,
   mapSelectedDocumentRecord,
@@ -70,6 +71,14 @@ async function saveContainerMetadataRecord(input: {
     documentManifestBundle: record.documentManifestBundle ?? null,
     contentKeyBundle: record.contentKeyBundle ?? null,
     documentKekTargets: record.documentKekTargets ?? null,
+    ...(record.pullContinuationRecoveryRequired === true &&
+    record.pullContinuation === undefined
+      ? {}
+      : {
+          pullContinuation: serializeDocumentSyncPullContinuation(
+            record.pullContinuation ?? null,
+          ),
+        }),
     updatedAt,
   };
 

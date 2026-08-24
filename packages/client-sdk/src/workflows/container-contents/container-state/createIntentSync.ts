@@ -1,5 +1,6 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import { installContainerMetadataRecord } from "../metadataPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -78,7 +79,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   host: ContainerCreateIntentSyncHost;
   intent: ContainerCreateIntentSyncInput["intent"];
   state: ContainerCreateIntentSyncState;
-}) {
+}): Promise<"identity-superseded" | "missing" | "persisted"> {
   const { containerState, created, host, intent, state } = input;
   containerState.container = {
     ...containerState.container,
@@ -88,7 +89,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     updatedAt: created.updatedAt,
   };
 
-  const nextRecord = await host.persistContainerState(
+  const persistenceResult = await host.persistContainerState(
     containerState,
     {
       accessEpoch: 1,
@@ -102,9 +103,19 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
       ...created.persistedMetadataState,
     },
     false,
+    {
+      serverTimestamps: {
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt,
+      },
+    },
   );
+  if (persistenceResult.status !== "persisted") {
+    return persistenceResult.status;
+  }
+  const { record: nextRecord } = persistenceResult;
 
-  containerState.record = nextRecord;
+  installContainerMetadataRecord(containerState, nextRecord);
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: created.metadataDocumentId,
@@ -126,6 +137,25 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     remoteMetadataAccessStateHash: created.accessManifestHash,
     remoteMetadataDocumentId: created.metadataDocumentId,
   });
+  return "persisted";
+}
+
+async function discardOrphanedRemoteContainer(input: {
+  created: CreatedRemoteContainerState;
+  state: ContainerCreateIntentSyncState;
+}): Promise<void> {
+  const discardFailure = await deleteRemoteContainer({
+    containerId: input.created.containerId,
+    runtime: input.state.runtime,
+  }).then(
+    (deleted) => (deleted ? null : "the server rejected the delete"),
+    (error: unknown) => errorMessage(error),
+  );
+  if (discardFailure !== null) {
+    input.state.runtime.util.log(
+      `Container contents: failed to discard orphaned remote container ${input.created.containerId} after local delete: ${discardFailure}`,
+    );
+  }
 }
 
 async function trySyncPendingContainerContentsContainerCreateIntent(
@@ -214,28 +244,27 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     // synced — discard the now-orphaned remote container we created instead.
     // deleteRemoteContainer resolves false (not throws) when the server rejects
     // the delete, so log both the false result and any thrown error.
-    const discardFailure = await deleteRemoteContainer({
-      containerId: created.containerId,
-      runtime: state.runtime,
-    }).then(
-      (deleted) => (deleted ? null : "the server rejected the delete"),
-      (error: unknown) => errorMessage(error),
-    );
-    if (discardFailure !== null) {
-      state.runtime.util.log(
-        `Container contents: failed to discard orphaned remote container ${created.containerId} after local delete: ${discardFailure}`,
-      );
-    }
+    await discardOrphanedRemoteContainer({ created, state });
     return "failed";
   }
 
-  await persistCreatedRemoteContainerStateFromIntent({
+  const persistenceStatus = await persistCreatedRemoteContainerStateFromIntent({
     containerState,
     created,
     host,
     intent,
     state,
   });
+  if (persistenceStatus === "missing") {
+    await discardOrphanedRemoteContainer({ created, state });
+    return "failed";
+  }
+  if (persistenceStatus === "identity-superseded") {
+    state.runtime.util.log(
+      `Container contents: deferred create intent for ${intent.containerId}; another writer persisted its remote identity.`,
+    );
+    return "blocked";
+  }
   state.runtime.util.log(
     `Container contents: synced local container create ${containerState.container.id}`,
   );

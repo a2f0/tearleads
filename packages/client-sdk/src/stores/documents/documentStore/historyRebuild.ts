@@ -5,7 +5,11 @@ import {
   importSnapshot,
   importUpdates,
 } from "@symcrypt/loro";
-import type { syncRemoteDocument } from "../../../workflows/documents";
+import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
+import type {
+  DocumentSyncPullContinuation,
+  syncRemoteDocument,
+} from "../../../workflows/documents";
 import {
   advancePendingBaseVersion,
   coveredHistoryTailIds,
@@ -46,16 +50,18 @@ export function importPendingUpdates(
 }
 
 export async function installRebuiltDocument(input: {
+  consumedPullContinuation: DocumentSyncPullContinuation | null;
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   rebuiltDoc: DocumentState;
   state: DocumentStoreState;
   synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
-}): Promise<Uint8Array> {
-  // Make the recovered history durable BEFORE publishing the newer record: a
-  // crash between the two would otherwise leave the record's content frontier
-  // ahead of the checkpoint that actually stores the content. Checkpoint-ahead
-  // is the safe direction — the restore reads the checkpoint and the record
-  // catches up on the next persist.
+}): Promise<{
+  fullHistorySnapshot: Uint8Array;
+  settlementRequiresRetry: boolean;
+}> {
+  // The guarded persist makes the recovered history durable BEFORE publishing
+  // the newer record. Checkpoint-ahead is the safe crash direction: restore
+  // reads the checkpoint and the record catches up on the next persist.
   // The tail is captured BEFORE the export and each row's coverage is
   // proven against the rebuilt document, so an update appended concurrently
   // (or by another pane) that this rebuild does not contain survives for a
@@ -66,15 +72,6 @@ export async function installRebuiltDocument(input: {
   );
   const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
   const rebuiltEndVersion = encodeVersionVector(input.rebuiltDoc);
-  await input.state.persistence.replaceHistoryCheckpoint(
-    input.state.runtime.infra.execSql,
-    {
-      coveredTailIds: coveredHistoryTailIds(tailEntries, rebuiltEndVersion),
-      endVersionVector: rebuiltEndVersion,
-      localId: input.state.localId,
-      snapshot: bytesToBase64(fullHistorySnapshot),
-    },
-  );
   const previousPendingBaseVersion = input.state.pendingBaseVersion;
   advancePendingBaseVersion(input.state, input.rebuiltDoc);
   let persisted: Awaited<ReturnType<typeof persistDocument>>;
@@ -88,11 +85,21 @@ export async function installRebuiltDocument(input: {
           input.synced.response.commitLsn ??
           input.currentRecord.lastCommitLsn ??
           null,
-        // The checkpoint written above covers exactly this frontier.
+        pullContinuation: readPullContinuation(input.synced.response),
+        // The guarded checkpoint below covers exactly this frontier.
         snapshotEndVersion: rebuiltEndVersion,
       },
       {
         acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+        expectedSyncState: {
+          pullContinuation: input.consumedPullContinuation,
+          record: input.currentRecord,
+        },
+        historyCheckpoint: {
+          coveredTailIds: coveredHistoryTailIds(tailEntries, rebuiltEndVersion),
+          endVersionVector: rebuiltEndVersion,
+          snapshot: bytesToBase64(fullHistorySnapshot),
+        },
         preserveSnapshotStructuredFields: input.state.pendingLocalWrites > 0,
         preserveSnapshotText: input.state.pendingLocalWrites > 0,
       },
@@ -111,8 +118,21 @@ export async function installRebuiltDocument(input: {
       "Document was deleted while its history rebuild was in flight",
     );
   }
-  input.state.doc = input.rebuiltDoc;
-  input.state.writerProjection =
-    input.synced.writerProjection ?? input.state.writerProjection;
-  return fullHistorySnapshot;
+  if (!persisted.syncIdentitySuperseded) {
+    input.state.doc = input.rebuiltDoc;
+  }
+  input.state.writerProjection = persisted.pullContinuationSuperseded
+    ? null
+    : (input.synced.writerProjection ?? input.state.writerProjection);
+  const installedDoc = input.state.doc ?? input.rebuiltDoc;
+  return {
+    fullHistorySnapshot: persisted.pullContinuationSuperseded
+      ? exportFullHistorySnapshot(installedDoc)
+      : fullHistorySnapshot,
+    settlementRequiresRetry:
+      persisted.pullContinuationSuperseded === true ||
+      persisted.syncIdentitySuperseded === true ||
+      persisted.record.pullContinuation != null ||
+      persisted.record.pullContinuationRecoveryRequired === true,
+  };
 }

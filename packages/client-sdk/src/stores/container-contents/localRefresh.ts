@@ -1,9 +1,16 @@
+import { encodeVersionVector } from "@symcrypt/loro";
 import { errorMessage } from "../../data/errorMessage";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
+import { installContainerMetadataRecord } from "../../workflows/container-contents/metadata";
+import { currentMetadataPullContinuation } from "../../workflows/container-contents/metadataPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlyRootContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import {
+  captureContainerStateMutationGenerations,
+  containerStateMutatedAfter,
+} from "./containerStateMap";
 import { isRemoteBackedContainerState } from "./remoteBackedContainerState";
 
 interface LocalContainerRefreshHost {
@@ -22,23 +29,86 @@ export interface LocalContainerRefreshState {
   runtime: ContainerContentsWorkflowRuntime;
 }
 
+interface LocalContainerRefreshBaseline {
+  container: ContainerState["container"];
+  docVersion: string | null;
+  pullContinuation: ReturnType<typeof currentMetadataPullContinuation>;
+  record: ContainerState["record"];
+}
+
+function readMetadataDocVersion(state: ContainerState): string | null {
+  try {
+    return encodeVersionVector(state.doc);
+  } catch {
+    return null;
+  }
+}
+
+function captureLocalContainerRefreshBaselines(
+  states: ReadonlyMap<string, ContainerState>,
+): ReadonlyMap<string, LocalContainerRefreshBaseline> {
+  return new Map(
+    Array.from(states, ([containerId, state]) => [
+      containerId,
+      {
+        container: state.container,
+        docVersion: readMetadataDocVersion(state),
+        pullContinuation: currentMetadataPullContinuation(state),
+        record: state.record,
+      },
+    ]),
+  );
+}
+
+function liveContainerStateChangedAfterRefreshStarted(
+  state: ContainerState,
+  baseline: LocalContainerRefreshBaseline | undefined,
+): boolean {
+  // No baseline means this live state was inserted after the refresh began.
+  // The loaded snapshot cannot authoritatively replace a state that did not
+  // exist when its query started.
+  return (
+    baseline === undefined ||
+    state.container !== baseline.container ||
+    state.record !== baseline.record ||
+    currentMetadataPullContinuation(state) !== baseline.pullContinuation ||
+    readMetadataDocVersion(state) !== baseline.docVersion
+  );
+}
+
 function mergeLocalContainerStates(input: {
+  containerMutationGenerations: ReadonlyMap<string, number>;
+  liveStateBaselines: ReadonlyMap<string, LocalContainerRefreshBaseline>;
   localContainerStates: ReadonlyArray<ContainerState>;
   remoteContainerIdsAtLoadStart: ReadonlySet<string>;
   state: LocalContainerRefreshState;
 }): void {
   for (const localContainerState of input.localContainerStates) {
-    const existingState = input.state.containersById.get(
-      localContainerState.container.id,
-    );
+    const containerId = localContainerState.container.id;
+    if (
+      containerStateMutatedAfter(
+        input.state.containersById,
+        containerId,
+        input.containerMutationGenerations,
+      )
+    ) {
+      continue;
+    }
+    const existingState = input.state.containersById.get(containerId);
     if (existingState) {
+      if (
+        liveContainerStateChangedAfterRefreshStarted(
+          existingState,
+          input.liveStateBaselines.get(containerId),
+        )
+      ) {
+        continue;
+      }
       // The load can start before a remote create and finish after it. Its
       // local-only snapshot must not erase the remote identity that the create
       // persisted in the meantime, or the pending create intent is re-queued.
       if (
-        !input.remoteContainerIdsAtLoadStart.has(
-          localContainerState.container.id,
-        ) &&
+        !input.remoteContainerIdsAtLoadStart.has(containerId) &&
         existingState.record.documentId &&
         !localContainerState.record.documentId
       ) {
@@ -46,12 +116,11 @@ function mergeLocalContainerStates(input: {
       }
       existingState.container = localContainerState.container;
       existingState.doc = localContainerState.doc;
-      existingState.record = localContainerState.record;
-    } else {
-      input.state.containersById.set(
-        localContainerState.container.id,
-        localContainerState,
-      );
+      installContainerMetadataRecord(existingState, localContainerState.record);
+    } else if (!input.liveStateBaselines.has(containerId)) {
+      // A baseline without a live entry means the state was removed while the
+      // load was pending. Do not resurrect that stale snapshot.
+      input.state.containersById.set(containerId, localContainerState);
     }
   }
 }
@@ -114,6 +183,12 @@ export function refreshLocalContainerStates(input: {
   const lifecycleGeneration = state.lifecycleGeneration;
   const isCurrent = () => state.lifecycleGeneration === lifecycleGeneration;
   state.localContainersNeedRefresh = false;
+  const liveStateBaselines = captureLocalContainerRefreshBaselines(
+    state.containersById,
+  );
+  const containerMutationGenerations = captureContainerStateMutationGenerations(
+    state.containersById,
+  );
   const remoteContainerIdsAtLoadStart = new Set<string>();
   for (const containerState of state.containersById.values()) {
     if (containerState.record.documentId) {
@@ -130,6 +205,8 @@ export function refreshLocalContainerStates(input: {
         return;
       }
       mergeLocalContainerStates({
+        containerMutationGenerations,
+        liveStateBaselines,
         localContainerStates,
         remoteContainerIdsAtLoadStart,
         state,

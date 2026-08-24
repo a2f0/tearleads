@@ -4,6 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { persistContainerState } from "./containerStatePersistence";
 import { emptyTrash } from "./emptyTrashOperation";
 import {
   prepareContainerGroupRewrap,
@@ -14,13 +15,14 @@ import {
   deleteContainer,
   ensureSystemContainer,
   moveContainer,
-  persistContainerState,
   renameContainer,
-  shareContainerWithGroup,
-  shareContainerWithUser,
 } from "./operations";
 import { purgeContainer } from "./purgeContainerOperation";
 import { setContainerIcon } from "./setContainerIconOperation";
+import {
+  shareContainerWithGroup,
+  shareContainerWithUser,
+} from "./shareOperations";
 import {
   createContainerContentsStoreState,
   subscribeToContainerContentsStore,
@@ -76,13 +78,21 @@ function createContainerContentsStoreSyncHost(
   state: ContainerContentsStoreState,
 ): Parameters<typeof createContainerContentsStoreSyncAgent>[0]["host"] {
   return {
-    persistContainerState: (containerState, patch, updateView, saveOptions) =>
+    persistContainerState: (
+      containerState,
+      patch,
+      updateView,
+      saveOptions,
+      mutationOptions,
+    ) =>
       persistContainerState(
         state,
         containerState,
         patch,
         updateView,
         saveOptions,
+        undefined,
+        mutationOptions,
       ),
     requestDocumentPriming: () => {
       state.documentStoresNeedPriming = true;

@@ -172,10 +172,19 @@ export async function hasStartupContainerSyncWork(state: {
   if (containerIds.length === 0) {
     return false;
   }
-  const containersWithPendingMetadata =
-    await state.persistence.listContainerIdsWithPendingUpdates(
-      execSql,
-      containerIds,
-    );
-  return containersWithPendingMetadata.length > 0;
+  const [containersWithPendingMetadata, containersWithPullContinuations] =
+    await Promise.all([
+      state.persistence.listContainerIdsWithPendingUpdates(
+        execSql,
+        containerIds,
+      ),
+      state.persistence.listContainerIdsWithPullContinuations(
+        execSql,
+        containerIds,
+      ),
+    ]);
+  return (
+    containersWithPendingMetadata.length > 0 ||
+    containersWithPullContinuations.length > 0
+  );
 }

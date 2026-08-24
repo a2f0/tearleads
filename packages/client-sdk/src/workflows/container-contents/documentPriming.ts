@@ -48,6 +48,7 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
     AND (
       stored.document_id IS NULL
       OR stored.snapshot_end_version = ''
+      OR stored.pull_continuation IS NOT NULL
       OR COALESCE(stored.pending_base_version, '') <> stored.snapshot_end_version
       OR EXISTS (
         SELECT 1

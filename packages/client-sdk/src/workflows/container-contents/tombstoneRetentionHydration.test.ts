@@ -23,8 +23,6 @@ const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
 
 const T2 = "2026-01-01T00:00:02.000Z";
-const T3 = "2026-01-01T00:00:03.000Z";
-
 function remoteContainerItem(
   updatedAt: string,
 ): ListContainersResponse["items"][number] {
@@ -137,6 +135,15 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
       },
       { localUpdatedAt: T1 },
     );
+    const renamedLiveState = state.containersById.get("revoked");
+    if (!renamedLiveState) throw new Error("Expected live renamed container");
+    const renamedDurableState =
+      await defaultContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        "revoked",
+      );
+    if (!renamedDurableState) throw new Error("Expected durable rename");
+    renamedLiveState.container = renamedDurableState.container;
     await insertTestPendingUpdate({
       appKind: "container-metadata",
       createdAt: T1,
@@ -179,11 +186,11 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
     );
 
     // Pass 3: access restored — the server lists the container again and the
-    // real insert path re-attaches the dormant metadata. The item's advanced
-    // timestamp models a mutation-driven restore; timestamp-less restores
-    // (group re-adds) are covered by the server pruning the stale tombstone
-    // on access gain, so no competing tombstone reaches this filter at all.
-    rootLanePages.push(lanePage({ items: [remoteContainerItem(T3)] }));
+    // real insert path re-attaches the dormant metadata. A group re-add does
+    // not mutate the container itself, so its item keeps the pre-revocation
+    // timestamp. The durable fence's reason—not a newer item timestamp—is what
+    // distinguishes this restorable access loss from a permanent deletion.
+    rootLanePages.push(lanePage({ items: [remoteContainerItem(T1)] }));
     await hydrate();
     const restoredState = state.containersById.get("revoked");
     expect(restoredState?.container.name).toBe("Renamed");
@@ -372,6 +379,15 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
       },
       { localUpdatedAt: T1 },
     );
+    const neverBoundLiveState = state.containersById.get("revoked");
+    if (!neverBoundLiveState) throw new Error("Expected live local container");
+    const neverBoundDurableState =
+      await defaultContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        "revoked",
+      );
+    if (!neverBoundDurableState) throw new Error("Expected durable container");
+    neverBoundLiveState.container = neverBoundDurableState.container;
     await insertTestPendingUpdate({
       appKind: "container-metadata",
       createdAt: T1,

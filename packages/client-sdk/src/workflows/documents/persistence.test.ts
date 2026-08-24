@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { createDocument, encodeVersionVector } from "@symcrypt/loro";
 import type {
-  DocumentRecord,
+  StoredDocumentRecord as DocumentRecord,
   DocumentsPersistence,
   PendingAttachmentRecord,
-} from "@symcrypt/client-sdk";
-import { createDocument } from "@symcrypt/loro";
+} from "../../data/persistence/documents/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
@@ -104,7 +104,39 @@ test("persistDocumentState ensures client projection tables once per executor an
   }) as ExecSql;
   let currentRecord: DocumentRecord | null = null;
   const persistence = {
+    commitDocumentMutation: async (
+      nextExecSql: ExecSql,
+      input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
+      saveProjection: Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[2],
+    ) => {
+      currentRecord = input.document;
+      const updatedAt = "2026-05-24T00:00:00.000Z";
+      await saveProjection(nextExecSql, updatedAt);
+      return { committed: true as const, updatedAt };
+    },
+    createDocumentWithHistoryCheckpoint: async (
+      nextExecSql: ExecSql,
+      record: DocumentRecord,
+      _historyCheckpoint: Parameters<
+        DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
+      >[2],
+      _options: Parameters<
+        DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
+      >[3],
+      saveProjection: Parameters<
+        DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
+      >[4],
+    ) => {
+      if (currentRecord) return null;
+      currentRecord = record;
+      const updatedAt = "2026-05-24T00:00:00.000Z";
+      await saveProjection(nextExecSql, updatedAt);
+      return updatedAt;
+    },
     hasDocument: async () => currentRecord !== null,
+    loadDocument: async () => currentRecord,
     loadDocumentContainer: async () =>
       currentRecord ? { containerId: currentRecord.containerId } : undefined,
     saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
@@ -202,6 +234,7 @@ test("a persist without an explicit frontier retains the stored one", async () =
   // publish the live document's version — that would claim coverage for
   // content no durable row holds yet.
   const currentDoc = await createDocument("retained-frontier");
+  const storedFrontier = encodeVersionVector(currentDoc);
   currentDoc.getText("text").update("in-flight edit");
   currentDoc.commit();
   const currentRecord = {
@@ -209,14 +242,27 @@ test("a persist without an explicit frontier retains the stored one", async () =
     accessEpoch: 1,
     containerId: null,
     documentId: "remote-1",
-    snapshotEndVersion: "stored-frontier",
+    snapshotEndVersion: storedFrontier,
     text: "",
   } as DocumentRecord;
   const savedFrontiers: string[] = [];
   const persistence = {
+    commitDocumentMutation: async (
+      nextExecSql: ExecSql,
+      input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
+      saveProjection: Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[2],
+    ) => {
+      savedFrontiers.push(input.document.snapshotEndVersion);
+      const updatedAt = "2026-07-27T00:00:00.000Z";
+      await saveProjection(nextExecSql, updatedAt);
+      return { committed: true as const, updatedAt };
+    },
     // The row exists (orphan placement): a missing row would now refuse the
     // update-persist outright via the resurrect guard.
     hasDocument: async () => true,
+    loadDocument: async () => currentRecord,
     loadDocumentContainer: async () => ({ containerId: null }),
     saveDocument: async (
       _execSql: ExecSql,
@@ -237,7 +283,72 @@ test("a persist without an explicit frontier retains the stored one", async () =
     persistence,
   });
 
-  expect(savedFrontiers).toEqual(["stored-frontier"]);
+  expect(savedFrontiers).toEqual([storedFrontier]);
+});
+
+test("local writes preserve pull progress until the security context changes", async () => {
+  const currentDoc = await createDocument("pull-progress-persist");
+  const currentRecord = {
+    accessEpoch: 1,
+    containerId: "container-1",
+    documentId: "remote-1",
+    id: "local-document",
+    pullContinuation: {
+      commitLsn: "0/2",
+      commitLsnMode: "tracked" as const,
+      cursor: "page-2",
+    },
+    snapshotEndVersion: encodeVersionVector(currentDoc),
+    text: "before",
+  };
+  const savedRecords: DocumentRecord[] = [];
+  let durableRecord: DocumentRecord = currentRecord;
+  const persistence = {
+    commitDocumentMutation: async (
+      nextExecSql: ExecSql,
+      input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
+      saveProjection: Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[2],
+    ) => {
+      savedRecords.push(input.document);
+      durableRecord = input.document;
+      const updatedAt = "2026-08-24T00:00:00.000Z";
+      await saveProjection(nextExecSql, updatedAt);
+      return { committed: true as const, updatedAt };
+    },
+    hasDocument: async () => true,
+    loadHistoryRestoreState: async () => null,
+    loadDocument: async () => durableRecord,
+    loadDocumentContainer: async () => ({ containerId: "container-1" }),
+    saveDocument: async (_execSql: ExecSql, record: DocumentRecord) => {
+      savedRecords.push(record);
+      durableRecord = record;
+      return "2026-08-24T00:00:00.000Z";
+    },
+  } as unknown as DocumentsPersistence;
+  const common = {
+    currentDoc,
+    currentRecord,
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql: createNoopExecSql(),
+    localId: currentRecord.id,
+    persistence,
+  };
+
+  await persistDocumentState({
+    ...common,
+    patch: { lastCommitLsn: "0/3" },
+  });
+  await persistDocumentState({
+    ...common,
+    patch: { accessEpoch: 2 },
+  });
+
+  expect(savedRecords[0]?.pullContinuation).toEqual(
+    currentRecord.pullContinuation,
+  );
+  expect(savedRecords[1]?.pullContinuation).toBeNull();
 });
 
 test("a missing container projection does not delete a canonical document", async () => {
@@ -247,16 +358,29 @@ test("a missing container projection does not delete a canonical document", asyn
     accessEpoch: 1,
     containerId: "container",
     documentId: "remote-1",
-    snapshotEndVersion: "stored-frontier",
+    snapshotEndVersion: encodeVersionVector(currentDoc),
     text: "before",
   } as DocumentRecord;
   let deletes = 0;
   let saves = 0;
   const persistence = {
+    commitDocumentMutation: async (
+      nextExecSql: ExecSql,
+      _input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
+      saveProjection: Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[2],
+    ) => {
+      saves += 1;
+      const updatedAt = "2026-07-30T00:00:00.000Z";
+      await saveProjection(nextExecSql, updatedAt);
+      return { committed: true as const, updatedAt };
+    },
     deleteDocument: async () => {
       deletes += 1;
     },
     hasDocument: async () => true,
+    loadDocument: async () => currentRecord,
     loadDocumentContainer: async () => undefined,
     saveDocument: async () => {
       saves += 1;

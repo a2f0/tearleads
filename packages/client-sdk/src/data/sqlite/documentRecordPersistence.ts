@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../accessLevel";
+import { deserializeDocumentSyncPullContinuation } from "../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
   DocumentScope,
@@ -26,6 +27,7 @@ export const documentRecordSelection = {
   contentKeyBundle: documents.contentKeyBundle,
   documentKekTargets: documents.documentKekTargets,
   pendingBaseVersion: documents.pendingBaseVersion,
+  pullContinuation: documents.pullContinuation,
 };
 
 export function mapSelectedDocumentRecord(
@@ -53,6 +55,15 @@ export function mapSelectedDocumentRecord(
   // one keeps its prior shape (and init falls through to seeding it).
   if (row.pendingBaseVersion !== null) {
     record.pendingBaseVersion = row.pendingBaseVersion;
+  }
+
+  const pullContinuation = deserializeDocumentSyncPullContinuation(
+    row.pullContinuation,
+  );
+  if (pullContinuation !== null) {
+    record.pullContinuation = pullContinuation;
+  } else if (row.pullContinuation !== null) {
+    record.pullContinuationRecoveryRequired = true;
   }
 
   return record;

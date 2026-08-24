@@ -35,6 +35,27 @@ export function importDocumentHistoryTailUpdates(
   }
 }
 
+/** Merge the latest durable checkpoint and tail into an already-live pane. */
+export async function mergePersistedDocumentHistory(input: {
+  doc: Parameters<typeof importSnapshot>[0];
+  execSql: ExecSql;
+  localId: string;
+  persistence: DocumentsPersistence;
+}): Promise<void> {
+  const history = await input.persistence.loadHistoryRestoreState(
+    input.execSql,
+    input.localId,
+  );
+  if (!history) return;
+  if (history.snapshot.length > 0) {
+    importSnapshot(input.doc, base64ToBytes(history.snapshot));
+  }
+  importDocumentHistoryTailUpdates(
+    input.doc,
+    history.tailUpdates.map((update) => update.updateData),
+  );
+}
+
 /**
  * Load a persisted document's content into a fresh detached document from the
  * durable full-history state (checkpoint + tail) — the only persisted content

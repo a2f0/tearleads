@@ -339,11 +339,13 @@ function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
   );
 }
 
-function invalidatePullCursor(
+async function invalidatePullCursor(
   input: SyncRemoteDocumentInput,
   pullContinuation: DocumentSyncPullContinuation | undefined,
-): undefined {
-  if (pullContinuation !== undefined) input.onPullContinuationInvalidated?.();
+): Promise<undefined> {
+  if (pullContinuation !== undefined) {
+    await input.onPullContinuationInvalidated?.(pullContinuation);
+  }
   return undefined;
 }
 
@@ -365,7 +367,7 @@ async function preparePersistedDocumentSync(
     );
     if (persisted?.kind === "completed") return persisted;
     if (persisted?.kind === "not_completed") {
-      pullContinuation = invalidatePullCursor(input, pullContinuation);
+      pullContinuation = await invalidatePullCursor(input, pullContinuation);
     }
   } catch (error) {
     if (
@@ -374,7 +376,7 @@ async function preparePersistedDocumentSync(
     ) {
       throw error;
     }
-    pullContinuation = invalidatePullCursor(input, pullContinuation);
+    pullContinuation = await invalidatePullCursor(input, pullContinuation);
   }
   return { kind: "continue", pullContinuation };
 }
@@ -445,7 +447,7 @@ export async function syncRemoteDocument(
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);
-      pullContinuation = invalidatePullCursor(input, pullContinuation);
+      pullContinuation = await invalidatePullCursor(input, pullContinuation);
       continue;
     }
     if (submitted === "stop") {

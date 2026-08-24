@@ -9,6 +9,7 @@ import type {
   PendingUpdateRecord,
 } from "../../../workflows/documents";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import {
   enqueuePendingUpdate,
   listPendingUpdates,
@@ -57,7 +58,16 @@ export async function prepareDocumentOutgoingCoverage(input: {
 
   if (!satisfiesVersionVector(queuedCoverage, documentVersion)) {
     const deferredUpdate = exportUpdatesSince(currentDoc, queuedCoverage);
-    await enqueuePendingUpdate(state, deferredUpdate);
+    const enqueued = await enqueuePendingUpdate(
+      state,
+      deferredUpdate,
+      undefined,
+      generation,
+    );
+    if (!enqueued) {
+      await rebaseDocumentAfterPendingUpdateRefusal(state, generation);
+      return null;
+    }
     if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
 
     pendingUpdates = await listPendingUpdates(state);

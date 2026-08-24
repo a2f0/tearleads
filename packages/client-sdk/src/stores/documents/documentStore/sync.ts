@@ -107,6 +107,17 @@ export function prepareDocumentStoreSyncQueue(
   };
 }
 
+export function canSyncDetachedAttachmentBindings(
+  record: DocumentRecord,
+  pendingUpdateCount: number,
+): boolean {
+  return (
+    pendingUpdateCount === 0 &&
+    (record.pullContinuation ?? null) === null &&
+    !record.pullContinuationRecoveryRequired
+  );
+}
+
 async function syncDocumentState(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -262,7 +273,11 @@ async function revalidateRemoteDocumentBeforeAttachments(
     wasRemoteProbe,
   );
   return {
-    canSyncAttachments: isDocumentStoreSyncGenerationCurrent(state, generation),
+    canSyncAttachments:
+      !syncAttempt.synced.hasIncompletePull &&
+      refreshedRecord.pullContinuation == null &&
+      refreshedRecord.pullContinuationRecoveryRequired !== true &&
+      isDocumentStoreSyncGenerationCurrent(state, generation),
     nextRecord: refreshedRecord,
   };
 }
@@ -327,7 +342,7 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     requestDocumentStoreSync(state);
     return;
   }
-  if (pendingUpdates.length > 0) {
+  if (!canSyncDetachedAttachmentBindings(nextRecord, pendingUpdates.length)) {
     return;
   }
 

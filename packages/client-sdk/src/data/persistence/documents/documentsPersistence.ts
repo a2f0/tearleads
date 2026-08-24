@@ -35,7 +35,13 @@ import {
 } from "../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
+import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
+import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
+import {
+  commitStoredDocumentMutation,
+  settleStoredDocumentPendingUpdates,
+} from "./internal/documentMutationPersistence";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -43,6 +49,7 @@ import {
   mapDocumentSummary,
   toDocumentSummary,
 } from "./internal/documentProjectionRows";
+import { invalidateStoredDocumentPullContinuation } from "./internal/documentPullContinuationPersistence";
 import {
   getDocumentScope,
   resolveDocumentSaveTimestamp,
@@ -68,6 +75,8 @@ import type {
 
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
+  AttachmentRemovalRows,
+  AttachmentStagingRows,
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,
   DocumentsPersistence,
@@ -276,9 +285,37 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
+  createDocumentWithHistoryCheckpoint:
+    createStoredDocumentWithHistoryCheckpoint,
+  commitDocumentMutation: (execSql, input, saveClientProjection) =>
+    commitStoredDocumentMutation(
+      execSql,
+      input,
+      saveClientProjection,
+      sqlDocumentsPersistence.loadDocument,
+    ),
+  settleAcceptedPendingUpdates: (execSql, input) =>
+    settleStoredDocumentPendingUpdates(
+      execSql,
+      input,
+      sqlDocumentsPersistence.loadDocument,
+    ),
   ensureSchema: ensureDocumentsSchema,
   listDocumentSummaries,
   listDocumentsByContainerIdsOrDocumentIds,
+  invalidatePullContinuation: (execSql, input) =>
+    invalidateStoredDocumentPullContinuation(
+      execSql,
+      input,
+      sqlDocumentsPersistence.loadDocument,
+      sqlDocumentsPersistence.loadHistoryRestoreState,
+    ),
+  loadDocumentWithHistoryRestoreState: (execSql, localId) =>
+    loadStoredDocumentWithHistoryRestoreState(
+      execSql,
+      localId,
+      sqlDocumentsPersistence,
+    ),
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(

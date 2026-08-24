@@ -5,6 +5,7 @@ import {
   type StoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../../data/documents/documentKinds";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { requestDocumentStoreSync } from "../registry";
 import type {
   DocumentMutationOptions,
@@ -14,9 +15,9 @@ import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
 } from "./initialization";
+import { revalidateDocumentMutationIdentity } from "./mutationIdentityRevalidation";
 import {
   advancePendingBaseVersion,
-  enqueuePendingUpdate,
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
@@ -24,10 +25,22 @@ import {
   canWriteDocument,
   type DocumentState,
   type DocumentStoreState,
+  type SaveDocumentRecordOptions,
   setDocumentSnapshot,
   setReadySnapshot,
 } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+
+function structuredMutationDurabilityOptions(
+  options: DocumentMutationOptions,
+  update: Uint8Array,
+): Pick<SaveDocumentRecordOptions, "historyUpdates" | "pendingUpdate"> | null {
+  if (options.deferRemoteSync) {
+    return { historyUpdates: [bytesToBase64(update)] };
+  }
+  const pendingUpdate = createPendingUpdateFields(update);
+  return pendingUpdate ? { pendingUpdate } : null;
+}
 
 function isDocumentLocalWriteCurrent(
   state: DocumentStoreState,
@@ -115,6 +128,11 @@ function queueDocumentTextWrite(
       }
 
       if (getTextValue(writeDoc) === value) {
+        await revalidateDocumentMutationIdentity({
+          currentDoc: writeDoc,
+          generation: syncGeneration,
+          state,
+        });
         return;
       }
 
@@ -124,16 +142,15 @@ function queueDocumentTextWrite(
       // to exactly this version, so this is the frontier the persist may
       // publish (a raced later edit publishes its own on its own persist).
       const coveredVersion = encodeVersionVector(writeDoc);
-
-      await enqueuePendingUpdate(state, update);
-      if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
+      const pendingUpdate = createPendingUpdateFields(update);
+      if (!pendingUpdate) {
         return;
       }
       const persisted = await persistDocument(
         state,
         writeDoc,
         { snapshotEndVersion: coveredVersion },
-        { preserveSnapshotText: true },
+        { pendingUpdate, preserveSnapshotText: true },
         syncGeneration,
       );
       if (
@@ -235,18 +252,28 @@ function queueDocumentStructuredFieldWrite(
       );
       const update = pendingDeltaSinceBase(state, writeDoc);
       if (update.byteLength === 0) {
+        await revalidateDocumentMutationIdentity({
+          currentDoc: writeDoc,
+          generation: syncGeneration,
+          state,
+        });
         return;
       }
       // Captured at delta time: the durable row written below (queue
       // dual-write or in-mutation tail append) proves coverage up to exactly
       // this version, so it is the frontier this persist may publish.
       const coveredVersion = encodeVersionVector(writeDoc);
-
-      if (!options.deferRemoteSync) {
-        await enqueuePendingUpdate(state, update);
-        if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
-          return;
-        }
+      const durabilityOptions = structuredMutationDurabilityOptions(
+        options,
+        update,
+      );
+      if (!durabilityOptions) {
+        await revalidateDocumentMutationIdentity({
+          currentDoc: writeDoc,
+          generation: syncGeneration,
+          state,
+        });
+        return;
       }
       // A deferred write advances the record's content frontier AHEAD of the
       // outgoing queue (the op is re-derived by the next edit). Its delta
@@ -262,9 +289,7 @@ function queueDocumentStructuredFieldWrite(
         {
           preserveSnapshotStructuredFields: true,
           preserveSnapshotText: true,
-          ...(options.deferRemoteSync
-            ? { historyUpdates: [bytesToBase64(update)] }
-            : {}),
+          ...durabilityOptions,
         },
         syncGeneration,
       );

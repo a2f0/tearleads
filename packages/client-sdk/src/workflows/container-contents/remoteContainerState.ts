@@ -2,10 +2,12 @@ import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
-import type { ContainerRecord } from "./containerPersistence";
+import type { ContainerRecord, ContainerRemoval } from "./containerPersistence";
+import { installContainerMetadataRecord } from "./metadataPersistence";
 import {
   addIndexedContainerChild,
   moveIndexedContainerChild,
+  removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
 import { reattachDormantContainerMetadata } from "./remoteHydration/reattachMetadata";
 import {
@@ -20,6 +22,7 @@ import type {
   RemoteContainerHydrationState,
   SaveContainerOptions,
 } from "./remoteHydration/types";
+import { hydrateStoredContainerState } from "./storedContainerState";
 
 function applyRemoteContainerTimestamps(
   container: ContainerRecord,
@@ -38,7 +41,7 @@ function applyRemoteContainerTimestamps(
 function remoteContainerHydrationSaveOptions(input: {
   localUpdatedAt?: string | null | undefined;
   remoteContainer: RemoteContainer;
-}): SaveContainerOptions {
+}): NonNullable<SaveContainerOptions> {
   return {
     localUpdatedAt: input.localUpdatedAt ?? input.remoteContainer.updatedAt,
     serverTimestamps: {
@@ -140,6 +143,46 @@ export async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
   );
 }
 
+function removeMissingHydratedContainer(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  existingState: ContainerState;
+  host: RemoteContainerHydrationHost;
+  previousParentId: string | null;
+  remoteContainer: RemoteContainer;
+  state: RemoteContainerHydrationState;
+}): void {
+  const { existingState, remoteContainer, state } = input;
+  if (state.containersById.get(remoteContainer.id) !== existingState) {
+    return;
+  }
+
+  state.containersById.delete(remoteContainer.id);
+  if (input.childIdsByParentId) {
+    removeIndexedContainerChild(
+      input.childIdsByParentId,
+      remoteContainer.id,
+      input.previousParentId,
+    );
+    input.childIdsByParentId.delete(remoteContainer.id);
+  }
+  input.host.updateSnapshot();
+}
+
+function createUpdatedRemoteContainerState(
+  existingState: ContainerState,
+  remoteContainer: RemoteContainer,
+): ContainerState {
+  return {
+    ...existingState,
+    container: applyRemoteContainerTimestamps(
+      existingState.container,
+      remoteContainer,
+    ),
+    containerWriterProjection: null,
+    metadataReferencedPrincipals: remoteContainer.metadataReferencedPrincipals,
+  };
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -149,19 +192,19 @@ async function updateExistingRemoteContainerState(input: {
   existingState: ContainerState;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
-}): Promise<ContainerState> {
+}): Promise<ContainerState | null> {
   const { childIdsByParentId, existingState, host, remoteContainer, state } =
     input;
   const previousParentId = existingState.container.parentId;
   const previousLocalUpdatedAt = existingState.container.localUpdatedAt;
   // A queued, not-yet-synced local move/create owns this container's parent
-  // until its intent lane reconciles. Keep the local parent (and local-edit
-  // timestamp) instead of the inbound server values, so hydration cannot revert
-  // a pending move or report it as synced before the move actually syncs.
+  // until its intent lane reconciles. Omit the remote parent when the page scan
+  // saw one; persistence also rechecks the intent transactionally so a move
+  // created after that scan wins. Both paths preserve the durable local clock.
   const hasPendingStructuralIntent =
     input.containerIdsWithPendingStructuralIntents.has(remoteContainer.id);
   const nextParentId = hasPendingStructuralIntent
-    ? previousParentId
+    ? undefined
     : remoteContainer.parentId;
   const localUpdatedAt = resolveRemoteContainerHydrationLocalUpdatedAt({
     containerIdsWithPendingMetadataUpdates:
@@ -170,32 +213,48 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
-  const nextState: ContainerState = {
-    ...existingState,
-    container: applyRemoteContainerTimestamps(
-      existingState.container,
-      remoteContainer,
-    ),
-    containerWriterProjection: null,
-    metadataReferencedPrincipals: remoteContainer.metadataReferencedPrincipals,
-  };
-  nextState.record = await host.persistContainerState(
+  const nextState = createUpdatedRemoteContainerState(
+    existingState,
+    remoteContainer,
+  );
+  const persistenceResult = await host.persistContainerState(
     nextState,
     {
       accessEpoch: remoteContainer.metadataAccessEpoch,
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
+      effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
       metadataDocumentId: remoteContainer.metadataDocumentId,
       systemSlot: remoteContainer.systemSlot ?? null,
       organizationId: remoteContainer.organizationId,
-      parentId: nextParentId,
+      ...(nextParentId !== undefined ? { parentId: nextParentId } : {}),
     },
     false,
     remoteContainerHydrationSaveOptions({
       localUpdatedAt,
       remoteContainer,
     }),
+    {
+      preserveDurableStructureWhenPending: true,
+    },
   );
+  if (persistenceResult.status === "missing") {
+    // Hydration persists a detached candidate so an in-flight response cannot
+    // mutate mapped state before its guards settle. Retire the exact state this
+    // hydration read because store-level reference cleanup cannot see the clone.
+    removeMissingHydratedContainer({
+      childIdsByParentId,
+      existingState,
+      host,
+      previousParentId,
+      remoteContainer,
+      state,
+    });
+    return null;
+  }
+  if (persistenceResult.status !== "persisted") return null;
+  const { record: nextRecord } = persistenceResult;
+  installContainerMetadataRecord(nextState, nextRecord);
   if (input.isCurrent?.() === false) {
     return existingState;
   }
@@ -203,7 +262,7 @@ async function updateExistingRemoteContainerState(input: {
     ...nextState.container,
     metadataDocumentId: remoteContainer.metadataDocumentId,
     organizationId: remoteContainer.organizationId,
-    parentId: nextParentId,
+    parentId: nextState.container.parentId,
   };
 
   existingState.container = nextState.container;
@@ -211,7 +270,7 @@ async function updateExistingRemoteContainerState(input: {
   existingState.metadataReferencedPrincipals =
     nextState.metadataReferencedPrincipals;
   existingState.metadataWriterProjection = nextState.metadataWriterProjection;
-  existingState.record = nextState.record;
+  installContainerMetadataRecord(existingState, nextState.record);
   moveIndexedContainerChild(
     childIdsByParentId,
     remoteContainer.id,
@@ -231,6 +290,7 @@ async function updateExistingRemoteContainerState(input: {
 interface InsertRemoteContainerStateInput {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: RemoteContainerHydrationHost;
+  expectedHydrationTombstone: ContainerRemoval | null;
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -275,6 +335,12 @@ function createInsertedRemoteContainerState(input: {
       id: remoteContainer.id,
       lastCommitLsn: reattached.lastCommitLsn,
       metadataUpdates: reattached.initialSnapshot,
+      ...(reattached.pullContinuation === undefined
+        ? {}
+        : { pullContinuation: reattached.pullContinuation }),
+      ...(reattached.pullContinuationRecoveryRequired
+        ? { pullContinuationRecoveryRequired: true as const }
+        : {}),
       snapshotEndVersion: reattached.snapshotEndVersion,
       contentKeyBundle: null,
       documentKekTargets: null,
@@ -302,6 +368,7 @@ async function insertRemoteContainerState(
     execSql,
     remoteContainer.id,
   );
+  const expectedDormantRecord = dormantRecord;
   if (input.isCurrent?.() === false) {
     return null;
   }
@@ -309,17 +376,6 @@ async function insertRemoteContainerState(
     dormantRecord?.documentId != null &&
     dormantRecord.documentId !== remoteContainer.metadataDocumentId
   ) {
-    // The remote metadata document was replaced while access was revoked:
-    // the dormant scope's queued updates belong to the dead stream and would
-    // otherwise resurface once the container row returns (the write-queue
-    // guard keys on the container row alone). Purge before inserting fresh.
-    await persistence.purgeDormantContainerMetadata(
-      execSql,
-      remoteContainer.id,
-    );
-    if (input.isCurrent?.() === false) {
-      return null;
-    }
     dormantRecord = null;
   }
   const containerState = createInsertedRemoteContainerState({
@@ -328,16 +384,38 @@ async function insertRemoteContainerState(
     remoteContainer,
   });
 
-  containerState.container = await persistence.saveContainer(
-    execSql,
-    containerState.container,
-    containerState.record,
-    remoteContainerHydrationSaveOptions({ remoteContainer }),
-  );
+  const committed = await persistence.commitHydratedContainer(execSql, {
+    container: containerState.container,
+    expectedDormantRecord,
+    expectedHydrationTombstone: input.expectedHydrationTombstone,
+    purgeDormantMetadata:
+      expectedDormantRecord?.documentId != null &&
+      expectedDormantRecord.documentId !== remoteContainer.metadataDocumentId,
+    record: containerState.record,
+    remoteUpdatedAt: remoteContainer.updatedAt,
+    saveOptions: remoteContainerHydrationSaveOptions({ remoteContainer }),
+  });
+  let installedState = containerState;
+  if (committed.committed) {
+    installedState.container = committed.container;
+  } else {
+    const winningStoredState = await persistence.loadContainerMetadataState(
+      execSql,
+      remoteContainer.id,
+    );
+    if (!winningStoredState) return null;
+    installedState = await hydrateStoredContainerState({
+      execSql,
+      persistence,
+      storedContainer: winningStoredState,
+    });
+    installedState.metadataReferencedPrincipals =
+      remoteContainer.metadataReferencedPrincipals;
+  }
   if (input.isCurrent?.() === false) {
     return null;
   }
-  state.containersById.set(remoteContainer.id, containerState);
+  state.containersById.set(remoteContainer.id, installedState);
   if (childIdsByParentId) {
     addIndexedContainerChild(
       childIdsByParentId,
@@ -348,11 +426,11 @@ async function insertRemoteContainerState(
   await reconcileLocalOnlyRootContainers({
     childIdsByParentId,
     isCurrent: input.isCurrent,
-    remoteRootState: containerState,
+    remoteRootState: installedState,
     requestDocumentPriming: host.requestDocumentPriming,
     state,
   });
-  return containerState;
+  return installedState;
 }
 
 export async function upsertRemoteContainerState(input: {
@@ -360,6 +438,7 @@ export async function upsertRemoteContainerState(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
+  expectedHydrationTombstone?: ContainerRemoval | null | undefined;
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -383,6 +462,7 @@ export async function upsertRemoteContainerState(input: {
     : await insertRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
         host: input.host,
+        expectedHydrationTombstone: input.expectedHydrationTombstone ?? null,
         isCurrent: input.isCurrent,
         remoteContainer: input.remoteContainer,
         state: input.state,

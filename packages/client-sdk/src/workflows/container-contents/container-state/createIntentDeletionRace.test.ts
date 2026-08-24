@@ -1,0 +1,163 @@
+import { expect, test } from "bun:test";
+import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import {
+  createMutationResponseFromRequest,
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+} from "../../../../test/helpers/containerFixtures";
+import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
+import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
+import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
+import { createDomainScope } from "../../../data/domainScope";
+import {
+  type ContainerCreateIntentRecord,
+  defaultContainerContentsPersistence,
+} from "../containerPersistence";
+import { createContainerContentsWorkflowRuntime } from "../runtime";
+import { createTestContainerState } from "./containerState.testFixtures";
+import { syncPendingContainerCreateIntents } from "./createIntentSync";
+import type { ContainerCreateIntentSyncState } from "./types";
+
+async function runCreatePersistenceOutcome(
+  persistenceStatus: "identity-superseded" | "missing",
+) {
+  const parent = await createParentProjection();
+  const parentContainerId = parent.projection.containerId;
+  const childContainerId = `child-${persistenceStatus}-during-create-persist`;
+  const { close, execSql } = await createTestExecSql(
+    `container-create-intent-${persistenceStatus}-race`,
+  );
+  const deletedRemoteIds: string[] = [];
+  const apiClient = createMockApiClient({
+    createContainerWithMetadataDocument: async (request) => ({
+      container: await createMutationResponseFromRequest(request.container),
+      metadataDocument: await createResponseFromRequest(
+        request.metadataDocument,
+      ),
+    }),
+    deleteContainer: async (containerId) => {
+      deletedRemoteIds.push(containerId);
+      return {
+        containerId,
+        deletedAt: "2026-08-24T00:00:00.000Z",
+      };
+    },
+    getContainerWriterProjection: async (containerId) =>
+      containerId === parentContainerId ? parent.projection : null,
+  });
+  const runtime = createContainerContentsWorkflowRuntime({
+    apiClient,
+    auth: {
+      isAuthenticated: true,
+      organizationId: parent.projection.organizationId,
+      userId: parent.userId,
+    },
+    crypto: {
+      encapsulationKeyPair: {
+        publicKey: parent.encapsulationPublicKey,
+        secretKey: parent.secretKey,
+      },
+      signingFingerprint: parent.author.signerKeyFingerprint,
+      signingKeyPair: {
+        signingPrivateKey: parent.author.signerPrivateKey,
+        signingPublicKey: parent.signingPublicKey,
+      },
+    },
+    infra: {
+      blobStore: createMemoryBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: {
+      containerId: parentContainerId,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      log: () => undefined,
+      reportSecurityIncident: async () => undefined,
+    },
+  });
+  const intent: ContainerCreateIntentRecord = {
+    containerId: childContainerId,
+    createdAt: "2026-08-24T00:00:00.000Z",
+    id: `create-${persistenceStatus}-child`,
+    intentType: "container.create",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId,
+    remoteContainerId: null,
+    remoteMetadataAccessStateHash: null,
+    remoteMetadataDocumentId: null,
+    syncStatus: "pending",
+    updatedAt: "2026-08-24T00:00:00.000Z",
+  };
+  const syncedIntents: string[] = [];
+  const persistence: ContainerCreateIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    listPendingCreateIntents: async () => [intent],
+    markCreateIntentSynced: async (_execSql, input) => {
+      syncedIntents.push(input.containerId);
+    },
+  };
+  const parentState = createTestContainerState({
+    id: parentContainerId,
+    parentId: "root",
+    synced: true,
+  });
+  parentState.container.organizationId = parent.projection.organizationId;
+  const childState = createTestContainerState({
+    id: childContainerId,
+    parentId: parentContainerId,
+    synced: false,
+  });
+  const state: ContainerCreateIntentSyncState = {
+    containersById: new Map([
+      [childContainerId, childState],
+      [parentContainerId, parentState],
+    ]),
+    persistence,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    runtime,
+  };
+
+  try {
+    const host: Parameters<
+      typeof syncPendingContainerCreateIntents
+    >[0]["host"] = {
+      persistContainerState: async () =>
+        persistenceStatus === "missing"
+          ? { status: "missing" }
+          : {
+              record: childState.record,
+              status: "identity-superseded",
+            },
+    };
+    const createdCount = await syncPendingContainerCreateIntents({
+      host,
+      isRemoteSyncBlocked: () => false,
+      state,
+    });
+    return { childContainerId, createdCount, deletedRemoteIds, syncedIntents };
+  } finally {
+    close();
+  }
+}
+
+test("create persistence discards only when the local container is missing", async () => {
+  const missing = await runCreatePersistenceOutcome("missing");
+  expect(missing.createdCount).toBe(0);
+  expect(missing.deletedRemoteIds).toEqual([missing.childContainerId]);
+  expect(missing.syncedIntents).toEqual([]);
+
+  // Another pane persisted an authoritative remote identity while this
+  // response was in flight. The create remains pending for hydration, but its
+  // valid remote container must not be deleted.
+  const superseded = await runCreatePersistenceOutcome("identity-superseded");
+  expect(superseded.createdCount).toBe(0);
+  expect(superseded.deletedRemoteIds).toEqual([]);
+  expect(superseded.syncedIntents).toEqual([]);
+});

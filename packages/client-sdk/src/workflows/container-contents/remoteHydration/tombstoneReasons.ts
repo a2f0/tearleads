@@ -2,6 +2,8 @@ import type { ContainerSyncTombstone } from "@symcrypt/validators/response";
 import type { ContainerChildIndex } from "./types";
 
 interface RemovedContainerCollection {
+  /** Absent revoked roots that still need a durable anti-resurrection fence. */
+  fenceOnlyContainerIds: string[];
   /**
    * Containers the page tombstoned directly (not reached via cascade). A
    * tombstone names only committed containers, so membership here is proof
@@ -16,8 +18,86 @@ interface RemovedContainerCollection {
    * cascade locally, but their dormant metadata must still be purged.
    */
   purgeMetadataContainerIds: string[];
+  removalByContainerId: ReadonlyMap<
+    string,
+    Pick<ContainerSyncTombstone, "reason" | "updatedAt">
+  >;
   reasonByContainerId: ReadonlyMap<string, ContainerSyncTombstone["reason"]>;
   removedContainerIds: string[];
+}
+
+type ContainerRemoval = Pick<ContainerSyncTombstone, "reason" | "updatedAt">;
+
+function shouldReplaceInheritedRemoval(
+  current: ContainerRemoval | undefined,
+  next: ContainerRemoval,
+): boolean {
+  return (
+    !current ||
+    (current.reason === "access_revoked" && next.reason === "deleted") ||
+    (current.reason === next.reason && current.updatedAt < next.updatedAt)
+  );
+}
+
+function assignContainerRemoval(input: {
+  containerId: string;
+  isOwn: boolean;
+  ownReasonContainerIds: Set<string>;
+  removal: ContainerRemoval;
+  removalByContainerId: Map<string, ContainerRemoval>;
+}): boolean {
+  if (!input.isOwn && input.ownReasonContainerIds.has(input.containerId)) {
+    return false;
+  }
+  const current = input.removalByContainerId.get(input.containerId);
+  if (input.isOwn) {
+    input.ownReasonContainerIds.add(input.containerId);
+    const changed =
+      current?.reason !== input.removal.reason ||
+      current.updatedAt !== input.removal.updatedAt;
+    input.removalByContainerId.set(input.containerId, input.removal);
+    return changed;
+  }
+  if (!shouldReplaceInheritedRemoval(current, input.removal)) return false;
+  input.removalByContainerId.set(input.containerId, input.removal);
+  return true;
+}
+
+function collectCascadedContainerIds(input: {
+  childIdsByParentId: ContainerChildIndex;
+  ownReasonContainerIds: Set<string>;
+  pendingContainerIds: string[];
+  preservedContainerIds: ReadonlySet<string>;
+  removalByContainerId: Map<string, ContainerRemoval>;
+}): Set<string> {
+  const removedContainerIds = new Set<string>();
+  while (input.pendingContainerIds.length > 0) {
+    const containerId = input.pendingContainerIds.pop();
+    if (!containerId || removedContainerIds.has(containerId)) continue;
+
+    removedContainerIds.add(containerId);
+    const inheritedRemoval = input.removalByContainerId.get(containerId);
+    if (!inheritedRemoval) continue;
+    for (const childId of input.childIdsByParentId.get(containerId) ?? []) {
+      if (input.preservedContainerIds.has(childId)) continue;
+      // A second root can upgrade an already-visited child to deleted; requeue
+      // it so its descendants inherit the stronger removal too.
+      const upgraded = assignContainerRemoval({
+        containerId: childId,
+        isOwn: false,
+        ownReasonContainerIds: input.ownReasonContainerIds,
+        removal: inheritedRemoval,
+        removalByContainerId: input.removalByContainerId,
+      });
+      if (!removedContainerIds.has(childId)) {
+        input.pendingContainerIds.push(childId);
+      } else if (upgraded) {
+        removedContainerIds.delete(childId);
+        input.pendingContainerIds.push(childId);
+      }
+    }
+  }
+  return removedContainerIds;
 }
 
 /**
@@ -40,70 +120,46 @@ export function collectRemovedContainers(input: {
     preservedContainerIds,
     tombstones,
   } = input;
-  const reasonByContainerId = new Map<
-    string,
-    ContainerSyncTombstone["reason"]
-  >();
+  const removalByContainerId = new Map<string, ContainerRemoval>();
   const ownReasonContainerIds = new Set<string>();
-  const removedContainerIds = new Set<string>();
   const pendingContainerIds: string[] = [];
 
-  const assignReason = (
-    containerId: string,
-    reason: ContainerSyncTombstone["reason"],
-    isOwn: boolean,
-  ): boolean => {
-    if (!isOwn && ownReasonContainerIds.has(containerId)) {
-      return false;
-    }
-    if (isOwn) {
-      ownReasonContainerIds.add(containerId);
-      const changed = reasonByContainerId.get(containerId) !== reason;
-      reasonByContainerId.set(containerId, reason);
-      return changed;
-    }
-    const current = reasonByContainerId.get(containerId);
-    if (!current || (current === "access_revoked" && reason === "deleted")) {
-      reasonByContainerId.set(containerId, reason);
-      return current !== reason;
-    }
-    return false;
-  };
-
   for (const tombstone of tombstones) {
-    assignReason(tombstone.containerId, tombstone.reason, true);
+    assignContainerRemoval({
+      containerId: tombstone.containerId,
+      isOwn: true,
+      ownReasonContainerIds,
+      removal: { reason: tombstone.reason, updatedAt: tombstone.updatedAt },
+      removalByContainerId,
+    });
     if (!preservedContainerIds.has(tombstone.containerId)) {
       pendingContainerIds.push(tombstone.containerId);
     }
   }
 
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId || removedContainerIds.has(containerId)) {
-      continue;
-    }
+  const removedContainerIds = collectCascadedContainerIds({
+    childIdsByParentId,
+    ownReasonContainerIds,
+    pendingContainerIds,
+    preservedContainerIds,
+    removalByContainerId,
+  });
 
-    removedContainerIds.add(containerId);
-    const inheritedReason = reasonByContainerId.get(containerId) ?? "deleted";
-    for (const childId of childIdsByParentId.get(containerId) ?? []) {
-      if (preservedContainerIds.has(childId)) {
-        continue;
-      }
-      // Assign before the visited check so a second root reaching an
-      // already-visited child can still upgrade access_revoked to deleted —
-      // and requeue the child on an upgrade so its own descendants re-inherit
-      // the stronger reason. Upgrades are one-way, so this terminates.
-      const upgraded = assignReason(childId, inheritedReason, false);
-      if (!removedContainerIds.has(childId)) {
-        pendingContainerIds.push(childId);
-      } else if (upgraded) {
-        removedContainerIds.delete(childId);
-        pendingContainerIds.push(childId);
-      }
-    }
-  }
-
+  const reasonByContainerId = new Map(
+    Array.from(removalByContainerId, ([containerId, removal]) => [
+      containerId,
+      removal.reason,
+    ]),
+  );
   return {
+    fenceOnlyContainerIds: Array.from(reasonByContainerId.entries())
+      .filter(
+        ([containerId, reason]) =>
+          reason === "access_revoked" &&
+          !containersById.has(containerId) &&
+          !preservedContainerIds.has(containerId),
+      )
+      .map(([containerId]) => containerId),
     ownTombstoneContainerIds: ownReasonContainerIds,
     purgeMetadataContainerIds: Array.from(reasonByContainerId.entries())
       .filter(
@@ -113,6 +169,7 @@ export function collectRemovedContainers(input: {
           !preservedContainerIds.has(containerId),
       )
       .map(([containerId]) => containerId),
+    removalByContainerId,
     reasonByContainerId,
     removedContainerIds: Array.from(removedContainerIds).filter((containerId) =>
       containersById.has(containerId),

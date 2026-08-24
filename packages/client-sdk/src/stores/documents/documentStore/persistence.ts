@@ -29,6 +29,10 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import {
+  importDurableDocumentHistory,
+  installDurableDocumentReload,
+} from "./durableDocumentReload";
+import {
   type DocumentState,
   type DocumentStoreState,
   markDocumentStoreRemoved,
@@ -36,6 +40,7 @@ import {
   type SaveDocumentRecordOptions,
   setReadySnapshot,
 } from "./state";
+import { createFreshPeerStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
@@ -70,6 +75,26 @@ export function documentSummaryFromRecord(
   };
 }
 
+function toPersistedDocumentRecord(
+  persisted: NonNullable<Awaited<ReturnType<typeof persistDocumentState>>>,
+): PersistedDocumentRecord {
+  const { record, updatedAt } = persisted;
+  return {
+    ...(persisted.creationSuperseded
+      ? { creationSuperseded: true as const }
+      : {}),
+    historyRestoreState: persisted.historyRestoreState,
+    ...(persisted.pullContinuationSuperseded
+      ? { pullContinuationSuperseded: true as const }
+      : {}),
+    record,
+    ...(persisted.syncIdentitySuperseded
+      ? { syncIdentitySuperseded: true as const }
+      : {}),
+    ...(updatedAt !== undefined ? { updatedAt } : {}),
+  };
+}
+
 // Nullable without a generation too: an update-persist refuses (returns
 // null) when the durable row was deleted while the persist was queued — the
 // resurrect guard in persistDocumentState — so callers must stop follow-up
@@ -88,12 +113,18 @@ export async function saveDocumentRecord(
       : options.pendingBaseVersionOverride;
   const persistenceInput = {
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
+    attachmentRemoval: options.attachmentRemoval,
+    attachmentStaging: options.attachmentStaging,
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,
     documentProjectors: state.runtime.infra.documentProjectors,
     execSql: state.runtime.infra.execSql,
+    expectedSyncState: options.expectedSyncState,
+    historyCheckpoint: options.historyCheckpoint,
+    historyUpdateOrigin: options.historyUpdateOrigin,
     historyUpdates: options.historyUpdates,
+    pendingUpdate: options.pendingUpdate,
     localId: state.localId,
     // Persist the durable outgoing-delta marker with every snapshot write so a
     // restart restores it (see initializeDocumentStore). A device-first
@@ -140,6 +171,11 @@ export async function saveDocumentRecord(
   }
 
   state.record = persistedDocumentState.record;
+  state.pullContinuation = nextRecord.pullContinuation ?? null;
+  if (persistedDocumentState.pullContinuationSuperseded) {
+    state.pendingBaseVersion =
+      nextRecord.pendingBaseVersion ?? nextRecord.snapshotEndVersion;
+  }
   if (previousDocumentId !== nextRecord.documentId) {
     state.effects.registerDocumentIdentity(
       state.runtime.state.domainScope,
@@ -147,18 +183,46 @@ export async function saveDocumentRecord(
       nextRecord.documentId,
     );
   }
-  state.effects.emitPersistedDocument(
-    state.runtime.state.domainScope,
-    documentSummaryFromRecord(
-      nextRecord,
-      updatedAt,
-      state.runtime.infra.documentProjectors,
-    ),
-  );
-  return {
-    record: nextRecord,
-    updatedAt,
-  };
+  if (updatedAt !== undefined) {
+    state.effects.emitPersistedDocument(
+      state.runtime.state.domainScope,
+      documentSummaryFromRecord(
+        nextRecord,
+        updatedAt,
+        state.runtime.infra.documentProjectors,
+      ),
+    );
+  }
+  return toPersistedDocumentRecord(persistedDocumentState);
+}
+
+async function reloadSupersededDocumentState(
+  state: DocumentStoreState,
+  expectedGeneration: DocumentStoreSyncGeneration | undefined,
+  historyRestoreState: PersistedDocumentRecord["historyRestoreState"],
+  previousDocumentId: string | null,
+  durableRecord: DocumentRecord,
+): Promise<DocumentState | null> {
+  if (historyRestoreState === undefined) {
+    throw new Error("Superseded document state omitted its durable history");
+  }
+  const replacementDoc = await createFreshPeerStoredDocument();
+  importDurableDocumentHistory(replacementDoc, historyRestoreState);
+  if (
+    expectedGeneration &&
+    !isSyncGenerationCurrent(state, expectedGeneration)
+  ) {
+    return null;
+  }
+  installDurableDocumentReload({
+    durableRecord,
+    previousDocumentId,
+    preserveQueuedWritesWhenIdentityMatches: true,
+    registerIdentityChange: false,
+    replacementDoc,
+    state,
+  });
+  return replacementDoc;
 }
 
 export async function persistDocument(
@@ -168,6 +232,7 @@ export async function persistDocument(
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord | null> {
+  const previousDocumentId = state.record?.documentId ?? null;
   const persistedRecord = await saveDocumentRecord(
     state,
     currentDoc,
@@ -179,14 +244,36 @@ export async function persistDocument(
   if (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
     return null;
 
+  if (
+    persistedRecord.syncIdentitySuperseded ||
+    persistedRecord.pullContinuationSuperseded
+  ) {
+    // A sync finalize imports remote updates into the live CRDT before its
+    // durable continuation CAS. If that CAS loses, its history rows were not
+    // appended either; keeping the mutated live CRDT would advance the next
+    // request frontier past data that cannot survive a restart. Rebuild from
+    // the winning durable checkpoint/tail for every CAS loss, not only an
+    // identity replacement.
+    const replacementDoc = await reloadSupersededDocumentState(
+      state,
+      expectedGeneration,
+      persistedRecord.historyRestoreState,
+      previousDocumentId,
+      persistedRecord.record,
+    );
+    if (!replacementDoc) return null;
+    return persistedRecord;
+  }
+
   setReadySnapshot(
     state,
     currentDoc,
     state.snapshot.syncing,
-    options.preserveSnapshotText
+    options.preserveSnapshotText && !persistedRecord.pullContinuationSuperseded
       ? state.snapshot.text
       : persistedRecord.record.text,
-    options.preserveSnapshotStructuredFields
+    options.preserveSnapshotStructuredFields &&
+      !persistedRecord.pullContinuationSuperseded
       ? state.snapshot.structuredFields
       : undefined,
   );
@@ -367,14 +454,25 @@ export async function enqueuePendingUpdate(
   update: Uint8Array,
   sourceVersionVector?: string | null,
   expectedGeneration?: DocumentStoreSyncGeneration,
-) {
-  await withGenerationGuardedMutation(state, expectedGeneration, (execSql) =>
-    enqueuePendingDocumentUpdate({
-      execSql,
-      localId: state.localId,
-      persistence: state.persistence,
-      ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
-      update,
-    }),
+): Promise<boolean> {
+  const expectedDocumentId = state.record?.documentId;
+  if (expectedDocumentId === undefined) {
+    return false;
+  }
+  let enqueued = false;
+  const ran = await withGenerationGuardedMutation(
+    state,
+    expectedGeneration,
+    async (execSql) => {
+      enqueued = await enqueuePendingDocumentUpdate({
+        execSql,
+        expectedDocumentId,
+        localId: state.localId,
+        persistence: state.persistence,
+        ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
+        update,
+      });
+    },
   );
+  return ran && enqueued;
 }

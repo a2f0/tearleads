@@ -70,20 +70,10 @@ function resolveSyncedDocumentWriterProjection(
  * idempotent by op identity; a crash between the writes can only leave the
  * safe superset).
  */
-async function appendPulledUpdatesToHistory(
-  state: DocumentStoreState,
-  synced: DocumentSyncAttempt["synced"],
-): Promise<void> {
-  if (synced.decryptedUpdates.length === 0) {
-    return;
-  }
-  await state.persistence.appendHistoryUpdates(state.runtime.infra.execSql, {
-    localId: state.localId,
-    origin: "remote",
-    updates: synced.decryptedUpdates.map((update) =>
-      bytesToBase64(update.updateData),
-    ),
-  });
+function pulledHistoryUpdates(synced: DocumentSyncAttempt["synced"]): string[] {
+  return synced.decryptedUpdates.map((update) =>
+    bytesToBase64(update.updateData),
+  );
 }
 
 /**
@@ -109,6 +99,22 @@ function coveredSyncFrontier(
           getImportBlobMetadata(update.updateData).partialEndVersionVector,
       ),
     ]),
+  };
+}
+
+function documentSyncSaveOptions(
+  syncAttempt: DocumentSyncAttempt,
+): Parameters<typeof persistDocument>[3] {
+  return {
+    acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
+    expectedSyncState: {
+      pullContinuation: syncAttempt.consumedPullContinuation,
+      record: syncAttempt.requestRecord,
+    },
+    historyUpdateOrigin: "remote",
+    historyUpdates: pulledHistoryUpdates(syncAttempt.synced),
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
   };
 }
 
@@ -185,11 +191,11 @@ export async function finalizeDocumentSync(
       syncAttempt,
       generation,
     );
-    await appendPulledUpdatesToHistory(state, synced);
     state.writerProjection = resolveSyncedDocumentWriterProjection(
       state,
       synced,
     );
+    const pullContinuation = readPullContinuation(synced.response);
     const persisted = await persistDocument(
       state,
       mergedDoc,
@@ -197,10 +203,10 @@ export async function finalizeDocumentSync(
         ...synced.persistedState,
         lastCommitLsn:
           synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+        pullContinuation,
         ...coveredSyncFrontier(state, currentRecord, synced),
       },
       {
-        acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
         // This is a BACKGROUND metadata persist (commit LSN, accepted-update
         // bookkeeping), not a content change: any genuinely-new remote text was
         // already folded into the snapshot by applyIncomingSyncedUpdates inside
@@ -210,8 +216,7 @@ export async function finalizeDocumentSync(
         // optimistic keystroke — regressing the controlled editor value and
         // jumping the caret. Preserve the live snapshot so the latest keystroke
         // always wins.
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
+        ...documentSyncSaveOptions(syncAttempt),
       },
       generation,
     );
@@ -222,8 +227,14 @@ export async function finalizeDocumentSync(
       return { record: state.record ?? currentRecord };
     }
 
-    state.pullContinuation = readPullContinuation(synced.response);
-    responseApplied = true;
+    state.pullContinuation = persisted.record.pullContinuation ?? null;
+    if (persisted.pullContinuationSuperseded) {
+      state.writerProjection = null;
+    }
+    // A CAS loss means neither this response's acknowledgements nor its
+    // continuation were committed. Keep the pass unapplied so its signals and
+    // accepted-id registrations cannot be cleared without a follow-up.
+    responseApplied = !persisted.pullContinuationSuperseded;
     return persisted;
   });
   if (!responseApplied) {

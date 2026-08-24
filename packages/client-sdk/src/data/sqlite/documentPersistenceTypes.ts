@@ -1,4 +1,5 @@
 import type { ContainerAccessLevel } from "@symcrypt/crypto";
+import type { DocumentSyncPullContinuation } from "../documents/shared/pullContinuation";
 
 export interface DocumentRecord {
   id: string;
@@ -18,6 +19,13 @@ export interface DocumentRecord {
   documentKekTargets?: string | null;
   documentManifestBundle?: string | null;
   pendingBaseVersion?: string | null;
+  pullContinuation?: DocumentSyncPullContinuation | null;
+  /**
+   * The durable continuation column was non-null but could not be decoded.
+   * Keep forcing a page-one pull until a successful settlement replaces the
+   * malformed value; ordinary local saves must preserve that recovery signal.
+   */
+  pullContinuationRecoveryRequired?: true;
 }
 
 export interface PendingUpdateFields {
@@ -54,6 +62,7 @@ export interface SelectedDocumentRecordRow {
   documentKekTargets: string | null;
   documentManifestBundle: string | null;
   pendingBaseVersion: string | null;
+  pullContinuation: string | null;
 }
 
 export interface SelectedPendingUpdateRow {

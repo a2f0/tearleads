@@ -17,6 +17,10 @@ import {
 export interface SqlTableSchema {
   name: string;
   createSql: string;
+  additiveColumns?: ReadonlyArray<{
+    definition: string;
+    name: string;
+  }>;
   indexes?: ReadonlyArray<string>;
   requiredColumns?: ReadonlyArray<string>;
 }
@@ -177,6 +181,37 @@ async function assertRequiredColumns(
   }
 }
 
+async function addMissingColumns(
+  execSql: ExecSql,
+  table: SqlTableSchema,
+): Promise<void> {
+  if (!table.additiveColumns || table.additiveColumns.length === 0) return;
+  const rows = await execSql(
+    `PRAGMA table_info(${renderIdentifier(table.name)})`,
+  );
+  const storedColumns = new Set(rows.map(({ name }) => name));
+  for (const column of table.additiveColumns) {
+    if (storedColumns.has(column.name)) continue;
+    try {
+      await execSql(
+        `ALTER TABLE ${renderIdentifier(table.name)} ADD COLUMN ${column.definition}`,
+      );
+    } catch (error) {
+      // Serialization is connection-local. A second pane can observe the old
+      // schema, wait on this DDL at SQLite, then resume after the first pane
+      // committed the same column. Treat only that proven winner as success;
+      // lock, syntax, and storage failures still propagate unchanged.
+      const refreshedRows = await execSql(
+        `PRAGMA table_info(${renderIdentifier(table.name)})`,
+      );
+      if (!refreshedRows.some(({ name }) => name === column.name)) {
+        throw error;
+      }
+    }
+    storedColumns.add(column.name);
+  }
+}
+
 // Table ensures run on every query path, so completed ones are
 // remembered per connection: a re-ensure of an already-ensured table skips the
 // DDL round-trips AND the serialized mutation lock, keeping diagnostic reads
@@ -197,6 +232,7 @@ export async function ensureSqlTables(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     for (const table of pendingTables) {
       await lockedExecSql(table.createSql);
+      await addMissingColumns(lockedExecSql, table);
       for (const indexSql of table.indexes ?? []) {
         await lockedExecSql(indexSql);
       }

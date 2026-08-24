@@ -21,9 +21,9 @@ function containers(ids: string[]): Map<string, unknown> {
   return new Map(ids.map((id) => [id, {}]));
 }
 
-test("descendants inherit the tombstoned root's reason", () => {
-  const { reasonByContainerId, removedContainerIds } = collectRemovedContainers(
-    {
+test("descendants inherit the tombstoned root's reason and timestamp", () => {
+  const { reasonByContainerId, removalByContainerId, removedContainerIds } =
+    collectRemovedContainers({
       childIdsByParentId: childIndex({ root: ["child"], child: ["grand"] }),
       containersById: containers(["root", "child", "grand"]),
       preservedContainerIds: new Set(),
@@ -36,12 +36,12 @@ test("descendants inherit the tombstoned root's reason", () => {
           updatedAt: T0,
         },
       ],
-    },
-  );
+    });
 
   expect(removedContainerIds.sort()).toEqual(["child", "grand", "root"]);
   expect(reasonByContainerId.get("child")).toBe("access_revoked");
   expect(reasonByContainerId.get("grand")).toBe("access_revoked");
+  expect(removalByContainerId.get("grand")?.updatedAt).toBe(T0);
 });
 
 test("a container's own tombstone reason wins over an inherited one", () => {

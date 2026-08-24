@@ -1,33 +1,23 @@
-import type { DocumentSummary, DocumentsRuntime } from "@symcrypt/client-sdk";
+import type { DocumentsRuntime } from "@symcrypt/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   createDomainScope,
-  type DocumentRecord,
   type DocumentsPersistence,
-  type LocalAttachmentRecord,
-  type PendingAttachmentRecord,
   type PendingUpdateInsert,
-  type PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { createMockApiClient } from "@symcrypt/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
+import { createMemoryPullContinuationPersistence } from "./document-store/documentPullContinuationPersistence";
+import {
+  createDocumentWritePersistence,
+  documentSummaryFromRecord,
+  type HistoryByLocalId,
+  type MutableDocumentsState,
+  type StoredDocumentsState,
+  type StoredHistoryState,
+} from "./document-store/documentStoreWritePersistence";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
 
-interface StoredDocumentsState {
-  document: DocumentRecord | null;
-  localAttachments: LocalAttachmentRecord[];
-  pendingAttachments: PendingAttachmentRecord[];
-  pendingUpdates: PendingUpdateRecord[];
-}
-
-interface StoredHistoryState {
-  checkpoint: { endVersionVector: string; snapshot: string } | null;
-  tail: { id: string; origin: "local" | "remote"; updateData: string }[];
-}
-
-type HistoryByLocalId = Map<string, StoredHistoryState>;
-
-type MutableDocumentsState = StoredDocumentsState;
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
 type RuntimeInputOverrides = {
   apiClient?: RuntimeInput["apiClient"];
@@ -37,18 +27,6 @@ type RuntimeInputOverrides = {
   state?: Partial<RuntimeInput["state"]>;
   util?: Partial<RuntimeInput["util"]>;
 };
-function documentSummaryFromRecord(record: DocumentRecord): DocumentSummary {
-  return {
-    accessStateHash: record.accessStateHash ?? null,
-    id: record.id,
-    containerId: record.containerId,
-    documentKind: record.documentKind ?? "note",
-    documentId: record.documentId,
-    title: record.title ?? (record.text.trim() || "Untitled note"),
-    updatedAt: "2026-04-06T00:00:00.000Z",
-  };
-}
-
 function createDocumentReadPersistence(
   state: MutableDocumentsState,
 ): Pick<
@@ -56,6 +34,7 @@ function createDocumentReadPersistence(
   | "ensureSchema"
   | "findDocumentLocalIdsByContainerId"
   | "hasDocument"
+  | "documentIdentityMatches"
   | "listDocumentSummaries"
   | "listDocuments"
   | "listDocumentsByContainerIdsOrDocumentIds"
@@ -71,6 +50,12 @@ function createDocumentReadPersistence(
     },
     async hasDocument(_execSql, localId) {
       return state.document?.id === localId;
+    },
+    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
+      return (
+        state.document?.id === localId &&
+        state.document.documentId === expectedDocumentId
+      );
     },
     async listDocuments() {
       return state.document ? [documentSummaryFromRecord(state.document)] : [];
@@ -109,81 +94,6 @@ function createDocumentReadPersistence(
       return state.document?.id === localId
         ? { containerId: state.document.containerId }
         : undefined;
-    },
-  };
-}
-
-function createDocumentWritePersistence(
-  state: MutableDocumentsState,
-  historyByLocalId: HistoryByLocalId,
-): Pick<
-  DocumentsPersistence,
-  | "saveDocument"
-  | "saveDocumentAndDeletePendingUpdates"
-  | "deleteDocument"
-  | "upsertDiscoveredDocument"
-  | "relinkPersistedDocument"
-> {
-  return {
-    async saveDocument(_execSql, nextDocument) {
-      state.document = nextDocument;
-      return "2026-04-06T00:00:00.000Z";
-    },
-    async saveDocumentAndDeletePendingUpdates(
-      _execSql,
-      nextDocument,
-      pendingUpdateIds,
-    ) {
-      const acceptedPendingUpdateIds = new Set(pendingUpdateIds);
-      state.document = nextDocument;
-      state.pendingUpdates = state.pendingUpdates.filter(
-        (pendingUpdate) => !acceptedPendingUpdateIds.has(pendingUpdate.id),
-      );
-      return "2026-04-06T00:00:00.000Z";
-    },
-    async deleteDocument(_execSql, localId) {
-      if (state.document?.id === localId) {
-        state.document = null;
-      }
-      historyByLocalId.delete(localId);
-      state.pendingUpdates = [];
-      state.pendingAttachments = state.pendingAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-      state.localAttachments = state.localAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-    },
-    async upsertDiscoveredDocument(_execSql, input) {
-      const nextDocument: DocumentRecord = {
-        accessEpoch: input.accessEpoch,
-        accessStateHash: input.accessStateHash ?? null,
-        containerId: input.containerId,
-        documentId: input.documentId,
-        id: state.document?.id ?? input.documentId,
-        lastCommitLsn: null,
-        snapshotEndVersion: state.document?.snapshotEndVersion ?? "",
-        text: state.document?.text ?? "",
-      };
-      state.document = nextDocument;
-      return documentSummaryFromRecord(state.document);
-    },
-    async relinkPersistedDocument(_execSql, input) {
-      if (!state.document || state.document.id !== input.localId) {
-        return null;
-      }
-
-      const nextDocument: DocumentRecord = {
-        ...state.document,
-        accessEpoch: Math.max(state.document.accessEpoch, input.accessEpoch),
-        accessStateHash:
-          input.accessStateHash ?? state.document.accessStateHash ?? null,
-        containerId: input.containerId,
-        documentId: input.documentId,
-      };
-      state.document = nextDocument;
-
-      return documentSummaryFromRecord(nextDocument);
     },
   };
 }
@@ -243,6 +153,7 @@ function createPendingUpdatePersistence(
           updateData: pendingUpdate.updateData,
         },
       ];
+      return true;
     },
     async deletePendingUpdate(_execSql, id) {
       state.pendingUpdates = state.pendingUpdates.filter(
@@ -342,10 +253,12 @@ function createAttachmentPersistence(
 }
 
 function createHistoryPersistence(
+  state: MutableDocumentsState,
   historyByLocalId: HistoryByLocalId,
 ): Pick<
   DocumentsPersistence,
   | "appendHistoryUpdates"
+  | "loadDocumentWithHistoryRestoreState"
   | "loadHistoryRestoreState"
   | "readHistoryTailSize"
   | "listHistoryTailEntries"
@@ -385,6 +298,22 @@ function createHistoryPersistence(
           origin: entry.origin,
           updateData: entry.updateData,
         })),
+      };
+    },
+    async loadDocumentWithHistoryRestoreState(_execSql, localId) {
+      const history = historyByLocalId.get(localId);
+      return {
+        document: state.document?.id === localId ? state.document : null,
+        historyRestoreState:
+          !history || (!history.checkpoint && history.tail.length === 0)
+            ? null
+            : {
+                snapshot: history.checkpoint?.snapshot ?? "",
+                tailUpdates: history.tail.map((entry) => ({
+                  origin: entry.origin,
+                  updateData: entry.updateData,
+                })),
+              },
       };
     },
     async readHistoryTailSize(_execSql, localId) {
@@ -428,14 +357,19 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
     pendingUpdates: [],
   };
   const historyByLocalId: HistoryByLocalId = new Map();
+  const historyPersistence = createHistoryPersistence(state, historyByLocalId);
 
   return {
     getState: () => state,
     ...createDocumentReadPersistence(state),
+    ...createMemoryPullContinuationPersistence(
+      state,
+      historyPersistence.loadHistoryRestoreState,
+    ),
     ...createDocumentWritePersistence(state, historyByLocalId),
     ...createPendingUpdatePersistence(state, historyByLocalId),
     ...createAttachmentPersistence(state),
-    ...createHistoryPersistence(historyByLocalId),
+    ...historyPersistence,
   };
 }
 

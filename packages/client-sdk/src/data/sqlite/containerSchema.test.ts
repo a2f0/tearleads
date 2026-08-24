@@ -32,3 +32,21 @@ test("dormant sweep schema persists bounded retry state", async () => {
     await close();
   }
 });
+
+test("container schema includes durable hydration tombstones", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-hydration-tombstone-schema",
+  );
+  try {
+    await ensureSqlTables(execSql, containerTables);
+    const columns = await readTableColumns(
+      execSql,
+      "container_hydration_tombstones",
+    );
+    expect(requireColumn(columns, "container_id").pk).toBe(1);
+    expect(requireColumn(columns, "reason").notNull).toBe(1);
+    expect(requireColumn(columns, "updated_at").notNull).toBe(1);
+  } finally {
+    await close();
+  }
+});

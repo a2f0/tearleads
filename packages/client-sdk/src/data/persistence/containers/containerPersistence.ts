@@ -220,6 +220,37 @@ export async function loadContainers(
   return rows.map((row) => mapSelectedContainerRecord(row));
 }
 
+export async function loadContainerById(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<ContainerRecord | null> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({
+      effectiveAccessLevel: containers.effectiveAccessLevel,
+      id: containers.id,
+      organizationId: containers.organizationId,
+      parentId: containers.parentId,
+      metadataDocumentId: containers.metadataDocumentId,
+      systemSlot: containers.systemSlot,
+      name: containerDisplayName,
+      icon: containerProjection.icon,
+      localCreatedAt: containers.localCreatedAt,
+      localUpdatedAt: containers.localUpdatedAt,
+      serverCreatedAt: containers.serverCreatedAt,
+      serverUpdatedAt: containers.serverUpdatedAt,
+    })
+    .from(containers)
+    .leftJoin(
+      containerProjection,
+      eq(containerProjection.containerId, containers.id),
+    )
+    .where(eq(containers.id, containerId))
+    .limit(1);
+
+  return rows[0] ? mapSelectedContainerRecord(rows[0]) : null;
+}
+
 export async function loadContainerDisplayNamesByIds(
   execSql: ExecSql,
   ids: ReadonlyArray<string>,

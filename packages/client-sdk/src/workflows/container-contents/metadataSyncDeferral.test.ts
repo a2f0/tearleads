@@ -117,7 +117,7 @@ test("syncContainerMetadataState rethrows unrelated sync errors", async () => {
   expect(logs).toEqual([]);
 });
 
-test("a clean metadata follow-up resumes its live pull cursor", async () => {
+test("a clean metadata follow-up resumes its durable pull cursor", async () => {
   const container = createContainerRecord({
     id: "container-pagination-follow-up",
     metadataDocumentId: "metadata-document-pagination-follow-up",
@@ -131,6 +131,11 @@ test("a clean metadata follow-up resumes its live pull cursor", async () => {
     documentManifestBundle: "document-manifest-bundle",
     id: container.id,
     lastCommitLsn: "0/2",
+    pullContinuation: {
+      commitLsn: "0/3",
+      commitLsnMode: "tracked",
+      cursor: "metadata-page-after-update-64",
+    },
   });
   const logs: string[] = [];
   let writerProjectionCalls = 0;
@@ -150,15 +155,48 @@ test("a clean metadata follow-up resumes its live pull cursor", async () => {
       metadataState: {
         container,
         doc,
-        pullContinuation: {
-          commitLsn: "0/3",
-          commitLsnMode: "tracked",
-          cursor: "metadata-page-after-update-64",
-        },
         record,
       },
     }),
   ).rejects.toThrow("resumed metadata projection request");
+  expect(writerProjectionCalls).toBe(1);
+  expect(logs).toEqual([]);
+});
+
+test("malformed durable metadata progress forces a page-one recovery", async () => {
+  const container = createContainerRecord({
+    id: "container-malformed-progress",
+    metadataDocumentId: "metadata-document-malformed-progress",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    contentKeyBundle: "content-key-bundle",
+    documentId: "metadata-document-malformed-progress",
+    documentKekTargets: "document-kek-targets",
+    documentManifestBundle: "document-manifest-bundle",
+    id: container.id,
+    lastCommitLsn: "0/2",
+    pullContinuationRecoveryRequired: true,
+  });
+  const logs: string[] = [];
+  let writerProjectionCalls = 0;
+
+  await expect(
+    syncContainerMetadataState({
+      ...createForcedMetadataSyncInput(
+        createMetadataSyncRuntime({
+          getDocumentWriterProjection: async () => {
+            writerProjectionCalls += 1;
+            throw new Error("page-one metadata projection request");
+          },
+          logs,
+        }),
+      ),
+      forceReadSync: false,
+      metadataState: { container, doc, record },
+    }),
+  ).rejects.toThrow("page-one metadata projection request");
   expect(writerProjectionCalls).toBe(1);
   expect(logs).toEqual([]);
 });

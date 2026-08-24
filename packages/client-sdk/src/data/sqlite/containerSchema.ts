@@ -37,6 +37,21 @@ export const containers = sqliteTable(
 );
 
 /**
+ * Latest remote removal observed for each container. Deleted fences reject
+ * equal-or-older hydration, while access-revoked fences allow the same unchanged
+ * server object to re-attach after access is restored.
+ */
+export const containerHydrationTombstones = sqliteTable(
+  "container_hydration_tombstones",
+  {
+    containerId: text("container_id").notNull(),
+    reason: text("reason").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.containerId] })],
+);
+
+/**
  * Organization attribution for container metadata retained after access loss.
  * The container row is removed on revocation, so this marker retains the
  * organization scope needed by a later access-restoration sweep.
@@ -97,6 +112,7 @@ export const containerProjection = sqliteTable(
 
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
+  defineSqlTableSchema(containerHydrationTombstones),
   defineSqlTableSchema(containerProjection),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
@@ -104,6 +120,7 @@ export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
 
 export const containerSQLiteSchema = {
   containers,
+  containerHydrationTombstones,
   containerProjection,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,

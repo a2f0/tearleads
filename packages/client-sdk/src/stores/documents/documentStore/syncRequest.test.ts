@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportAllUpdates,
+  getTextValue,
+} from "@symcrypt/loro";
 import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
@@ -22,6 +28,7 @@ import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/
 import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import { createDocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import {
@@ -100,7 +107,7 @@ test("a deletion response waits behind relink and cannot delete the new identity
   expect(state.initialized).toBe(true);
 });
 
-test("a store pull invalidates a changed LSN mode and converges from a fresh snapshot", async () => {
+test("a store durably invalidates a regressed cursor before a failed fresh retry", async () => {
   const fixture = await createMaterializedSyncFixture();
   const database = await createTestExecSql("pull-mode-restart");
   await defaultDocumentsPersistence.ensureSchema(database.execSql);
@@ -112,6 +119,18 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
     },
     syncDocumentResult: async (documentId, request) => {
       requests.push(request);
+      if (requests.length > 1) {
+        return {
+          kind: "network",
+          message: "fresh retry offline",
+          method: "POST",
+          ok: false,
+          path: `/documents/${documentId}/sync`,
+          report: () => undefined,
+          status: null,
+          statusText: "",
+        };
+      }
       const materialized = await buildMaterializedDocumentSyncPlan({
         author: fixture.author,
         execSql: database.execSql,
@@ -124,7 +143,7 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
       return {
         data: await createSyncResponse(
           { ...materialized.plan, documentId, request },
-          { commitLsn: "0/0", commitLsnMode: "untracked" },
+          { commitLsn: "0/1", commitLsnMode: "tracked" },
         ),
         ok: true,
       };
@@ -183,6 +202,15 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
     snapshotEndVersion: encodeVersionVector(document),
     text: "",
   };
+  const rejectedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "tracked-snapshot-page-2",
+  };
+  await defaultDocumentsPersistence.saveDocument(database.execSql, {
+    ...record,
+    pullContinuation: rejectedContinuation,
+  });
   const state = createDocumentStoreState(
     record.id,
     runtime,
@@ -192,11 +220,7 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
   );
   state.doc = document;
   state.initialized = true;
-  state.pullContinuation = {
-    commitLsn: "0/2",
-    commitLsnMode: "tracked",
-    cursor: "tracked-snapshot-page-2",
-  };
+  state.pullContinuation = rejectedContinuation;
   state.record = record;
   state.writerProjection = fixture.writerProjection;
   const generation = captureDocumentStoreSyncGeneration(state, document);
@@ -222,9 +246,194 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
     ]);
     expect(requests.map(({ minLsn }) => minLsn)).toEqual(["0/2", "0/1"]);
     expect(state.pullContinuation).toBeNull();
-    expect(attempt?.synced.hasIncompletePull).toBe(false);
-    expect(attempt?.synced.response.commitLsnMode).toBe("untracked");
+    expect(attempt).toBeNull();
+    const restarted = await defaultDocumentsPersistence.loadDocument(
+      database.execSql,
+      record.id,
+    );
+    expect(restarted?.pullContinuation).toBeUndefined();
+    expect(restarted?.pullContinuationRecoveryRequired).toBe(true);
+    expect(state.record?.pullContinuationRecoveryRequired).toBe(true);
   } finally {
     database.close();
   }
+});
+
+test("cursor invalidation reloads progress advanced by another pane", async () => {
+  const database = await createTestExecSql("pull-invalidation-reload");
+  await defaultDocumentsPersistence.ensureSchema(database.execSql);
+  const document = await createDocument("pull-invalidation-reload");
+  const rejectedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-2",
+  };
+  const advancedContinuation = {
+    commitLsn: "0/3",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-3",
+  };
+  const requestRecord: DocumentRecord = {
+    accessEpoch: 1,
+    accessStateHash: "access-1",
+    containerId: "container-1",
+    contentKeyBundle: "content-key-1",
+    documentId: "document-1",
+    documentKekTargets: "targets-1",
+    documentManifestBundle: "manifest-1",
+    id: "local-1",
+    lastCommitLsn: "0/2",
+    pendingBaseVersion: encodeVersionVector(document),
+    pullContinuation: rejectedContinuation,
+    snapshotEndVersion: encodeVersionVector(document),
+    text: "",
+  };
+  await defaultDocumentsPersistence.saveDocument(database.execSql, {
+    ...requestRecord,
+    lastCommitLsn: "0/3",
+    pullContinuation: advancedContinuation,
+  });
+  const advancedDocument = await createDocument(
+    "pull-invalidation-advanced-pane",
+  );
+  advancedDocument.getText("text").update("content from advanced page");
+  await defaultDocumentsPersistence.appendHistoryUpdates(database.execSql, {
+    localId: requestRecord.id,
+    origin: "remote",
+    updates: [bytesToBase64(exportAllUpdates(advancedDocument))],
+  });
+  const runtime = {
+    infra: {
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: database.execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: { containerId: "container-1", domainScope: createDomainScope() },
+    util: { log: () => undefined },
+  } as unknown as DocumentsRuntime;
+  const state = createDocumentStoreState(
+    requestRecord.id,
+    runtime,
+    defaultDocumentsPersistence,
+    noopDocumentStorePersistenceEffects,
+    requestRecord.documentId,
+  );
+  state.doc = document;
+  state.initialized = true;
+  state.pendingBaseVersion = requestRecord.pendingBaseVersion ?? null;
+  state.pullContinuation = rejectedContinuation;
+  state.record = requestRecord;
+  const generation = captureDocumentStoreSyncGeneration(state, document);
+  if (!generation) throw new Error("Expected a live sync generation");
+
+  try {
+    await invalidateDocumentStorePullContinuation({
+      continuation: rejectedContinuation,
+      currentRecord: requestRecord,
+      generation,
+      state,
+    });
+
+    expect(state.pullContinuation).toEqual(advancedContinuation);
+    expect(state.record).toMatchObject({
+      lastCommitLsn: "0/3",
+      pullContinuation: advancedContinuation,
+    });
+    expect(getTextValue(document)).toBe("content from advanced page");
+  } finally {
+    database.close();
+  }
+});
+
+test("cursor invalidation uses a non-SQL persistence adapter", async () => {
+  const document = await createDocument("custom-pull-invalidation");
+  const rejectedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "custom-page-2",
+  };
+  const requestRecord: DocumentRecord = {
+    accessEpoch: 3,
+    accessStateHash: "access-3",
+    containerId: "container-3",
+    contentKeyBundle: "content-key-3",
+    documentId: "document-3",
+    documentKekTargets: "targets-3",
+    documentManifestBundle: "manifest-3",
+    id: "local-3",
+    lastCommitLsn: "0/2",
+    pendingBaseVersion: encodeVersionVector(document),
+    pullContinuation: rejectedContinuation,
+    snapshotEndVersion: encodeVersionVector(document),
+    text: "",
+  };
+  let directSqlCallCount = 0;
+  const execSql = (async () => {
+    directSqlCallCount += 1;
+    throw new Error("Custom persistence must not execute SDK-owned SQL");
+  }) as ExecSql;
+  const invalidationInputs: unknown[] = [];
+  const persistence = {
+    async invalidatePullContinuation(_execSql: ExecSql, input: unknown) {
+      invalidationInputs.push(input);
+      const { pullContinuation: _rejected, ...current } = requestRecord;
+      return {
+        historyRestoreState: null,
+        record: {
+          ...current,
+          pullContinuationRecoveryRequired: true as const,
+        },
+      };
+    },
+    async loadHistoryRestoreState() {
+      return null;
+    },
+  } as unknown as DocumentsPersistence;
+  const runtime = {
+    infra: {
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: { containerId: "container-3", domainScope: createDomainScope() },
+    util: { log: () => undefined },
+  } as unknown as DocumentsRuntime;
+  const state = createDocumentStoreState(
+    requestRecord.id,
+    runtime,
+    persistence,
+    noopDocumentStorePersistenceEffects,
+    requestRecord.documentId,
+  );
+  state.doc = document;
+  state.initialized = true;
+  state.pendingBaseVersion = requestRecord.pendingBaseVersion ?? null;
+  state.pullContinuation = rejectedContinuation;
+  state.record = requestRecord;
+  const generation = captureDocumentStoreSyncGeneration(state, document);
+  if (!generation) throw new Error("Expected a live sync generation");
+
+  await invalidateDocumentStorePullContinuation({
+    continuation: rejectedContinuation,
+    currentRecord: requestRecord,
+    generation,
+    state,
+  });
+
+  expect(directSqlCallCount).toBe(0);
+  expect(invalidationInputs).toEqual([
+    {
+      accessEpoch: 3,
+      accessStateHash: "access-3",
+      continuation: rejectedContinuation,
+      contentKeyBundle: "content-key-3",
+      documentId: "document-3",
+      documentKekTargets: "targets-3",
+      documentManifestBundle: "manifest-3",
+      lastCommitLsn: "0/2",
+      localId: "local-3",
+    },
+  ]);
+  expect(state.pullContinuation).toBeNull();
+  expect(state.record?.pullContinuationRecoveryRequired).toBe(true);
 });

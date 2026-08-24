@@ -27,6 +27,8 @@ export function resolvePersistedDocumentRuntimeState(
   | "contentKeyBundle"
   | "documentKekTargets"
   | "documentManifestBundle"
+  | "pullContinuation"
+  | "pullContinuationRecoveryRequired"
 > {
   const documentIdChanged = existingDocument?.documentId !== input.documentId;
   const securityContextChanged = didPersistedDocumentSecurityContextChange(
@@ -47,6 +49,11 @@ export function resolvePersistedDocumentRuntimeState(
     documentManifestBundle: securityContextChanged
       ? null
       : (existingDocument?.documentManifestBundle ?? null),
+    ...(securityContextChanged
+      ? { pullContinuation: null }
+      : existingDocument?.pullContinuationRecoveryRequired
+        ? { pullContinuationRecoveryRequired: true as const }
+        : { pullContinuation: existingDocument?.pullContinuation ?? null }),
   };
 }
 

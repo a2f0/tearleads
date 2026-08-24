@@ -20,39 +20,38 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 // doc read, regressing the controlled <textarea> and dropping characters. Only
 // online, because ensureRemoteDocument only runs inside an online sync pass.
 //
-// We reproduce the lag deterministically by gating enqueuePendingUpdate after
-// it stores the first pending row: the first keystroke's write chain parks with
-// the doc frozen at "a", we type ahead to "abcdef" (optimistic snapshot only,
-// because the second write cannot start), then drive the sync. The pending row
-// is already visible, so ensureRemoteDocument reads the lagging doc ("a") and
-// persists the remote identity while the optimistic snapshot is ahead. The
-// buggy code republishes "a" over "abcdef" before the local chain resumes.
+// We reproduce the lag deterministically by gating the post-commit history-size
+// read. The first keystroke's record, history, and pending row are already
+// atomically durable, and the serialized mutation slot is free, but its local
+// write remains unsettled with the doc frozen at "a". We type ahead to
+// "abcdef" (optimistic snapshot only), then drive the sync. The buggy code
+// republishes "a" over "abcdef" before the local chain resumes.
 //
 // The store starts OFFLINE so the create is still pending when the burst begins:
 // online, the eager pending-create flush would otherwise race the gate and can
-// create the document before the first keystroke, dissolving the scenario (and
-// the settle path uses saveDocumentAndDeletePendingUpdates, which this gate
-// deliberately does not intercept). Flipping online mid-burst pins the original
-// regression shape: the first online sync runs ensureRemoteDocument against the
-// lagging doc while the durable mutation queue itself remains available.
+// create the document before the first keystroke, dissolving the scenario.
+// Flipping online mid-burst pins the original regression shape while the
+// durable mutation queue itself remains available.
 test("new note first sync preserves the optimistic text while typing (online)", async () => {
   const basePersistence = createDocumentsPersistence();
-  let blockEnqueues = false;
-  let gatedEnqueueCount = 0;
-  let releaseEnqueue: () => void = () => {};
-  const enqueueGate = new Promise<void>((resolve) => {
-    releaseEnqueue = resolve;
+  let blockPostCommit = false;
+  let gatedCommitCount = 0;
+  let releaseCommit: () => void = () => {};
+  const commitGate = new Promise<void>((resolve) => {
+    releaseCommit = resolve;
   });
   const persistence = {
     ...basePersistence,
-    enqueuePendingUpdate: async (
-      ...args: Parameters<typeof basePersistence.enqueuePendingUpdate>
+    readHistoryTailSize: async (
+      ...args: Parameters<typeof basePersistence.readHistoryTailSize>
     ) => {
-      await basePersistence.enqueuePendingUpdate(...args);
-      if (blockEnqueues) {
-        gatedEnqueueCount += 1;
-        await enqueueGate;
+      const tailSize = await basePersistence.readHistoryTailSize(...args);
+      if (blockPostCommit) {
+        blockPostCommit = false;
+        gatedCommitCount += 1;
+        await commitGate;
       }
+      return tailSize;
     },
   };
 
@@ -83,16 +82,16 @@ test("new note first sync preserves the optimistic text while typing (online)", 
     publishedTexts.push(store.getSnapshot().text);
   });
 
-  // From here on, freeze the write chain after its pending row is durable so the
-  // Loro doc lags without holding the serialized SQL mutation queue.
-  blockEnqueues = true;
+  // From here on, freeze the write chain after its atomic commit so the Loro
+  // doc lags without holding the serialized SQL mutation queue.
+  blockPostCommit = true;
 
-  // First keystroke: stores a pending update, then parks with the doc frozen at
-  // "a" before its local document-record persist.
+  // First keystroke: atomically stores the record and pending update, then parks
+  // with the doc frozen at "a" before its local write settles.
   store.setText("a");
   await waitForCondition(
-    () => gatedEnqueueCount >= 1,
-    "First keystroke did not reach the pending-update gate.",
+    () => gatedCommitCount >= 1,
+    "First keystroke did not reach the post-commit gate.",
   );
 
   // Type ahead while the doc is frozen: the optimistic snapshot jumps to
@@ -110,8 +109,7 @@ test("new note first sync preserves the optimistic text while typing (online)", 
   );
 
   // Release the local write chain and let the store settle.
-  blockEnqueues = false;
-  releaseEnqueue();
+  releaseCommit();
 
   await waitForCondition(
     () =>

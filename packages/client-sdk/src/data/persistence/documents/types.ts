@@ -6,6 +6,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documents/documentSummary";
+import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
@@ -80,6 +81,25 @@ export interface LocalAttachmentRecord {
   storageKey: string;
 }
 
+export interface AttachmentStagingRows {
+  localAttachments: ReadonlyArray<LocalAttachmentRecord>;
+  pendingAttachments: ReadonlyArray<PendingAttachmentRecord>;
+}
+
+export interface AttachmentRemovalRows {
+  mode: "delete" | "detach";
+  slotId: string;
+  storageKey: string;
+}
+
+export interface DocumentHistoryRestoreState {
+  snapshot: string;
+  tailUpdates: readonly {
+    origin: "local" | "remote";
+    updateData: string;
+  }[];
+}
+
 export interface RelinkPersistedDocumentInput {
   accessEpoch: number;
   accessStateHash?: string | null;
@@ -115,6 +135,77 @@ export interface DocumentSummaryList {
 }
 
 export interface DocumentsPersistence {
+  /**
+   * Atomically create the canonical row, standard projections, and birth
+   * checkpoint. Returns null when another initializer already owns localId.
+   */
+  createDocumentWithHistoryCheckpoint: (
+    execSql: ExecSql,
+    document: StoredDocumentRecord,
+    historyCheckpoint: {
+      endVersionVector: string;
+      snapshot: string;
+    },
+    options:
+      | {
+          pendingUpdate?: PendingUpdateFields;
+          updatedAt?: string;
+        }
+      | undefined,
+    saveClientProjection: (
+      transactionExecSql: ExecSql,
+      updatedAt: string,
+    ) => Promise<void>,
+  ) => Promise<string | null>;
+  /**
+   * Conditionally commit one already-prepared mutation against the exact
+   * durable record it was derived from. The identity/progress comparison,
+   * attachment and history writes, accepted-queue settlement,
+   * canonical/projection save, and client projection callback must share one
+   * adapter transaction.
+   */
+  commitDocumentMutation: (
+    execSql: ExecSql,
+    input: {
+      acceptedPendingUpdateIds: readonly string[];
+      attachmentRemoval?: AttachmentRemovalRows | undefined;
+      attachmentStaging?: AttachmentStagingRows | undefined;
+      document: StoredDocumentRecord;
+      expectedRecord: StoredDocumentRecord;
+      historyCheckpoint?:
+        | {
+            coveredTailIds: readonly string[];
+            endVersionVector: string;
+            snapshot: string;
+          }
+        | undefined;
+      historyUpdateOrigin?: "local" | "remote" | undefined;
+      historyUpdates?: readonly string[] | undefined;
+      pendingUpdate?: PendingUpdateFields | undefined;
+      settleAcceptedPendingOnConflict: boolean;
+      /**
+       * Recheck volatile caller ownership inside the adapter transaction,
+       * before any durable side effect. A false result aborts the commit.
+       */
+      stillCurrent?: (() => boolean) | undefined;
+      updatedAt?: string | undefined;
+    },
+    saveClientProjection: (
+      transactionExecSql: ExecSql,
+      updatedAt: string,
+    ) => Promise<void>,
+  ) => Promise<
+    | { committed: true; updatedAt: string }
+    | { committed: false; currentRecord: StoredDocumentRecord | null }
+  >;
+  /** Settle acknowledged rows only while the response's security identity survives. */
+  settleAcceptedPendingUpdates: (
+    execSql: ExecSql,
+    input: {
+      expectedRecord: StoredDocumentRecord;
+      pendingUpdateIds: readonly string[];
+    },
+  ) => Promise<StoredDocumentRecord | null>;
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   listDocuments: (execSql: ExecSql) => Promise<DocumentSummary[]>;
   listDocumentSummaries: (
@@ -134,10 +225,48 @@ export interface DocumentsPersistence {
   ) => Promise<string[]>;
   /** Canonical-row probe; false authorizes destructive orphan teardown. */
   hasDocument: (execSql: ExecSql, localId: string) => Promise<boolean>;
+  /** Observe whether the canonical row still names the expected remote stream. */
+  documentIdentityMatches: (
+    execSql: ExecSql,
+    localId: string,
+    expectedDocumentId: string | null,
+  ) => Promise<boolean>;
   loadDocument: (
     execSql: ExecSql,
     localId: string,
   ) => Promise<StoredDocumentRecord | null>;
+  /** Read the canonical record and its history from one database snapshot. */
+  loadDocumentWithHistoryRestoreState: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{
+    document: StoredDocumentRecord | null;
+    historyRestoreState: DocumentHistoryRestoreState | null;
+  }>;
+  /**
+   * Atomically replace the exact rejected pull continuation with the durable
+   * recovery marker when every supplied sync-identity field still matches.
+   * Return the authoritative current record after the compare-and-set, or
+   * null when the canonical row no longer exists. A CAS loss returns the
+   * winning record so the live store can adopt its newer progress.
+   */
+  invalidatePullContinuation: (
+    execSql: ExecSql,
+    input: {
+      accessEpoch: number;
+      accessStateHash: string | null;
+      continuation: DocumentSyncPullContinuation;
+      contentKeyBundle: string | null;
+      documentId: string;
+      documentKekTargets: string | null;
+      documentManifestBundle: string | null;
+      lastCommitLsn: string | null;
+      localId: string;
+    },
+  ) => Promise<{
+    historyRestoreState: DocumentHistoryRestoreState | null;
+    record: StoredDocumentRecord;
+  } | null>;
   // Read the authoritative container placement for a locally persisted document
   // straight from its projection row. Returns `undefined` when no projection row
   // exists yet (a first create/discovery persist), so a caller can distinguish
@@ -172,13 +301,7 @@ export interface DocumentsPersistence {
   loadHistoryRestoreState: (
     execSql: ExecSql,
     localId: string,
-  ) => Promise<{
-    snapshot: string;
-    tailUpdates: readonly {
-      origin: "local" | "remote";
-      updateData: string;
-    }[];
-  } | null>;
+  ) => Promise<DocumentHistoryRestoreState | null>;
   readHistoryTailSize: (
     execSql: ExecSql,
     localId: string,
@@ -232,10 +355,17 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<LocalAttachmentRecord[]>;
+  /**
+   * Durably append the outgoing row and matching local-history tail entry.
+   * When `expectedDocumentId` is supplied, compare it with the canonical row
+   * inside that same mutation and return false on absence or mismatch. A false
+   * result is an ordinary identity race; adapters must not insert either row.
+   */
   enqueuePendingUpdate: (
     execSql: ExecSql,
     pendingUpdate: PendingUpdateInsert,
-  ) => Promise<void>;
+    options?: { expectedDocumentId: string | null },
+  ) => Promise<boolean>;
   saveLocalAttachment: (
     execSql: ExecSql,
     attachment: LocalAttachmentRecord,

@@ -15,7 +15,10 @@ import {
   containerSyncWatermarkLaneKey,
 } from "../containers/containerSyncWatermarkPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
-import type { LocalRootDescendantReparentInput } from "./containerContentsPersistenceTypes";
+import type {
+  ContainerRemoval,
+  LocalRootDescendantReparentInput,
+} from "./containerContentsPersistenceTypes";
 import { saveContainerCreateIntent } from "./containerIntentPersistence";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
@@ -77,12 +80,14 @@ async function loadFirstRemainingContainerIdByDocumentId(
 }
 
 export async function repairDocumentsForRemovedContainersInTransaction(input: {
-  containerIds: ReadonlyArray<string>;
+  removals: ReadonlyArray<ContainerRemoval>;
   tx: ClientSQLiteTransactionScope;
-  updatedAt: string;
 }): Promise<void> {
-  const { tx, updatedAt } = input;
-  const containerIds = Array.from(new Set(input.containerIds));
+  const { tx } = input;
+  const updatedAtByContainerId = new Map(
+    input.removals.map((removal) => [removal.containerId, removal.updatedAt]),
+  );
+  const containerIds = Array.from(updatedAtByContainerId.keys());
   if (containerIds.length === 0) {
     return;
   }
@@ -134,7 +139,12 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
           ...(removedOrganizationId
             ? { organizationId: removedOrganizationId }
             : {}),
-          updatedAt: getLatestTimestamp(row.updatedAt, updatedAt),
+          updatedAt: getLatestTimestamp(
+            row.updatedAt,
+            row.containerId
+              ? (updatedAtByContainerId.get(row.containerId) ?? row.updatedAt)
+              : row.updatedAt,
+          ),
         })
         .where(eq(documentProjection.localId, row.localId))
         .run();

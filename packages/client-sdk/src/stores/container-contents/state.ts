@@ -4,6 +4,7 @@ import {
   didContainerContentsProjectionKeyRuntimeChange,
 } from "../../workflows/container-contents/projectionKeys";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import { ContainerStateMap } from "./containerStateMap";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
@@ -62,7 +63,7 @@ export function createContainerContentsStoreState(
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
   return {
-    containersById: new Map(),
+    containersById: new ContainerStateMap(),
     containerParentIdsNeedingHydration: new Set(),
     documentStoresNeedPriming: true,
     initializeGeneration: null,
@@ -126,7 +127,7 @@ export function updateContainerContentsSnapshot(
 
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.lifecycleGeneration += 1;
-  state.containersById = new Map();
+  state.containersById = new ContainerStateMap();
   state.containerParentIdsNeedingHydration = new Set();
   state.documentStoresNeedPriming = true;
   state.initialized = false;

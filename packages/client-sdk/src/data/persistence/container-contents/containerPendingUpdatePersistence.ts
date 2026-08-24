@@ -1,11 +1,12 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import {
+  deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
 } from "../../sqlite/documentPersistence";
-import { documentPendingUpdates } from "../../sqlite/schema";
+import { documentPendingUpdates, documents } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
@@ -14,15 +15,22 @@ import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
 type ContainerPendingUpdatePersistence = Pick<
   ContainerContentsPersistence,
+  | "deletePendingUpdate"
   | "deletePendingUpdates"
   | "enqueuePendingUpdate"
   | "listPendingUpdates"
   | "rekeyPendingUpdate"
   | "listContainerIdsWithPendingUpdates"
+  | "listContainerIdsWithPullContinuations"
 >;
 
 export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistence =
   {
+    async deletePendingUpdate(execSql, id) {
+      await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+        await deleteDocumentPendingUpdate(lockedExecSql, id);
+      });
+    },
     async deletePendingUpdates(execSql, containerId) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
         await deleteDocumentPendingUpdates(
@@ -32,8 +40,8 @@ export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistenc
       });
     },
     async enqueuePendingUpdate(execSql, input) {
-      await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await enqueueDocumentPendingUpdate(
+      return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+        return enqueueDocumentPendingUpdate(
           lockedExecSql,
           getContainerMetadataScope(input.containerId),
           input,
@@ -66,6 +74,27 @@ export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistenc
           ),
         )
         .orderBy(asc(documentPendingUpdates.localId));
+
+      return rows.map((row) => row.containerId);
+    },
+    async listContainerIdsWithPullContinuations(execSql, containerIds) {
+      const uniqueContainerIds = Array.from(new Set(containerIds));
+      if (uniqueContainerIds.length === 0) {
+        return [];
+      }
+
+      const { db } = getClientSQLitePersistenceRuntime(execSql);
+      const rows = await db
+        .select({ containerId: documents.localId })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
+            inArray(documents.localId, uniqueContainerIds),
+            isNotNull(documents.pullContinuation),
+          ),
+        )
+        .orderBy(asc(documents.localId));
 
       return rows.map((row) => row.containerId);
     },

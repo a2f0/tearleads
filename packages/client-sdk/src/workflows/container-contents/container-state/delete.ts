@@ -9,6 +9,7 @@ export async function deleteContainerState(input: {
   runtime: ContainerWorkflowRuntime;
 }): Promise<boolean> {
   const isRemoteContainer = Boolean(input.containerState.record.documentId);
+  let deletedAt: string | undefined;
 
   if (isRemoteContainer) {
     const deletedRemoteContainer = await deleteRemoteContainer({
@@ -18,12 +19,14 @@ export async function deleteContainerState(input: {
     if (!deletedRemoteContainer) {
       return false;
     }
+    deletedAt = deletedRemoteContainer.deletedAt;
   }
   const execSql = input.runtime.infra.execSql;
 
   await input.persistence.deleteContainer(
     execSql,
     input.containerState.container.id,
+    deletedAt ? { updatedAt: deletedAt } : undefined,
   );
   return true;
 }

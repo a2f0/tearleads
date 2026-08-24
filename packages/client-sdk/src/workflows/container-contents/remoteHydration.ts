@@ -22,6 +22,7 @@ import type {
 
 export type {
   ContainerState,
+  PersistContainerStateResult,
   RemoteContainer,
   RemoteContainerHydrationHost,
 } from "./remoteHydration/types";

@@ -65,7 +65,9 @@ function createRequestState(input: {
     localContainerRefreshGeneration: null,
     localContainerRefreshPromise: null,
     localContainersNeedRefresh: false,
-    persistence: {},
+    persistence: {
+      loadContainerHydrationTombstones: async () => [],
+    },
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
     rootLaneHydrated: false,

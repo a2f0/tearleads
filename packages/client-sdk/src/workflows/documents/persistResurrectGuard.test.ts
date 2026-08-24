@@ -163,6 +163,74 @@ test("an update persist refuses to resurrect a deleted row", async () => {
   }
 });
 
+test("stale text, row, and attachment enqueues cannot cross a relink", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "pending-update-identity-race",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      containerId: "old-container",
+      documentId: "old-document",
+      id: "relinked-local-id",
+      snapshotEndVersion: "old-version",
+      text: "old content",
+    });
+
+    let releaseHeldMutation = () => {};
+    const mutationHeld = new Promise<void>((resolve) => {
+      releaseHeldMutation = resolve;
+    });
+    const heldMutation = runSerializedSqlMutation(execSql, async () => {
+      await mutationHeld;
+    });
+    const relink = sqlDocumentsPersistence.relinkPersistedDocument(execSql, {
+      accessEpoch: 2,
+      containerId: "replacement-container",
+      documentId: "replacement-document",
+      localId: "relinked-local-id",
+    });
+    const staleEnqueues = ["text", "row", "attachment"].map((kind) =>
+      sqlDocumentsPersistence.enqueuePendingUpdate(
+        execSql,
+        {
+          localId: "relinked-local-id",
+          partialEndVersionVector: `${kind}-end`,
+          partialStartVersionVector: `${kind}-start`,
+          sourceVersionVector: null,
+          updateData: btoa(`${kind}-update`),
+        },
+        { expectedDocumentId: "old-document" },
+      ),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    releaseHeldMutation();
+    await heldMutation;
+    await relink;
+
+    expect(await Promise.all(staleEnqueues)).toEqual([false, false, false]);
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        "relinked-local-id",
+      ),
+    ).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.readHistoryTailSize(
+        execSql,
+        "relinked-local-id",
+      ),
+    ).toMatchObject({ rowCount: 0 });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "relinked-local-id"),
+    ).toMatchObject({ documentId: "replacement-document" });
+  } finally {
+    close();
+  }
+});
+
 // The create path (no current record) is untouched: persisting a brand-new
 // document still inserts.
 test("a create persist still inserts a new row", async () => {

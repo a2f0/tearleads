@@ -35,6 +35,7 @@ async function saveSyncedStoredContainer(input: {
   id: string;
   metadataName: string;
   parentId: string | null;
+  pullContinuation?: ContainerMetadataRecord["pullContinuation"];
   storedName: string;
   syncedAt: string;
 }) {
@@ -54,6 +55,9 @@ async function saveSyncedStoredContainer(input: {
     id: input.id,
     lastCommitLsn: `${input.id}-commit-lsn`,
     metadataUpdates: bytesToBase64(exportAllUpdates(doc)),
+    ...(input.pullContinuation === undefined
+      ? {}
+      : { pullContinuation: input.pullContinuation }),
     snapshotEndVersion: "",
   };
 
@@ -217,6 +221,11 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
       id: "child-container",
       metadataName: "Synced child",
       parentId: "root-container",
+      pullContinuation: {
+        commitLsn: "0/2",
+        commitLsnMode: "tracked",
+        cursor: "metadata-page-2",
+      },
       storedName: "Stale child projection",
       syncedAt,
     });
@@ -232,6 +241,11 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
       localUpdatedAt: syncedAt,
       name: "Synced child",
       serverUpdatedAt: syncedAt,
+    });
+    expect(loadedChild?.record.pullContinuation).toEqual({
+      commitLsn: "0/2",
+      commitLsnMode: "tracked",
+      cursor: "metadata-page-2",
     });
 
     const readModel = createContainerDocumentQueriesFromRuntime(runtime);

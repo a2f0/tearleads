@@ -67,7 +67,13 @@ async function seedDormantMetadata(
   );
   await defaultContainerContentsPersistence.deleteContainers(
     execSql,
-    [containerId],
+    [
+      {
+        containerId,
+        reason: "access_revoked",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
     { retainMetadataForContainerIds: [containerId] },
   );
 }

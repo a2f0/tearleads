@@ -3,6 +3,7 @@ import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSl
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import { ContainerStateMap } from "./containerStateMap";
 import {
   type LocalContainerRefreshState,
   refreshLocalContainerStates,
@@ -21,7 +22,7 @@ function createRefreshState(input: {
   ) => container;
 
   return {
-    containersById: input.containersById ?? new Map(),
+    containersById: new ContainerStateMap(input.containersById),
     documentStoresNeedPriming: false,
     initialized: true,
     lifecycleGeneration: 0,
@@ -251,6 +252,170 @@ test("local container refresh does not downgrade remote state with a stale local
 
   expect(currentState.container.metadataDocumentId).toBe("remote-document-id");
   expect(currentState.record.documentId).toBe("remote-document-id");
+});
+
+test("local container refresh preserves a live state inserted after its query starts", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  let resolveLoad: (value: LoadContainersResult) => void = () => {
+    throw new Error("loadContainers promise was not initialized");
+  };
+  const state = createRefreshState({
+    loadContainers: () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  });
+  const refresh = refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+  await Promise.resolve();
+
+  const liveState = createContainerState("live-metadata-document");
+  state.containersById.set(liveState.container.id, liveState);
+  const staleLoadedState = createContainerState("stale-metadata-document");
+  resolveLoad([
+    {
+      container: staleLoadedState.container,
+      record: staleLoadedState.record,
+    },
+  ]);
+  await refresh;
+
+  expect(state.containersById.get(liveState.container.id)).toBe(liveState);
+  expect(liveState.record.documentId).toBe("live-metadata-document");
+});
+
+test("local container refresh does not resurrect state removed during its load", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  let resolveLoad: (value: LoadContainersResult) => void = () => {
+    throw new Error("loadContainers promise was not initialized");
+  };
+  const currentState = createContainerState("metadata-document");
+  const state = createRefreshState({
+    containersById: new Map([[currentState.container.id, currentState]]),
+    loadContainers: () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  });
+  const refresh = refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+  await Promise.resolve();
+
+  state.containersById.delete(currentState.container.id);
+  resolveLoad([
+    { container: currentState.container, record: currentState.record },
+  ]);
+  await refresh;
+
+  expect(state.containersById.has(currentState.container.id)).toBe(false);
+});
+
+test("local container refresh does not resurrect an insert-delete ABA", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  let resolveLoad: (value: LoadContainersResult) => void = () => {
+    throw new Error("loadContainers promise was not initialized");
+  };
+  const state = createRefreshState({
+    loadContainers: () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  });
+  const refresh = refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+  await Promise.resolve();
+
+  const racedState = createContainerState("metadata-document");
+  state.containersById.set(racedState.container.id, racedState);
+  state.containersById.delete(racedState.container.id);
+  resolveLoad([{ container: racedState.container, record: racedState.record }]);
+  await refresh;
+
+  expect(state.containersById.has(racedState.container.id)).toBe(false);
+});
+
+test("local refresh does not resurrect an initially absent tombstone", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  let resolveLoad: (value: LoadContainersResult) => void = () => {
+    throw new Error("loadContainers promise was not initialized");
+  };
+  const state = createRefreshState({
+    loadContainers: () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  });
+  const refresh = refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+  await Promise.resolve();
+
+  const staleLoadedState = createContainerState("metadata-document");
+  state.containersById.delete(staleLoadedState.container.id);
+  resolveLoad([
+    {
+      container: staleLoadedState.container,
+      record: staleLoadedState.record,
+    },
+  ]);
+  await refresh;
+
+  expect(state.containersById.has(staleLoadedState.container.id)).toBe(false);
+});
+
+test("local container refresh does not overwrite pull progress saved during its load", async () => {
+  type LoadContainersResult = Awaited<
+    ReturnType<ContainerContentsPersistence["loadContainers"]>
+  >;
+  let resolveLoad: (value: LoadContainersResult) => void = () => {
+    throw new Error("loadContainers promise was not initialized");
+  };
+  const loadContainers = mock(
+    () =>
+      new Promise<LoadContainersResult>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  );
+  const currentState = createContainerState("remote-document-id");
+  const state = createRefreshState({
+    containersById: new Map([[currentState.container.id, currentState]]),
+    loadContainers,
+  });
+
+  const refresh = refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+  await Promise.resolve();
+
+  const pullContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "metadata-page-2",
+  };
+  currentState.record = { ...currentState.record, pullContinuation };
+  currentState.pullContinuation = pullContinuation;
+  const staleState = createContainerState("remote-document-id");
+  resolveLoad([{ container: staleState.container, record: staleState.record }]);
+  await refresh;
+
+  expect(currentState.record.pullContinuation).toEqual(pullContinuation);
+  expect(currentState.pullContinuation).toEqual(pullContinuation);
 });
 
 test("local container refresh applies an intentional remote reset", async () => {

@@ -24,6 +24,7 @@ type DocumentRowQueryPersistence = Pick<
   | "listDocuments"
   | "findDocumentLocalIdsByContainerId"
   | "hasDocument"
+  | "documentIdentityMatches"
   | "loadDocument"
   | "loadDocumentContainer"
 >;
@@ -71,6 +72,10 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
   },
   async hasDocument(execSql, localId) {
     return hasDocumentRow(execSql, localId);
+  },
+  async documentIdentityMatches(execSql, localId, expectedDocumentId) {
+    const record = await loadDocumentRecord(execSql, getDocumentScope(localId));
+    return record?.documentId === expectedDocumentId;
   },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

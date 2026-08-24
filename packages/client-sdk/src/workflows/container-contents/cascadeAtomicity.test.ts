@@ -122,11 +122,9 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
     }) as ExecSql;
 
     await expect(
-      defaultContainerContentsPersistence.deleteContainers(
-        failingExecSql,
-        ["doomed"],
-        { updatedAt: T1 },
-      ),
+      defaultContainerContentsPersistence.deleteContainers(failingExecSql, [
+        { containerId: "doomed", reason: "deleted", updatedAt: T1 },
+      ]),
     ).rejects.toThrow();
 
     // Fully unapplied: nothing was deleted, repaired, or unlinked.
@@ -187,11 +185,9 @@ test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
     ).toBe(1);
 
     // The re-applied cascade (the refetched tombstone) completes cleanly.
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["doomed"],
-      { updatedAt: T1 },
-    );
+    await defaultContainerContentsPersistence.deleteContainers(execSql, [
+      { containerId: "doomed", reason: "deleted", updatedAt: T1 },
+    ]);
     expect(
       await defaultContainerContentsPersistence.containerExists(
         execSql,

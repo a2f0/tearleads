@@ -754,9 +754,9 @@ async function proxyRequestToApiApp(
   request: Request,
   options: TestApiAppHandlerOptions = {},
 ): Promise<Response> {
-  const apiApp = await ensureTestApiApp();
   activeProxiedApiRequestCount += 1;
   try {
+    const apiApp = await ensureTestApiApp();
     const requestBody =
       request.method === "GET" || request.method === "HEAD"
         ? null

@@ -49,7 +49,7 @@ export function createRotationRecoveryRuntime(input: {
     | ((
         request: DocumentSyncRequest,
         response: DocumentSyncResponse,
-      ) => DocumentSyncResponse)
+      ) => DocumentSyncResponse | Promise<DocumentSyncResponse>)
     | undefined;
   syncCalls?: { count: number } | undefined;
 }): DocumentsRuntime {
@@ -94,7 +94,7 @@ export function createRotationRecoveryRuntime(input: {
         updates: [...response.updates, ...echoedUpdates],
       };
       return input.responseForRequest
-        ? input.responseForRequest(request, defaultResponse)
+        ? await input.responseForRequest(request, defaultResponse)
         : defaultResponse;
     },
   } as unknown as DocumentsRuntime["apiClient"];

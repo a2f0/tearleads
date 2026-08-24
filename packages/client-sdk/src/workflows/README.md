@@ -10,7 +10,7 @@ coordination, but they must stay React-free and product-UI-free.
 | --- | --- | --- |
 | `blobs` | Platform runtime | Encrypted blob upload, hydration, decryption, and local byte-store helpers. |
 | `containers` | Platform runtime | Container mutation planning, remote container operations (create/share/move/revoke/rekey), and KEK-history recovery: `rebuildKeyringEntriesFromLog` walks the kek-log bridge chain, `recoverKeyringEntryFromWraps` recovers a severed epoch from the caller's retained current envelope, and `rekeyRemoteContainer` with `keyringEntriesOverride` seals the repaired keyring. Principal rotations rematerialize retained group grants against the current principal head, so recovery does not depend on historical principal keys. |
-| `documents` | Platform runtime | Document creation, persistence, sync (including the headless `syncRemoteDocument` boundary: schedule another bounded pass for `hasDeferredPendingUpdates` or `hasIncompletePull`, retaining `readPullContinuation(result.response)` as the next input `pullContinuation`), projection keys, document link-set helpers, local orphan/blob maintenance, and the discard-to-shell escape hatch for documents whose queued writes can no longer sync. |
+| `documents` | Platform runtime | Document creation, persistence, sync (including the headless `syncRemoteDocument` boundary: durably apply one page, schedule another bounded pass for `hasDeferredPendingUpdates` or `hasIncompletePull`, and retain `readPullContinuation(result.response)` as the next input `pullContinuation`; built-in stores persist it in local SQLite), projection keys, document link-set helpers, local orphan/blob maintenance, and the discard-to-shell escape hatch for documents whose queued writes can no longer sync. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
 | `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; and verified, explicitly organization-scoped native-subscription claims invoked by the atomic `PurchasesCapability.moveNativeSubscription` flow. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
@@ -44,6 +44,21 @@ mutation store to `src/stores/local-projection` (synchronous reads) and
 `src/sync/reconciliation` (background remote discovery). Product UIs consume
 that unified handle rather than owning those modules or reopening the tree
 store independently. See `docs/developer/device-first.md`.
+
+Custom `DocumentsPersistence` adapters implement the current flag-day document
+durability contract. `createDocumentWithHistoryCheckpoint(...)` must atomically
+create the canonical record, standard and host projections, birth checkpoint,
+and optional initial outgoing update plus history tail. It must return `null`
+when another initializer owns the local id.
+`enqueuePendingUpdate(...)` must atomically append both the outgoing queue row
+and its local durable-history tail row. When given `expectedDocumentId`, it
+returns `false` without writing either row if the canonical identity is absent
+or differs. Callers treat that false result as normal compare-and-set loss and
+reload the winner. `commitDocumentMutation(...)` includes an ordinary local
+edit's optional attachment rows, outgoing update, matching history tail,
+snapshot frontier, and projections in its complete-record CAS transaction.
+There is no separate attachment-staging commit, legacy create, or void-enqueue
+fallback.
 
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async

@@ -1,0 +1,342 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@symcrypt/loro";
+import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@symcrypt/test-utils";
+import {
+  type ClientSQLitePersistenceRuntime,
+  createClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
+import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
+import { sqlDocumentsPersistence } from "./documentsPersistence";
+import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
+
+async function openSharedConnections(key: string) {
+  const dbName = `/${crypto.randomUUID()}.db`;
+  const db = await initTestSqliteDatabase({
+    cipher: "chacha20",
+    dbName,
+    key,
+  });
+  let transactionOwner: symbol | null = null;
+  let transactionReleased: Promise<void> = Promise.resolve();
+  let releaseTransaction = () => {};
+  const createRuntime = (): ClientSQLitePersistenceRuntime => {
+    const owner = Symbol("pane-executor");
+    return createClientSQLitePersistenceRuntime({
+      exec: async (options) => {
+        const command = options.sql.trimStart().toUpperCase();
+        const beginsTransaction = command.startsWith("BEGIN");
+        const endsTransaction =
+          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
+        if (beginsTransaction) {
+          while (transactionOwner !== null && transactionOwner !== owner) {
+            await transactionReleased;
+          }
+          if (transactionOwner === null) {
+            transactionOwner = owner;
+            transactionReleased = new Promise<void>((resolve) => {
+              releaseTransaction = resolve;
+            });
+          }
+        } else {
+          while (transactionOwner !== null && transactionOwner !== owner) {
+            await transactionReleased;
+          }
+        }
+        try {
+          return {
+            rows: execDatabaseStatement(db, options) as Array<
+              SqlRow | SqlArrayRow
+            >,
+          };
+        } finally {
+          if (endsTransaction && transactionOwner === owner) {
+            transactionOwner = null;
+            releaseTransaction();
+          }
+        }
+      },
+    });
+  };
+  const first = { runtime: createRuntime() };
+  await sqlDocumentsPersistence.ensureSchema(first.runtime.execSql);
+  const second = { runtime: createRuntime() };
+  return { close: () => db.close(), first, second };
+}
+
+async function createHistoryStates() {
+  const document = await createDocument("document-concurrency-history");
+  document.getText("text").update("original");
+  const original = {
+    snapshot: bytesToBase64(exportFullHistorySnapshot(document)),
+    version: encodeVersionVector(document),
+  };
+  document.getText("text").update("replacement");
+  return {
+    original,
+    replacement: {
+      snapshot: bytesToBase64(exportFullHistorySnapshot(document)),
+      version: encodeVersionVector(document),
+    },
+  };
+}
+
+test("two pane document mutations settle as commit and CAS loss", async () => {
+  const { close, first, second } =
+    await openSharedConnections("document-cas-race");
+  const base = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "document",
+    id: "local-document",
+    snapshotEndVersion: "base-version",
+    text: "base",
+  };
+  try {
+    await sqlDocumentsPersistence.saveDocument(first.runtime.execSql, base);
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      first.runtime.execSql,
+      base.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the base document");
+    const mutate = (text: string, execSql: typeof first.runtime.execSql) =>
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            snapshotEndVersion: `${text}-version`,
+            text,
+          },
+          expectedRecord,
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      );
+
+    const results = await Promise.all([
+      mutate("first", first.runtime.execSql),
+      mutate("second", second.runtime.execSql),
+    ]);
+    expect(results.filter(({ committed }) => committed)).toHaveLength(1);
+    expect(results.filter(({ committed }) => !committed)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("two pane document creators return one winner and one null", async () => {
+  const { close, first, second } = await openSharedConnections(
+    "document-create-race",
+  );
+  const document = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: null,
+    id: "local-document",
+    snapshotEndVersion: "birth-version",
+    text: "birth",
+  };
+  const create = (execSql: typeof first.runtime.execSql) =>
+    sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      document,
+      { endVersionVector: "birth-version", snapshot: "snapshot" },
+      undefined,
+      async () => undefined,
+    );
+  try {
+    const results = await Promise.all([
+      create(first.runtime.execSql),
+      create(second.runtime.execSql),
+    ]);
+    expect(results.filter((result) => result !== null)).toHaveLength(1);
+    expect(results.filter((result) => result === null)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("record and history reads cannot tear across a replacement commit", async () => {
+  const { close, first, second } =
+    await openSharedConnections("document-read-race");
+  const history = await createHistoryStates();
+  const original = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "original-document",
+    id: "local-document",
+    snapshotEndVersion: history.original.version,
+    text: "original",
+  };
+  let replacement: Promise<unknown> = Promise.resolve();
+  try {
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      first.runtime.execSql,
+      original,
+      {
+        endVersionVector: history.original.version,
+        snapshot: history.original.snapshot,
+      },
+      undefined,
+      async () => undefined,
+    );
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      first.runtime.execSql,
+      original.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the original document");
+
+    const loaded = await loadStoredDocumentWithHistoryRestoreState(
+      first.runtime.execSql,
+      original.id,
+      {
+        loadDocument: async (execSql, localId) => {
+          const record = await sqlDocumentsPersistence.loadDocument(
+            execSql,
+            localId,
+          );
+          replacement = sqlDocumentsPersistence.commitDocumentMutation(
+            second.runtime.execSql,
+            {
+              acceptedPendingUpdateIds: [],
+              document: {
+                ...expectedRecord,
+                accessEpoch: 2,
+                documentId: "replacement-document",
+                snapshotEndVersion: history.replacement.version,
+                text: "replacement",
+              },
+              expectedRecord,
+              historyCheckpoint: {
+                coveredTailIds: [],
+                endVersionVector: history.replacement.version,
+                snapshot: history.replacement.snapshot,
+              },
+              settleAcceptedPendingOnConflict: false,
+            },
+            async () => undefined,
+          );
+          await Promise.resolve();
+          return record;
+        },
+        loadHistoryRestoreState:
+          sqlDocumentsPersistence.loadHistoryRestoreState,
+      },
+    );
+    expect(loaded.document?.documentId).toBe("original-document");
+    expect(loaded.historyRestoreState?.snapshot).toBe(
+      history.original.snapshot,
+    );
+
+    await replacement;
+    await expect(
+      sqlDocumentsPersistence.loadDocumentWithHistoryRestoreState(
+        first.runtime.execSql,
+        original.id,
+      ),
+    ).resolves.toMatchObject({
+      document: { documentId: "replacement-document" },
+      historyRestoreState: { snapshot: history.replacement.snapshot },
+    });
+  } finally {
+    await replacement.catch(() => undefined);
+    close();
+  }
+});
+
+test("pull invalidation returns one identity-aligned record and history snapshot", async () => {
+  const { close, first, second } = await openSharedConnections(
+    "document-invalidation-race",
+  );
+  const history = await createHistoryStates();
+  const continuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-2",
+  };
+  const original = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "original-document",
+    id: "local-document",
+    pullContinuation: continuation,
+    snapshotEndVersion: history.original.version,
+    text: "original",
+  };
+  try {
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      first.runtime.execSql,
+      original,
+      {
+        endVersionVector: history.original.version,
+        snapshot: history.original.snapshot,
+      },
+      undefined,
+      async () => undefined,
+    );
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      first.runtime.execSql,
+      original.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the original document");
+
+    const [invalidated] = await Promise.all([
+      sqlDocumentsPersistence.invalidatePullContinuation(
+        first.runtime.execSql,
+        {
+          accessEpoch: original.accessEpoch,
+          accessStateHash: null,
+          continuation,
+          contentKeyBundle: null,
+          documentId: original.documentId,
+          documentKekTargets: null,
+          documentManifestBundle: null,
+          lastCommitLsn: null,
+          localId: original.id,
+        },
+      ),
+      sqlDocumentsPersistence.commitDocumentMutation(
+        second.runtime.execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            accessEpoch: 2,
+            documentId: "replacement-document",
+            pullContinuation: null,
+            snapshotEndVersion: history.replacement.version,
+            text: "replacement",
+          },
+          expectedRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: history.replacement.version,
+            snapshot: history.replacement.snapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      ),
+    ]);
+    if (!invalidated) throw new Error("Expected an authoritative document");
+    const identityAndSnapshot = JSON.stringify([
+      invalidated.record.documentId,
+      invalidated.historyRestoreState?.snapshot ?? null,
+    ]);
+    expect(
+      new Set([
+        JSON.stringify(["original-document", history.original.snapshot]),
+        JSON.stringify(["replacement-document", history.replacement.snapshot]),
+      ]).has(identityAndSnapshot),
+    ).toBe(true);
+  } finally {
+    close();
+  }
+});

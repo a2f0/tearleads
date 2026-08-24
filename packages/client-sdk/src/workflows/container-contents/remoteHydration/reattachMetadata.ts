@@ -1,6 +1,7 @@
 import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { exportAllUpdates, importUpdates } from "@symcrypt/loro";
 import { readContainerMetadataValue } from "../../../data/containers/containerMetadataDocument";
+import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/pullContinuation";
 import type { ContainerMetadataRecord } from "../containerPersistence";
 import type { ContainerMetadataDocumentState } from "./types";
 
@@ -22,6 +23,8 @@ export function reattachDormantContainerMetadata(input: {
   initialSnapshot: string;
   lastCommitLsn: string | null;
   name: string;
+  pullContinuation: DocumentSyncPullContinuation | null | undefined;
+  pullContinuationRecoveryRequired?: true | undefined;
   snapshotEndVersion: string;
 } {
   const { defaultName, doc, dormantRecord } = input;
@@ -34,23 +37,33 @@ export function reattachDormantContainerMetadata(input: {
     dormantRecord !== null &&
     (dormantRecord.documentId === input.remoteMetadataDocumentId ||
       dormantRecord.documentId === null);
-  if (!matches || !dormantRecord?.metadataUpdates) {
+  if (!matches || !dormantRecord) {
     return {
       icon: null,
       initialSnapshot: bytesToBase64(exportAllUpdates(doc)),
       lastCommitLsn: null,
       name: defaultName,
+      pullContinuation: null,
       snapshotEndVersion: "",
     };
   }
 
-  importUpdates(doc, [base64ToBytes(dormantRecord.metadataUpdates)]);
+  if (dormantRecord.metadataUpdates) {
+    importUpdates(doc, [base64ToBytes(dormantRecord.metadataUpdates)]);
+  }
   const metadata = readContainerMetadataValue(doc, defaultName);
   return {
     icon: metadata.icon,
-    initialSnapshot: dormantRecord.metadataUpdates,
+    initialSnapshot:
+      dormantRecord.metadataUpdates || bytesToBase64(exportAllUpdates(doc)),
     lastCommitLsn: dormantRecord.lastCommitLsn ?? null,
     name: metadata.name,
+    pullContinuation: dormantRecord.pullContinuationRecoveryRequired
+      ? dormantRecord.pullContinuation
+      : (dormantRecord.pullContinuation ?? null),
+    ...(dormantRecord.pullContinuationRecoveryRequired
+      ? { pullContinuationRecoveryRequired: true as const }
+      : {}),
     snapshotEndVersion: dormantRecord.snapshotEndVersion,
   };
 }

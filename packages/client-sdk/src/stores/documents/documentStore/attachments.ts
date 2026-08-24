@@ -1,34 +1,33 @@
-import { encodeVersionVector } from "@symcrypt/loro";
-import {
-  blobByteSourceInputLength,
-  createBlobByteSource,
-} from "../../../data/blobContracts";
+import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
+import { blobByteSourceInputLength } from "../../../data/blobContracts";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
   getDocumentAttachments,
   removeDocumentAttachment,
 } from "../../../data/documents/documentContent";
-import {
-  deleteLocalDocumentAttachment,
-  deletePendingDocumentAttachment,
-  type LocalAttachmentRecord,
-  markLocalDocumentAttachmentDetached,
-  type PendingAttachmentRecord,
-  savePendingDocumentAttachment,
-} from "../../../workflows/documents";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
+import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
 import {
-  deleteLocalAttachmentRecord,
-  queuePendingAttachmentUpload,
-  saveLocalAttachmentRecord,
-  upsertPendingAttachments,
-} from "./attachmentPersistence";
+  persistStagedAttachmentMutation,
+  restoreFailedAttachmentMutation,
+} from "./attachmentMutationPersistence";
+import {
+  deleteUnreferencedStagedAttachmentBytes,
+  installPendingAttachmentRows,
+  stagePendingAttachments,
+} from "./attachmentStaging";
+import {
+  type AttachmentWriteGeneration,
+  captureAttachmentWriteGeneration,
+  isAttachmentWriteGenerationCurrent,
+  shouldAbortAttachmentPersistFollowup,
+} from "./attachmentWriteGeneration";
 import { ensureDocumentStoreReady } from "./initialization";
 import {
   advancePendingBaseVersion,
-  enqueuePendingUpdate,
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
@@ -36,7 +35,9 @@ import {
   canAttachFiles,
   canWriteDocument,
   type DocumentStoreState,
+  setReadySnapshot,
 } from "./state";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 function buildPendingAttachments(
   localId: string,
@@ -71,97 +72,6 @@ function buildPendingAttachments(
   return { nextAttachments, nextPendingAttachments };
 }
 
-async function persistPendingAttachments(
-  state: DocumentStoreState,
-  files: ReadonlyArray<DocumentAttachmentUpload>,
-  nextPendingAttachments: PendingAttachmentRecord[],
-) {
-  const previousStorageKeys = state.attachmentStorageKeyBySlotId;
-  const previousBlobIds = state.attachmentBlobIdBySlotId;
-  const localAttachmentRecords = nextPendingAttachments.map(
-    (pendingAttachment): LocalAttachmentRecord => ({
-      blobId: null,
-      byteLength: pendingAttachment.byteLength,
-      detachedAt: null,
-      localId: state.localId,
-      mimeType: pendingAttachment.mimeType,
-      slotId: pendingAttachment.slotId,
-      storageKey: pendingAttachment.storageKey,
-    }),
-  );
-
-  try {
-    for (const [index, pendingAttachment] of nextPendingAttachments.entries()) {
-      const sourceFile = files[index];
-      if (!sourceFile) {
-        continue;
-      }
-
-      await state.runtime.infra.blobStore.writeByteSource(
-        pendingAttachment.storageKey,
-        createBlobByteSource(sourceFile.bytes),
-      );
-      await savePendingDocumentAttachment({
-        attachment: pendingAttachment,
-        execSql: state.runtime.infra.execSql,
-        persistence: state.persistence,
-      });
-      const localAttachmentRecord = localAttachmentRecords[index];
-      if (!localAttachmentRecord) {
-        continue;
-      }
-      await saveLocalAttachmentRecord(state, localAttachmentRecord);
-    }
-  } catch (error) {
-    state.attachmentStorageKeyBySlotId = previousStorageKeys;
-    state.attachmentBlobIdBySlotId = previousBlobIds;
-    await rollbackPendingAttachmentPersistence(
-      state,
-      nextPendingAttachments,
-      localAttachmentRecords,
-    );
-    throw error;
-  }
-}
-
-async function rollbackPendingAttachmentPersistence(
-  state: DocumentStoreState,
-  pendingAttachments: ReadonlyArray<PendingAttachmentRecord>,
-  localAttachments: ReadonlyArray<LocalAttachmentRecord>,
-) {
-  const cleanupResults = await Promise.allSettled([
-    ...pendingAttachments.map((attachment) =>
-      deletePendingDocumentAttachment({
-        execSql: state.runtime.infra.execSql,
-        localId: state.localId,
-        persistence: state.persistence,
-        slotId: attachment.slotId,
-        storageKey: attachment.storageKey,
-      }),
-    ),
-    ...localAttachments.map((attachment) =>
-      deleteLocalDocumentAttachment({
-        execSql: state.runtime.infra.execSql,
-        localId: state.localId,
-        persistence: state.persistence,
-        slotId: attachment.slotId,
-        storageKey: attachment.storageKey,
-      }),
-    ),
-    ...pendingAttachments.map((attachment) =>
-      state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
-    ),
-  ]);
-  const failedCleanupCount = cleanupResults.filter(
-    (result) => result.status === "rejected",
-  ).length;
-  if (failedCleanupCount > 0) {
-    state.runtime.util.log(
-      `Documents: failed to roll back ${failedCleanupCount} staged attachment operation${failedCleanupCount === 1 ? "" : "s"}.`,
-    );
-  }
-}
-
 function logAttachedFiles(state: DocumentStoreState, count: number) {
   state.runtime.util.log(
     state.runtime.state.online && state.runtime.auth.isAuthenticated
@@ -173,7 +83,9 @@ function logAttachedFiles(state: DocumentStoreState, count: number) {
 async function persistAttachedFiles(
   state: DocumentStoreState,
   files: ReadonlyArray<DocumentAttachmentUpload>,
+  writeGeneration: AttachmentWriteGeneration,
 ) {
+  if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
   const currentDoc = state.doc;
 
   if (!currentDoc || !canAttachFiles(state)) {
@@ -182,41 +94,75 @@ async function persistAttachedFiles(
     );
     return;
   }
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    return;
+  }
 
   const { nextAttachments, nextPendingAttachments } = buildPendingAttachments(
     state.localId,
     files,
   );
+  const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   addDocumentAttachments(currentDoc, nextAttachments);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
   // Captured at delta time: the enqueued row proves coverage up to exactly
   // this version, so it is the frontier the persist below may publish.
   const coveredVersion = encodeVersionVector(currentDoc);
 
-  await persistPendingAttachments(state, files, nextPendingAttachments);
-
-  if (attachmentUpdate.byteLength > 0) {
-    await enqueuePendingUpdate(state, attachmentUpdate);
+  let staged: Awaited<ReturnType<typeof stagePendingAttachments>>;
+  try {
+    staged = await stagePendingAttachments({
+      files,
+      generation,
+      pendingAttachments: nextPendingAttachments,
+      state,
+    });
+  } catch (error) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot,
+      state,
+    });
+    throw error;
   }
-  upsertPendingAttachments(state, nextPendingAttachments);
+  if (!staged) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot,
+      state,
+    });
+    return;
+  }
   // This persist changes attachments, not prose. setReadySnapshot always
   // re-derives attachments from the doc, but preserve the text/structured
   // fields so an attach that overlaps an in-flight keystroke does not republish
   // a stale doc read over the live optimistic editor value.
-  const persisted = await persistDocument(
-    state,
+  const persisted = await persistStagedAttachmentMutation({
+    attachmentUpdate,
+    coveredVersion,
     currentDoc,
-    { snapshotEndVersion: coveredVersion },
-    {
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    },
-  );
-  if (!persisted) {
-    // Refused: the document was deleted while this persist was queued
-    // and the store is cleared — no state advance, no sync request.
+    generation,
+    rollbackSnapshot,
+    staged,
+    state,
+  });
+  if (
+    shouldAbortAttachmentPersistFollowup(
+      state,
+      writeGeneration,
+      generation,
+      persisted,
+    )
+  ) {
+    await deleteUnreferencedStagedAttachmentBytes({
+      generation,
+      pendingAttachments: staged.pendingAttachments,
+      state,
+    });
     return;
   }
+  installPendingAttachmentRows({ ...staged, state });
   advancePendingBaseVersion(state, currentDoc);
   logAttachedFiles(state, files.length);
   requestDocumentStoreSync(state);
@@ -226,13 +172,19 @@ async function persistSlotAttachmentFile(
   state: DocumentStoreState,
   slotId: string,
   file: DocumentAttachmentUpload,
+  writeGeneration: AttachmentWriteGeneration,
 ) {
+  if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
   const currentDoc = state.doc;
 
   if (!currentDoc || !canAttachFiles(state)) {
     state.runtime.util.log(
       "Documents: slot attachments require a local key package.",
     );
+    return;
+  }
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
     return;
   }
 
@@ -242,95 +194,129 @@ async function persistSlotAttachmentFile(
     name: file.name,
     slotId,
   };
+  const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   addDocumentAttachments(currentDoc, [replacementAttachment]);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
   const coveredVersion = encodeVersionVector(currentDoc);
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
-  await state.runtime.infra.blobStore.writeByteSource(
-    storageKey,
-    createBlobByteSource(file.bytes),
-  );
-  await saveLocalAttachmentRecord(state, {
-    blobId: null,
+  const pendingAttachment: PendingAttachmentRecord = {
     byteLength: replacementAttachment.byteLength,
-    detachedAt: null,
     localId: state.localId,
     mimeType: replacementAttachment.mimeType,
+    name: replacementAttachment.name,
     slotId,
     storageKey,
-  });
-  await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
-  // Enqueue only after the blob is written and queued for upload, so we never
-  // advertise an attachment in the CRDT whose bytes are missing (matches
-  // persistAttachedFiles).
-  if (attachmentUpdate.byteLength > 0) {
-    await enqueuePendingUpdate(state, attachmentUpdate);
+  };
+  let staged: Awaited<ReturnType<typeof stagePendingAttachments>>;
+  try {
+    staged = await stagePendingAttachments({
+      files: [file],
+      generation,
+      pendingAttachments: [pendingAttachment],
+      state,
+    });
+  } catch (error) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot,
+      state,
+    });
+    throw error;
+  }
+  if (!staged) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot,
+      state,
+    });
+    return;
   }
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // a slot replacement overlapping a keystroke must not regress the editor.
-  const persisted = await persistDocument(
-    state,
+  const persisted = await persistStagedAttachmentMutation({
+    attachmentUpdate,
+    coveredVersion,
     currentDoc,
-    { snapshotEndVersion: coveredVersion },
-    {
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    },
-  );
-  if (!persisted) {
-    // Refused: the document was deleted while this persist was queued
-    // and the store is cleared — no state advance, no sync request.
+    generation,
+    rollbackSnapshot,
+    staged,
+    state,
+  });
+  if (
+    shouldAbortAttachmentPersistFollowup(
+      state,
+      writeGeneration,
+      generation,
+      persisted,
+    )
+  ) {
+    await deleteUnreferencedStagedAttachmentBytes({
+      generation,
+      pendingAttachments: staged.pendingAttachments,
+      state,
+    });
     return;
   }
+  installPendingAttachmentRows({ ...staged, state });
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
 }
 
-async function deletePendingAttachmentForSlot(
-  state: DocumentStoreState,
-  slotId: string,
-  storageKey: string,
-) {
-  const pendingAttachment = state.pendingAttachments.find(
+async function installCommittedAttachmentRemoval(input: {
+  currentDoc: NonNullable<DocumentStoreState["doc"]>;
+  slotId: string;
+  state: DocumentStoreState;
+  storageKey: string | undefined;
+  syncedAttachment: boolean;
+}): Promise<void> {
+  const { slotId, state, storageKey } = input;
+  if (!storageKey) return;
+  state.pendingAttachments = state.pendingAttachments.filter(
     (attachment) =>
-      attachment.slotId === slotId && attachment.storageKey === storageKey,
+      attachment.slotId !== slotId || attachment.storageKey !== storageKey,
   );
-  if (!pendingAttachment) {
+  if (
+    input.syncedAttachment ||
+    state.attachmentStorageKeyBySlotId[slotId] !== storageKey
+  ) {
     return;
   }
-
-  await deletePendingDocumentAttachment({
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-    slotId,
-    storageKey,
-  });
-  state.pendingAttachments = state.pendingAttachments.filter(
-    (attachment) => attachment !== pendingAttachment,
+  const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
+    state.attachmentStorageKeyBySlotId;
+  const { [slotId]: _removedBlobId, ...nextBlobIds } =
+    state.attachmentBlobIdBySlotId;
+  state.attachmentStorageKeyBySlotId = nextStorageKeys;
+  state.attachmentBlobIdBySlotId = nextBlobIds;
+  await state.runtime.infra.blobStore
+    .deleteBytes(storageKey)
+    .catch(() =>
+      state.runtime.util.log(
+        `Documents: failed to delete detached attachment bytes for ${slotId}.`,
+      ),
+    );
+  setReadySnapshot(
+    state,
+    input.currentDoc,
+    state.snapshot.syncing,
+    state.snapshot.text,
+    state.snapshot.structuredFields,
   );
-}
-
-async function deleteLocalOnlyDetachedAttachment(
-  state: DocumentStoreState,
-  slotId: string,
-  storageKey: string,
-) {
-  await Promise.allSettled([
-    deletePendingAttachmentForSlot(state, slotId, storageKey),
-    deleteLocalAttachmentRecord(state, slotId, storageKey, null),
-    state.runtime.infra.blobStore.deleteBytes(storageKey),
-  ]);
 }
 
 async function persistRemovedAttachment(
   state: DocumentStoreState,
   slotId: string,
+  writeGeneration: AttachmentWriteGeneration,
 ) {
+  if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
   const currentDoc = state.doc;
   if (!currentDoc) {
+    return;
+  }
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
     return;
   }
 
@@ -342,51 +328,65 @@ async function persistRemovedAttachment(
   }
 
   const storageKey = state.attachmentStorageKeyBySlotId[slotId];
+  const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
   removeDocumentAttachment(currentDoc, slotId);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
   const coveredVersion = encodeVersionVector(currentDoc);
-  if (attachmentUpdate.byteLength > 0) {
-    await enqueuePendingUpdate(state, attachmentUpdate);
-  }
-
-  if (storageKey) {
-    if (state.record?.documentId) {
-      await deletePendingAttachmentForSlot(state, slotId, storageKey);
-      // The synced document's local blob row has to outlive the unlink so the
-      // next sync can detach its remote binding, so mark it detached rather
-      // than deleting it: an unmarked row keeps answering "this blob is still
-      // referenced by this document" in the blob browser until the detach
-      // reaches the server, which never happens while offline. The slot stays
-      // in attachmentStorageKeyBySlotId, which is what syncDetachedAttachments
-      // diffs against the document to find the detach it still owes.
-      await markLocalDocumentAttachmentDetached({
-        execSql: state.runtime.infra.execSql,
-        localId: state.localId,
-        persistence: state.persistence,
-        slotId,
-        storageKey,
-      });
-    } else {
-      await deleteLocalOnlyDetachedAttachment(state, slotId, storageKey);
-    }
-  }
+  const pendingUpdate = createPendingUpdateFields(attachmentUpdate);
+  const syncedAttachment = Boolean(state.record?.documentId);
 
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
-  const persisted = await persistDocument(
-    state,
-    currentDoc,
-    { snapshotEndVersion: coveredVersion },
-    {
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    },
-  );
-  if (!persisted) {
-    // Refused: the document was deleted while this persist was queued
-    // and the store is cleared — no state advance, no sync request.
+  let persisted: Awaited<ReturnType<typeof persistDocument>>;
+  try {
+    persisted = await persistDocument(
+      state,
+      currentDoc,
+      { snapshotEndVersion: coveredVersion },
+      {
+        ...(storageKey
+          ? {
+              attachmentRemoval: {
+                mode: syncedAttachment
+                  ? ("detach" as const)
+                  : ("delete" as const),
+                slotId,
+                storageKey,
+              },
+            }
+          : {}),
+        ...(pendingUpdate ? { pendingUpdate } : {}),
+        preserveSnapshotStructuredFields: true,
+        preserveSnapshotText: true,
+      },
+      generation,
+    );
+  } catch (error) {
+    await restoreFailedAttachmentMutation({
+      generation,
+      rollbackSnapshot,
+      state,
+    });
+    throw error;
+  }
+  if (
+    shouldAbortAttachmentPersistFollowup(
+      state,
+      writeGeneration,
+      generation,
+      persisted,
+    )
+  ) {
+    // See persistAttachedFiles: only durable same-identity work re-arms sync.
     return;
   }
+  await installCommittedAttachmentRemoval({
+    currentDoc,
+    slotId,
+    state,
+    storageKey,
+    syncedAttachment,
+  });
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(
     `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
@@ -415,9 +415,11 @@ export async function attachFilesToDocumentStore(
     return;
   }
 
+  const writeGeneration = captureAttachmentWriteGeneration(state);
+  if (!writeGeneration) return;
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistAttachedFiles(state, files))
+    .then(async () => persistAttachedFiles(state, files, writeGeneration))
     .catch((error: unknown) => {
       console.error("Failed to attach document files:", error);
     });
@@ -441,9 +443,11 @@ export async function removeAttachmentFromDocumentStore(
     return;
   }
 
+  const writeGeneration = captureAttachmentWriteGeneration(state);
+  if (!writeGeneration) return;
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistRemovedAttachment(state, slotId))
+    .then(async () => persistRemovedAttachment(state, slotId, writeGeneration))
     .catch((error: unknown) => {
       console.error("Failed to remove document attachment:", error);
     });
@@ -468,9 +472,13 @@ export async function replaceAttachmentInDocumentStore(
     return;
   }
 
+  const writeGeneration = captureAttachmentWriteGeneration(state);
+  if (!writeGeneration) return;
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistSlotAttachmentFile(state, slotId, file))
+    .then(async () =>
+      persistSlotAttachmentFile(state, slotId, file, writeGeneration),
+    )
     .catch((error: unknown) => {
       console.error("Failed to replace document attachment:", error);
     });

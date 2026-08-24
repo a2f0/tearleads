@@ -9,7 +9,10 @@ import type {
   ContainerMetadataRecord as ContainerDocumentRecord,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  type ExecSql,
+  resolveCanonicalExecSql,
+} from "../../data/sqlite/sqlSchema";
 import {
   cleanupContainerMetadataRegistrationsOnFailure,
   hasContainerMetadataDocumentUpdateEvent,
@@ -52,17 +55,20 @@ test("persistContainerMetadataStateFromRuntime uses the runtime executor", async
 
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: { container, doc, record },
-    persistence: createContainerContentsPersistence({ savedContainers }),
+    persistence: createContainerContentsPersistence({
+      savedContainers,
+      storedContainers: [{ container, record }],
+    }),
     runtime,
   });
+  if (!persisted) throw new Error("Expected persisted metadata state");
 
-  expect(savedContainers).toEqual([
-    {
-      container: persisted.container,
-      execSql,
-      record: persisted.record,
-    },
-  ]);
+  expect(savedContainers).toHaveLength(1);
+  expect(savedContainers[0]?.container).toEqual(persisted.container);
+  expect(savedContainers[0]?.record).toEqual(persisted.record);
+  expect(resolveCanonicalExecSql(savedContainers[0]?.execSql ?? execSql)).toBe(
+    execSql,
+  );
   expect(persisted.container).toMatchObject({
     icon: "folder",
     name: "Runtime container",
@@ -96,6 +102,7 @@ test("renameContainerMetadataStateFromRuntime queues metadata update with the ru
     persistence: createContainerContentsPersistence({
       pendingUpdates,
       savedContainers,
+      storedContainers: [{ container, record }],
     }),
     runtime,
   });
@@ -106,10 +113,14 @@ test("renameContainerMetadataStateFromRuntime queues metadata update with the ru
     name: "New name",
   });
   expect(pendingUpdates).toHaveLength(1);
-  expect(pendingUpdates[0]?.execSql).toBe(execSql);
+  expect(resolveCanonicalExecSql(pendingUpdates[0]?.execSql ?? execSql)).toBe(
+    execSql,
+  );
   expect(pendingUpdates[0]?.input.containerId).toBe(container.id);
   expect(savedContainers).toHaveLength(1);
-  expect(savedContainers[0]?.execSql).toBe(execSql);
+  expect(resolveCanonicalExecSql(savedContainers[0]?.execSql ?? execSql)).toBe(
+    execSql,
+  );
 });
 
 test("hasContainerMetadataDocumentUpdateEvent detects known metadata document updates", () => {
@@ -413,32 +424,13 @@ test("metadata sync re-arms when a recovery baseline displaces queued edits", ()
 
   expect(
     settleContainerMetadataOutgoingPass(metadataState, {
+      consumedPullContinuation: null,
       outgoingUpdateCount: 2,
+      requestRecord: metadataState.record,
       synced: {
         rekeyedPendingUpdateIds: [],
         settledPendingUpdateIds: [],
         acceptedRecoveryBaseline: true,
-      } as never,
-    }),
-  ).toBe(true);
-});
-
-test("metadata sync re-arms an incomplete paginated pull", () => {
-  const metadataState = {
-    container: createContainerRecord({ id: "container-5", parentId: null }),
-    doc: {} as never,
-    record: createDocumentRecord({ id: "container-5" }),
-  };
-
-  expect(
-    settleContainerMetadataOutgoingPass(metadataState, {
-      outgoingUpdateCount: 0,
-      synced: {
-        acceptedRecoveryBaseline: false,
-        exhaustedPendingUpdateCount: 0,
-        hasIncompletePull: true,
-        rekeyedPendingUpdateIds: [],
-        settledPendingUpdateIds: [],
       } as never,
     }),
   ).toBe(true);
@@ -453,7 +445,9 @@ test("a completed metadata cursor re-arms its queued writes", () => {
 
   expect(
     settleContainerMetadataOutgoingPass(metadataState, {
+      consumedPullContinuation: null,
       outgoingUpdateCount: 1,
+      requestRecord: metadataState.record,
       synced: {
         acceptedRecoveryBaseline: false,
         exhaustedPendingUpdateCount: 0,

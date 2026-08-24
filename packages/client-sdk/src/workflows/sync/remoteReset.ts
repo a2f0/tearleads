@@ -160,6 +160,7 @@ async function resetRemoteColumns(
       documentKekTargets: null,
       documentManifestBundle: null,
       lastCommitLsn: null,
+      pullContinuation: null,
       updatedAt: now,
     })
     .run();

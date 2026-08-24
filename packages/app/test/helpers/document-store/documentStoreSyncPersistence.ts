@@ -7,70 +7,13 @@ import type {
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
-import type {
-  PendingUpdateLengthRow,
-  ProjectionLengthRow,
-  StoredDocumentsState,
-} from "./documentStoreSyncFixtures";
-
-interface PendingUpdateDetailRow extends PendingUpdateLengthRow {
-  partial_start_version_vector: string | null;
-  partial_end_version_vector: string | null;
-}
-
-interface StoredHistoryState {
-  checkpoint: { endVersionVector: string; snapshot: string } | null;
-  tail: { id: string; origin: "local" | "remote"; updateData: string }[];
-}
-
-export function readRowValue(value: unknown, key: string): unknown {
-  return isPlainObject(value) ? value[key] : undefined;
-}
-
-export function isPendingUpdateLengthRow(
-  value: unknown,
-): value is PendingUpdateLengthRow {
-  const updateDataLength = readRowValue(value, "update_data_length");
-  return (
-    typeof updateDataLength === "number" ||
-    typeof updateDataLength === "string" ||
-    updateDataLength === null
-  );
-}
-
-export function isProjectionLengthRow(
-  value: unknown,
-): value is ProjectionLengthRow {
-  const textLength = readRowValue(value, "text_length");
-  return (
-    typeof textLength === "number" ||
-    typeof textLength === "string" ||
-    textLength === null
-  );
-}
-
-export function isPendingUpdateDetailRow(
-  value: unknown,
-): value is PendingUpdateDetailRow {
-  const partialStartVersionVector = readRowValue(
-    value,
-    "partial_start_version_vector",
-  );
-  const partialEndVersionVector = readRowValue(
-    value,
-    "partial_end_version_vector",
-  );
-
-  return (
-    isPendingUpdateLengthRow(value) &&
-    (typeof partialStartVersionVector === "string" ||
-      partialStartVersionVector === null) &&
-    (typeof partialEndVersionVector === "string" ||
-      partialEndVersionVector === null)
-  );
-}
-
+import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
+import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
+import {
+  applyMemoryAttachmentRemoval,
+  type StoredHistoryState,
+  toHistoryRestoreState,
+} from "./documentStoreSyncPersistenceState";
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
 } {
@@ -79,7 +22,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
-
   const historyFor = (localId: string): StoredHistoryState => {
     let history = historyByLocalId.get(localId);
     if (!history) {
@@ -103,12 +45,158 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       : [];
 
   return {
+    async createDocumentWithHistoryCheckpoint(
+      execSql,
+      nextDocument,
+      historyCheckpoint,
+      options,
+      saveClientProjection,
+    ) {
+      if (document?.id === nextDocument.id) return null;
+      const previousPendingUpdates = structuredClone(pendingUpdates);
+      const updatedAt = options?.updatedAt ?? "2026-04-06T00:00:00.000Z";
+      try {
+        document = nextDocument;
+        const tail = options?.pendingUpdate
+          ? [
+              {
+                id: crypto.randomUUID(),
+                origin: "local" as const,
+                updateData: options.pendingUpdate.updateData,
+              },
+            ]
+          : [];
+        historyByLocalId.set(nextDocument.id, {
+          checkpoint: historyCheckpoint,
+          tail,
+        });
+        if (options?.pendingUpdate) {
+          pendingUpdates.push({
+            id: crypto.randomUUID(),
+            ...options.pendingUpdate,
+          });
+        }
+        await saveClientProjection(execSql, updatedAt);
+        return updatedAt;
+      } catch (error) {
+        document = null;
+        pendingUpdates = previousPendingUpdates;
+        historyByLocalId.delete(nextDocument.id);
+        throw error;
+      }
+    },
+    async commitDocumentMutation(execSql, input, saveClientProjection) {
+      if (input.stillCurrent && !input.stillCurrent()) {
+        return { committed: false, currentRecord: document };
+      }
+      if (JSON.stringify(document) !== JSON.stringify(input.expectedRecord)) {
+        return { committed: false, currentRecord: document };
+      }
+      const previousDocument = document;
+      const previousPendingUpdates = structuredClone(pendingUpdates);
+      const previousLocalAttachments = structuredClone(localAttachments);
+      const previousPendingAttachments = structuredClone(pendingAttachments);
+      const previousHistory = structuredClone(historyFor(input.document.id));
+      const updatedAt = input.updatedAt ?? "2026-04-06T00:00:00.000Z";
+      try {
+        if (input.attachmentRemoval) {
+          ({ localAttachments, pendingAttachments } =
+            applyMemoryAttachmentRemoval({
+              localAttachments,
+              pendingAttachments,
+              removal: input.attachmentRemoval,
+            }));
+        }
+        if (input.attachmentStaging) {
+          const pendingSlotIds = new Set(
+            input.attachmentStaging.pendingAttachments.map(
+              ({ slotId }) => slotId,
+            ),
+          );
+          const localSlotIds = new Set(
+            input.attachmentStaging.localAttachments.map(
+              ({ slotId }) => slotId,
+            ),
+          );
+          pendingAttachments = [
+            ...pendingAttachments.filter(
+              ({ slotId }) => !pendingSlotIds.has(slotId),
+            ),
+            ...input.attachmentStaging.pendingAttachments,
+          ];
+          localAttachments = [
+            ...localAttachments.filter(
+              ({ slotId }) => !localSlotIds.has(slotId),
+            ),
+            ...input.attachmentStaging.localAttachments,
+          ];
+        }
+        const history = historyFor(input.document.id);
+        if (input.historyCheckpoint) {
+          const coveredIds = new Set(input.historyCheckpoint.coveredTailIds);
+          history.checkpoint = {
+            endVersionVector: input.historyCheckpoint.endVersionVector,
+            snapshot: input.historyCheckpoint.snapshot,
+          };
+          history.tail = history.tail.filter(({ id }) => !coveredIds.has(id));
+        }
+        for (const updateData of input.historyUpdates ?? []) {
+          history.tail.push({
+            id: crypto.randomUUID(),
+            origin: input.historyUpdateOrigin ?? "local",
+            updateData,
+          });
+        }
+        if (input.pendingUpdate) {
+          pendingUpdates.push({
+            id: crypto.randomUUID(),
+            ...input.pendingUpdate,
+          });
+          history.tail.push({
+            id: crypto.randomUUID(),
+            origin: "local",
+            updateData: input.pendingUpdate.updateData,
+          });
+        }
+        const acceptedIds = new Set(input.acceptedPendingUpdateIds);
+        pendingUpdates = pendingUpdates.filter(
+          ({ id }) => !acceptedIds.has(id),
+        );
+        document = input.document;
+        await saveClientProjection(execSql, updatedAt);
+        return { committed: true, updatedAt };
+      } catch (error) {
+        document = previousDocument;
+        pendingUpdates = previousPendingUpdates;
+        localAttachments = previousLocalAttachments;
+        pendingAttachments = previousPendingAttachments;
+        historyByLocalId.set(input.document.id, previousHistory);
+        throw error;
+      }
+    },
+    async settleAcceptedPendingUpdates(_execSql, input) {
+      if (
+        document?.documentId === input.expectedRecord.documentId &&
+        document.accessEpoch === input.expectedRecord.accessEpoch
+      ) {
+        const acceptedIds = new Set(input.pendingUpdateIds);
+        pendingUpdates = pendingUpdates.filter(
+          ({ id }) => !acceptedIds.has(id),
+        );
+      }
+      return document;
+    },
     async ensureSchema() {},
     async findDocumentLocalIdsByContainerId(_execSql, containerId) {
       return document?.containerId === containerId ? [document.id] : [];
     },
     async hasDocument(_execSql, localId) {
       return document?.id === localId;
+    },
+    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
+      return (
+        document?.id === localId && document.documentId === expectedDocumentId
+      );
     },
     getState() {
       return {
@@ -157,6 +245,15 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async loadDocument() {
       return document;
     },
+    async invalidatePullContinuation(_execSql, input) {
+      document = invalidateMemoryDocumentPullContinuation(document, input);
+      if (!document) return null;
+      const history = historyByLocalId.get(input.localId);
+      return {
+        historyRestoreState: toHistoryRestoreState(history),
+        record: document,
+      };
+    },
     async loadDocumentContainer(_execSql, localId) {
       return document?.id === localId
         ? { containerId: document.containerId }
@@ -203,18 +300,13 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       ];
     },
     async loadHistoryRestoreState(_execSql, localId) {
+      return toHistoryRestoreState(historyByLocalId.get(localId));
+    },
+    async loadDocumentWithHistoryRestoreState(_execSql, localId) {
       const history = historyByLocalId.get(localId);
-      if (!history || (!history.checkpoint && history.tail.length === 0)) {
-        return null;
-      }
-      // Mirror the SQL persistence: a tail without a checkpoint restores as
-      // tail-only (empty snapshot) rather than being silently ignored.
       return {
-        snapshot: history.checkpoint?.snapshot ?? "",
-        tailUpdates: history.tail.map((entry) => ({
-          origin: entry.origin,
-          updateData: entry.updateData,
-        })),
+        document: document?.id === localId ? document : null,
+        historyRestoreState: toHistoryRestoreState(history),
       };
     },
     async readHistoryTailSize(_execSql, localId) {
@@ -329,6 +421,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           updateData: pendingUpdate.updateData,
         },
       ];
+      return true;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

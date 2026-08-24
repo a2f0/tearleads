@@ -172,7 +172,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
             containerState.record,
             saveOptions,
           );
-          return containerState.record;
+          return { record: containerState.record, status: "persisted" };
         },
         updateSnapshot: () => {
           snapshotUpdateCount += 1;
@@ -288,7 +288,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
             containerState.record,
             saveOptions,
           );
-          return containerState.record;
+          return { record: containerState.record, status: "persisted" };
         },
         updateSnapshot: () => {
           snapshotUpdateCount += 1;
@@ -418,7 +418,10 @@ test("explorer sync skips pending metadata updates for containers without docume
     state.snapshot = { ...state.snapshot, ready: true };
     const syncAgent = createExplorerSyncAgent({
       host: {
-        persistContainerState: async (containerState) => containerState.record,
+        persistContainerState: async (containerState) => ({
+          record: containerState.record,
+          status: "persisted",
+        }),
         updateSnapshot: () => undefined,
       },
       state,

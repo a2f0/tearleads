@@ -5,6 +5,7 @@ export {
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export {
   type DocumentSyncPullContinuation,
+  documentSyncPullContinuationsEqual,
   readPullContinuation,
 } from "../../data/documents/shared/syncPagination";
 export type {
@@ -19,6 +20,7 @@ export {
 } from "../../data/sqlite/documentHistoryPersistence";
 export {
   clearDocumentSyncFailure,
+  invalidateDocumentSyncPullContinuation,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -45,23 +47,28 @@ export {
 export {
   importDocumentHistoryTailUpdates,
   loadPersistedDocumentContent,
+  mergePersistedDocumentHistory,
 } from "./historyContent";
 export { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
 export { relinkRemoteDocument } from "./linkSetRemote";
 export { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
+export {
+  enqueuePendingDocumentUpdate,
+  listPendingDocumentUpdates,
+} from "./pendingUpdatePersistence";
 export {
   type DiscardedDocumentShellResult,
   deletePersistedDocument,
   discardPersistedDocumentToShell,
 } from "./persistedDocumentRemoval";
 export {
+  type AttachmentRemovalRows,
+  type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
-  listPendingDocumentUpdates,
   loadPersistedDocumentStoreState,
   type PendingAttachmentRecord,
   type PendingAttachmentUploadIdentity,

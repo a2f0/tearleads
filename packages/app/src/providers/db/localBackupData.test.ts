@@ -74,7 +74,8 @@ async function seedBackupDatabase(execSql: ExecSql): Promise<void> {
     CREATE TABLE documents (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
-      note_count INTEGER NOT NULL
+      note_count INTEGER NOT NULL,
+      pull_continuation TEXT
     )
   `);
   await execSql("CREATE INDEX documents_title_idx ON documents(title)");
@@ -106,8 +107,8 @@ async function seedBackupDatabase(execSql: ExecSql): Promise<void> {
     )
   `);
   await execSql(
-    "INSERT INTO documents (id, title, note_count) VALUES (?, ?, ?)",
-    ["doc-1", "First", 3],
+    "INSERT INTO documents (id, title, note_count, pull_continuation) VALUES (?, ?, ?, ?)",
+    ["doc-1", "First", 3, '[1,"tracked","0/2","page-2"]'],
   );
   await execSql(
     "INSERT INTO document_pending_attachments (local_id, slot_id, storage_key) VALUES (?, ?, ?)",
@@ -145,6 +146,7 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
       signingFingerprint: "fingerprint-source",
     });
 
+    expect(payload.version).toBe(7);
     expect(payload.summary.rowCount).toBe(5);
     expect(payload.summary.blobCount).toBe(2);
     expect(payload.database.indexes.map((index) => index.name)).toContain(
@@ -156,7 +158,7 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
       payload,
     });
     const legacyEnvelope = JSON.parse(encoded) as { version: number };
-    legacyEnvelope.version = 1;
+    legacyEnvelope.version = 6;
     await expect(
       decodeBackupFile({
         password: "test-password",
@@ -166,7 +168,7 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
 
     const legacyPayload = {
       ...payload,
-      version: 1,
+      version: 6,
     } as unknown as BackupPayload;
     const encodedLegacyPayload = await encodeBackupFile({
       password: "test-password",
@@ -217,8 +219,16 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
     });
 
     await expect(
-      target.execSql("SELECT title, note_count FROM documents"),
-    ).resolves.toEqual([{ note_count: 3, title: "First" }]);
+      target.execSql(
+        "SELECT title, note_count, pull_continuation FROM documents",
+      ),
+    ).resolves.toEqual([
+      {
+        note_count: 3,
+        pull_continuation: '[1,"tracked","0/2","page-2"]',
+        title: "First",
+      },
+    ]);
     await expect(
       target.execSql(
         "SELECT storage_key FROM document_attachment_blob_projection",

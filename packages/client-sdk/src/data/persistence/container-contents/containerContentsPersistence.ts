@@ -4,9 +4,8 @@ import {
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
 import {
-  containerCreateIntents,
   containerCreateIntentTables,
-  containerMoveIntents,
+  containerHydrationTombstones,
   containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
@@ -22,19 +21,15 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
-  deleteContainerRowsInTransaction,
   ensureContainerTables,
+  loadContainerById,
   loadContainers as loadContainerRecords,
 } from "../containers/containerPersistence";
-import {
-  deleteContainerWatermarksInTransaction,
-  sqlContainerSyncWatermarkPersistence,
-} from "../containers/containerSyncWatermarkPersistence";
+import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
 import {
   CONTAINER_METADATA_APP_KIND,
   deleteContainerMetadataDocumentRowsInTransaction,
-  retainDormantContainerMetadataInTransaction,
 } from "./dormantContainerMetadata";
 import {
   claimDormantMetadataSweepAttempt,
@@ -49,20 +44,27 @@ export type {
   ContainerCreateIntentRecord,
   ContainerMetadataRecord,
   ContainerMoveIntentRecord,
+  ContainerRemoval,
   LocalRootDescendantReparentInput,
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
 export { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
+import { deleteStoredContainers } from "./containerDeletionPersistence";
+import { commitStoredHydratedContainer } from "./containerHydrationPersistence";
 import { containerIntentPersistence } from "./containerIntentPersistence";
+import {
+  commitStoredMetadataMutation,
+  settleStoredMetadataPendingUpdates,
+} from "./containerMetadataMutationPersistence";
+import { containerMetadataPullContinuationPersistence } from "./containerMetadataPullContinuationPersistence";
 import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
 import { containerReconcilePersistence } from "./containerReconcilePersistence";
-import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 
 async function hasPendingContainerMetadataUpdates(input: {
   tx: ClientSQLiteTransactionScope;
@@ -84,6 +86,10 @@ async function hasPendingContainerMetadataUpdates(input: {
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   ...containerIntentPersistence,
+  ...containerMetadataPullContinuationPersistence,
+  commitHydratedContainer: commitStoredHydratedContainer,
+  commitMetadataMutation: commitStoredMetadataMutation,
+  settleAcceptedMetadataPendingUpdates: settleStoredMetadataPendingUpdates,
   listDormantMetadataSweepRequests,
   ...containerPendingUpdatePersistence,
   ...containerReconcilePersistence,
@@ -100,90 +106,16 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     return rows.length > 0;
   },
   async deleteContainer(execSql, containerId, options) {
-    await sqlContainerContentsPersistence.deleteContainers(
-      execSql,
-      [containerId],
-      options,
-    );
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId,
+        reason: options?.reason ?? "deleted",
+        updatedAt: options?.updatedAt ?? new Date().toISOString(),
+      },
+    ]);
   },
-  async deleteContainers(execSql, containerIds, options) {
-    const uniqueContainerIds = Array.from(new Set(containerIds));
-    if (uniqueContainerIds.length === 0) {
-      return;
-    }
-
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      const updatedAt = options?.updatedAt ?? new Date().toISOString();
-      // Table creation (idempotent DDL) stays outside the cascade
-      // transaction; every mutation below runs inside ONE transaction so a
-      // crash leaves the cascade fully unapplied — the tombstone re-applies
-      // it when the lane refetches — instead of stranding metadata rows
-      // that re-delivered tombstones would then skip.
-      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-      await ensureDocumentProjectionTables(lockedExecSql);
-      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-      const uniqueContainerIdSet = new Set(uniqueContainerIds);
-      const retainMetadataIds = new Set(
-        (options?.retainMetadataForContainerIds ?? []).filter((containerId) =>
-          uniqueContainerIdSet.has(containerId),
-        ),
-      );
-      const metadataDeleteIds = uniqueContainerIds.filter(
-        (containerId) => !retainMetadataIds.has(containerId),
-      );
-      const retainedAt = new Date().toISOString();
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          const retainedContainers =
-            retainMetadataIds.size === 0
-              ? []
-              : await tx
-                  .select({
-                    containerId: containers.id,
-                    organizationId: containers.organizationId,
-                  })
-                  .from(containers)
-                  .where(inArray(containers.id, Array.from(retainMetadataIds)));
-          await retainDormantContainerMetadataInTransaction(
-            tx,
-            retainedContainers.flatMap((container) =>
-              container.containerId
-                ? [
-                    {
-                      containerId: container.containerId,
-                      organizationId: container.organizationId,
-                      retainedAt,
-                    },
-                  ]
-                : [],
-            ),
-          );
-          await repairDocumentsForRemovedContainersInTransaction({
-            containerIds: uniqueContainerIds,
-            tx,
-            updatedAt,
-          });
-          await tx
-            .delete(containerCreateIntents)
-            .where(
-              inArray(containerCreateIntents.containerId, uniqueContainerIds),
-            )
-            .run();
-          await tx
-            .delete(containerMoveIntents)
-            .where(
-              inArray(containerMoveIntents.containerId, uniqueContainerIds),
-            )
-            .run();
-          await deleteContainerRowsInTransaction(tx, uniqueContainerIds);
-          await deleteContainerMetadataDocumentRowsInTransaction(
-            tx,
-            metadataDeleteIds,
-          );
-          await deleteContainerWatermarksInTransaction(tx, uniqueContainerIds);
-        },
-      );
-    });
+  async deleteContainers(execSql, removals, options) {
+    return deleteStoredContainers(execSql, removals, options);
   },
   async ensureSchema(execSql) {
     // Once ensured on this connection, skip the outer mutation lock entirely:
@@ -204,6 +136,22 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async loadContainerMetadataRecord(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     return selectContainerMetadataRecord(execSql, containerId);
+  },
+  async loadContainerHydrationTombstones(execSql) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({
+        containerId: containerHydrationTombstones.containerId,
+        reason: containerHydrationTombstones.reason,
+        updatedAt: containerHydrationTombstones.updatedAt,
+      })
+      .from(containerHydrationTombstones);
+    return rows.flatMap((row) =>
+      row.reason === "access_revoked" || row.reason === "deleted"
+        ? [{ ...row, reason: row.reason }]
+        : [],
+    );
   },
   async purgeDormantContainerMetadata(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
@@ -233,6 +181,17 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     );
 
     return storedContainers;
+  },
+  async loadContainerMetadataState(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const container = await loadContainerById(execSql, containerId);
+    if (!container) {
+      return null;
+    }
+    return {
+      container,
+      record: await selectContainerMetadataRecord(execSql, containerId),
+    };
   },
   async saveContainer(execSql, container, record, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {

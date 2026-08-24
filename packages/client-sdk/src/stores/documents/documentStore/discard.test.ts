@@ -81,6 +81,11 @@ async function saveSyncedDocumentRecord(
     effectiveAccessLevel: "admin",
     lastCommitLsn: "42",
     pendingBaseVersion: "base-version",
+    pullContinuation: {
+      commitLsn: "0/2",
+      commitLsnMode: "tracked",
+      cursor: "page-2",
+    },
     snapshotEndVersion: "synced-end-version",
     text: "hello",
     title: "Stuck note",
@@ -110,8 +115,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await saveSyncedDocumentRecord(execSql, localId, "remote-doc", "folder-a");
-    // The stuck shape this action exists for: a queued update the
-    // server conflicts forever, plus its terminal failure.
+    // Reproduce a queued update the server conflicts forever plus its failure.
     await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
       localId,
       partialEndVersionVector: "end",
@@ -134,16 +138,12 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       true,
     );
 
-    // The document-kind client projection derives from the discarded
-    // content and is cleared with the same conversion (the caller's
-    // registry, not the app-kind-blind default, gets the delete).
+    // Clear the document-kind projection through the caller's registry.
     expect(projectionDeletes).toEqual([{ documentKind: "note", localId }]);
 
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    // The record survives as the freshly-discovered-share shell: identity
-    // and placement kept (so priming's documents-row scan still finds it
-    // after a restart), content and key bundles cleared (so
-    // re-initialization hydrates the server copy, not discarded state).
+    // Retain a discoverable identity/placement shell but clear local content
+    // and keys so re-initialization hydrates the server copy.
     expect(shell?.documentId).toBe("remote-doc");
     expect(shell?.containerId).toBe("folder-a");
     expect(shell?.title).toBe("Stuck note");
@@ -151,6 +151,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     expect(shell?.pendingBaseVersion ?? null).toBeNull();
     expect(shell?.contentKeyBundle ?? null).toBeNull();
     expect(shell?.lastCommitLsn ?? null).toBeNull();
+    expect(shell?.pullContinuation).toBeUndefined();
     expect(
       await listDocumentPendingUpdates(execSql, {
         appKind: DOCUMENTS_APP_KIND,
@@ -158,8 +159,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
       }),
     ).toEqual([]);
     expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(false);
-    // Reset for re-initialization, not marked removed: the caller
-    // restarts hydration and the shell re-pulls.
+    // Reset for re-initialization so the shell re-pulls.
     expect(state.record).toBeNull();
     expect(state.initialized).toBe(false);
   } finally {

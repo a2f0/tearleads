@@ -8,7 +8,10 @@ import {
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createTestContainerState } from "./containerState.testFixtures";
-import { syncPendingContainerMoveIntents } from "./moveIntentSync";
+import {
+  persistAcceptedMoveIntent,
+  syncPendingContainerMoveIntents,
+} from "./moveIntentSync";
 import type { ContainerMoveIntentSyncState } from "./types";
 
 type MoveIntentError = Parameters<
@@ -311,4 +314,44 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   // Must NOT be blocked: the failure is transient, so the queue must report a
   // retryable 'pending' intent, not a missing-dependency block.
   expect(errors[0]?.blocked).toBeFalsy();
+});
+
+test("an accepted remote move is not settled when local persistence observes deletion", async () => {
+  const child = createTestContainerState({
+    id: "child",
+    parentId: "root",
+  });
+  const containersById = new Map([["child", child]]);
+  let settled = false;
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    markMoveIntentSynced: async () => {
+      settled = true;
+    },
+  };
+  const state = createMoveIntentSyncState({ containersById, persistence });
+
+  const persisted = await persistAcceptedMoveIntent({
+    host: {
+      persistContainerState: async () => ({ status: "missing" }),
+      updateSnapshot: () => {},
+    },
+    intent: moveIntentRecord({ containerId: "child" }),
+    moved: {
+      createdAt: "2026-05-31T00:00:00.000Z",
+      effectiveAccessLevel: "admin",
+      id: "child",
+      metadataAccessEpoch: 2,
+      metadataAccessStateHash: "access-after-move",
+      metadataDocumentId: "metadata-after-move",
+      metadataReferencedPrincipals: [],
+      organizationId: "organization",
+      parentId: "parent",
+      updatedAt: "2026-05-31T00:01:00.000Z",
+    },
+    state,
+  });
+
+  expect(persisted).toBe(false);
+  expect(settled).toBe(false);
 });
