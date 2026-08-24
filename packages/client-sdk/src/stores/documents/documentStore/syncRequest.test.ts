@@ -193,6 +193,7 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
   state.doc = document;
   state.initialized = true;
   state.pullContinuation = {
+    commitLsn: "0/2",
     commitLsnMode: "tracked",
     cursor: "tracked-snapshot-page-2",
   };
@@ -219,6 +220,7 @@ test("a store pull invalidates a changed LSN mode and converges from a fresh sna
       "tracked-snapshot-page-2",
       undefined,
     ]);
+    expect(requests.map(({ minLsn }) => minLsn)).toEqual(["0/2", "0/1"]);
     expect(state.pullContinuation).toBeNull();
     expect(attempt?.synced.hasIncompletePull).toBe(false);
     expect(attempt?.synced.response.commitLsnMode).toBe("untracked");

@@ -6,6 +6,10 @@ import {
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "@symcrypt/validators/util";
 import { limitDocumentSyncRequestBytes } from "../../sync/documentSyncOutgoingBatch";
+import {
+  readPullContinuation,
+  resolvePullContinuationMinLsn,
+} from "./syncPagination";
 import { submitDocumentSync } from "./syncResponses";
 import type { DocumentSyncApi, DocumentSyncPlan } from "./types";
 
@@ -217,12 +221,17 @@ test("an oversized version vector resumes beyond the first 64 updates", async ()
   expect(firstResult.pullComplete).toBe(false);
   expect(requests).toHaveLength(1);
 
-  const resumeCursor = firstResult.response.pullPage.nextCursor;
-  if (resumeCursor === null) throw new Error("Expected a resume cursor");
+  const pullContinuation = readPullContinuation(firstResult.response);
+  expect(pullContinuation).toEqual({
+    commitLsn: "0/2",
+    commitLsnMode: "tracked",
+    cursor: "cursor-65",
+  });
+  if (!pullContinuation) throw new Error("Expected a pull continuation");
   const resumedRequest: DocumentSyncRequest = {
     ...firstRequest,
-    minLsn: firstResult.response.commitLsn ?? undefined,
-    pullCursor: resumeCursor,
+    minLsn: resolvePullContinuationMinLsn(pullContinuation, undefined),
+    pullCursor: pullContinuation.cursor,
   };
   const finalPage = response({
     commitLsn: "0/3",
@@ -291,6 +300,39 @@ test("a resumed pull retains its original commit LSN mode", async () => {
       } as DocumentSyncPlan,
     }),
   ).rejects.toThrow("Document sync continuation commit LSN mode changed");
+});
+
+test("pull continuations retain a valid mode-specific replica checkpoint", () => {
+  expect(
+    resolvePullContinuationMinLsn(
+      {
+        commitLsn: "0/2",
+        commitLsnMode: "tracked",
+        cursor: "tracked-page-2",
+      },
+      "0/3",
+    ),
+  ).toBe("0/3");
+  expect(
+    resolvePullContinuationMinLsn(
+      {
+        commitLsn: "0/0",
+        commitLsnMode: "untracked",
+        cursor: "untracked-page-2",
+      },
+      "0/3",
+    ),
+  ).toBe("0/0");
+  expect(() =>
+    readPullContinuation({
+      ...response({
+        commitLsn: "0/2",
+        cursor: "cursor-without-checkpoint",
+        updateId: "update-1",
+      }),
+      commitLsn: null,
+    }),
+  ).toThrow("pull continuation is missing its checkpoint");
 });
 
 test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {

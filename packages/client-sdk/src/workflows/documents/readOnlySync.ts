@@ -14,7 +14,10 @@ import {
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
-import type { DocumentSyncPullContinuation } from "../../data/documents/shared/syncPagination";
+import {
+  type DocumentSyncPullContinuation,
+  resolvePullContinuationMinLsn,
+} from "../../data/documents/shared/syncPagination";
 import type {
   DocumentCreateAuthor,
   DocumentSyncApi,
@@ -55,7 +58,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     author: input.author,
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
+    minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     pullCursor: input.pullContinuation?.cursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
@@ -162,7 +165,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
     localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
+    minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
     pullCursor: input.pullContinuation?.cursor,
     signedAt: input.signedAt,

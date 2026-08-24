@@ -81,6 +81,7 @@ test("rotation persists bounded pull progress but waits for full history", async
       "persisted a partial pull",
     );
     expect(state.pullContinuation).toEqual({
+      commitLsn: "0/16B6C50",
       commitLsnMode: "tracked",
       cursor: "rotation-page-3",
     });

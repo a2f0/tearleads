@@ -126,7 +126,8 @@ reporting; SDK facades own both.
 For headless sync, repeat `syncRemoteDocument(...)` while it reports
 `hasDeferredPendingUpdates` or `hasIncompletePull`. Resume with
 `readPullContinuation(result.response)` as `pullContinuation`; the typed value
-binds cursor and commit-LSN mode. Continuations are read-only and host-scheduled.
+binds the cursor, replica checkpoint, and commit-LSN mode. Continuations are
+read-only and host-scheduled.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

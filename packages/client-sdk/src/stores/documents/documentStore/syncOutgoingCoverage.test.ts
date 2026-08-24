@@ -241,6 +241,7 @@ test("a live cursor after a 64-update page bypasses the clean lane skip", async 
     ).toBe(true);
 
     fixture.state.pullContinuation = {
+      commitLsn: "0/2",
       commitLsnMode: "tracked",
       cursor: "page-after-update-64",
     };

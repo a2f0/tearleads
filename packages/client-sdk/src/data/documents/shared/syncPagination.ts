@@ -14,6 +14,7 @@ import type {
 export type DocumentSyncCommitLsnMode = "tracked" | "untracked";
 
 export interface DocumentSyncPullContinuation {
+  readonly commitLsn: string;
   readonly commitLsnMode: DocumentSyncCommitLsnMode;
   readonly cursor: string;
 }
@@ -108,9 +109,30 @@ export function readPullContinuation(
   response: DocumentSyncResponse,
 ): DocumentSyncPullContinuation | null {
   const cursor = requirePullPage(response).nextCursor;
-  return cursor === null
-    ? null
-    : { commitLsnMode: documentSyncCommitLsnMode(response), cursor };
+  if (cursor === null) return null;
+  if (response.commitLsn === null) {
+    throw new Error(
+      "Document sync pull continuation is missing its checkpoint",
+    );
+  }
+  return {
+    commitLsn: response.commitLsn,
+    commitLsnMode: documentSyncCommitLsnMode(response),
+    cursor,
+  };
+}
+
+export function resolvePullContinuationMinLsn(
+  continuation: DocumentSyncPullContinuation | undefined,
+  fallback: string | undefined,
+): string | undefined {
+  if (!continuation) return fallback;
+  if (continuation.commitLsnMode === "untracked" || fallback === undefined) {
+    return continuation.commitLsn;
+  }
+  return parseWalLsn(continuation.commitLsn) >= parseWalLsn(fallback)
+    ? continuation.commitLsn
+    : fallback;
 }
 
 function assertPageCheckpoint(input: {

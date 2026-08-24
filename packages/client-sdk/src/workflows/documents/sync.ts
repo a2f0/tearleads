@@ -6,6 +6,7 @@ import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync"
 import {
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
+  resolvePullContinuationMinLsn,
 } from "../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncSubmitFailure,
@@ -127,6 +128,7 @@ async function submittedDocumentSyncResult(input: {
 }
 
 function buildRemoteDocumentSyncPlan(input: {
+  minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
@@ -138,7 +140,7 @@ function buildRemoteDocumentSyncPlan(input: {
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
     execSql: input.sync.execSql,
     localVersionVector: input.sync.localVersionVector,
-    minLsn: input.sync.minLsn,
+    minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,
     pullCursor: input.pullCursor,
@@ -286,7 +288,7 @@ async function abandonOversizedSyncPlan(
 
 async function planDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
-  pullCursor?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
   writeBearing: boolean;
@@ -298,8 +300,12 @@ async function planDocumentSyncAttempt(input: {
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
           pendingUpdates:
-            input.pullCursor === undefined ? input.pendingUpdates : [],
-          pullCursor: input.pullCursor,
+            input.pullContinuation === undefined ? input.pendingUpdates : [],
+          minLsn: resolvePullContinuationMinLsn(
+            input.pullContinuation,
+            input.sync.minLsn,
+          ),
+          pullCursor: input.pullContinuation?.cursor,
           projection,
           regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
           sync: input.sync,
@@ -413,7 +419,7 @@ export async function syncRemoteDocument(
     if (!writerProjection) return null;
     const planned = await planDocumentSyncAttempt({
       pendingUpdates,
-      pullCursor: pullContinuation?.cursor,
+      pullContinuation,
       regenerateQueuedCheckpoints,
       sync: input,
       writeBearing,
