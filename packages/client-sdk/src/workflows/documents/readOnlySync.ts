@@ -425,8 +425,8 @@ export interface SyncRemoteDocumentInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
-  /** Clears an in-memory resume cursor after the server rejects its snapshot. */
-  onPullCursorInvalidated?: (() => void) | undefined;
+  /** Clears an in-memory continuation after the server rejects its snapshot. */
+  onPullContinuationInvalidated?: (() => void) | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

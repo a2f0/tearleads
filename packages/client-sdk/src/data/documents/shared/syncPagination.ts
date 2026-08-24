@@ -18,6 +18,13 @@ export interface DocumentSyncPullContinuation {
   readonly cursor: string;
 }
 
+export class InvalidDocumentSyncPullContinuationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidDocumentSyncPullContinuationError";
+  }
+}
+
 // Until page-at-a-time persistence lands, retain at most one continuation in
 // memory. The aggregate is also bounded to one server page's update count.
 const MAX_DOCUMENT_SYNC_PULL_PAGES_PER_SUBMISSION = 2;
@@ -209,7 +216,9 @@ async function submitDocumentSyncPages(input: {
     input.expectedCommitLsnMode !== undefined &&
     documentSyncCommitLsnMode(first.response) !== input.expectedCommitLsnMode
   ) {
-    throw new Error("Document sync continuation commit LSN mode changed");
+    throw new InvalidDocumentSyncPullContinuationError(
+      "Document sync continuation commit LSN mode changed",
+    );
   }
   assertPageCheckpoint({
     minLsn: input.plan.request.minLsn,

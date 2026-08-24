@@ -216,6 +216,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "purgeOpfsBlobStore",
   "readBlobByteSource",
   "readOrganizationProfileName",
+  "readPullContinuation",
   "readStoredDocumentState",
   "readStringDocumentField",
   "rebuildKeyringEntriesFromLog",

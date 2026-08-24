@@ -3,7 +3,10 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
-import type { DocumentSyncPullContinuation } from "../../data/documents/shared/syncPagination";
+import {
+  type DocumentSyncPullContinuation,
+  InvalidDocumentSyncPullContinuationError,
+} from "../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
@@ -181,7 +184,7 @@ function canRegenerateQueuedCheckpoints(input: {
   );
 }
 
-function submitPlannedSyncAttempt(args: {
+async function submitPlannedSyncAttempt(args: {
   attempt: number;
   materializedPlan: MaterializedDocumentSyncPlan;
   maxAttempts: number;
@@ -191,27 +194,37 @@ function submitPlannedSyncAttempt(args: {
   sync: SyncRemoteDocumentInput;
   writeBearing: boolean;
 }) {
-  return submitDocumentSyncAttemptIfAllowed({
-    apiClient: args.sync.apiClient,
-    attempt: args.attempt,
-    canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
-      materializedPlan: args.materializedPlan,
+  try {
+    return await submitDocumentSyncAttemptIfAllowed({
+      apiClient: args.sync.apiClient,
+      attempt: args.attempt,
+      canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
+        materializedPlan: args.materializedPlan,
+        pendingUpdates: args.pendingUpdates,
+        regenerateQueuedCheckpoints: args.regenerateQueuedCheckpoints,
+        sync: args.sync,
+      }),
+      documentId: args.sync.documentId,
+      expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
+      isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
+      maxAttempts: args.maxAttempts,
+      onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
+      onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
+      onSyncTrace: args.sync.onSyncTrace,
+      onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
       pendingUpdates: args.pendingUpdates,
-      regenerateQueuedCheckpoints: args.regenerateQueuedCheckpoints,
-      sync: args.sync,
-    }),
-    documentId: args.sync.documentId,
-    expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
-    isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
-    maxAttempts: args.maxAttempts,
-    onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
-    onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
-    onSyncTrace: args.sync.onSyncTrace,
-    onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
-    pendingUpdates: args.pendingUpdates,
-    plan: args.materializedPlan.plan,
-    writeBearing: args.writeBearing,
-  });
+      plan: args.materializedPlan.plan,
+      writeBearing: args.writeBearing,
+    });
+  } catch (error) {
+    if (
+      error instanceof InvalidDocumentSyncPullContinuationError &&
+      args.pullContinuation !== undefined
+    ) {
+      return "retry" as const;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -320,19 +333,40 @@ function invalidatePullCursor(
   input: SyncRemoteDocumentInput,
   pullContinuation: DocumentSyncPullContinuation | undefined,
 ): undefined {
-  if (pullContinuation !== undefined) input.onPullCursorInvalidated?.();
+  if (pullContinuation !== undefined) input.onPullContinuationInvalidated?.();
   return undefined;
 }
 
-function pullContinuationAfterPersistedSync(input: {
-  readonly persistedSync: Awaited<
-    ReturnType<typeof tryPersistedReadOnlyDocumentSync>
-  >;
-  readonly sync: SyncRemoteDocumentInput;
-}): DocumentSyncPullContinuation | undefined {
-  return input.persistedSync?.kind === "not_completed"
-    ? invalidatePullCursor(input.sync, input.sync.pullContinuation)
-    : input.sync.pullContinuation;
+async function preparePersistedDocumentSync(
+  input: SyncRemoteDocumentInput,
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+): Promise<
+  | { readonly kind: "completed"; result: SyncRemoteDocumentResult | null }
+  | {
+      readonly kind: "continue";
+      pullContinuation: DocumentSyncPullContinuation | undefined;
+    }
+> {
+  let pullContinuation = input.pullContinuation;
+  try {
+    const persisted = await tryPersistedReadOnlyDocumentSync(
+      input,
+      resolveProjectionUserKey,
+    );
+    if (persisted?.kind === "completed") return persisted;
+    if (persisted?.kind === "not_completed") {
+      pullContinuation = invalidatePullCursor(input, pullContinuation);
+    }
+  } catch (error) {
+    if (
+      !(error instanceof InvalidDocumentSyncPullContinuationError) ||
+      pullContinuation === undefined
+    ) {
+      throw error;
+    }
+    pullContinuation = invalidatePullCursor(input, pullContinuation);
+  }
+  return { kind: "continue", pullContinuation };
 }
 
 function isWriteBearingSyncAttempt(input: {
@@ -357,17 +391,12 @@ export async function syncRemoteDocument(
   let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
 
-  const persistedSync = await tryPersistedReadOnlyDocumentSync(
+  const persistedSync = await preparePersistedDocumentSync(
     input,
     resolveProjectionUserKey,
   );
-  if (persistedSync?.kind === "completed") {
-    return persistedSync.result;
-  }
-  let pullContinuation = pullContinuationAfterPersistedSync({
-    persistedSync,
-    sync: input,
-  });
+  if (persistedSync.kind === "completed") return persistedSync.result;
+  let pullContinuation = persistedSync.pullContinuation;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const writeBearing = isWriteBearingSyncAttempt({

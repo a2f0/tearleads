@@ -128,7 +128,7 @@ interface SyncRemoteContainerMetadataInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
-  onPullCursorInvalidated?: (() => void) | undefined;
+  onPullContinuationInvalidated?: (() => void) | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
   pullContinuation?: ContainerMetadataState["pullContinuation"];
@@ -185,7 +185,7 @@ async function syncRemoteContainerMetadata(
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     onOutgoingUpdatesMaterialized,
-    onPullCursorInvalidated: input.onPullCursorInvalidated,
+    onPullContinuationInvalidated: input.onPullContinuationInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: (failure) =>
       recordDocumentSyncFailure(execSql, metadataScope, {
@@ -360,7 +360,7 @@ export async function syncContainerMetadataState(
             sentUpdateIds,
             updateIds,
           ),
-        onPullCursorInvalidated: () => {
+        onPullContinuationInvalidated: () => {
           metadataState.pullContinuation = null;
         },
         pendingUpdates,

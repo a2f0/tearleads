@@ -141,7 +141,7 @@ export async function requestRemoteDocumentSync(input: {
       generation,
     ),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
-    onPullCursorInvalidated: () => {
+    onPullContinuationInvalidated: () => {
       if (isDocumentStoreSyncGenerationCurrent(state, generation)) {
         state.pullContinuation = null;
       }

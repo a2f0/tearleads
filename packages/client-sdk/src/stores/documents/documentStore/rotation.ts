@@ -102,7 +102,7 @@ async function pullVerifiedHistoryForRotation(input: {
             sentUpdateIds,
             updateIds,
           ),
-        onPullCursorInvalidated: () => {
+        onPullContinuationInvalidated: () => {
           if (
             isDocumentStoreSyncGenerationCurrent(input.state, input.generation)
           ) {
