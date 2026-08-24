@@ -95,6 +95,7 @@ export {
   describeDocumentSyncSubmitFailure,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
+export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailureClearance";
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,

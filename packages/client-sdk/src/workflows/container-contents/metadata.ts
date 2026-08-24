@@ -24,6 +24,7 @@ import {
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   resolveDocumentCreateAuthor,
+  shouldClearDocumentSyncFailureAfterPass,
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
@@ -236,7 +237,7 @@ async function syncRemoteContainerMetadata(
   // The pass submitted successfully, so any recorded terminal failure for this
   // container's metadata document no longer describes reality — unless the
   // pass itself just recorded one for re-key-exhausted updates.
-  if (synced.exhaustedPendingUpdateCount === 0) {
+  if (shouldClearDocumentSyncFailureAfterPass(synced, pendingUpdates.length)) {
     await clearDocumentSyncFailure(execSql, metadataScope);
   }
 

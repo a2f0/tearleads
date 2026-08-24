@@ -150,46 +150,41 @@ function toSyncUpdate(
   };
 }
 
-export function trimSyncResponseEntriesToBytes<
+export async function materializeSyncResponseEntriesToBytes<
+  Item,
   Entry extends {
     readonly sequence: number;
     readonly update: { readonly id: string };
   },
 >(
-  entries: readonly Entry[],
-  page: {
-    readonly hasMore: boolean;
-    readonly lastSequence: number;
-    readonly lastUpdateId: string | null;
-  },
+  items: readonly Item[],
+  materialize: (item: Item) => Promise<Entry>,
   maxBytes = MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
-) {
+): Promise<Entry[]> {
   const selected: Entry[] = [];
   let serializedBytes = 2; // JSON array brackets.
-  for (const entry of entries) {
-    const item = JSON.stringify(entry.update);
+  for (const item of items) {
+    // Materialize one metadata-bearing entry at a time. Write-header
+    // authorization targets and checkpoint vectors can each be large, so a
+    // bulk load would retain every candidate before this wire bound applies.
+    const entry = await materialize(item);
+    const serializedEntry = JSON.stringify(entry.update);
     const addedBytes =
-      Buffer.byteLength(item, "utf8") + (selected.length === 0 ? 0 : 1);
+      Buffer.byteLength(serializedEntry, "utf8") +
+      (selected.length === 0 ? 0 : 1);
     if (serializedBytes + addedBytes > maxBytes) {
       break;
     }
     selected.push(entry);
     serializedBytes += addedBytes;
   }
-  if (entries.length > 0 && selected.length === 0) {
+  if (items.length > 0 && selected.length === 0) {
     throw new DocumentMutationError(
       "Document update exceeds the pull page byte ceiling",
       409,
     );
   }
-  return {
-    entries: selected,
-    page: {
-      hasMore: page.hasMore || selected.length < entries.length,
-      lastUpdateId: selected.at(-1)?.update.id ?? page.lastUpdateId,
-      lastSequence: selected.at(-1)?.sequence ?? page.lastSequence,
-    },
-  };
+  return selected;
 }
 
 export async function listMissingSyncUpdateEntries(input: {
@@ -221,18 +216,13 @@ export async function listMissingSyncUpdateEntries(input: {
         localVersionVector: input.localVersionVector,
         minLsn: input.minLsn,
       });
-  const updateIds = updates.map((update) => update.id);
-  const writeHeadersByUpdateId = await listDocumentContentWriteHeaders(
-    updateIds,
-    input.executor,
-  );
-  const checkpointByUpdateId = await listSyncCheckpointMetadata(
-    input.executor,
-    updateIds,
-  );
-
-  const entries = await Promise.all(
-    updates.map(async (update) => {
+  const entries = await materializeSyncResponseEntriesToBytes(
+    updates,
+    async (update) => {
+      const [writeHeadersByUpdateId, checkpointByUpdateId] = await Promise.all([
+        listDocumentContentWriteHeaders([update.id], input.executor),
+        listSyncCheckpointMetadata(input.executor, [update.id]),
+      ]);
       const writeHeader = writeHeadersByUpdateId.get(update.id);
       if (!writeHeader) {
         throw new DocumentMutationError("Document write header missing", 409);
@@ -252,10 +242,16 @@ export async function listMissingSyncUpdateEntries(input: {
         update: toSyncUpdate(update, writeHeader, checkpoint),
         writeHeader: writeHeader.header,
       };
-    }),
+    },
   );
 
-  return page === undefined
-    ? { entries }
-    : trimSyncResponseEntriesToBytes(entries, page);
+  if (page === undefined) return { entries };
+  return {
+    entries,
+    page: {
+      hasMore: page.hasMore || entries.length < updates.length,
+      lastUpdateId: entries.at(-1)?.update.id ?? page.lastUpdateId,
+      lastSequence: entries.at(-1)?.sequence ?? page.lastSequence,
+    },
+  };
 }
