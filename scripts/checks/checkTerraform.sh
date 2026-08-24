@@ -31,14 +31,18 @@ run_terraform_fmt() {
 run_terraform_tests() {
   local module_dir="$TERRAFORM_DIR/modules/cloudflare-website-cache"
   local terraform_test_dir
+  local terraform_test_status=0
 
   terraform_test_dir="$(mktemp -d)"
-  trap 'rm -rf -- "$terraform_test_dir"' RETURN
   cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"
 
   echo "Running terraform tests..."
-  terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null
-  terraform -chdir="$terraform_test_dir" test -no-color
+  terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
+  if [ "$terraform_test_status" -eq 0 ]; then
+    terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
+  fi
+  rm -rf -- "$terraform_test_dir"
+  return "$terraform_test_status"
 }
 
 run_tflint() {
