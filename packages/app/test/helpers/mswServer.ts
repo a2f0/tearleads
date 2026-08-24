@@ -23,11 +23,8 @@ import { recordUnhandledRequest } from "./unhandledRequests";
 export const wsUrl = "ws://localhost:3002";
 
 const eventsSocket = ws.link(wsUrl);
-// Socket identity mirrors the production upgrade: the client's ?ticket= is the
-// one-time ticket the proxied test API app minted, resolved through the same
-// module-level ticket store the API wrote it to. Session liveness is skipped —
-// the ticket was minted by an authenticated route moments earlier, and the app
-// test runtime keeps sessions in its own in-memory store.
+// Resolve the client's one-time ?ticket= through the same module-level store
+// used by the proxied API; ticket minting already authenticated the session.
 const eventRouter = createMswEventRouter({
   resolveTicketIdentity: async (ticket) => {
     const { createWebSocketTicketConsumer } = (await import(
@@ -546,7 +543,6 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     if (!db) {
       throw new Error("API app test runtime module missing db export.");
     }
-
     await initializeApiDatabase();
 
     const keyValueStore = createInMemoryKeyValueStore();
@@ -558,6 +554,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     const runtime = {
       blobObjectStore: createMemoryBlobObjectStore(),
       db,
+      documentSyncCursorHmacKey: "symcrypt-test-document-sync-cursor-hmac-key",
       eventPublisher,
       keyValueStore,
       sessionTokenIssuer: {
