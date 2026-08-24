@@ -33,8 +33,15 @@ run_terraform_tests() {
   local terraform_test_dir
   local terraform_test_status=0
 
-  terraform_test_dir="$(mktemp -d)"
-  cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"
+  if ! terraform_test_dir="$(mktemp -d)"; then
+    echo "Error: could not create a temporary Terraform test directory" >&2
+    return 1
+  fi
+  if ! cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"; then
+    rm -rf -- "$terraform_test_dir"
+    echo "Error: could not stage the Terraform module tests" >&2
+    return 1
+  fi
 
   echo "Running terraform tests..."
   terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
