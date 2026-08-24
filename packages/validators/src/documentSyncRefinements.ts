@@ -23,8 +23,17 @@ export const documentSyncRequestEnvelopeRefinements = [
   },
 ] as const;
 
+export const documentSyncRequestPullRefinements = [
+  {
+    description:
+      "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+    id: "request.pull-continuation-read-only",
+  },
+] as const;
+
 export const documentSyncRequestRuntimeRefinements = [
   ...documentSyncRequestEnvelopeRefinements,
+  ...documentSyncRequestPullRefinements,
   documentSyncRequestRotationRefinement,
 ] as const;
 
@@ -51,8 +60,15 @@ export const documentSyncResponseCommitLsnSentinelRefinement = {
   id: "response.untracked-commit-lsn-mode",
 } as const;
 
+export const documentSyncResponsePullPageRefinement = {
+  description:
+    "pullPage.hasMore is true exactly when pullPage.nextCursor is non-null",
+  id: "response.pull-page-continuation",
+} as const;
+
 export const documentSyncResponseRuntimeRefinements = [
   documentSyncResponseRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
+  documentSyncResponsePullPageRefinement,
 ] as const;

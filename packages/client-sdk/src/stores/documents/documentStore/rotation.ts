@@ -5,6 +5,7 @@ import {
   importUpdates,
   versionVectorsEqual,
 } from "@symcrypt/loro";
+import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,
@@ -29,14 +30,16 @@ import {
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 export function shouldRequestRotationRecoverySync(input: {
   readonly hasDeferredPendingUpdates: boolean;
+  readonly hasIncompletePull: boolean;
 }): boolean {
-  return input.hasDeferredPendingUpdates;
+  return input.hasDeferredPendingUpdates || input.hasIncompletePull;
 }
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
@@ -99,12 +102,20 @@ async function pullVerifiedHistoryForRotation(input: {
             sentUpdateIds,
             updateIds,
           ),
+        onPullContinuationInvalidated: () => {
+          if (
+            isDocumentStoreSyncGenerationCurrent(input.state, input.generation)
+          ) {
+            input.state.pullContinuation = null;
+          }
+        },
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
           input.state,
           input.generation,
         ),
         pendingUpdates: input.pendingUpdates,
         persistedState: input.currentRecord,
+        pullContinuation: input.state.pullContinuation ?? undefined,
         rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
         resolveProjectionUserKey: input.state.resolveProjectionUserKey,
         resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -201,12 +212,19 @@ async function recoverFullHistoryForRotation(
       await enqueuePendingUpdate(state, uncoveredLocalDelta);
     }
 
-    return await installRebuiltDocument({
+    const fullHistorySnapshot = await installRebuiltDocument({
       currentRecord,
       rebuiltDoc,
       state,
       synced,
     });
+    state.pullContinuation = readPullContinuation(synced.response);
+    if (synced.hasIncompletePull) {
+      throw new Error(
+        "Rotation full-history recovery persisted a partial pull; retry after sync completes",
+      );
+    }
+    return fullHistorySnapshot;
   } finally {
     // Durable progress that left queued work needs a follow-up lane pass; the
     // rotation that follows may abort before syncing again. Terminal recovery

@@ -3,6 +3,11 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
+import {
+  type DocumentSyncPullContinuation,
+  InvalidDocumentSyncPullContinuationError,
+  resolvePullContinuationMinLsn,
+} from "../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
@@ -70,6 +75,7 @@ function evictHealedWriterProjection(
 async function submittedDocumentSyncResult(input: {
   materializedPlan: MaterializedDocumentSyncPlan;
   pendingUpdateIds: readonly string[];
+  pullComplete: boolean;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   response: DocumentSyncResponse;
@@ -106,18 +112,25 @@ async function submittedDocumentSyncResult(input: {
   });
   return {
     ...result,
-    hasDeferredPendingUpdates: hasDeferredPendingUpdatesAfterSubmit({
-      acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-      exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-      pendingUpdateIds: input.pendingUpdateIds,
-      rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-      settledPendingUpdateIds: result.settledPendingUpdateIds,
-    }),
+    hasDeferredPendingUpdates:
+      (input.materializedPlan.plan.request.pullCursor !== undefined &&
+        input.pendingUpdateIds.length > 0 &&
+        result.exhaustedPendingUpdateCount === 0) ||
+      hasDeferredPendingUpdatesAfterSubmit({
+        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+        pendingUpdateIds: input.pendingUpdateIds,
+        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+        settledPendingUpdateIds: result.settledPendingUpdateIds,
+      }),
+    hasIncompletePull: !input.pullComplete,
   };
 }
 
 function buildRemoteDocumentSyncPlan(input: {
+  minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
+  pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
@@ -127,9 +140,10 @@ function buildRemoteDocumentSyncPlan(input: {
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
     execSql: input.sync.execSql,
     localVersionVector: input.sync.localVersionVector,
-    minLsn: input.sync.minLsn,
+    minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,
+    pullCursor: input.pullCursor,
     regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
     signedAt: input.sync.signedAt,
     targetSecretKey: input.sync.targetSecretKey,
@@ -172,58 +186,71 @@ function canRegenerateQueuedCheckpoints(input: {
   );
 }
 
-function submitPlannedSyncAttempt(args: {
+async function submitPlannedSyncAttempt(args: {
   attempt: number;
   materializedPlan: MaterializedDocumentSyncPlan;
   maxAttempts: number;
   pendingUpdates: readonly PendingUpdateRecord[];
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
-  writeBearing: boolean;
+  failureBlocksQueuedWrites: boolean;
 }) {
-  return submitDocumentSyncAttemptIfAllowed({
-    apiClient: args.sync.apiClient,
-    attempt: args.attempt,
-    canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
-      materializedPlan: args.materializedPlan,
+  try {
+    return await submitDocumentSyncAttemptIfAllowed({
+      apiClient: args.sync.apiClient,
+      attempt: args.attempt,
+      canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
+        materializedPlan: args.materializedPlan,
+        pendingUpdates: args.pendingUpdates,
+        regenerateQueuedCheckpoints: args.regenerateQueuedCheckpoints,
+        sync: args.sync,
+      }),
+      documentId: args.sync.documentId,
+      expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
+      isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
+      maxAttempts: args.maxAttempts,
+      onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
+      onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
+      onSyncTrace: args.sync.onSyncTrace,
+      onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
       pendingUpdates: args.pendingUpdates,
-      regenerateQueuedCheckpoints: args.regenerateQueuedCheckpoints,
-      sync: args.sync,
-    }),
-    documentId: args.sync.documentId,
-    isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
-    maxAttempts: args.maxAttempts,
-    onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
-    onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
-    onSyncTrace: args.sync.onSyncTrace,
-    onTerminalSubmitFailure: args.sync.onTerminalSubmitFailure,
-    pendingUpdates: args.pendingUpdates,
-    plan: args.materializedPlan.plan,
-    writeBearing: args.writeBearing,
-  });
+      plan: args.materializedPlan.plan,
+      failureBlocksQueuedWrites: args.failureBlocksQueuedWrites,
+    });
+  } catch (error) {
+    if (
+      error instanceof InvalidDocumentSyncPullContinuationError &&
+      args.pullContinuation !== undefined
+    ) {
+      return "retry" as const;
+    }
+    throw error;
+  }
 }
 
 /**
  * A write-bearing pass records through the submit handler (its queued writes
  * are what the failure blocks). A read-only pass records through the
  * revalidation handler so the refusal still leaves a durable trail instead
- * of silently never revalidating (edge-case row 13). `writeBearing` is the
- * pass's character, not the momentary array length: update-id recovery
- * empties the in-flight batch while the durable rows still exist, and that
- * retry must keep the submit classification (and its 403 handling).
+ * of silently never revalidating (edge-case row 13). A cursor continuation is
+ * wire-level read-only, but its failure still blocks the queued writes it
+ * deliberately deferred. Update-id recovery likewise empties the in-flight
+ * batch while durable rows remain. Both keep the submit classification and
+ * its 403 handling.
  */
 function projectionFailureHandler(
   input: SyncRemoteDocumentInput,
-  writeBearing: boolean,
+  failureBlocksQueuedWrites: boolean,
 ): TerminalSubmitFailureHandler | undefined {
-  return writeBearing
+  return failureBlocksQueuedWrites
     ? input.onTerminalSubmitFailure
     : input.onReadOnlyProjectionFailure;
 }
 
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
-  writeBearing: boolean,
+  failureBlocksQueuedWrites: boolean,
   reusableWriterProjection: DocumentWriterProjectionResponse | null,
 ) {
   return resolveSyncAttemptWriterProjection({
@@ -232,7 +259,10 @@ function resolveAttemptProjection(
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncAbandoned: input.onSyncAbandoned,
     onSyncTrace: input.onSyncTrace,
-    onTerminalFailure: projectionFailureHandler(input, writeBearing),
+    onTerminalFailure: projectionFailureHandler(
+      input,
+      failureBlocksQueuedWrites,
+    ),
     reusableWriterProjection,
   });
 }
@@ -262,9 +292,10 @@ async function abandonOversizedSyncPlan(
 
 async function planDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
-  writeBearing: boolean;
+  failureBlocksQueuedWrites: boolean;
   writerProjection: DocumentWriterProjectionResponse;
 }) {
   try {
@@ -272,7 +303,13 @@ async function planDocumentSyncAttempt(input: {
       apiClient: input.sync.apiClient,
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
-          pendingUpdates: input.pendingUpdates,
+          pendingUpdates:
+            input.pullContinuation === undefined ? input.pendingUpdates : [],
+          minLsn: resolvePullContinuationMinLsn(
+            input.pullContinuation,
+            input.sync.minLsn,
+          ),
+          pullCursor: input.pullContinuation?.cursor,
           projection,
           regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
           sync: input.sync,
@@ -283,7 +320,7 @@ async function planDocumentSyncAttempt(input: {
       onSyncTrace: input.sync.onSyncTrace,
       onTerminalFailure: projectionFailureHandler(
         input.sync,
-        input.writeBearing,
+        input.failureBlocksQueuedWrites,
       ),
       writerProjection: input.writerProjection,
     });
@@ -302,6 +339,55 @@ function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
   );
 }
 
+function invalidatePullCursor(
+  input: SyncRemoteDocumentInput,
+  pullContinuation: DocumentSyncPullContinuation | undefined,
+): undefined {
+  if (pullContinuation !== undefined) input.onPullContinuationInvalidated?.();
+  return undefined;
+}
+
+async function preparePersistedDocumentSync(
+  input: SyncRemoteDocumentInput,
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+): Promise<
+  | { readonly kind: "completed"; result: SyncRemoteDocumentResult | null }
+  | {
+      readonly kind: "continue";
+      pullContinuation: DocumentSyncPullContinuation | undefined;
+    }
+> {
+  let pullContinuation = input.pullContinuation;
+  try {
+    const persisted = await tryPersistedReadOnlyDocumentSync(
+      input,
+      resolveProjectionUserKey,
+    );
+    if (persisted?.kind === "completed") return persisted;
+    if (persisted?.kind === "not_completed") {
+      pullContinuation = invalidatePullCursor(input, pullContinuation);
+    }
+  } catch (error) {
+    if (
+      !(error instanceof InvalidDocumentSyncPullContinuationError) ||
+      pullContinuation === undefined
+    ) {
+      throw error;
+    }
+    pullContinuation = invalidatePullCursor(input, pullContinuation);
+  }
+  return { kind: "continue", pullContinuation };
+}
+
+function failureBlocksQueuedWrites(input: {
+  readonly pendingUpdates: readonly PendingUpdateRecord[];
+  readonly recoveryPendingUpdateCount: number;
+}): boolean {
+  return (
+    input.pendingUpdates.length > 0 || input.recoveryPendingUpdateCount > 0
+  );
+}
+
 export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
@@ -313,29 +399,31 @@ export async function syncRemoteDocument(
   let regenerateQueuedCheckpoints = false;
   let reusableWriterProjection = input.writerProjection ?? null;
 
-  const persistedSync = await tryPersistedReadOnlyDocumentSync(
+  const persistedSync = await preparePersistedDocumentSync(
     input,
     resolveProjectionUserKey,
   );
-  if (persistedSync?.kind === "completed") {
-    return persistedSync.result;
-  }
+  if (persistedSync.kind === "completed") return persistedSync.result;
+  let pullContinuation = persistedSync.pullContinuation;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const writeBearing =
-      pendingUpdates.length > 0 || recoveryPendingUpdatesById.size > 0;
+    const blocksQueuedWrites = failureBlocksQueuedWrites({
+      pendingUpdates,
+      recoveryPendingUpdateCount: recoveryPendingUpdatesById.size,
+    });
     const writerProjection = await resolveAttemptProjection(
       input,
-      writeBearing,
+      blocksQueuedWrites,
       reusableWriterProjection,
     );
     reusableWriterProjection = null;
     if (!writerProjection) return null;
     const planned = await planDocumentSyncAttempt({
       pendingUpdates,
+      pullContinuation,
       regenerateQueuedCheckpoints,
       sync: input,
-      writeBearing,
+      failureBlocksQueuedWrites: blocksQueuedWrites,
       writerProjection,
     });
     if (!planned) {
@@ -350,12 +438,14 @@ export async function syncRemoteDocument(
         pendingUpdates,
         materializedPlan.plan,
       ),
+      pullContinuation,
       regenerateQueuedCheckpoints,
       sync: input,
-      writeBearing,
+      failureBlocksQueuedWrites: blocksQueuedWrites,
     });
     if (submitted === "retry") {
       evictStaleProjectionForRetry(input);
+      pullContinuation = invalidatePullCursor(input, pullContinuation);
       continue;
     }
     if (submitted === "stop") {
@@ -375,6 +465,7 @@ export async function syncRemoteDocument(
     return submittedDocumentSyncResult({
       materializedPlan,
       pendingUpdateIds,
+      pullComplete: submitted.pullComplete,
       recoveryPendingUpdatesById,
       resolveProjectionUserKey,
       response: submitted.response,

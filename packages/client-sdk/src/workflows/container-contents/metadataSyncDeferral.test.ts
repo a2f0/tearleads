@@ -117,6 +117,52 @@ test("syncContainerMetadataState rethrows unrelated sync errors", async () => {
   expect(logs).toEqual([]);
 });
 
+test("a clean metadata follow-up resumes its live pull cursor", async () => {
+  const container = createContainerRecord({
+    id: "container-pagination-follow-up",
+    metadataDocumentId: "metadata-document-pagination-follow-up",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    contentKeyBundle: "content-key-bundle",
+    documentId: "metadata-document-pagination-follow-up",
+    documentKekTargets: "document-kek-targets",
+    documentManifestBundle: "document-manifest-bundle",
+    id: container.id,
+    lastCommitLsn: "0/2",
+  });
+  const logs: string[] = [];
+  let writerProjectionCalls = 0;
+
+  await expect(
+    syncContainerMetadataState({
+      ...createForcedMetadataSyncInput(
+        createMetadataSyncRuntime({
+          getDocumentWriterProjection: async () => {
+            writerProjectionCalls += 1;
+            throw new Error("resumed metadata projection request");
+          },
+          logs,
+        }),
+      ),
+      forceReadSync: false,
+      metadataState: {
+        container,
+        doc,
+        pullContinuation: {
+          commitLsn: "0/3",
+          commitLsnMode: "tracked",
+          cursor: "metadata-page-after-update-64",
+        },
+        record,
+      },
+    }),
+  ).rejects.toThrow("resumed metadata projection request");
+  expect(writerProjectionCalls).toBe(1);
+  expect(logs).toEqual([]);
+});
+
 test("syncContainerMetadataState never defers keying verification failures", async () => {
   const container = createContainerRecord({
     id: "container-integrity-failure",

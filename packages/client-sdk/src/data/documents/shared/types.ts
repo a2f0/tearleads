@@ -416,6 +416,7 @@ export interface BuildDocumentSyncPlanInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
+  pullCursor?: string | undefined;
   signedAt?: string | undefined;
 }
 
@@ -473,6 +474,8 @@ export interface SyncRemoteDocumentResult {
    * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
+  /** Verified page progress was persisted, but remote pages remain. */
+  hasIncompletePull: boolean;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];

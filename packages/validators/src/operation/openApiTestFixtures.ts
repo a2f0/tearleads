@@ -206,6 +206,7 @@ export function createSyncRequest() {
         writeHeader: { updateId: UPDATE_ID },
       },
     ],
+    supportsPullPagination: true as const,
   };
 }
 
@@ -354,6 +355,7 @@ export function createSyncResponse() {
       targets: [{ containerId: "container-1" }],
     },
     futureResponseField: true,
+    pullPage: { hasMore: false, nextCursor: null },
     updates: [
       {
         accessEpoch: 1,

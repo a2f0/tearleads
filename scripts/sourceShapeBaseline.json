@@ -62,8 +62,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 53609,
-      "bytes": 2222866
+      "lines": 53752,
+      "bytes": 2229422
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -250,8 +250,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 559,
-      "bytes": 18291
+      "lines": 565,
+      "bytes": 18529
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20595,
-      "bytes": 849122
+      "lines": 20628,
+      "bytes": 850955
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

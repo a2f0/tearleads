@@ -9,6 +9,7 @@ import {
   type PendingUpdateRecord,
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
+  shouldClearDocumentSyncFailureAfterPass,
   syncRemoteDocument,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
@@ -141,12 +142,18 @@ export async function requestRemoteDocumentSync(input: {
       generation,
     ),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
+    onPullContinuationInvalidated: () => {
+      if (isDocumentStoreSyncGenerationCurrent(state, generation)) {
+        state.pullContinuation = null;
+      }
+    },
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,
     ),
     pendingUpdates,
     persistedState: currentRecord,
+    pullContinuation: state.pullContinuation ?? undefined,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -165,7 +172,8 @@ export async function requestRemoteDocumentSync(input: {
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;
 
-  if (synced.exhaustedPendingUpdateCount === 0) {
+  const outgoingUpdateCount = input.queuedUpdateCount ?? pendingUpdates.length;
+  if (shouldClearDocumentSyncFailureAfterPass(synced, outgoingUpdateCount)) {
     await clearDocumentSyncFailure(runtime.infra.execSql, {
       appKind: DOCUMENTS_APP_KIND,
       localId: state.localId,
@@ -174,7 +182,7 @@ export async function requestRemoteDocumentSync(input: {
   }
 
   return {
-    outgoingUpdateCount: input.queuedUpdateCount ?? pendingUpdates.length,
+    outgoingUpdateCount,
     synced,
   };
 }

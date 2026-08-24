@@ -2710,6 +2710,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -2720,7 +2729,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -4241,6 +4251,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -4251,7 +4270,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -5508,6 +5528,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -5518,7 +5547,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -6799,6 +6829,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -6809,7 +6848,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -7762,6 +7802,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -7772,7 +7821,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -9055,6 +9105,15 @@
                               "maxItems": 64,
                               "type": "array"
                             },
+                            "pullCursor": {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "supportsPullPagination": {
+                              "type": "boolean",
+                              "const": true
+                            },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",
                               "const": true
@@ -9065,7 +9124,8 @@
                             "expectedLinkSetManifestHash",
                             "expectedTargetHash",
                             "localVersionVector",
-                            "outgoingUpdates"
+                            "outgoingUpdates",
+                            "supportsPullPagination"
                           ],
                           "additionalProperties": {}
                         }
@@ -11476,6 +11536,10 @@
           {
             "description": "outgoing update ids must be unique within the request",
             "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.pull-continuation-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -24919,6 +24983,15 @@
                     "maxItems": 64,
                     "type": "array"
                   },
+                  "pullCursor": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "supportsPullPagination": {
+                    "type": "boolean",
+                    "const": true
+                  },
                   "supportsUntrackedCommitLsn": {
                     "type": "boolean",
                     "const": true
@@ -24929,7 +25002,8 @@
                   "expectedLinkSetManifestHash",
                   "expectedTargetHash",
                   "localVersionVector",
-                  "outgoingUpdates"
+                  "outgoingUpdates",
+                  "supportsPullPagination"
                 ],
                 "additionalProperties": {}
               }
@@ -24945,10 +25019,11 @@
                   "type": "object",
                   "properties": {
                     "acceptedOutgoingUpdateIds": {
-                      "type": "array",
                       "items": {
                         "type": "string"
-                      }
+                      },
+                      "maxItems": 64,
+                      "type": "array"
                     },
                     "commitLsn": {
                       "anyOf": [
@@ -25174,8 +25249,32 @@
                       ],
                       "additionalProperties": {}
                     },
+                    "pullPage": {
+                      "type": "object",
+                      "properties": {
+                        "hasMore": {
+                          "type": "boolean"
+                        },
+                        "nextCursor": {
+                          "anyOf": [
+                            {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "hasMore",
+                        "nextCursor"
+                      ],
+                      "additionalProperties": {}
+                    },
                     "updates": {
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -25273,7 +25372,9 @@
                           "writeHeader"
                         ],
                         "additionalProperties": {}
-                      }
+                      },
+                      "maxItems": 64,
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -25283,6 +25384,7 @@
                     "contentKeyBundles",
                     "documentId",
                     "documentKekTargets",
+                    "pullPage",
                     "updates"
                   ],
                   "additionalProperties": {}
@@ -25402,6 +25504,10 @@
             "id": "request.unique-outgoing-update-ids"
           },
           {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.pull-continuation-read-only"
+          },
+          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           },
@@ -25416,6 +25522,10 @@
           {
             "description": "commitLsn \"0/0\" requires commitLsnMode \"untracked\" in the same response",
             "id": "response.untracked-commit-lsn-mode"
+          },
+          {
+            "description": "pullPage.hasMore is true exactly when pullPage.nextCursor is non-null",
+            "id": "response.pull-page-continuation"
           }
         ]
       }
@@ -42459,6 +42569,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -42469,7 +42588,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -43990,6 +44110,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -44000,7 +44129,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -45257,6 +45387,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -45267,7 +45406,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -46548,6 +46688,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -46558,7 +46707,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -47511,6 +47661,15 @@
                             "maxItems": 64,
                             "type": "array"
                           },
+                          "pullCursor": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "supportsPullPagination": {
+                            "type": "boolean",
+                            "const": true
+                          },
                           "supportsUntrackedCommitLsn": {
                             "type": "boolean",
                             "const": true
@@ -47521,7 +47680,8 @@
                           "expectedLinkSetManifestHash",
                           "expectedTargetHash",
                           "localVersionVector",
-                          "outgoingUpdates"
+                          "outgoingUpdates",
+                          "supportsPullPagination"
                         ],
                         "additionalProperties": {}
                       }
@@ -48804,6 +48964,15 @@
                               "maxItems": 64,
                               "type": "array"
                             },
+                            "pullCursor": {
+                              "maxLength": 512,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "supportsPullPagination": {
+                              "type": "boolean",
+                              "const": true
+                            },
                             "supportsUntrackedCommitLsn": {
                               "type": "boolean",
                               "const": true
@@ -48814,7 +48983,8 @@
                             "expectedLinkSetManifestHash",
                             "expectedTargetHash",
                             "localVersionVector",
-                            "outgoingUpdates"
+                            "outgoingUpdates",
+                            "supportsPullPagination"
                           ],
                           "additionalProperties": {}
                         }
@@ -51219,6 +51389,10 @@
           {
             "description": "outgoing update ids must be unique within the request",
             "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.pull-continuation-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",

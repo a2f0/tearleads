@@ -7,6 +7,7 @@ import {
 } from "@symcrypt/loro";
 import {
   authenticateSyncCheckpointForResponse,
+  materializeSyncResponseEntriesToBytes,
   type SyncCheckpointMetadata,
 } from "./syncResponseUpdates";
 
@@ -169,4 +170,52 @@ test("fails closed when an authenticated checkpoint lost its checkpoint row", as
     message: "Document update metadata failed integrity validation",
     status: 409,
   });
+});
+
+test("serialized response byte trimming preserves the next unserved sequence", async () => {
+  const entries = [
+    { sequence: 7, update: { encryptedData: "first", id: "first" } },
+    { sequence: 11, update: { encryptedData: "second", id: "second" } },
+  ];
+  const firstItemBytes = new TextEncoder().encode(
+    JSON.stringify([entries[0]?.update]),
+  ).byteLength;
+
+  expect(
+    await materializeSyncResponseEntriesToBytes(
+      entries,
+      async (entry) => entry,
+      firstItemBytes,
+    ),
+  ).toEqual(entries.slice(0, 1));
+});
+
+test("metadata entries materialize only through the first byte overflow", async () => {
+  const loaded: number[] = [];
+  const first = { sequence: 1, update: { id: "first" } };
+  const firstItemBytes = new TextEncoder().encode(
+    JSON.stringify([first.update]),
+  ).byteLength;
+
+  const entries = await materializeSyncResponseEntriesToBytes(
+    [1, 2, 3],
+    async (sequence) => {
+      loaded.push(sequence);
+      return sequence === 1
+        ? first
+        : {
+            sequence,
+            update: {
+              authorizationTargets: [
+                { wrappedKey: "x".repeat(firstItemBytes) },
+              ],
+              id: `update-${sequence}`,
+            },
+          };
+    },
+    firstItemBytes,
+  );
+
+  expect(entries).toEqual([first]);
+  expect(loaded).toEqual([1, 2]);
 });

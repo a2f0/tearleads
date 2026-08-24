@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
 import { getImportBlobMetadata, mergeVersionVectors } from "@symcrypt/loro";
+import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   type DocumentRecord,
   settleOutgoingPassAndDecideReArm,
@@ -111,6 +112,25 @@ function coveredSyncFrontier(
   };
 }
 
+export function shouldReArmDocumentSync(
+  state: DocumentStoreState,
+  syncAttempt: DocumentSyncAttempt,
+): boolean {
+  const { synced } = syncAttempt;
+  const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(state, {
+    exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
+    outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+    rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
+    settledUpdateCount: synced.settledPendingUpdateIds.length,
+    acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
+  });
+  return (
+    synced.hasDeferredPendingUpdates ||
+    synced.hasIncompletePull ||
+    shouldReArmOutgoing
+  );
+}
+
 export async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -202,6 +222,7 @@ export async function finalizeDocumentSync(
       return { record: state.record ?? currentRecord };
     }
 
+    state.pullContinuation = readPullContinuation(synced.response);
     responseApplied = true;
     return persisted;
   });
@@ -219,15 +240,7 @@ export async function finalizeDocumentSync(
 
   clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
 
-  if (
-    settleOutgoingPassAndDecideReArm(state, {
-      exhaustedPendingUpdateCount: synced.exhaustedPendingUpdateCount,
-      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
-      settledUpdateCount: synced.settledPendingUpdateIds.length,
-      acceptedRecoveryBaseline: synced.acceptedRecoveryBaseline,
-    })
-  ) {
+  if (shouldReArmDocumentSync(state, syncAttempt)) {
     requestDocumentStoreSync(state);
   }
 

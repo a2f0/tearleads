@@ -144,6 +144,8 @@ export {
   DocumentLinkSetMutationResponseSchema,
   type DocumentPurgeResponse,
   DocumentPurgeResponseSchema,
+  type DocumentSyncPullPageResponse,
+  DocumentSyncPullPageResponseSchema,
   type DocumentSyncResponse,
   DocumentSyncResponseSchema,
   type DocumentSyncUpdateResponse,

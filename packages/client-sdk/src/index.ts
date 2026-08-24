@@ -368,6 +368,7 @@ export {
 } from "./workflows/containers";
 export type {
   DocumentRecord,
+  DocumentSyncPullContinuation,
   DocumentsPersistence,
   DocumentsWorkflowRuntime,
   DocumentsWorkflowRuntimeInput,
@@ -375,6 +376,7 @@ export type {
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
+  SyncRemoteDocumentInput,
 } from "./workflows/documents";
 export {
   buildMaterializedDocumentCreatePlan,
@@ -387,6 +389,7 @@ export {
   defaultDocumentsPersistence,
   deletePersistedDocument,
   persistedDocumentCreateStateFromResponse,
+  readPullContinuation,
   syncRemoteDocument,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,

@@ -13,8 +13,8 @@ EXTENDS Naturals
 (* full-history snapshot cannot even encode a baseline — so the server     *)
 (* instead proves emptiness inside the mutation transaction                *)
 (* (assertBaselinelessUnlinkHasEmptyCommittedFrontier) while holding the   *)
-(* document manifest-head write lock; sync writers take the corresponding  *)
-(* shared lock.                                                            *)
+(* document manifest-head write lock; sync writers take the same exclusive *)
+(* lock.                                                                   *)
 (*                                                                         *)
 (* `LockedUnlink` models that lock discipline. The registered              *)
 (* configuration checks LockedUnlink = TRUE, matching production, and the  *)
@@ -47,7 +47,7 @@ Init ==
   /\ observedEmpty = FALSE
   /\ lost = FALSE
 
-(* Sync writers hold the shared manifest-head lock, so with the lock       *)
+(* Sync writers hold the exclusive manifest-head lock, so with the lock    *)
 (* discipline in force they cannot commit while an unlink transaction is   *)
 (* between its emptiness proof and its commit.                             *)
 WriterMayCommit == unlinkPhase = "idle" \/ ~LockedUnlink

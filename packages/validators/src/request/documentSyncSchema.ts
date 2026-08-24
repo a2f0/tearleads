@@ -7,6 +7,7 @@ import {
 } from "../documentSyncCheckpoint";
 import {
   documentSyncRequestEnvelopeRefinements,
+  documentSyncRequestPullRefinements,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
 import { classifyDocumentSyncRequestMode } from "../documentSyncRequestMode";
@@ -34,6 +35,7 @@ import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
 } from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
@@ -206,6 +208,10 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
       DocumentSyncOutgoingUpdateSchema,
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
+    pullCursor: boundedNonEmptyStringSchema(
+      MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
+    ).optional(),
+    supportsPullPagination: z.literal(true),
     supportsUntrackedCommitLsn: z.literal(true).optional(),
   }).superRefine((request, context) => {
     if (!Array.isArray(request.outgoingUpdates)) {
@@ -226,6 +232,19 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
+    if (
+      request.pullCursor !== undefined &&
+      (hasOutgoingUpdates ||
+        (request.containerRekeys?.length ?? 0) > 0 ||
+        request.contentKeyBundle !== undefined ||
+        request.authorizingContainerPathRefs !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "continued pulls must be read-only",
+        path: ["pullCursor"],
+      });
+    }
     const requestMode = classifyDocumentSyncRequestMode({
       authorizingContainerPathRefsPresent:
         request.authorizingContainerPathRefs !== undefined,
@@ -264,7 +283,10 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
       });
     }
   }),
-  documentSyncRequestEnvelopeRefinements,
+  [
+    ...documentSyncRequestEnvelopeRefinements,
+    ...documentSyncRequestPullRefinements,
+  ],
 );
 
 export type DocumentSyncRequest = z.infer<typeof DocumentSyncRequestSchema>;

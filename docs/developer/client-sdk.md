@@ -119,15 +119,15 @@ Document stores initialize automatically before mutating operations such as
 readiness probe without performing a mutation, for example before reading a
 ready snapshot or deciding whether to show an unavailable-storage state.
 
-Host adapters that still need the raw workflow runtime contract should use
-`symcrypt.runtime.input(containerId)` instead of reconstructing the dependency
-bundle themselves. This host-facing input omits API access and incident
+Host adapters needing the raw runtime use `symcrypt.runtime.input(containerId)`
+instead of reconstructing it. This input omits API access and incident
 reporting; SDK facades own both.
 
-Root exports include `syncRemoteDocument(...)` for headless hosts. A call
-processes a bounded batch. `hasDeferredPendingUpdates` requests another
-pass after durable progress; terminal exhaustion uses
-the failure callback and `exhaustedPendingUpdateCount` without rescheduling.
+For headless sync, repeat `syncRemoteDocument(...)` while it reports
+`hasDeferredPendingUpdates` or `hasIncompletePull`. Resume with
+`readPullContinuation(result.response)` as `pullContinuation`; the typed value
+binds the cursor, replica checkpoint, and commit-LSN mode. Continuations are
+read-only and host-scheduled.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

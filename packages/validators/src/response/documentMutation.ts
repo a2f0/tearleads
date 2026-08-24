@@ -23,6 +23,8 @@ export {
   DocumentContentKeyTargetEnvelopeResponseSchema,
   type DocumentKekTargetsResponse,
   DocumentKekTargetsResponseSchema,
+  type DocumentSyncPullPageResponse,
+  DocumentSyncPullPageResponseSchema,
   type DocumentSyncResponse,
   DocumentSyncResponseSchema,
   type DocumentSyncUpdateResponse,

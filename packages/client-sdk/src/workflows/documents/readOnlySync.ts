@@ -14,6 +14,10 @@ import {
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
+import {
+  type DocumentSyncPullContinuation,
+  resolvePullContinuationMinLsn,
+} from "../../data/documents/shared/syncPagination";
 import type {
   DocumentCreateAuthor,
   DocumentSyncApi,
@@ -54,7 +58,8 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     author: input.author,
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
+    minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
+    pullCursor: input.pullContinuation?.cursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
     signedAt: input.signedAt,
@@ -63,7 +68,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     ...projectionVerificationOptions(input),
   });
 
-  return syncRemoteDocumentResultFromResponse({
+  const result = await syncRemoteDocumentResultFromResponse({
     ...projectionVerificationOptions(input),
     execSql: input.execSql,
     materializedPlan,
@@ -74,6 +79,10 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
+  return {
+    ...result,
+    hasIncompletePull: !input.pullComplete,
+  };
 }
 
 function parsePersistedDocumentSyncRecord<T>(
@@ -137,6 +146,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   documentId: string;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   signedAt?: string | undefined;
 }): Promise<DocumentSyncPlan | null> {
@@ -155,8 +165,9 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
     localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
+    minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
+    pullCursor: input.pullContinuation?.cursor,
     signedAt: input.signedAt,
   });
   const request = limitDocumentSyncRequestBytes(plan.request);
@@ -179,9 +190,11 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
+  pullComplete: boolean;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
@@ -290,7 +303,10 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
 }
 
 async function syncReadOnlyRemoteDocumentFromPersistedState(
-  input: Omit<ReadOnlyDocumentSyncCompletionInput, "response"> & {
+  input: Omit<
+    ReadOnlyDocumentSyncCompletionInput,
+    "pullComplete" | "response"
+  > & {
     persistedState?: PersistedDocumentSyncState | null | undefined;
   },
 ): Promise<PersistedReadOnlyDocumentSyncResult> {
@@ -306,6 +322,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
 
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
+    expectedCommitLsnMode: input.pullContinuation?.commitLsnMode,
     plan,
   });
   if (!submitted) {
@@ -345,6 +362,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
   if (submitted.response.updates.length > 0) {
     return completeReadOnlyRemoteDocumentSyncWithUpdates({
       ...input,
+      pullComplete: submitted.pullComplete,
       response: submitted.response,
     });
   }
@@ -363,6 +381,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
         hasDeferredPendingUpdates: false,
+        hasIncompletePull: !submitted.pullComplete,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],
@@ -390,6 +409,7 @@ export interface SyncRemoteDocumentInput {
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   // Receives the reason whenever this sync returns null, so callers that
   // convert a null result into their own error can name the real cause.
@@ -408,6 +428,8 @@ export interface SyncRemoteDocumentInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
+  /** Clears an in-memory continuation after the server rejects its snapshot. */
+  onPullContinuationInvalidated?: (() => void) | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;

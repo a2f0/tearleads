@@ -124,6 +124,7 @@ async function createSignedDocumentSyncRequest(input: {
         writeHeader: writeHeader as unknown as Record<string, unknown>,
       },
     ],
+    supportsPullPagination: true,
   };
 }
 
@@ -198,6 +199,7 @@ test("lapsed organizations can pull document sync but cannot push updates", asyn
         expectedTargetHash: created.contentKeyBundle.targetHash,
         localVersionVector: null,
         outgoingUpdates: [],
+        supportsPullPagination: true,
       } satisfies DocumentSyncRequest),
     },
   );

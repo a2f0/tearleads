@@ -237,6 +237,7 @@ async function createMultiEpochDocumentFixture(input: {
           },
         ],
       },
+      pullPage: { hasMore: false, nextCursor: null },
       updates: updates.map(syncResponseUpdate),
     } satisfies DocumentSyncResponse,
   };

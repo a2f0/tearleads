@@ -41,7 +41,7 @@ function requireRotationBaselineMetadata(update: DocumentOutgoingUpdate) {
  * Prove that the baseline carried by an unlink is authenticated and covers the
  * complete committed frontier. The caller must hold the document manifest-head
  * write lock through this read and the subsequent append; sync writers take the
- * corresponding shared lock, so no old-key update can appear between them.
+ * same exclusive lock, so no old-key update can appear between them.
  */
 export async function assertAtomicRotationBaselineCoversCommittedFrontier(
   executor: DatabaseSession,
@@ -98,7 +98,7 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
  * payload a rotation baseline would need to dominate, so rotating the content
  * key without a replayable baseline cannot orphan history. The caller must
  * hold the document manifest-head write lock through this read and the
- * link-set replacement; sync writers take the corresponding shared lock, so no
+ * link-set replacement; sync writers take the same exclusive lock, so no
  * update can commit between this emptiness proof and the unlink.
  */
 export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
@@ -142,6 +142,7 @@ export async function appendAtomicRotationBaseline(input: {
       expectedTargetHash: input.request.contentKeyBundle.targetHash,
       localVersionVector: null,
       outgoingUpdates: [input.baseline],
+      supportsPullPagination: true,
     },
     signingPublicKey: await loadSignerPublicKey(input.executor, {
       ...input,

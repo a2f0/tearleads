@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Buffer } from "node:buffer";
 import { type DatabaseSession, db } from "@symcrypt/api-shared/postgres";
 import { documents, documentUpdates } from "@symcrypt/api-shared/schema";
 import {
@@ -12,7 +13,11 @@ import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   assertMinLsnSatisfied,
   DocumentUpdateReadError,
+  listMissingDocumentUpdatePage,
   listMissingDocumentUpdates,
+  readDocumentUpdateSequenceUpperBound,
+  readDocumentUpdateUpperBound,
+  resolveDocumentUpdateCursorBounds,
 } from "./documentUpdateStore";
 
 const textEncoder = new TextEncoder();
@@ -29,9 +34,11 @@ async function createStoredDocument(): Promise<string> {
 }
 
 async function insertStoredUpdate(input: {
+  authorFingerprint?: string | undefined;
   documentId: string;
   encryptedData: string;
   id: string;
+  insertSpans?: boolean | undefined;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
 }) {
@@ -39,17 +46,20 @@ async function insertStoredUpdate(input: {
     id: input.id,
     documentId: input.documentId,
     accessEpoch: 1,
-    authorFingerprint: "document-update-store-author",
+    authorFingerprint:
+      input.authorFingerprint ?? "document-update-store-author",
     encryptedData: input.encryptedData,
     byteLength: textEncoder.encode(input.encryptedData).byteLength,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
     plaintextHash: `plaintext-${input.id}`,
   });
-  await insertDocumentUpdateSpans(db, {
-    documentId: input.documentId,
-    updates: [input],
-  });
+  if (input.insertSpans !== false) {
+    await insertDocumentUpdateSpans(db, {
+      documentId: input.documentId,
+      updates: [input],
+    });
+  }
 }
 
 async function expectDocumentUpdateReadError(
@@ -121,6 +131,150 @@ test("listMissingDocumentUpdates returns only causally missing document updates"
     localVersionVector: encodeVersionVector(bobDoc),
   });
   expect(missingAfterSecondUpdate).toEqual([]);
+});
+
+test("document update pages retain their upper bound across concurrent writes", async () => {
+  const documentId = await createStoredDocument();
+  const loro = await createDocument("document-update-page-author");
+
+  const firstStart = encodeVersionVector(loro);
+  loro.getText("text").update("first");
+  const first = getUpdateVersionVectors(exportUpdatesSince(loro, firstStart));
+  const firstId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-first",
+    id: firstId,
+    partialEndVersionVector: first.partialEndVersionVector,
+    partialStartVersionVector: first.partialStartVersionVector,
+  });
+
+  const secondStart = encodeVersionVector(loro);
+  loro.getText("text").update("second");
+  const second = getUpdateVersionVectors(exportUpdatesSince(loro, secondStart));
+  const secondId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-second",
+    id: secondId,
+    partialEndVersionVector: second.partialEndVersionVector,
+    partialStartVersionVector: second.partialStartVersionVector,
+  });
+
+  const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  expect(await readDocumentUpdateUpperBound(db, documentId)).toEqual({
+    id: secondId,
+    sequence: upperBoundSequence,
+  });
+  const firstPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
+    documentId,
+    localVersionVector: null,
+    maxSerializedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence,
+  });
+  expect(firstPage.updates.map(({ id }) => id)).toEqual([firstId]);
+  expect(firstPage.hasMore).toBe(true);
+
+  const thirdStart = encodeVersionVector(loro);
+  loro.getText("text").update("third");
+  const third = getUpdateVersionVectors(exportUpdatesSince(loro, thirdStart));
+  const thirdId = crypto.randomUUID();
+  await insertStoredUpdate({
+    documentId,
+    encryptedData: "encrypted-third",
+    id: thirdId,
+    partialEndVersionVector: third.partialEndVersionVector,
+    partialStartVersionVector: third.partialStartVersionVector,
+  });
+
+  const secondPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: firstPage.lastSequence,
+    documentId,
+    localVersionVector: null,
+    maxSerializedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence,
+  });
+  expect(secondPage.updates.map(({ id }) => id)).toEqual([secondId]);
+  expect(secondPage.hasMore).toBe(false);
+  expect(
+    await resolveDocumentUpdateCursorBounds(db, {
+      afterUpdateId: firstId,
+      documentId,
+      upperBoundUpdateId: secondId,
+    }),
+  ).toEqual({
+    afterSequence: firstPage.lastSequence,
+    upperBoundSequence,
+  });
+
+  const foreignDocumentId = await createStoredDocument();
+  const foreignCursorError = await expectDocumentUpdateReadError(
+    resolveDocumentUpdateCursorBounds(db, {
+      afterUpdateId: firstId,
+      documentId: foreignDocumentId,
+      upperBoundUpdateId: secondId,
+    }),
+  );
+  expect(foreignCursorError.status).toBe(400);
+
+  const freshUpperBound = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  const freshPage = await listMissingDocumentUpdatePage(db, {
+    afterSequence: secondPage.lastSequence,
+    documentId,
+    localVersionVector: null,
+    maxSerializedBytes: 1_000,
+    maxUpdates: 1,
+    upperBoundSequence: freshUpperBound,
+  });
+  expect(freshPage.updates.map(({ id }) => id)).toEqual([thirdId]);
+});
+
+test("document update pages budget serialized metadata, not only ciphertext", async () => {
+  const documentId = await createStoredDocument();
+  const updateIds = Array.from({ length: 3 }, () => crypto.randomUUID());
+  for (const id of updateIds) {
+    await insertStoredUpdate({
+      authorFingerprint: `metadata-heavy-${"a".repeat(2_048)}`,
+      documentId,
+      encryptedData: "x",
+      id,
+      insertSpans: false,
+      partialEndVersionVector: `end-${"b".repeat(2_048)}`,
+      partialStartVersionVector: `start-${"c".repeat(2_048)}`,
+    });
+  }
+
+  const stored = await listMissingDocumentUpdates(db, {
+    documentId,
+    localVersionVector: null,
+  });
+  const first = stored[0];
+  if (!first) throw new Error("Expected a stored update");
+  const oneUpdateBytes = Buffer.byteLength(JSON.stringify(first), "utf8") + 2;
+  const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  const page = await listMissingDocumentUpdatePage(db, {
+    afterSequence: 0,
+    documentId,
+    localVersionVector: null,
+    maxSerializedBytes: oneUpdateBytes,
+    maxUpdates: 64,
+    upperBoundSequence,
+  });
+
+  expect(page.updates.map(({ id }) => id)).toEqual(updateIds.slice(0, 1));
+  expect(page.hasMore).toBe(true);
 });
 
 test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {

@@ -1,32 +1,6 @@
-# #2096; remove after merge to main.
-POST /auth/register: 48 request maxItems constraint(s) tightened [sha256:5768abc15daa3d9e949d6dcf9823b032809a64062f431eb019d8b5ac5cf036a1]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach: 2 request maxItems constraint(s) tightened [sha256:522944ea352891d0518b490a851bf69526328056de5dd43ba38de3045663f081]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /blobs/{blobId}/attachment-bindings: 2 request maxItems constraint(s) tightened [sha256:522944ea352891d0518b490a851bf69526328056de5dd43ba38de3045663f081]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /containers/with-metadata-document: 4 request maxItems constraint(s) tightened [sha256:1e1f956fe18aa2c446041bd8d061af974b004d0f8d6c052f24f4c94b296ffe19]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/link: 4 request maxItems constraint(s) tightened [sha256:cf61e4c46bd5b7887f38a51d3a063c1bc0dd192995c6ed7eb8cba41a547ebbb4]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/sync: 4 request maxItems constraint(s) tightened [sha256:bad911b3989c024442bf9156bd6fcca15c5ec4f1d67f608296c61c8ef8e7527c]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink: 4 request maxItems constraint(s) tightened [sha256:cf61e4c46bd5b7887f38a51d3a063c1bc0dd192995c6ed7eb8cba41a547ebbb4]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /documents: 4 request maxItems constraint(s) tightened [sha256:cf61e4c46bd5b7887f38a51d3a063c1bc0dd192995c6ed7eb8cba41a547ebbb4]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /organizations: 48 request maxItems constraint(s) tightened [sha256:5768abc15daa3d9e949d6dcf9823b032809a64062f431eb019d8b5ac5cf036a1]; existing clients could send larger arrays.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/link: request refinement 'request.post-link-authorization-path-total-references' was added; existing clients were not rejected by it.
-
-# #2096; remove after merge to main.
-POST /documents/{documentId}/unlink: request refinement 'request.post-link-authorization-path-total-references' was added; existing clients were not rejected by it.
+# #2096; remove after main contains the paginated document-sync contract.
+POST /auth/register: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
+# #2096; remove after main contains the paginated document-sync contract.
+POST /documents/{documentId}/sync: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
+# #2096; remove after main contains the paginated document-sync contract.
+POST /organizations: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.

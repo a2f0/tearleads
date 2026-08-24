@@ -4,6 +4,7 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -23,6 +24,7 @@ import {
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   resolveDocumentCreateAuthor,
+  shouldClearDocumentSyncFailureAfterPass,
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
@@ -85,13 +87,18 @@ export function settleContainerMetadataOutgoingPass(
   metadataState: ContainerMetadataState,
   attempt: ContainerMetadataSyncAttempt,
 ): boolean {
-  return settleOutgoingPassAndDecideReArm(metadataState, {
+  const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(metadataState, {
     exhaustedPendingUpdateCount: attempt.synced.exhaustedPendingUpdateCount,
     outgoingUpdateCount: attempt.outgoingUpdateCount,
     rekeyedUpdateCount: attempt.synced.rekeyedPendingUpdateIds.length,
     settledUpdateCount: attempt.synced.settledPendingUpdateIds.length,
     acceptedRecoveryBaseline: attempt.synced.acceptedRecoveryBaseline,
   });
+  return (
+    attempt.synced.hasDeferredPendingUpdates ||
+    shouldReArmOutgoing ||
+    attempt.synced.hasIncompletePull
+  );
 }
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
@@ -113,7 +120,7 @@ function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   );
 }
 
-async function syncRemoteContainerMetadata(input: {
+interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
   documentId: string | null;
@@ -122,14 +129,20 @@ async function syncRemoteContainerMetadata(input: {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
+  onPullContinuationInvalidated?: (() => void) | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
+  pullContinuation?: ContainerMetadataState["pullContinuation"];
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
-}): Promise<ContainerMetadataSyncAttempt | null> {
+}
+
+async function syncRemoteContainerMetadata(
+  input: SyncRemoteContainerMetadataInput,
+): Promise<ContainerMetadataSyncAttempt | null> {
   const {
     buildRotationSnapshot,
     containerId,
@@ -173,6 +186,7 @@ async function syncRemoteContainerMetadata(input: {
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     onOutgoingUpdatesMaterialized,
+    onPullContinuationInvalidated: input.onPullContinuationInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
     onTerminalSubmitFailure: (failure) =>
       recordDocumentSyncFailure(execSql, metadataScope, {
@@ -182,6 +196,7 @@ async function syncRemoteContainerMetadata(input: {
       }),
     pendingUpdates,
     persistedState,
+    pullContinuation: input.pullContinuation ?? undefined,
     rekeyPendingUpdate,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -222,7 +237,7 @@ async function syncRemoteContainerMetadata(input: {
   // The pass submitted successfully, so any recorded terminal failure for this
   // container's metadata document no longer describes reality — unless the
   // pass itself just recorded one for re-key-exhausted updates.
-  if (synced.exhaustedPendingUpdateCount === 0) {
+  if (shouldClearDocumentSyncFailureAfterPass(synced, pendingUpdates.length)) {
     await clearDocumentSyncFailure(execSql, metadataScope);
   }
 
@@ -318,6 +333,7 @@ export async function syncContainerMetadataState(
   );
   if (
     pendingUpdates.length === 0 &&
+    metadataState.pullContinuation == null &&
     !input.forceReadSync &&
     hasCurrentContainerMetadataReadState(metadataState.record)
   ) {
@@ -345,8 +361,12 @@ export async function syncContainerMetadataState(
             sentUpdateIds,
             updateIds,
           ),
+        onPullContinuationInvalidated: () => {
+          metadataState.pullContinuation = null;
+        },
         pendingUpdates,
         persistedState: metadataState.record,
+        pullContinuation: metadataState.pullContinuation ?? undefined,
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey,
         runtime,
@@ -468,6 +488,7 @@ async function finalizeContainerMetadataSync(input: {
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
+  metadataState.pullContinuation = readPullContinuation(synced.response);
 
   return {
     ...persisted,

@@ -205,6 +205,9 @@ export async function buildDocumentSyncPlan(
     organizationId,
   } = await resolveDocumentSyncIdentity(input);
   const outgoingUpdateInputs = [...(input.outgoingUpdates ?? [])];
+  if (input.pullCursor !== undefined && outgoingUpdateInputs.length > 0) {
+    throw new Error("Document sync continuation must be read-only");
+  }
   const signedAt = input.signedAt ?? new Date().toISOString();
   assertUniqueDocumentOutgoingUpdates(outgoingUpdateInputs);
 
@@ -247,6 +250,8 @@ export async function buildDocumentSyncPlan(
     localVersionVector: input.localVersionVector,
     ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
     outgoingUpdates,
+    ...(input.pullCursor === undefined ? {} : { pullCursor: input.pullCursor }),
+    supportsPullPagination: true,
     // Capability negotiation keeps this additive request compatible with old
     // servers while allowing a Turso server to reset an old tracked checkpoint.
     supportsUntrackedCommitLsn: true,

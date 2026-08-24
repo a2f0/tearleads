@@ -74,5 +74,6 @@ export async function buildInitialDocumentSyncRequest(input: {
     // so it does not need the transaction response to echo the update back.
     localVersionVector: pendingUpdate.partialEndVersionVector,
     outgoingUpdates: [outgoingUpdate],
+    supportsPullPagination: true,
   };
 }

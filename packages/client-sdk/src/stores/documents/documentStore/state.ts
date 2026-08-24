@@ -21,6 +21,7 @@ import {
   sameDocumentRows,
 } from "../../../data/documents/documentRowList";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
+import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/syncPagination";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import type { DomainScope } from "../../../data/domainScope";
 import {
@@ -113,6 +114,12 @@ export interface DocumentStoreState {
    */
   pendingLocalWrites: number;
   persistence: DocumentsPersistence;
+  /**
+   * In-memory continuation for a bounded remote pull. PR3 makes this durable;
+   * until then it prevents a live sync lane from restarting at page one when
+   * its version vector is too large to send.
+   */
+  pullContinuation: DocumentSyncPullContinuation | null;
   record: DocumentRecord | null;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates
@@ -231,6 +238,7 @@ export function createDocumentStoreState(
     pendingBaseVersion: null,
     pendingLocalWrites: 0,
     persistence,
+    pullContinuation: null,
     record: null,
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
@@ -302,6 +310,7 @@ function clearDocumentStoreState(
   state.pendingAttachments = [];
   state.pendingBaseVersion = null;
   state.pendingLocalWrites = 0;
+  state.pullContinuation = null;
   state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();

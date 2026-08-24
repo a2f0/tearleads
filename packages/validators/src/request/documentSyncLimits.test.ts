@@ -5,6 +5,7 @@ import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
+  MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
 } from "../util/documentSyncLimits";
 import { isDocumentSyncRequest } from "./index";
@@ -44,6 +45,7 @@ function createSyncRequest() {
     expectedTargetHash: "target-hash",
     localVersionVector: null,
     outgoingUpdates: [UPDATE],
+    supportsPullPagination: true,
   };
 }
 
@@ -114,6 +116,51 @@ test("document sync bounds version vectors", () => {
   const localVersionVector = "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
 
   expect(isDocumentSyncRequest({ ...valid, localVersionVector })).toBe(false);
+});
+
+test("document sync bounds and gates pull continuations", () => {
+  const valid = createSyncRequest();
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      supportsPullPagination: undefined,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      pullCursor: "A".repeat(MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH + 1),
+      supportsPullPagination: true,
+    }),
+  ).toBe(false);
+  expect(isDocumentSyncRequest({ ...valid, pullCursor: "valid-cursor" })).toBe(
+    false,
+  );
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      authorizingContainerPathRefs: undefined,
+      contentKeyBundle: undefined,
+      outgoingUpdates: [],
+      pullCursor: "valid-cursor",
+      supportsPullPagination: true,
+    }),
+  ).toBe(true);
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      contentKeyBundle: undefined,
+      outgoingUpdates: [],
+      pullCursor: "valid-cursor",
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentSyncRequest({
+      ...valid,
+      pullCursor: "valid-cursor",
+      supportsPullPagination: true,
+    }),
+  ).toBe(false);
 });
 
 test("document sync accepts high-actor vectors above the old ceiling", () => {

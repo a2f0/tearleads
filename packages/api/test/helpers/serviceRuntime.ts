@@ -33,6 +33,7 @@ export function createServiceTestRuntime(
   return {
     blobObjectStore: overrides.blobObjectStore ?? createMemoryBlobObjectStore(),
     db,
+    documentSyncCursorHmacKey: "symcrypt-test-document-sync-cursor-hmac-key",
     eventPublisher: {
       publish: async () => {},
     },

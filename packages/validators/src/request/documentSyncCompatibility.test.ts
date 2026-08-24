@@ -7,7 +7,6 @@ import {
 import { DocumentSyncRequestSchema, isDocumentSyncRequest } from "./index";
 
 const UPDATE_ID = "550e8400-e29b-41d4-a716-446655440111";
-
 function createSyncRequest() {
   return {
     authorizingContainerPathRefs: [
@@ -43,9 +42,9 @@ function createSyncRequest() {
         writeHeader: { updateId: UPDATE_ID },
       },
     ],
+    supportsPullPagination: true,
   };
 }
-
 function createContentKeyBundleResponse() {
   return {
     contentKeyEpoch: 1,
@@ -64,7 +63,6 @@ function createContentKeyBundleResponse() {
     ],
   };
 }
-
 function createKekTargetsResponse() {
   return {
     documentId: "document-1",
@@ -84,6 +82,7 @@ function createSyncResponse() {
     contentKeyBundles: [createContentKeyBundleResponse()],
     documentId: "document-1",
     documentKekTargets: createKekTargetsResponse(),
+    pullPage: { hasMore: false, nextCursor: null },
     updates: [
       {
         accessEpoch: 1,

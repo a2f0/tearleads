@@ -424,6 +424,7 @@ export async function createSyncResponse(
     contentKeyBundles: [plan.sourceContentKeyBundle],
     documentId: plan.documentId,
     documentKekTargets: plan.documentKekTargets,
+    pullPage: { hasMore: false, nextCursor: null },
     updates,
     ...overrides,
   };

@@ -3,6 +3,10 @@ export {
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+export {
+  type DocumentSyncPullContinuation,
+  readPullContinuation,
+} from "../../data/documents/shared/syncPagination";
 export type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
@@ -73,6 +77,7 @@ export {
   type DocumentProjectionUserKeyResolver,
   didDocumentProjectionKeyRuntimeChange,
 } from "./projectionKeys";
+export type { SyncRemoteDocumentInput } from "./readOnlySync";
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
@@ -90,6 +95,7 @@ export {
   describeDocumentSyncSubmitFailure,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
+export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailureClearance";
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,

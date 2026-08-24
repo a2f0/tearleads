@@ -416,3 +416,71 @@ test("a terminal failure after recovery still records durably", async () => {
   expect(submissions).toBe(2);
   expect(submitFailures).toEqual([403]);
 });
+
+test("a denied cursor pull records the failure blocking deferred writes", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  await ensureDocumentTables(execSql);
+  const scope = { appKind: "documents", localId: "denied-cursor-pull" };
+  await enqueueDocumentPendingUpdate(
+    execSql,
+    scope,
+    await createLoroPendingUpdateFields("deferred cursor update"),
+  );
+  const [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  if (!pendingUpdate) throw new Error("Expected an enqueued pending update");
+  const submittedRequests: Array<{
+    outgoingUpdateCount: number;
+    pullCursor: string | undefined;
+  }> = [];
+  const submitFailures: number[] = [];
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle the denial");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submittedRequests.push({
+          outgoingUpdateCount: request.outgoingUpdates.length,
+          pullCursor: request.pullCursor,
+        });
+        return {
+          message: `POST /documents/${documentId}/sync: 403 Forbidden`,
+          ok: false as const,
+          report: () => undefined,
+          status: 403,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onTerminalSubmitFailure: (failure) => {
+      submitFailures.push(failure.status ?? -1);
+    },
+    pendingUpdates: [pendingUpdate],
+    pullContinuation: {
+      commitLsn: "0/7",
+      commitLsnMode: "tracked",
+      cursor: "deferred-write-page-2",
+    },
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
+  });
+
+  expect(synced).toBeNull();
+  expect(submittedRequests).toEqual([
+    { outgoingUpdateCount: 0, pullCursor: "deferred-write-page-2" },
+  ]);
+  expect(submitFailures).toEqual([403]);
+});
