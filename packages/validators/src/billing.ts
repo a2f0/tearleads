@@ -94,7 +94,8 @@ export function getLargestSyncBillingTier(): SyncBillingTier {
 
 /**
  * Product identifiers used in App Store, Play, and RevenueCat Test Store.
- * Staging suffixes and Play base-plan suffixes do not change the tier.
+ * The App Store's SymCrypt prefix, staging suffixes, and Play base-plan suffixes
+ * do not change the tier.
  * The older Solo aliases remain only while existing Test Store fixtures and
  * installed sandbox receipts are migrated to `sync_solo_monthly`.
  */
@@ -104,7 +105,10 @@ export function getSyncBillingTierForNativeProduct(
   if (!productId) {
     return null;
   }
-  const normalized = productId.split(":", 1)[0] ?? "";
+  const storeProductId = productId.split(":", 1)[0] ?? "";
+  const normalized = storeProductId.startsWith("symcrypt_")
+    ? storeProductId.slice("symcrypt_".length)
+    : storeProductId;
   if (
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||
