@@ -7,7 +7,10 @@ import {
   type DocumentSyncResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@symcrypt/validators/response";
-import type { StoredDocumentContentKeyBundle } from "../../../access/read/documentContentKeyStore";
+import {
+  getDocumentContentKeyBundle,
+  type StoredDocumentContentKeyBundle,
+} from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import {
   readCommitLsnMode,
@@ -45,7 +48,7 @@ import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { resolveSyncPullPagePlan } from "./syncPullPagination";
 import {
   buildPaginatedSyncPullResponse,
-  listMissingSyncUpdatesWithBundles,
+  listMissingSyncUpdatesForResponse,
 } from "./syncPullResponse";
 import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
 import {
@@ -298,14 +301,13 @@ async function buildSyncDocumentTransactionResult(input: {
       }),
     upperBound,
   });
-  const { contentKeyBundles, entries, page } =
-    await listMissingSyncUpdatesWithBundles({
-      contentKeyBundle: input.contentKeyBundle,
-      documentId: input.documentId,
-      executor: input.executor,
-      pullPagePlan,
-      request: input.request,
-    });
+  const { entries, page } = await listMissingSyncUpdatesForResponse({
+    contentKeyBundle: input.contentKeyBundle,
+    documentId: input.documentId,
+    executor: input.executor,
+    pullPagePlan,
+    request: input.request,
+  });
   const contentKeyBundle = toContentKeyBundleResponse(input.contentKeyBundle);
   const responseBase = {
     acceptedOutgoingUpdateIds: input.appendResult.acceptedOutgoingUpdateIds,
@@ -324,12 +326,18 @@ async function buildSyncDocumentTransactionResult(input: {
       400,
     );
   }
-  const responseWithoutCommit = buildPaginatedSyncPullResponse({
+  const responseWithoutCommit = await buildPaginatedSyncPullResponse({
     base: responseBase,
-    contentKeyBundles,
+    currentBundle: input.contentKeyBundle,
     cursorHmacKey: input.cursorHmacKey,
     entries,
     identity: pullIdentity,
+    loadContentKeyBundle: (contentKeyEpoch) =>
+      getDocumentContentKeyBundle(
+        input.documentId,
+        contentKeyEpoch,
+        input.executor,
+      ),
     page,
     plan: pullPagePlan,
   });

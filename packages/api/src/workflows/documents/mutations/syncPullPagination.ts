@@ -6,7 +6,10 @@ import {
   isUuidV4String,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 } from "@symcrypt/validators/util";
-import type { DocumentUpdateCursorPosition } from "../../../documents/documentUpdateStore";
+import {
+  type DocumentUpdateCursorPosition,
+  DocumentUpdateReadError,
+} from "../../../documents/documentUpdateStore";
 import { decodeCursor, encodeCursor } from "../../../utils/cursor";
 import { DocumentMutationError, documentSyncStateStale } from "./errors";
 
@@ -75,7 +78,9 @@ export function assertSyncPullResponseFits(
 }
 
 function invalidPullCursor(): DocumentMutationError {
-  return new DocumentMutationError("Document pull cursor is invalid", 400);
+  return documentSyncStateStale(
+    "Document pull cursor is invalid; restart the pull",
+  );
 }
 
 function parsePullCursor(value: unknown): SyncPullCursor | undefined {
@@ -224,7 +229,17 @@ export async function resolveSyncPullPagePlan(input: {
       "Document key state changed during paginated pull",
     );
   }
-  const bounds = await input.resolveCursorBounds(cursor);
+  let bounds: Awaited<ReturnType<typeof input.resolveCursorBounds>>;
+  try {
+    bounds = await input.resolveCursorBounds(cursor);
+  } catch (error) {
+    if (error instanceof DocumentUpdateReadError && error.status === 400) {
+      throw documentSyncStateStale(
+        "Document pull cursor bounds changed; restart the pull",
+      );
+    }
+    throw error;
+  }
   return { ...bounds, upperBoundUpdateId: cursor.upperBoundUpdateId };
 }
 

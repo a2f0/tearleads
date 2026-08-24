@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import {
   assertSyncPullResponseFits,
   createSyncPullPageResponse,
@@ -115,7 +116,10 @@ test("pull cursor rejects malformed requests", async () => {
       resolveCursorBounds,
       upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
     }),
-  ).rejects.toThrow("Document pull cursor is invalid");
+  ).rejects.toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    status: 409,
+  });
 });
 
 test("pull cursor accepts stale-bundle reads pinned to the same bundle", async () => {
@@ -188,6 +192,42 @@ test("pull cursor rejects a tampered frozen upper bound", async () => {
       request: request({ pullCursor: tamperedCursor }),
       resolveCursorBounds,
       upperBound: { id: LATER_UPDATE_ID, sequence: 99 },
+    }),
+  ).rejects.toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    status: 409,
+  });
+});
+
+test("pull cursor restarts stale when its stored bounds disappear", async () => {
+  const plan = await resolveSyncPullPagePlan({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    identity: IDENTITY,
+    request: request(),
+    resolveCursorBounds,
+    upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
+  });
+  if (!plan) throw new Error("Expected a paginated pull plan");
+  const page = createSyncPullPageResponse({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    hasMore: true,
+    identity: IDENTITY,
+    lastUpdateId: AFTER_UPDATE_ID,
+    plan,
+  });
+
+  await expect(
+    resolveSyncPullPagePlan({
+      cursorHmacKey: CURSOR_HMAC_KEY,
+      identity: IDENTITY,
+      request: request({ pullCursor: page.nextCursor ?? undefined }),
+      resolveCursorBounds: async () => {
+        throw new DocumentUpdateReadError(
+          "Document pull cursor is invalid",
+          400,
+        );
+      },
+      upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
     }),
   ).rejects.toMatchObject({
     code: DOCUMENT_SYNC_ERROR_CODES.stateStale,

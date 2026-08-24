@@ -6,10 +6,7 @@ import type {
   DocumentSyncUpdateResponse,
 } from "@symcrypt/validators/response";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@symcrypt/validators/util";
-import {
-  getDocumentContentKeyBundle,
-  type StoredDocumentContentKeyBundle,
-} from "../../../access/read/documentContentKeyStore";
+import type { StoredDocumentContentKeyBundle } from "../../../access/read/documentContentKeyStore";
 import {
   resolveBaselineRedirectAfterSequence,
   selectServedSyncUpdateEntries,
@@ -54,44 +51,7 @@ interface RawPullPage {
 
 const MAX_COMMIT_LSN = "FFFFFFFF/FFFFFFFF";
 
-function uniqueContentKeyEpochs(contentKeyEpochs: Iterable<number>): number[] {
-  return [...new Set(contentKeyEpochs)].sort((left, right) => left - right);
-}
-
-async function listContentKeyBundlesForSyncResponse(input: {
-  readonly contentKeyEpochs: Iterable<number>;
-  readonly currentBundle: StoredDocumentContentKeyBundle;
-  readonly documentId: string;
-  readonly executor: DatabaseSession;
-}): Promise<StoredDocumentContentKeyBundle[]> {
-  const bundleByEpoch = new Map<number, StoredDocumentContentKeyBundle>([
-    [input.currentBundle.contentKeyEpoch, input.currentBundle],
-  ]);
-
-  for (const contentKeyEpoch of uniqueContentKeyEpochs(
-    input.contentKeyEpochs,
-  )) {
-    if (bundleByEpoch.has(contentKeyEpoch)) continue;
-    const bundle = await getDocumentContentKeyBundle(
-      input.documentId,
-      contentKeyEpoch,
-      input.executor,
-    );
-    if (!bundle) {
-      throw new DocumentMutationError(
-        "Document content-key bundle missing",
-        409,
-      );
-    }
-    bundleByEpoch.set(contentKeyEpoch, bundle);
-  }
-
-  return [...bundleByEpoch.values()].sort(
-    (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
-  );
-}
-
-export async function listMissingSyncUpdatesWithBundles(input: {
+export async function listMissingSyncUpdatesForResponse(input: {
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
   readonly documentId: string;
   readonly executor: DatabaseSession;
@@ -146,17 +106,7 @@ export async function listMissingSyncUpdatesWithBundles(input: {
           executor: input.executor,
         })
       : missingUpdateEntries;
-  const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
-    contentKeyEpochs: servedUpdateEntries.map(
-      (entry) => entry.writeHeader.contentKeyEpoch,
-    ),
-    currentBundle: input.contentKeyBundle,
-    documentId: input.documentId,
-    executor: input.executor,
-  });
-
   return {
-    contentKeyBundles,
     entries: servedUpdateEntries,
     page: "page" in missingUpdateResult ? missingUpdateResult.page : undefined,
   };
@@ -174,18 +124,22 @@ function responsePagePropertyBytes(pullPage: unknown): number {
 
 type WireContentKeyBundle = ReturnType<typeof toContentKeyBundleResponse>;
 
-function selectPullResponsePrefix(input: {
+async function selectPullResponsePrefix(input: {
   readonly baseBytes: number;
-  readonly bundlesByEpoch: ReadonlyMap<number, WireContentKeyBundle>;
   readonly currentBundle: WireContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly identity: PullIdentity;
+  readonly loadContentKeyBundle: (
+    contentKeyEpoch: number,
+  ) => Promise<StoredDocumentContentKeyBundle | null>;
   readonly maxBytes: number;
   readonly page: RawPullPage;
   readonly plan: SyncPullPagePlan;
 }) {
-  const selectedEpochs = new Set([input.identity.contentKeyEpoch]);
+  const selectedBundlesByEpoch = new Map([
+    [input.identity.contentKeyEpoch, input.currentBundle],
+  ]);
   let bundleArrayDelta = serializedBytes(input.currentBundle);
   let selectedCount = 0;
   let updateArrayDelta = 0;
@@ -199,14 +153,19 @@ function selectPullResponsePrefix(input: {
 
   for (const [index, entry] of input.entries.entries()) {
     const entryEpoch = entry.writeHeader.contentKeyEpoch;
-    const candidateBundle = input.bundlesByEpoch.get(entryEpoch);
+    const selectedBundle = selectedBundlesByEpoch.get(entryEpoch);
+    let candidateBundle = selectedBundle;
     if (!candidateBundle) {
-      throw new DocumentMutationError(
-        "Document content-key bundle missing",
-        409,
-      );
+      const storedBundle = await input.loadContentKeyBundle(entryEpoch);
+      if (!storedBundle) {
+        throw new DocumentMutationError(
+          "Document content-key bundle missing",
+          409,
+        );
+      }
+      candidateBundle = toContentKeyBundleResponse(storedBundle);
     }
-    const candidateBundleDelta = selectedEpochs.has(entryEpoch)
+    const candidateBundleDelta = selectedBundle
       ? bundleArrayDelta
       : bundleArrayDelta + 1 + serializedBytes(candidateBundle);
     const candidateUpdateDelta =
@@ -228,13 +187,19 @@ function selectPullResponsePrefix(input: {
       candidateUpdateDelta +
       responsePagePropertyBytes(candidatePullPage);
     if (responseBytes > input.maxBytes) break;
-    selectedEpochs.add(entryEpoch);
+    selectedBundlesByEpoch.set(entryEpoch, candidateBundle);
     bundleArrayDelta = candidateBundleDelta;
     selectedCount = candidateCount;
     updateArrayDelta = candidateUpdateDelta;
     pullPage = candidatePullPage;
   }
-  return { pullPage, selectedCount };
+  return {
+    contentKeyBundles: [...selectedBundlesByEpoch.values()].sort(
+      (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
+    ),
+    pullPage,
+    selectedCount,
+  };
 }
 
 /**
@@ -242,27 +207,24 @@ function selectPullResponsePrefix(input: {
  * cursor fit the wire ceiling. Sizing uses the largest possible Postgres LSN
  * plus the longer commit mode before the transaction may commit.
  */
-export function buildPaginatedSyncPullResponse(input: {
+export async function buildPaginatedSyncPullResponse(input: {
   readonly base: SyncResponseBase;
-  readonly contentKeyBundles: readonly StoredDocumentContentKeyBundle[];
+  readonly currentBundle: StoredDocumentContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly identity: PullIdentity;
+  readonly loadContentKeyBundle: (
+    contentKeyEpoch: number,
+  ) => Promise<StoredDocumentContentKeyBundle | null>;
   readonly maxBytes?: number | undefined;
   readonly page: RawPullPage;
   readonly plan: SyncPullPagePlan;
-}): SyncResponseWithoutCommit {
+}): Promise<SyncResponseWithoutCommit> {
   const maxBytes = input.maxBytes ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES;
-  const bundlesByEpoch = new Map(
-    input.contentKeyBundles.map((bundle) => [
-      bundle.contentKeyEpoch,
-      toContentKeyBundleResponse(bundle),
-    ]),
-  );
-  const currentBundle = bundlesByEpoch.get(input.identity.contentKeyEpoch);
-  if (!currentBundle) {
+  if (input.currentBundle.contentKeyEpoch !== input.identity.contentKeyEpoch) {
     throw new DocumentMutationError("Document content-key bundle missing", 409);
   }
+  const currentBundle = toContentKeyBundleResponse(input.currentBundle);
   const sizingBase = {
     ...input.base,
     commitLsn: MAX_COMMIT_LSN,
@@ -271,17 +233,18 @@ export function buildPaginatedSyncPullResponse(input: {
     updates: [],
   };
   const baseBytes = serializedBytes(sizingBase);
-  const { pullPage, selectedCount } = selectPullResponsePrefix({
-    baseBytes,
-    bundlesByEpoch,
-    currentBundle,
-    cursorHmacKey: input.cursorHmacKey,
-    entries: input.entries,
-    identity: input.identity,
-    maxBytes,
-    page: input.page,
-    plan: input.plan,
-  });
+  const { contentKeyBundles, pullPage, selectedCount } =
+    await selectPullResponsePrefix({
+      baseBytes,
+      currentBundle,
+      cursorHmacKey: input.cursorHmacKey,
+      entries: input.entries,
+      identity: input.identity,
+      loadContentKeyBundle: input.loadContentKeyBundle,
+      maxBytes,
+      page: input.page,
+      plan: input.plan,
+    });
 
   if (input.entries.length > 0 && selectedCount === 0) {
     throw new DocumentMutationError(
@@ -290,16 +253,9 @@ export function buildPaginatedSyncPullResponse(input: {
     );
   }
   const selectedEntries = input.entries.slice(0, selectedCount);
-  const responseEpochs = new Set([
-    input.identity.contentKeyEpoch,
-    ...selectedEntries.map((entry) => entry.writeHeader.contentKeyEpoch),
-  ]);
   const response = {
     ...input.base,
-    contentKeyBundles: [...responseEpochs]
-      .map((epoch) => bundlesByEpoch.get(epoch))
-      .filter((bundle) => bundle !== undefined)
-      .sort((left, right) => left.contentKeyEpoch - right.contentKeyEpoch),
+    contentKeyBundles,
     pullPage,
     updates: selectedEntries.map(({ update }) => update),
   };
