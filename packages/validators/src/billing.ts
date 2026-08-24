@@ -106,9 +106,15 @@ export function getSyncBillingTierForNativeProduct(
     return null;
   }
   const storeProductId = productId.split(":", 1)[0] ?? "";
-  const normalized = storeProductId.startsWith("symcrypt_")
-    ? storeProductId.slice("symcrypt_".length)
-    : storeProductId;
+  const normalized =
+    storeProductId === "symcrypt_sync_solo_monthly" ||
+    storeProductId === "symcrypt_sync_solo_monthly_staging" ||
+    storeProductId === "symcrypt_sync_team_5_monthly" ||
+    storeProductId === "symcrypt_sync_team_5_monthly_staging" ||
+    storeProductId === "symcrypt_sync_team_10_monthly" ||
+    storeProductId === "symcrypt_sync_team_10_monthly_staging"
+      ? storeProductId.slice("symcrypt_".length)
+      : storeProductId;
   if (
     normalized === "sync_monthly" ||
     normalized === "sync_monthly_staging" ||
