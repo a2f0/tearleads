@@ -89,11 +89,18 @@ data "cloudflare_zone" "staging" {
   }
 }
 
+moved {
+  from = module.website_cache
+  to   = module.website_cache[0]
+}
+
 module "website_cache" {
+  count  = var.manage_website_cache ? 1 : 0
   source = "../../../modules/cloudflare-website-cache"
 
-  zone_id  = data.cloudflare_zone.staging.id
-  hostname = local.website_hostname
+  zone_id              = data.cloudflare_zone.staging.id
+  hostname             = local.website_hostname
+  additional_hostnames = var.website_cache_additional_hostnames
 }
 
 module "tunnel" {
