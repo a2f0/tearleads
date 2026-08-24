@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.7"
 
   backend "s3" {
     key = "staging/server/terraform.tfstate"
