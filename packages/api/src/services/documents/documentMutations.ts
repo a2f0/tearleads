@@ -26,10 +26,16 @@ export const mutateDocumentLinkSet = createDatabaseWorkflowService<
   DocumentLinkSetMutationWorkflowResult
 >(runDocumentLinkSetMutationWorkflow);
 
-export const syncDocument = createDatabaseWorkflowService<
-  SyncDocumentInput,
-  DocumentSyncWorkflowResult
->(runDocumentSyncWorkflow);
+export function syncDocument(
+  runtime: ApiServiceRuntime,
+  input: SyncDocumentInput,
+): Promise<DocumentSyncWorkflowResult> {
+  return runDocumentSyncWorkflow(
+    runtime.db,
+    input,
+    runtime.documentSyncCursorHmacKey,
+  );
+}
 
 export async function purgeDocument(
   runtime: ApiServiceRuntime,

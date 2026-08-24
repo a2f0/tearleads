@@ -60,6 +60,7 @@ function fixture(entries: readonly ReturnType<typeof entry>[]) {
       },
     },
     contentKeyBundles: [bundle(1), currentBundle],
+    cursorHmacKey: "symcrypt-test-document-sync-cursor-hmac-key",
     entries,
     identity: {
       contentKeyEpoch: 2,

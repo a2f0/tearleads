@@ -178,6 +178,7 @@ function selectPullResponsePrefix(input: {
   readonly baseBytes: number;
   readonly bundlesByEpoch: ReadonlyMap<number, WireContentKeyBundle>;
   readonly currentBundle: WireContentKeyBundle;
+  readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly identity: PullIdentity;
   readonly maxBytes: number;
@@ -189,6 +190,7 @@ function selectPullResponsePrefix(input: {
   let selectedCount = 0;
   let updateArrayDelta = 0;
   let pullPage = createSyncPullPageResponse({
+    cursorHmacKey: input.cursorHmacKey,
     hasMore: input.page.hasMore,
     identity: input.identity,
     lastUpdateId: input.page.lastUpdateId,
@@ -212,6 +214,7 @@ function selectPullResponsePrefix(input: {
     const candidateCount = index + 1;
     const selectedEveryEntry = candidateCount === input.entries.length;
     const candidatePullPage = createSyncPullPageResponse({
+      cursorHmacKey: input.cursorHmacKey,
       hasMore: input.page.hasMore || !selectedEveryEntry,
       identity: input.identity,
       lastUpdateId: selectedEveryEntry
@@ -242,6 +245,7 @@ function selectPullResponsePrefix(input: {
 export function buildPaginatedSyncPullResponse(input: {
   readonly base: SyncResponseBase;
   readonly contentKeyBundles: readonly StoredDocumentContentKeyBundle[];
+  readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly identity: PullIdentity;
   readonly maxBytes?: number | undefined;
@@ -271,6 +275,7 @@ export function buildPaginatedSyncPullResponse(input: {
     baseBytes,
     bundlesByEpoch,
     currentBundle,
+    cursorHmacKey: input.cursorHmacKey,
     entries: input.entries,
     identity: input.identity,
     maxBytes,

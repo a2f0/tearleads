@@ -155,6 +155,7 @@ async function lockSyncDocumentFrontier(input: {
 }
 
 async function syncDocumentTransaction(input: {
+  readonly cursorHmacKey: string | null;
   readonly documentId: string;
   readonly enforceSyncEligibility: boolean;
   readonly fingerprint: string;
@@ -249,6 +250,7 @@ async function syncDocumentTransaction(input: {
   return buildSyncDocumentTransactionResult({
     appendResult,
     contentKeyBundle,
+    cursorHmacKey: input.cursorHmacKey,
     currentTargets,
     documentId: input.documentId,
     executor: input.tx,
@@ -260,6 +262,7 @@ async function syncDocumentTransaction(input: {
 async function buildSyncDocumentTransactionResult(input: {
   readonly appendResult: Awaited<ReturnType<typeof appendDocumentUpdates>>;
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
+  readonly cursorHmacKey: string | null;
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
@@ -285,6 +288,7 @@ async function buildSyncDocumentTransactionResult(input: {
     targetHash: input.contentKeyBundle.targetHash,
   };
   const pullPagePlan = await resolveSyncPullPagePlan({
+    cursorHmacKey: input.cursorHmacKey,
     identity: pullIdentity,
     request: input.request,
     resolveCursorBounds: (cursor) =>
@@ -323,6 +327,7 @@ async function buildSyncDocumentTransactionResult(input: {
   const responseWithoutCommit = buildPaginatedSyncPullResponse({
     base: responseBase,
     contentKeyBundles,
+    cursorHmacKey: input.cursorHmacKey,
     entries,
     identity: pullIdentity,
     page,
@@ -365,6 +370,9 @@ export async function appendProvisionedDocumentInitialUpdate(input: {
 
   try {
     await syncDocumentTransaction({
+      // Provisioning discards this response and submits exactly one update, so
+      // the initial transaction cannot expose a paginated continuation.
+      cursorHmacKey: null,
       documentId: input.documentId,
       enforceSyncEligibility: false,
       fingerprint: input.fingerprint,
@@ -385,6 +393,7 @@ export async function appendProvisionedDocumentInitialUpdate(input: {
 export async function runDocumentSyncWorkflow(
   db: ApiDatabase,
   input: SyncDocumentInput,
+  cursorHmacKey: string,
 ): Promise<DocumentSyncWorkflowResult> {
   try {
     // Read the signer key inside the transaction (parity with the link-set
@@ -392,6 +401,7 @@ export async function runDocumentSyncWorkflow(
     // the in-flight window.
     const transactionResult = await db.transaction(async (tx) =>
       syncDocumentTransaction({
+        cursorHmacKey,
         documentId: input.documentId,
         enforceSyncEligibility: true,
         fingerprint: input.fingerprint,

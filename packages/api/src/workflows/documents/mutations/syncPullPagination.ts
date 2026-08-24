@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import type { DocumentSyncPullPageResponse } from "@symcrypt/validators/response";
 import {
@@ -16,19 +17,38 @@ interface SyncPullIdentity {
   readonly targetHash: string;
 }
 
-interface SyncPullCursor extends SyncPullIdentity {
+interface SyncPullCursorPayload extends SyncPullIdentity {
   readonly afterUpdateId: string;
   readonly upperBoundUpdateId: string;
   readonly version: 1;
 }
 
+interface SyncPullCursor extends SyncPullCursorPayload {
+  readonly signature: string;
+}
+
+type SyncPullCursorPayloadWire = readonly [
+  version: 1,
+  contentKeyEpoch: number,
+  documentId: string,
+  linkSetManifestHash: string,
+  targetHash: string,
+  afterUpdateId: string,
+  upperBoundUpdateId: string,
+];
+type SyncPullCursorWire = readonly [
+  ...payload: SyncPullCursorPayloadWire,
+  signature: string,
+];
+
+const SYNC_PULL_CURSOR_HMAC_DOMAIN = "symcrypt.document-sync-pull-cursor.v1";
+const BASE64URL_SHA256_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
+
 /**
- * This cursor is a validated read-progress hint, not an authorization
- * capability. Every continuation re-runs document authorization and key-state
- * checks, and both update ids must resolve inside that authenticated document.
- * A caller can edit its own hint to omit or revisit its own readable rows, just
- * as it can choose a different version vector; it cannot cross documents,
- * mutate state, or make the server accept a false storage sequence.
+ * This cursor is an authenticated read-progress token, not an authorization
+ * capability. Its HMAC binds the document/key identity and both storage bounds;
+ * every continuation also re-runs document authorization and key-state checks,
+ * and both update ids must resolve inside that authenticated document.
  *
  * `minLsn` and untracked-LSN support intentionally remain request consistency
  * controls rather than server authority. The SDK carries the prior response's
@@ -59,16 +79,19 @@ function invalidPullCursor(): DocumentMutationError {
 }
 
 function parsePullCursor(value: unknown): SyncPullCursor | undefined {
-  if (typeof value !== "object" || value === null) {
+  if (!Array.isArray(value) || value.length !== 8) {
     return undefined;
   }
-  const afterUpdateId = Reflect.get(value, "afterUpdateId");
-  const contentKeyEpoch = Reflect.get(value, "contentKeyEpoch");
-  const documentId = Reflect.get(value, "documentId");
-  const linkSetManifestHash = Reflect.get(value, "linkSetManifestHash");
-  const targetHash = Reflect.get(value, "targetHash");
-  const upperBoundUpdateId = Reflect.get(value, "upperBoundUpdateId");
-  const version = Reflect.get(value, "version");
+  const [
+    version,
+    contentKeyEpoch,
+    documentId,
+    linkSetManifestHash,
+    targetHash,
+    afterUpdateId,
+    upperBoundUpdateId,
+    signature,
+  ] = value;
   if (
     version !== 1 ||
     typeof afterUpdateId !== "string" ||
@@ -80,7 +103,9 @@ function parsePullCursor(value: unknown): SyncPullCursor | undefined {
     typeof linkSetManifestHash !== "string" ||
     typeof targetHash !== "string" ||
     typeof upperBoundUpdateId !== "string" ||
-    !isUuidV4String(upperBoundUpdateId)
+    !isUuidV4String(upperBoundUpdateId) ||
+    typeof signature !== "string" ||
+    !BASE64URL_SHA256_PATTERN.test(signature)
   ) {
     return undefined;
   }
@@ -89,10 +114,60 @@ function parsePullCursor(value: unknown): SyncPullCursor | undefined {
     contentKeyEpoch,
     documentId,
     linkSetManifestHash,
+    signature,
     targetHash,
     upperBoundUpdateId,
     version,
   };
+}
+
+function cursorPayloadWire(
+  cursor: SyncPullCursorPayload,
+): SyncPullCursorPayloadWire {
+  return [
+    cursor.version,
+    cursor.contentKeyEpoch,
+    cursor.documentId,
+    cursor.linkSetManifestHash,
+    cursor.targetHash,
+    cursor.afterUpdateId,
+    cursor.upperBoundUpdateId,
+  ];
+}
+
+function signPullCursor(
+  cursor: SyncPullCursorPayload,
+  cursorHmacKey: string,
+): string {
+  return createHmac("sha256", cursorHmacKey)
+    .update(SYNC_PULL_CURSOR_HMAC_DOMAIN, "utf8")
+    .update("\0", "utf8")
+    .update(JSON.stringify(cursorPayloadWire(cursor)), "utf8")
+    .digest("base64url");
+}
+
+function cursorSignatureIsValid(
+  cursor: SyncPullCursor,
+  cursorHmacKey: string,
+): boolean {
+  const presented = Buffer.from(cursor.signature, "base64url");
+  const expected = Buffer.from(
+    signPullCursor(cursor, cursorHmacKey),
+    "base64url",
+  );
+  return (
+    presented.length === expected.length && timingSafeEqual(presented, expected)
+  );
+}
+
+function encodePullCursor(
+  cursor: SyncPullCursorPayload,
+  cursorHmacKey: string,
+): string {
+  return encodeCursor([
+    ...cursorPayloadWire(cursor),
+    signPullCursor(cursor, cursorHmacKey),
+  ] satisfies SyncPullCursorWire);
 }
 
 function cursorMatchesIdentity(
@@ -108,6 +183,7 @@ function cursorMatchesIdentity(
 }
 
 export async function resolveSyncPullPagePlan(input: {
+  readonly cursorHmacKey: string | null;
   readonly identity: SyncPullIdentity;
   readonly request: DocumentSyncRequest;
   readonly resolveCursorBounds: (input: {
@@ -135,6 +211,14 @@ export async function resolveSyncPullPagePlan(input: {
     parsePullCursor,
     invalidPullCursor,
   );
+  if (
+    input.cursorHmacKey === null ||
+    !cursorSignatureIsValid(cursor, input.cursorHmacKey)
+  ) {
+    throw documentSyncStateStale(
+      "Document pull cursor authentication changed; restart the pull",
+    );
+  }
   if (!cursorMatchesIdentity(cursor, input.identity)) {
     throw documentSyncStateStale(
       "Document key state changed during paginated pull",
@@ -145,6 +229,7 @@ export async function resolveSyncPullPagePlan(input: {
 }
 
 export function createSyncPullPageResponse(input: {
+  readonly cursorHmacKey: string | null;
   readonly hasMore: boolean;
   readonly identity: SyncPullIdentity;
   readonly lastUpdateId: string | null;
@@ -157,12 +242,20 @@ export function createSyncPullPageResponse(input: {
     if (afterUpdateId === null || upperBoundUpdateId === null) {
       throw new Error("Paginated document pull continuation is missing bounds");
     }
-    nextCursor = encodeCursor({
-      ...input.identity,
-      afterUpdateId,
-      upperBoundUpdateId,
-      version: 1,
-    } satisfies SyncPullCursor);
+    if (input.cursorHmacKey === null) {
+      throw new Error(
+        "Paginated document pull continuation signing is unavailable",
+      );
+    }
+    nextCursor = encodePullCursor(
+      {
+        ...input.identity,
+        afterUpdateId,
+        upperBoundUpdateId,
+        version: 1,
+      },
+      input.cursorHmacKey,
+    );
   }
   return {
     hasMore: input.hasMore,

@@ -81,11 +81,12 @@ response must carry `pullPage`; there is no legacy unbounded response mode. The
 first paginated pull proves `minLsn` before freezing its upper update bound.
 Update inserts and watermark capture serialize on the document manifest head,
 so PostgreSQL identity allocation cannot place a later-committing lower sequence
-behind the cursor. The opaque cursor binds the document id, content-key epoch,
-link-set hash, target hash, last returned update, and the original upper bound.
-It is a validated progress hint rather than an authorization capability: each
-request reauthorizes the document, and both cursor ids must resolve within it.
-A caller can only narrow or revisit its own readable snapshot by changing it.
+behind the cursor. The opaque cursor authenticates the document id, content-key
+epoch, link-set hash, target hash, last returned update, and original upper
+bound with a deployment HMAC key. It is not an authorization capability: each
+request still reauthorizes the document, and both cursor ids must resolve within
+it. Cursor tampering or deployment-key rotation rejects the continuation as
+stale so the client restarts from a fresh bounded snapshot.
 A readable authenticated rotation baseline may move the initial lower bound
 forward before page selection only after its source frontier proves that it
 covers every update the client is missing before that baseline.
