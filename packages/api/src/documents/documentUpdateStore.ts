@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import {
   type ApiDatabaseKind,
   type DatabaseSession,
@@ -23,7 +24,6 @@ interface SqlNamedColumn {
 }
 
 interface MissingDocumentUpdateCandidate {
-  byteLength: number;
   id: string;
   sequence: number;
 }
@@ -66,14 +66,10 @@ function isMissingDocumentUpdateCandidate(
     return false;
   }
 
-  const byteLength = Reflect.get(value, "byteLength");
   const id = Reflect.get(value, "id");
   const sequence = Reflect.get(value, "sequence");
 
   return (
-    typeof byteLength === "number" &&
-    Number.isSafeInteger(byteLength) &&
-    byteLength >= 0 &&
     typeof id === "string" &&
     typeof sequence === "number" &&
     Number.isSafeInteger(sequence) &&
@@ -160,7 +156,6 @@ async function listMissingDocumentUpdateCandidates(
   const updateId = aliasedColumn("u", documentUpdates.id);
   const updateDocumentId = aliasedColumn("u", documentUpdates.documentId);
   const updateSequence = aliasedColumn("u", documentUpdates.sequence);
-  const updateByteLength = aliasedColumn("u", documentUpdates.byteLength);
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
   const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
@@ -179,8 +174,7 @@ async function listMissingDocumentUpdateCandidates(
   const result = await executor.execute(sql`
     select
       ${updateSequence} as "sequence",
-      ${textExpression(updateId)} as "id",
-      ${updateByteLength} as "byteLength"
+      ${textExpression(updateId)} as "id"
     from ${documentUpdates} u
     where ${updateDocumentId} = ${uuidValue(input.documentId)}
       ${lowerBound}
@@ -343,7 +337,7 @@ export async function listMissingDocumentUpdatePage(
     readonly afterSequence: number;
     readonly documentId: string;
     readonly localVersionVector: string | null;
-    readonly maxEncryptedBytes: number;
+    readonly maxSerializedBytes: number;
     readonly maxUpdates: number;
     readonly minLsn?: string | undefined;
     readonly upperBoundSequence: number;
@@ -357,14 +351,29 @@ export async function listMissingDocumentUpdatePage(
     localVersionVector: input.localVersionVector,
     upperBoundSequence: input.upperBoundSequence,
   });
-  const selected: MissingDocumentUpdateCandidate[] = [];
-  let selectedBytes = 0;
+  const selected: DocumentUpdateRecord[] = [];
+  let selectedBytes = 2; // JSON array brackets.
   for (const candidate of candidates.slice(0, input.maxUpdates)) {
-    if (selectedBytes + candidate.byteLength > input.maxEncryptedBytes) {
+    // Load one row at a time before retaining it. Candidate byte_length only
+    // describes ciphertext; selecting all 64 candidates from that value first
+    // can materialize an unbounded aggregate of version vectors, hashes, and
+    // other response metadata before the later wire-size trim runs.
+    const [update] = await loadDocumentUpdatesByCandidate(executor, [
+      candidate,
+    ]);
+    if (!update) {
+      throw new DocumentUpdateReadError(
+        "Document update changed while loading page; retry",
+        409,
+      );
+    }
+    const updateBytes = Buffer.byteLength(JSON.stringify(update), "utf8");
+    const addedBytes = updateBytes + (selected.length === 0 ? 0 : 1);
+    if (selectedBytes + addedBytes > input.maxSerializedBytes) {
       break;
     }
-    selected.push(candidate);
-    selectedBytes += candidate.byteLength;
+    selected.push(update);
+    selectedBytes += addedBytes;
   }
   if (candidates.length > 0 && selected.length === 0) {
     throw new DocumentUpdateReadError(
@@ -377,6 +386,6 @@ export async function listMissingDocumentUpdatePage(
     hasMore: selected.length < candidates.length,
     lastUpdateId: selected.at(-1)?.id ?? null,
     lastSequence: selected.at(-1)?.sequence ?? input.afterSequence,
-    updates: await loadDocumentUpdatesByCandidate(executor, selected),
+    updates: selected,
   };
 }

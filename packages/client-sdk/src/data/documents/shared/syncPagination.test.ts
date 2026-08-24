@@ -253,6 +253,46 @@ test("an oversized version vector resumes beyond the first 64 updates", async ()
   ]);
 });
 
+test("a resumed pull retains its original commit LSN mode", async () => {
+  const resumedRequest: DocumentSyncRequest = {
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "manifest-1",
+    expectedTargetHash: "targets-1",
+    localVersionVector: null,
+    minLsn: "0/2",
+    outgoingUpdates: [],
+    pullCursor: "cursor-from-tracked-page",
+    supportsPullPagination: true,
+    supportsUntrackedCommitLsn: true,
+  };
+  const switchedMode = {
+    ...response({
+      commitLsn: "0/0",
+      cursor: null,
+      updateId: "update-after-resume",
+    }),
+    commitLsnMode: "untracked" as const,
+  };
+
+  await expect(
+    submitDocumentSync({
+      apiClient: {
+        getDocumentWriterProjection: async () => null,
+        syncDocument: async () => null,
+        syncDocumentResult: async () => ({
+          data: switchedMode,
+          ok: true as const,
+        }),
+      },
+      expectedCommitLsnMode: "tracked",
+      plan: {
+        documentId: DOCUMENT_ID,
+        request: resumedRequest,
+      } as DocumentSyncPlan,
+    }),
+  ).rejects.toThrow("Document sync continuation commit LSN mode changed");
+});
+
 test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {
   const request: DocumentSyncRequest = {
     contentKeyEpoch: 1,

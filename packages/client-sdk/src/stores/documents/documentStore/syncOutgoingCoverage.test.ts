@@ -240,7 +240,10 @@ test("a live cursor after a 64-update page bypasses the clean lane skip", async 
       }),
     ).toBe(true);
 
-    fixture.state.pullCursor = "page-after-update-64";
+    fixture.state.pullContinuation = {
+      commitLsnMode: "tracked",
+      cursor: "page-after-update-64",
+    };
     expect(
       shouldSkipCleanScheduledDocumentSync({
         currentRecord,

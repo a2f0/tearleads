@@ -285,7 +285,7 @@ test("pagination redirects past a long covered history to its readable baseline"
     afterSequence,
     documentId,
     localVersionVector: null,
-    maxEncryptedBytes: 1_000,
+    maxSerializedBytes: 1_000,
     maxUpdates: 64,
     upperBoundSequence: baselineSequence,
   });

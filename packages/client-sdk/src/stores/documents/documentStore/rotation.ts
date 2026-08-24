@@ -5,6 +5,7 @@ import {
   importUpdates,
   versionVectorsEqual,
 } from "@symcrypt/loro";
+import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,
@@ -105,7 +106,7 @@ async function pullVerifiedHistoryForRotation(input: {
           if (
             isDocumentStoreSyncGenerationCurrent(input.state, input.generation)
           ) {
-            input.state.pullCursor = null;
+            input.state.pullContinuation = null;
           }
         },
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
@@ -114,7 +115,7 @@ async function pullVerifiedHistoryForRotation(input: {
         ),
         pendingUpdates: input.pendingUpdates,
         persistedState: input.currentRecord,
-        pullCursor: input.state.pullCursor ?? undefined,
+        pullContinuation: input.state.pullContinuation ?? undefined,
         rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
         resolveProjectionUserKey: input.state.resolveProjectionUserKey,
         resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -217,7 +218,7 @@ async function recoverFullHistoryForRotation(
       state,
       synced,
     });
-    state.pullCursor = synced.response.pullPage.nextCursor;
+    state.pullContinuation = readPullContinuation(synced.response);
     if (synced.hasIncompletePull) {
       throw new Error(
         "Rotation full-history recovery persisted a partial pull; retry after sync completes",

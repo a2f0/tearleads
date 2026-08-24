@@ -150,7 +150,10 @@ test("a clean metadata follow-up resumes its live pull cursor", async () => {
       metadataState: {
         container,
         doc,
-        pullCursor: "metadata-page-after-update-64",
+        pullContinuation: {
+          commitLsnMode: "tracked",
+          cursor: "metadata-page-after-update-64",
+        },
         record,
       },
     }),

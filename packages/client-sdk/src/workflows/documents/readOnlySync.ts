@@ -14,6 +14,7 @@ import {
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
+import type { DocumentSyncPullContinuation } from "../../data/documents/shared/syncPagination";
 import type {
   DocumentCreateAuthor,
   DocumentSyncApi,
@@ -55,7 +56,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
-    pullCursor: input.pullCursor,
+    pullCursor: input.pullContinuation?.cursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
     signedAt: input.signedAt,
@@ -142,7 +143,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   documentId: string;
   localVersionVector: string | null;
   minLsn?: string | undefined;
-  pullCursor?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   signedAt?: string | undefined;
 }): Promise<DocumentSyncPlan | null> {
@@ -163,7 +164,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates: [],
-    pullCursor: input.pullCursor,
+    pullCursor: input.pullContinuation?.cursor,
     signedAt: input.signedAt,
   });
   const request = limitDocumentSyncRequestBytes(plan.request);
@@ -186,7 +187,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
-  pullCursor?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
@@ -318,6 +319,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
 
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
+    expectedCommitLsnMode: input.pullContinuation?.commitLsnMode,
     plan,
   });
   if (!submitted) {
@@ -404,7 +406,7 @@ export interface SyncRemoteDocumentInput {
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
-  pullCursor?: string | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   // Receives the reason whenever this sync returns null, so callers that
   // convert a null result into their own error can name the real cause.

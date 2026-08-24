@@ -80,7 +80,10 @@ test("rotation persists bounded pull progress but waits for full history", async
     await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
       "persisted a partial pull",
     );
-    expect(state.pullCursor).toBe("rotation-page-3");
+    expect(state.pullContinuation).toEqual({
+      commitLsnMode: "tracked",
+      cursor: "rotation-page-3",
+    });
     expect(requestedSyncCount).toBe(1);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key rotation");
 

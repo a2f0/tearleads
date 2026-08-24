@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
 import { getImportBlobMetadata, mergeVersionVectors } from "@symcrypt/loro";
+import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   type DocumentRecord,
   settleOutgoingPassAndDecideReArm,
@@ -221,7 +222,7 @@ export async function finalizeDocumentSync(
       return { record: state.record ?? currentRecord };
     }
 
-    state.pullCursor = synced.response.pullPage.nextCursor;
+    state.pullContinuation = readPullContinuation(synced.response);
     responseApplied = true;
     return persisted;
   });

@@ -22,10 +22,11 @@ import {
   serializeCanonical,
   serializedPersistedDocumentState,
 } from "./readers";
-import { submitDocumentSyncPages } from "./syncPagination";
+
+export { submitDocumentSync } from "./syncPagination";
+
 import { documentWriteAuthorizationForHeader } from "./syncResponseAuthorization";
 import type {
-  DocumentSyncApi,
   DocumentSyncPlan,
   DocumentSyncSubmitFailure,
   DocumentWriterPublicKeyResolver,
@@ -463,37 +464,4 @@ export function isUpstreamDeletedDocumentSyncFailure(
   return (
     failure.status === 404 && failure.code === DOCUMENT_NOT_FOUND_ERROR_CODE
   );
-}
-
-export async function submitDocumentSync(input: {
-  apiClient: DocumentSyncApi;
-  plan: DocumentSyncPlan;
-}): Promise<
-  | {
-      readonly ok: true;
-      readonly pullComplete: boolean;
-      readonly response: DocumentSyncResponse;
-    }
-  | DocumentSyncSubmitFailure
-  | null
-> {
-  return submitDocumentSyncPages({
-    plan: input.plan,
-    submit: async (request) => {
-      if (input.apiClient.syncDocumentResult) {
-        const result = await input.apiClient.syncDocumentResult(
-          input.plan.documentId,
-          request,
-          { reportErrors: false },
-        );
-        return result.ok ? { ok: true, response: result.data } : result;
-      }
-
-      const response = await input.apiClient.syncDocument(
-        input.plan.documentId,
-        request,
-      );
-      return response ? { ok: true, response } : null;
-    },
-  });
 }

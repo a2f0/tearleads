@@ -209,7 +209,7 @@ export async function listMissingSyncUpdateEntries(input: {
         ...input.pullPage,
         documentId: input.documentId,
         localVersionVector: input.localVersionVector,
-        maxEncryptedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
+        maxSerializedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
         maxUpdates: MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
         minLsn: input.minLsn,
       })

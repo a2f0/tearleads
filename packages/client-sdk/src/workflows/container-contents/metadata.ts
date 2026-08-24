@@ -4,6 +4,7 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
@@ -130,7 +131,7 @@ interface SyncRemoteContainerMetadataInput {
   onPullCursorInvalidated?: (() => void) | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
-  pullCursor?: string | undefined;
+  pullContinuation?: ContainerMetadataState["pullContinuation"];
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
@@ -194,7 +195,7 @@ async function syncRemoteContainerMetadata(
       }),
     pendingUpdates,
     persistedState,
-    pullCursor: input.pullCursor,
+    pullContinuation: input.pullContinuation ?? undefined,
     rekeyPendingUpdate,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -331,7 +332,7 @@ export async function syncContainerMetadataState(
   );
   if (
     pendingUpdates.length === 0 &&
-    metadataState.pullCursor == null &&
+    metadataState.pullContinuation == null &&
     !input.forceReadSync &&
     hasCurrentContainerMetadataReadState(metadataState.record)
   ) {
@@ -360,11 +361,11 @@ export async function syncContainerMetadataState(
             updateIds,
           ),
         onPullCursorInvalidated: () => {
-          metadataState.pullCursor = null;
+          metadataState.pullContinuation = null;
         },
         pendingUpdates,
         persistedState: metadataState.record,
-        pullCursor: metadataState.pullCursor ?? undefined,
+        pullContinuation: metadataState.pullContinuation ?? undefined,
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey,
         runtime,
@@ -486,7 +487,7 @@ async function finalizeContainerMetadataSync(input: {
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
-  metadataState.pullCursor = synced.response.pullPage.nextCursor;
+  metadataState.pullContinuation = readPullContinuation(synced.response);
 
   return {
     ...persisted,

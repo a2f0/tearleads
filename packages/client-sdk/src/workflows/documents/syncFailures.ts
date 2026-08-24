@@ -6,6 +6,7 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
+import type { DocumentSyncCommitLsnMode } from "../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncApi,
   DocumentSyncPlan,
@@ -142,6 +143,7 @@ async function submitDocumentSyncAttempt(input: {
   attempt: number;
   canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
+  expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
@@ -151,6 +153,7 @@ async function submitDocumentSyncAttempt(input: {
 }): Promise<DocumentSyncAttemptSubmission> {
   const submitted = await submitDocumentSync({
     apiClient: input.apiClient,
+    expectedCommitLsnMode: input.expectedCommitLsnMode,
     plan: input.plan,
   });
   if (!submitted) {

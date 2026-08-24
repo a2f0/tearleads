@@ -1,5 +1,6 @@
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import type { ContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import type { DocumentSyncPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ContainerMetadataRecord } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 
@@ -11,7 +12,7 @@ export interface ContainerMetadataState {
     | null
     | undefined;
   /** In-memory continuation for the current bounded metadata pull. */
-  pullCursor?: string | null | undefined;
+  pullContinuation?: DocumentSyncPullContinuation | null | undefined;
   record: ContainerMetadataRecord;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates

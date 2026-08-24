@@ -5,7 +5,18 @@ import {
   parseWalLsn,
 } from "@symcrypt/validators/util";
 import { serializeCanonical } from "./readers";
-import type { DocumentSyncPlan, DocumentSyncSubmitFailure } from "./types";
+import type {
+  DocumentSyncApi,
+  DocumentSyncPlan,
+  DocumentSyncSubmitFailure,
+} from "./types";
+
+export type DocumentSyncCommitLsnMode = "tracked" | "untracked";
+
+export interface DocumentSyncPullContinuation {
+  readonly commitLsnMode: DocumentSyncCommitLsnMode;
+  readonly cursor: string;
+}
 
 // Until page-at-a-time persistence lands, retain at most one continuation in
 // memory. The aggregate is also bounded to one server page's update count.
@@ -54,7 +65,9 @@ function assertContinuationIdentity(
   if (continuation.documentId !== first.documentId) {
     throw new Error("Document sync continuation document mismatch");
   }
-  if (continuation.commitLsnMode !== first.commitLsnMode) {
+  if (
+    documentSyncCommitLsnMode(continuation) !== documentSyncCommitLsnMode(first)
+  ) {
     throw new Error("Document sync continuation commit LSN mode changed");
   }
   if (
@@ -76,6 +89,21 @@ function assertContinuationIdentity(
   if (continuation.acceptedOutgoingUpdateIds.length !== 0) {
     throw new Error("Document sync continuation accepted outgoing updates");
   }
+}
+
+function documentSyncCommitLsnMode(
+  response: DocumentSyncResponse,
+): DocumentSyncCommitLsnMode {
+  return response.commitLsnMode === "untracked" ? "untracked" : "tracked";
+}
+
+export function readPullContinuation(
+  response: DocumentSyncResponse,
+): DocumentSyncPullContinuation | null {
+  const cursor = requirePullPage(response).nextCursor;
+  return cursor === null
+    ? null
+    : { commitLsnMode: documentSyncCommitLsnMode(response), cursor };
 }
 
 function assertPageCheckpoint(input: {
@@ -168,7 +196,8 @@ function incompletePullResult(
   return { ok: true, pullComplete: false, response };
 }
 
-export async function submitDocumentSyncPages(input: {
+async function submitDocumentSyncPages(input: {
+  readonly expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
   readonly plan: DocumentSyncPlan;
   readonly submit: (
     request: DocumentSyncRequest,
@@ -176,6 +205,12 @@ export async function submitDocumentSyncPages(input: {
 }): Promise<DocumentSyncSubmission> {
   const first = await input.submit(input.plan.request);
   if (!first || !first.ok) return first;
+  if (
+    input.expectedCommitLsnMode !== undefined &&
+    documentSyncCommitLsnMode(first.response) !== input.expectedCommitLsnMode
+  ) {
+    throw new Error("Document sync continuation commit LSN mode changed");
+  }
   assertPageCheckpoint({
     minLsn: input.plan.request.minLsn,
     response: first.response,
@@ -233,4 +268,31 @@ export async function submitDocumentSyncPages(input: {
   }
 
   return { ok: true, pullComplete: true, response: aggregate };
+}
+
+export async function submitDocumentSync(input: {
+  apiClient: DocumentSyncApi;
+  expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
+  plan: DocumentSyncPlan;
+}): Promise<DocumentSyncSubmission> {
+  return submitDocumentSyncPages({
+    expectedCommitLsnMode: input.expectedCommitLsnMode,
+    plan: input.plan,
+    submit: async (request) => {
+      if (input.apiClient.syncDocumentResult) {
+        const result = await input.apiClient.syncDocumentResult(
+          input.plan.documentId,
+          request,
+          { reportErrors: false },
+        );
+        return result.ok ? { ok: true, response: result.data } : result;
+      }
+
+      const response = await input.apiClient.syncDocument(
+        input.plan.documentId,
+        request,
+      );
+      return response ? { ok: true, response } : null;
+    },
+  });
 }
