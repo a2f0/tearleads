@@ -46,10 +46,16 @@ test("native product ids map exact production, staging, and Play base plans", ()
     ["com.symcrypt.sync.monthly", "solo"],
     ["sync_solo_monthly", "solo"],
     ["sync_solo_monthly_staging", "solo"],
+    ["symcrypt_sync_solo_monthly", "solo"],
+    ["symcrypt_sync_solo_monthly_staging", "solo"],
     ["sync_team_5_monthly:monthly", "team_5"],
     ["sync_team_5_monthly_staging:monthly", "team_5"],
+    ["symcrypt_sync_team_5_monthly", "team_5"],
+    ["symcrypt_sync_team_5_monthly_staging", "team_5"],
     ["sync_team_10_monthly", "team_10"],
     ["sync_team_10_monthly_staging:monthly", "team_10"],
+    ["symcrypt_sync_team_10_monthly", "team_10"],
+    ["symcrypt_sync_team_10_monthly_staging", "team_10"],
   ] as const;
 
   for (const [productId, tierId] of cases) {
@@ -63,6 +69,11 @@ test("native product matching rejects unknown suffixes and malformed ids", () =>
     "sync_team_5_monthly_anything",
     "sync_team_10_monthly_staging_extra",
     "sync_team_10_monthly_extra:monthly",
+    "symcrypt_sync_monthly",
+    "symcrypt_sync_monthly_staging",
+    "symcrypt_sync_team_10_monthly:monthly",
+    "symcrypt_sync_team_10_monthly:anything",
+    "symcrypt_sync_team_10_monthly_preview",
     "SYNC_SOLO_MONTHLY",
     "",
   ]) {

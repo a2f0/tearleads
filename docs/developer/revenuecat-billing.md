@@ -94,9 +94,9 @@ quantity `1`. Apple, Google, and RevenueCat Test Store represent them as three
 products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
 10), not the number of currently active members.
 
-The former `sync_monthly`, `sync_monthly_staging`, and
-`com.symcrypt.sync.monthly` product identifiers remain accepted as Solo
-aliases for old receipts. New store products must use the fixed-tier stems.
+Old Solo aliases remain accepted for receipts. Google and Test Store use the
+stems above; App Store prefixes them with `symcrypt_` because Apple reserves
+the old IDs.
 
 ## Entitlement
 
