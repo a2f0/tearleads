@@ -2,6 +2,7 @@ import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
 import { useEffect, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { getRosterProfileDocumentIds } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import {
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDisplayNames,
@@ -68,6 +69,9 @@ function startProfileDisplayNameLoad(input: {
       if (profileBindingsByLocalId.size === 0) {
         return;
       }
+      const profileDocumentIds = getRosterProfileDocumentIds(
+        profileBindingsByLocalId,
+      );
 
       const reload = async () => {
         const sequence = ++loadSequence;
@@ -84,7 +88,10 @@ function startProfileDisplayNameLoad(input: {
         }
       };
       unsubscribe = input.symcrypt.documents.subscribe((document) => {
-        if (profileBindingsByLocalId.has(document.id)) {
+        if (
+          document.documentId &&
+          profileDocumentIds.has(document.documentId)
+        ) {
           void reload();
         }
       });

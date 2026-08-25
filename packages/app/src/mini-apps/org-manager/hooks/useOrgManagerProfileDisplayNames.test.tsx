@@ -170,7 +170,7 @@ test("59 roster profiles use one local query and no hydration fanout", async () 
   expect(harness.subscribe).toHaveBeenCalledTimes(1);
 });
 
-test("local changes repaint and current profile bindings reject stale rows", async () => {
+test("reused-store changes repaint and current bindings reject stale rows", async () => {
   const user = rosterUser({
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
@@ -202,13 +202,14 @@ test("local changes repaint and current profile bindings reject stale rows", asy
   );
 
   act(() => {
-    harness.emit(
-      profileSummary({
+    harness.emit({
+      ...profileSummary({
         profileDocumentId: PROFILE_DOCUMENT_ID,
         title: "Updated Name",
         userId: USER_ID,
       }),
-    );
+      id: "preexisting-local-id",
+    });
   });
   await waitFor(() =>
     expect(view.result.current.profileDisplayNamesByUserId.get(USER_ID)).toBe(

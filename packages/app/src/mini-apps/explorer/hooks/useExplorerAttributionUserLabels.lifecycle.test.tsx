@@ -172,7 +172,7 @@ test("59 cold roster profiles cause one local query and zero hydration fanout", 
   }
 });
 
-test("local profile updates repaint while group-only revisions do not reload", async () => {
+test("reused-store profile updates repaint while group revisions do not reload", async () => {
   const user = rosterUser({
     profileDocumentId: FIRST_PROFILE_ID,
     userId: PROFILE_USER_ID,
@@ -243,13 +243,14 @@ test("local profile updates repaint while group-only revisions do not reload", a
     expect(harness.list).toHaveBeenCalledTimes(1);
 
     act(() => {
-      harness.emit(
-        profileSummary({
+      harness.emit({
+        ...profileSummary({
           profileDocumentId: FIRST_PROFILE_ID,
           title: "Updated Profile",
           userId: PROFILE_USER_ID,
         }),
-      );
+        id: "preexisting-local-id",
+      });
     });
     await waitFor(() =>
       expect(view.result.current(PROFILE_USER_ID)).toBe("Updated Profile"),

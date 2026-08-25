@@ -41,6 +41,16 @@ export function getRosterProfileBindingsByLocalId(input: {
   );
 }
 
+export function getRosterProfileDocumentIds(
+  profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>,
+): ReadonlySet<string> {
+  return new Set(
+    [...profileBindingsByLocalId.values()].map(
+      (profile) => profile.profileDocumentId,
+    ),
+  );
+}
+
 export function getLocalRosterProfileDisplayNames(input: {
   readonly documents: DocumentList | null;
   readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
