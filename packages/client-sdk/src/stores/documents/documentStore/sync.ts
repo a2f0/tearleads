@@ -1,4 +1,3 @@
-import { encodeVersionVector, satisfiesVersionVector } from "@symcrypt/loro";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import {
   type DocumentRecord,
@@ -130,9 +129,6 @@ async function syncDocumentState(
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
-  selectPendingUpdates: (
-    pendingUpdates: PendingUpdateRecord[],
-  ) => PendingUpdateRecord[] = (pendingUpdates) => pendingUpdates,
 ): Promise<DocumentRecord> {
   // Snapshot the remote-update signal sequence before any await. The GET below
   // fetches server state as of its own snapshot; any remote event delivered
@@ -140,7 +136,7 @@ async function syncDocumentState(
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const wasRemoteProbe = state.remoteUpdatePending;
-  let pendingUpdates = selectPendingUpdates(await listPendingUpdates(state));
+  let pendingUpdates = await listPendingUpdates(state);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
     return state.record ?? nextRecord;
@@ -187,7 +183,7 @@ async function syncDocumentState(
     return state.record ?? nextRemoteRecord;
   }
   nextRemoteRecord = preparedCoverage.record;
-  pendingUpdates = selectPendingUpdates(preparedCoverage.pendingUpdates);
+  pendingUpdates = preparedCoverage.pendingUpdates;
 
   if (
     shouldSkipCleanScheduledDocumentSync({
@@ -236,89 +232,6 @@ async function syncDocumentState(
       wasRemoteProbe,
     ),
   );
-}
-
-function ordinaryPendingUpdates(
-  pendingUpdates: PendingUpdateRecord[],
-): PendingUpdateRecord[] {
-  return pendingUpdates.filter(
-    (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
-  );
-}
-
-function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
-  return pendingUpdates
-    .map((pendingUpdate) => pendingUpdate.id)
-    .sort()
-    .join("\n");
-}
-
-/**
- * A rotation baseline may cover only updates already committed to the
- * ordinary remote stream. Drain local ordinary rows first and deliberately
- * leave queued rotation checkpoints untouched: raw recovery does not trust
- * checkpoints, so neither can this settlement step.
- */
-export async function settleOrdinaryDocumentUpdatesBeforeRotation(
-  state: DocumentStoreState,
-): Promise<void> {
-  const stalledQueueStates = new Set<string>();
-
-  while (true) {
-    const currentDoc = state.doc;
-    const currentRecord = state.record;
-    const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
-    if (!currentDoc || !currentRecord || !encapsulationKeyPair) {
-      throw new Error(
-        "Document changed while local updates were settling for key rotation",
-      );
-    }
-
-    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-    if (!generation) {
-      throw new Error(
-        "Document changed while local updates were settling for key rotation",
-      );
-    }
-    const pendingUpdates = ordinaryPendingUpdates(
-      await listPendingUpdates(state),
-    );
-    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-      throw new Error(
-        "Document changed while local updates were settling for key rotation",
-      );
-    }
-    const pendingBaseVersion = state.pendingBaseVersion;
-    if (pendingBaseVersion === null) {
-      throw new Error("Document rotation requires an initialized pending base");
-    }
-    if (
-      pendingUpdates.length === 0 &&
-      satisfiesVersionVector(
-        pendingBaseVersion,
-        encodeVersionVector(currentDoc),
-      )
-    ) {
-      return;
-    }
-
-    const queueState = `${pendingBaseVersion}\n${pendingUpdateSetKey(pendingUpdates)}`;
-    if (stalledQueueStates.has(queueState)) {
-      throw new Error(
-        "Document local updates could not be committed before key rotation",
-      );
-    }
-    stalledQueueStates.add(queueState);
-
-    await syncDocumentState(
-      state,
-      currentDoc,
-      currentRecord,
-      encapsulationKeyPair,
-      generation,
-      ordinaryPendingUpdates,
-    );
-  }
 }
 
 async function revalidateRemoteDocumentBeforeAttachments(

@@ -29,6 +29,7 @@ import {
   noopDocumentStorePersistenceEffects,
 } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
+import { setDocumentText } from "./mutations";
 import { enqueuePendingUpdate, listPendingUpdates } from "./persistence";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import {
@@ -37,6 +38,44 @@ import {
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
 
+async function createForgedRotationBaseline(
+  fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
+  updateId: string,
+) {
+  const forgedDocument = await createDocument("rotation-recovery-remote");
+  forgedDocument.getText("text").update("forged value");
+  forgedDocument.commit();
+  forgedDocument.getText("text").update("forged value hidden!!");
+  forgedDocument.commit();
+  expect(encodeVersionVector(forgedDocument)).toBe(
+    encodeVersionVector(fixture.remoteDocument),
+  );
+  const snapshot = exportFullHistorySnapshot(forgedDocument);
+  const vectors = getUpdateVersionVectors(snapshot);
+  const plan = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        id: updateId,
+        sourceVersionVector: vectors.partialEndVersionVector,
+        updateData: bytesToBase64(snapshot),
+        ...vectors,
+      }),
+    ],
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  });
+  return {
+    response: await createSyncResponse(plan.plan, {
+      acceptedOutgoingUpdateIds: [],
+    }),
+    snapshot,
+    vectors,
+  };
+}
+
 test("raw recovery ignores a forged rotation baseline and replays original updates", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-forged-baseline",
@@ -44,37 +83,13 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
-    const forgedDocument = await createDocument("rotation-recovery-remote");
-    forgedDocument.getText("text").update("forged value");
-    forgedDocument.commit();
-    forgedDocument.getText("text").update("forged value hidden!!");
-    forgedDocument.commit();
-    expect(encodeVersionVector(forgedDocument)).toBe(
-      encodeVersionVector(fixture.remoteDocument),
+    const forged = await createForgedRotationBaseline(
+      fixture,
+      "550e8400-e29b-41d4-a716-446655440445",
     );
-    const forgedSnapshot = exportFullHistorySnapshot(forgedDocument);
-    const forgedVectors = getUpdateVersionVectors(forgedSnapshot);
-    const forgedPlan = await buildMaterializedDocumentSyncPlan({
-      author: fixture.author,
-      localVersionVector: null,
-      pendingUpdates: [
-        createPendingUpdateRecord({
-          id: "550e8400-e29b-41d4-a716-446655440445",
-          sourceVersionVector: forgedVectors.partialEndVersionVector,
-          updateData: bytesToBase64(forgedSnapshot),
-          ...forgedVectors,
-        }),
-      ],
-      targetSecretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-      writerProjection: fixture.writerProjection,
-    });
-    const forgedResponse = await createSyncResponse(forgedPlan.plan, {
-      acceptedOutgoingUpdateIds: [],
-    });
     const rawResponse = {
       ...fixture.response,
-      updates: [...fixture.response.updates, ...forgedResponse.updates],
+      updates: [...fixture.response.updates, ...forged.response.updates],
     };
     const localId = "rotation-recovery-forged-baseline-local";
     await persistFullHistoryDocument({
@@ -98,8 +113,8 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     expect(
       await enqueuePendingUpdate(
         state,
-        forgedSnapshot,
-        forgedVectors.partialEndVersionVector,
+        forged.snapshot,
+        forged.vectors.partialEndVersionVector,
       ),
     ).toBe(true);
 
@@ -109,6 +124,67 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
     expect(await listPendingUpdates(state)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("settlement does not persist a returned baseline before raw recovery succeeds", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-settlement-stages-baseline",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const forged = await createForgedRotationBaseline(
+      fixture,
+      "550e8400-e29b-41d4-a716-446655440446",
+    );
+    const localId = "rotation-settlement-stages-baseline-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        requireRawHistory: false,
+        responseForRequest: (request, response) => {
+          if (request.historyMode === "raw") {
+            throw new Error("Simulated raw recovery failure");
+          }
+          return {
+            ...response,
+            updates: [...response.updates, ...forged.response.updates],
+          };
+        },
+      }),
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    if (!state.doc) throw new Error("Expected full-history document");
+    await setDocumentText(state, () => undefined, "pending local edit");
+    expect(await listPendingUpdates(state)).toHaveLength(1);
+    const historyBefore = await sqlDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      localId,
+    );
+
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "Simulated raw recovery failure",
+    );
+
+    expect(await listPendingUpdates(state)).toHaveLength(0);
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
+    ).toEqual(historyBefore);
+    expect(state.doc && getTextValue(state.doc)).toBe("pending local edit");
   } finally {
     close();
   }

@@ -8,7 +8,6 @@ import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
-import { readWriteHeader } from "../../data/documents/shared/readers";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
@@ -54,29 +53,6 @@ function isolateContentKeyResponseFailure(
   });
 }
 
-function rawResponseHasFutureContentKeyEpoch(
-  response: DocumentSyncResponse,
-  currentContentKeyEpoch: number,
-): boolean {
-  for (const update of response.updates) {
-    try {
-      if (
-        readWriteHeader(
-          update.writeHeader,
-          "Document raw-history response write header",
-        ).contentKeyEpoch > currentContentKeyEpoch
-      ) {
-        return true;
-      }
-    } catch {
-      // A malformed header is also poison, never evidence that retained
-      // historical key material is unavailable.
-      return true;
-    }
-  }
-  return false;
-}
-
 type SyncRemoteDocumentResultInput = {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
@@ -98,9 +74,7 @@ async function resolveVerifiedResponseState(
   const { plan } = input.materializedPlan;
   let persistedState: Awaited<
     ReturnType<typeof persistedDocumentSyncStateFromResponse>
-  > | null = null;
-  let deferredRawContentKeyFailure: DocumentSyncResponseUpdateContentKeyError | null =
-    null;
+  >;
   try {
     persistedState = await persistedDocumentSyncStateFromResponse(
       plan,
@@ -110,18 +84,10 @@ async function resolveVerifiedResponseState(
       },
     );
   } catch (error) {
-    if (
-      plan.request.historyMode === "raw" &&
-      error instanceof DocumentSyncResponseUpdateContentKeyError &&
-      !rawResponseHasFutureContentKeyEpoch(input.response, plan.contentKeyEpoch)
-    ) {
-      // Let sorted key resolution select the earliest unavailable epoch. If
-      // every referenced key resolves (for example, a future epoch), the
-      // original response-integrity error is isolated below.
-      deferredRawContentKeyFailure = error;
-    } else {
-      isolateContentKeyResponseFailure(error, input.response);
-    }
+    // Missing or future bundles are response-integrity failures. They must be
+    // poison-isolated before key availability is considered, because the
+    // referenced update has not yet authenticated against a bundle.
+    isolateContentKeyResponseFailure(error, input.response);
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
@@ -133,15 +99,6 @@ async function resolveVerifiedResponseState(
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
-  if (deferredRawContentKeyFailure) {
-    isolateContentKeyResponseFailure(
-      deferredRawContentKeyFailure,
-      input.response,
-    );
-  }
-  if (!persistedState) {
-    throw new Error("Document sync response did not produce persisted state");
-  }
   return { contentKeysByEpoch, persistedState };
 }
 

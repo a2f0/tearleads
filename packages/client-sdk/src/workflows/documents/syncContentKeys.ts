@@ -202,6 +202,16 @@ export async function unwrapDocumentSyncResponseContentKeys(
       updates: missingUpdates,
     });
   }
+  const absentBundleEpoch = missingContentKeyEpochs.find(
+    (contentKeyEpoch) => !bundlesByEpoch.has(contentKeyEpoch),
+  );
+  if (absentBundleEpoch !== undefined) {
+    throwDocumentSyncContentKeyFailure({
+      cause: new Error("Document sync response content-key bundle missing"),
+      updates:
+        updatesByContentKeyEpoch.get(absentBundleEpoch) ?? missingUpdates,
+    });
+  }
   const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,

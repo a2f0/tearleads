@@ -157,6 +157,81 @@ test("raw history reports the lowest unavailable epoch regardless of response or
   expect((error as DocumentRawHistoryUnavailableError).contentKeyEpoch).toBe(1);
 });
 
+test("a missing bundle outranks an earlier unavailable epoch", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const materializedPlan = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        id: "550e8400-e29b-41d4-a716-446655440455",
+      }),
+      createPendingUpdateRecord({
+        id: "550e8400-e29b-41d4-a716-446655440456",
+      }),
+    ],
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  });
+  const response = await createSyncResponse(materializedPlan.plan);
+  const [epochOneUpdate, epochTwoUpdate] = response.updates;
+  const target = response.contentKeyBundle.targets[0];
+  if (!epochOneUpdate || !epochTwoUpdate || !target) {
+    throw new Error("Expected two updates and one content-key target");
+  }
+  const currentBundle = {
+    ...response.contentKeyBundle,
+    contentKeyEpoch: 3,
+  };
+  const mixedResponse = {
+    ...response,
+    contentKeyBundle: currentBundle,
+    contentKeyBundles: [
+      {
+        ...response.contentKeyBundle,
+        contentKeyEpoch: 1,
+        targets: [
+          {
+            ...target,
+            containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440498",
+          },
+        ],
+      },
+      currentBundle,
+    ],
+    updates: [
+      {
+        ...epochOneUpdate,
+        writeHeader: { ...epochOneUpdate.writeHeader, contentKeyEpoch: 1 },
+      },
+      {
+        ...epochTwoUpdate,
+        writeHeader: { ...epochTwoUpdate.writeHeader, contentKeyEpoch: 2 },
+      },
+    ],
+  };
+
+  const error = await unwrapDocumentSyncResponseContentKeys({
+    currentContentKey: fixture.contentKey,
+    currentContentKeyEpoch: 3,
+    historyMode: "raw",
+    response: mixedResponse,
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  }).then(
+    () => null,
+    (thrown: unknown) => thrown,
+  );
+
+  expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+  expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
+  if (!isDocumentSyncUpdateIsolationError(error)) return;
+  expect(error.batchUpdateIds).toEqual([epochTwoUpdate.id]);
+  expect(error.stage).toBe("content_key");
+});
+
 test("a forged old-epoch header cannot bypass poison isolation through a missing bundle", async () => {
   const { close, execSql } = await createTestExecSql(
     "raw-history-forged-missing-bundle",
@@ -226,7 +301,7 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
   }
 });
 
-test("raw response validation defers an absent epoch behind an earlier unwrappable bundle", async () => {
+test("raw response validation isolates an absent epoch before unwrapping", async () => {
   const { close, execSql } = await createTestExecSql(
     "raw-history-mixed-content-key-failure",
   );
@@ -304,7 +379,10 @@ test("raw response validation defers an absent epoch behind an earlier unwrappab
     expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
     if (!isDocumentSyncUpdateIsolationError(error)) return;
     expect(error.stage).toBe("content_key");
-    expect(error.batchUpdateIds).toEqual([epochOneUpdate.id]);
+    expect(error.batchUpdateIds).toEqual([
+      epochTwoUpdate.id,
+      epochOneUpdate.id,
+    ]);
   } finally {
     close();
   }

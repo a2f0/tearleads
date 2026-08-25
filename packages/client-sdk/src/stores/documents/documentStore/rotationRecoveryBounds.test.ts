@@ -179,7 +179,7 @@ test("rotation drains a bounded local queue before raw recovery", async () => {
     expect(await listPendingUpdates(state)).toHaveLength(0);
     expect(outgoingCounts).toEqual([64, 1, 0]);
     expect(historyModes).toEqual([undefined, undefined, "raw"]);
-    expect(requestedSyncCount).toBe(1);
+    expect(requestedSyncCount).toBe(0);
     const recovered = await createDocument("bounded-tail-reader");
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("pending local edit 64");

@@ -17,9 +17,9 @@ import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import { enqueuePendingUpdate } from "./persistence";
+import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
-import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./sync";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
