@@ -2,7 +2,10 @@ import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
-import type { ContainerRecord, ContainerRemoval } from "./containerPersistence";
+import type {
+  ContainerHydrationTombstone,
+  ContainerRecord,
+} from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
 import {
   addIndexedContainerChild,
@@ -290,7 +293,7 @@ async function updateExistingRemoteContainerState(input: {
 interface InsertRemoteContainerStateInput {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: RemoteContainerHydrationHost;
-  expectedHydrationTombstone: ContainerRemoval | null;
+  expectedHydrationTombstone: ContainerHydrationTombstone | null;
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -443,7 +446,7 @@ export async function upsertRemoteContainerState(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
   host: RemoteContainerHydrationHost;
-  expectedHydrationTombstone?: ContainerRemoval | null | undefined;
+  expectedHydrationTombstone?: ContainerHydrationTombstone | null | undefined;
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;

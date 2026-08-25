@@ -42,9 +42,9 @@ import {
 export type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerHydrationTombstone,
   ContainerMetadataRecord,
   ContainerMoveIntentRecord,
-  ContainerRemoval,
   LocalRootDescendantReparentInput,
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
@@ -143,6 +143,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     const rows = await db
       .select({
         containerId: containerHydrationTombstones.containerId,
+        generation: containerHydrationTombstones.generation,
         reason: containerHydrationTombstones.reason,
         updatedAt: containerHydrationTombstones.updatedAt,
       })

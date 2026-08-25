@@ -12,8 +12,8 @@ import type { createContainerMetadataDocument } from "../../../data/containers/c
 import type {
   ContainerContentsPersistence,
   ContainerDocumentRecord,
+  ContainerHydrationTombstone,
   ContainerRecord,
-  ContainerRemoval,
   createContainerParentSyncLane,
 } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -128,7 +128,7 @@ export interface ExpectedContainerState {
 
 export interface FetchedContainerParentLanePage {
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
-  expectedHydrationTombstones: ReadonlyMap<string, ContainerRemoval>;
+  expectedHydrationTombstones: ReadonlyMap<string, ContainerHydrationTombstone>;
   lane: ContainerParentHydrationLane;
   response: ListContainersResponse;
   syncLane: ReturnType<typeof createContainerParentSyncLane>;

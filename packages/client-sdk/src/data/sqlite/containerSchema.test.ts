@@ -44,6 +44,11 @@ test("container schema includes durable hydration tombstones", async () => {
       "container_hydration_tombstones",
     );
     expect(requireColumn(columns, "container_id").pk).toBe(1);
+    expect(requireColumn(columns, "generation")).toMatchObject({
+      defaultValue: "1",
+      notNull: 1,
+      type: "INTEGER",
+    });
     expect(requireColumn(columns, "reason").notNull).toBe(1);
     expect(requireColumn(columns, "updated_at").notNull).toBe(1);
   } finally {

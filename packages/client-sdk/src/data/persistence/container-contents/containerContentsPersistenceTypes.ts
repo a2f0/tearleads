@@ -80,6 +80,10 @@ export interface ContainerRemoval {
   updatedAt: string;
 }
 
+export interface ContainerHydrationTombstone extends ContainerRemoval {
+  generation: number;
+}
+
 export interface ContainerDeletionGuard {
   containerId: string;
   expectedContainer: ContainerRecord | null;
@@ -98,7 +102,10 @@ export interface ContainerContentsPersistence
       container: ContainerRecord;
       expectedDormantRecord: ContainerMetadataRecord | null;
       /** Tombstone observed before the remote request began, or null. */
-      expectedHydrationTombstone?: ContainerRemoval | null | undefined;
+      expectedHydrationTombstone?:
+        | ContainerHydrationTombstone
+        | null
+        | undefined;
       purgeDormantMetadata: boolean;
       record: ContainerMetadataRecord;
       remoteUpdatedAt: string;
@@ -118,7 +125,7 @@ export interface ContainerContentsPersistence
   /** Capture anti-resurrection fences immediately before a remote fetch. */
   loadContainerHydrationTombstones: (
     execSql: ExecSql,
-  ) => Promise<ReadonlyArray<ContainerRemoval>>;
+  ) => Promise<ReadonlyArray<ContainerHydrationTombstone>>;
   deleteContainer: (
     execSql: ExecSql,
     containerId: string,

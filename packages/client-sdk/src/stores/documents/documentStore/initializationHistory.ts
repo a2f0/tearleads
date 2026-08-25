@@ -10,7 +10,7 @@ export type RestoredHistoryState = NonNullable<
   Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>
 >;
 
-export function installRestoredDocumentContent(
+function installRestoredDocumentContent(
   nextDoc: DocumentState,
   history: RestoredHistoryState,
 ): void {

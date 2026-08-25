@@ -45,6 +45,7 @@ export const containerHydrationTombstones = sqliteTable(
   "container_hydration_tombstones",
   {
     containerId: text("container_id").notNull(),
+    generation: integer("generation").notNull().default(1),
     reason: text("reason").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

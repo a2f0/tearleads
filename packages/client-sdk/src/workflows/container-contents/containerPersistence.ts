@@ -13,10 +13,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 export type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerHydrationTombstone,
   ContainerMetadataRecord,
   ContainerMetadataRecord as ContainerDocumentRecord,
   ContainerMoveIntentRecord,
-  ContainerRemoval,
   LocalRootDescendantReparentInput,
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";

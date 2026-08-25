@@ -247,6 +247,7 @@ test("cross-reason tombstones retain their newest timestamp", async () => {
     ).resolves.toEqual([
       {
         containerId: container.id,
+        generation: 2,
         reason: "deleted",
         updatedAt: "2026-01-03T00:00:00.000Z",
       },
@@ -264,8 +265,58 @@ test("cross-reason tombstones retain their newest timestamp", async () => {
     ).resolves.toEqual([
       {
         containerId: container.id,
+        generation: 3,
         reason: "deleted",
         updatedAt: "2026-01-04T00:00:00.000Z",
+      },
+    ]);
+  } finally {
+    await close();
+  }
+});
+
+test("equal-time revocations retain distinct hydration generations", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-hydration-equal-time-generation",
+  );
+  const revokedAt = "2026-01-03T00:00:00.000Z";
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const revoke = () =>
+      sqlContainerContentsPersistence.deleteContainers(execSql, [
+        {
+          containerId: container.id,
+          reason: "access_revoked",
+          updatedAt: revokedAt,
+        },
+      ]);
+    await revoke();
+    const [firstFence] =
+      await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+        execSql,
+      );
+    if (!firstFence) throw new Error("Expected the first revocation fence");
+
+    await revoke();
+    await expect(
+      sqlContainerContentsPersistence.commitHydratedContainer(execSql, {
+        container,
+        expectedDormantRecord: null,
+        expectedHydrationTombstone: firstFence,
+        purgeDormantMetadata: false,
+        record,
+        remoteUpdatedAt: revokedAt,
+        saveOptions: {},
+      }),
+    ).resolves.toEqual({ committed: false });
+    await expect(
+      sqlContainerContentsPersistence.loadContainerHydrationTombstones(execSql),
+    ).resolves.toEqual([
+      {
+        containerId: container.id,
+        generation: firstFence.generation + 1,
+        reason: "access_revoked",
+        updatedAt: revokedAt,
       },
     ]);
   } finally {

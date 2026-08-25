@@ -6,6 +6,7 @@ import {
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentsPersistence } from "../types";
 import { buildPendingAttachmentRow } from "./attachmentRows";
+import { queueDocumentAttachmentStorageKeys } from "./orphanSideRows";
 
 type AttachmentStaging = NonNullable<
   Parameters<
@@ -72,6 +73,19 @@ export async function upsertStoredAttachmentStagingRows(input: {
 
   for (const attachment of staging.pendingAttachments) {
     const row = buildPendingAttachmentRow(attachment, createdAt);
+    const [existing] = await tx
+      .select({ storageKey: documentPendingAttachments.storageKey })
+      .from(documentPendingAttachments)
+      .where(
+        and(
+          eq(documentPendingAttachments.localId, localId),
+          eq(documentPendingAttachments.slotId, attachment.slotId),
+        ),
+      )
+      .limit(1);
+    if (existing && existing.storageKey !== row.storageKey) {
+      await queueDocumentAttachmentStorageKeys(tx, [existing.storageKey]);
+    }
     await tx
       .insert(documentPendingAttachments)
       .values(row)
@@ -99,6 +113,19 @@ export async function upsertStoredAttachmentStagingRows(input: {
 
   for (const attachment of staging.localAttachments) {
     const row = { ...attachment, updatedAt: createdAt };
+    const [existing] = await tx
+      .select({ storageKey: documentAttachmentBlobProjection.storageKey })
+      .from(documentAttachmentBlobProjection)
+      .where(
+        and(
+          eq(documentAttachmentBlobProjection.localId, localId),
+          eq(documentAttachmentBlobProjection.slotId, attachment.slotId),
+        ),
+      )
+      .limit(1);
+    if (existing && existing.storageKey !== row.storageKey) {
+      await queueDocumentAttachmentStorageKeys(tx, [existing.storageKey]);
+    }
     await tx
       .insert(documentAttachmentBlobProjection)
       .values(row)

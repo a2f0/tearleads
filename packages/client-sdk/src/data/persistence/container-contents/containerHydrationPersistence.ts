@@ -8,6 +8,7 @@ import {
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import type {
   ContainerContentsPersistence,
+  ContainerHydrationTombstone,
   ContainerMetadataRecord,
 } from "./containerContentsPersistenceTypes";
 import {
@@ -55,15 +56,15 @@ function sameMetadataRecord(
 }
 
 function sameHydrationTombstone(
-  current: { reason: string; updatedAt: string } | undefined,
-  expected:
-    | { reason: "access_revoked" | "deleted"; updatedAt: string }
-    | null
+  current:
+    | { generation: number; reason: string; updatedAt: string }
     | undefined,
+  expected: ContainerHydrationTombstone | null | undefined,
 ): boolean {
   return (
     current !== undefined &&
     expected != null &&
+    current.generation === expected.generation &&
     current.reason === expected.reason &&
     current.updatedAt === expected.updatedAt
   );
@@ -84,6 +85,7 @@ export async function recordContainerHydrationTombstones(input: {
     .onConflictDoUpdate({
       target: containerHydrationTombstones.containerId,
       set: {
+        generation: sql`${containerHydrationTombstones.generation} + 1`,
         reason: sql`CASE
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
@@ -112,6 +114,7 @@ export async function commitStoredHydratedContainer(
 
         const fences = await tx
           .select({
+            generation: containerHydrationTombstones.generation,
             reason: containerHydrationTombstones.reason,
             updatedAt: containerHydrationTombstones.updatedAt,
           })

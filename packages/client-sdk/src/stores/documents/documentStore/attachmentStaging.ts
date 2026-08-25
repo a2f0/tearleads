@@ -34,7 +34,7 @@ function localAttachmentRecords(
   }));
 }
 
-export async function deleteStagedAttachmentBytes(input: {
+async function deleteStagedAttachmentBytes(input: {
   pendingAttachments: ReadonlyArray<PendingAttachmentRecord>;
   state: DocumentStoreState;
 }) {

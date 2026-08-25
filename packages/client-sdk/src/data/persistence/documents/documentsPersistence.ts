@@ -197,20 +197,25 @@ export async function upsertDiscoveredDocuments(
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
-    const nextSummaries: DocumentSummary[] = [];
+    return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async () => {
+        const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
+        const nextSummaries: DocumentSummary[] = [];
 
-    for (const input of inputs) {
-      nextSummaries.push(
-        await upsertDiscoveredDocumentWithExec(
-          lockedExecSql,
-          input,
-          pendingCreates,
-        ),
-      );
-    }
+        for (const input of inputs) {
+          nextSummaries.push(
+            await upsertDiscoveredDocumentWithExec(
+              lockedExecSql,
+              input,
+              pendingCreates,
+            ),
+          );
+        }
 
-    return nextSummaries;
+        return nextSummaries;
+      },
+      { behavior: "immediate" },
+    );
   });
 }
 
@@ -390,7 +395,10 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
   async relinkPersistedDocument(execSql, input) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-      return relinkPersistedDocumentWithExec(lockedExecSql, input);
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        () => relinkPersistedDocumentWithExec(lockedExecSql, input),
+        { behavior: "immediate" },
+      );
     });
   },
 };
