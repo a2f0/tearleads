@@ -17,38 +17,11 @@ import {
   upsertStoredAttachmentStagingRows,
 } from "./attachmentStagingPersistence";
 import { DOCUMENTS_APP_KIND } from "./constants";
+import {
+  sameDocumentSecurityIdentity,
+  sameNullableDocumentValue,
+} from "./documentRecordIdentity";
 import { resolveDocumentSaveTimestamp, saveDocumentRows } from "./documentRows";
-
-function sameNullableValue(
-  left: string | null | undefined,
-  right: string | null | undefined,
-): boolean {
-  return (left ?? null) === (right ?? null);
-}
-
-function sameDocumentSecurityIdentity(
-  current: StoredDocumentRecord,
-  expected: StoredDocumentRecord,
-): boolean {
-  return (
-    current.id === expected.id &&
-    current.documentId === expected.documentId &&
-    current.containerId === expected.containerId &&
-    current.accessEpoch === expected.accessEpoch &&
-    sameNullableValue(current.accessStateHash, expected.accessStateHash) &&
-    (current.effectiveAccessLevel ?? null) ===
-      (expected.effectiveAccessLevel ?? null) &&
-    sameNullableValue(current.contentKeyBundle, expected.contentKeyBundle) &&
-    sameNullableValue(
-      current.documentKekTargets,
-      expected.documentKekTargets,
-    ) &&
-    sameNullableValue(
-      current.documentManifestBundle,
-      expected.documentManifestBundle,
-    )
-  );
-}
 
 function sameExpectedDocumentRecord(
   current: StoredDocumentRecord,
@@ -56,9 +29,9 @@ function sameExpectedDocumentRecord(
 ): boolean {
   return (
     sameDocumentSecurityIdentity(current, expected) &&
-    sameNullableValue(current.lastCommitLsn, expected.lastCommitLsn) &&
+    sameNullableDocumentValue(current.lastCommitLsn, expected.lastCommitLsn) &&
     current.snapshotEndVersion === expected.snapshotEndVersion &&
-    sameNullableValue(
+    sameNullableDocumentValue(
       current.pendingBaseVersion,
       expected.pendingBaseVersion,
     ) &&

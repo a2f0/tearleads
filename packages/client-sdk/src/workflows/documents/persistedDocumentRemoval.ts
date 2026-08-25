@@ -6,6 +6,7 @@ import {
 import type {
   DiscardDocumentToShellResult,
   DocumentsPersistence,
+  StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import {
   type ExecSql,
@@ -17,6 +18,7 @@ export async function deletePersistedDocument(input: {
   canStartDurableMutation?: (() => boolean) | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
+  expectedRecord?: StoredDocumentRecord | undefined;
   localId: string;
   /**
    * Runs INSIDE the serialized mutation, after the deletes commit: callers
@@ -44,16 +46,31 @@ export async function deletePersistedDocument(input: {
     if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
       return;
     }
-    const existing = await input.persistence.loadDocument(
-      lockedExecSql,
-      input.localId,
-    );
-    await input.persistence.deleteDocument(lockedExecSql, input.localId);
-    await documentProjectors.deleteStoredDocumentClientProjection({
-      documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
-      execSql: lockedExecSql,
-      localId: input.localId,
-    });
+    if (input.expectedRecord) {
+      const identityMatched = await input.persistence.deleteDocumentIfMatches(
+        lockedExecSql,
+        input.expectedRecord,
+        (transactionExecSql) =>
+          documentProjectors.deleteStoredDocumentClientProjection({
+            documentKind:
+              input.expectedRecord?.documentKind ?? DEFAULT_DOCUMENT_KIND,
+            execSql: transactionExecSql,
+            localId: input.localId,
+          }),
+      );
+      if (!identityMatched) return;
+    } else {
+      const existing = await input.persistence.loadDocument(
+        lockedExecSql,
+        input.localId,
+      );
+      await input.persistence.deleteDocument(lockedExecSql, input.localId);
+      await documentProjectors.deleteStoredDocumentClientProjection({
+        documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        execSql: lockedExecSql,
+        localId: input.localId,
+      });
+    }
     input.onDeletedInMutation?.();
     deleted = true;
   });

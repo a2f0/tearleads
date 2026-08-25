@@ -10,12 +10,15 @@ import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinua
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
+import { createMemoryDocumentCreationPersistence } from "./documentStoreSyncCreationPersistence";
+import { createMemoryDocumentDeletionPersistence } from "./documentStoreSyncDeletionPersistence";
 import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
 import {
   applyMemoryAttachmentRemoval,
   type StoredHistoryState,
   toHistoryRestoreState,
 } from "./documentStoreSyncPersistenceState";
+
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
 } {
@@ -43,49 +46,45 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       (attachment) => attachment.localId !== localId,
     );
   };
-
-  return {
-    async createDocumentWithHistoryCheckpoint(
-      execSql,
-      nextDocument,
-      historyCheckpoint,
-      options,
-      saveClientProjection,
-    ) {
-      if (options?.stillCurrent && !options.stillCurrent()) return null;
-      if (document?.id === nextDocument.id) return null;
-      const previousPendingUpdates = structuredClone(pendingUpdates);
-      const updatedAt = options?.updatedAt ?? "2026-04-06T00:00:00.000Z";
-      try {
-        document = nextDocument;
-        const tail = options?.pendingUpdate
-          ? [
-              {
-                id: crypto.randomUUID(),
-                origin: "local" as const,
-                updateData: options.pendingUpdate.updateData,
-              },
-            ]
-          : [];
-        historyByLocalId.set(nextDocument.id, {
-          checkpoint: historyCheckpoint,
-          tail,
-        });
-        if (options?.pendingUpdate) {
-          pendingUpdates.push({
-            id: crypto.randomUUID(),
-            ...options.pendingUpdate,
-          });
-        }
-        await saveClientProjection(execSql, updatedAt);
-        return updatedAt;
-      } catch (error) {
-        document = null;
-        pendingUpdates = previousPendingUpdates;
-        historyByLocalId.delete(nextDocument.id);
-        throw error;
+  const deletionPersistence = createMemoryDocumentDeletionPersistence({
+    deleteSideRows,
+    getDocument: () => document,
+    restore: (previous) => {
+      document = previous.document;
+      pendingUpdates = previous.pendingUpdates;
+      pendingAttachments = previous.pendingAttachments;
+      localAttachments = previous.localAttachments;
+      historyByLocalId.clear();
+      for (const [localId, history] of previous.historyByLocalId) {
+        historyByLocalId.set(localId, history);
       }
     },
+    setDocument: (nextDocument) => {
+      document = nextDocument;
+    },
+    snapshot: () =>
+      structuredClone({
+        document,
+        historyByLocalId,
+        localAttachments,
+        pendingAttachments,
+        pendingUpdates,
+      }),
+  });
+  const creationPersistence = createMemoryDocumentCreationPersistence({
+    getDocument: () => document,
+    getPendingUpdates: () => pendingUpdates,
+    historyByLocalId,
+    setDocument: (nextDocument) => {
+      document = nextDocument;
+    },
+    setPendingUpdates: (nextUpdates) => {
+      pendingUpdates = nextUpdates;
+    },
+  });
+
+  return {
+    ...creationPersistence,
     async commitDocumentMutation(execSql, input, saveClientProjection) {
       if (input.stillCurrent && !input.stillCurrent()) {
         return { committed: false, currentRecord: document };
@@ -276,12 +275,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       );
       return "2026-04-06T00:00:00.000Z";
     },
-    async deleteDocument(_execSql, localId) {
-      if (document?.id === localId) {
-        document = null;
-      }
-      deleteSideRows(localId);
-    },
+    ...deletionPersistence,
     ...createMemoryAbsentDocumentCleanup({
       deleteSideRows,
       documentExists: (localId) => document?.id === localId,

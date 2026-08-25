@@ -347,6 +347,16 @@ export interface DocumentsPersistence {
   ) => Promise<string>;
   deleteDocument: (execSql: ExecSql, localId: string) => Promise<void>;
   /**
+   * Delete the canonical row and every side row only when its security identity
+   * still matches the captured record. The comparison, deletes, and client
+   * projection callback must share one write transaction.
+   */
+  deleteDocumentIfMatches: (
+    execSql: ExecSql,
+    expectedRecord: StoredDocumentRecord,
+    deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+  ) => Promise<boolean>;
+  /**
    * Delete orphaned side rows only if the canonical document is still absent.
    * The absence check, row cleanup, and client projection callback must share
    * one write transaction so a concurrent create is preserved.

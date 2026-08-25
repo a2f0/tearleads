@@ -24,7 +24,9 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
+import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
+import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
 import { queueDocumentAttachmentBlobReclaims } from "./orphanSideRows";
 
@@ -97,6 +99,42 @@ export async function deleteStoredDocument(
           lockedExecSql,
           tx,
         });
+      },
+      { behavior: "immediate" },
+    );
+  });
+}
+
+export async function deleteStoredDocumentIfMatches(
+  execSql: ExecSql,
+  expectedRecord: StoredDocumentRecord,
+  deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+): Promise<boolean> {
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await ensureDocumentDeletionTables(lockedExecSql);
+    return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        const existingDocument = await loadDocumentRecord(lockedExecSql, {
+          appKind: DOCUMENTS_APP_KIND,
+          localId: expectedRecord.id,
+        });
+        if (
+          !existingDocument ||
+          !sameCanonicalDocumentSecurityIdentity(
+            existingDocument,
+            expectedRecord,
+          )
+        ) {
+          return false;
+        }
+        await deleteStoredDocumentRows({
+          existingDocumentId: existingDocument.documentId ?? null,
+          localId: expectedRecord.id,
+          lockedExecSql,
+          tx,
+        });
+        await deleteClientProjection(lockedExecSql);
+        return true;
       },
       { behavior: "immediate" },
     );

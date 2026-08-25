@@ -22,6 +22,7 @@ import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocu
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
 import {
   deleteStoredDocument,
+  deleteStoredDocumentIfMatches,
   deleteStoredDocumentSideRowsIfAbsent,
 } from "./internal/documentDeletionPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
@@ -369,6 +370,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
     );
   },
   deleteDocument: deleteStoredDocument,
+  deleteDocumentIfMatches: deleteStoredDocumentIfMatches,
   deleteDocumentSideRowsIfAbsent: deleteStoredDocumentSideRowsIfAbsent,
   async discardDocumentToShell(
     execSql,

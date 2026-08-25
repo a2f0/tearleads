@@ -61,6 +61,7 @@ export async function deleteUpstreamDeletedDocument(
       canStartDurableMutation: canDeleteCapturedDocument,
       documentProjectors: state.runtime.infra.documentProjectors,
       execSql: generation.execSql,
+      expectedRecord: requestRecord,
       localId: requestRecord.id,
       // Invalidate the store generation INSIDE the deletion mutation: a
       // terminal failure handler queued behind it then observes the stale

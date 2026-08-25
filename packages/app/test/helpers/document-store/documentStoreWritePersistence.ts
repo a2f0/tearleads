@@ -99,6 +99,8 @@ function sameSecurityIdentity(
     current.containerId === expected.containerId &&
     current.accessEpoch === expected.accessEpoch &&
     (current.accessStateHash ?? null) === (expected.accessStateHash ?? null) &&
+    (current.effectiveAccessLevel ?? null) ===
+      (expected.effectiveAccessLevel ?? null) &&
     (current.contentKeyBundle ?? null) ===
       (expected.contentKeyBundle ?? null) &&
     (current.documentKekTargets ?? null) ===
@@ -119,6 +121,7 @@ export function createDocumentWritePersistence(
   | "saveDocument"
   | "saveDocumentAndDeletePendingUpdates"
   | "deleteDocument"
+  | "deleteDocumentIfMatches"
   | "deleteDocumentSideRowsIfAbsent"
   | "upsertDiscoveredDocument"
   | "relinkPersistedDocument"
@@ -275,6 +278,28 @@ export function createDocumentWritePersistence(
     async deleteDocument(_execSql, localId) {
       if (state.document?.id === localId) state.document = null;
       deleteSideRows(localId);
+    },
+    async deleteDocumentIfMatches(
+      execSql,
+      expectedRecord,
+      deleteClientProjection,
+    ) {
+      if (!sameSecurityIdentity(state.document, expectedRecord)) return false;
+      const previousState = structuredClone(state);
+      const previousHistory = structuredClone(historyByLocalId);
+      try {
+        state.document = null;
+        deleteSideRows(expectedRecord.id);
+        await deleteClientProjection(execSql);
+        return true;
+      } catch (error) {
+        Object.assign(state, previousState);
+        historyByLocalId.clear();
+        for (const [localId, history] of previousHistory) {
+          historyByLocalId.set(localId, history);
+        }
+        throw error;
+      }
     },
     ...createMemoryAbsentDocumentCleanup({
       deleteSideRows,

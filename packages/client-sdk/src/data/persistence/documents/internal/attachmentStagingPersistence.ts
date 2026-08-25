@@ -46,6 +46,7 @@ export async function applyStoredAttachmentRemoval(input: {
       .run();
     return;
   }
+  await queueDocumentAttachmentStorageKeys(tx, [removal.storageKey]);
   await tx.delete(documentAttachmentBlobProjection).where(localMatch).run();
 }
 

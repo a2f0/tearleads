@@ -376,3 +376,78 @@ test("a stale removal cannot change attachment rows after a relink", async () =>
     connection.close();
   }
 });
+
+test("local-only attachment removal durably queues its blob key", async () => {
+  const connection = await openTestConnection({
+    dbName: `/${crypto.randomUUID()}.db`,
+    key: "attachment-removal-reclaim",
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(connection.runtime.execSql);
+    await sqlDocumentsPersistence.saveDocument(connection.runtime.execSql, {
+      accessEpoch: 1,
+      containerId: "container",
+      documentId: null,
+      id: "local-document",
+      snapshotEndVersion: "",
+      text: "",
+    });
+    const originalRecord = await sqlDocumentsPersistence.loadDocument(
+      connection.runtime.execSql,
+      "local-document",
+    );
+    if (!originalRecord) throw new Error("Expected the original document");
+    await sqlDocumentsPersistence.commitDocumentMutation(
+      connection.runtime.execSql,
+      {
+        acceptedPendingUpdateIds: [],
+        attachmentStaging: attachmentRows("removed-storage"),
+        document: { ...originalRecord, snapshotEndVersion: "attached" },
+        expectedRecord: originalRecord,
+        settleAcceptedPendingOnConflict: false,
+      },
+      async () => undefined,
+    );
+    const attachedRecord = await sqlDocumentsPersistence.loadDocument(
+      connection.runtime.execSql,
+      "local-document",
+    );
+    if (!attachedRecord) throw new Error("Expected the attached document");
+
+    await sqlDocumentsPersistence.commitDocumentMutation(
+      connection.runtime.execSql,
+      {
+        acceptedPendingUpdateIds: [],
+        attachmentRemoval: {
+          mode: "delete",
+          slotId: "slot-1",
+          storageKey: "removed-storage",
+        },
+        document: { ...attachedRecord, snapshotEndVersion: "removed" },
+        expectedRecord: attachedRecord,
+        settleAcceptedPendingOnConflict: false,
+      },
+      async () => undefined,
+    );
+
+    expect(
+      await connection.runtime.execSql(
+        "SELECT storage_key FROM document_orphan_blob_reclaims",
+      ),
+    ).toEqual([{ storage_key: "removed-storage" }]);
+    expect(
+      await sqlDocumentsPersistence.listPendingAttachments(
+        connection.runtime.execSql,
+        "local-document",
+      ),
+    ).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.listLocalAttachments(
+        connection.runtime.execSql,
+        "local-document",
+      ),
+    ).toEqual([]);
+  } finally {
+    connection.close();
+  }
+});
