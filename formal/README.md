@@ -142,9 +142,9 @@ Incoming updates pass an all-or-nothing gate before effects. Production
 authenticates/decrypts, then scratch-imports. Bounded leave-one-out covers
 checkpoints and deltas, retains sibling batches, and names one poison only when
 unambiguous. Duplicate IDs, missing dependencies, oversized retries, and
-multi-failure decrypt/key epochs use unknown batch attribution. Nested
-integrity errors stay typed and report. `responseWellFormed` abstracts rejection;
-attribution and bounds stay tested in code.
+multi-failure decrypt/key epochs use unknown batch attribution. Nested errors
+report; batch causes hide attribution. `responseWellFormed` abstracts rejection;
+CAS clearing and diagnostics stay code-tested.
 
 On the same executor, replacement mutations queue behind the already-claimed
 operation and therefore observe its ordering. If reset installs a different

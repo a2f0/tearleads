@@ -7,11 +7,9 @@ import {
   type ContainerContentsPersistence,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
-  clearDocumentSyncFailure,
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
@@ -157,22 +155,6 @@ interface SyncRemoteContainerMetadataInput {
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
-async function clearSuccessfulMetadataSyncFailure(input: {
-  execSql: ExecSql;
-  metadataScope: { appKind: string; localId: string };
-  pendingUpdateCount: number;
-  synced: ContainerMetadataSyncResult;
-}): Promise<void> {
-  if (
-    shouldClearDocumentSyncFailureAfterPass(
-      input.synced,
-      input.pendingUpdateCount,
-    )
-  ) {
-    await clearDocumentSyncFailure(input.execSql, input.metadataScope);
-  }
-}
-
 async function syncRemoteContainerMetadata(
   input: SyncRemoteContainerMetadataInput,
 ): Promise<ContainerMetadataSyncAttempt | null> {
@@ -253,13 +235,6 @@ async function syncRemoteContainerMetadata(
   if (!synced) {
     return null;
   }
-
-  await clearSuccessfulMetadataSyncFailure({
-    execSql,
-    metadataScope,
-    pendingUpdateCount: pendingUpdates.length,
-    synced,
-  });
 
   return createContainerMetadataSyncAttempt({
     outgoingUpdateCount: pendingUpdates.length,
@@ -441,6 +416,10 @@ async function finalizeContainerMetadataSync(input: {
   }
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+    clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
+      synced,
+      outgoingUpdateCount,
+    ),
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation ?? null,
       record: syncAttempt.requestRecord,

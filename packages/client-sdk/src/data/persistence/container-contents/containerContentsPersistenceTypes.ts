@@ -268,6 +268,7 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: {
       acceptedPendingUpdateIds: readonly string[];
+      clearSyncFailure?: boolean | undefined;
       container: ContainerRecord;
       expectedContainer: ContainerRecord;
       expectedRecord: ContainerMetadataRecord;

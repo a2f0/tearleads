@@ -1,15 +1,12 @@
 import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
 import {
-  clearDocumentSyncFailure,
   createDocumentWriterPublicKeyResolver,
-  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   type PendingUpdateRecord,
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
-  shouldClearDocumentSyncFailureAfterPass,
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
 } from "../../../workflows/documents";
@@ -119,26 +116,6 @@ interface RequestRemoteDocumentSyncInput {
   unavailableWriterLogMessage: string;
 }
 
-async function clearSuccessfulDocumentSyncFailure(input: {
-  generation: DocumentStoreSyncGeneration;
-  outgoingUpdateCount: number;
-  state: DocumentStoreState;
-  synced: DocumentSyncAttempt["synced"];
-}): Promise<boolean> {
-  if (
-    shouldClearDocumentSyncFailureAfterPass(
-      input.synced,
-      input.outgoingUpdateCount,
-    )
-  ) {
-    await clearDocumentSyncFailure(input.state.runtime.infra.execSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: input.state.localId,
-    });
-  }
-  return isDocumentStoreSyncGenerationCurrent(input.state, input.generation);
-}
-
 function runRemoteDocumentSync(
   input: RequestRemoteDocumentSyncInput,
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
@@ -243,16 +220,6 @@ export async function requestRemoteDocumentSync(
   if (!synced) return null;
 
   const outgoingUpdateCount = input.queuedUpdateCount ?? pendingUpdates.length;
-  if (
-    !(await clearSuccessfulDocumentSyncFailure({
-      generation,
-      outgoingUpdateCount,
-      state,
-      synced,
-    }))
-  )
-    return null;
-
   return createDocumentSyncAttempt({
     currentRecord,
     outgoingUpdateCount,

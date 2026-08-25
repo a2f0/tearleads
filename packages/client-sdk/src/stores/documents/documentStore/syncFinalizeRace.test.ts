@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import {
+  hasRecordedTerminalSyncFailures,
+  recordDocumentSyncFailure,
+} from "../../../data/sqlite/documentPersistence";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import {
   createRemoteHistoryFixture,
@@ -113,6 +117,15 @@ test("a superseded finalize keeps its signal and requests another pass", async (
         requestedSyncCount += 1;
       },
     } as NonNullable<typeof state.syncLane>;
+    await recordDocumentSyncFailure(
+      execSql,
+      { appKind: "documents", localId },
+      {
+        attemptedAt: "2026-08-25T00:00:00.000Z",
+        message: "quarantined before losing finalize",
+        status: null,
+      },
+    );
 
     const attempt = await requestRemoteDocumentSync({
       currentDoc,
@@ -124,6 +137,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
       unavailableWriterLogMessage: "unexpected unavailable writer",
     });
     if (!attempt) throw new Error("Expected a completed sync response");
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
     expect(attempt.synced.decryptedUpdates.length).toBeGreaterThan(0);
     await finalizeDocumentSync(
       state,
@@ -140,6 +154,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     if (!state.doc) throw new Error("Expected reloaded document state");
     expect(getTextValue(state.doc)).toBe("survives key");
     expect(state.remoteUpdatePending).toBe(true);
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
     expect(requestedSyncCount).toBe(1);
     expect(historyLoadCount).toBe(0);
     expect(atomicStateLoadCount).toBe(1);

@@ -8,6 +8,7 @@ import {
   containerCreateIntents,
   containerMoveIntents,
   documentPendingUpdates,
+  documentSyncFailures,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -125,6 +126,21 @@ async function deleteAcceptedPendingUpdates(
         eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
         eq(documentPendingUpdates.localId, containerId),
         inArray(documentPendingUpdates.id, uniqueIds),
+      ),
+    )
+    .run();
+}
+
+async function clearSyncFailure(
+  tx: ClientSQLiteTransactionScope,
+  containerId: string,
+): Promise<void> {
+  await tx
+    .delete(documentSyncFailures)
+    .where(
+      and(
+        eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+        eq(documentSyncFailures.localId, containerId),
       ),
     )
     .run();
@@ -317,6 +333,9 @@ export async function commitStoredMetadataMutation(
           input.container.id,
           input.acceptedPendingUpdateIds,
         );
+        if (input.clearSyncFailure) {
+          await clearSyncFailure(tx, input.container.id);
+        }
         const { container, localUpdatedAt } =
           await prepareContainerMutationWrite({
             currentContainer: currentState.container,

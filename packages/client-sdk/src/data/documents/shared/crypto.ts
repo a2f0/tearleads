@@ -219,8 +219,11 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
         ? firstFailure.reason.stage
         : "decrypt";
     throw isolateDocumentSyncBatchError({
-      cause: new AggregateError(
-        failures.map(({ reason }) => reason),
+      // The per-update errors carry authenticated writer attribution. Once
+      // more than one update fails, retaining those errors beneath an
+      // anonymous batch boundary would disclose the very attribution the
+      // boundary intentionally withholds.
+      cause: new Error(
         "Multiple document sync updates failed decryption inspection",
       ),
       stage,

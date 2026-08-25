@@ -27,6 +27,7 @@ import type {
 
 export interface PersistContainerMetadataStateInput {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  clearSyncFailure?: boolean | undefined;
   execSql: ExecSql;
   expectedSyncState?: ExpectedContainerMetadataSyncState | undefined;
   localMetadataPatch?:

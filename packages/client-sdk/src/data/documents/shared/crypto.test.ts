@@ -44,6 +44,25 @@ async function importPlaintextHashTestKey(seed: number): Promise<CryptoKey> {
   );
 }
 
+function errorCauseTree(error: unknown): unknown[] {
+  const pending = [error];
+  const seen = new Set<unknown>();
+  const found: unknown[] = [];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined || seen.has(current)) continue;
+    seen.add(current);
+    found.push(current);
+    if (current instanceof AggregateError) {
+      pending.push(...current.errors);
+    }
+    if (current instanceof Error && current.cause !== undefined) {
+      pending.push(current.cause);
+    }
+  }
+  return found;
+}
+
 test("plaintext hashes distinguish forged content with the same version-vector shape", async () => {
   const honest = await createDocument("plaintext-hash-proof");
   honest.getText("text").update("honest history");
@@ -333,6 +352,15 @@ test("decryptDocumentSyncUpdates keeps multiple poison updates anonymous", async
   expect(isolated.stage).toBe("plaintext_integrity");
   expect(isolated.updateId).toBeNull();
   expect(isolated.writerUserId).toBeNull();
+  const nestedCauses = errorCauseTree(isolated.cause);
+  expect(nestedCauses.some(isDocumentSyncUpdateIsolationError)).toBe(false);
+  const nestedMessages = nestedCauses
+    .map((cause) => (cause instanceof Error ? cause.message : String(cause)))
+    .join("\n");
+  expect(nestedMessages).not.toContain(author.signerUserId);
+  expect(nestedMessages).not.toContain(
+    poisonedUpdates[0]?.authorFingerprint ?? "missing fingerprint",
+  );
 });
 
 test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {

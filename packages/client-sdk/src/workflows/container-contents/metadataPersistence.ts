@@ -79,10 +79,7 @@ function resolveNullableContainerMetadataDocumentField(
   currentValue: string | null | undefined,
   resetWhenUnpatched = false,
 ): string | null {
-  if (Object.hasOwn(patch, key)) {
-    return patch[key] ?? null;
-  }
-
+  if (Object.hasOwn(patch, key)) return patch[key] ?? null;
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
@@ -227,6 +224,7 @@ async function settleSupersededMetadataMutation(input: {
 }
 
 async function persistPreparedMetadataMutation(input: {
+  clearSyncFailure?: boolean | undefined;
   execSql: ExecSql;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
@@ -285,6 +283,7 @@ async function persistPreparedMetadataMutation(input: {
     : undefined;
   const committed = await persistence.commitMetadataMutation(input.execSql, {
     acceptedPendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
+    clearSyncFailure: input.clearSyncFailure,
     container: nextContainer,
     expectedContainer: prepared.mutationContainer,
     expectedRecord: prepared.durableRecord,
@@ -378,6 +377,7 @@ async function persistContainerMetadataState(
       }
       const persisted = await persistPreparedMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+        clearSyncFailure: input.clearSyncFailure,
         execSql: lockedExecSql,
         metadataState: input.metadataState,
         persistence: input.persistence,
