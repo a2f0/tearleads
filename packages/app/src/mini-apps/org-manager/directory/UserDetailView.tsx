@@ -1,12 +1,13 @@
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import type {
   OrganizationContainerGrant,
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@symcrypt/client-sdk";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppActions,
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppSection,
@@ -25,6 +26,7 @@ import {
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
+import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { GrantSections } from "../grants/GrantSections";
@@ -126,6 +128,36 @@ export function UserDetailView({
     setIsRosterProfileEditing(true);
   }, [canEditRosterProfile, rosterProfileEditRequestKey]);
 
+  useEffect(() => {
+    if (!canEditRosterProfile) {
+      setIsRosterProfileEditing(false);
+    }
+  }, [canEditRosterProfile]);
+
+  const editAction = useMemo(() => {
+    if (!detail || !canEditRosterProfile) {
+      return null;
+    }
+
+    return {
+      icon: isRosterProfileEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "org-manager-roster-toggle-edit",
+      label: isRosterProfileEditing
+        ? ORG_MANAGER_LABELS.done
+        : ORG_MANAGER_LABELS.edit,
+      onClick: () => {
+        setIsRosterProfileEditing((currentIsEditing) => !currentIsEditing);
+      },
+      priority: 110,
+    };
+  }, [canEditRosterProfile, detail, isRosterProfileEditing]);
+
+  useWindowTitleBarAction(editAction);
+
   if (!detail) {
     return (
       <>
@@ -174,19 +206,6 @@ export function UserDetailView({
             <span className="org-manager-detail-status">
               {ORG_MANAGER_LABELS.syncSeatUnavailable}
             </span>
-          )}
-          {canEditRosterProfile && (
-            <MiniAppButton
-              onClick={() =>
-                setIsRosterProfileEditing(
-                  (currentIsEditing) => !currentIsEditing,
-                )
-              }
-            >
-              {isRosterProfileEditing
-                ? ORG_MANAGER_LABELS.done
-                : ORG_MANAGER_LABELS.edit}
-            </MiniAppButton>
           )}
         </MiniAppActions>
       </MiniAppHeader>
