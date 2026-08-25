@@ -16,30 +16,48 @@ function getRemoteSyncGeneration(state: DocumentStoreState): number {
   return remoteSyncGenerations.get(state) ?? 0;
 }
 
-/** Immutable identities that define one remote-sync request generation. */
-export interface DocumentStoreRemoteSyncRequestGeneration {
+interface DocumentStoreGenerationIdentity {
   readonly domainScope: DocumentStoreState["runtime"]["state"]["domainScope"];
   readonly execSql: DocumentStoreState["runtime"]["infra"]["execSql"];
   readonly localWriteGeneration: number;
-  readonly remoteSyncGeneration: number;
   readonly resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+}
+
+/** Immutable identities that define one remote-sync request generation. */
+export interface DocumentStoreRemoteSyncRequestGeneration
+  extends DocumentStoreGenerationIdentity {
+  readonly remoteSyncGeneration: number;
 }
 
 /** Immutable identities that define one live document-store generation. */
 export interface DocumentStoreSyncGeneration
-  extends DocumentStoreRemoteSyncRequestGeneration {
+  extends DocumentStoreGenerationIdentity {
   readonly currentDoc: DocumentState | null;
+}
+
+/** A live store generation that is also cancelled with a remote-only probe. */
+interface DocumentStoreRemoteSyncGeneration
+  extends DocumentStoreSyncGeneration {
+  readonly remoteSyncGeneration: number;
+}
+
+function captureDocumentStoreGenerationIdentity(
+  state: DocumentStoreState,
+): DocumentStoreGenerationIdentity {
+  return {
+    domainScope: state.runtime.state.domainScope,
+    execSql: state.runtime.infra.execSql,
+    localWriteGeneration: state.localWriteGeneration,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+  };
 }
 
 export function captureDocumentStoreRemoteSyncRequestGeneration(
   state: DocumentStoreState,
 ): DocumentStoreRemoteSyncRequestGeneration {
   return {
-    domainScope: state.runtime.state.domainScope,
-    execSql: state.runtime.infra.execSql,
-    localWriteGeneration: state.localWriteGeneration,
+    ...captureDocumentStoreGenerationIdentity(state),
     remoteSyncGeneration: getRemoteSyncGeneration(state),
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
   };
 }
 
@@ -51,7 +69,19 @@ export function captureDocumentStoreSyncGeneration(
 
   return {
     currentDoc,
-    ...captureDocumentStoreRemoteSyncRequestGeneration(state),
+    ...captureDocumentStoreGenerationIdentity(state),
+  };
+}
+
+export function captureDocumentStoreRemoteSyncGeneration(
+  state: DocumentStoreState,
+  currentDoc: DocumentState | null,
+): DocumentStoreRemoteSyncGeneration | null {
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) return null;
+  return {
+    ...generation,
+    remoteSyncGeneration: getRemoteSyncGeneration(state),
   };
 }
 
@@ -137,11 +167,8 @@ export function isDocumentStoreRemoteSyncRequestGenerationCurrent(
   generation: DocumentStoreRemoteSyncRequestGeneration,
 ): boolean {
   return (
-    state.runtime.state.domainScope === generation.domainScope &&
-    state.runtime.infra.execSql === generation.execSql &&
-    state.localWriteGeneration === generation.localWriteGeneration &&
-    getRemoteSyncGeneration(state) === generation.remoteSyncGeneration &&
-    state.resolveProjectionUserKey === generation.resolveProjectionUserKey
+    isDocumentStoreGenerationIdentityCurrent(state, generation) &&
+    getRemoteSyncGeneration(state) === generation.remoteSyncGeneration
   );
 }
 
@@ -162,6 +189,20 @@ export function isDocumentStoreSyncGenerationCurrent(
 ): boolean {
   return (
     state.doc === generation.currentDoc &&
-    isDocumentStoreRemoteSyncRequestGenerationCurrent(state, generation)
+    isDocumentStoreGenerationIdentityCurrent(state, generation) &&
+    (!("remoteSyncGeneration" in generation) ||
+      getRemoteSyncGeneration(state) === generation.remoteSyncGeneration)
+  );
+}
+
+function isDocumentStoreGenerationIdentityCurrent(
+  state: DocumentStoreState,
+  generation: DocumentStoreGenerationIdentity,
+): boolean {
+  return (
+    state.runtime.state.domainScope === generation.domainScope &&
+    state.runtime.infra.execSql === generation.execSql &&
+    state.localWriteGeneration === generation.localWriteGeneration &&
+    state.resolveProjectionUserKey === generation.resolveProjectionUserKey
   );
 }

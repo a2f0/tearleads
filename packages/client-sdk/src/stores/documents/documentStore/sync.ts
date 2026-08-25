@@ -27,6 +27,7 @@ import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import { finalizeDocumentSync } from "./syncFinalize";
 import {
+  captureDocumentStoreRemoteSyncGeneration,
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreRemoteSyncBlocked,
@@ -320,7 +321,10 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     return;
   }
 
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const generation = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+  );
   if (!generation) {
     requestDocumentStoreSync(state);
     return;

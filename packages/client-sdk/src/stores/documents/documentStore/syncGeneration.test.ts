@@ -4,6 +4,7 @@ import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentStoreState } from "./state";
 import {
+  captureDocumentStoreRemoteSyncGeneration,
   captureDocumentStoreRemoteSyncRequestGeneration,
   captureDocumentStoreSyncGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
@@ -88,4 +89,35 @@ test("reset or relink sequence reuse cannot complete an old remote request", asy
   expect(
     didDocumentStoreRemoteSyncRequestComplete(state, beforeRelink, 1),
   ).toBe(false);
+});
+
+test("remote probe cancellation leaves a concurrent local generation current", async () => {
+  const currentDoc = await createDocument("local-generation-after-abort");
+  const state = {
+    doc: currentDoc,
+    localWriteGeneration: 0,
+    remoteUpdatePending: true,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+  } as unknown as DocumentStoreState;
+  const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+  );
+  expect(localGeneration).not.toBeNull();
+  expect(remoteGeneration).not.toBeNull();
+  if (!localGeneration || !remoteGeneration) return;
+
+  invalidateDocumentStoreRemoteSync(state);
+
+  expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
+    true,
+  );
+  expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
+    false,
+  );
 });
