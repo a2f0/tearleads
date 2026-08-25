@@ -59,8 +59,16 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     });
     let historyLoadCount = 0;
     let atomicStateLoadCount = 0;
+    let startupStateLoadCount = 0;
     const guardedPersistence: DocumentsPersistence = {
       ...sqlDocumentsPersistence,
+      async loadDocumentStoreState(historyExecSql, historyLocalId) {
+        startupStateLoadCount += 1;
+        return sqlDocumentsPersistence.loadDocumentStoreState(
+          historyExecSql,
+          historyLocalId,
+        );
+      },
       async loadDocumentWithHistoryRestoreState(
         historyExecSql,
         historyLocalId,
@@ -133,8 +141,9 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     expect(getTextValue(state.doc)).toBe("survives key");
     expect(state.remoteUpdatePending).toBe(true);
     expect(requestedSyncCount).toBe(1);
-    expect(historyLoadCount).toBe(1);
+    expect(historyLoadCount).toBe(0);
     expect(atomicStateLoadCount).toBe(1);
+    expect(startupStateLoadCount).toBe(1);
 
     const restartedState = createDocumentStoreState(
       localId,

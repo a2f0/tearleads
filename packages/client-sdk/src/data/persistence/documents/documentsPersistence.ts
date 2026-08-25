@@ -59,6 +59,7 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
 import { queueDocumentAttachmentBlobReclaims } from "./internal/orphanSideRows";
@@ -316,6 +317,8 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
       localId,
       sqlDocumentsPersistence,
     ),
+  loadDocumentStoreState: (execSql, localId) =>
+    loadStoredDocumentStoreState(execSql, localId, sqlDocumentsPersistence),
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(

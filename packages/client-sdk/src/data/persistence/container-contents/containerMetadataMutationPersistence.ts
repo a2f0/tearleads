@@ -282,45 +282,54 @@ export async function commitStoredMetadataMutation(
   input: Parameters<ContainerContentsPersistence["commitMetadataMutation"]>[1],
 ) {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(async (tx) => {
-      const currentState = await loadStoredContainerState(
-        lockedExecSql,
-        input.container.id,
-      );
-      const staleServerResult = staleServerMutationResult(currentState, input);
-      if (staleServerResult) return staleServerResult;
-      if (!metadataMutationStateMatches(currentState, input)) {
-        return rejectMetadataMutationConflict({
+    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        const currentState = await loadStoredContainerState(
+          lockedExecSql,
+          input.container.id,
+        );
+        const staleServerResult = staleServerMutationResult(
           currentState,
-          mutation: input,
+          input,
+        );
+        if (staleServerResult) return staleServerResult;
+        if (!metadataMutationStateMatches(currentState, input)) {
+          return rejectMetadataMutationConflict({
+            currentState,
+            mutation: input,
+            tx,
+          });
+        }
+
+        await enqueuePendingUpdate(
+          lockedExecSql,
+          input.container.id,
+          input.pendingUpdate,
+        );
+        await deleteAcceptedPendingUpdates(
+          tx,
+          input.container.id,
+          input.acceptedPendingUpdateIds,
+        );
+        const { container, localUpdatedAt } =
+          await prepareContainerMutationWrite({
+            currentContainer: currentState.container,
+            mutation: input,
+            tx,
+          });
+        const savedContainer = await saveContainerContentsContainerRows({
+          container,
+          createIntent: input.saveOptions?.createIntent,
+          localUpdatedAt,
+          moveIntent: input.saveOptions?.moveIntent,
+          record: input.record,
+          serverTimestamps: input.saveOptions?.serverTimestamps,
           tx,
         });
-      }
-
-      await enqueuePendingUpdate(
-        lockedExecSql,
-        input.container.id,
-        input.pendingUpdate,
-      );
-      await deleteAcceptedPendingUpdates(
-        tx,
-        input.container.id,
-        input.acceptedPendingUpdateIds,
-      );
-      const { container, localUpdatedAt } = await prepareContainerMutationWrite(
-        { currentContainer: currentState.container, mutation: input, tx },
-      );
-      const savedContainer = await saveContainerContentsContainerRows({
-        container,
-        createIntent: input.saveOptions?.createIntent,
-        localUpdatedAt,
-        moveIntent: input.saveOptions?.moveIntent,
-        record: input.record,
-        serverTimestamps: input.saveOptions?.serverTimestamps,
-        tx,
-      });
-      return { committed: true as const, container: savedContainer };
-    }),
+        return { committed: true as const, container: savedContainer };
+      },
+      { behavior: "immediate" },
+    ),
   );
 }
 
@@ -333,22 +342,28 @@ export async function settleStoredMetadataPendingUpdates(
   >[1],
 ) {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(async (tx) => {
-      const currentState = await loadStoredContainerState(
-        lockedExecSql,
-        input.containerId,
-      );
-      if (
-        currentState?.record &&
-        sameMetadataSecurityIdentity(currentState.record, input.expectedRecord)
-      ) {
-        await deleteAcceptedPendingUpdates(
-          tx,
+    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        const currentState = await loadStoredContainerState(
+          lockedExecSql,
           input.containerId,
-          input.pendingUpdateIds,
         );
-      }
-      return currentState;
-    }),
+        if (
+          currentState?.record &&
+          sameMetadataSecurityIdentity(
+            currentState.record,
+            input.expectedRecord,
+          )
+        ) {
+          await deleteAcceptedPendingUpdates(
+            tx,
+            input.containerId,
+            input.pendingUpdateIds,
+          );
+        }
+        return currentState;
+      },
+      { behavior: "immediate" },
+    ),
   );
 }

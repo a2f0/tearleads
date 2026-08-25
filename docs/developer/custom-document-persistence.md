@@ -39,6 +39,11 @@ must not enqueue the optional outgoing update.
 the response's complete security identity still matches the canonical record.
 It returns the authoritative record whether the comparison succeeds or loses.
 
+`loadDocumentStoreState(...)` reads the canonical record, durable history,
+pending attachments, and local attachment projections from one database
+snapshot. Startup installs that coherent state as a unit; adapters must not
+implement it as independent reads that can straddle a relink or key rotation.
+
 `invalidatePullContinuation(...)` atomically replaces only the exact rejected
 cursor and matching sync identity with the durable recovery marker. It returns
 the authoritative current record after the compare-and-set (including after a

@@ -228,6 +228,7 @@ export async function deleteStoredContainers(
           tx,
         });
       },
+      { behavior: "immediate" },
     );
   });
 }

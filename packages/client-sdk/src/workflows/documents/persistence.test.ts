@@ -27,23 +27,16 @@ test("loadPersistedDocumentStoreState uses the provided executor", async () => {
       expect(nextExecSql).toBe(execSql);
       calls.push("ensureSchema");
     },
-    loadDocument: async (nextExecSql: ExecSql, localId: string) => {
+    loadDocumentStoreState: async (nextExecSql: ExecSql, localId: string) => {
       expect(nextExecSql).toBe(execSql);
       expect(localId).toBe("local-document");
-      calls.push("loadDocument");
-      return null;
-    },
-    listPendingAttachments: async (nextExecSql: ExecSql, localId: string) => {
-      expect(nextExecSql).toBe(execSql);
-      expect(localId).toBe("local-document");
-      calls.push("listPendingAttachments");
-      return [];
-    },
-    listLocalAttachments: async (nextExecSql: ExecSql, localId: string) => {
-      expect(nextExecSql).toBe(execSql);
-      expect(localId).toBe("local-document");
-      calls.push("listLocalAttachments");
-      return [];
+      calls.push("loadDocumentStoreState");
+      return {
+        document: null,
+        historyRestoreState: null,
+        localAttachments: [],
+        pendingAttachments: [],
+      };
     },
   } as unknown as DocumentsPersistence;
 
@@ -53,14 +46,10 @@ test("loadPersistedDocumentStoreState uses the provided executor", async () => {
     persistence,
   });
 
-  expect(calls).toEqual([
-    "ensureSchema",
-    "loadDocument",
-    "listPendingAttachments",
-    "listLocalAttachments",
-  ]);
+  expect(calls).toEqual(["ensureSchema", "loadDocumentStoreState"]);
   expect(loaded).toEqual({
     document: null,
+    historyRestoreState: null,
     localAttachments: [],
     pendingAttachments: [],
   });

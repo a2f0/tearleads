@@ -370,6 +370,21 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
     ...createPendingUpdatePersistence(state, historyByLocalId),
     ...createAttachmentPersistence(state),
     ...historyPersistence,
+    async loadDocumentStoreState(execSql, localId) {
+      return {
+        document: state.document?.id === localId ? state.document : null,
+        historyRestoreState: await historyPersistence.loadHistoryRestoreState(
+          execSql,
+          localId,
+        ),
+        localAttachments: state.localAttachments.filter(
+          (attachment) => attachment.localId === localId,
+        ),
+        pendingAttachments: state.pendingAttachments.filter(
+          (attachment) => attachment.localId === localId,
+        ),
+      };
+    },
   };
 }
 

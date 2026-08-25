@@ -8,6 +8,7 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
+import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
 import {
   applyMemoryAttachmentRemoval,
@@ -303,13 +304,12 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async loadHistoryRestoreState(_execSql, localId) {
       return toHistoryRestoreState(historyByLocalId.get(localId));
     },
-    async loadDocumentWithHistoryRestoreState(_execSql, localId) {
-      const history = historyByLocalId.get(localId);
-      return {
-        document: document?.id === localId ? document : null,
-        historyRestoreState: toHistoryRestoreState(history),
-      };
-    },
+    ...createMemoryDocumentStartupReads({
+      getDocument: () => document,
+      getLocalAttachments: () => localAttachments,
+      getPendingAttachments: () => pendingAttachments,
+      historyByLocalId,
+    }),
     async readHistoryTailSize(_execSql, localId) {
       const history = historyFor(localId);
       return {

@@ -4,7 +4,7 @@ import {
   type DocumentsPersistence,
   importDocumentHistoryTailUpdates,
 } from "../../../workflows/documents";
-import type { DocumentState, DocumentStoreState } from "./state";
+import type { DocumentState } from "./state";
 
 export type RestoredHistoryState = NonNullable<
   Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>
@@ -23,14 +23,10 @@ export function installRestoredDocumentContent(
   );
 }
 
-export async function restorePersistedDocumentContent(
-  state: DocumentStoreState,
+export function restorePersistedDocumentContent(
   nextDoc: DocumentState,
-): Promise<RestoredHistoryState | null> {
-  const history = await state.persistence.loadHistoryRestoreState(
-    state.runtime.infra.execSql,
-    state.localId,
-  );
+  history: RestoredHistoryState | null,
+): RestoredHistoryState | null {
   if (!history) return null;
   installRestoredDocumentContent(nextDoc, history);
   return history;

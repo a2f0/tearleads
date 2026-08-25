@@ -101,60 +101,67 @@ export async function commitStoredHydratedContainer(
   input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
 ) {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(async (tx) => {
-      const existingContainers = await tx
-        .select({ id: containers.id })
-        .from(containers)
-        .where(eq(containers.id, input.container.id))
-        .limit(1);
-      if (existingContainers.length > 0) return { committed: false as const };
+    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        const existingContainers = await tx
+          .select({ id: containers.id })
+          .from(containers)
+          .where(eq(containers.id, input.container.id))
+          .limit(1);
+        if (existingContainers.length > 0) return { committed: false as const };
 
-      const fences = await tx
-        .select({
-          reason: containerHydrationTombstones.reason,
-          updatedAt: containerHydrationTombstones.updatedAt,
-        })
-        .from(containerHydrationTombstones)
-        .where(eq(containerHydrationTombstones.containerId, input.container.id))
-        .limit(1);
-      const fence = fences[0];
-      const currentDormantRecord = await selectContainerMetadataRecord(
-        lockedExecSql,
-        input.container.id,
-      );
-      if (
-        fence &&
-        fence.updatedAt >= input.remoteUpdatedAt &&
-        (fence.reason === "deleted" ||
-          !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
-      ) {
-        return { committed: false as const };
-      }
-      if (
-        !sameMetadataRecord(currentDormantRecord, input.expectedDormantRecord)
-      ) {
-        return { committed: false as const };
-      }
-      if (input.purgeDormantMetadata) {
-        await deleteContainerMetadataDocumentRowsInTransaction(tx, [
+        const fences = await tx
+          .select({
+            reason: containerHydrationTombstones.reason,
+            updatedAt: containerHydrationTombstones.updatedAt,
+          })
+          .from(containerHydrationTombstones)
+          .where(
+            eq(containerHydrationTombstones.containerId, input.container.id),
+          )
+          .limit(1);
+        const fence = fences[0];
+        const currentDormantRecord = await selectContainerMetadataRecord(
+          lockedExecSql,
           input.container.id,
-        ]);
-      }
+        );
+        if (
+          fence &&
+          fence.updatedAt >= input.remoteUpdatedAt &&
+          (fence.reason === "deleted" ||
+            !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
+        ) {
+          return { committed: false as const };
+        }
+        if (
+          !sameMetadataRecord(currentDormantRecord, input.expectedDormantRecord)
+        ) {
+          return { committed: false as const };
+        }
+        if (input.purgeDormantMetadata) {
+          await deleteContainerMetadataDocumentRowsInTransaction(tx, [
+            input.container.id,
+          ]);
+        }
 
-      const localUpdatedAt =
-        input.saveOptions.localUpdatedAt ?? input.remoteUpdatedAt;
-      const container = await saveContainerContentsContainerRows({
-        container: input.container,
-        localUpdatedAt,
-        record: input.record,
-        serverTimestamps: input.saveOptions.serverTimestamps,
-        tx,
-      });
-      await tx
-        .delete(containerHydrationTombstones)
-        .where(eq(containerHydrationTombstones.containerId, input.container.id))
-        .run();
-      return { committed: true as const, container };
-    }),
+        const localUpdatedAt =
+          input.saveOptions.localUpdatedAt ?? input.remoteUpdatedAt;
+        const container = await saveContainerContentsContainerRows({
+          container: input.container,
+          localUpdatedAt,
+          record: input.record,
+          serverTimestamps: input.saveOptions.serverTimestamps,
+          tx,
+        });
+        await tx
+          .delete(containerHydrationTombstones)
+          .where(
+            eq(containerHydrationTombstones.containerId, input.container.id),
+          )
+          .run();
+        return { committed: true as const, container };
+      },
+      { behavior: "immediate" },
+    ),
   );
 }

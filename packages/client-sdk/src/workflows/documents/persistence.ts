@@ -47,6 +47,9 @@ const projectionSchemaEnsuresByExecSql = new WeakMap<
 
 interface LoadedPersistedDocumentStoreState {
   document: StoredDocumentRecord | null;
+  historyRestoreState: Awaited<
+    ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>
+  >;
   localAttachments: LocalAttachmentRecord[];
   pendingAttachments: PendingAttachmentRecord[];
 }
@@ -113,10 +116,5 @@ export async function loadPersistedDocumentStoreState(input: {
 }): Promise<LoadedPersistedDocumentStoreState> {
   const { execSql, localId, persistence } = input;
   await persistence.ensureSchema(execSql);
-  const [document, pendingAttachments, localAttachments] = await Promise.all([
-    persistence.loadDocument(execSql, localId),
-    persistence.listPendingAttachments(execSql, localId),
-    persistence.listLocalAttachments(execSql, localId),
-  ]);
-  return { document, localAttachments, pendingAttachments };
+  return persistence.loadDocumentStoreState(execSql, localId);
 }

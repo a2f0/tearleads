@@ -26,6 +26,65 @@ async function openTestConnection(input: {
   };
 }
 
+async function openCoordinatedConnections(key: string) {
+  const db = await initTestSqliteDatabase({
+    cipher: "chacha20",
+    dbName: `/${crypto.randomUUID()}.db`,
+    key,
+  });
+  let transactionOwner: symbol | null = null;
+  let transactionReleased: Promise<void> = Promise.resolve();
+  let releaseTransaction = () => {};
+  const beginStatements: string[] = [];
+  const createRuntime = (): ClientSQLitePersistenceRuntime => {
+    const owner = Symbol("pane-executor");
+    return createClientSQLitePersistenceRuntime({
+      exec: async (options) => {
+        const command = options.sql.trim().toUpperCase();
+        const beginsTransaction = command.startsWith("BEGIN");
+        const endsTransaction =
+          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
+        if (beginsTransaction) {
+          beginStatements.push(command);
+          while (transactionOwner !== null && transactionOwner !== owner) {
+            await transactionReleased;
+          }
+          if (transactionOwner === null) {
+            transactionOwner = owner;
+            transactionReleased = new Promise<void>((resolve) => {
+              releaseTransaction = resolve;
+            });
+          }
+        } else {
+          while (transactionOwner !== null && transactionOwner !== owner) {
+            await transactionReleased;
+          }
+        }
+        try {
+          return {
+            rows: execDatabaseStatement(db, options) as Array<
+              SqlRow | SqlArrayRow
+            >,
+          };
+        } finally {
+          if (endsTransaction && transactionOwner === owner) {
+            transactionOwner = null;
+            releaseTransaction();
+          }
+        }
+      },
+    });
+  };
+  const first = createRuntime();
+  await sqlContainerContentsPersistence.ensureSchema(first.execSql);
+  return {
+    beginStatements,
+    close: () => db.close(),
+    first,
+    second: createRuntime(),
+  };
+}
+
 const T1 = "2026-01-01T00:00:01.000Z";
 const T2 = "2026-01-01T00:00:02.000Z";
 const T3 = "2026-01-01T00:00:03.000Z";
@@ -116,5 +175,70 @@ test("a stale metadata mutation cannot erase a hydrated creation timestamp", asy
   } finally {
     first.close();
     second.close();
+  }
+});
+
+test("overlapping metadata CAS writes return one conflict without busy-snapshot", async () => {
+  const { beginStatements, close, first, second } =
+    await openCoordinatedConnections("metadata-cas-overlap");
+  try {
+    const container = {
+      effectiveAccessLevel: "write" as const,
+      icon: null,
+      id: "container-overlap",
+      metadataDocumentId: "metadata-overlap",
+      name: "Base",
+      organizationId: "organization-1",
+      parentId: null,
+    };
+    const record = {
+      accessEpoch: 1,
+      accessStateHash: "access-1",
+      documentId: "metadata-overlap",
+      id: container.id,
+      metadataUpdates: "base",
+      snapshotEndVersion: "base-version",
+    };
+    await sqlContainerContentsPersistence.saveContainer(
+      first.execSql,
+      container,
+      record,
+      { localUpdatedAt: T1 },
+    );
+    const expected =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        first.execSql,
+        container.id,
+      );
+    const expectedRecord = expected?.record;
+    if (!expected || !expectedRecord) {
+      throw new Error("Expected initial metadata state");
+    }
+    beginStatements.length = 0;
+    const mutate = (execSql: typeof first.execSql, suffix: string) =>
+      sqlContainerContentsPersistence.commitMetadataMutation(execSql, {
+        acceptedPendingUpdateIds: [],
+        container: { ...expected.container, name: suffix },
+        expectedContainer: expected.container,
+        expectedRecord,
+        record: {
+          ...expectedRecord,
+          metadataUpdates: suffix,
+          snapshotEndVersion: `${suffix}-version`,
+        },
+        saveOptions: { localUpdatedAt: T2 },
+        settleAcceptedPendingOnConflict: false,
+      });
+
+    const results = await Promise.all([
+      mutate(first.execSql, "first"),
+      mutate(second.execSql, "second"),
+    ]);
+
+    expect(results.filter(({ committed }) => committed)).toHaveLength(1);
+    expect(results.filter(({ committed }) => !committed)).toHaveLength(1);
+    expect(beginStatements).toEqual(["BEGIN IMMEDIATE", "BEGIN IMMEDIATE"]);
+  } finally {
+    close();
   }
 });

@@ -27,7 +27,6 @@ import {
   type LoadedDocumentStoreState,
 } from "./initializationAttachments";
 import {
-  installRestoredDocumentContent,
   type RestoredHistoryState,
   restoredRemoteTailCoverage,
   restorePersistedDocumentContent,
@@ -122,54 +121,68 @@ function installPersistedDocumentRecord(
 }
 
 interface RestoredInitialDocumentState {
+  activePersistedState: LoadedDocumentStoreState;
   activeRecord: NonNullable<DocumentStoreState["record"]>;
-  creationSuperseded?: true;
   doc: DocumentState;
   history: RestoredHistoryState | null;
+}
+
+async function restoreLoadedInitialDocument(input: {
+  initializeGeneration: number;
+  nextDoc: DocumentState;
+  persistedState: LoadedDocumentStoreState;
+  state: DocumentStoreState;
+}): Promise<RestoredInitialDocumentState | null> {
+  const { initializeGeneration, persistedState, state } = input;
+  const record = persistedState.document;
+  if (!record) return null;
+  const history = await restorePersistedDocumentContent(
+    input.nextDoc,
+    persistedState.historyRestoreState,
+  );
+  if (state.localWriteGeneration !== initializeGeneration) return null;
+  installPersistedDocumentRecord(state, record);
+  return {
+    activePersistedState: persistedState,
+    activeRecord: record,
+    doc: input.nextDoc,
+    history,
+  };
 }
 
 async function restoreOrCreateInitialDocument(input: {
   initializeGeneration: number;
   nextDoc: DocumentState;
-  persistedRecord: LoadedDocumentStoreState["document"];
+  persistedState: LoadedDocumentStoreState;
   state: DocumentStoreState;
 }): Promise<RestoredInitialDocumentState | null> {
-  const { initializeGeneration, persistedRecord, state } = input;
-  if (persistedRecord) {
-    const history = await restorePersistedDocumentContent(state, input.nextDoc);
-    if (state.localWriteGeneration !== initializeGeneration) {
-      return null;
-    }
-    installPersistedDocumentRecord(state, persistedRecord);
-    return { activeRecord: persistedRecord, doc: input.nextDoc, history };
+  const { initializeGeneration, persistedState, state } = input;
+  if (persistedState.document) {
+    return restoreLoadedInitialDocument(input);
   }
 
   const created = await createInitialDocumentRecord(state, input.nextDoc);
   if (!created || state.localWriteGeneration !== initializeGeneration) {
     return null;
   }
-  if (!created.creationSuperseded) {
-    return { activeRecord: created.record, doc: input.nextDoc, history: null };
-  }
-
-  const replacementDoc = await createStoredDocument(state);
-  const history = created.historyRestoreState;
-  if (history === undefined) {
-    throw new Error("Concurrent document creation omitted durable history");
-  }
-  if (history) {
-    installRestoredDocumentContent(replacementDoc, history);
-  }
+  const activePersistedState = await loadPersistedDocumentStoreState({
+    execSql: state.runtime.infra.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+  });
   if (state.localWriteGeneration !== initializeGeneration) {
     return null;
   }
-  installPersistedDocumentRecord(state, created.record);
-  return {
-    activeRecord: created.record,
-    creationSuperseded: true,
-    doc: replacementDoc,
-    history,
-  };
+  if (!activePersistedState.document) {
+    throw new Error("Document creation completed without a durable record");
+  }
+  const replacementDoc = await createStoredDocument(state);
+  return restoreLoadedInitialDocument({
+    initializeGeneration,
+    nextDoc: replacementDoc,
+    persistedState: activePersistedState,
+    state,
+  });
 }
 
 function restorePendingBaseVersion(input: {
@@ -223,22 +236,13 @@ async function initializeDocumentStore(
   const restored = await restoreOrCreateInitialDocument({
     initializeGeneration,
     nextDoc,
-    persistedRecord: persistedState.document,
+    persistedState,
     state,
   });
   if (!restored) {
     return;
   }
-  const activePersistedState = restored.creationSuperseded
-    ? await loadPersistedDocumentStoreState({
-        execSql: state.runtime.infra.execSql,
-        localId: state.localId,
-        persistence: state.persistence,
-      })
-    : persistedState;
-  if (state.localWriteGeneration !== initializeGeneration) {
-    return;
-  }
+  const activePersistedState = restored.activePersistedState;
   installPersistedAttachments(state, activePersistedState);
 
   state.doc = restored.doc;

@@ -57,6 +57,8 @@ or differs. Callers treat that false result as normal compare-and-set loss and
 reload the winner. `commitDocumentMutation(...)` includes an ordinary local
 edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
+`loadDocumentStoreState(...)` must return the canonical record, history, and
+attachment rows from one database snapshot so startup cannot cross a relink.
 There is no separate attachment-staging commit, legacy create, or void-enqueue
 fallback.
 

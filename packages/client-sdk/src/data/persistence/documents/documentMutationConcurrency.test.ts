@@ -14,6 +14,7 @@ import {
 import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
+import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 
 async function openSharedConnections(key: string) {
   const dbName = `/${crypto.randomUUID()}.db`;
@@ -244,6 +245,138 @@ test("record and history reads cannot tear across a replacement commit", async (
     ).resolves.toMatchObject({
       document: { documentId: "replacement-document" },
       historyRestoreState: { snapshot: history.replacement.snapshot },
+    });
+  } finally {
+    await replacement.catch(() => undefined);
+    close();
+  }
+});
+
+test("startup record, history, and attachments share one database snapshot", async () => {
+  const { close, first, second } = await openSharedConnections(
+    "document-startup-state-race",
+  );
+  const history = await createHistoryStates();
+  const original = {
+    accessEpoch: 1,
+    containerId: "container",
+    documentId: "original-document",
+    id: "local-document",
+    snapshotEndVersion: history.original.version,
+    text: "original",
+  };
+  const oldLocalAttachment = {
+    blobId: "old-blob",
+    byteLength: 3,
+    detachedAt: null,
+    localId: original.id,
+    mimeType: "text/plain",
+    slotId: "slot",
+    storageKey: "old-local-key",
+  };
+  const oldPendingAttachment = {
+    byteLength: 3,
+    localId: original.id,
+    mimeType: "text/plain",
+    name: "old.txt",
+    slotId: "slot",
+    storageKey: "old-pending-key",
+    upload: null,
+  };
+  let replacement: Promise<void> = Promise.resolve();
+  try {
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      first.runtime.execSql,
+      original,
+      {
+        endVersionVector: history.original.version,
+        snapshot: history.original.snapshot,
+      },
+      undefined,
+      async () => undefined,
+    );
+    await sqlDocumentsPersistence.saveLocalAttachment(
+      first.runtime.execSql,
+      oldLocalAttachment,
+    );
+    await sqlDocumentsPersistence.savePendingAttachment(
+      first.runtime.execSql,
+      oldPendingAttachment,
+    );
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      first.runtime.execSql,
+      original.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the original document");
+
+    const loaded = await loadStoredDocumentStoreState(
+      first.runtime.execSql,
+      original.id,
+      {
+        ...sqlDocumentsPersistence,
+        loadDocument: async (execSql, localId) => {
+          const record = await sqlDocumentsPersistence.loadDocument(
+            execSql,
+            localId,
+          );
+          replacement = (async () => {
+            await sqlDocumentsPersistence.commitDocumentMutation(
+              second.runtime.execSql,
+              {
+                acceptedPendingUpdateIds: [],
+                document: {
+                  ...expectedRecord,
+                  accessEpoch: 2,
+                  documentId: "replacement-document",
+                  snapshotEndVersion: history.replacement.version,
+                  text: "replacement",
+                },
+                expectedRecord,
+                historyCheckpoint: {
+                  coveredTailIds: [],
+                  endVersionVector: history.replacement.version,
+                  snapshot: history.replacement.snapshot,
+                },
+                settleAcceptedPendingOnConflict: false,
+              },
+              async () => undefined,
+            );
+            await sqlDocumentsPersistence.deleteLocalAttachment(
+              second.runtime.execSql,
+              original.id,
+              oldLocalAttachment.slotId,
+              oldLocalAttachment.storageKey,
+            );
+            await sqlDocumentsPersistence.deletePendingAttachment(
+              second.runtime.execSql,
+              original.id,
+              oldPendingAttachment.slotId,
+              oldPendingAttachment.storageKey,
+            );
+          })();
+          await Promise.resolve();
+          return record;
+        },
+      },
+    );
+
+    expect(loaded.document?.documentId).toBe("original-document");
+    expect(loaded.historyRestoreState?.snapshot).toBe(
+      history.original.snapshot,
+    );
+    expect(loaded.localAttachments).toEqual([oldLocalAttachment]);
+    expect(loaded.pendingAttachments).toEqual([oldPendingAttachment]);
+    await replacement;
+    await expect(
+      sqlDocumentsPersistence.loadDocumentStoreState(
+        first.runtime.execSql,
+        original.id,
+      ),
+    ).resolves.toMatchObject({
+      document: { documentId: "replacement-document" },
+      historyRestoreState: { snapshot: history.replacement.snapshot },
+      localAttachments: [],
+      pendingAttachments: [],
     });
   } finally {
     await replacement.catch(() => undefined);

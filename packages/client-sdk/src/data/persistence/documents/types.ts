@@ -245,6 +245,16 @@ export interface DocumentsPersistence {
     document: StoredDocumentRecord | null;
     historyRestoreState: DocumentHistoryRestoreState | null;
   }>;
+  /** Read every document-store startup row from one database snapshot. */
+  loadDocumentStoreState: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{
+    document: StoredDocumentRecord | null;
+    historyRestoreState: DocumentHistoryRestoreState | null;
+    localAttachments: LocalAttachmentRecord[];
+    pendingAttachments: PendingAttachmentRecord[];
+  }>;
   /**
    * Atomically replace the exact rejected pull continuation with the durable
    * recovery marker when every supplied sync-identity field still matches.
