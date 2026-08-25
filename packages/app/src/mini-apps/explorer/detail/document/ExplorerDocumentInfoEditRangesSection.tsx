@@ -11,6 +11,7 @@ import {
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   type ExplorerAttributionUserLabelResolver,
@@ -124,6 +125,9 @@ function useEditRangesState(input: {
   compactAttributionRevision: number | null;
   documentId: string | null;
   load: ExplorerDocumentAttributionRangesLoader;
+  requestAttributionProfileHydration?:
+    | ExplorerAttributionProfileHydrationRequester
+    | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [state, setState] = useState(createEmptyEditRangesState);
@@ -165,6 +169,15 @@ function useEditRangesState(input: {
         if (requestIdRef.current !== requestId) {
           return;
         }
+        const contributorUserIds = [
+          ...new Set(page.items.map((item) => item.writerUserId)),
+        ];
+        if (contributorUserIds.length > 0) {
+          input.requestAttributionProfileHydration?.({
+            contributorUserIds,
+            documentId: page.documentId,
+          });
+        }
         setState((current) => ({
           attributionRevision: page.attributionRevision,
           error: null,
@@ -184,7 +197,7 @@ function useEditRangesState(input: {
         }));
       }
     },
-    [input.documentId, input.load],
+    [input.documentId, input.load, input.requestAttributionProfileHydration],
   );
 
   const toggleExpanded = () => {
@@ -256,6 +269,9 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
     | undefined;
   documentInfo: DocumentInfo | null;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
+  requestAttributionProfileHydration?:
+    | ExplorerAttributionProfileHydrationRequester
+    | undefined;
 }) {
   const remoteInfo = params.documentInfo?.remoteInfo;
   const documentId = params.documentInfo?.local.documentId ?? null;
@@ -265,6 +281,8 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
     compactAttributionRevision,
     documentId,
     load: params.loadDocumentAttributionRanges,
+    requestAttributionProfileHydration:
+      params.requestAttributionProfileHydration,
   });
 
   if (

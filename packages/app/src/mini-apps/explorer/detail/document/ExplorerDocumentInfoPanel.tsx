@@ -206,6 +206,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   setSelectedId: (id: string | null) => void;
   showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
@@ -237,6 +238,9 @@ function ExplorerDocumentInfoTabPanel(params: {
               documentInfo={params.documentInfo}
               loadDocumentAttributionRanges={
                 params.loadDocumentAttributionRanges
+              }
+              requestAttributionProfileHydration={
+                params.requestAttributionProfileHydration
               }
             />
           ) : null}
@@ -362,10 +366,14 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     if (!documentInfo?.remoteInfo) {
       return;
     }
+    const contributorUserIds = documentInfo.remoteInfo.contributors.map(
+      (contributor) => contributor.writerUserId,
+    );
+    if (contributorUserIds.length === 0) {
+      return;
+    }
     params.requestAttributionProfileHydration({
-      contributorUserIds: documentInfo.remoteInfo.contributors.map(
-        (contributor) => contributor.writerUserId,
-      ),
+      contributorUserIds,
       documentId: documentInfo.local.documentId ?? params.localId,
     });
   }, [documentInfo, params.requestAttributionProfileHydration]);
@@ -434,6 +442,9 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           localId={params.localId}
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}
+          requestAttributionProfileHydration={
+            params.requestAttributionProfileHydration
+          }
           setSelectedId={params.setSelectedId}
           showDocumentEditRanges={params.showDocumentEditRanges}
           showLinkedDocumentActivationControls={

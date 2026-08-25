@@ -27,6 +27,7 @@ export async function loadExplorerAttributionDirectoryAndGroups(
 }
 
 export const MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS = 32;
+export const MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS = 32;
 
 export interface ExplorerAttributionProfileHydrationRequest {
   readonly contributorUserIds: ReadonlyArray<string>;
@@ -36,6 +37,29 @@ export interface ExplorerAttributionProfileHydrationRequest {
 export type ExplorerAttributionProfileHydrationRequester = (
   request: ExplorerAttributionProfileHydrationRequest,
 ) => void;
+
+export function getExplorerAttributionHydrationDocumentSelection(
+  selectionsByDocumentId: Map<string, Set<string>>,
+  documentId: string,
+): Set<string> {
+  const existing = selectionsByDocumentId.get(documentId);
+  if (existing) {
+    selectionsByDocumentId.delete(documentId);
+    selectionsByDocumentId.set(documentId, existing);
+    return existing;
+  }
+  if (
+    selectionsByDocumentId.size >= MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS
+  ) {
+    const oldestDocumentId = selectionsByDocumentId.keys().next().value;
+    if (oldestDocumentId !== undefined) {
+      selectionsByDocumentId.delete(oldestDocumentId);
+    }
+  }
+  const selection = new Set<string>();
+  selectionsByDocumentId.set(documentId, selection);
+  return selection;
+}
 
 export interface ExplorerAttributionProfileHydrationTarget {
   readonly bindingKey: string;

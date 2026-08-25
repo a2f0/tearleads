@@ -6,11 +6,13 @@ import type {
 } from "@symcrypt/client-sdk";
 import { getRosterProfileDocumentLocalId } from "@symcrypt/client-sdk";
 import {
+  getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDisplayNames,
   getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocuments,
   loadExplorerAttributionDirectoryAndGroups,
+  MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS,
   MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
   selectExplorerAttributionProfileHydrationTargets,
 } from "./explorerAttributionReadModel";
@@ -172,6 +174,26 @@ test("profile hydration never exceeds the per-document cap", () => {
 
   expect(targets).toHaveLength(MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS);
   expect(targets.at(-1)?.userId).toBe("user-31");
+});
+
+test("profile hydration evicts the least recently viewed document", () => {
+  const selections = new Map<string, Set<string>>();
+  for (
+    let index = 0;
+    index < MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS;
+    index += 1
+  ) {
+    getExplorerAttributionHydrationDocumentSelection(
+      selections,
+      `document-${index}`,
+    );
+  }
+  getExplorerAttributionHydrationDocumentSelection(selections, "document-0");
+  getExplorerAttributionHydrationDocumentSelection(selections, "overflow");
+
+  expect(selections.size).toBe(MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS);
+  expect(selections.has("document-0")).toBe(true);
+  expect(selections.has("document-1")).toBe(false);
 });
 
 test("profiles reserved by another document do not consume the hydration cap", () => {

@@ -455,13 +455,14 @@ test("is hidden without compact attribution", () => {
   expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
 });
 
-test("truncated attribution keeps paginated ranges available", () => {
+test("truncated attribution hydrates paginated range writers", async () => {
   const documentInfo = createDocumentInfo();
   if (!documentInfo.remoteInfo) {
     throw new Error("Expected remote document info");
   }
   documentInfo.remoteInfo.attributionStatus = "truncated";
   documentInfo.remoteInfo.attributionSegments = [];
+  const hydrationRequests: unknown[] = [];
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, {
       documentInfo,
@@ -469,13 +470,21 @@ test("truncated attribution keeps paginated ranges available", () => {
         attributionRevision: 7,
         documentId: "document-1",
         hasMore: false,
-        items: [],
+        items: [{ ...compactAttributionSegment, updateId: "page-update" }],
         nextCursor: null,
       }),
+      requestAttributionProfileHydration: (request) => {
+        hydrationRequests.push(request);
+      },
     }),
   );
 
-  expect(view.getByRole("button", { name: "Show edit ranges" })).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Show edit ranges" }));
+  await waitFor(() =>
+    expect(hydrationRequests).toEqual([
+      { contributorUserIds: ["writer-1"], documentId: "document-1" },
+    ]),
+  );
 });
 
 test("is hidden for local-only documents", () => {

@@ -10,6 +10,7 @@ import { useDeviceFirstContainerContents } from "../../../stores/device-first/De
 import {
   type ExplorerAttributionProfileHydrationRequester,
   type ExplorerAttributionProfileHydrationTarget,
+  getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProjectionKey,
   hydrateExplorerAttributionProfileDocuments,
   MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
@@ -85,12 +86,9 @@ function getPendingTargets(
   ) {
     return [];
   }
-  const selectedBindingKeys =
-    input.selectedBindingKeysByDocumentId.get(input.documentId) ??
-    new Set<string>();
-  input.selectedBindingKeysByDocumentId.set(
+  const selectedBindingKeys = getExplorerAttributionHydrationDocumentSelection(
+    input.selectedBindingKeysByDocumentId,
     input.documentId,
-    selectedBindingKeys,
   );
   const newTargets = selectExplorerAttributionProfileHydrationTargets({
     contributorUserIds: input.contributorUserIds,
