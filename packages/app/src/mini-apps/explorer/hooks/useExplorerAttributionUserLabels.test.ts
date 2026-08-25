@@ -1,11 +1,13 @@
 import { expect, mock, test } from "bun:test";
-import {
-  type Documents,
-  getRosterProfileDocumentLocalId,
-  type OrganizationDirectoryAndGroups,
-  type OrganizationDirectoryUser,
+import type {
+  Documents,
+  OrganizationDirectoryAndGroups,
+  OrganizationDirectoryUser,
 } from "@symcrypt/client-sdk";
 import {
+  getExplorerAttributionProfileBindingsByLocalId,
+  getExplorerAttributionProfileDisplayNames,
+  getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocuments,
   loadExplorerAttributionDirectoryAndGroups,
   MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
@@ -171,6 +173,37 @@ test("profile hydration never exceeds the per-document cap", () => {
   expect(targets.at(-1)?.userId).toBe("user-31");
 });
 
+test("profiles reserved by another document do not consume the hydration cap", () => {
+  const users = Array.from(
+    { length: MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS + 1 },
+    (_, index) =>
+      rosterUser({
+        profileDocumentId: `profile-${index}`,
+        status: "disabled",
+        userId: `user-${index}`,
+      }),
+  );
+  const reservedBindingKeys = new Set(
+    users
+      .slice(0, MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS)
+      .map((user) => `${user.userId}\0${user.profileDocumentId}`),
+  );
+
+  expect(
+    selectExplorerAttributionProfileHydrationTargets({
+      contributorUserIds: users.map((user) => user.userId),
+      directoryAndGroups: projection({ users }),
+      excludedBindingKeys: reservedBindingKeys,
+    }),
+  ).toEqual([
+    {
+      bindingKey: "user-32\0profile-32",
+      profileDocumentId: "profile-32",
+      userId: "user-32",
+    },
+  ]);
+});
+
 test("selected profiles open by retained roster identity and request sync", () => {
   const requestSync = mock(() => undefined);
   const open = mock(() => ({ requestSync }));
@@ -192,10 +225,101 @@ test("selected profiles open by retained roster identity and request sync", () =
     containerId: "roster-profile-container-id",
     documentId: "disabled-profile-id",
     initialDocumentKind: "contact",
-    localId: getRosterProfileDocumentLocalId({
+    localId: getExplorerAttributionProfileDocumentLocalId({
       organizationId: ORGANIZATION_ID,
+      profileDocumentId: "disabled-profile-id",
       userId: "disabled-user-id",
     }),
   });
   expect(requestSync).toHaveBeenCalledTimes(1);
+});
+
+test("profile pointer replacements hydrate through distinct local identities", () => {
+  const syncedDocumentIds: string[] = [];
+  const storesByLocalId = new Map<
+    string,
+    { documentId: string; requestSync: () => void }
+  >();
+  const open = mock(
+    (input: { documentId?: string | null; localId?: string }) => {
+      const localId = input.localId ?? "";
+      const documentId = input.documentId ?? "";
+      const existing = storesByLocalId.get(localId);
+      if (existing) {
+        return existing;
+      }
+      const store = {
+        documentId,
+        requestSync: () => syncedDocumentIds.push(documentId),
+      };
+      storesByLocalId.set(localId, store);
+      return store;
+    },
+  );
+  const documents = { open } as unknown as Documents;
+  const target = (profileDocumentId: string) => ({
+    bindingKey: `disabled-user-id\0${profileDocumentId}`,
+    profileDocumentId,
+    userId: "disabled-user-id",
+  });
+
+  hydrateExplorerAttributionProfileDocuments({
+    containerId: "roster-profile-container-id",
+    documents,
+    organizationId: ORGANIZATION_ID,
+    targets: [target("old-profile-id")],
+  });
+  hydrateExplorerAttributionProfileDocuments({
+    containerId: "roster-profile-container-id",
+    documents,
+    organizationId: ORGANIZATION_ID,
+    targets: [target("new-profile-id")],
+  });
+
+  expect(storesByLocalId.size).toBe(2);
+  expect(syncedDocumentIds).toEqual(["old-profile-id", "new-profile-id"]);
+
+  const currentUser = rosterUser({
+    profileDocumentId: "new-profile-id",
+    status: "disabled",
+    userId: "disabled-user-id",
+  });
+  const currentBindings = getExplorerAttributionProfileBindingsByLocalId({
+    directoryAndGroups: projection({ users: [currentUser] }),
+    organizationId: ORGANIZATION_ID,
+  });
+  expect(
+    getExplorerAttributionProfileDisplayNames({
+      documents: {
+        rows: [
+          {
+            containerId: "roster-profile-container-id",
+            documentId: "old-profile-id",
+            documentKind: "contact",
+            id: getExplorerAttributionProfileDocumentLocalId({
+              organizationId: ORGANIZATION_ID,
+              profileDocumentId: "old-profile-id",
+              userId: "disabled-user-id",
+            }),
+            title: "Stale Name",
+            updatedAt: "2026-08-25T13:00:00.000Z",
+          },
+          {
+            containerId: "roster-profile-container-id",
+            documentId: "new-profile-id",
+            documentKind: "contact",
+            id: getExplorerAttributionProfileDocumentLocalId({
+              organizationId: ORGANIZATION_ID,
+              profileDocumentId: "new-profile-id",
+              userId: "disabled-user-id",
+            }),
+            title: "Current Name",
+            updatedAt: "2026-08-25T14:00:00.000Z",
+          },
+        ],
+        totalCount: 2,
+      },
+      profileBindingsByLocalId: currentBindings,
+    }),
+  ).toEqual(new Map([["disabled-user-id", "Current Name"]]));
 });

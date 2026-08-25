@@ -3,7 +3,7 @@ import {
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   type OrganizationDirectoryAndGroups,
 } from "@symcrypt/client-sdk";
-import { type RefObject, useCallback, useRef } from "react";
+import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
@@ -83,7 +83,8 @@ function getPendingTargets(
   return selectExplorerAttributionProfileHydrationTargets({
     contributorUserIds: input.contributorUserIds,
     directoryAndGroups: input.projection,
-  }).filter((target) => !input.requestedBindingKeys.has(target.bindingKey));
+    excludedBindingKeys: input.requestedBindingKeys,
+  });
 }
 
 async function hydratePendingTargets(
@@ -171,17 +172,19 @@ function useExplorerAttributionProfileHydration(input: {
     organizationId,
     userId,
   });
-  const currentScope = {
-    active,
-    attributionKey,
-    domainScope,
-    organizationId,
-    userId,
-  };
-  if (!scopesMatch(scopeRef.current, currentScope)) {
-    requestedBindingKeysRef.current = new Set();
-  }
-  scopeRef.current = currentScope;
+  useLayoutEffect(() => {
+    const nextScope = {
+      active,
+      attributionKey,
+      domainScope,
+      organizationId,
+      userId,
+    };
+    if (!scopesMatch(scopeRef.current, nextScope)) {
+      requestedBindingKeysRef.current = new Set();
+    }
+    scopeRef.current = nextScope;
+  }, [active, attributionKey, domainScope, organizationId, userId]);
 
   return useCallback(
     (contributorUserIds) => {

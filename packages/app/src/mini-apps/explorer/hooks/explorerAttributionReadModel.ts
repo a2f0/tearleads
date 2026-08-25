@@ -38,10 +38,19 @@ export interface ExplorerAttributionProfileHydrationTarget {
   readonly userId: string;
 }
 
+export function getExplorerAttributionProfileDocumentLocalId(input: {
+  readonly organizationId: string;
+  readonly profileDocumentId: string;
+  readonly userId: string;
+}): string {
+  return `${getRosterProfileDocumentLocalId(input)}:remote:${input.profileDocumentId}`;
+}
+
 /** Selects bounded contributor profiles visible to an organization admin. */
 export function selectExplorerAttributionProfileHydrationTargets(input: {
   readonly contributorUserIds: ReadonlyArray<string>;
   readonly directoryAndGroups: OrganizationDirectoryAndGroups;
+  readonly excludedBindingKeys?: ReadonlySet<string> | undefined;
   readonly limit?: number | undefined;
 }): ExplorerAttributionProfileHydrationTarget[] {
   if (!input.directoryAndGroups.directory.currentUser.isOrgAdmin) {
@@ -53,19 +62,21 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
   const contributorUserIds = [
     ...new Set(input.contributorUserIds.filter((userId) => userId.length > 0)),
   ];
-  const targets = contributorUserIds.flatMap((userId) => {
-    const user = usersById.get(userId);
-    return user?.profileDocumentId
-      ? [
-          {
-            bindingKey: `${user.userId}\0${user.profileDocumentId}`,
-            profileDocumentId: user.profileDocumentId,
-            status: user.status,
-            userId: user.userId,
-          },
-        ]
-      : [];
-  });
+  const targets = contributorUserIds
+    .flatMap((userId) => {
+      const user = usersById.get(userId);
+      return user?.profileDocumentId
+        ? [
+            {
+              bindingKey: `${user.userId}\0${user.profileDocumentId}`,
+              profileDocumentId: user.profileDocumentId,
+              status: user.status,
+              userId: user.userId,
+            },
+          ]
+        : [];
+    })
+    .filter((target) => !input.excludedBindingKeys?.has(target.bindingKey));
   const orderedTargets = [
     ...targets.filter((target) => target.status === "disabled"),
     ...targets.filter((target) => target.status !== "disabled"),
@@ -95,8 +106,9 @@ export function hydrateExplorerAttributionProfileDocuments(input: {
         containerId: input.containerId,
         documentId: target.profileDocumentId,
         initialDocumentKind: "contact",
-        localId: getRosterProfileDocumentLocalId({
+        localId: getExplorerAttributionProfileDocumentLocalId({
           organizationId: input.organizationId,
+          profileDocumentId: target.profileDocumentId,
           userId: target.userId,
         }),
       })
@@ -133,10 +145,29 @@ export function getExplorerAttributionProfileBindingsByLocalId(input: {
   ) {
     return new Map();
   }
-  return getRosterProfileBindingsByLocalId({
-    organizationId: input.organizationId,
-    users: directory.users,
-  });
+  const bindings = new Map(
+    getRosterProfileBindingsByLocalId({
+      organizationId: input.organizationId,
+      users: directory.users,
+    }),
+  );
+  for (const user of directory.users) {
+    if (!user.profileDocumentId) {
+      continue;
+    }
+    bindings.set(
+      getExplorerAttributionProfileDocumentLocalId({
+        organizationId: input.organizationId,
+        profileDocumentId: user.profileDocumentId,
+        userId: user.userId,
+      }),
+      {
+        profileDocumentId: user.profileDocumentId,
+        userId: user.userId,
+      },
+    );
+  }
+  return bindings;
 }
 
 export const getExplorerAttributionProfileDisplayNames =
