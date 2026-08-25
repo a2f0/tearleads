@@ -1,5 +1,9 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
-import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  satisfiesVersionVector,
+} from "@symcrypt/loro";
 import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncPullContinuation,
@@ -8,6 +12,7 @@ import type {
 import {
   advancePendingBaseVersion,
   coveredHistoryTailIds,
+  listPendingUpdates,
   persistDocument,
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
@@ -42,6 +47,13 @@ export async function installRebuiltDocument(input: {
   );
   const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
   const rebuiltEndVersion = encodeVersionVector(input.rebuiltDoc);
+  const coveredCheckpointIds = (await listPendingUpdates(input.state)).flatMap(
+    (update) =>
+      update.sourceVersionVector != null &&
+      satisfiesVersionVector(rebuiltEndVersion, update.sourceVersionVector)
+        ? [update.id]
+        : [],
+  );
   const previousPendingBaseVersion = input.state.pendingBaseVersion;
   advancePendingBaseVersion(input.state, input.rebuiltDoc);
   let persisted: Awaited<ReturnType<typeof persistDocument>>;
@@ -60,7 +72,12 @@ export async function installRebuiltDocument(input: {
         snapshotEndVersion: rebuiltEndVersion,
       },
       {
+        // Retire locally queued checkpoints only when the verified rebuild
+        // proves it covers their declared frontier. Keeping one would let a
+        // later ordinary sync republish an untrusted redirect after recovery.
+        // The specific row deletions share the guarded install transaction.
         acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+        commitOnlyPendingUpdateIds: coveredCheckpointIds,
         expectedSyncState: {
           pullContinuation: input.consumedPullContinuation,
           record: input.currentRecord,

@@ -218,6 +218,9 @@ export async function unwrapDocumentSyncResponseContentKeys(
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
+  let unavailableRawHistory:
+    | { cause: DocumentContentKeyUnavailableError; contentKeyEpoch: number }
+    | undefined;
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
     const bundle = bundlesByEpoch.get(contentKeyEpoch);
@@ -247,13 +250,21 @@ export async function unwrapDocumentSyncResponseContentKeys(
         input.historyMode === "raw" &&
         error instanceof DocumentContentKeyUnavailableError
       ) {
-        throw new DocumentRawHistoryUnavailableError(contentKeyEpoch, error);
+        unavailableRawHistory ??= { cause: error, contentKeyEpoch };
+        continue;
       }
       throwDocumentSyncContentKeyFailure({
         cause: error,
         updates: responseUpdates,
       });
     }
+  }
+
+  if (unavailableRawHistory) {
+    throw new DocumentRawHistoryUnavailableError(
+      unavailableRawHistory.contentKeyEpoch,
+      unavailableRawHistory.cause,
+    );
   }
 
   return contentKeysByEpoch;

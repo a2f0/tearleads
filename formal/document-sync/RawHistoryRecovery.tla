@@ -27,6 +27,8 @@ VARIABLES phase,
           epochAvailable,
           ordinaryUpdates,
           localPending,
+          queuedCheckpoints,
+          initialQueuedCheckpoints,
           hasUnverifiedLocalGap,
           scratchHistory,
           initialDurableHistory,
@@ -36,6 +38,7 @@ VARIABLES phase,
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            epochAvailable, ordinaryUpdates, localPending,
+           queuedCheckpoints, initialQueuedCheckpoints,
            hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
            durableHistory, durablePublished, reportedUnavailableEpoch >>
 
@@ -61,6 +64,8 @@ TypeOK ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ localPending \in SUBSET ordinaryUpdates
+  /\ queuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
+  /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ scratchHistory \subseteq ordinaryUpdates
   /\ initialDurableHistory \in SUBSET UpdateIds
@@ -77,6 +82,8 @@ Init ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ localPending \in SUBSET ordinaryUpdates
+  /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
+  /\ queuedCheckpoints = initialQueuedCheckpoints
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ scratchHistory = {}
   /\ initialDurableHistory \in SUBSET UpdateIds
@@ -90,6 +97,7 @@ StartRawCollection ==
   /\ phase' = "collecting"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
@@ -100,7 +108,8 @@ CommitPendingOrdinary ==
   /\ phase' = "collecting"
   /\ localPending' = {}
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
-                  epochAvailable, ordinaryUpdates, hasUnverifiedLocalGap,
+                  epochAvailable, ordinaryUpdates, queuedCheckpoints,
+                  initialQueuedCheckpoints, hasUnverifiedLocalGap,
                   scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
@@ -111,6 +120,7 @@ RejectPendingSettlement ==
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
@@ -124,7 +134,8 @@ ValidatePage ==
        scratchHistory \cup (PageUpdates(nextPage) \cap ordinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, pageOf, updateEpoch, updateValid, epochAvailable,
-                  ordinaryUpdates, localPending, hasUnverifiedLocalGap,
+                  ordinaryUpdates, localPending, queuedCheckpoints,
+                  initialQueuedCheckpoints, hasUnverifiedLocalGap,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -137,6 +148,7 @@ RejectUnavailablePage ==
   /\ reportedUnavailableEpoch' = MinEpoch(UnavailableEpochs(nextPage))
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
                   durableHistory, durablePublished >>
 
@@ -147,6 +159,7 @@ RejectInvalidPage ==
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
                   durableHistory, durablePublished, reportedUnavailableEpoch >>
 
@@ -157,6 +170,7 @@ RejectUnverifiedLocalGap ==
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
                   durableHistory, durablePublished, reportedUnavailableEpoch >>
 
@@ -167,9 +181,11 @@ PublishRecovery ==
   /\ phase' = "complete"
   /\ durableHistory' = scratchHistory
   /\ durablePublished' = TRUE
+  /\ queuedCheckpoints' = {}
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
-                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
+                  initialQueuedCheckpoints, hasUnverifiedLocalGap,
+                  scratchHistory, initialDurableHistory,
                   reportedUnavailableEpoch >>
 
 RemainTerminal ==
@@ -191,14 +207,19 @@ Spec == Init /\ [][Next]_vars
 
 NoDurableMutationBeforeComplete ==
   phase = "complete" \/
-    (~durablePublished /\ durableHistory = initialDurableHistory)
+    (~durablePublished /\ durableHistory = initialDurableHistory /\
+      queuedCheckpoints = initialQueuedCheckpoints)
 
 FailedRecoveryPreservesDurableHistory ==
   phase # "failed" \/
-    (~durablePublished /\ durableHistory = initialDurableHistory)
+    (~durablePublished /\ durableHistory = initialDurableHistory /\
+      queuedCheckpoints = initialQueuedCheckpoints)
 
 CompleteRecoveryContainsAllOrdinaryHistory ==
   phase # "complete" \/ durableHistory = ordinaryUpdates
+
+CompleteRecoveryRetiresQueuedCheckpoints ==
+  phase # "complete" \/ queuedCheckpoints = {}
 
 ScratchNeverTrustsRotationCheckpoints ==
   scratchHistory \subseteq ordinaryUpdates

@@ -301,91 +301,93 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
   }
 });
 
-test("raw response validation isolates an absent epoch before unwrapping", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "raw-history-mixed-content-key-failure",
-  );
-  try {
-    const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
-      contentKeyEpoch: 3,
-    };
-    const currentWriterProjection = {
-      ...fixture.writerProjection,
-      contentKeyBundle: currentBundle,
-    };
-    const materializedPlan = await buildMaterializedDocumentSyncPlan({
-      author: fixture.author,
-      historyMode: "raw",
-      localVersionVector: null,
-      pendingUpdates: [],
-      targetSecretKey: fixture.secretKey,
-      trustedLocalProjection: true,
-      writerProjection: currentWriterProjection,
-    });
-    const historicalTarget =
-      fixture.writerProjection.contentKeyBundle.targets[0];
-    if (!historicalTarget) {
-      throw new Error("Expected a historical content-key target");
-    }
-    const unwrappableEpochOneBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
-      targets: [
-        {
-          ...historicalTarget,
-          wrappedKey: bytesToBase64(new Uint8Array([1, 2, 3])),
-        },
-        ...fixture.writerProjection.contentKeyBundle.targets.slice(1),
-      ],
-    };
-    const epochTwoUpdate = await createSignedSyncResponseUpdate({
-      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
-      author: fixture.author,
-      contentKeyEpoch: 2,
-      id: "550e8400-e29b-41d4-a716-446655440461",
-      plan: materializedPlan.plan,
-      targetHash: currentBundle.targetHash,
-    });
-    const epochOneUpdate = await createSignedSyncResponseUpdate({
-      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
-      author: fixture.author,
-      contentKeyEpoch: 1,
-      id: "550e8400-e29b-41d4-a716-446655440462",
-      plan: materializedPlan.plan,
-      targetHash: unwrappableEpochOneBundle.targetHash,
-    });
-    const response = await createSyncResponse(materializedPlan.plan, {
-      acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [unwrappableEpochOneBundle, currentBundle],
-      updates: [epochTwoUpdate, epochOneUpdate],
-    });
-
-    const error = await syncRemoteDocumentResultFromResponse({
-      execSql,
-      materializedPlan,
-      recoveryPendingUpdatesById: new Map(),
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      resolveWriterPublicKey: writerKeyResolver(fixture),
-      response,
-      targetSecretKey: fixture.secretKey,
-      validateIncomingUpdates: () => undefined,
-      writerProjection: currentWriterProjection,
-    }).then(
-      () => null,
-      (thrown: unknown) => thrown,
-    );
-
-    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
-    if (!isDocumentSyncUpdateIsolationError(error)) return;
-    expect(error.stage).toBe("content_key");
-    expect(error.batchUpdateIds).toEqual([
-      epochTwoUpdate.id,
-      epochOneUpdate.id,
-    ]);
-  } finally {
-    close();
+test("a malformed later epoch outranks raw-history unavailability", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const currentBundle = {
+    ...fixture.writerProjection.contentKeyBundle,
+    contentKeyEpoch: 3,
+  };
+  const currentWriterProjection = {
+    ...fixture.writerProjection,
+    contentKeyBundle: currentBundle,
+  };
+  const materializedPlan = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    historyMode: "raw",
+    localVersionVector: null,
+    pendingUpdates: [],
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: currentWriterProjection,
+  });
+  const historicalTarget = fixture.writerProjection.contentKeyBundle.targets[0];
+  if (!historicalTarget) {
+    throw new Error("Expected a historical content-key target");
   }
+  const unavailableEpochOneBundle = {
+    ...fixture.writerProjection.contentKeyBundle,
+    contentKeyEpoch: 1,
+    targets: [
+      {
+        ...historicalTarget,
+        containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440497",
+      },
+    ],
+  };
+  const malformedEpochTwoBundle = {
+    ...fixture.writerProjection.contentKeyBundle,
+    contentKeyEpoch: 2,
+    targets: [
+      {
+        ...historicalTarget,
+        wrappedKey: bytesToBase64(new Uint8Array([1, 2, 3])),
+      },
+    ],
+  };
+  const epochOneUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+    author: fixture.author,
+    contentKeyEpoch: 1,
+    id: "550e8400-e29b-41d4-a716-446655440461",
+    plan: materializedPlan.plan,
+    targetHash: unavailableEpochOneBundle.targetHash,
+  });
+  const epochTwoUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+    author: fixture.author,
+    contentKeyEpoch: 2,
+    id: "550e8400-e29b-41d4-a716-446655440462",
+    plan: materializedPlan.plan,
+    targetHash: malformedEpochTwoBundle.targetHash,
+  });
+  const response = await createSyncResponse(materializedPlan.plan, {
+    acceptedOutgoingUpdateIds: [],
+    contentKeyBundles: [
+      unavailableEpochOneBundle,
+      malformedEpochTwoBundle,
+      currentBundle,
+    ],
+    updates: [epochOneUpdate, epochTwoUpdate],
+  });
+
+  const error = await unwrapDocumentSyncResponseContentKeys({
+    currentContentKey: fixture.contentKey,
+    currentContentKeyEpoch: 3,
+    historyMode: "raw",
+    response,
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: currentWriterProjection,
+  }).then(
+    () => null,
+    (thrown: unknown) => thrown,
+  );
+
+  expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+  expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
+  if (!isDocumentSyncUpdateIsolationError(error)) return;
+  expect(error.stage).toBe("content_key");
+  expect(error.batchUpdateIds).toEqual([epochTwoUpdate.id]);
 });
 
 test("raw response validation poison-isolates a future content-key epoch", async () => {

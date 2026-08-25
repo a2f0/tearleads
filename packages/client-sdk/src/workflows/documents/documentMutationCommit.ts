@@ -20,6 +20,7 @@ import {
   type PrepareDocumentMutationInput,
   prepareDocumentMutation,
 } from "./documentMutationPreparation";
+import { pendingUpdateSettlementForMutation } from "./documentPendingUpdateSettlement";
 import { refuseDeletedDocumentPersist } from "./documentPersistGuards";
 
 type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
@@ -58,6 +59,7 @@ export interface PersistDocumentStateInput
     | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
   clearSyncFailure?: boolean | undefined;
+  commitOnlyPendingUpdateIds?: readonly string[] | undefined;
   containerId?: string | null | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
@@ -396,7 +398,10 @@ async function commitOnePreparedDocumentMutation(input: {
   const committed = await persistInput.persistence.commitDocumentMutation(
     input.lockedExecSql,
     {
-      acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+      ...pendingUpdateSettlementForMutation(
+        persistInput,
+        input.acceptedPendingUpdateIds,
+      ),
       clearSyncFailure: persistInput.clearSyncFailure,
       ...(persistInput.attachmentRemoval
         ? { attachmentRemoval: persistInput.attachmentRemoval }
@@ -418,8 +423,6 @@ async function commitOnePreparedDocumentMutation(input: {
       ...(persistInput.pendingUpdate
         ? { pendingUpdate: persistInput.pendingUpdate }
         : {}),
-      settleAcceptedPendingOnConflict:
-        persistInput.expectedSyncState !== undefined,
       ...(persistInput.canStartDurableMutation
         ? { stillCurrent: persistInput.canStartDurableMutation }
         : {}),

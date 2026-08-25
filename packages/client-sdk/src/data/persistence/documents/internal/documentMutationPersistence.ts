@@ -116,7 +116,8 @@ async function settleMutationConflict(input: {
     await deleteAcceptedPendingUpdates(
       input.tx,
       input.mutation.document.id,
-      input.mutation.acceptedPendingUpdateIds,
+      input.mutation.conflictSettledPendingUpdateIds ??
+        input.mutation.acceptedPendingUpdateIds,
     );
   }
 }

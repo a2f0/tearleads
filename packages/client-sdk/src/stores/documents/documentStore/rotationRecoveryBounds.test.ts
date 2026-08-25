@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { createDocument, getTextValue, importSnapshot } from "@symcrypt/loro";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  getTextValue,
+  importSnapshot,
+} from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
@@ -249,6 +255,14 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    if (!state.doc) throw new Error("Expected full-history document");
+    await enqueuePendingUpdate(
+      state,
+      exportFullHistorySnapshot(state.doc),
+      encodeVersionVector(state.doc),
+    );
+    const queuedCheckpoint = (await listPendingUpdates(state))[0];
+    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
     let requestedSyncCount = 0;
     state.syncLane = {
       requestSync: () => {
@@ -260,6 +274,9 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
       "superseded during its atomic install",
     );
     expect(state.pullContinuation).toEqual(durableContinuation);
+    expect(
+      (await listPendingUpdates(state)).map((update) => update.id),
+    ).toEqual([queuedCheckpoint.id]);
     expect(requestedSyncCount).toBe(1);
   } finally {
     close();

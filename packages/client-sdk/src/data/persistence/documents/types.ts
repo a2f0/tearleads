@@ -173,6 +173,8 @@ export interface DocumentsPersistence {
       attachmentRemoval?: AttachmentRemovalRows | undefined;
       attachmentStaging?: AttachmentStagingRows | undefined;
       clearSyncFailure?: boolean | undefined;
+      /** Subset eligible to settle when the expected-record CAS loses. */
+      conflictSettledPendingUpdateIds?: readonly string[] | undefined;
       document: StoredDocumentRecord;
       expectedRecord: StoredDocumentRecord;
       historyCheckpoint?:

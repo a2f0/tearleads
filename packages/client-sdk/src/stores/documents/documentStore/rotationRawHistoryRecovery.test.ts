@@ -19,6 +19,7 @@ import {
 } from "../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
+import { waitForDomainSyncCoordinatorToSettle } from "../../../data/sync/syncCoordinator";
 import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,
@@ -37,6 +38,7 @@ import {
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
+import { registerDocumentStoreSyncLane } from "./sync";
 
 async function createForgedRotationBaseline(
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
@@ -99,13 +101,25 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
       execSql,
       localId,
     });
+    const requests: Array<{
+      historyMode: "raw" | undefined;
+      outgoingIds: string[];
+    }> = [];
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      requireRawHistory: false,
+      responseForRequest: (request, response) => {
+        requests.push({
+          historyMode: request.historyMode,
+          outgoingIds: request.outgoingUpdates.map((update) => update.id),
+        });
+        return request.historyMode === "raw" ? rawResponse : response;
+      },
+    });
     const state = createDocumentStoreState(
       localId,
-      createRotationRecoveryRuntime({
-        execSql,
-        fixture,
-        responseForRequest: () => rawResponse,
-      }),
+      runtime,
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -124,7 +138,18 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     const recovered = await createDocument("forged-baseline-reader");
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
-    expect(await listPendingUpdates(state)).toHaveLength(1);
+    expect(await listPendingUpdates(state)).toHaveLength(0);
+
+    state.remoteUpdatePending = true;
+    state.syncLane = registerDocumentStoreSyncLane(state);
+    state.syncLane.requestSync();
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(runtime.state.domainScope),
+    ).toBe(true);
+    expect(requests).toEqual([
+      { historyMode: "raw", outgoingIds: [] },
+      { historyMode: undefined, outgoingIds: [] },
+    ]);
   } finally {
     close();
   }

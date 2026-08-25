@@ -37,7 +37,10 @@ ordinary rows are settled remotely before the baseline can be returned. Queued
 rotation checkpoints remain queued and excluded from reconstruction. If a
 checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
-so the preflight fails without re-encrypting or publishing it.
+so the preflight fails without re-encrypting or publishing it. A successful
+guarded install atomically removes queued checkpoints whose declared frontier
+is covered by the verified rebuild, preventing a later ordinary sync from
+republishing a stale or forged redirect.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable, the public `DocumentRawHistoryUnavailableError`
@@ -46,7 +49,9 @@ reports the stable code
 do not need to parse an integrity-error message, and the failed recovery does
 not install partial document state. An absent bundle cannot establish that
 distinction before its update is authenticated, so it remains a poison
-incident instead of being reported as benign history unavailability.
+incident instead of being reported as benign history unavailability. The raw
+consumer checks every referenced epoch before reporting unavailability so a
+malformed bundle in the same page always takes poison-isolation precedence.
 
 ## Verification
 
@@ -69,13 +74,14 @@ history for three updates, two epochs, and two pages.
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
-| `PublishRecovery` | guarded `installRebuiltDocument` |
+| `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require raw collection to start only after local
 ordinary settlement, incomplete or failed recovery to preserve the old durable
 history, successful recovery to contain every retained ordinary update,
-scratch state never to trust a rotation checkpoint, unverified local history
-never to publish, the reported unavailable epoch to be the deterministic
-lowest missing epoch on the failing page, and invalid updates never to be
-mislabeled as availability failures.
+successful recovery to retire covered queued checkpoints, scratch state never
+to trust a rotation checkpoint, unverified local history never to publish, the
+reported unavailable epoch to be the deterministic lowest missing epoch on the
+failing page, and invalid updates never to be mislabeled as availability
+failures.
