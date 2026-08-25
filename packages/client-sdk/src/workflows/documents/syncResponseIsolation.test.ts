@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
@@ -191,6 +192,93 @@ test("content-key unwrap failures identify and quarantine the blocked update", a
       stage: "content_key",
       updateId: blockedUpdate.id,
     });
+  } finally {
+    close();
+  }
+});
+
+test("content-key recovery preserves projection integrity errors", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-content-key-projection-integrity",
+  );
+  try {
+    const {
+      author,
+      resolveProjectionUserKey,
+      secretKey,
+      signingPublicKey,
+      writerProjection,
+    } = await createMaterializedSyncFixture();
+    const rotatedProjection = {
+      ...writerProjection,
+      contentKeyBundle: {
+        ...writerProjection.contentKeyBundle,
+        contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
+      },
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author,
+      execSql,
+      localVersionVector: null,
+      resolveProjectionUserKey,
+      signedAt: "2026-04-27T00:00:00.000Z",
+      targetSecretKey: secretKey,
+      writerProjection: rotatedProjection,
+    });
+    const historicalUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author,
+      contentKeyEpoch: materializedPlan.plan.contentKeyEpoch - 1,
+      plan: materializedPlan.plan,
+      targetHash: materializedPlan.plan.expectedTargetHash,
+    });
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      contentKeyBundles: [
+        writerProjection.contentKeyBundle,
+        rotatedProjection.contentKeyBundle,
+      ],
+      updates: [historicalUpdate],
+    });
+    const integrityError = new KeyingVerificationError(
+      "invalid_shape",
+      "projection verification failed during historical key recovery",
+    );
+    let responseSubmitted = false;
+    let quarantineCount = 0;
+
+    await expect(
+      syncRemoteDocument({
+        apiClient: {
+          getDocumentWriterProjection: async () => rotatedProjection,
+          syncDocument: async () => {
+            responseSubmitted = true;
+            return response;
+          },
+        },
+        author,
+        documentId: rotatedProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        onIncomingUpdateIsolationFailure: () => {
+          quarantineCount += 1;
+        },
+        pendingUpdates: [],
+        resolveProjectionUserKey: async (userId) => {
+          if (responseSubmitted) throw integrityError;
+          return resolveProjectionUserKey(userId);
+        },
+        resolveWriterPublicKey: writerKeyResolver({
+          author,
+          signingPublicKey,
+        }),
+        signedAt: "2026-04-27T00:00:00.000Z",
+        targetSecretKey: secretKey,
+        validateIncomingUpdates: () => undefined,
+        writerProjection: rotatedProjection,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(quarantineCount).toBe(0);
   } finally {
     close();
   }

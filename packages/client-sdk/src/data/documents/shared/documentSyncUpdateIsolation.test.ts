@@ -131,3 +131,82 @@ test("batch isolation preserves reordered sibling dependencies", async () => {
     expect(isolated.updateId).toBe(poisonId);
   }
 });
+
+test("multiple poison updates produce honest batch attribution", async () => {
+  const current = await createDocument("isolation-multiple-current");
+  const validSource = await createDocument("isolation-multiple-valid");
+  validSource.getText("text").update("valid sibling");
+  validSource.commit();
+  const validData = exportUpdatesSince(validSource, undefined);
+  const poisonIds = [
+    "550e8400-e29b-41d4-a716-4466554400c1",
+    "550e8400-e29b-41d4-a716-4466554400c2",
+  ];
+  const validId = "550e8400-e29b-41d4-a716-4466554400c3";
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [
+        ...poisonIds.map((id, index) => ({
+          id,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([index + 1, 2, 3]),
+        })),
+        {
+          id: validId,
+          ...getUpdateVersionVectors(validData),
+          updateData: validData,
+        },
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual([...poisonIds, validId]);
+});
+
+test("large failed pages skip exact quadratic isolation", async () => {
+  const current = await createDocument("isolation-bounded-current");
+  const validSource = await createDocument("isolation-bounded-valid");
+  validSource.getText("text").update("valid sibling");
+  validSource.commit();
+  const validData = exportUpdatesSince(validSource, undefined);
+  const updates = [
+    {
+      id: "550e8400-e29b-41d4-a716-4466554400d0",
+      partialEndVersionVector: "AA==",
+      partialStartVersionVector: "AA==",
+      updateData: new Uint8Array([1, 2, 3]),
+    },
+    ...Array.from({ length: 8 }, (_, index) => ({
+      id: `550e8400-e29b-41d4-a716-4466554400d${index + 1}`,
+      ...getUpdateVersionVectors(validData),
+      updateData: validData,
+    })),
+  ];
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: updates,
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual(updates.map((update) => update.id));
+});

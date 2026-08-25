@@ -267,8 +267,8 @@ ClearResponse ==
   /\ responseWellFormed' = TRUE
   /\ responseValidated' = FALSE
 
-(* Required validation authenticates content-key access and scratch-imports *)
-(* the page before effects; every durable path requires responseValidated.  *)
+(* Required validation authenticates keys and scratch-imports the page.     *)
+(* Batch attribution still cannot bypass responseValidated.                *)
 ValidateIncomingResponse ==
   /\ responsePending
   /\ NoDurableOp

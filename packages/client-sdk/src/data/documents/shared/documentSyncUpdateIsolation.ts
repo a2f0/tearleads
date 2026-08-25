@@ -22,6 +22,9 @@ type DocumentSyncUpdateIsolationStage =
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
+const MAX_EXACT_ISOLATION_CANDIDATES = 8;
+const MAX_EXACT_ISOLATION_BYTES = 8 * 1024 * 1024;
+
 export type IncomingDocumentSyncUpdateValidator = (
   result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
 ) => void | Promise<void>;
@@ -58,21 +61,24 @@ function optionalHeaderEpoch(
 }
 
 export class DocumentSyncUpdateIsolationError extends Error {
+  readonly attribution: "batch" | "update";
   readonly authorFingerprint: string | null;
+  readonly batchUpdateIds: readonly string[];
   readonly checkpointKind: "rotate_baseline" | null;
   readonly ciphertextHash: string | null;
   readonly contentKeyEpoch: number | null;
   readonly documentId: string | null;
   readonly metadataHash: string | null;
   readonly stage: DocumentSyncUpdateIsolationStage;
-  readonly updateId: string;
+  readonly updateId: string | null;
   readonly writerUserId: string | null;
 
   constructor(input: {
+    batchUpdateIds?: readonly string[] | undefined;
     cause: unknown;
     responseUpdate?: SyncResponseUpdate | undefined;
     stage: DocumentSyncUpdateIsolationStage;
-    updateId: string;
+    updateId: string | null;
   }) {
     const causeMessage = errorMessage(input.cause);
     const writerUserId = optionalHeaderString(
@@ -83,11 +89,19 @@ export class DocumentSyncUpdateIsolationError extends Error {
       writerUserId ?? input.responseUpdate?.authorFingerprint ?? "unknown";
     const fingerprint = input.responseUpdate?.authorFingerprint ?? "unknown";
     const epoch = optionalHeaderEpoch(input.responseUpdate) ?? "unknown";
+    const batchUpdateIds =
+      input.updateId === null ? (input.batchUpdateIds ?? []) : [];
+    const subject =
+      input.updateId === null
+        ? `response batch containing ${batchUpdateIds.length} updates; exact update and writer unknown`
+        : `update ${input.updateId} from writer ${author} (fingerprint ${fingerprint}, epoch ${epoch})`;
     super(
-      `Document sync quarantined update ${input.updateId} from writer ${author} (fingerprint ${fingerprint}, epoch ${epoch}) during ${input.stage}: ${causeMessage}`,
+      `Document sync quarantined ${subject} during ${input.stage}: ${causeMessage}`,
     );
     this.name = "DocumentSyncUpdateIsolationError";
+    this.attribution = input.updateId === null ? "batch" : "update";
     this.authorFingerprint = input.responseUpdate?.authorFingerprint ?? null;
+    this.batchUpdateIds = [...batchUpdateIds];
     this.checkpointKind =
       input.responseUpdate?.checkpointKind === "rotate_baseline"
         ? "rotate_baseline"
@@ -106,6 +120,19 @@ export class DocumentSyncUpdateIsolationError extends Error {
     this.updateId = input.updateId;
     this.writerUserId = writerUserId;
   }
+}
+
+function isolateDocumentSyncBatchError(input: {
+  cause: unknown;
+  stage: DocumentSyncUpdateIsolationStage;
+  updateIds: readonly string[];
+}): DocumentSyncUpdateIsolationError {
+  return new DocumentSyncUpdateIsolationError({
+    batchUpdateIds: input.updateIds,
+    cause: input.cause,
+    stage: input.stage,
+    updateId: null,
+  });
 }
 
 export function isolateDocumentSyncUpdateError(input: {
@@ -256,6 +283,21 @@ export async function validateDocumentSyncUpdateImports(input: {
     validationDocument.free();
   }
 
+  const exactIsolationBytes = ordinaryUpdates.reduce(
+    (total, update) => total + update.updateData.byteLength,
+    0,
+  );
+  if (
+    ordinaryUpdates.length > MAX_EXACT_ISOLATION_CANDIDATES ||
+    exactIsolationBytes > MAX_EXACT_ISOLATION_BYTES
+  ) {
+    throw isolateDocumentSyncBatchError({
+      cause: batchError,
+      stage: "loro_import",
+      updateIds: ordinaryUpdates.map((update) => update.id),
+    });
+  }
+
   // Rebuild from the same immutable snapshot for every candidate: a failed
   // import may partially mutate its scratch document. Keeping every other
   // ordinary update in one batch preserves out-of-order sibling dependencies;
@@ -288,15 +330,11 @@ export async function validateDocumentSyncUpdateImports(input: {
   }
 
   // Multiple bad updates or a batch-level incompatibility may have no single
-  // removal that repairs the page. Fail closed and retain response-order
-  // attribution; no live or durable state has changed.
-  const lastUpdate = ordinaryUpdates.at(-1);
-  if (lastUpdate) {
-    throw isolateDocumentSyncUpdateError({
-      cause: batchError,
-      responseUpdate: responseById.get(lastUpdate.id),
-      stage: "loro_import",
-      updateId: lastUpdate.id,
-    });
-  }
+  // removal that repairs the page. Fail closed without falsely naming a valid
+  // writer; no live or durable state has changed.
+  throw isolateDocumentSyncBatchError({
+    cause: batchError,
+    stage: "loro_import",
+    updateIds: ordinaryUpdates.map((update) => update.id),
+  });
 }

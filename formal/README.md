@@ -138,12 +138,13 @@ generation before the queued mutation returns, but the post-await check
 suppresses replacement in-memory publication, effect callbacks, and store
 removal.
 
-Incoming updates pass an all-or-nothing gate before response effects. Every
-headless caller supplies it. Production authenticates/decrypts content keys and
-updates, then scratch-imports the page. On Loro failure, leave-one-out batch
-retries preserve sibling dependencies and identify the poison. Rejection records
-the scope and rethrows before any response effect; `responseWellFormed` abstracts
-the checks while exact attribution stays production-tested.
+Incoming updates pass a required all-or-nothing gate before response effects.
+Production authenticates/decrypts, then scratch-imports the page. Bounded
+leave-one-out retries preserve sibling dependencies and identify one poison
+when evidence is unambiguous; large or multi-poison pages get batch-level
+unknown attribution instead of a false writer. Projection integrity errors
+retain their security type. Rejection precedes every effect;
+`responseWellFormed` abstracts the gate while attribution stays tested in code.
 
 On the same executor, replacement mutations queue behind the already-claimed
 operation and therefore observe its ordering. If reset installs a different

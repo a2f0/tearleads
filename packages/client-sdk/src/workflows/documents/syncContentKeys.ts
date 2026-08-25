@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -160,24 +161,12 @@ export async function unwrapDocumentSyncResponseContentKeys(
       updateId: firstMissingUpdate?.id ?? "unknown",
     });
   }
-  let collectedKeks: Awaited<
-    ReturnType<typeof collectContainerKeksForDocumentSync>
-  >;
-  try {
-    collectedKeks = await collectContainerKeksForDocumentSync({
-      execSql: input.execSql,
-      secretKey: input.targetSecretKey,
-      writerProjection: input.writerProjection,
-      ...projectionVerificationOptions(input),
-    });
-  } catch (error) {
-    throw isolateDocumentSyncUpdateError({
-      cause: error,
-      responseUpdate: firstMissingUpdate,
-      stage: "content_key",
-      updateId: firstMissingUpdate?.id ?? "unknown",
-    });
-  }
+  const collectedKeks = await collectContainerKeksForDocumentSync({
+    execSql: input.execSql,
+    secretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
+  });
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
     const bundle = bundlesByEpoch.get(contentKeyEpoch);
@@ -197,6 +186,9 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
+      if (error instanceof KeyingVerificationError) {
+        throw error;
+      }
       throw isolateDocumentSyncUpdateError({
         cause: error,
         responseUpdate,
