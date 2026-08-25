@@ -139,8 +139,10 @@ the apps, not their signing key.
 Complete this one-time store setup; release lanes do not write signing or store
 records:
 
-Use staging product IDs `sync_solo_monthly_staging`,
-`sync_team_5_monthly_staging`, and `sync_team_10_monthly_staging`. Keep the same
+Use Google staging product IDs `sync_solo_monthly_staging`,
+`sync_team_5_monthly_staging`, and `sync_team_10_monthly_staging`. Apple uses
+the corresponding `symcrypt_sync_*_monthly_staging` IDs because the unprefixed
+IDs remain owned by the old Tearleads App Store records. Keep the same
 RevenueCat package identifiers and attach each staging app's product to its
 matching package.
 
@@ -199,11 +201,12 @@ Before testing the real Apple purchase sheet:
 
 1. In App Store Connect, create one subscription group under the app being
    tested (`com.symcrypt.app` for production or `com.symcrypt.staging.app`
-   for staging). Create `sync_solo_monthly`, `sync_team_5_monthly`, and
-   `sync_team_10_monthly` for production, or their `_staging` variants for
-   staging, at $5, $10, and $20 USD per month. Rank Team 10 at level 1, Team 5
-   at level 2, and Solo at level 3 so upgrades take effect immediately and
-   downgrades at renewal. Finish their localization, price, and review metadata.
+   for staging). Create `symcrypt_sync_solo_monthly`,
+   `symcrypt_sync_team_5_monthly`, and `symcrypt_sync_team_10_monthly` for
+   production, or their `_staging` variants for staging, at $5, $10, and $20
+   USD per month. Rank Team 10 at level 1, Team 5 at level 2, and Solo at level
+   3 so upgrades take effect immediately and downgrades at renewal. Finish
+   their localization, price, and review metadata.
    StoreKit owns the mid-cycle economics: it immediately moves to a higher
    service level and prorates the old subscription, while a move to a lower
    service level stays on the paid tier until renewal. No iOS-specific

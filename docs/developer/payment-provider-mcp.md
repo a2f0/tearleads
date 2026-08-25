@@ -27,9 +27,11 @@ catalog work unless real subscribers exist when the change is made.
 | Team 5 | $10 | 5 | `sync_team_5_monthly` | `team_5` | 2 |
 | Team 10 | $20 | 10 | `sync_team_10_monthly` | `team_10` | 1 |
 
-Staging Apple and Google product IDs append `_staging`. Google appends the
-`monthly` base-plan ID when the product is represented in RevenueCat, for
-example `sync_solo_monthly_staging:monthly`.
+SymCrypt App Store products prefix the stem with `symcrypt_` because Apple
+product IDs are account-global and the unprefixed IDs remain owned by the old
+Tearleads app records. Staging Apple and Google product IDs append `_staging`.
+Google appends the `monthly` base-plan ID when the product is represented in
+RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
 ## Codex MCP setup
 

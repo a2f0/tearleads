@@ -90,6 +90,20 @@ validate_domain_env() {
   fi
 }
 
+# Validate explicit ownership of the zone-level website cache ruleset.
+validate_website_cache_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_manage_website_cache:-}" ]] && missing+=("TF_VAR_manage_website_cache")
+  [[ -z "${TF_VAR_website_cache_additional_hostnames:-}" ]] && missing+=("TF_VAR_website_cache_additional_hostnames")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
 # Validate required environment variables for Azure stacks
 validate_azure_env() {
   local missing=()

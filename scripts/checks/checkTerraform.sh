@@ -28,6 +28,30 @@ run_terraform_fmt() {
   return 0
 }
 
+run_terraform_tests() {
+  local module_dir="$TERRAFORM_DIR/modules/cloudflare-website-cache"
+  local terraform_test_dir
+  local terraform_test_status=0
+
+  if ! terraform_test_dir="$(mktemp -d)"; then
+    echo "Error: could not create a temporary Terraform test directory" >&2
+    return 1
+  fi
+  if ! cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"; then
+    rm -rf -- "$terraform_test_dir"
+    echo "Error: could not stage the Terraform module tests" >&2
+    return 1
+  fi
+
+  echo "Running terraform tests..."
+  terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
+  if [ "$terraform_test_status" -eq 0 ]; then
+    terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
+  fi
+  rm -rf -- "$terraform_test_dir"
+  return "$terraform_test_status"
+}
+
 run_tflint() {
   echo "Running tflint..."
   tflint --init --chdir="$TERRAFORM_DIR"
@@ -41,6 +65,9 @@ run_tflint() {
 # HCL file format check (terraform fmt)
 if check_command terraform; then
   if ! run_terraform_fmt; then
+    errors=$((errors + 1))
+  fi
+  if ! run_terraform_tests; then
     errors=$((errors + 1))
   fi
 fi

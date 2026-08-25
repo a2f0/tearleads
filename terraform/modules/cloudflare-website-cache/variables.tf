@@ -10,3 +10,9 @@ variable "hostname" {
   EOT
   type        = string
 }
+
+variable "additional_hostnames" {
+  description = "Additional website hostnames in the same Cloudflare zone."
+  type        = list(string)
+  default     = []
+}
