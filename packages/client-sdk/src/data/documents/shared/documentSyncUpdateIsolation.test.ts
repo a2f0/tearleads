@@ -224,6 +224,51 @@ test("batch isolation preserves reordered sibling dependencies", async () => {
   }
 });
 
+test("a delta with a missing parent receives batch attribution", async () => {
+  const current = await createDocument("isolation-missing-parent-current");
+  const author = await createDocument("isolation-missing-parent-author");
+  author.getText("text").update("parent");
+  author.commit();
+  const parentVersion = encodeVersionVector(author);
+  author.getText("text").update("parent and child");
+  author.commit();
+  const dependencyBearingData = exportUpdatesSince(author, parentVersion);
+  const updateId = "550e8400-e29b-41d4-a716-4466554400b3";
+  const responseUpdate = {
+    authorFingerprint: "authenticated-fingerprint",
+    id: updateId,
+    writeHeader: {
+      contentKeyEpoch: 4,
+      writerUserId: "authenticated-writer",
+    },
+  } as unknown as DocumentSyncResponse["updates"][number];
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [
+        {
+          id: updateId,
+          ...getUpdateVersionVectors(dependencyBearingData),
+          updateData: dependencyBearingData,
+        },
+      ],
+      responseUpdates: [responseUpdate],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+  expect(isolated.authorFingerprint).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual([updateId]);
+});
+
 test("multiple poison updates produce honest batch attribution", async () => {
   const current = await createDocument("isolation-multiple-current");
   const validSource = await createDocument("isolation-multiple-valid");

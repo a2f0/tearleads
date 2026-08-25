@@ -7,6 +7,20 @@ function isPeerIdString(value: string): value is `${number}` {
 
 const MAX_POSTGRES_INTEGER = 2_147_483_647;
 
+export class LoroImportUnresolvedDependenciesError extends Error {
+  readonly importKind: "snapshot" | "updates";
+
+  constructor(importKind: "snapshot" | "updates") {
+    super(
+      `import${importKind === "snapshot" ? "Snapshot" : "Updates"} received ${
+        importKind === "snapshot" ? "a snapshot" : "updates"
+      } with unresolved pending dependencies`,
+    );
+    this.name = "LoroImportUnresolvedDependenciesError";
+    this.importKind = importKind;
+  }
+}
+
 export interface VersionVectorSpan {
   peerId: `${number}`;
   startCounter: number;
@@ -274,9 +288,7 @@ export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
       ),
     );
     if (!covered) {
-      throw new Error(
-        "importUpdates received updates with unresolved pending dependencies",
-      );
+      throw new LoroImportUnresolvedDependenciesError("updates");
     }
   }
 }
@@ -293,9 +305,7 @@ export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
   // VersionVector (size 0) rather than null when everything resolved, so test
   // for at least one unresolved dependency instead of mere presence.
   if (status.pending != null && status.pending.size > 0) {
-    throw new Error(
-      "importSnapshot received a snapshot with unresolved pending dependencies",
-    );
+    throw new LoroImportUnresolvedDependenciesError("snapshot");
   }
 }
 

@@ -3,6 +3,7 @@ import {
   exportFullHistorySnapshot,
   importSnapshot,
   importUpdates,
+  LoroImportUnresolvedDependenciesError,
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import type {
@@ -325,6 +326,18 @@ export async function validateDocumentSyncUpdateImports(input: {
     return;
   } catch (error) {
     batchError = error;
+  }
+
+  // A delta can be valid but depend on a parent omitted from this response
+  // page. Removing that delta would make an empty retry succeed and falsely
+  // identify its authenticated writer as poison, so dependency gaps remain
+  // anonymous at batch scope.
+  if (batchError instanceof LoroImportUnresolvedDependenciesError) {
+    throw isolateDocumentSyncBatchError({
+      cause: batchError,
+      stage: "loro_import",
+      updateIds: input.decryptedUpdates.map((update) => update.id),
+    });
   }
 
   if (
