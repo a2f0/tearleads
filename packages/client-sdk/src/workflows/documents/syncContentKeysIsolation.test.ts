@@ -222,3 +222,64 @@ test("raw response validation defers an absent epoch behind an earlier unwrappab
     close();
   }
 });
+
+test("raw response validation poison-isolates a future content-key epoch", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "raw-history-future-content-key-epoch",
+  );
+  try {
+    const fixture = await createMaterializedSyncFixture();
+    const currentBundle = {
+      ...fixture.writerProjection.contentKeyBundle,
+      contentKeyEpoch: 3,
+    };
+    const currentWriterProjection = {
+      ...fixture.writerProjection,
+      contentKeyBundle: currentBundle,
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      historyMode: "raw",
+      localVersionVector: null,
+      pendingUpdates: [],
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: currentWriterProjection,
+    });
+    const futureUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author: fixture.author,
+      contentKeyEpoch: 4,
+      id: "550e8400-e29b-41d4-a716-446655440471",
+      plan: materializedPlan.plan,
+      targetHash: currentBundle.targetHash,
+    });
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      contentKeyBundles: [currentBundle],
+      updates: [futureUpdate],
+    });
+
+    const error = await syncRemoteDocumentResultFromResponse({
+      execSql,
+      materializedPlan,
+      recoveryPendingUpdatesById: new Map(),
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+      response,
+      targetSecretKey: fixture.secretKey,
+      validateIncomingUpdates: () => undefined,
+      writerProjection: currentWriterProjection,
+    }).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    if (!isDocumentSyncUpdateIsolationError(error)) return;
+    expect(error.stage).toBe("content_key");
+    expect(error.batchUpdateIds).toEqual([futureUpdate.id]);
+  } finally {
+    close();
+  }
+});

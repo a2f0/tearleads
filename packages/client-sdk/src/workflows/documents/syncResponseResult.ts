@@ -8,6 +8,7 @@ import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import { readWriteHeader } from "../../data/documents/shared/readers";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
@@ -53,7 +54,30 @@ function isolateContentKeyResponseFailure(
   });
 }
 
-export async function syncRemoteDocumentResultFromResponse(input: {
+function rawResponseHasFutureContentKeyEpoch(
+  response: DocumentSyncResponse,
+  currentContentKeyEpoch: number,
+): boolean {
+  for (const update of response.updates) {
+    try {
+      if (
+        readWriteHeader(
+          update.writeHeader,
+          "Document raw-history response write header",
+        ).contentKeyEpoch > currentContentKeyEpoch
+      ) {
+        return true;
+      }
+    } catch {
+      // A malformed header is also poison, never evidence that retained
+      // historical key material is unavailable.
+      return true;
+    }
+  }
+  return false;
+}
+
+type SyncRemoteDocumentResultInput = {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
@@ -66,7 +90,11 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   targetSecretKey: Uint8Array;
   validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   writerProjection: DocumentWriterProjectionResponse;
-}): Promise<SyncRemoteDocumentResult> {
+};
+
+async function resolveVerifiedResponseState(
+  input: SyncRemoteDocumentResultInput,
+) {
   const { plan } = input.materializedPlan;
   let persistedState: Awaited<
     ReturnType<typeof persistedDocumentSyncStateFromResponse>
@@ -84,7 +112,8 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   } catch (error) {
     if (
       plan.request.historyMode === "raw" &&
-      error instanceof DocumentSyncResponseUpdateContentKeyError
+      error instanceof DocumentSyncResponseUpdateContentKeyError &&
+      !rawResponseHasFutureContentKeyEpoch(input.response, plan.contentKeyEpoch)
     ) {
       // Let sorted key resolution select the earliest unavailable epoch. If
       // every referenced key resolves (for example, a future epoch), the
@@ -113,6 +142,15 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   if (!persistedState) {
     throw new Error("Document sync response did not produce persisted state");
   }
+  return { contentKeysByEpoch, persistedState };
+}
+
+export async function syncRemoteDocumentResultFromResponse(
+  input: SyncRemoteDocumentResultInput,
+): Promise<SyncRemoteDocumentResult> {
+  const { plan } = input.materializedPlan;
+  const { contentKeysByEpoch, persistedState } =
+    await resolveVerifiedResponseState(input);
   const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
     contentKeysByEpoch,
     documentId: plan.documentId,
