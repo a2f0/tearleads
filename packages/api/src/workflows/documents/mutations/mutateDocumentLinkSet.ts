@@ -9,6 +9,8 @@ import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
+import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
+import { assertRosterProfileBindingPreserved } from "../../organizations/rosterProfileBindingInvariant";
 import {
   appendAtomicRotationBaseline,
   assertAtomicRotationBaselineCoversCommittedFrontier,
@@ -143,6 +145,27 @@ async function lockDocumentLinkSetMutationFrontier(input: {
   return locked;
 }
 
+async function lockDocumentOrganization(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<string> {
+  // Container rekeys take group -> organization locks. Relink authorization
+  // then takes organization -> container/document locks, matching container
+  // mutations while serializing roster binds against this link-set change.
+  const { organizationId } = await resolveCurrentDocumentKekTargets(
+    input.documentId,
+    input.executor,
+  );
+  const headLocked = await lockOrganizationReadModelHeadForUpdateInTransaction(
+    input.executor,
+    organizationId,
+  );
+  if (!headLocked) {
+    throw new Error("Organization read-model cursor head is missing");
+  }
+  return organizationId;
+}
+
 async function mutateDocumentLinkSetWithExecutor(input: {
   readonly documentId: string;
   readonly eventType: "document.link" | "document.unlink";
@@ -171,6 +194,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
+    const organizationId = await lockDocumentOrganization(input);
     const previousManifest = await lockDocumentLinkSetMutationFrontier({
       documentId: input.documentId,
       executor: input.executor,
@@ -184,6 +208,13 @@ async function mutateDocumentLinkSetWithExecutor(input: {
         request: input.request,
       });
     const { manifest } = authorization;
+    if (manifest.state.organizationId !== organizationId) {
+      throw new DocumentMutationError("Document organization mismatch", 409);
+    }
+    await assertRosterProfileBindingPreserved({
+      executor: input.executor,
+      manifest,
+    });
     const rotationBaseline = requireMutationRotationBaseline(input);
     const contentKeyBundle = await advanceDocumentLinkSet({
       baseline: rotationBaseline ?? undefined,

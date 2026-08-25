@@ -12,6 +12,7 @@ import type {
 } from "./coordinatorState";
 import {
   hasPendingLaneWork,
+  INITIAL_SYNC_LANE_RUN_STATE,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
@@ -131,7 +132,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 
       const registeredAt = createSyncTimestamp();
       const nextLane: SyncLaneState = {
-        activeRunToken: null,
+        ...INITIAL_SYNC_LANE_RUN_STATE,
         blobStorageKey: null,
         config,
         errorCount: 0,
@@ -149,8 +150,6 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requestCount: 0,
         requested: false,
-        runCount: 0,
-        running: false,
       };
       coordinatorState.nextRegistrationIndex += 1;
       coordinatorState.lanes.set(key, nextLane);

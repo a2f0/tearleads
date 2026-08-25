@@ -4,6 +4,7 @@ import {
   didRegainSyncPrerequisites,
   disposeDomainSyncCoordinator,
   getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
   type SyncRuntimeStatus,
 } from "../../data/sync/syncCoordinator";
@@ -14,6 +15,19 @@ import {
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function waitForSyncLane(
+  condition: () => boolean,
+  timeoutMs = 200,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) {
+      throw new Error("Timed out waiting for sync lane state");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
 }
 
 test("registerDocumentSyncLane registers a document lane by local id", async () => {
@@ -123,6 +137,54 @@ test("a completed lane reports an unconsumed request as incomplete", async () =>
       request: () => lane.requestSync(),
     }),
   ).toBe(false);
+});
+
+test("a watchdog-abandoned lane rejects an immediate retry", async () => {
+  const domainScope = createDomainScope();
+  let finishRun: () => void = () => undefined;
+  const pendingRun = new Promise<void>((resolve) => {
+    finishRun = resolve;
+  });
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const lane = coordinator.registerLane("documents:profile-local-id", {
+    run: () => pendingRun,
+    watchdogMs: 20,
+  });
+  lane.requestSync();
+  await waitForSyncLane(
+    () =>
+      getDomainSyncCoordinatorSnapshot(domainScope).lanes[0]?.runAbandoned ===
+      true,
+  );
+  let requested = false;
+
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
+      domainScope,
+      localId: "profile-local-id",
+      request: () => {
+        requested = true;
+        lane.requestSync();
+      },
+    }),
+  ).toBe(false);
+  expect(requested).toBe(false);
+
+  finishRun();
+  await waitForSyncLane(
+    () =>
+      getDomainSyncCoordinatorSnapshot(domainScope).lanes[0]?.runAbandoned ===
+      false,
+  );
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
+      domainScope,
+      localId: "profile-local-id",
+      request: () => lane.requestSync(),
+    }),
+  ).toBe(true);
 });
 
 test("coordinator disposal resolves a pending request as incomplete", async () => {

@@ -54,6 +54,9 @@ export function requestDocumentSyncLaneAndWait(input: {
   if (!initialLane) {
     return Promise.resolve(false);
   }
+  if (initialLane.runAbandoned) {
+    return Promise.resolve(false);
+  }
   const baselineRunCount = initialLane.runCount;
   return new Promise((resolve) => {
     let settled = false;
@@ -84,6 +87,10 @@ export function requestDocumentSyncLaneAndWait(input: {
         .lanes.find((candidate) => candidate.key === laneKey);
       if (!lane) {
         handleAbort();
+        return;
+      }
+      if (lane.runAbandoned) {
+        finish(false);
         return;
       }
       if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
