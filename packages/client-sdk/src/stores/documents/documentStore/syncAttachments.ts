@@ -35,7 +35,7 @@ import {
   settleUploadedAttachment,
 } from "./syncAttachmentSettlement";
 import {
-  captureDocumentStoreSyncGeneration,
+  captureDocumentStoreRemoteSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -74,7 +74,7 @@ export async function syncPendingAttachments(
   // mid-pass swaps or drops the live doc; every local write below would then
   // resurrect rows the teardown removed. Capture the generation now and stop
   // at the loop boundaries once it goes stale.
-  const attachmentGeneration = captureDocumentStoreSyncGeneration(
+  const attachmentGeneration = captureDocumentStoreRemoteSyncGeneration(
     state,
     currentDoc,
   );

@@ -136,6 +136,53 @@ test("members can bind their own roster profile document", async () => {
   expect(rosterEntry?.profileDocumentId).toBe(profile.id);
 });
 
+test("a bound roster profile document cannot be purged", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const root = await bootstrapRoot(actor);
+  await db
+    .update(containers)
+    .set({
+      systemSlot: await deriveOrganizationRosterProfileContainerSystemSlot({
+        organizationId,
+      }),
+    })
+    .where(eq(containers.id, root.kekState.containerId));
+  const profile = await createDocument({ owner: actor, root });
+  const bindResponse = await routeApp.request(
+    `/organizations/${organizationId}/roster/${actor.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: profile.id }),
+    },
+  );
+  expect(bindResponse.status).toBe(200);
+
+  const purgeResponse = await routeApp.request(`/documents/${profile.id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${actor.token}` },
+  });
+
+  expect(purgeResponse.status).toBe(409);
+  expect(await purgeResponse.json()).toEqual({
+    error: "Bound roster profile documents cannot be purged",
+  });
+  const [binding] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, organizationId),
+        eq(organizationRosterEntries.userId, actor.userId),
+      ),
+    );
+  expect(binding?.profileDocumentId).toBe(profile.id);
+});
+
 test("a bound roster profile document cannot leave its roster container", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);

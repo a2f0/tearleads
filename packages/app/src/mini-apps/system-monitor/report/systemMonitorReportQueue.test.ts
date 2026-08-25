@@ -90,6 +90,7 @@ function createLane(
     registrationIndex: 0,
     requestCount: 3,
     requested: false,
+    runAbandoned: false,
     runCount: 3,
     running: false,
     status: "complete",

@@ -74,8 +74,14 @@ export {
   subscribeToPersistedDocuments,
 } from "./registry";
 
-function refreshDocumentStoreSyncLane(state: DocumentStoreState): void {
-  if (state.syncLane?.isDisposed?.()) {
+function refreshDocumentStoreSyncLane(
+  state: DocumentStoreState,
+  force = false,
+): void {
+  if (!force && state.syncLane && !state.syncLane.isDisposed?.()) {
+    return;
+  }
+  if (state.syncLane) {
     invalidateDocumentStoreSyncLane(state);
   }
   state.syncLane = registerDocumentStoreSyncLane(state);
@@ -103,7 +109,7 @@ function updateDocumentStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
-    refreshDocumentStoreSyncLane(state);
+    refreshDocumentStoreSyncLane(state, true);
     state.locallyAcceptedUpdateIds = new Set();
     state.remoteUpdatePending = false;
     state.writerProjection = null;
@@ -141,6 +147,7 @@ function requestRemoteDocumentStoreSync(
   scheduleSync: () => void,
   owner: "independent" | "waiter" = "independent",
 ): number {
+  state.ensureSyncLane?.();
   allowDocumentStoreRemoteSync(state);
   const signalSequence = markDocumentStoreRemoteSyncPending(state, owner);
   scheduleSync();
@@ -224,6 +231,7 @@ function createBackingDocumentStore(
     initialText,
     initialDocumentKind,
   );
+  state.ensureSyncLane = () => refreshDocumentStoreSyncLane(state);
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
 

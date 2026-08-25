@@ -8,6 +8,23 @@ import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/va
 import { and, eq, inArray } from "drizzle-orm";
 import { DocumentMutationError } from "../documents/mutations/errors";
 
+export async function assertRosterProfileDocumentUnbound(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+}): Promise<void> {
+  const [binding] = await input.executor
+    .select({ id: organizationRosterEntries.id })
+    .from(organizationRosterEntries)
+    .where(eq(organizationRosterEntries.profileDocumentId, input.documentId))
+    .limit(1);
+  if (binding) {
+    throw new DocumentMutationError(
+      "Bound roster profile documents cannot be purged",
+      409,
+    );
+  }
+}
+
 export async function assertRosterProfileBindingPreserved(input: {
   readonly executor: DatabaseSession;
   readonly manifest: VerifiedDocumentLinkSetManifest;

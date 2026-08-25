@@ -22,13 +22,26 @@ interface DocumentStoreGenerationIdentity {
   readonly execSql: DocumentStoreState["runtime"]["infra"]["execSql"];
   readonly localWriteGeneration: number;
   readonly resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+}
+
+interface DocumentStoreSyncLaneIdentity {
   readonly syncLaneGeneration: number;
   readonly syncLaneIsDisposed: (() => boolean) | null;
 }
 
+function hasDocumentStoreSyncLaneIdentity(
+  generation: DocumentStoreGenerationIdentity,
+): generation is DocumentStoreGenerationIdentity &
+  DocumentStoreSyncLaneIdentity {
+  return (
+    "syncLaneGeneration" in generation && "syncLaneIsDisposed" in generation
+  );
+}
+
 /** Immutable identities that define one remote-sync request generation. */
 export interface DocumentStoreRemoteSyncRequestGeneration
-  extends DocumentStoreGenerationIdentity {
+  extends DocumentStoreGenerationIdentity,
+    DocumentStoreSyncLaneIdentity {
   readonly remoteSyncGeneration: number;
 }
 
@@ -40,7 +53,8 @@ export interface DocumentStoreSyncGeneration
 
 /** A live store generation that is also cancelled with a remote-only probe. */
 interface DocumentStoreRemoteSyncGeneration
-  extends DocumentStoreSyncGeneration {
+  extends DocumentStoreSyncGeneration,
+    DocumentStoreSyncLaneIdentity {
   readonly remoteSyncGeneration: number;
 }
 
@@ -52,6 +66,13 @@ function captureDocumentStoreGenerationIdentity(
     execSql: state.runtime.infra.execSql,
     localWriteGeneration: state.localWriteGeneration,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+  };
+}
+
+function captureDocumentStoreSyncLaneIdentity(
+  state: DocumentStoreState,
+): DocumentStoreSyncLaneIdentity {
+  return {
     syncLaneGeneration: syncLaneGenerations.get(state) ?? 0,
     syncLaneIsDisposed: state.syncLane?.isDisposed ?? null,
   };
@@ -69,6 +90,7 @@ export function captureDocumentStoreRemoteSyncRequestGeneration(
 ): DocumentStoreRemoteSyncRequestGeneration {
   return {
     ...captureDocumentStoreGenerationIdentity(state),
+    ...captureDocumentStoreSyncLaneIdentity(state),
     remoteSyncGeneration: getRemoteSyncGeneration(state),
   };
 }
@@ -93,6 +115,7 @@ export function captureDocumentStoreRemoteSyncGeneration(
   if (!generation) return null;
   return {
     ...generation,
+    ...captureDocumentStoreSyncLaneIdentity(state),
     remoteSyncGeneration: getRemoteSyncGeneration(state),
   };
 }
@@ -216,7 +239,9 @@ function isDocumentStoreGenerationIdentityCurrent(
     state.runtime.infra.execSql === generation.execSql &&
     state.localWriteGeneration === generation.localWriteGeneration &&
     state.resolveProjectionUserKey === generation.resolveProjectionUserKey &&
-    (syncLaneGenerations.get(state) ?? 0) === generation.syncLaneGeneration &&
-    !generation.syncLaneIsDisposed?.()
+    (!hasDocumentStoreSyncLaneIdentity(generation) ||
+      ((syncLaneGenerations.get(state) ?? 0) ===
+        generation.syncLaneGeneration &&
+        !generation.syncLaneIsDisposed?.()))
   );
 }

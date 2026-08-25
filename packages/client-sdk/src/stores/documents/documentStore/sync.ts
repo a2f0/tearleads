@@ -241,7 +241,10 @@ async function revalidateRemoteDocumentBeforeAttachments(
     return { canSyncAttachments: true, nextRecord };
   }
 
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const generation = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+  );
   if (!generation) {
     requestDocumentStoreSync(state);
     return { canSyncAttachments: false, nextRecord };

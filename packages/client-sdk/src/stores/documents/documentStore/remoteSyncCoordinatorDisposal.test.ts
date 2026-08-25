@@ -84,3 +84,107 @@ test("a disposed coordinator cannot land its pass after re-registration", async 
     database.close();
   }
 });
+
+test("coordinator disposal does not cancel an in-flight local persist", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql(
+    "coordinator-disposal-local-persist",
+  );
+  let releasePersist: () => void = () => undefined;
+  const persistGate = new Promise<void>((resolve) => {
+    releasePersist = resolve;
+  });
+  let markPersistStarted: () => void = () => undefined;
+  const persistStarted = new Promise<void>((resolve) => {
+    markPersistStarted = resolve;
+  });
+  let blockMutationPersist = false;
+  const persistence: DocumentsPersistence = {
+    ...defaultDocumentsPersistence,
+    async commitDocumentMutation(execSql, input, saveProjection) {
+      if (blockMutationPersist) {
+        markPersistStarted();
+        await persistGate;
+      }
+      return defaultDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        input,
+        saveProjection,
+      );
+    },
+  };
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => null,
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "coordinator-disposal-local-persist",
+      runtime,
+      persistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+
+    blockMutationPersist = true;
+    const edit = store.setText("survives coordinator disposal");
+    await settleWithin(persistStarted, "local persistence");
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    releasePersist();
+    await settleWithin(edit, "local edit");
+
+    const persisted = await defaultDocumentsPersistence.loadDocumentStoreState(
+      database.execSql,
+      "coordinator-disposal-local-persist",
+    );
+    expect(persisted.document?.text).toBe("survives coordinator disposal");
+  } finally {
+    releasePersist();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("an ordinary remote request re-registers a disposed sync lane", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("disposed-lane-remote-request");
+  let syncCalls = 0;
+  let markPostDisposalSync: () => void = () => undefined;
+  const postDisposalSync = new Promise<void>((resolve) => {
+    markPostDisposalSync = resolve;
+  });
+  let callsBeforeDisposal = Number.POSITIVE_INFINITY;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls > callsBeforeDisposal) {
+        markPostDisposalSync();
+      }
+      return null;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "disposed-lane-remote-request",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
+    callsBeforeDisposal = syncCalls;
+
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    store.requestRemoteSync();
+    await settleWithin(postDisposalSync, "post-disposal remote sync");
+    expect(syncCalls).toBeGreaterThan(callsBeforeDisposal);
+  } finally {
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});

@@ -31,6 +31,7 @@ const SNAPSHOT: DomainSyncSnapshot = {
       registrationIndex: 1,
       requestCount: 1,
       requested: true,
+      runAbandoned: false,
       runCount: 0,
       running: false,
       status: "queued",

@@ -154,14 +154,11 @@ export interface DocumentStoreState {
   /** Latest remote-update sequence durably applied by a completed probe. */
   remoteUpdateCompletedSignalSeq: number;
   remoteUpdatePending: boolean;
-  /**
-   * Monotonically incremented when `remoteUpdatePending` is set. A pass
-   * snapshots this so it does not clear a newer event delivered during its
-   * network/persist window and stall convergence.
-   */
+  /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
+  ensureSyncLane: (() => void) | null;
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
@@ -265,6 +262,7 @@ export function createDocumentStoreState(
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
     snapshot: { ...EMPTY_DOCUMENT_SNAPSHOT },
+    ensureSyncLane: null,
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,

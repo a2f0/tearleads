@@ -134,8 +134,15 @@ export function registerDocumentStoreIdentity(
 }
 
 export function requestDocumentStoreSync(state: {
-  syncLane: { requestSync: () => void } | null;
+  ensureSyncLane?: (() => void) | null;
+  syncLane: {
+    isDisposed?: (() => boolean) | undefined;
+    requestSync: () => void;
+  } | null;
 }) {
+  if (!state.syncLane || state.syncLane.isDisposed?.()) {
+    state.ensureSyncLane?.();
+  }
   state.syncLane?.requestSync();
 }
 

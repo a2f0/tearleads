@@ -9,6 +9,7 @@ import {
   captureDocumentStoreSyncGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
   invalidateDocumentStoreRemoteSync,
+  invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncRequestGenerationCurrent,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -113,6 +114,39 @@ test("remote probe cancellation leaves a concurrent local generation current", a
   if (!localGeneration || !remoteGeneration) return;
 
   invalidateDocumentStoreRemoteSync(state);
+
+  expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
+    true,
+  );
+  expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
+    false,
+  );
+});
+
+test("coordinator disposal invalidates remote work but not local persistence", async () => {
+  const currentDoc = await createDocument("local-generation-after-disposal");
+  let disposed = false;
+  const state = {
+    doc: currentDoc,
+    localWriteGeneration: 0,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: { isDisposed: () => disposed },
+  } as unknown as DocumentStoreState;
+  const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+  );
+  expect(localGeneration).not.toBeNull();
+  expect(remoteGeneration).not.toBeNull();
+  if (!localGeneration || !remoteGeneration) return;
+
+  disposed = true;
+  invalidateDocumentStoreSyncLane(state);
 
   expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
     true,
