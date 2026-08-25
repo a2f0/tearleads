@@ -111,7 +111,7 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
   }
 });
 
-test("content-key unwrap failures identify and quarantine the blocked update", async () => {
+test("pre-auth content-key failures quarantine the batch without naming a writer", async () => {
   const { close, execSql } = await createTestExecSql(
     "sync-content-key-isolation",
   );
@@ -184,13 +184,102 @@ test("content-key unwrap failures identify and quarantine the blocked update", a
         writerProjection: rotatedProjection,
       }),
     ).rejects.toMatchObject({
+      attribution: "batch",
+      batchUpdateIds: [currentUpdate.id, blockedUpdate.id],
       stage: "content_key",
-      updateId: blockedUpdate.id,
+      updateId: null,
+      writerUserId: null,
     });
     expect(quarantined).toHaveLength(1);
     expect(quarantined[0]).toMatchObject({
+      attribution: "batch",
+      batchUpdateIds: [currentUpdate.id, blockedUpdate.id],
       stage: "content_key",
-      updateId: blockedUpdate.id,
+      updateId: null,
+      writerUserId: null,
+    });
+  } finally {
+    close();
+  }
+});
+
+test("forged pre-auth write headers cannot frame a writer", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-content-key-forged-writer",
+  );
+  try {
+    const {
+      author,
+      resolveProjectionUserKey,
+      secretKey,
+      signingPublicKey,
+      writerProjection,
+    } = await createMaterializedSyncFixture();
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author,
+      execSql,
+      localVersionVector: null,
+      resolveProjectionUserKey,
+      targetSecretKey: secretKey,
+      writerProjection,
+    });
+    const signedUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author,
+      plan: materializedPlan.plan,
+      targetHash: materializedPlan.plan.expectedTargetHash,
+    });
+    const forgedUpdate = {
+      ...signedUpdate,
+      writeHeader: {
+        ...signedUpdate.writeHeader,
+        contentKeyEpoch: materializedPlan.plan.contentKeyEpoch + 1,
+        writerKeyFingerprint: "framed-fingerprint",
+        writerUserId: "framed-writer",
+      },
+    } as typeof signedUpdate;
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      updates: [forgedUpdate],
+    });
+    const quarantined: DocumentSyncUpdateIsolationError[] = [];
+
+    await expect(
+      syncRemoteDocument({
+        apiClient: {
+          getDocumentWriterProjection: async () => writerProjection,
+          syncDocument: async () => response,
+        },
+        author,
+        documentId: writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        onIncomingUpdateIsolationFailure: (failure) => {
+          quarantined.push(failure);
+        },
+        pendingUpdates: [],
+        resolveProjectionUserKey,
+        resolveWriterPublicKey: writerKeyResolver({
+          author,
+          signingPublicKey,
+        }),
+        targetSecretKey: secretKey,
+        validateIncomingUpdates: () => undefined,
+        writerProjection,
+      }),
+    ).rejects.toMatchObject({
+      attribution: "batch",
+      authorFingerprint: null,
+      batchUpdateIds: [forgedUpdate.id],
+      stage: "content_key",
+      updateId: null,
+      writerUserId: null,
+    });
+    expect(quarantined).toHaveLength(1);
+    expect(quarantined[0]).toMatchObject({
+      authorFingerprint: null,
+      updateId: null,
+      writerUserId: null,
     });
   } finally {
     close();

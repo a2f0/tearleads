@@ -5,7 +5,7 @@ import type {
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
 import {
   type IncomingDocumentSyncUpdateValidator,
-  isolateDocumentSyncUpdateError,
+  isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/responses";
 import type {
@@ -34,38 +34,20 @@ import {
 
 function isolateContentKeyResponseFailure(
   error: unknown,
-  currentContentKeyEpoch: number,
   response: DocumentSyncResponse,
 ): never {
   const message = error instanceof Error ? error.message : String(error);
-  const normalizedMessage = message.toLowerCase();
-  const bundleEpochs = new Set(
-    [response.contentKeyBundle, ...response.contentKeyBundles].map(
-      (bundle) => bundle.contentKeyEpoch,
-    ),
-  );
-  const update = response.updates.find((candidate) => {
-    const header = candidate.writeHeader;
-    if (!header || typeof header !== "object") return false;
-    const epoch = Reflect.get(header, "contentKeyEpoch");
-    if (typeof epoch !== "number") return false;
-    if (normalizedMessage.includes("future content-key epoch")) {
-      return epoch > currentContentKeyEpoch;
-    }
-    if (normalizedMessage.includes("content-key bundle missing")) {
-      return !bundleEpochs.has(epoch);
-    }
-    return false;
-  });
-  if (update) {
-    throw isolateDocumentSyncUpdateError({
-      cause: error,
-      responseUpdate: update,
-      stage: "content_key",
-      updateId: update.id,
-    });
+  if (
+    !message.toLowerCase().includes("content-key") ||
+    response.updates.length === 0
+  ) {
+    throw error;
   }
-  throw error;
+  throw isolateDocumentSyncBatchError({
+    cause: error,
+    stage: "content_key",
+    updateIds: response.updates.map((update) => update.id),
+  });
 }
 
 export async function syncRemoteDocumentResultFromResponse(input: {
@@ -95,11 +77,7 @@ export async function syncRemoteDocumentResultFromResponse(input: {
       },
     );
   } catch (error) {
-    isolateContentKeyResponseFailure(
-      error,
-      plan.contentKeyEpoch,
-      input.response,
-    );
+    isolateContentKeyResponseFailure(error, input.response);
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,

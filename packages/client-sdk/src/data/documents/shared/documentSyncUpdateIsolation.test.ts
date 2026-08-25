@@ -9,9 +9,24 @@ import {
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import {
+  findUniqueRepairingCandidate,
   isDocumentSyncUpdateIsolationError,
   validateDocumentSyncUpdateImports,
 } from "./documentSyncUpdateIsolation";
+
+test("ambiguous repairing candidates do not receive exact attribution", async () => {
+  const examined: string[] = [];
+  const candidate = await findUniqueRepairingCandidate(
+    ["first", "second", "third"],
+    async (value) => {
+      examined.push(value);
+      return value !== "third";
+    },
+  );
+
+  expect(candidate).toBeNull();
+  expect(examined).toEqual(["first", "second", "third"]);
+});
 
 test("scratch import isolates the first poison update without mutating live state", async () => {
   const current = await createDocument("isolation-current");

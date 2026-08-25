@@ -122,7 +122,7 @@ export class DocumentSyncUpdateIsolationError extends Error {
   }
 }
 
-function isolateDocumentSyncBatchError(input: {
+export function isolateDocumentSyncBatchError(input: {
   cause: unknown;
   stage: DocumentSyncUpdateIsolationStage;
   updateIds: readonly string[];
@@ -246,6 +246,22 @@ async function validateOrdinaryUpdateBatch(input: {
   }
 }
 
+/** @internal Exported only to exercise the bounded exact-attribution policy. */
+export async function findUniqueRepairingCandidate<T>(
+  candidates: readonly T[],
+  repairsBatch: (candidate: T, candidateIndex: number) => Promise<boolean>,
+): Promise<T | null> {
+  let repairingCandidate: T | null = null;
+  let repairingCandidateCount = 0;
+  for (const [candidateIndex, candidate] of candidates.entries()) {
+    if (await repairsBatch(candidate, candidateIndex)) {
+      repairingCandidate = candidate;
+      repairingCandidateCount += 1;
+    }
+  }
+  return repairingCandidateCount === 1 ? repairingCandidate : null;
+}
+
 /**
  * Proves that a decrypted response can be imported before the live document or
  * any durable sync frontier is mutated. On failure, retries the page without
@@ -302,36 +318,39 @@ export async function validateDocumentSyncUpdateImports(input: {
   // import may partially mutate its scratch document. Keeping every other
   // ordinary update in one batch preserves out-of-order sibling dependencies;
   // removing a required valid parent therefore cannot falsely blame it.
-  for (const [candidateIndex, update] of ordinaryUpdates.entries()) {
-    const withoutCandidate = ordinaryUpdates.filter(
-      (_, updateIndex) => updateIndex !== candidateIndex,
-    );
-    let importsWithoutCandidate = false;
-    try {
-      await validateOrdinaryUpdateBatch({
-        checkpoints,
-        currentSnapshot,
-        ordinaryUpdates: withoutCandidate,
-        responseById,
-      });
-      importsWithoutCandidate = true;
-    } catch {
-      // This candidate is either valid and required by a sibling, or another
-      // poison update remains. Continue without attributing it.
-    }
-    if (importsWithoutCandidate) {
-      throw isolateDocumentSyncUpdateError({
-        cause: batchError,
-        responseUpdate: responseById.get(update.id),
-        stage: "loro_import",
-        updateId: update.id,
-      });
-    }
+  const isolatedUpdate = await findUniqueRepairingCandidate(
+    ordinaryUpdates,
+    async (_update, candidateIndex) => {
+      const withoutCandidate = ordinaryUpdates.filter(
+        (_, updateIndex) => updateIndex !== candidateIndex,
+      );
+      try {
+        await validateOrdinaryUpdateBatch({
+          checkpoints,
+          currentSnapshot,
+          ordinaryUpdates: withoutCandidate,
+          responseById,
+        });
+        return true;
+      } catch {
+        // This candidate is either valid and required by a sibling, or another
+        // poison update remains. Continue without attributing it.
+        return false;
+      }
+    },
+  );
+  if (isolatedUpdate) {
+    throw isolateDocumentSyncUpdateError({
+      cause: batchError,
+      responseUpdate: responseById.get(isolatedUpdate.id),
+      stage: "loro_import",
+      updateId: isolatedUpdate.id,
+    });
   }
 
-  // Multiple bad updates or a batch-level incompatibility may have no single
-  // removal that repairs the page. Fail closed without falsely naming a valid
-  // writer; no live or durable state has changed.
+  // Multiple bad updates or a batch-level incompatibility may have zero or
+  // multiple removals that repair the page. Fail closed without falsely naming
+  // a valid writer; no live or durable state has changed.
   throw isolateDocumentSyncBatchError({
     cause: batchError,
     stage: "loro_import",
