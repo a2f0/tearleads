@@ -15,6 +15,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
 import { canWriteDocumentSummary } from "../../model/containerRules";
 import { getDocumentLinkedContainerIds } from "../../model/targetOptions";
@@ -71,6 +72,7 @@ interface Props {
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   setSelectedId: (id: string | null) => void;
   showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
@@ -355,6 +357,17 @@ function useExplorerDocumentInfoPanelState(params: Props) {
   useEffect(() => {
     setActiveTab("general");
   }, [params.localId]);
+
+  useEffect(() => {
+    if (!documentInfo?.remoteInfo) {
+      return;
+    }
+    params.requestAttributionProfileHydration(
+      documentInfo.remoteInfo.contributors.map(
+        (contributor) => contributor.writerUserId,
+      ),
+    );
+  }, [documentInfo, params.requestAttributionProfileHydration]);
 
   return {
     activeTab,

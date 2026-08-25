@@ -127,6 +127,9 @@ function renderDocumentInfoPanel(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  requestAttributionProfileHydration?:
+    | ((contributorUserIds: ReadonlyArray<string>) => void)
+    | undefined;
   showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
@@ -144,6 +147,9 @@ function panelProps(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  requestAttributionProfileHydration?:
+    | ((contributorUserIds: ReadonlyArray<string>) => void)
+    | undefined;
   showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
@@ -169,6 +175,8 @@ function panelProps(input: {
     localId: input.localId ?? "local-document-1",
     nodes,
     openBlobBrowserRoute: () => undefined,
+    requestAttributionProfileHydration:
+      input.requestAttributionProfileHydration ?? (() => undefined),
     setSelectedId: () => undefined,
     showDocumentEditRanges: input.showDocumentEditRanges ?? false,
     showLinkedDocumentActivationControls:
@@ -185,6 +193,19 @@ test("document info hides edit ranges until the feature flag is enabled", async 
   await view.findByText("Contributors");
   expect(view.queryByText("Edit Ranges")).toBeNull();
   expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
+});
+
+test("document info requests profile hydration for its contributors", async () => {
+  const requests: ReadonlyArray<string>[] = [];
+
+  renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+    requestAttributionProfileHydration: (contributorUserIds) => {
+      requests.push(contributorUserIds);
+    },
+  });
+
+  await waitFor(() => expect(requests).toEqual([["writer-1"]]));
 });
 
 // Edit Ranges is flag-gated, so the truncated-attribution copy must not send

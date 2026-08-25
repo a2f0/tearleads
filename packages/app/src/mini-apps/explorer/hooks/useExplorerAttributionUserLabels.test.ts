@@ -1,6 +1,58 @@
 import { expect, mock, test } from "bun:test";
-import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
-import { loadExplorerAttributionDirectoryAndGroups } from "./explorerAttributionReadModel";
+import {
+  type Documents,
+  getRosterProfileDocumentLocalId,
+  type OrganizationDirectoryAndGroups,
+  type OrganizationDirectoryUser,
+} from "@symcrypt/client-sdk";
+import {
+  hydrateExplorerAttributionProfileDocuments,
+  loadExplorerAttributionDirectoryAndGroups,
+  MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+  selectExplorerAttributionProfileHydrationTargets,
+} from "./explorerAttributionReadModel";
+
+const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
+
+function rosterUser(input: {
+  profileDocumentId: string | null;
+  status?: "active" | "disabled" | undefined;
+  userId: string;
+}): OrganizationDirectoryUser {
+  const disabled = input.status === "disabled";
+  return {
+    createdAt: "2026-08-25T12:00:00.000Z",
+    disabledAt: disabled ? "2026-08-25T13:00:00.000Z" : null,
+    disabledByUserId: disabled ? "admin-user-id" : null,
+    encapsulationKeyFingerprint: `encapsulation-${input.userId}`,
+    encapsulationPublicKey: `encapsulation-key-${input.userId}`,
+    isSelf: false,
+    joinedAt: "2026-08-25T12:00:00.000Z",
+    profileDocumentId: input.profileDocumentId,
+    signingKeyFingerprint: `signing-${input.userId}`,
+    signingPublicKey: `signing-key-${input.userId}`,
+    status: input.status ?? "active",
+    updatedAt: "2026-08-25T13:00:00.000Z",
+    userId: input.userId,
+  };
+}
+
+function projection(input: {
+  isOrgAdmin?: boolean | undefined;
+  users: ReadonlyArray<OrganizationDirectoryUser>;
+}): OrganizationDirectoryAndGroups {
+  return {
+    directory: {
+      currentUser: { isOrgAdmin: input.isOrgAdmin ?? true },
+      organizationId: ORGANIZATION_ID,
+      profileDocumentId: null,
+      users: [...input.users],
+    },
+    groups: [],
+    memberGroupId: "members-group-id",
+    readModelCursor: "cursor-1",
+  };
+}
 
 function readModel(cursor: string): OrganizationDirectoryAndGroups {
   return {
@@ -51,4 +103,99 @@ test("Explorer attribution consumes an authoritative purge without a second requ
 
   expect(result).toBeNull();
   expect(loadLocalDirectoryAndGroups).toHaveBeenCalledTimes(0);
+});
+
+test("disabled contributors are retained and prioritized within the bound", () => {
+  const active = rosterUser({
+    profileDocumentId: "active-profile-id",
+    userId: "active-user-id",
+  });
+  const disabled = rosterUser({
+    profileDocumentId: "disabled-profile-id",
+    status: "disabled",
+    userId: "disabled-user-id",
+  });
+
+  expect(
+    selectExplorerAttributionProfileHydrationTargets({
+      contributorUserIds: [
+        active.userId,
+        disabled.userId,
+        disabled.userId,
+        "unknown-user-id",
+      ],
+      directoryAndGroups: projection({ users: [active, disabled] }),
+      limit: 1,
+    }),
+  ).toEqual([
+    {
+      bindingKey: "disabled-user-id\0disabled-profile-id",
+      profileDocumentId: "disabled-profile-id",
+      userId: "disabled-user-id",
+    },
+  ]);
+});
+
+test("profile hydration is unavailable to non-admin viewers", () => {
+  const user = rosterUser({
+    profileDocumentId: "profile-id",
+    userId: "user-id",
+  });
+
+  expect(
+    selectExplorerAttributionProfileHydrationTargets({
+      contributorUserIds: [user.userId],
+      directoryAndGroups: projection({ isOrgAdmin: false, users: [user] }),
+    }),
+  ).toEqual([]);
+});
+
+test("profile hydration never exceeds the per-document cap", () => {
+  const users = Array.from(
+    { length: MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS + 8 },
+    (_, index) =>
+      rosterUser({
+        profileDocumentId: `profile-${index}`,
+        status: "disabled",
+        userId: `user-${index}`,
+      }),
+  );
+
+  const targets = selectExplorerAttributionProfileHydrationTargets({
+    contributorUserIds: users.map((user) => user.userId),
+    directoryAndGroups: projection({ users }),
+    limit: Number.MAX_SAFE_INTEGER,
+  });
+
+  expect(targets).toHaveLength(MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS);
+  expect(targets.at(-1)?.userId).toBe("user-31");
+});
+
+test("selected profiles open by retained roster identity and request sync", () => {
+  const requestSync = mock(() => undefined);
+  const open = mock(() => ({ requestSync }));
+
+  hydrateExplorerAttributionProfileDocuments({
+    containerId: "roster-profile-container-id",
+    documents: { open } as unknown as Documents,
+    organizationId: ORGANIZATION_ID,
+    targets: [
+      {
+        bindingKey: "disabled-user-id\0disabled-profile-id",
+        profileDocumentId: "disabled-profile-id",
+        userId: "disabled-user-id",
+      },
+    ],
+  });
+
+  expect(open).toHaveBeenCalledWith({
+    containerId: "roster-profile-container-id",
+    documentId: "disabled-profile-id",
+    initialDocumentKind: "contact",
+    localId: getRosterProfileDocumentLocalId({
+      organizationId: ORGANIZATION_ID,
+      userId: "disabled-user-id",
+    }),
+  });
+  expect(requestSync).toHaveBeenCalledTimes(1);
 });

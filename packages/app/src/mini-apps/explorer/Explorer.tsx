@@ -33,6 +33,7 @@ import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLaye
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
+import type { ExplorerAttributionProfileHydrationRequester } from "./hooks/explorerAttributionReadModel";
 import { useExplorerDocumentDownload } from "./hooks/useExplorerDocumentDownload";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { useExplorerOrganizationPresentation } from "./hooks/useExplorerOrganizationPresentation";
@@ -92,6 +93,7 @@ interface BlobPickPanelProps {
   readModelProjection: OrganizationDirectoryAndGroups | null;
   readModelRevision: number;
   readModelScope: object | null;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   resolveAttributionUserLabel: ExplorerAttributionUserLabelResolver;
   onOpenGrant: (
     grant: ExplorerGrantOrgManagerTarget,
@@ -158,6 +160,9 @@ function renderExplorerDetailPanelWithBlobPick(
       readModelProjection={params.readModelProjection}
       readModelRevision={params.readModelRevision}
       readModelScope={params.readModelScope}
+      requestAttributionProfileHydration={
+        params.requestAttributionProfileHydration
+      }
       onCancelBlobPick={blobPick.cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
@@ -382,6 +387,9 @@ function ExplorerContent() {
           readModelProjection={organizationPresentation.projection}
           readModelRevision={organizationPresentation.revision}
           readModelScope={organizationPresentation.scope}
+          requestAttributionProfileHydration={
+            organizationPresentation.requestAttributionProfileHydration
+          }
           resolveAttributionUserLabel={
             organizationPresentation.resolveAttributionUserLabel
           }

@@ -20,6 +20,7 @@ import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/ex
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
+import type { ExplorerAttributionProfileHydrationRequester } from "../hooks/explorerAttributionReadModel";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import type { OpenInlineDocument } from "../hooks/useInlineDocumentAction";
 import {
@@ -133,6 +134,7 @@ interface ExplorerDetailPanelProps {
   readModelProjection?: OrganizationDirectoryAndGroups | null | undefined;
   readModelRevision?: number | undefined;
   readModelScope?: object | null | undefined;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   // Pick mode for the blob-browser route: set when "Choose Blob" on a document
   // routed here. onPickBlob resolves the pick; onCancelBlobPick abandons it.
   blobPickTarget: BlobPickTarget | null;
@@ -319,6 +321,9 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         localId={route.localId}
         nodes={params.nodes}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
+        requestAttributionProfileHydration={
+          params.requestAttributionProfileHydration
+        }
         setSelectedId={params.setSelectedId}
         showDocumentEditRanges={params.showDocumentEditRanges}
         showLinkedDocumentActivationControls={

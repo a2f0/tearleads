@@ -1,4 +1,8 @@
-import type { OrganizationDirectoryAndGroups } from "@symcrypt/client-sdk";
+import {
+  type Documents,
+  getRosterProfileDocumentLocalId,
+  type OrganizationDirectoryAndGroups,
+} from "@symcrypt/client-sdk";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
@@ -20,6 +24,84 @@ export async function loadExplorerAttributionDirectoryAndGroups(
     return reconciledProjection;
   }
   return organizations.loadLocalDirectoryAndGroups();
+}
+
+export const MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS = 32;
+
+export type ExplorerAttributionProfileHydrationRequester = (
+  contributorUserIds: ReadonlyArray<string>,
+) => void;
+
+export interface ExplorerAttributionProfileHydrationTarget {
+  readonly bindingKey: string;
+  readonly profileDocumentId: string;
+  readonly userId: string;
+}
+
+/** Selects bounded contributor profiles visible to an organization admin. */
+export function selectExplorerAttributionProfileHydrationTargets(input: {
+  readonly contributorUserIds: ReadonlyArray<string>;
+  readonly directoryAndGroups: OrganizationDirectoryAndGroups;
+  readonly limit?: number | undefined;
+}): ExplorerAttributionProfileHydrationTarget[] {
+  if (!input.directoryAndGroups.directory.currentUser.isOrgAdmin) {
+    return [];
+  }
+  const usersById = new Map(
+    input.directoryAndGroups.directory.users.map((user) => [user.userId, user]),
+  );
+  const contributorUserIds = [
+    ...new Set(input.contributorUserIds.filter((userId) => userId.length > 0)),
+  ];
+  const targets = contributorUserIds.flatMap((userId) => {
+    const user = usersById.get(userId);
+    return user?.profileDocumentId
+      ? [
+          {
+            bindingKey: `${user.userId}\0${user.profileDocumentId}`,
+            profileDocumentId: user.profileDocumentId,
+            status: user.status,
+            userId: user.userId,
+          },
+        ]
+      : [];
+  });
+  const orderedTargets = [
+    ...targets.filter((target) => target.status === "disabled"),
+    ...targets.filter((target) => target.status !== "disabled"),
+  ];
+  const limit = Math.max(
+    0,
+    Math.min(
+      input.limit ?? MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+      MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+    ),
+  );
+  return orderedTargets
+    .slice(0, limit)
+    .map(({ status: _status, ...target }) => target);
+}
+
+/** Opens only the requested encrypted profile documents and asks them to sync. */
+export function hydrateExplorerAttributionProfileDocuments(input: {
+  readonly containerId: string;
+  readonly documents: Documents;
+  readonly organizationId: string;
+  readonly targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>;
+}): void {
+  for (const target of input.targets) {
+    input.documents
+      .open({
+        containerId: input.containerId,
+        documentId: target.profileDocumentId,
+        initialDocumentKind: "contact",
+        localId: getRosterProfileDocumentLocalId({
+          organizationId: input.organizationId,
+          userId: target.userId,
+        }),
+      })
+      .requestSync();
+  }
 }
 
 export function getExplorerAttributionProjectionKey(input: {
