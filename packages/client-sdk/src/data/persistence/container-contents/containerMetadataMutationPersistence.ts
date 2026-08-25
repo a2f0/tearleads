@@ -196,10 +196,16 @@ function staleServerMutationResult(
 ) {
   const incomingServerUpdatedAt =
     input.saveOptions?.serverTimestamps?.updatedAt;
-  return currentState?.record &&
+  const hasOlderContainerTimestamp =
     incomingServerUpdatedAt != null &&
-    currentState.container.serverUpdatedAt != null &&
-    currentState.container.serverUpdatedAt > incomingServerUpdatedAt
+    currentState?.container.serverUpdatedAt != null &&
+    currentState.container.serverUpdatedAt > incomingServerUpdatedAt;
+  const hasOlderMetadataAccessEpoch =
+    currentState?.record != null &&
+    currentState.record.documentId === input.record.documentId &&
+    currentState.record.accessEpoch > input.record.accessEpoch;
+  return currentState?.record &&
+    (hasOlderContainerTimestamp || hasOlderMetadataAccessEpoch)
     ? {
         committed: false as const,
         currentState,

@@ -242,3 +242,139 @@ test("overlapping metadata CAS writes return one conflict without busy-snapshot"
     close();
   }
 });
+
+test("an out-of-order remote mutation cannot roll back a metadata access epoch", async () => {
+  const { close, runtime } = await openTestConnection({
+    dbName: `/${crypto.randomUUID()}.db`,
+    key: "metadata-access-epoch-order",
+  });
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(runtime.execSql);
+    const container = {
+      effectiveAccessLevel: "write" as const,
+      icon: null,
+      id: "container-epoch-order",
+      metadataDocumentId: "metadata-epoch-order",
+      name: "Container",
+      organizationId: "organization-1",
+      parentId: null,
+    };
+    const currentRecord = {
+      accessEpoch: 2,
+      accessStateHash: "access-2",
+      documentId: container.metadataDocumentId,
+      id: container.id,
+      metadataUpdates: "current",
+      snapshotEndVersion: "current-version",
+    };
+    await sqlContainerContentsPersistence.saveContainer(
+      runtime.execSql,
+      container,
+      currentRecord,
+      {
+        localUpdatedAt: T2,
+        serverTimestamps: { createdAt: T1, updatedAt: T2 },
+      },
+    );
+    const expected =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        runtime.execSql,
+        container.id,
+      );
+    if (!expected?.record) throw new Error("Expected current metadata state");
+
+    const result = await sqlContainerContentsPersistence.commitMetadataMutation(
+      runtime.execSql,
+      {
+        acceptedPendingUpdateIds: [],
+        container: expected.container,
+        expectedContainer: expected.container,
+        expectedRecord: expected.record,
+        record: {
+          ...expected.record,
+          accessEpoch: 1,
+          accessStateHash: "access-1",
+          metadataUpdates: "stale",
+          snapshotEndVersion: "stale-version",
+        },
+        saveOptions: {
+          localUpdatedAt: T2,
+          serverTimestamps: { createdAt: T1, updatedAt: T2 },
+        },
+        settleAcceptedPendingOnConflict: false,
+      },
+    );
+
+    expect(result).toMatchObject({
+      committed: false,
+      currentState: {
+        record: {
+          accessEpoch: 2,
+          accessStateHash: "access-2",
+          metadataUpdates: "current",
+        },
+      },
+      staleServerState: true,
+    });
+    await expect(
+      sqlContainerContentsPersistence.loadContainerMetadataState(
+        runtime.execSql,
+        container.id,
+      ),
+    ).resolves.toMatchObject({
+      record: {
+        accessEpoch: 2,
+        accessStateHash: "access-2",
+        metadataUpdates: "current",
+      },
+    });
+
+    const replacementExpected =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        runtime.execSql,
+        container.id,
+      );
+    if (!replacementExpected?.record) {
+      throw new Error("Expected metadata state before replacement");
+    }
+    const replacement =
+      await sqlContainerContentsPersistence.commitMetadataMutation(
+        runtime.execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          container: {
+            ...replacementExpected.container,
+            metadataDocumentId: "replacement-metadata",
+          },
+          expectedContainer: replacementExpected.container,
+          expectedRecord: replacementExpected.record,
+          record: {
+            ...replacementExpected.record,
+            accessEpoch: 1,
+            accessStateHash: "replacement-access-1",
+            documentId: "replacement-metadata",
+          },
+          saveOptions: {
+            localUpdatedAt: T2,
+            serverTimestamps: { createdAt: T1, updatedAt: T2 },
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+      );
+    expect(replacement).toMatchObject({ committed: true });
+    await expect(
+      sqlContainerContentsPersistence.loadContainerMetadataState(
+        runtime.execSql,
+        container.id,
+      ),
+    ).resolves.toMatchObject({
+      record: {
+        accessEpoch: 1,
+        accessStateHash: "replacement-access-1",
+        documentId: "replacement-metadata",
+      },
+    });
+  } finally {
+    close();
+  }
+});
