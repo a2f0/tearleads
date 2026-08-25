@@ -200,6 +200,12 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     contentKeyEpoch: positiveIntegerSchema,
     expectedLinkSetManifestHash: nonEmptyStringSchema,
     expectedTargetHash: nonEmptyStringSchema,
+    historyMode: z
+      .literal("raw")
+      .describe(
+        "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history",
+      )
+      .optional(),
     localVersionVector: boundedStringSchema(
       MAX_DOCUMENT_SYNC_REQUEST_BYTES,
     ).nullable(),
@@ -243,6 +249,19 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
         code: "custom",
         message: "continued pulls must be read-only",
         path: ["pullCursor"],
+      });
+    }
+    if (
+      request.historyMode === "raw" &&
+      (hasOutgoingUpdates ||
+        (request.containerRekeys?.length ?? 0) > 0 ||
+        request.contentKeyBundle !== undefined ||
+        request.authorizingContainerPathRefs !== undefined)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "raw-history pulls must be read-only",
+        path: ["historyMode"],
       });
     }
     const requestMode = classifyDocumentSyncRequestMode({

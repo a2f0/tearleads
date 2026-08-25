@@ -331,6 +331,7 @@ async function buildSyncDocumentTransactionResult(input: {
     currentBundle: input.contentKeyBundle,
     cursorHmacKey: input.cursorHmacKey,
     entries,
+    historyMode: input.request.historyMode,
     identity: pullIdentity,
     loadContentKeyBundle: (contentKeyEpoch) =>
       getDocumentContentKeyBundle(

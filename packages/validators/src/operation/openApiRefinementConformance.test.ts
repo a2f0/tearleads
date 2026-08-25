@@ -92,6 +92,11 @@ const witnesses = {
     expectedMessage: "continued pulls must be read-only",
     kind: "request",
   },
+  [documentSyncRequestPullRefinements[1].id]: {
+    createInput: () => ({ ...createSyncRequest(), historyMode: "raw" }),
+    expectedMessage: "raw-history pulls must be read-only",
+    kind: "request",
+  },
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),

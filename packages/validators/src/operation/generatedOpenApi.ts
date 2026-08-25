@@ -1742,6 +1742,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2396,6 +2401,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -2834,6 +2844,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3131,6 +3146,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3604,6 +3624,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -3901,6 +3926,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -10978,6 +11008,11 @@ export interface operations {
                     contentKeyEpoch: number;
                     expectedLinkSetManifestHash: string;
                     expectedTargetHash: string;
+                    /**
+                     * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                     * @constant
+                     */
+                    historyMode?: "raw";
                     localVersionVector: string | null;
                     minLsn?: string;
                     outgoingUpdates: ({
@@ -12483,6 +12518,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -13137,6 +13177,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -13575,6 +13620,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -13872,6 +13922,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14345,6 +14400,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({
@@ -14642,6 +14702,11 @@ export interface operations {
                             contentKeyEpoch: number;
                             expectedLinkSetManifestHash: string;
                             expectedTargetHash: string;
+                            /**
+                             * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                             * @constant
+                             */
+                            historyMode?: "raw";
                             localVersionVector: string | null;
                             minLsn?: string;
                             outgoingUpdates: ({

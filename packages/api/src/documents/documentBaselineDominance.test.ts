@@ -168,6 +168,14 @@ test("bounded redirect traces retain every uncovered update", async () => {
                 });
                 expect(ids(served)).toEqual(ids(expectedServed));
 
+                const rawServed = selectServedSyncUpdates({
+                  baselineCoverage: baseline.encoded,
+                  currentContentKeyEpoch: currentEpoch,
+                  entries: missing,
+                  historyMode: "raw",
+                });
+                expect(ids(rawServed)).toEqual(ids(missing));
+
                 const servedIds = new Set(ids(served));
                 const unavailableIds = ids(missing).filter(
                   (id) => !servedIds.has(id),

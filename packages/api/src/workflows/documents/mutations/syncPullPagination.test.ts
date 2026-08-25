@@ -61,6 +61,11 @@ test("pull cursor retains the first page upper bound", async () => {
     lastUpdateId: AFTER_UPDATE_ID,
     plan: firstPlan,
   });
+  const normalCursorWire = JSON.parse(
+    Buffer.from(firstPage.nextCursor ?? "", "base64url").toString("utf8"),
+  ) as unknown[];
+  expect(normalCursorWire).toHaveLength(8);
+  expect(normalCursorWire[0]).toBe(1);
   expect(
     await resolveSyncPullPagePlan({
       cursorHmacKey: CURSOR_HMAC_KEY,
@@ -73,6 +78,59 @@ test("pull cursor retains the first page upper bound", async () => {
     afterSequence: 12,
     upperBoundSequence: 42,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
+  });
+});
+
+test("pull cursor binds raw-history mode across every page", async () => {
+  const plan = await resolveSyncPullPagePlan({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    identity: IDENTITY,
+    request: request({ historyMode: "raw" }),
+    resolveCursorBounds,
+    upperBound: { id: UPPER_BOUND_UPDATE_ID, sequence: 42 },
+  });
+  if (!plan) throw new Error("Expected a paginated pull plan");
+  const page = createSyncPullPageResponse({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    hasMore: true,
+    historyMode: "raw",
+    identity: IDENTITY,
+    lastUpdateId: AFTER_UPDATE_ID,
+    plan,
+  });
+  const rawCursorWire = JSON.parse(
+    Buffer.from(page.nextCursor ?? "", "base64url").toString("utf8"),
+  ) as unknown[];
+  expect(rawCursorWire).toHaveLength(9);
+  expect(rawCursorWire.slice(0, 2)).toEqual([2, "raw"]);
+
+  expect(
+    await resolveSyncPullPagePlan({
+      cursorHmacKey: CURSOR_HMAC_KEY,
+      identity: IDENTITY,
+      request: request({
+        historyMode: "raw",
+        pullCursor: page.nextCursor ?? undefined,
+      }),
+      resolveCursorBounds,
+      upperBound: { id: crypto.randomUUID(), sequence: 99 },
+    }),
+  ).toEqual({
+    afterSequence: 12,
+    upperBoundSequence: 42,
+    upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
+  });
+  await expect(
+    resolveSyncPullPagePlan({
+      cursorHmacKey: CURSOR_HMAC_KEY,
+      identity: IDENTITY,
+      request: request({ pullCursor: page.nextCursor ?? undefined }),
+      resolveCursorBounds,
+      upperBound: { id: crypto.randomUUID(), sequence: 99 },
+    }),
+  ).rejects.toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    status: 409,
   });
 });
 
