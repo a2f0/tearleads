@@ -12,6 +12,7 @@ import {
   type ExplorerAttributionProfileHydrationRequester,
   type ExplorerAttributionProfileHydrationTarget,
   getExplorerAttributionHydrationDocumentSelection,
+  getExplorerAttributionProfileContainerId,
   getExplorerAttributionProjectionKey,
   hydrateExplorerAttributionProfileDocument,
   selectExplorerAttributionHydrationTargetsForDocument,
@@ -153,23 +154,20 @@ async function hydratePendingTargets(
   if (!scopesMatch(input.currentScope.current, input.requestScope)) {
     return null;
   }
-  const container = input.containerStore
-    .getSnapshot()
-    .nodes.find(
-      (node) =>
-        node.systemSlot === systemSlot &&
-        node.organizationId === input.requestScope.organizationId &&
-        node.parentId === input.requestScope.containerId,
-    );
+  const containerId = getExplorerAttributionProfileContainerId({
+    nodes: input.containerStore.getSnapshot().nodes,
+    organizationId: input.organizationId,
+    systemSlot,
+  });
   if (
-    !container ||
+    !containerId ||
     !scopesMatch(input.currentScope.current, input.requestScope)
   ) {
     return null;
   }
   const results = await Promise.all(
     targets.map((target) =>
-      hydrateTargetWithRetries(input, container.id, target),
+      hydrateTargetWithRetries(input, containerId, target),
     ),
   );
   return targets.filter((_target, index) => !results[index]);

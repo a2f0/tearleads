@@ -38,6 +38,27 @@ export type ExplorerAttributionProfileHydrationRequester = (
   request: ExplorerAttributionProfileHydrationRequest,
 ) => void;
 
+interface ExplorerAttributionProfileContainerCandidate {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly parentId?: string | null | undefined;
+  readonly systemSlot?: string | null | undefined;
+}
+
+export function getExplorerAttributionProfileContainerId(input: {
+  readonly nodes: ReadonlyArray<ExplorerAttributionProfileContainerCandidate>;
+  readonly organizationId: string;
+  readonly systemSlot: string;
+}): string | null {
+  return (
+    input.nodes.find(
+      (node) =>
+        node.systemSlot === input.systemSlot &&
+        node.organizationId === input.organizationId,
+    )?.id ?? null
+  );
+}
+
 export interface ExplorerAttributionHydrationDocumentSelection {
   readonly contributorUserIds: Set<string>;
 }

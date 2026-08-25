@@ -74,6 +74,57 @@ test("self bindings reject an owned document outside the roster container", asyn
   expect(memberRosterEntry?.profileDocumentId).toBeNull();
 });
 
+test("members can bind their own roster profile document", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor,
+    memberUserId: member.userId,
+    organizationId,
+  });
+  const rosterProfileContainerId = crypto.randomUUID();
+  await db.insert(containers).values({
+    depth: 1,
+    id: rosterProfileContainerId,
+    organizationId,
+    parentId: actor.rootContainerId,
+    systemSlot: await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId,
+    }),
+  });
+  const profile = await createCurrentDocumentProjection({
+    containerIds: [rosterProfileContainerId],
+    createdByFingerprint: member.fingerprint,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/roster/${member.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: profile.id }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const [rosterEntry] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, organizationId),
+        eq(organizationRosterEntries.userId, member.userId),
+      ),
+    );
+  expect(rosterEntry?.profileDocumentId).toBe(profile.id);
+});
+
 test("admin bindings reject a document outside the roster container", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);

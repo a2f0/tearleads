@@ -8,6 +8,7 @@ import { getRosterProfileDocumentLocalId } from "@symcrypt/client-sdk";
 import {
   getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProfileBindingsByLocalId,
+  getExplorerAttributionProfileContainerId,
   getExplorerAttributionProfileDisplayNames,
   getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocument,
@@ -19,6 +20,29 @@ import {
 } from "./explorerAttributionReadModel";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
+
+test("roster profile container resolution follows a moved system container", () => {
+  expect(
+    getExplorerAttributionProfileContainerId({
+      nodes: [
+        {
+          id: "foreign-container",
+          organizationId: "other-organization-id",
+          parentId: "root-container-id",
+          systemSlot: "roster-profile-slot",
+        },
+        {
+          id: "moved-container",
+          organizationId: ORGANIZATION_ID,
+          parentId: "nested-container-id",
+          systemSlot: "roster-profile-slot",
+        },
+      ],
+      organizationId: ORGANIZATION_ID,
+      systemSlot: "roster-profile-slot",
+    }),
+  ).toBe("moved-container");
+});
 
 function rosterUser(input: {
   profileDocumentId: string | null;
