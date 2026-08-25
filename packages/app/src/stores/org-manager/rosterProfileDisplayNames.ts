@@ -45,22 +45,34 @@ export function getLocalRosterProfileDisplayNames(input: {
   readonly documents: DocumentList | null;
   readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
 }): ReadonlyMap<string, string> {
+  const userIdsByProfileDocumentId = new Map<string, Set<string>>();
+  for (const profile of input.profileBindingsByLocalId.values()) {
+    const userIds =
+      userIdsByProfileDocumentId.get(profile.profileDocumentId) ??
+      new Set<string>();
+    userIds.add(profile.userId);
+    userIdsByProfileDocumentId.set(profile.profileDocumentId, userIds);
+  }
   const latestDocumentsByUserId = new Map<
     string,
     { readonly id: string; readonly title: string; readonly updatedAt: string }
   >();
   for (const document of input.documents?.rows ?? []) {
-    const profile = input.profileBindingsByLocalId.get(document.id);
-    if (!profile || document.documentId !== profile.profileDocumentId) {
+    const userIds = document.documentId
+      ? userIdsByProfileDocumentId.get(document.documentId)
+      : undefined;
+    if (!userIds) {
       continue;
     }
-    const current = latestDocumentsByUserId.get(profile.userId);
-    if (
-      !current ||
-      document.updatedAt > current.updatedAt ||
-      (document.updatedAt === current.updatedAt && document.id > current.id)
-    ) {
-      latestDocumentsByUserId.set(profile.userId, document);
+    for (const userId of userIds) {
+      const current = latestDocumentsByUserId.get(userId);
+      if (
+        !current ||
+        document.updatedAt > current.updatedAt ||
+        (document.updatedAt === current.updatedAt && document.id > current.id)
+      ) {
+        latestDocumentsByUserId.set(userId, document);
+      }
     }
   }
 

@@ -337,7 +337,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
   expect(harness.list).toHaveBeenCalledTimes(2);
 });
 
-test("local roster names require the deterministic id and current remote binding", () => {
+test("local roster names require the current remote binding", () => {
   const user = rosterUser({
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
