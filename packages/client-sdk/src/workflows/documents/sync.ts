@@ -224,7 +224,8 @@ async function submitPlannedSyncAttempt(args: {
   } catch (error) {
     if (
       error instanceof InvalidDocumentSyncPullContinuationError &&
-      args.pullContinuation !== undefined
+      args.pullContinuation !== undefined &&
+      args.sync.historyMode !== "raw"
     ) {
       return "retry" as const;
     }
@@ -375,7 +376,8 @@ async function preparePersistedDocumentSync(
   } catch (error) {
     if (
       !(error instanceof InvalidDocumentSyncPullContinuationError) ||
-      pullContinuation === undefined
+      pullContinuation === undefined ||
+      input.historyMode === "raw"
     ) {
       throw error;
     }

@@ -1,10 +1,17 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { isDocumentSyncRequest } from "@symcrypt/validators/request";
 import {
+  createMaterializedSyncFixture,
   createPreparedUpdate,
   createSyncFixture,
+  createSyncResponse,
+  writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import { InvalidDocumentSyncPullContinuationError } from "../../data/documents/shared/syncPagination";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
+import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 test("buildDocumentSyncPlan creates an explicit raw-history pull", async () => {
   const { author, createResponse } = await createSyncFixture();
@@ -53,4 +60,78 @@ test("buildDocumentSyncPlan rejects a non-null raw-history frontier", async () =
       localVersionVector: "{}",
     }),
   ).rejects.toThrow("raw-history sync must start from a null version vector");
+});
+
+test("raw history fails a stale cursor without restarting its frozen pull", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "raw-history-stale-cursor",
+  );
+  try {
+    const fixture = await createMaterializedSyncFixture();
+    const materialized = await buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      pendingUpdates: [],
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+    });
+    const requestedCursors: Array<string | undefined> = [];
+    let invalidationCount = 0;
+    const pullContinuation = {
+      commitLsn: "0/16B6C50",
+      commitLsnMode: "tracked" as const,
+      cursor: "stale-raw-page-2",
+    };
+
+    const recovery = syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => fixture.writerProjection,
+        syncDocument: async () => {
+          throw new Error("Expected syncDocumentResult to handle raw sync");
+        },
+        syncDocumentResult: async (documentId, request) => {
+          requestedCursors.push(request.pullCursor);
+          return {
+            data: await createSyncResponse(
+              { ...materialized.plan, documentId, request },
+              {
+                acceptedOutgoingUpdateIds: [],
+                pullPage: {
+                  hasMore: true,
+                  nextCursor: request.pullCursor ?? "unexpected-restart",
+                },
+                updates: [],
+              },
+            ),
+            ok: true,
+          };
+        },
+      },
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      onPullContinuationInvalidated: () => {
+        invalidationCount += 1;
+      },
+      pendingUpdates: [],
+      pullContinuation,
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+    });
+
+    await expect(recovery).rejects.toBeInstanceOf(
+      InvalidDocumentSyncPullContinuationError,
+    );
+    expect(requestedCursors).toEqual([pullContinuation.cursor]);
+    expect(invalidationCount).toBe(0);
+  } finally {
+    close();
+  }
 });
