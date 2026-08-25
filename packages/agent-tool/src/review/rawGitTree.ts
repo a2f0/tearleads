@@ -3,11 +3,16 @@ import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { MAX_BUFFER_BYTES } from "../git/prContext";
+import { destinationFor, validateDestinationPaths } from "./destinationPaths";
 
 interface TreeEntry {
   mode: string;
   objectId: string;
   relativePath: string;
+}
+
+interface TreeEntryWithContents extends TreeEntry {
+  contents: Buffer;
 }
 
 function gitBuffer(rootDir: string, args: string[], input?: Buffer): Buffer {
@@ -33,6 +38,7 @@ function decodeGitPath(value: Buffer): string {
   const segments = decoded.split("/");
   if (
     decoded.length === 0 ||
+    decoded.includes("\\") ||
     path.isAbsolute(decoded) ||
     segments.some(
       (segment) => segment === "" || segment === "." || segment === "..",
@@ -43,6 +49,119 @@ function decodeGitPath(value: Buffer): string {
     );
   }
   return decoded;
+}
+
+function decodedSymlinkTarget(entry: TreeEntry, contents: Buffer): string {
+  const target = decodeUtf8(contents, "symlink targets");
+  if (
+    target.length === 0 ||
+    target.includes("\\") ||
+    path.isAbsolute(target) ||
+    path.win32.isAbsolute(target) ||
+    /^[A-Za-z]:/.test(target)
+  ) {
+    throw new Error(
+      `Unsafe symlink target for ${JSON.stringify(entry.relativePath)}: ${JSON.stringify(target)}`,
+    );
+  }
+  return target;
+}
+
+function treeDirectories(entries: TreeEntry[]): Set<string> {
+  const directories = new Set<string>();
+  for (const entry of entries) {
+    const segments = entry.relativePath.split("/");
+    for (let end = 1; end < segments.length; end += 1) {
+      directories.add(segments.slice(0, end).join("/"));
+    }
+  }
+  return directories;
+}
+
+function unsafeSymlinkTarget(entry: TreeEntry, target: string): never {
+  throw new Error(
+    `Unsafe symlink target for ${JSON.stringify(entry.relativePath)}: ${JSON.stringify(target)}`,
+  );
+}
+
+function followTreeSegment(
+  entry: TreeEntry,
+  target: string,
+  segment: string,
+  resolvedSegments: string[],
+  pendingSegments: string[],
+  followedSymlinks: Set<string>,
+  entriesByPath: ReadonlyMap<string, TreeEntryWithContents>,
+  directories: ReadonlySet<string>,
+): void {
+  const candidate = [...resolvedSegments, segment].join("/");
+  const candidateEntry = entriesByPath.get(candidate);
+  if (candidateEntry?.mode === "120000") {
+    if (followedSymlinks.has(candidate)) {
+      unsafeSymlinkTarget(entry, target);
+    }
+    followedSymlinks.add(candidate);
+    pendingSegments.unshift(
+      ...decodedSymlinkTarget(candidateEntry, candidateEntry.contents).split(
+        "/",
+      ),
+    );
+    return;
+  }
+
+  resolvedSegments.push(segment);
+  if (candidateEntry !== undefined) {
+    if (pendingSegments.length > 0) {
+      unsafeSymlinkTarget(entry, target);
+    }
+    return;
+  }
+  if (!directories.has(candidate)) {
+    unsafeSymlinkTarget(entry, target);
+  }
+}
+
+function checkedSymlinkTarget(
+  entry: TreeEntryWithContents,
+  entriesByPath: ReadonlyMap<string, TreeEntryWithContents>,
+  directories: ReadonlySet<string>,
+): string {
+  const target = decodedSymlinkTarget(entry, entry.contents);
+  const parentSegments = entry.relativePath.split("/").slice(0, -1);
+  const resolvedSegments = [...parentSegments];
+  const pendingSegments = target.split("/");
+  const followedSymlinks = new Set<string>();
+
+  while (pendingSegments.length > 0) {
+    const segment = pendingSegments.shift();
+    if (segment === undefined || segment === "" || segment === ".") {
+      continue;
+    }
+    if (segment === "..") {
+      if (resolvedSegments.length === 0) {
+        unsafeSymlinkTarget(entry, target);
+      }
+      resolvedSegments.pop();
+      continue;
+    }
+
+    followTreeSegment(
+      entry,
+      target,
+      segment,
+      resolvedSegments,
+      pendingSegments,
+      followedSymlinks,
+      entriesByPath,
+      directories,
+    );
+  }
+
+  const resolvedEntry = entriesByPath.get(resolvedSegments.join("/"));
+  if (resolvedEntry?.mode !== "100644" && resolvedEntry?.mode !== "100755") {
+    unsafeSymlinkTarget(entry, target);
+  }
+  return target;
 }
 
 function readTree(rootDir: string, tree: string): TreeEntry[] {
@@ -108,11 +227,21 @@ function readBlobs(rootDir: string, entries: TreeEntry[]): Buffer[] {
   });
 }
 
-function writeEntry(rootDir: string, entry: TreeEntry, contents: Buffer): void {
-  const destination = path.join(rootDir, ...entry.relativePath.split("/"));
+function writeEntry(
+  rootDir: string,
+  entry: TreeEntryWithContents,
+  symlinkTargets: ReadonlyMap<string, string>,
+): void {
+  const destination = destinationFor(rootDir, entry.relativePath);
   mkdirSync(path.dirname(destination), { recursive: true });
   if (entry.mode === "120000") {
-    symlinkSync(decodeUtf8(contents, "symlink targets"), destination);
+    const target = symlinkTargets.get(entry.relativePath);
+    if (target === undefined) {
+      throw new Error(
+        `Missing checked symlink target for ${entry.relativePath}.`,
+      );
+    }
+    symlinkSync(target, destination);
     return;
   }
   if (entry.mode !== "100644" && entry.mode !== "100755") {
@@ -120,7 +249,7 @@ function writeEntry(rootDir: string, entry: TreeEntry, contents: Buffer): void {
       `Unsupported mode ${entry.mode} for ${entry.relativePath}.`,
     );
   }
-  writeFileSync(destination, contents);
+  writeFileSync(destination, entry.contents);
   chmodSync(destination, entry.mode === "100755" ? 0o755 : 0o644);
 }
 
@@ -131,12 +260,41 @@ export function materializeRawGitTree(
   destinationRoot: string,
 ): void {
   const entries = readTree(sourceRoot, tree);
+  validateDestinationPaths(
+    destinationRoot,
+    entries.map((entry) => entry.relativePath),
+  );
   const blobs = readBlobs(sourceRoot, entries);
-  entries.forEach((entry, index) => {
+  const entriesWithContents = entries.map((entry, index) => {
     const blob = blobs[index];
     if (blob === undefined) {
       throw new Error(`Missing blob response for ${entry.relativePath}.`);
     }
-    writeEntry(destinationRoot, entry, blob);
+    if (
+      entry.mode !== "120000" &&
+      entry.mode !== "100644" &&
+      entry.mode !== "100755"
+    ) {
+      throw new Error(
+        `Unsupported mode ${entry.mode} for ${entry.relativePath}.`,
+      );
+    }
+    return { ...entry, contents: blob };
   });
+  const entriesByPath = new Map(
+    entriesWithContents.map((entry) => [entry.relativePath, entry]),
+  );
+  const directories = treeDirectories(entriesWithContents);
+  const symlinkTargets = new Map<string, string>();
+  for (const entry of entriesWithContents) {
+    if (entry.mode === "120000") {
+      symlinkTargets.set(
+        entry.relativePath,
+        checkedSymlinkTarget(entry, entriesByPath, directories),
+      );
+    }
+  }
+  for (const entry of entriesWithContents) {
+    writeEntry(destinationRoot, entry, symlinkTargets);
+  }
 }

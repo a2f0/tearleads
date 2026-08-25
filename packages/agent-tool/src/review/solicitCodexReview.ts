@@ -11,23 +11,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import {
-  ensureChanges,
   MAX_BUFFER_BYTES,
   resolveReviewContext,
-  run,
   spawnExitCode,
 } from "../git/prContext";
+import { withPinnedReviewInput } from "./pinnedReviewInput";
 import {
   DEFAULT_CODEX_EFFORT,
   type ReviewEffort,
   resolveReviewEffort,
 } from "./reviewEffort";
-import {
-  buildReviewPrompt,
-  CODEX_ACCESS_NOTE,
-  readReviewInstructions,
-} from "./reviewPrompt";
-import { withReviewSnapshot } from "./reviewSnapshot";
+import { buildReviewPrompt, CODEX_ACCESS_NOTE } from "./reviewPrompt";
 import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
 
 /** How much transcript tail to relay when a codex attempt fails outright. */
@@ -55,7 +49,9 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * and everything the review needs is pinned explicitly right here.
  * `--disable plugins/hooks/apps` closes the remaining gaps: plugin-provided
  * MCP servers, trusted hooks, and app connectors all live outside
- * `config.toml`, so ignoring the config alone would leave them active.
+ * `config.toml`, so ignoring the config alone would leave them active. Hosted
+ * web search is disabled separately because it is not governed by the sandbox
+ * network permission.
  * Codex also runs ephemerally from a temporary non-repository cwd so
  * branch-controlled AGENTS.md files are not injected into its prompt. Model
  * commands inherit no host environment, and strict config validation makes an
@@ -88,6 +84,8 @@ export function buildCodexReviewArgs(
     "--skip-git-repo-check",
     "-c",
     `model_reasoning_effort="${effort}"`,
+    "-c",
+    'web_search="disabled"',
     "-c",
     'default_permissions="review-snapshot"',
     "-c",
@@ -203,19 +201,15 @@ export function solicitCodexReview(
 ): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CODEX_EFFORT);
   const context = resolveReviewContext();
-  ensureChanges(context.baseRef);
-
-  const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);
-  const reviewInstructions = readReviewInstructions(rootDir, context.baseRef);
-  return withReviewSnapshot(rootDir, (snapshotRoot) => {
+  return withPinnedReviewInput(rootDir, context, (input) => {
     const prompt = buildReviewPrompt({
       context,
-      diff,
-      reviewInstructions,
+      diff: input.diff,
+      reviewInstructions: input.reviewInstructions,
       accessNote: CODEX_ACCESS_NOTE,
-      repositoryRoot: snapshotRoot,
+      repositoryRoot: input.snapshotRoot,
     });
 
-    return spawnCodexReview(prompt, effort, snapshotRoot);
+    return spawnCodexReview(prompt, effort, input.snapshotRoot);
   });
 }

@@ -27,6 +27,8 @@ describe("buildCodexReviewArgs", () => {
       "-c",
       'model_reasoning_effort="high"',
       "-c",
+      'web_search="disabled"',
+      "-c",
       'default_permissions="review-snapshot"',
       "-c",
       'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/opt/codex/bin"="read","/repo/root"="read"}',
@@ -61,6 +63,7 @@ describe("buildCodexReviewArgs", () => {
       (_, i) => i > 0 && args[i - 1] === "--disable",
     );
     expect(disabled).toEqual(["plugins", "hooks", "apps"]);
+    expect(args).toContain('web_search="disabled"');
   });
 
   test("exposes only the snapshot and minimal runtime paths", () => {

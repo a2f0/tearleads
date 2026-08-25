@@ -135,26 +135,6 @@ function resolveFreshBaseRef(baseRefName: string, baseRefOid: string): string {
   return resolveBaseRef(baseRefName, baseRefOid);
 }
 
-export function ensureChanges(baseRef: string): void {
-  const result = spawnSync("git", ["diff", "--quiet", `${baseRef}...HEAD`], {
-    stdio: "ignore",
-  });
-  if (result.error) {
-    throw result.error;
-  }
-  // `git diff --quiet` exits 0 (no changes), 1 (changes), or >1 on error.
-  if (result.status === 0) {
-    throw new Error(`No changes found between ${baseRef} and current branch.`);
-  }
-  if (result.status !== 1) {
-    const detail =
-      result.status === null ? "on a signal" : `code ${result.status}`;
-    throw new Error(
-      `Could not diff against base ref '${baseRef}' (git exited ${detail}).`,
-    );
-  }
-}
-
 /**
  * Map a spawnSync result to a process exit code. A failure to launch (missing
  * binary) or a signal termination leaves `status` null; treat those as a

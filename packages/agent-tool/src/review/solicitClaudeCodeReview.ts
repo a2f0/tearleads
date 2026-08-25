@@ -2,23 +2,17 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 import {
-  ensureChanges,
   MAX_BUFFER_BYTES,
   resolveReviewContext,
-  run,
   spawnExitCode,
 } from "../git/prContext";
+import { withPinnedReviewInput } from "./pinnedReviewInput";
 import {
   DEFAULT_CLAUDE_EFFORT,
   type ReviewEffort,
   resolveReviewEffort,
 } from "./reviewEffort";
-import {
-  buildReviewPrompt,
-  CLAUDE_ACCESS_NOTE,
-  readReviewInstructions,
-} from "./reviewPrompt";
-import { withReviewSnapshot } from "./reviewSnapshot";
+import { buildReviewPrompt, CLAUDE_ACCESS_NOTE } from "./reviewPrompt";
 import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
 
 /**
@@ -122,19 +116,15 @@ export function solicitClaudeCodeReview(
 ): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CLAUDE_EFFORT);
   const context = resolveReviewContext();
-  ensureChanges(context.baseRef);
-
-  const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);
-  const reviewInstructions = readReviewInstructions(rootDir, context.baseRef);
-  return withReviewSnapshot(rootDir, (snapshotRoot) => {
+  return withPinnedReviewInput(rootDir, context, (input) => {
     const prompt = buildReviewPrompt({
       context,
-      diff,
-      reviewInstructions,
+      diff: input.diff,
+      reviewInstructions: input.reviewInstructions,
       accessNote: CLAUDE_ACCESS_NOTE,
-      repositoryRoot: snapshotRoot,
+      repositoryRoot: input.snapshotRoot,
     });
 
-    return spawnClaudeReview(prompt, effort, snapshotRoot);
+    return spawnClaudeReview(prompt, effort, input.snapshotRoot);
   });
 }

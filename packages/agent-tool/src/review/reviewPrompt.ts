@@ -9,6 +9,7 @@ const REVIEW_INSTRUCTION_FILES = ["REVIEW.md", "AGENTS.md"];
 function runGit(rootDir: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: rootDir,
+    env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" },
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     maxBuffer: MAX_BUFFER_BYTES,
@@ -82,14 +83,8 @@ ${diffEnvelope}
 /** Read review policy from the trusted base commit, never the branch under review. */
 export function readReviewInstructions(
   rootDir: string,
-  baseRef: string,
+  baseCommit: string,
 ): string {
-  const baseCommit = runGit(rootDir, [
-    "rev-parse",
-    "--verify",
-    `${baseRef}^{commit}`,
-  ]).trim();
-
   for (const candidate of REVIEW_INSTRUCTION_FILES) {
     const match = runGit(rootDir, [
       "ls-tree",
