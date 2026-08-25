@@ -1,3 +1,4 @@
+import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 
@@ -25,6 +26,13 @@ export function deferRecoverableMetadataSyncError(input: {
   error: unknown;
   runtime: { util: { log: (message: string) => void } };
 }): null {
+  if (isDocumentSyncUpdateIsolationError(input.error)) {
+    input.runtime.util.log(
+      `Container contents: quarantined incoming metadata updates for ${input.containerId}; deferred this container without blocking later metadata syncs.`,
+    );
+    return null;
+  }
+
   if (isStaleContainerMetadataSecurityStateError(input.error)) {
     input.runtime.util.log(
       `Container contents: deferred metadata sync for ${input.containerId} because its content-key targets are stale.`,

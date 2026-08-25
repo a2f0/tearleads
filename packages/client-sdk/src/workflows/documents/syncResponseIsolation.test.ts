@@ -286,6 +286,66 @@ test("forged pre-auth write headers cannot frame a writer", async () => {
   }
 });
 
+test("pre-auth content-key wording preserves writer-key integrity errors", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-content-key-writer-integrity",
+  );
+  try {
+    const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+      await createMaterializedSyncFixture();
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author,
+      execSql,
+      localVersionVector: null,
+      resolveProjectionUserKey,
+      targetSecretKey: secretKey,
+      writerProjection,
+    });
+    const update = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author,
+      plan: materializedPlan.plan,
+      targetHash: materializedPlan.plan.expectedTargetHash,
+    });
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      updates: [update],
+    });
+    const integrityError = new KeyingVerificationError(
+      "equivocation",
+      "content-key writer identity equivocated",
+    );
+    let quarantineCount = 0;
+
+    await expect(
+      syncRemoteDocument({
+        apiClient: {
+          getDocumentWriterProjection: async () => writerProjection,
+          syncDocument: async () => response,
+        },
+        author,
+        documentId: writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        onIncomingUpdateIsolationFailure: () => {
+          quarantineCount += 1;
+        },
+        pendingUpdates: [],
+        resolveProjectionUserKey,
+        resolveWriterPublicKey: async () => {
+          throw integrityError;
+        },
+        targetSecretKey: secretKey,
+        validateIncomingUpdates: () => undefined,
+        writerProjection,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(quarantineCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
 test("content-key recovery preserves projection integrity errors", async () => {
   const { close, execSql } = await createTestExecSql(
     "sync-content-key-projection-integrity",

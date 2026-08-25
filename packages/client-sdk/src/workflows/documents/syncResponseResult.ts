@@ -7,7 +7,10 @@ import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
-import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/responses";
+import {
+  DocumentSyncResponseUpdateContentKeyError,
+  persistedDocumentSyncStateFromResponse,
+} from "../../data/documents/shared/responses";
 import type {
   DocumentWriterPublicKeyResolver,
   MaterializedDocumentSyncPlan,
@@ -36,9 +39,8 @@ function isolateContentKeyResponseFailure(
   error: unknown,
   response: DocumentSyncResponse,
 ): never {
-  const message = error instanceof Error ? error.message : String(error);
   if (
-    !message.toLowerCase().includes("content-key") ||
+    !(error instanceof DocumentSyncResponseUpdateContentKeyError) ||
     response.updates.length === 0
   ) {
     throw error;

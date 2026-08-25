@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@symcrypt/crypto";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import { DocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import { syncContainerMetadataState } from "./metadata";
 import {
@@ -11,7 +12,7 @@ import {
 } from "./metadata.testFixtures";
 
 function createMetadataSyncRuntime(input: {
-  getDocumentWriterProjection: () => Promise<never>;
+  getDocumentWriterProjection: (documentId: string) => Promise<never>;
   logs: string[];
 }) {
   return {
@@ -85,6 +86,66 @@ test("syncContainerMetadataState defers a cold principal-policy cache", async ()
   expect(synced).toBeNull();
   expect(logs).toEqual([
     "Container contents: deferred metadata sync for container-4 because a referenced principal policy is not cached yet.",
+  ]);
+});
+
+test("an isolated metadata response does not starve the next container", async () => {
+  const states = await Promise.all(
+    ["isolated", "later"].map(async (suffix) => {
+      const container = createContainerRecord({
+        id: `container-${suffix}`,
+        metadataDocumentId: `metadata-document-${suffix}`,
+        parentId: null,
+      });
+      return {
+        container,
+        doc: await createContainerMetadataDocument(container.id),
+        record: createDocumentRecord({
+          documentId: `metadata-document-${suffix}`,
+          id: container.id,
+        }),
+      };
+    }),
+  );
+  const requestedDocumentIds: string[] = [];
+  const logs: string[] = [];
+  const laterError = new Error("later container reached");
+  const runtime = createMetadataSyncRuntime({
+    getDocumentWriterProjection: async (documentId: string) => {
+      requestedDocumentIds.push(documentId);
+      if (documentId === "metadata-document-isolated") {
+        throw new DocumentSyncUpdateIsolationError({
+          batchUpdateIds: ["550e8400-e29b-41d4-a716-4466554400ff"],
+          cause: new Error("poison metadata update"),
+          stage: "loro_import",
+          updateId: null,
+        });
+      }
+      throw laterError;
+    },
+    logs,
+  });
+  let thrown: unknown;
+
+  for (const metadataState of states) {
+    try {
+      await syncContainerMetadataState({
+        ...createForcedMetadataSyncInput(runtime),
+        metadataState,
+      });
+    } catch (error) {
+      thrown = error;
+      break;
+    }
+  }
+
+  expect(thrown).toBe(laterError);
+  expect(requestedDocumentIds).toEqual([
+    "metadata-document-isolated",
+    "metadata-document-later",
+  ]);
+  expect(logs).toEqual([
+    "Container contents: quarantined incoming metadata updates for container-isolated; deferred this container without blocking later metadata syncs.",
   ]);
 });
 
