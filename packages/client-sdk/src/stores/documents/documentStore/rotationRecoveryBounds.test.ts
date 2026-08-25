@@ -38,6 +38,10 @@ test("rotation validates every bounded page before one durable install", async (
       localId,
     });
 
+    const [firstPageUpdate, secondPageUpdate] = fixture.response.updates;
+    if (!firstPageUpdate || !secondPageUpdate) {
+      throw new Error("Expected one retained update on each recovery page");
+    }
     let failBeforeSecondPage = true;
     const runtime = createRotationRecoveryRuntime({
       execSql,
@@ -47,6 +51,7 @@ test("rotation validates every bounded page before one durable install", async (
           return {
             ...response,
             pullPage: { hasMore: true, nextCursor: "rotation-page-2" },
+            updates: [firstPageUpdate],
           };
         }
         if (request.pullCursor === "rotation-page-2") {
@@ -57,7 +62,7 @@ test("rotation validates every bounded page before one durable install", async (
             ...response,
             acceptedOutgoingUpdateIds: [],
             pullPage: { hasMore: false, nextCursor: null },
-            updates: [],
+            updates: [secondPageUpdate],
           };
         }
         throw new Error("Unexpected rotation pull cursor");

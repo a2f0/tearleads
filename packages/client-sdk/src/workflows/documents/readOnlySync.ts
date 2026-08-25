@@ -41,6 +41,7 @@ import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerif
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";
+import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
@@ -226,7 +227,10 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
-    if (isDocumentSyncUpdateIsolationError(error)) {
+    if (
+      isDocumentSyncUpdateIsolationError(error) ||
+      error instanceof DocumentRawHistoryUnavailableError
+    ) {
       throw error;
     }
     if (

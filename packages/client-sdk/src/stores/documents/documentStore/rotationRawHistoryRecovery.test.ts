@@ -182,6 +182,9 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    // Exercise persisted-state planning followed by an uncached projection
+    // fetch; this lane must preserve poison-isolation failures too.
+    state.writerProjection = null;
 
     const error = await assertDocumentStoreCanRotateContentKey(state).then(
       () => null,
@@ -253,6 +256,10 @@ test("an unavailable raw-history epoch leaves durable document state unchanged",
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    // The persisted-state fast path fetches this projection only after the raw
+    // response arrives; it must not turn the typed availability error into a
+    // retryable null result.
+    state.writerProjection = null;
 
     const error = await assertDocumentStoreCanRotateContentKey(state).then(
       () => null,

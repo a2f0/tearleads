@@ -198,14 +198,15 @@ async function recoverFullHistoryForRotation(
   // are authenticated and decrypted but are not reconstruction inputs: the
   // original ordinary update stream is the source of truth in this mode.
   const rebuiltDoc = await createStoredDocument(state);
-  const synced = await pullVerifiedRawHistoryForRotation({
-    currentRecord,
-    generation,
-    rebuiltDocument: rebuiltDoc,
-    state,
-  });
 
   try {
+    const synced = await pullVerifiedRawHistoryForRotation({
+      currentRecord,
+      generation,
+      rebuiltDocument: rebuiltDoc,
+      state,
+    });
+
     // Do not replace or persist over a document that changed while the
     // verified pull was in flight. A retry can recover the newer frontier
     // safely.
@@ -256,6 +257,12 @@ async function recoverFullHistoryForRotation(
     }
     return installed.fullHistorySnapshot;
   } finally {
+    // Failed or superseded scratch documents never transfer to the store and
+    // must release their WASM allocation. A successfully installed document
+    // is now store-owned and remains live.
+    if (state.doc !== rebuiltDoc) {
+      rebuiltDoc.free();
+    }
     // A superseding pane left work for the ordinary lane. Existing pending
     // rows were already armed when enqueued; do not start their old-boundary
     // sync in the narrow window before the caller submits its rotation.
