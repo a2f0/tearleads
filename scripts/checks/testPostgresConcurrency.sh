@@ -55,4 +55,5 @@ exec bun test \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
   src/workflows/documents/mutations/purgeDocumentBlobRace.pg.test.ts \
   src/workflows/organizations/rosterProfilePurgeRace.pg.test.ts \
+  src/workflows/organizations/rosterProfileUnlinkRace.pg.test.ts \
   src/workflows/containers/deleteContainerTimestamp.pg.test.ts

@@ -187,6 +187,55 @@ test("a watchdog-abandoned lane rejects an immediate retry", async () => {
   ).toBe(true);
 });
 
+test("a watchdog-abandoned wait invalidates before its late run settles", async () => {
+  const domainScope = createDomainScope();
+  let generation = 0;
+  let invalidationCount = 0;
+  let persistedLateResponse = false;
+  let markRunStarted: () => void = () => undefined;
+  const runStarted = new Promise<void>((resolve) => {
+    markRunStarted = resolve;
+  });
+  let releaseRun: () => void = () => undefined;
+  const runGate = new Promise<void>((resolve) => {
+    releaseRun = resolve;
+  });
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const lane = coordinator.registerLane("documents:profile-local-id", {
+    run: async () => {
+      const runGeneration = generation;
+      markRunStarted();
+      await runGate;
+      if (runGeneration === generation) {
+        persistedLateResponse = true;
+      }
+    },
+    watchdogMs: 20,
+  });
+  const result = requestDocumentSyncLaneAndWait({
+    didCompleteRequest: () => true,
+    domainScope,
+    localId: "profile-local-id",
+    onInvalidated: () => {
+      generation += 1;
+      invalidationCount += 1;
+    },
+    request: () => lane.requestSync(),
+  });
+
+  await runStarted;
+  expect(await result).toBe(false);
+  expect(invalidationCount).toBe(1);
+
+  releaseRun();
+  await waitForSyncLane(
+    () =>
+      getDomainSyncCoordinatorSnapshot(domainScope).lanes[0]?.runAbandoned ===
+      false,
+  );
+  expect(persistedLateResponse).toBe(false);
+});
+
 test("coordinator disposal resolves a pending request as incomplete", async () => {
   const domainScope = createDomainScope();
   let invalidationCount = 0;

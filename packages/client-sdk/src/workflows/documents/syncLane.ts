@@ -90,7 +90,7 @@ export function requestDocumentSyncLaneAndWait(input: {
         return;
       }
       if (lane.runAbandoned) {
-        finish(false);
+        handleAbort();
         return;
       }
       if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
