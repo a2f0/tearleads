@@ -186,6 +186,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
   const missingContentKeyEpochs = [...updatesByContentKeyEpoch.keys()].filter(
     (contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch),
   );
+  missingContentKeyEpochs.sort((left, right) => left - right);
   if (missingContentKeyEpochs.length === 0) {
     return contentKeysByEpoch;
   }
