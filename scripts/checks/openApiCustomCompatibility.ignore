@@ -1,0 +1,6 @@
+# #1923 activates a previously ignored extension name as an explicit read-only
+# recovery mode. Remove these entries once the default branch contains the
+# historyMode contract and compatibility comparisons use that contract as base.
+POST /auth/register: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/sync: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.
+POST /organizations: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.

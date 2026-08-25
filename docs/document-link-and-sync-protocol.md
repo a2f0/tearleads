@@ -90,6 +90,14 @@ stale so the client restarts from a fresh bounded snapshot.
 A readable authenticated rotation baseline may move the initial lower bound
 forward before page selection only after its source frontier proves that it
 covers every update the client is missing before that baseline.
+An explicit read-only `historyMode: "raw"` request bypasses that redirect and
+returns every retained update missing from the supplied frontier. Each page
+includes the content-key bundle for every epoch represented by its updates.
+Raw mode is intended for deliberate recovery or diagnosis by clients that can
+still unwrap the historical keys; it cannot make old ciphertext readable to a
+newly authorized reader who never possessed those keys. The opaque continuation
+cursor binds the selected history mode, so callers cannot change modes midway
+through a frozen pull snapshot.
 A continuation must opt into pagination, carry that cursor, and be read-only:
 it has no outgoing updates, rekeys, key bundle, or authorizing paths. Every page
 must retain the first page's key identity and commit-LSN mode, and its tracked

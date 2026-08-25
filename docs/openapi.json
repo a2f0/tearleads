@@ -2636,6 +2636,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -4177,6 +4182,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -5453,6 +5463,11 @@
                           "expectedTargetHash": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -6755,6 +6770,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -7727,6 +7747,11 @@
                           "expectedTargetHash": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -9030,6 +9055,11 @@
                             "expectedTargetHash": {
                               "type": "string",
                               "minLength": 1
+                            },
+                            "historyMode": {
+                              "type": "string",
+                              "const": "raw",
+                              "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                             },
                             "localVersionVector": {
                               "anyOf": [
@@ -11540,6 +11570,10 @@
           {
             "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
             "id": "request.pull-continuation-read-only"
+          },
+          {
+            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.raw-history-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -24909,6 +24943,11 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "historyMode": {
+                    "type": "string",
+                    "const": "raw",
+                    "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                  },
                   "localVersionVector": {
                     "anyOf": [
                       {
@@ -25506,6 +25545,10 @@
           {
             "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
             "id": "request.pull-continuation-read-only"
+          },
+          {
+            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.raw-history-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
@@ -42495,6 +42538,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -44036,6 +44084,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -45312,6 +45365,11 @@
                           "expectedTargetHash": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -46614,6 +46672,11 @@
                             "type": "string",
                             "minLength": 1
                           },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
+                          },
                           "localVersionVector": {
                             "anyOf": [
                               {
@@ -47586,6 +47649,11 @@
                           "expectedTargetHash": {
                             "type": "string",
                             "minLength": 1
+                          },
+                          "historyMode": {
+                            "type": "string",
+                            "const": "raw",
+                            "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                           },
                           "localVersionVector": {
                             "anyOf": [
@@ -48889,6 +48957,11 @@
                             "expectedTargetHash": {
                               "type": "string",
                               "minLength": 1
+                            },
+                            "historyMode": {
+                              "type": "string",
+                              "const": "raw",
+                              "description": "Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history"
                             },
                             "localVersionVector": {
                               "anyOf": [
@@ -51393,6 +51466,10 @@
           {
             "description": "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
             "id": "request.pull-continuation-read-only"
+          },
+          {
+            "description": "historyMode \"raw\" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
+            "id": "request.raw-history-read-only"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",

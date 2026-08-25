@@ -29,6 +29,11 @@ export const documentSyncRequestPullRefinements = [
       "a request carrying pullCursor must not contain outgoing updates, container rekeys, a content-key bundle, or authorizing paths",
     id: "request.pull-continuation-read-only",
   },
+  {
+    description:
+      'historyMode "raw" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths',
+    id: "request.raw-history-read-only",
+  },
 ] as const;
 
 export const documentSyncRequestRuntimeRefinements = [
