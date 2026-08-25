@@ -10,6 +10,7 @@ import type { StoredDocumentContentKeyBundle } from "../../../access/read/docume
 import {
   resolveBaselineRedirectAfterSequence,
   selectServedSyncUpdateEntries,
+  selectServedSyncUpdates,
 } from "../../../documents/documentSyncBaselineRedirect";
 import { DocumentMutationError, documentSyncStateStale } from "./errors";
 import { toContentKeyBundleResponse } from "./shared/records";
@@ -58,19 +59,22 @@ export async function listMissingSyncUpdatesForResponse(input: {
   readonly pullPagePlan: SyncPullPagePlan | null;
   readonly request: DocumentSyncRequest;
 }) {
+  const rawHistoryRequested = input.request.historyMode === "raw";
   const effectivePullPagePlan =
     input.pullPagePlan === null
       ? null
       : {
           ...input.pullPagePlan,
-          afterSequence: await resolveBaselineRedirectAfterSequence({
-            afterSequence: input.pullPagePlan.afterSequence,
-            contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
-            documentId: input.documentId,
-            executor: input.executor,
-            localVersionVector: input.request.localVersionVector,
-            upperBoundSequence: input.pullPagePlan.upperBoundSequence,
-          }),
+          afterSequence: rawHistoryRequested
+            ? input.pullPagePlan.afterSequence
+            : await resolveBaselineRedirectAfterSequence({
+                afterSequence: input.pullPagePlan.afterSequence,
+                contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+                documentId: input.documentId,
+                executor: input.executor,
+                localVersionVector: input.request.localVersionVector,
+                upperBoundSequence: input.pullPagePlan.upperBoundSequence,
+              }),
         };
   const missingUpdateResult = await listMissingSyncUpdateEntries({
     documentId: input.documentId,
@@ -97,8 +101,14 @@ export async function listMissingSyncUpdatesForResponse(input: {
   // older ciphertext only when that authenticated baseline covers every
   // omitted update. The sequence ceiling keeps a newer concurrent baseline
   // from redirecting a snapshot that cannot include it.
-  const servedUpdateEntries =
-    effectivePullPagePlan === null
+  const servedUpdateEntries = rawHistoryRequested
+    ? selectServedSyncUpdates({
+        baselineCoverage: null,
+        currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+        entries: missingUpdateEntries,
+        historyMode: "raw",
+      })
+    : effectivePullPagePlan === null
       ? await selectServedSyncUpdateEntries({
           currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
           documentId: input.documentId,
@@ -129,6 +139,7 @@ async function selectPullResponsePrefix(input: {
   readonly currentBundle: WireContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
+  readonly historyMode?: DocumentSyncRequest["historyMode"];
   readonly identity: PullIdentity;
   readonly loadContentKeyBundle: (
     contentKeyEpoch: number,
@@ -146,6 +157,7 @@ async function selectPullResponsePrefix(input: {
   let pullPage = createSyncPullPageResponse({
     cursorHmacKey: input.cursorHmacKey,
     hasMore: input.page.hasMore,
+    historyMode: input.historyMode,
     identity: input.identity,
     lastUpdateId: input.page.lastUpdateId,
     plan: input.plan,
@@ -175,6 +187,7 @@ async function selectPullResponsePrefix(input: {
     const candidatePullPage = createSyncPullPageResponse({
       cursorHmacKey: input.cursorHmacKey,
       hasMore: input.page.hasMore || !selectedEveryEntry,
+      historyMode: input.historyMode,
       identity: input.identity,
       lastUpdateId: selectedEveryEntry
         ? input.page.lastUpdateId
@@ -212,6 +225,7 @@ export async function buildPaginatedSyncPullResponse(input: {
   readonly currentBundle: StoredDocumentContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
+  readonly historyMode?: DocumentSyncRequest["historyMode"];
   readonly identity: PullIdentity;
   readonly loadContentKeyBundle: (
     contentKeyEpoch: number,
@@ -239,6 +253,7 @@ export async function buildPaginatedSyncPullResponse(input: {
       currentBundle,
       cursorHmacKey: input.cursorHmacKey,
       entries: input.entries,
+      historyMode: input.historyMode,
       identity: input.identity,
       loadContentKeyBundle: input.loadContentKeyBundle,
       maxBytes,

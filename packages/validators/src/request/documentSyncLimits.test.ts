@@ -163,6 +163,23 @@ test("document sync bounds and gates pull continuations", () => {
   ).toBe(false);
 });
 
+test("document sync exposes raw history only for read-only pulls", () => {
+  const valid = createSyncRequest();
+  const readOnly = {
+    ...valid,
+    authorizingContainerPathRefs: undefined,
+    contentKeyBundle: undefined,
+    outgoingUpdates: [],
+  };
+
+  expect(isDocumentSyncRequest(readOnly)).toBe(true);
+  expect(isDocumentSyncRequest({ ...readOnly, historyMode: "raw" })).toBe(true);
+  expect(isDocumentSyncRequest({ ...readOnly, historyMode: "all" })).toBe(
+    false,
+  );
+  expect(isDocumentSyncRequest({ ...valid, historyMode: "raw" })).toBe(false);
+});
+
 test("document sync accepts high-actor vectors above the old ceiling", () => {
   const valid = createSyncRequest();
   const highActorVector = "A".repeat(64 * 1024 + 1);

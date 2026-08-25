@@ -20,9 +20,10 @@ VARIABLES phase,
           currentEpoch,
           hasBaseline,
           coverage,
+          historyMode,
           served
 
-vars == << phase, updates, currentEpoch, hasBaseline, coverage, served >>
+vars == << phase, updates, currentEpoch, hasBaseline, coverage, historyMode, served >>
 
 TypeOK ==
   /\ phase \in {"ready", "served"}
@@ -30,6 +31,7 @@ TypeOK ==
   /\ currentEpoch \in Epochs
   /\ hasBaseline \in BOOLEAN
   /\ coverage \in VersionVectors
+  /\ historyMode \in {"normal", "raw"}
   /\ served \subseteq UpdateIds
 
 Older(id) == updates[id].epoch < currentEpoch
@@ -53,15 +55,16 @@ Init ==
   /\ currentEpoch \in Epochs
   /\ hasBaseline \in BOOLEAN
   /\ coverage \in VersionVectors
+  /\ historyMode \in {"normal", "raw"}
   /\ served = {}
 
 Serve ==
   /\ phase = "ready"
   /\ phase' = "served"
-  /\ served' = IF CanRedirect
+  /\ served' = IF historyMode = "normal" /\ CanRedirect
                    THEN {id \in UpdateIds : ~Older(id)}
                    ELSE UpdateIds
-  /\ UNCHANGED << updates, currentEpoch, hasBaseline, coverage >>
+  /\ UNCHANGED << updates, currentEpoch, hasBaseline, coverage, historyMode >>
 
 RemainServed ==
   /\ phase = "served"
@@ -84,5 +87,8 @@ CurrentOrNewerUpdateIsServed ==
 
 NoDataLoss ==
   phase # "served" \/ \A id \in (UpdateIds \ served) : Dominated(id)
+
+RawModeServesCompleteFrontier ==
+  phase # "served" \/ historyMode # "raw" \/ served = UpdateIds
 
 ====================================================================

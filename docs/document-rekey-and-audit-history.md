@@ -140,17 +140,16 @@ The resulting risk has these bounds:
   frontier and commit it to the audit ledger. Signed ciphertext hashes and a
   record-key-derived HMAC attribute each retained update, but that per-update
   commitment is not comparable to a full-history snapshot's commitment. A
-  current-epoch reader can compare a baseline's frontier to its claim. Original
-  ciphertext remains stored, but sync has no way to bypass redirection and
-  recover it
+  current-epoch reader can compare a baseline's frontier to its claim. Raw
+  read-only sync can retrieve retained ciphertext without redirection, but only
+  when the client can unwrap every historical epoch key
 
 The stronger mitigation remains per-update re-encryption with inner author
 signatures. Other possible hardening measures include:
 
 - restrict `rotate_baseline` authorship by policy, narrowing which principals
   can trigger redirection
-- expose an authenticated recovery mode that serves retained update history
-  without baseline redirection
+- use raw-history recovery to replay retained ciphertext
 
 ### There Must Be Only One Canonical Bundle Per Epoch
 

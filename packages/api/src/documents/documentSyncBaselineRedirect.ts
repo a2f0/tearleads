@@ -50,7 +50,11 @@ export function selectServedSyncUpdates<
   readonly entries: readonly Entry[];
   readonly currentContentKeyEpoch: number;
   readonly baselineCoverage: string | null;
+  readonly historyMode?: "raw" | undefined;
 }): Entry[] {
+  if (input.historyMode === "raw") {
+    return [...input.entries];
+  }
   const olderEpochEntries = input.entries.filter(
     (entry) => entry.writeHeader.contentKeyEpoch < input.currentContentKeyEpoch,
   );
