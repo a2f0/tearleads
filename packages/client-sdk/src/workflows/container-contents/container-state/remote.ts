@@ -320,15 +320,22 @@ export async function moveRemoteContainer(input: {
 export async function deleteRemoteContainer(input: {
   containerId: string;
   runtime: ContainerWorkflowRuntime;
-}): Promise<boolean> {
+}): Promise<{ deletedAt: string } | null> {
   const deleteResult = await input.runtime.apiClient.deleteContainerResult(
     input.containerId,
     { reportErrors: false },
   );
   if (!deleteResult.ok && deleteResult.status !== 404) {
     deleteResult.report();
-    return false;
+    return null;
   }
 
-  return true;
+  if (!deleteResult.ok) {
+    // A 404 proves this immutable id is permanently absent, but it does not
+    // carry the server deletion time. A maximal fence prevents an older
+    // in-flight listing page from resurrecting it.
+    return { deletedAt: "9999-12-31T23:59:59.999Z" };
+  }
+
+  return { deletedAt: deleteResult.data.deletedAt };
 }

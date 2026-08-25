@@ -18,7 +18,9 @@ export const BACKUP_PAYLOAD_FORMAT = "symcrypt.local-backup.payload";
 // when group nesting was removed; a v5 backup would restore the table with the
 // old NOT NULL columns and break every read-model write, whose INSERT
 // statements no longer name them.
-export const BACKUP_FORMAT_VERSION = 6;
+// v7: document rows gained the durable `pull_continuation` column. A v6
+// backup would restore the table without it and break every full record read.
+export const BACKUP_FORMAT_VERSION = 7;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;

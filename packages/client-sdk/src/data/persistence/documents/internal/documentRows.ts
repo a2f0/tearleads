@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
+import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/pullContinuation";
 import {
   type DocumentRecord as BaseDocumentRecord,
   type DocumentScope,
@@ -96,26 +97,23 @@ function toDocumentRecordRow(input: {
     ...(document.pendingBaseVersion === undefined
       ? {}
       : { pendingBaseVersion: document.pendingBaseVersion }),
+    ...(document.pullContinuation === undefined
+      ? {}
+      : {
+          pullContinuation: serializeDocumentSyncPullContinuation(
+            document.pullContinuation,
+          ),
+        }),
     updatedAt,
   };
 }
 
-export async function saveDocumentRows(input: {
+async function saveDocumentProjectionRows(input: {
   document: StoredDocumentRecord;
   tx: ClientSQLiteTransactionScope;
   updatedAt: string;
 }): Promise<void> {
   const { document, tx, updatedAt } = input;
-  const documentRow = toDocumentRecordRow({ document, updatedAt });
-  await tx
-    .insert(documents)
-    .values(documentRow)
-    .onConflictDoUpdate({
-      target: [documents.appKind, documents.localId],
-      set: documentRow,
-    })
-    .run();
-
   const projectionRow = {
     localId: document.id,
     documentId: document.documentId,
@@ -145,6 +143,46 @@ export async function saveDocumentRows(input: {
       set: projectionTextRow,
     })
     .run();
+}
+
+export async function createDocumentRowsIfAbsent(input: {
+  document: StoredDocumentRecord;
+  tx: ClientSQLiteTransactionScope;
+  updatedAt: string;
+}): Promise<boolean> {
+  const { document, tx, updatedAt } = input;
+  const documentRow = toDocumentRecordRow({ document, updatedAt });
+  const inserted = await tx
+    .insert(documents)
+    .values(documentRow)
+    .onConflictDoNothing({
+      target: [documents.appKind, documents.localId],
+    })
+    .returning({ localId: documents.localId });
+  if (inserted.length === 0) {
+    return false;
+  }
+
+  await saveDocumentProjectionRows(input);
+  return true;
+}
+
+export async function saveDocumentRows(input: {
+  document: StoredDocumentRecord;
+  tx: ClientSQLiteTransactionScope;
+  updatedAt: string;
+}): Promise<void> {
+  const { document, tx, updatedAt } = input;
+  const documentRow = toDocumentRecordRow({ document, updatedAt });
+  await tx
+    .insert(documents)
+    .values(documentRow)
+    .onConflictDoUpdate({
+      target: [documents.appKind, documents.localId],
+      set: documentRow,
+    })
+    .run();
+  await saveDocumentProjectionRows(input);
 }
 
 function didStoredDocumentContentChange(

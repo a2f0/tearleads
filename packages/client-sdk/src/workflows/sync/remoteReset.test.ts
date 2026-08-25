@@ -117,6 +117,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
           documentManifestBundle: "{}",
           contentKeyBundle: "{}",
           documentKekTargets: "{}",
+          pullContinuation: '[1,"tracked","0/22","doc-page-2"]',
           updatedAt: stale,
         },
         {
@@ -393,6 +394,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         documentManifestBundle: null,
         lastCommitLsn: null,
         localId: "doc-1",
+        pullContinuation: null,
       }),
     ]);
     // The durable history is the only content source and must survive a reset.

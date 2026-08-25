@@ -1,75 +1,23 @@
 import type {
   DocumentRecord,
-  DocumentSummary,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateInsert,
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
-import { isPlainObject } from "@symcrypt/validators/isPlainObject";
-import type {
-  PendingUpdateLengthRow,
-  ProjectionLengthRow,
-  StoredDocumentsState,
-} from "./documentStoreSyncFixtures";
-
-interface PendingUpdateDetailRow extends PendingUpdateLengthRow {
-  partial_start_version_vector: string | null;
-  partial_end_version_vector: string | null;
-}
-
-interface StoredHistoryState {
-  checkpoint: { endVersionVector: string; snapshot: string } | null;
-  tail: { id: string; origin: "local" | "remote"; updateData: string }[];
-}
-
-export function readRowValue(value: unknown, key: string): unknown {
-  return isPlainObject(value) ? value[key] : undefined;
-}
-
-export function isPendingUpdateLengthRow(
-  value: unknown,
-): value is PendingUpdateLengthRow {
-  const updateDataLength = readRowValue(value, "update_data_length");
-  return (
-    typeof updateDataLength === "number" ||
-    typeof updateDataLength === "string" ||
-    updateDataLength === null
-  );
-}
-
-export function isProjectionLengthRow(
-  value: unknown,
-): value is ProjectionLengthRow {
-  const textLength = readRowValue(value, "text_length");
-  return (
-    typeof textLength === "number" ||
-    typeof textLength === "string" ||
-    textLength === null
-  );
-}
-
-export function isPendingUpdateDetailRow(
-  value: unknown,
-): value is PendingUpdateDetailRow {
-  const partialStartVersionVector = readRowValue(
-    value,
-    "partial_start_version_vector",
-  );
-  const partialEndVersionVector = readRowValue(
-    value,
-    "partial_end_version_vector",
-  );
-
-  return (
-    isPendingUpdateLengthRow(value) &&
-    (typeof partialStartVersionVector === "string" ||
-      partialStartVersionVector === null) &&
-    (typeof partialEndVersionVector === "string" ||
-      partialEndVersionVector === null)
-  );
-}
+import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
+import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
+import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
+import { createMemoryDocumentCreationPersistence } from "./documentStoreSyncCreationPersistence";
+import { createMemoryDocumentDeletionPersistence } from "./documentStoreSyncDeletionPersistence";
+import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
+import {
+  applyMemoryAttachmentRemoval,
+  type StoredHistoryState,
+  toHistoryRestoreState,
+} from "./documentStoreSyncPersistenceState";
 
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
@@ -79,7 +27,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
-
   const historyFor = (localId: string): StoredHistoryState => {
     let history = historyByLocalId.get(localId);
     if (!history) {
@@ -89,20 +36,156 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     return history;
   };
 
-  const buildDocumentSummaries = (): DocumentSummary[] =>
-    document
-      ? [
-          {
-            id: document.id,
-            containerId: document.containerId,
-            documentId: document.documentId,
-            title: document.text.trim() || "Untitled note",
-            updatedAt: "2026-04-06T00:00:00.000Z",
-          },
-        ]
-      : [];
+  const deleteSideRows = (localId: string) => {
+    historyByLocalId.delete(localId);
+    pendingUpdates = [];
+    pendingAttachments = pendingAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+    localAttachments = localAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+  };
+  const deletionPersistence = createMemoryDocumentDeletionPersistence({
+    deleteSideRows,
+    getDocument: () => document,
+    restore: (previous) => {
+      document = previous.document;
+      pendingUpdates = previous.pendingUpdates;
+      pendingAttachments = previous.pendingAttachments;
+      localAttachments = previous.localAttachments;
+      historyByLocalId.clear();
+      for (const [localId, history] of previous.historyByLocalId) {
+        historyByLocalId.set(localId, history);
+      }
+    },
+    setDocument: (nextDocument) => {
+      document = nextDocument;
+    },
+    snapshot: () =>
+      structuredClone({
+        document,
+        historyByLocalId,
+        localAttachments,
+        pendingAttachments,
+        pendingUpdates,
+      }),
+  });
+  const creationPersistence = createMemoryDocumentCreationPersistence({
+    getDocument: () => document,
+    getPendingUpdates: () => pendingUpdates,
+    historyByLocalId,
+    setDocument: (nextDocument) => {
+      document = nextDocument;
+    },
+    setPendingUpdates: (nextUpdates) => {
+      pendingUpdates = nextUpdates;
+    },
+  });
 
   return {
+    ...creationPersistence,
+    async commitDocumentMutation(execSql, input, saveClientProjection) {
+      if (input.stillCurrent && !input.stillCurrent()) {
+        return { committed: false, currentRecord: document };
+      }
+      if (JSON.stringify(document) !== JSON.stringify(input.expectedRecord)) {
+        return { committed: false, currentRecord: document };
+      }
+      const previousDocument = document;
+      const previousPendingUpdates = structuredClone(pendingUpdates);
+      const previousLocalAttachments = structuredClone(localAttachments);
+      const previousPendingAttachments = structuredClone(pendingAttachments);
+      const previousHistory = structuredClone(historyFor(input.document.id));
+      const updatedAt = input.updatedAt ?? "2026-04-06T00:00:00.000Z";
+      try {
+        if (input.attachmentRemoval) {
+          ({ localAttachments, pendingAttachments } =
+            applyMemoryAttachmentRemoval({
+              localAttachments,
+              pendingAttachments,
+              removal: input.attachmentRemoval,
+            }));
+        }
+        if (input.attachmentStaging) {
+          const pendingSlotIds = new Set(
+            input.attachmentStaging.pendingAttachments.map(
+              ({ slotId }) => slotId,
+            ),
+          );
+          const localSlotIds = new Set(
+            input.attachmentStaging.localAttachments.map(
+              ({ slotId }) => slotId,
+            ),
+          );
+          pendingAttachments = [
+            ...pendingAttachments.filter(
+              ({ slotId }) => !pendingSlotIds.has(slotId),
+            ),
+            ...input.attachmentStaging.pendingAttachments,
+          ];
+          localAttachments = [
+            ...localAttachments.filter(
+              ({ slotId }) => !localSlotIds.has(slotId),
+            ),
+            ...input.attachmentStaging.localAttachments,
+          ];
+        }
+        const history = historyFor(input.document.id);
+        if (input.historyCheckpoint) {
+          const coveredIds = new Set(input.historyCheckpoint.coveredTailIds);
+          history.checkpoint = {
+            endVersionVector: input.historyCheckpoint.endVersionVector,
+            snapshot: input.historyCheckpoint.snapshot,
+          };
+          history.tail = history.tail.filter(({ id }) => !coveredIds.has(id));
+        }
+        for (const updateData of input.historyUpdates ?? []) {
+          history.tail.push({
+            id: crypto.randomUUID(),
+            origin: input.historyUpdateOrigin ?? "local",
+            updateData,
+          });
+        }
+        if (input.pendingUpdate) {
+          pendingUpdates.push({
+            id: crypto.randomUUID(),
+            ...input.pendingUpdate,
+          });
+          history.tail.push({
+            id: crypto.randomUUID(),
+            origin: "local",
+            updateData: input.pendingUpdate.updateData,
+          });
+        }
+        const acceptedIds = new Set(input.acceptedPendingUpdateIds);
+        pendingUpdates = pendingUpdates.filter(
+          ({ id }) => !acceptedIds.has(id),
+        );
+        document = input.document;
+        await saveClientProjection(execSql, updatedAt);
+        return { committed: true, updatedAt };
+      } catch (error) {
+        document = previousDocument;
+        pendingUpdates = previousPendingUpdates;
+        localAttachments = previousLocalAttachments;
+        pendingAttachments = previousPendingAttachments;
+        historyByLocalId.set(input.document.id, previousHistory);
+        throw error;
+      }
+    },
+    async settleAcceptedPendingUpdates(_execSql, input) {
+      if (
+        document?.documentId === input.expectedRecord.documentId &&
+        document.accessEpoch === input.expectedRecord.accessEpoch
+      ) {
+        const acceptedIds = new Set(input.pendingUpdateIds);
+        pendingUpdates = pendingUpdates.filter(
+          ({ id }) => !acceptedIds.has(id),
+        );
+      }
+      return document;
+    },
     async ensureSchema() {},
     async findDocumentLocalIdsByContainerId(_execSql, containerId) {
       return document?.containerId === containerId ? [document.id] : [];
@@ -110,20 +193,25 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async hasDocument(_execSql, localId) {
       return document?.id === localId;
     },
+    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
+      return (
+        document?.id === localId && document.documentId === expectedDocumentId
+      );
+    },
     getState() {
       return {
         document,
-        documentSummaries: buildDocumentSummaries(),
+        documentSummaries: buildMemoryDocumentSummaries(document),
         localAttachments,
         pendingAttachments,
         pendingUpdates,
       };
     },
     async listDocuments() {
-      return buildDocumentSummaries();
+      return buildMemoryDocumentSummaries(document);
     },
     async listDocumentSummaries() {
-      const rows = buildDocumentSummaries();
+      const rows = buildMemoryDocumentSummaries(document);
       return {
         rows,
         totalCount: rows.length,
@@ -157,6 +245,15 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async loadDocument() {
       return document;
     },
+    async invalidatePullContinuation(_execSql, input) {
+      document = invalidateMemoryDocumentPullContinuation(document, input);
+      if (!document) return null;
+      const history = historyByLocalId.get(input.localId);
+      return {
+        historyRestoreState: toHistoryRestoreState(history),
+        record: document,
+      };
+    },
     async loadDocumentContainer(_execSql, localId) {
       return document?.id === localId
         ? { containerId: document.containerId }
@@ -178,19 +275,11 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       );
       return "2026-04-06T00:00:00.000Z";
     },
-    async deleteDocument(_execSql, localId) {
-      if (document?.id === localId) {
-        document = null;
-      }
-      historyByLocalId.delete(localId);
-      pendingUpdates = [];
-      pendingAttachments = pendingAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-      localAttachments = localAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-    },
+    ...deletionPersistence,
+    ...createMemoryAbsentDocumentCleanup({
+      deleteSideRows,
+      documentExists: (localId) => document?.id === localId,
+    }),
     async appendHistoryUpdates(_execSql, input) {
       const history = historyFor(input.localId);
       history.tail = [
@@ -203,20 +292,14 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       ];
     },
     async loadHistoryRestoreState(_execSql, localId) {
-      const history = historyByLocalId.get(localId);
-      if (!history || (!history.checkpoint && history.tail.length === 0)) {
-        return null;
-      }
-      // Mirror the SQL persistence: a tail without a checkpoint restores as
-      // tail-only (empty snapshot) rather than being silently ignored.
-      return {
-        snapshot: history.checkpoint?.snapshot ?? "",
-        tailUpdates: history.tail.map((entry) => ({
-          origin: entry.origin,
-          updateData: entry.updateData,
-        })),
-      };
+      return toHistoryRestoreState(historyByLocalId.get(localId));
     },
+    ...createMemoryDocumentStartupReads({
+      getDocument: () => document,
+      getLocalAttachments: () => localAttachments,
+      getPendingAttachments: () => pendingAttachments,
+      historyByLocalId,
+    }),
     async readHistoryTailSize(_execSql, localId) {
       const history = historyFor(localId);
       return {
@@ -329,6 +412,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           updateData: pendingUpdate.updateData,
         },
       ];
+      return true;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

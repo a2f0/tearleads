@@ -26,17 +26,21 @@ function createGate() {
 test("streamed peer text publishes after a local write settles", async () => {
   const peerPersistence = createDocumentsPersistence();
   const receiverBasePersistence = createDocumentsPersistence();
-  const enqueueGate = createGate();
-  let gateReceiverEnqueue = false;
-  let gatedEnqueueCount = 0;
+  const postCommitGate = createGate();
+  let gateReceiverPostCommit = false;
+  let gatedCommitCount = 0;
   const receiverPersistence: DocumentsPersistence = {
     ...receiverBasePersistence,
-    async enqueuePendingUpdate(...args) {
-      await receiverBasePersistence.enqueuePendingUpdate(...args);
-      if (gateReceiverEnqueue) {
-        gatedEnqueueCount += 1;
-        await enqueueGate.promise;
+    async readHistoryTailSize(...args) {
+      const tailSize = await receiverBasePersistence.readHistoryTailSize(
+        ...args,
+      );
+      if (gateReceiverPostCommit) {
+        gateReceiverPostCommit = false;
+        gatedCommitCount += 1;
+        await postCommitGate.promise;
       }
+      return tailSize;
     },
   };
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -162,13 +166,13 @@ test("streamed peer text publishes after a local write settles", async () => {
       publishedTexts.push(text);
     }
   });
-  gateReceiverEnqueue = true;
+  gateReceiverPostCommit = true;
   const localWrite = receiverStore.setText("base LOCAL");
 
   try {
     await waitForCondition(
-      () => gatedEnqueueCount === 1,
-      "Receiver write did not reach the enqueue gate.",
+      () => gatedCommitCount === 1,
+      "Receiver write did not reach the post-commit gate.",
     );
     await peerStore.setText("REMOTE base");
     await waitForCondition(
@@ -206,7 +210,7 @@ test("streamed peer text publishes after a local write settles", async () => {
     expect(receiverStore.getSnapshot().text).toBe("base LOCAL");
     expect(publishedTexts.some((text) => text.includes("REMOTE"))).toBe(false);
   } finally {
-    enqueueGate.release();
+    postCommitGate.release();
     await localWrite;
   }
 

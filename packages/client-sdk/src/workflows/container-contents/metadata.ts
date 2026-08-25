@@ -6,18 +6,16 @@ import {
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
-import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import {
   CONTAINER_METADATA_APP_KIND,
   type ContainerContentsPersistence,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   clearDocumentSyncFailure,
-  type DocumentRecord,
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
@@ -30,25 +28,41 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   createReadOnlyMetadataSyncSaveOptions,
+  currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
+  installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
 } from "./metadataPersistence";
+import { deferRecoverableMetadataSyncError } from "./metadataSyncErrors";
+import { shouldRequestContainerMetadataFollowup } from "./metadataSyncFollowup";
 
 export {
   hasContainerMetadataDocumentUpdateEvent,
   listContainerMetadataDocumentUpdateIds,
 } from "./metadataEvents";
 export {
+  installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
   setContainerIconMetadataStateFromRuntime,
 } from "./metadataPersistence";
 
+import { invalidateContainerMetadataPullContinuation } from "./metadataPullContinuationInvalidation";
+import {
+  cleanupContainerMetadataRegistrationsOnFailure,
+  discardUnacceptedContainerMetadataUpdateIds,
+  preRegisterMaterializedContainerMetadataUpdateIds,
+} from "./metadataSyncRegistrations";
 import type {
   ContainerMetadataState,
+  MissingContainerMetadataState,
   SyncedContainerMetadataState,
 } from "./metadataTypes";
 
+export {
+  cleanupContainerMetadataRegistrationsOnFailure,
+  preRegisterMaterializedContainerMetadataUpdateIds,
+} from "./metadataSyncRegistrations";
 export type { ContainerMetadataPatch } from "./metadataTypes";
 
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
@@ -79,8 +93,27 @@ type ContainerMetadataSyncResult = NonNullable<
 >;
 
 interface ContainerMetadataSyncAttempt {
+  consumedPullContinuation: ContainerMetadataState["pullContinuation"];
   outgoingUpdateCount: number;
+  requestRecord: ContainerMetadataState["record"];
   synced: ContainerMetadataSyncResult;
+}
+
+function createContainerMetadataSyncAttempt(input: {
+  outgoingUpdateCount: number;
+  requestedPullContinuation: ContainerMetadataState["pullContinuation"];
+  requestRecord: ContainerMetadataState["record"];
+  synced: ContainerMetadataSyncResult;
+}): ContainerMetadataSyncAttempt {
+  return {
+    consumedPullContinuation:
+      input.synced.plan.request.pullCursor === undefined
+        ? null
+        : (input.requestedPullContinuation ?? null),
+    outgoingUpdateCount: input.outgoingUpdateCount,
+    requestRecord: input.requestRecord,
+    synced: input.synced,
+  };
 }
 
 export function settleContainerMetadataOutgoingPass(
@@ -101,25 +134,6 @@ export function settleContainerMetadataOutgoingPass(
   );
 }
 
-function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
-  // Signed-state verification failures are terminal integrity incidents, even
-  // when their diagnostic message resembles an ordinary stale-key condition.
-  if (isKeyingVerificationError(error)) return false;
-  const message = error instanceof Error ? error.message : "";
-
-  return (
-    message.startsWith(
-      "Document authorizing container KEK path could not be unwrapped",
-    ) ||
-    message.startsWith("Document content key could not be unwrapped") ||
-    message.startsWith("Document content-key bundle is stale") ||
-    message.startsWith("Document content-key re-wrap KEK is unavailable") ||
-    message.startsWith("Document stale-bundle recovery") ||
-    message === "Document sync target hash mismatch" ||
-    message === "Document sync content-key targets mismatch"
-  );
-}
-
 interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
@@ -129,15 +143,33 @@ interface SyncRemoteContainerMetadataInput {
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
-  onPullContinuationInvalidated?: (() => void) | undefined;
+  onPullContinuationInvalidated?: Parameters<
+    typeof syncRemoteDocument
+  >[0]["onPullContinuationInvalidated"];
   pendingUpdates: readonly PendingUpdateRecord[];
-  persistedState?: DocumentRecord | null | undefined;
+  persistedState: ContainerMetadataState["record"];
   pullContinuation?: ContainerMetadataState["pullContinuation"];
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
+}
+
+async function clearSuccessfulMetadataSyncFailure(input: {
+  execSql: ExecSql;
+  metadataScope: { appKind: string; localId: string };
+  pendingUpdateCount: number;
+  synced: ContainerMetadataSyncResult;
+}): Promise<void> {
+  if (
+    shouldClearDocumentSyncFailureAfterPass(
+      input.synced,
+      input.pendingUpdateCount,
+    )
+  ) {
+    await clearDocumentSyncFailure(input.execSql, input.metadataScope);
+  }
 }
 
 async function syncRemoteContainerMetadata(
@@ -208,43 +240,26 @@ async function syncRemoteContainerMetadata(
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),
     writerProjection,
-  }).catch((error: unknown) => {
-    if (isStaleContainerMetadataSecurityStateError(error)) {
-      runtime.util.log(
-        `Container contents: deferred metadata sync for ${containerId} because its content-key targets are stale.`,
-      );
-      return null;
-    }
-
-    // A cold principal-policy cache is transient: warming already ran and
-    // failed within this attempt, and a null return leaves the container's
-    // needing-sync/read state unsettled, so the next lane trigger retries it.
-    // Deferring per container keeps one cold policy from failing the whole
-    // structural pass (and from counting as a lane failure).
-    if (isPrincipalPolicyNotCachedError(error)) {
-      runtime.util.log(
-        `Container contents: deferred metadata sync for ${containerId} because a referenced principal policy is not cached yet.`,
-      );
-      return null;
-    }
-
-    throw error;
-  });
+  }).catch((error: unknown) =>
+    deferRecoverableMetadataSyncError({ containerId, error, runtime }),
+  );
   if (!synced) {
     return null;
   }
 
-  // The pass submitted successfully, so any recorded terminal failure for this
-  // container's metadata document no longer describes reality — unless the
-  // pass itself just recorded one for re-key-exhausted updates.
-  if (shouldClearDocumentSyncFailureAfterPass(synced, pendingUpdates.length)) {
-    await clearDocumentSyncFailure(execSql, metadataScope);
-  }
-
-  return {
-    outgoingUpdateCount: pendingUpdates.length,
+  await clearSuccessfulMetadataSyncFailure({
+    execSql,
+    metadataScope,
+    pendingUpdateCount: pendingUpdates.length,
     synced,
-  };
+  });
+
+  return createContainerMetadataSyncAttempt({
+    outgoingUpdateCount: pendingUpdates.length,
+    requestedPullContinuation: input.pullContinuation,
+    requestRecord: persistedState,
+    synced,
+  });
 }
 
 function documentWriterProjectionMatchesMetadataSyncResponse(
@@ -297,11 +312,8 @@ function metadataRotationSnapshotProvider(
 interface SyncContainerMetadataStateInput {
   forceReadSync?: boolean | undefined;
   /**
-   * Self-echo registry shared with {@link listContainerMetadataDocumentUpdateIds}:
-   * update ids this pass is about to send are registered BEFORE the network
-   * await so the author's own `document_update_created` echo — which can land
-   * before the response is processed — is classified as self-authored and never
-   * arms a redundant forced read-sync.
+   * Register sent ids before the network await so early self echoes cannot arm
+   * a redundant read-sync. Shared with {@link listContainerMetadataDocumentUpdateIds}.
    */
   locallyAcceptedUpdateIds?: Set<string> | undefined;
   metadataState: ContainerMetadataState;
@@ -313,7 +325,9 @@ interface SyncContainerMetadataStateInput {
 
 export async function syncContainerMetadataState(
   input: SyncContainerMetadataStateInput,
-): Promise<SyncedContainerMetadataState | null> {
+): Promise<
+  SyncedContainerMetadataState | MissingContainerMetadataState | null
+> {
   const {
     metadataState,
     persistence,
@@ -333,16 +347,14 @@ export async function syncContainerMetadataState(
   );
   if (
     pendingUpdates.length === 0 &&
-    metadataState.pullContinuation == null &&
+    currentMetadataPullContinuation(metadataState) === null &&
+    !metadataState.record.pullContinuationRecoveryRequired &&
     !input.forceReadSync &&
     hasCurrentContainerMetadataReadState(metadataState.record)
   ) {
     return null;
   }
 
-  // Register only the exact signed batches as they are materialized, before
-  // each network await. Bounded batching and recovery can omit queued ids or
-  // introduce a synthetic baseline that was never present in the queue.
   const sentUpdateIds: string[] = [];
 
   const syncAttempt = await cleanupContainerMetadataRegistrationsOnFailure(
@@ -361,12 +373,17 @@ export async function syncContainerMetadataState(
             sentUpdateIds,
             updateIds,
           ),
-        onPullContinuationInvalidated: () => {
-          metadataState.pullContinuation = null;
-        },
+        onPullContinuationInvalidated: (continuation) =>
+          invalidateContainerMetadataPullContinuation({
+            continuation,
+            metadataState,
+            persistence,
+            runtime,
+          }),
         pendingUpdates,
         persistedState: metadataState.record,
-        pullContinuation: metadataState.pullContinuation ?? undefined,
+        pullContinuation:
+          currentMetadataPullContinuation(metadataState) ?? undefined,
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey,
         runtime,
@@ -391,59 +408,6 @@ export async function syncContainerMetadataState(
   });
 }
 
-export function preRegisterMaterializedContainerMetadataUpdateIds(
-  locallyAcceptedUpdateIds: Set<string> | undefined,
-  registeredUpdateIds: string[],
-  materializedUpdateIds: readonly string[],
-): void {
-  const alreadyRegistered = new Set(registeredUpdateIds);
-  for (const updateId of materializedUpdateIds) {
-    if (alreadyRegistered.has(updateId)) continue;
-    alreadyRegistered.add(updateId);
-    registeredUpdateIds.push(updateId);
-    locallyAcceptedUpdateIds?.add(updateId);
-  }
-}
-
-function discardUnacceptedContainerMetadataUpdateIds(
-  locallyAcceptedUpdateIds: Set<string> | undefined,
-  sentUpdateIds: readonly string[],
-  acceptedUpdateIds: readonly string[],
-): void {
-  if (!locallyAcceptedUpdateIds) return;
-  const acceptedOutgoing = new Set(acceptedUpdateIds);
-  for (const sentUpdateId of sentUpdateIds) {
-    if (!acceptedOutgoing.has(sentUpdateId)) {
-      locallyAcceptedUpdateIds.delete(sentUpdateId);
-    }
-  }
-}
-
-export async function cleanupContainerMetadataRegistrationsOnFailure<T>(
-  locallyAcceptedUpdateIds: Set<string> | undefined,
-  sentUpdateIds: readonly string[],
-  task: () => Promise<T | null>,
-): Promise<T | null> {
-  try {
-    const result = await task();
-    if (result === null) {
-      discardUnacceptedContainerMetadataUpdateIds(
-        locallyAcceptedUpdateIds,
-        sentUpdateIds,
-        [],
-      );
-    }
-    return result;
-  } catch (error) {
-    discardUnacceptedContainerMetadataUpdateIds(
-      locallyAcceptedUpdateIds,
-      sentUpdateIds,
-      [],
-    );
-    throw error;
-  }
-}
-
 async function finalizeContainerMetadataSync(input: {
   documentId: string;
   locallyAcceptedUpdateIds: Set<string> | undefined;
@@ -452,7 +416,7 @@ async function finalizeContainerMetadataSync(input: {
   runtime: ContainerMetadataSyncRuntime;
   sentUpdateIds: readonly string[];
   syncAttempt: ContainerMetadataSyncAttempt;
-}): Promise<SyncedContainerMetadataState> {
+}): Promise<SyncedContainerMetadataState | MissingContainerMetadataState> {
   const { metadataState, syncAttempt } = input;
   const { outgoingUpdateCount, synced } = syncAttempt;
   // An id sent but not accepted will never be echoed. Accepted ids stay
@@ -470,9 +434,12 @@ async function finalizeContainerMetadataSync(input: {
       synced.decryptedUpdates.map((update) => update.updateData),
     );
   }
-
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+    expectedSyncState: {
+      pullContinuation: syncAttempt.consumedPullContinuation ?? null,
+      record: syncAttempt.requestRecord,
+    },
     metadataState,
     patch: {
       ...synced.persistedState,
@@ -480,6 +447,7 @@ async function finalizeContainerMetadataSync(input: {
       lastCommitLsn:
         synced.response.commitLsn ?? metadataState.record.lastCommitLsn ?? null,
       metadataDocumentId: input.documentId,
+      pullContinuation: readPullContinuation(synced.response),
     },
     persistence: input.persistence,
     runtime: input.runtime,
@@ -488,13 +456,34 @@ async function finalizeContainerMetadataSync(input: {
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
-  metadataState.pullContinuation = readPullContinuation(synced.response);
+  if (!persisted) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      input.locallyAcceptedUpdateIds,
+      input.sentUpdateIds,
+      [],
+    );
+    metadataState.metadataWriterProjection = null;
+    return { missing: true };
+  }
+  installContainerMetadataRecord(metadataState, persisted.record);
+  if (persisted.pullContinuationSuperseded) {
+    // The response's accepted IDs were not durably settled. Treat every
+    // pre-registration as unapplied so an early echo cannot hide work that the
+    // forced follow-up still needs to reconcile.
+    discardUnacceptedContainerMetadataUpdateIds(
+      input.locallyAcceptedUpdateIds,
+      input.sentUpdateIds,
+      [],
+    );
+    metadataState.metadataWriterProjection = null;
+  }
 
   return {
     ...persisted,
-    shouldRequestFollowupSync: settleContainerMetadataOutgoingPass(
-      metadataState,
-      syncAttempt,
-    ),
+    shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
+      persisted,
+      settleOutgoingPass: () =>
+        settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
+    }),
   };
 }

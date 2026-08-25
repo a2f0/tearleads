@@ -8,34 +8,28 @@ import {
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
-import { deleteDocumentHistory } from "../../sqlite/documentHistoryPersistence";
+import { findLocalIdByDocumentId } from "../../sqlite/documentPersistence";
 import {
-  clearDocumentSyncFailure,
-  deleteDocumentPendingUpdates,
-  deleteDocumentRecord,
-  findLocalIdByDocumentId,
-  loadDocumentRecord,
-} from "../../sqlite/documentPersistence";
-import {
-  documentAttachmentBlobProjection,
-  documentContainerProjection,
-  documentMoveIntents,
-  documentMoveIntentTables,
-  documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
-  documentProjectionText,
   documents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import {
-  type ExecSql,
-  ensureSqlTables,
-  runSerializedSqlMutation,
-} from "../../sqlite/sqlSchema";
+import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
+import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
+import {
+  deleteStoredDocument,
+  deleteStoredDocumentIfMatches,
+  deleteStoredDocumentSideRowsIfAbsent,
+} from "./internal/documentDeletionPersistence";
+import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
+import {
+  commitStoredDocumentMutation,
+  settleStoredDocumentPendingUpdates,
+} from "./internal/documentMutationPersistence";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -43,8 +37,8 @@ import {
   mapDocumentSummary,
   toDocumentSummary,
 } from "./internal/documentProjectionRows";
+import { invalidateStoredDocumentPullContinuation } from "./internal/documentPullContinuationPersistence";
 import {
-  getDocumentScope,
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./internal/documentRows";
@@ -52,9 +46,9 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
 import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
-import { queueDocumentAttachmentBlobReclaims } from "./internal/orphanSideRows";
 import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
@@ -68,6 +62,8 @@ import type {
 
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
+  AttachmentRemovalRows,
+  AttachmentStagingRows,
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,
   DocumentsPersistence,
@@ -202,20 +198,25 @@ export async function upsertDiscoveredDocuments(
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
-    const nextSummaries: DocumentSummary[] = [];
+    return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async () => {
+        const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
+        const nextSummaries: DocumentSummary[] = [];
 
-    for (const input of inputs) {
-      nextSummaries.push(
-        await upsertDiscoveredDocumentWithExec(
-          lockedExecSql,
-          input,
-          pendingCreates,
-        ),
-      );
-    }
+        for (const input of inputs) {
+          nextSummaries.push(
+            await upsertDiscoveredDocumentWithExec(
+              lockedExecSql,
+              input,
+              pendingCreates,
+            ),
+          );
+        }
 
-    return nextSummaries;
+        return nextSummaries;
+      },
+      { behavior: "immediate" },
+    );
   });
 }
 
@@ -276,9 +277,39 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
+  createDocumentWithHistoryCheckpoint:
+    createStoredDocumentWithHistoryCheckpoint,
+  commitDocumentMutation: (execSql, input, saveClientProjection) =>
+    commitStoredDocumentMutation(
+      execSql,
+      input,
+      saveClientProjection,
+      sqlDocumentsPersistence.loadDocument,
+    ),
+  settleAcceptedPendingUpdates: (execSql, input) =>
+    settleStoredDocumentPendingUpdates(
+      execSql,
+      input,
+      sqlDocumentsPersistence.loadDocument,
+    ),
   ensureSchema: ensureDocumentsSchema,
   listDocumentSummaries,
   listDocumentsByContainerIdsOrDocumentIds,
+  invalidatePullContinuation: (execSql, input) =>
+    invalidateStoredDocumentPullContinuation(
+      execSql,
+      input,
+      sqlDocumentsPersistence.loadDocument,
+      sqlDocumentsPersistence.loadHistoryRestoreState,
+    ),
+  loadDocumentWithHistoryRestoreState: (execSql, localId) =>
+    loadStoredDocumentWithHistoryRestoreState(
+      execSql,
+      localId,
+      sqlDocumentsPersistence,
+    ),
+  loadDocumentStoreState: (execSql, localId) =>
+    loadStoredDocumentStoreState(execSql, localId, sqlDocumentsPersistence),
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
@@ -338,74 +369,9 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
       ),
     );
   },
-  async deleteDocument(execSql, localId) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      // The move-intent cleanup below touches a table owned by the
-      // container-contents schema, which callers of this persistence may not
-      // have ensured yet.
-      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-      const existingDocument = await loadDocumentRecord(
-        lockedExecSql,
-        getDocumentScope(localId),
-      );
-
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          await queueDocumentAttachmentBlobReclaims({
-            localWhere: eq(documentAttachmentBlobProjection.localId, localId),
-            pendingWhere: eq(documentPendingAttachments.localId, localId),
-            tx,
-          });
-          await tx
-            .delete(documentProjection)
-            .where(eq(documentProjection.localId, localId))
-            .run();
-          await tx
-            .delete(documentProjectionText)
-            .where(eq(documentProjectionText.localId, localId))
-            .run();
-          await tx
-            .delete(documentPendingAttachments)
-            .where(eq(documentPendingAttachments.localId, localId))
-            .run();
-          await tx
-            .delete(documentAttachmentBlobProjection)
-            .where(eq(documentAttachmentBlobProjection.localId, localId))
-            .run();
-          if (existingDocument?.documentId) {
-            await tx
-              .delete(documentContainerProjection)
-              .where(
-                eq(
-                  documentContainerProjection.documentId,
-                  existingDocument.documentId,
-                ),
-              )
-              .run();
-            // A queued move for a document that no longer exists can never
-            // replay; leaving the row would render a permanent phantom entry
-            // in the write queue.
-            await tx
-              .delete(documentMoveIntents)
-              .where(
-                eq(documentMoveIntents.documentId, existingDocument.documentId),
-              )
-              .run();
-          }
-          await deleteDocumentPendingUpdates(
-            lockedExecSql,
-            getDocumentScope(localId),
-          );
-          await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
-          await clearDocumentSyncFailure(
-            lockedExecSql,
-            getDocumentScope(localId),
-          );
-          await deleteDocumentRecord(lockedExecSql, getDocumentScope(localId));
-        },
-      );
-    });
-  },
+  deleteDocument: deleteStoredDocument,
+  deleteDocumentIfMatches: deleteStoredDocumentIfMatches,
+  deleteDocumentSideRowsIfAbsent: deleteStoredDocumentSideRowsIfAbsent,
   async discardDocumentToShell(
     execSql,
     localId,
@@ -431,7 +397,10 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
   async relinkPersistedDocument(execSql, input) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-      return relinkPersistedDocumentWithExec(lockedExecSql, input);
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        () => relinkPersistedDocumentWithExec(lockedExecSql, input),
+        { behavior: "immediate" },
+      );
     });
   },
 };

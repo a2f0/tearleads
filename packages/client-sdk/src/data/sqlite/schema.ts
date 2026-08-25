@@ -35,6 +35,7 @@ import {
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 export {
+  containerHydrationTombstones,
   containerProjection,
   containers,
   dormantContainerMetadata,
@@ -85,6 +86,9 @@ const accessLevelColumn = "effective_access_level";
  *   compare version coverage without loading content. Empty string when the
  *   document has never hydrated content, which readers treat as "no deferred
  *   tail claimable".
+ * - `pullContinuation`: Versioned, serialized progress for the next bounded
+ *   remote pull page. It advances only after the current page's content is
+ *   durable and is cleared when the frozen snapshot drains.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -106,6 +110,7 @@ export const documents = sqliteTable(
     contentKeyBundle: text("content_key_bundle"),
     documentKekTargets: text("document_kek_targets"),
     pendingBaseVersion: text("pending_base_version"),
+    pullContinuation: text("pull_continuation"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
     updatedAt: text("updated_at").notNull(),
   },
@@ -749,7 +754,15 @@ export const containerSyncLaneChecks = sqliteTable(
 );
 
 export const documentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documents),
+  {
+    ...defineSqlTableSchema(documents),
+    additiveColumns: [
+      {
+        definition: '"pull_continuation" TEXT',
+        name: "pull_continuation",
+      },
+    ],
+  },
   defineSqlTableSchema(documentPendingUpdates),
   defineSqlTableSchema(documentSyncFailures),
   defineSqlTableSchema(documentHistoryCheckpoints),

@@ -5,6 +5,15 @@ import { ensureDocumentRowsStructure } from "../../../data/documents/documentRow
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "./state";
 
+async function createStoredDocumentWithSeed(
+  peerSeed: string,
+): Promise<DocumentState> {
+  const createdDoc = await createDocument(peerSeed);
+  ensureDocumentAttachmentStructure(createdDoc);
+  ensureDocumentRowsStructure(createdDoc);
+  return createdDoc;
+}
+
 export async function createStoredDocument(
   state: DocumentStoreState,
 ): Promise<DocumentState> {
@@ -16,8 +25,13 @@ export async function createStoredDocument(
   const scope = peerScope
     ? `${DOCUMENTS_APP_KIND}:${peerScope}`
     : DOCUMENTS_APP_KIND;
-  const createdDoc = await createDocument(await getScopedPeerSeed(scope));
-  ensureDocumentAttachmentStructure(createdDoc);
-  ensureDocumentRowsStructure(createdDoc);
-  return createdDoc;
+  return createStoredDocumentWithSeed(await getScopedPeerSeed(scope));
+}
+
+/**
+ * Rebuild after discarding non-durable local ops under a new peer. Reusing the
+ * normal peer would reuse the discarded counters and corrupt the next edit.
+ */
+export function createFreshPeerStoredDocument(): Promise<DocumentState> {
+  return createStoredDocumentWithSeed(crypto.randomUUID());
 }

@@ -148,11 +148,13 @@ test("listBlobInfo keeps org attribution after the container is removed", async 
 
     // Access revocation tombstones the shared container; the blob row keeps
     // its last-known org attribution instead of falling back to "-".
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["shared-container"],
-      { updatedAt: TEST_TIMESTAMP },
-    );
+    await defaultContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: "shared-container",
+        reason: "access_revoked",
+        updatedAt: TEST_TIMESTAMP,
+      },
+    ]);
 
     const info = await listBlobInfo({ execSql });
     expect(

@@ -1,5 +1,6 @@
 import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type {
+  ContainerDeleteResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
@@ -37,7 +38,7 @@ export type ContainerWorkflowApi = Parameters<
       containerId: string,
       options?: { reportErrors?: boolean },
     ): Promise<
-      | { ok: true }
+      | { data: ContainerDeleteResponse; ok: true }
       | {
           ok: false;
           report: () => void;
@@ -99,6 +100,12 @@ export interface SharedContainerState {
   container: ContainerState["container"];
   record: ContainerState["record"];
 }
+
+export type SharedContainerStateResult =
+  | { status: "missing" }
+  | (SharedContainerState & {
+      status: "identity-superseded" | "persisted";
+    });
 
 export type RemoteContainer = HydratedRemoteContainer;
 

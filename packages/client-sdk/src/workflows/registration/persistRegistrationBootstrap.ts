@@ -1,8 +1,6 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
-  exportFullHistorySnapshot,
   importUpdates,
 } from "@symcrypt/loro";
 import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
@@ -283,21 +281,7 @@ async function persistProfileDocumentBootstrap(
   });
 }
 
-async function seedBootstrapHistoryCheckpoint(
-  execSql: ExecSql,
-  localId: string,
-  doc: Awaited<ReturnType<typeof createDocument>>,
-): Promise<void> {
-  await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
-    coveredTailIds: [],
-    endVersionVector: encodeVersionVector(doc),
-    force: true,
-    localId,
-    snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
-  });
-}
-
-async function persistInitialDocumentBootstrap(
+export async function persistInitialDocumentBootstrap(
   execSql: ExecSql,
   input: {
     accessEpoch: number;
@@ -317,11 +301,10 @@ async function persistInitialDocumentBootstrap(
 ): Promise<void> {
   const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
   importUpdates(doc, [input.initialUpdate]);
+  const pendingUpdate = input.initialUpdateCommitted
+    ? undefined
+    : (createPendingUpdateFields(input.initialUpdate) ?? undefined);
 
-  // Seed the durable-history checkpoint BEFORE the record row (same crash
-  // ordering as store-level creation): the checkpoint is the only content
-  // source, so a record row without one would reopen empty.
-  await seedBootstrapHistoryCheckpoint(execSql, input.localId, doc);
   await persistDocumentState({
     currentDoc: doc,
     currentRecord: null,
@@ -338,21 +321,13 @@ async function persistInitialDocumentBootstrap(
       documentKind: input.documentKind,
       documentManifestBundle:
         input.documentState.documentManifestBundle ?? null,
-      // The checkpoint seeded above covers exactly this frontier.
+      // The create-only persistence primitive stores this frontier and the
+      // full-history checkpoint in one transaction.
       snapshotEndVersion: encodeVersionVector(doc),
     },
+    pendingUpdate,
     persistence: sqlDocumentsPersistence,
   });
-
-  if (!input.initialUpdateCommitted) {
-    const initialUpdate = createPendingUpdateFields(input.initialUpdate);
-    if (initialUpdate) {
-      await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
-        localId: input.localId,
-        ...initialUpdate,
-      });
-    }
-  }
 }
 
 /**

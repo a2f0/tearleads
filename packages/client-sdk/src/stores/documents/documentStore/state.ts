@@ -25,12 +25,15 @@ import type { DocumentSyncPullContinuation } from "../../../data/documents/share
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import type { DomainScope } from "../../../data/domainScope";
 import {
+  type AttachmentRemovalRows,
+  type AttachmentStagingRows,
   createDocumentProjectionUserKeyResolver,
   type DocumentProjectionUserKeyResolver,
   type DocumentRecord,
   type DocumentSyncLane,
   type DocumentsPersistence,
   type PendingAttachmentRecord,
+  type PendingUpdateInsert,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import type {
@@ -38,7 +41,6 @@ import type {
   DocumentSnapshot,
   DocumentsRuntime,
 } from "../types";
-
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]
@@ -51,22 +53,45 @@ export type PendingMutationSyncResult = {
   nextRecord: DocumentRecord;
 };
 export interface PersistedDocumentRecord {
+  creationSuperseded?: true;
+  historyRestoreState?:
+    | Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>
+    | undefined;
+  pullContinuationSuperseded?: true;
   record: DocumentRecord;
-  updatedAt: string;
+  syncIdentitySuperseded?: true;
+  updatedAt?: string | undefined;
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
-  // Tail rows appended in-mutation before the record (see persistDocumentState).
+  attachmentRemoval?: AttachmentRemovalRows | undefined;
+  attachmentStaging?: AttachmentStagingRows | undefined;
+  expectedSyncState?:
+    | {
+        pullContinuation: DocumentSyncPullContinuation | null;
+        record: DocumentRecord;
+      }
+    | undefined;
+  historyCheckpoint?:
+    | {
+        coveredTailIds: readonly string[];
+        endVersionVector: string;
+        snapshot: string;
+      }
+    | undefined;
+  historyUpdateOrigin?: "local" | "remote" | undefined;
   historyUpdates?: readonly string[] | undefined;
+  pendingUpdate?: Omit<PendingUpdateInsert, "localId"> | undefined;
   pendingBaseVersionOverride?: string | null | undefined;
   preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;
 }
 export interface DocumentSyncAttempt {
+  consumedPullContinuation: DocumentSyncPullContinuation | null;
   outgoingUpdateCount: number;
+  requestRecord: DocumentRecord;
   synced: SyncRemoteDocumentResult;
 }
-
 export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
     domainScope: DomainScope,
@@ -78,7 +103,6 @@ export interface DocumentStorePersistenceEffects {
     documentId: string | null,
   ) => void;
 }
-
 export interface DocumentStoreState {
   attachmentBlobIdBySlotId: Record<string, string | null>;
   attachmentStorageKeyBySlotId: Record<string, string>;
@@ -98,11 +122,9 @@ export interface DocumentStoreState {
   pendingAttachments: PendingAttachmentRecord[];
   /**
    * Oplog version through which every op in `doc` is already durably enqueued as
-   * a pending update or synced from a remote peer. Outgoing deltas are exported
-   * from THIS version rather than the live `doc` version, and it only advances
-   * after an edit's enqueue+persist succeed. If a write mutates `doc` but its
-   * enqueue/persist throws, this marker stays put, so the next edit re-derives
-   * (recovers) the orphaned delta instead of silently dropping it from sync.
+   * a pending update or synced from a remote peer. It advances only after an
+   * edit's enqueue+persist succeeds, so a later edit can recover any orphaned
+   * delta left by a failed write instead of silently dropping it from sync.
    * `null` only before initialization sets it to the loaded doc's version.
    */
   pendingBaseVersion: string | null;
@@ -115,9 +137,8 @@ export interface DocumentStoreState {
   pendingLocalWrites: number;
   persistence: DocumentsPersistence;
   /**
-   * In-memory continuation for a bounded remote pull. PR3 makes this durable;
-   * until then it prevents a live sync lane from restarting at page one when
-   * its version vector is too large to send.
+   * Durable continuation for a bounded remote pull, mirrored from the document
+   * record so the live lane can advance it without re-reading SQLite.
    */
   pullContinuation: DocumentSyncPullContinuation | null;
   record: DocumentRecord | null;
@@ -146,7 +167,6 @@ export interface DocumentStoreState {
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
 }
-
 const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachments: [],
   attachmentStatusBySlotId: {},

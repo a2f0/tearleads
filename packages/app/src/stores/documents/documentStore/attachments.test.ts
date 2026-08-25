@@ -135,6 +135,70 @@ test("document store removes local-only attachments and stored bytes", async () 
   );
 });
 
+test("a failed attachment removal restores the document and attachment rows", async () => {
+  const basePersistence = createDocumentStorePersistence();
+  let failRemoval = false;
+  const persistence = {
+    ...basePersistence,
+    async commitDocumentMutation(
+      ...input: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) {
+      if (failRemoval && input[1].attachmentRemoval) {
+        failRemoval = false;
+        throw new Error("forced attachment removal failure");
+      }
+      return basePersistence.commitDocumentMutation(...input);
+    },
+  };
+  const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
+  const runtime = createDocumentStoreRuntime({
+    crypto: { encapsulationKeyPair: generateKemSeedAndKeyPair() },
+    infra: { blobStore },
+  });
+  const store = createDocumentStore(
+    "rollback-attachment-removal",
+    runtime,
+    persistence,
+  );
+  store.updateRuntime(runtime);
+  await store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("must survive"),
+      mimeType: "text/plain",
+      name: "retained.txt",
+    },
+  ]);
+  const pendingAttachment = persistence.getState().pendingAttachments[0];
+  const localAttachment = persistence.getState().localAttachments[0];
+  const slotId = store.getSnapshot().attachments[0]?.slotId;
+  if (!pendingAttachment || !localAttachment || !slotId) {
+    throw new Error("Expected a staged attachment");
+  }
+
+  failRemoval = true;
+  const previousConsoleError = console.error;
+  console.error = () => {};
+  try {
+    await store.removeAttachment(slotId);
+  } finally {
+    console.error = previousConsoleError;
+  }
+
+  expect(store.getSnapshot().attachments).toEqual([
+    {
+      byteLength: pendingAttachment.byteLength,
+      mimeType: pendingAttachment.mimeType,
+      name: pendingAttachment.name,
+      slotId,
+    },
+  ]);
+  expect(persistence.getState().pendingAttachments).toEqual([
+    pendingAttachment,
+  ]);
+  expect(persistence.getState().localAttachments).toEqual([localAttachment]);
+  expect(storageKeys).toEqual(new Set([pendingAttachment.storageKey]));
+});
+
 test("document store rolls back staged attachment rows and bytes when local attachment persistence fails", async () => {
   const basePersistence = createDocumentStorePersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -147,15 +211,26 @@ test("document store rolls back staged attachment rows and bytes when local atta
       blobStore,
     },
   });
-  let attemptedLocalSave = false;
+  let attemptedStagingCommit = false;
+  let recoveryLoadCount = 0;
   const persistence = {
     ...basePersistence,
-    async saveLocalAttachment(
-      ...input: Parameters<typeof basePersistence.saveLocalAttachment>
+    async loadDocumentWithHistoryRestoreState(
+      ...input: Parameters<
+        typeof basePersistence.loadDocumentWithHistoryRestoreState
+      >
     ) {
-      attemptedLocalSave = true;
-      await basePersistence.saveLocalAttachment(...input);
-      throw new Error("forced local attachment save failure");
+      if (attemptedStagingCommit) recoveryLoadCount += 1;
+      return basePersistence.loadDocumentWithHistoryRestoreState(...input);
+    },
+    async commitDocumentMutation(
+      ...input: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) {
+      if (input[1].attachmentStaging) {
+        attemptedStagingCommit = true;
+        throw new Error("forced attachment staging failure");
+      }
+      return basePersistence.commitDocumentMutation(...input);
     },
   };
   const store = createDocumentStore(
@@ -173,7 +248,7 @@ test("document store rolls back staged attachment rows and bytes when local atta
   const previousConsoleError = console.error;
   console.error = () => {};
   try {
-    store.attachFiles([
+    await store.attachFiles([
       {
         bytes: new TextEncoder().encode("rollback bytes"),
         mimeType: "image/png",
@@ -182,7 +257,7 @@ test("document store rolls back staged attachment rows and bytes when local atta
     ]);
 
     await waitForCondition(
-      () => attemptedLocalSave && storageKeys.size === 0,
+      () => attemptedStagingCommit && storageKeys.size === 0,
       "Staged attachment bytes were not rolled back.",
     );
   } finally {
@@ -191,5 +266,185 @@ test("document store rolls back staged attachment rows and bytes when local atta
 
   expect(persistence.getState().localAttachments).toHaveLength(0);
   expect(persistence.getState().pendingAttachments).toHaveLength(0);
+  expect(recoveryLoadCount).toBeGreaterThan(0);
   expect(store.getSnapshot().attachments).toHaveLength(0);
+  await store.setText("edit after failed attachment staging");
+  expect(store.getSnapshot().text).toBe("edit after failed attachment staging");
+  expect(store.getSnapshot().attachments).toHaveLength(0);
+});
+
+test("a failed slot replacement restores the displaced attachment rows", async () => {
+  const basePersistence = createDocumentStorePersistence();
+  const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
+  let failStagingCommit = false;
+  const persistence = {
+    ...basePersistence,
+    async commitDocumentMutation(
+      ...input: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) {
+      if (failStagingCommit && input[1].attachmentStaging) {
+        failStagingCommit = false;
+        throw new Error("forced replacement save failure");
+      }
+      return basePersistence.commitDocumentMutation(...input);
+    },
+  };
+  const runtime = createDocumentStoreRuntime({
+    crypto: { encapsulationKeyPair: generateKemSeedAndKeyPair() },
+    infra: { blobStore },
+  });
+  const store = createDocumentStore(
+    "rollback-replacement-document",
+    runtime,
+    persistence,
+  );
+  store.updateRuntime(runtime);
+
+  await store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("original bytes"),
+      mimeType: "text/plain",
+      name: "original.txt",
+    },
+  ]);
+  await waitForCondition(
+    () => persistence.getState().pendingAttachments.length === 1,
+    "Original attachment was not staged.",
+  );
+  const originalPending = persistence.getState().pendingAttachments[0];
+  const originalLocal = persistence.getState().localAttachments[0];
+  if (!originalPending || !originalLocal) {
+    throw new Error("Expected original attachment rows");
+  }
+
+  failStagingCommit = true;
+  const previousConsoleError = console.error;
+  console.error = () => {};
+  try {
+    await store.replaceAttachment(originalPending.slotId, {
+      bytes: new TextEncoder().encode("replacement bytes"),
+      mimeType: "text/plain",
+      name: "replacement.txt",
+    });
+  } finally {
+    console.error = previousConsoleError;
+  }
+
+  expect(persistence.getState().pendingAttachments).toEqual([originalPending]);
+  expect(persistence.getState().localAttachments).toEqual([originalLocal]);
+  expect(storageKeys).toEqual(new Set([originalPending.storageKey]));
+  await store.setText("edit after failed replacement");
+  expect(store.getSnapshot().attachments).toEqual([
+    {
+      byteLength: originalPending.byteLength,
+      mimeType: originalPending.mimeType,
+      name: originalPending.name,
+      slotId: originalPending.slotId,
+    },
+  ]);
+});
+
+test("a stale attachment pane cannot stage rows after another pane relinks", async () => {
+  const basePersistence = createDocumentStorePersistence();
+  const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
+  let relinkOnNextAttachmentCommit = false;
+  const persistence = {
+    ...basePersistence,
+    async commitDocumentMutation(
+      ...input: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) {
+      if (relinkOnNextAttachmentCommit && input[1].attachmentStaging) {
+        relinkOnNextAttachmentCommit = false;
+        await basePersistence.relinkPersistedDocument(input[0], {
+          accessEpoch: 2,
+          containerId: "replacement-container",
+          documentId: "replacement-document",
+          localId: "attachment-relink-race",
+        });
+      }
+      return basePersistence.commitDocumentMutation(...input);
+    },
+  };
+  const runtime = createDocumentStoreRuntime({
+    crypto: { encapsulationKeyPair: generateKemSeedAndKeyPair() },
+    infra: { blobStore },
+  });
+  const store = createDocumentStore(
+    "attachment-relink-race",
+    runtime,
+    persistence,
+  );
+  store.updateRuntime(runtime);
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Attachment race document store did not become ready.",
+  );
+
+  relinkOnNextAttachmentCommit = true;
+  await store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("stale attachment bytes"),
+      mimeType: "text/plain",
+      name: "stale.txt",
+    },
+  ]);
+
+  await waitForCondition(
+    () => store.getSnapshot().documentId === "replacement-document",
+    "The stale attachment pane did not adopt the replacement identity.",
+  );
+  expect(persistence.getState().pendingAttachments).toEqual([]);
+  expect(persistence.getState().localAttachments).toEqual([]);
+  expect(persistence.getState().pendingUpdates).toEqual([]);
+  expect(storageKeys.size).toBe(0);
+});
+
+test("a stale attachment removal cannot cross a relink", async () => {
+  const localId = "attachment-removal-relink-race";
+  const basePersistence = createDocumentStorePersistence();
+  const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
+  let relinkOnRemoval = false;
+  const persistence = {
+    ...basePersistence,
+    async commitDocumentMutation(
+      ...input: Parameters<typeof basePersistence.commitDocumentMutation>
+    ) {
+      if (relinkOnRemoval && input[1].attachmentRemoval) {
+        relinkOnRemoval = false;
+        await basePersistence.relinkPersistedDocument(input[0], {
+          accessEpoch: 2,
+          containerId: "replacement-container",
+          documentId: "replacement-document",
+          localId,
+        });
+      }
+      return basePersistence.commitDocumentMutation(...input);
+    },
+  };
+  const runtime = createDocumentStoreRuntime({
+    crypto: { encapsulationKeyPair: generateKemSeedAndKeyPair() },
+    infra: { blobStore },
+  });
+  const store = createDocumentStore(localId, runtime, persistence);
+  store.updateRuntime(runtime);
+  await store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("retained bytes"),
+      mimeType: "text/plain",
+      name: "retained.txt",
+    },
+  ]);
+  const slotId = store.getSnapshot().attachments[0]?.slotId;
+  if (!slotId) throw new Error("Expected the staged attachment slot");
+
+  relinkOnRemoval = true;
+  await store.removeAttachment(slotId);
+
+  expect(store.getSnapshot()).toMatchObject({
+    documentId: "replacement-document",
+    attachments: [{ name: "retained.txt", slotId }],
+  });
+  expect(basePersistence.getState().pendingAttachments).toHaveLength(1);
+  expect(basePersistence.getState().localAttachments).toHaveLength(1);
+  expect(storageKeys.size).toBe(1);
 });

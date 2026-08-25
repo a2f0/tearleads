@@ -11,7 +11,7 @@ export interface ContainerMetadataState {
     | DocumentWriterProjectionResponse
     | null
     | undefined;
-  /** In-memory continuation for the current bounded metadata pull. */
+  /** Durable continuation mirrored from the metadata document record. */
   pullContinuation?: DocumentSyncPullContinuation | null | undefined;
   record: ContainerMetadataRecord;
   /**
@@ -25,6 +25,7 @@ export interface ContainerMetadataState {
 export interface ContainerMetadataPatch {
   accessEpoch: number;
   accessStateHash: string | null;
+  effectiveAccessLevel: ContainerRecord["effectiveAccessLevel"];
   documentId: string | null;
   icon: string | null;
   lastCommitLsn: string | null;
@@ -34,6 +35,7 @@ export interface ContainerMetadataPatch {
   name: string;
   organizationId: string;
   parentId: string | null;
+  pullContinuation: DocumentSyncPullContinuation | null;
   contentKeyBundle: string | null;
   documentKekTargets: string | null;
   documentManifestBundle: string | null;
@@ -41,10 +43,17 @@ export interface ContainerMetadataPatch {
 
 export interface PersistedContainerMetadataState {
   container: ContainerRecord;
+  mutationSuperseded?: true;
+  pullContinuationSuperseded?: true;
   record: ContainerMetadataRecord;
+  syncIdentitySuperseded?: true;
 }
 
 export interface SyncedContainerMetadataState
   extends PersistedContainerMetadataState {
   shouldRequestFollowupSync: boolean;
+}
+
+export interface MissingContainerMetadataState {
+  missing: true;
 }

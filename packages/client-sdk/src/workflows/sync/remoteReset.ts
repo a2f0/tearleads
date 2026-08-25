@@ -17,6 +17,7 @@ import {
 import {
   clientSqlTables,
   containerCreateIntents,
+  containerHydrationTombstones,
   containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
@@ -135,6 +136,7 @@ async function clearRemoteDerivedRows(
   await tx.delete(containerMoveIntents).run();
   await tx.delete(containerSyncWatermarks).run();
   await tx.delete(containerSyncLaneChecks).run();
+  await tx.delete(containerHydrationTombstones).run();
   await tx.delete(containerCreateIntents).run();
   await tx.delete(documentPendingUpdates).run();
   // documentHistoryCheckpoints / documentHistoryUpdates are deliberately
@@ -160,6 +162,7 @@ async function resetRemoteColumns(
       documentKekTargets: null,
       documentManifestBundle: null,
       lastCommitLsn: null,
+      pullContinuation: null,
       updatedAt: now,
     })
     .run();

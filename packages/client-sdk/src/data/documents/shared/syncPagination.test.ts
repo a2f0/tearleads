@@ -64,7 +64,7 @@ function response(input: {
   };
 }
 
-test("submitDocumentSync drains read-only continuation pages", async () => {
+test("submitDocumentSync returns a completed single page", async () => {
   const request: DocumentSyncRequest = {
     contentKeyEpoch: 1,
     expectedLinkSetManifestHash: "manifest-1",
@@ -78,10 +78,11 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
     supportsUntrackedCommitLsn: true,
   };
   const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
-  const pages = [
-    response({ commitLsn: "0/2", cursor: "cursor-2", updateId: "update-1" }),
-    response({ commitLsn: "0/3", cursor: null, updateId: "update-2" }),
-  ];
+  const page = response({
+    commitLsn: "0/2",
+    cursor: null,
+    updateId: "update-1",
+  });
   const requests: DocumentSyncRequest[] = [];
   const apiClient = {
     getDocumentWriterProjection: async () => null,
@@ -90,9 +91,7 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
     },
     syncDocumentResult: async (_documentId, nextRequest) => {
       requests.push(nextRequest);
-      const nextPage = pages.shift();
-      if (!nextPage) throw new Error("Unexpected document sync request");
-      return { data: nextPage, ok: true as const };
+      return { data: page, ok: true as const };
     },
   } satisfies DocumentSyncApi;
 
@@ -101,33 +100,19 @@ test("submitDocumentSync drains read-only continuation pages", async () => {
   expect(result?.ok).toBe(true);
   if (!result?.ok) throw new Error("Expected successful paginated sync");
   expect(result.pullComplete).toBe(true);
-  expect(requests).toHaveLength(2);
+  expect(requests).toHaveLength(1);
   expect(requests[0]).toBe(request);
-  expect(requests[1]).toEqual({
-    contentKeyEpoch: 1,
-    expectedLinkSetManifestHash: "manifest-1",
-    expectedTargetHash: "targets-1",
-    localVersionVector: null,
-    minLsn: "0/2",
-    outgoingUpdates: [],
-    pullCursor: "cursor-2",
-    supportsPullPagination: true,
-    supportsUntrackedCommitLsn: true,
-  });
-  expect(result.response.updates.map(({ id }) => id)).toEqual([
-    "update-1",
-    "update-2",
-  ]);
+  expect(result.response.updates.map(({ id }) => id)).toEqual(["update-1"]);
   expect(result.response.acceptedOutgoingUpdateIds).toEqual(["outgoing-1"]);
   expect(result.response.contentKeyBundles).toHaveLength(1);
-  expect(result.response.commitLsn).toBe("0/3");
+  expect(result.response.commitLsn).toBe("0/2");
   expect(result.response.pullPage).toEqual({
     hasMore: false,
     nextCursor: null,
   });
 });
 
-test("submitDocumentSync bounds an in-memory drain to two pages", async () => {
+test("submitDocumentSync returns one incomplete page for durable settlement", async () => {
   const request: DocumentSyncRequest = {
     contentKeyEpoch: 1,
     expectedLinkSetManifestHash: "manifest-1",
@@ -168,12 +153,45 @@ test("submitDocumentSync bounds an in-memory drain to two pages", async () => {
   expect(result?.ok).toBe(true);
   if (!result?.ok) throw new Error("Expected a bounded partial pull");
   expect(result.pullComplete).toBe(false);
-  expect(requests).toHaveLength(2);
-  expect(result.response.updates.map(({ id }) => id)).toEqual([
-    "update-1",
-    "update-2",
-  ]);
+  expect(requests).toHaveLength(1);
+  expect(pages).toHaveLength(1);
+  expect(result.response.updates.map(({ id }) => id)).toEqual(["update-1"]);
   expect(result.response.pullPage?.hasMore).toBe(true);
+});
+
+test("a cursor-bearing page requires a checkpoint before it can be applied", async () => {
+  const page = {
+    ...response({
+      commitLsn: "0/2",
+      cursor: "cursor-without-checkpoint",
+      updateId: "untrusted-update",
+    }),
+    commitLsn: null,
+  };
+  const plan = {
+    documentId: DOCUMENT_ID,
+    request: {
+      contentKeyEpoch: 1,
+      expectedLinkSetManifestHash: "manifest-1",
+      expectedTargetHash: "targets-1",
+      localVersionVector: null,
+      outgoingUpdates: [],
+      supportsPullPagination: true,
+      supportsUntrackedCommitLsn: true,
+    },
+  } as unknown as DocumentSyncPlan;
+
+  await expect(
+    submitDocumentSync({
+      apiClient: {
+        getDocumentWriterProjection: async () => null,
+        syncDocument: async () => page,
+      },
+      plan,
+    }),
+  ).rejects.toThrow(
+    "Document sync pull continuation is missing its checkpoint",
+  );
 });
 
 test("an oversized version vector resumes beyond the first 64 updates", async () => {
@@ -335,24 +353,19 @@ test("pull continuations retain a valid mode-specific replica checkpoint", () =>
   ).toThrow("pull continuation is missing its checkpoint");
 });
 
-test("submitDocumentSync preserves committed acknowledgements when a continuation fails", async () => {
+test("submitDocumentSync reports a continuation-page failure directly", async () => {
   const request: DocumentSyncRequest = {
     contentKeyEpoch: 1,
     expectedLinkSetManifestHash: "manifest-1",
     expectedTargetHash: "targets-1",
     localVersionVector: null,
-    outgoingUpdates: [
-      { id: "outgoing-1" },
-    ] as DocumentSyncRequest["outgoingUpdates"],
+    minLsn: "0/2",
+    outgoingUpdates: [],
+    pullCursor: "cursor-2",
     supportsPullPagination: true,
     supportsUntrackedCommitLsn: true,
   };
   const plan = { documentId: DOCUMENT_ID, request } as DocumentSyncPlan;
-  const firstPage = response({
-    commitLsn: "0/2",
-    cursor: "cursor-2",
-    updateId: "update-1",
-  });
   let requestCount = 0;
   let reported = false;
   const apiClient = {
@@ -362,9 +375,6 @@ test("submitDocumentSync preserves committed acknowledgements when a continuatio
     },
     syncDocumentResult: async () => {
       requestCount += 1;
-      if (requestCount === 1) {
-        return { data: firstPage, ok: true as const };
-      }
       return {
         message: "offline",
         ok: false as const,
@@ -378,11 +388,7 @@ test("submitDocumentSync preserves committed acknowledgements when a continuatio
 
   const result = await submitDocumentSync({ apiClient, plan });
 
-  expect(result).toEqual({
-    ok: true,
-    pullComplete: false,
-    response: firstPage,
-  });
-  expect(reported).toBe(true);
-  expect(requestCount).toBe(2);
+  expect(result?.ok).toBe(false);
+  expect(reported).toBe(false);
+  expect(requestCount).toBe(1);
 });

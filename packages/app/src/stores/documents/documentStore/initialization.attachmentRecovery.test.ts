@@ -99,3 +99,77 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
   // No ready snapshot ever published empty content over the loaded text.
   expect(readyTexts).not.toContain("");
 });
+
+test("a creation loser reloads attachment rows installed by the winner", async () => {
+  const basePersistence = createDocumentsPersistence();
+  const localId = "creation-loser-attachment-note";
+  const slotId = "winner-slot";
+  const storageKey = `${localId}-${slotId}`;
+  let installedWinner = false;
+  const persistence = {
+    ...basePersistence,
+    async createDocumentWithHistoryCheckpoint(
+      ...input: Parameters<
+        typeof basePersistence.createDocumentWithHistoryCheckpoint
+      >
+    ) {
+      if (installedWinner) {
+        return basePersistence.createDocumentWithHistoryCheckpoint(...input);
+      }
+      installedWinner = true;
+      const [execSql, document, checkpoint, options, saveClientProjection] =
+        input;
+      const createdAt =
+        await basePersistence.createDocumentWithHistoryCheckpoint(
+          execSql,
+          { ...document, documentId: "winning-document" },
+          checkpoint,
+          options,
+          saveClientProjection,
+        );
+      expect(createdAt).not.toBeNull();
+      await basePersistence.savePendingAttachment(execSql, {
+        byteLength: 12,
+        localId,
+        mimeType: "text/plain",
+        name: "winner.txt",
+        slotId,
+        storageKey,
+      });
+      await basePersistence.saveLocalAttachment(execSql, {
+        blobId: null,
+        byteLength: 12,
+        detachedAt: null,
+        localId,
+        mimeType: "text/plain",
+        slotId,
+        storageKey,
+      });
+      return null;
+    },
+  };
+  const runtime = cloneDocumentsTestRuntime(
+    createOfflineAttachmentRuntime(generateKemSeedAndKeyPair(), "container-a"),
+    { infra: { blobStore: createMemoryBlobStore() } },
+  );
+  const store = createDocumentStore(localId, runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Creation-loser document store did not become ready.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    attachmentStorageKeyBySlotId: { [slotId]: storageKey },
+    attachments: [
+      {
+        byteLength: 12,
+        mimeType: "text/plain",
+        name: "winner.txt",
+        slotId,
+      },
+    ],
+    documentId: "winning-document",
+  });
+});

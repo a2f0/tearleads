@@ -12,6 +12,7 @@ import type { createContainerMetadataDocument } from "../../../data/containers/c
 import type {
   ContainerContentsPersistence,
   ContainerDocumentRecord,
+  ContainerHydrationTombstone,
   ContainerRecord,
   createContainerParentSyncLane,
 } from "../containerPersistence";
@@ -59,6 +60,8 @@ export interface ContainerState {
     | DocumentWriterProjectionResponse
     | null
     | undefined;
+  /** Durable pull progress mirrored from the metadata document record. */
+  pullContinuation?: ContainerDocumentRecord["pullContinuation"] | undefined;
   record: ContainerDocumentRecord;
 }
 
@@ -94,13 +97,21 @@ export interface RemoteContainerHydrationState {
   runtime: RemoteContainerHydrationRuntime;
 }
 
+export type PersistContainerStateResult =
+  | { status: "identity-superseded"; record: ContainerDocumentRecord }
+  | { status: "missing" }
+  | { status: "persisted"; record: ContainerDocumentRecord };
+
 export interface RemoteContainerHydrationHost {
   persistContainerState: (
     containerState: ContainerState,
     patch?: Partial<ContainerMetadataPatch>,
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
-  ) => Promise<ContainerDocumentRecord>;
+    mutationOptions?: {
+      preserveDurableStructureWhenPending?: boolean | undefined;
+    },
+  ) => Promise<PersistContainerStateResult>;
   requestDocumentPriming?: (() => void) | undefined;
   updateSnapshot: () => void;
 }
@@ -110,7 +121,14 @@ export interface ContainerParentHydrationLane {
   watermark?: ListContainersResponse["nextWatermark"];
 }
 
+export interface ExpectedContainerState {
+  container: ContainerRecord;
+  fingerprint: string;
+}
+
 export interface FetchedContainerParentLanePage {
+  expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
+  expectedHydrationTombstones: ReadonlyMap<string, ContainerHydrationTombstone>;
   lane: ContainerParentHydrationLane;
   response: ListContainersResponse;
   syncLane: ReturnType<typeof createContainerParentSyncLane>;

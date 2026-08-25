@@ -2,132 +2,19 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
-  exportUpdatesSince,
+  getImportBlobMetadata,
   getTextValue,
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
-import { createDomainScope } from "../../../data/domainScope";
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
+import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { listDeferredPendingWriteCandidates } from "../../../workflows/container-contents/pendingWrites/deferredTails";
-import { enqueuePendingDocumentUpdate } from "../../../workflows/documents";
-import type { DocumentsRuntime } from "../types";
-import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
-import { persistDocument } from "./persistence";
-import {
-  createDocumentStoreState,
-  resetDocumentStore,
-  setReadySnapshot,
-} from "./state";
+import { pendingDeltaSinceBase, persistDocument } from "./persistence";
+import { resetDocumentStore, setReadySnapshot } from "./state";
 import { shouldReArmDocumentSync } from "./syncFinalize";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { shouldSkipCleanScheduledDocumentSync } from "./syncShared";
-
-async function createCoverageFixture(name: string, queueUpdate: boolean) {
-  const database = await createTestExecSql(name);
-  await sqlDocumentsPersistence.ensureSchema(database.execSql);
-  await ensureContainerTables(database.execSql);
-
-  const document = await createDocument(`${name}-writer`);
-  ensureDocumentAttachmentStructure(document);
-  ensureDocumentRowsStructure(document);
-  document.commit();
-  const baseVersion = encodeVersionVector(document);
-  document.getText("text").update("local edit");
-  document.commit();
-  const update = exportUpdatesSince(document, baseVersion);
-  const documentVersion = encodeVersionVector(document);
-  const localId = `${name}-local`;
-
-  await sqlDocumentsPersistence.saveDocument(database.execSql, {
-    accessEpoch: 1,
-    containerId: "container-1",
-    contentKeyBundle: "{}",
-    documentId: "document-1",
-    documentKekTargets: "{}",
-    documentManifestBundle: "{}",
-    id: localId,
-    lastCommitLsn: "1",
-    pendingBaseVersion: baseVersion,
-    snapshotEndVersion: documentVersion,
-    text: getTextValue(document),
-  });
-  if (queueUpdate) {
-    await enqueuePendingDocumentUpdate({
-      execSql: database.execSql,
-      localId,
-      persistence: sqlDocumentsPersistence,
-      update,
-    });
-  }
-
-  const runtime = {
-    apiClient: {},
-    auth: {
-      isAuthenticated: false,
-      organizationId: null,
-      userId: null,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: null,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: database.execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: "container-1",
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-      peerScope: name,
-    },
-    util: {
-      isRemoteSyncBlocked: () => false,
-      log: () => undefined,
-    },
-  } as unknown as DocumentsRuntime;
-  const state = createDocumentStoreState(
-    localId,
-    runtime,
-    sqlDocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    "document-1",
-  );
-  state.doc = document;
-  state.initialized = true;
-  state.pendingBaseVersion = baseVersion;
-  state.record = await sqlDocumentsPersistence.loadDocument(
-    database.execSql,
-    localId,
-  );
-  setReadySnapshot(state, document, false);
-  const generation = captureDocumentStoreSyncGeneration(state, document);
-  if (!generation) {
-    throw new Error("Expected a live document generation");
-  }
-
-  return {
-    ...database,
-    baseVersion,
-    document,
-    documentVersion,
-    generation,
-    localId,
-    state,
-  };
-}
 
 test("queued coverage survives restart settlement without a deferred tail", async () => {
   const fixture = await createCoverageFixture(
@@ -224,7 +111,7 @@ test("a zero-row deferred tail is materialized before clean skip", async () => {
   }
 });
 
-test("a live cursor after a 64-update page bypasses the clean lane skip", async () => {
+test("a durable cursor after a 64-update page bypasses the clean lane skip", async () => {
   const fixture = await createCoverageFixture(
     "outgoing-coverage-pull-cursor",
     false,
@@ -239,12 +126,24 @@ test("a live cursor after a 64-update page bypasses the clean lane skip", async 
         state: fixture.state,
       }),
     ).toBe(true);
+    expect(
+      shouldSkipCleanScheduledDocumentSync({
+        currentRecord: {
+          ...currentRecord,
+          pullContinuationRecoveryRequired: true,
+        },
+        pendingUpdates: [],
+        state: fixture.state,
+      }),
+    ).toBe(false);
 
-    fixture.state.pullContinuation = {
-      commitLsn: "0/2",
-      commitLsnMode: "tracked",
-      cursor: "page-after-update-64",
-    };
+    await persistDocument(fixture.state, fixture.document, {
+      pullContinuation: {
+        commitLsn: "0/2",
+        commitLsnMode: "tracked",
+        cursor: "page-after-update-64",
+      },
+    });
     expect(
       shouldSkipCleanScheduledDocumentSync({
         currentRecord,
@@ -252,6 +151,22 @@ test("a live cursor after a 64-update page bypasses the clean lane skip", async 
         state: fixture.state,
       }),
     ).toBe(false);
+
+    await persistDocument(fixture.state, fixture.document, {
+      lastCommitLsn: "0/3",
+      pullContinuation: null,
+    });
+    expect(fixture.state.record?.pullContinuation).toBeNull();
+
+    await persistDocument(fixture.state, fixture.document, {
+      pullContinuation: {
+        commitLsn: "0/3",
+        commitLsnMode: "tracked",
+        cursor: "replacement-page",
+      },
+    });
+    await persistDocument(fixture.state, fixture.document, { accessEpoch: 2 });
+    expect(fixture.state.pullContinuation).toBeNull();
   } finally {
     fixture.close();
   }
@@ -265,7 +180,11 @@ test("a completed cursor re-arms queued document writes", async () => {
   try {
     expect(
       shouldReArmDocumentSync(fixture.state, {
+        consumedPullContinuation: null,
         outgoingUpdateCount: 1,
+        requestRecord: fixture.state.record as NonNullable<
+          typeof fixture.state.record
+        >,
         synced: {
           acceptedRecoveryBaseline: false,
           exhaustedPendingUpdateCount: 0,
@@ -275,6 +194,86 @@ test("a completed cursor re-arms queued document writes", async () => {
           settledPendingUpdateIds: [],
         } as never,
       }),
+    ).toBe(true);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("a superseded pull restores the durable outgoing base in the live store", async () => {
+  const fixture = await createCoverageFixture(
+    "outgoing-coverage-superseded-pull",
+    false,
+  );
+  const consumedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-2",
+  };
+  const durableContinuation = {
+    commitLsn: "0/3",
+    commitLsnMode: "tracked" as const,
+    cursor: "page-3",
+  };
+  try {
+    const loadedRecord = fixture.state.record;
+    if (!loadedRecord) throw new Error("Expected a persisted document record");
+    const requestRecord = {
+      ...loadedRecord,
+      lastCommitLsn: "0/2",
+      pendingBaseVersion: fixture.baseVersion,
+      pullContinuation: consumedContinuation,
+    };
+    fixture.state.record = requestRecord;
+    fixture.state.pullContinuation = consumedContinuation;
+    fixture.state.pendingBaseVersion = fixture.baseVersion;
+    let emitted = 0;
+    fixture.state.effects = {
+      ...fixture.state.effects,
+      emitPersistedDocument: () => {
+        emitted += 1;
+      },
+    };
+    await sqlDocumentsPersistence.saveDocument(fixture.execSql, {
+      ...requestRecord,
+      lastCommitLsn: "0/3",
+      pendingBaseVersion: fixture.documentVersion,
+      pullContinuation: durableContinuation,
+    });
+
+    const persisted = await persistDocument(
+      fixture.state,
+      fixture.document,
+      {
+        lastCommitLsn: "0/2A",
+        pullContinuation: null,
+      },
+      {
+        expectedSyncState: {
+          pullContinuation: consumedContinuation,
+          record: requestRecord,
+        },
+      },
+    );
+
+    expect(persisted?.pullContinuationSuperseded).toBe(true);
+    expect(persisted?.updatedAt).toBeUndefined();
+    expect(emitted).toBe(0);
+    expect(fixture.state.pullContinuation).toEqual(durableContinuation);
+    expect(
+      versionVectorsEqual(
+        fixture.state.pendingBaseVersion,
+        fixture.documentVersion,
+      ),
+    ).toBe(true);
+    const pendingDelta = getImportBlobMetadata(
+      pendingDeltaSinceBase(fixture.state, fixture.document),
+    );
+    expect(
+      versionVectorsEqual(
+        pendingDelta.partialStartVersionVector,
+        pendingDelta.partialEndVersionVector,
+      ),
     ).toBe(true);
   } finally {
     fixture.close();
@@ -354,14 +353,19 @@ test("preparation abandons a replaced store generation after enqueue", async () 
     const persistence = fixture.state.persistence;
     fixture.state.persistence = {
       ...persistence,
-      enqueuePendingUpdate: async (execSql, pendingUpdate) => {
-        await persistence.enqueuePendingUpdate(execSql, pendingUpdate);
+      enqueuePendingUpdate: async (execSql, pendingUpdate, options) => {
+        const enqueued = await persistence.enqueuePendingUpdate(
+          execSql,
+          pendingUpdate,
+          options,
+        );
         resetDocumentStore(fixture.state);
         fixture.state.doc = replacementDoc;
         fixture.state.initialized = true;
         fixture.state.pendingBaseVersion = replacementBase;
         fixture.state.record = replacementRecord;
         setReadySnapshot(fixture.state, replacementDoc, false);
+        return enqueued;
       },
     };
 
@@ -420,10 +424,14 @@ test("guarded persistence cannot publish into a replacement generation", async (
     });
     fixture.state.persistence = {
       ...persistence,
-      saveDocument: async (execSql, document, options) => {
+      commitDocumentMutation: async (execSql, input, saveProjection) => {
         signalPersistStarted();
         await persistBlocked;
-        return persistence.saveDocument(execSql, document, options);
+        return persistence.commitDocumentMutation(
+          execSql,
+          input,
+          saveProjection,
+        );
       },
     };
 

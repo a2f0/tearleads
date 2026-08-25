@@ -109,6 +109,12 @@ test("client sqlite schema creates tables and indexes", async () => {
       pk: 0,
       type: "INTEGER",
     });
+    expect(readRecordValue(documents, "pull_continuation")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
 
     const trustedIdentityPins = await readTableColumns(
       execSql,

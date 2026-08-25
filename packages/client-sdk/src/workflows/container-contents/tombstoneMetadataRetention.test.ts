@@ -21,6 +21,13 @@ const T1 = "2026-01-01T00:00:01.000Z";
 
 const METADATA_SCOPE = { appKind: "container-metadata", localId: "revoked" };
 
+function containerRemoval(
+  containerId: string,
+  reason: "access_revoked" | "deleted",
+) {
+  return { containerId, reason, updatedAt: T1 };
+}
+
 async function saveContainerRow(
   execSql: ExecSql,
   containerId: string,
@@ -92,11 +99,9 @@ test("deleted cascade drops the metadata document and queue", async () => {
   try {
     await seedContainerWithQueuedRename(execSql, "doomed");
 
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["doomed"],
-      { updatedAt: T1 },
-    );
+    await defaultContainerContentsPersistence.deleteContainers(execSql, [
+      containerRemoval("doomed", "deleted"),
+    ]);
 
     expect(
       await defaultContainerContentsPersistence.containerExists(
@@ -135,8 +140,8 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
 
     // The container row itself is gone either way…
@@ -172,8 +177,11 @@ test("mixed cascade retains only the revoked container's metadata", async () => 
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["doomed", "revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [
+        containerRemoval("doomed", "deleted"),
+        containerRemoval("revoked", "access_revoked"),
+      ],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
 
     expect(await countRows(execSql, "document_pending_updates", "doomed")).toBe(
@@ -195,8 +203,8 @@ test("a later deleted tombstone purges dormant retained metadata", async () => {
     await seedContainerWithQueuedRename(execSql, "revoked");
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
     expect(
       await countRows(execSql, "document_pending_updates", "revoked"),
@@ -204,11 +212,9 @@ test("a later deleted tombstone purges dormant retained metadata", async () => {
 
     // The container is already absent locally; the purge call carries no
     // retain entry, mirroring a later `deleted` tombstone for the same id.
-    await defaultContainerContentsPersistence.deleteContainers(
-      execSql,
-      ["revoked"],
-      { updatedAt: T1 },
-    );
+    await defaultContainerContentsPersistence.deleteContainers(execSql, [
+      containerRemoval("revoked", "deleted"),
+    ]);
 
     expect(await countRows(execSql, "documents", "revoked")).toBe(0);
     expect(
@@ -236,8 +242,8 @@ test("dormant metadata loads by container id for re-attachment", async () => {
     await seedContainerWithQueuedRename(execSql, "revoked");
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
 
     const dormant =
@@ -266,8 +272,8 @@ test("dormant metadata stays out of the write queue until re-attach", async () =
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
     const dormantListed = await listPendingWrites(execSql);
     expect(dormantListed.some((item) => item.localId === "revoked")).toBe(
@@ -321,8 +327,8 @@ test("revoke then rehydrate re-attaches dormant metadata content", async () => {
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
 
     // Access restored: rehydration discovers the container fresh, loads the
@@ -346,6 +352,7 @@ test("revoke then rehydrate re-attaches dormant metadata content", async () => {
       initialSnapshot: authoredSnapshot,
       lastCommitLsn: null,
       name: "Renamed",
+      pullContinuation: null,
       snapshotEndVersion: dormantRecord?.snapshotEndVersion ?? "",
     });
 
@@ -396,8 +403,8 @@ test("dormant metadata stays out of deferred-tail candidates", async () => {
 
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
-      ["revoked"],
-      { retainMetadataForContainerIds: ["revoked"], updatedAt: T1 },
+      [containerRemoval("revoked", "access_revoked")],
+      { retainMetadataForContainerIds: ["revoked"] },
     );
 
     const dormantListed = await listPendingWrites(execSql);

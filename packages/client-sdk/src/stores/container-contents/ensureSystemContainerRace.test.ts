@@ -190,6 +190,85 @@ test("a late local system create collapses into a remotely hydrated slot", async
   expect(scheduleSyncCalls).toEqual([]);
 });
 
+test("system-container promotion stops when icon persistence observes deletion", async () => {
+  const root = await containerState({
+    id: "root",
+    organizationId: "organization-id",
+    parentId: null,
+    remote: true,
+  });
+  const system = await containerState({
+    id: "local-contacts",
+    organizationId: "organization-id",
+    parentId: root.container.id,
+    remote: false,
+    systemSlot: SYSTEM_SLOT,
+  });
+  let promotionSaves = 0;
+  const persistence = {
+    ...({} as ContainerContentsPersistence),
+    deletePendingUpdates: async () => {},
+    loadContainerMetadataState: async () => null,
+    saveContainer: async () => {
+      promotionSaves += 1;
+      throw new Error("deleted system container must not be recreated");
+    },
+  };
+  const runtime = createContainerContentsStoreTestRuntime({
+    apiClient: createMockApiClient(),
+    auth: {
+      isAuthenticated: true,
+      organizationId: "organization-id",
+      userId: "user-id",
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {} as BlobStore,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: (async () => []) as ExecSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: {
+      containerId: root.container.id,
+      domainScope: {} as DomainScope,
+      events: [],
+      online: true,
+    },
+    util: {
+      log: () => {},
+      reportSecurityIncident: async () => undefined,
+    },
+  });
+  const state = createContainerContentsStoreState(runtime, persistence);
+  state.containersById.set(root.container.id, root);
+  state.containersById.set(system.container.id, system);
+  updateContainerContentsSnapshot(state);
+  let syncRequests = 0;
+  const syncAgent = {
+    scheduleSync: () => {
+      syncRequests += 1;
+    },
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  const ensured = await ensureSystemContainer(
+    state,
+    syncAgent,
+    SYSTEM_SLOT,
+    "Contacts",
+    { icon: "contacts" },
+  );
+
+  expect(ensured).toBeNull();
+  expect(state.containersById.has(system.container.id)).toBe(false);
+  expect(promotionSaves).toBe(0);
+  expect(syncRequests).toBe(0);
+});
+
 test("a root-first late create rebases before its remote system slot arrives", async () => {
   for (const deferRemoteSync of [false, true]) {
     const localRoot = await containerState({

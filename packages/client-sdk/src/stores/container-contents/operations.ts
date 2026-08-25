@@ -2,17 +2,12 @@ import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSl
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
 import {
-  shareContainerState,
-  shareContainerStateWithGroup,
-} from "../../workflows/container-contents/container-state/share";
-import type { SharedContainerState } from "../../workflows/container-contents/container-state/types";
-import type { ContainerDocumentRecord } from "../../workflows/container-contents/containerPersistence";
-import {
-  type ContainerMetadataPatch,
-  persistContainerMetadataStateFromRuntime,
+  installContainerMetadataRecord,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import { persistContainerState } from "./containerStatePersistence";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
+import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -30,37 +25,10 @@ import {
   promoteExistingLocalSystemContainerSync,
 } from "./systemContainerPromotion";
 import type {
-  ContainerContentsShareAccessLevel,
   ContainerContentsStoreState,
   EnsureSystemContainerOptions,
 } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
-
-type PersistContainerSaveOptions = Parameters<
-  typeof persistContainerMetadataStateFromRuntime
->[0]["saveOptions"];
-
-export async function persistContainerState(
-  state: ContainerContentsStoreState,
-  containerState: ContainerState,
-  patch: Partial<ContainerMetadataPatch> = {},
-  updateView = true,
-  saveOptions?: PersistContainerSaveOptions,
-): Promise<ContainerDocumentRecord> {
-  const persisted = await persistContainerMetadataStateFromRuntime({
-    metadataState: containerState,
-    patch,
-    persistence: state.persistence,
-    runtime: state.runtime,
-    saveOptions,
-  });
-  containerState.container = persisted.container;
-  containerState.record = persisted.record;
-  if (updateView) {
-    updateContainerContentsSnapshot(state);
-  }
-  return persisted.record;
-}
 
 export async function createChildContainer(
   state: ContainerContentsStoreState,
@@ -113,24 +81,42 @@ async function updateExistingSystemContainer(
   options: EnsureSystemContainerOptions,
 ) {
   if ("icon" in options) {
-    await applySystemContainerIcon({
+    const iconApplied = await applySystemContainerIcon({
       containerState: existing,
       icon: options.icon,
-      persistIcon: async (containerState, icon) => {
-        await persistContainerState(state, containerState, { icon });
-      },
+      persistIcon: async (containerState, icon, update) =>
+        (
+          await persistContainerState(
+            state,
+            containerState,
+            { icon },
+            true,
+            undefined,
+            { localMetadataPatch: { icon }, localUpdate: update },
+          )
+        ).status,
       state,
       syncAgent,
     });
+    if (!iconApplied) {
+      return null;
+    }
   }
-  await promoteExistingLocalSystemContainerSync({
+  const promoted = await promoteExistingLocalSystemContainerSync({
     containerState: existing,
     logLabel: getContainerContentsStoreLogLabel(state),
     options,
+    persistCreateIntent: async (containerState, parentContainerId) =>
+      (
+        await persistContainerState(state, containerState, {}, true, {
+          createIntent: { parentContainerId },
+        })
+      ).status === "persisted",
     rootState: findRootContainerState(state),
     state,
     syncAgent,
   });
+  return promoted ? toContainerNode(existing) : null;
 }
 
 function canEnsureSystemContainer(
@@ -161,8 +147,7 @@ export async function ensureSystemContainer(
     rootState,
   );
   if (existing) {
-    await updateExistingSystemContainer(state, syncAgent, existing, options);
-    return toContainerNode(existing);
+    return updateExistingSystemContainer(state, syncAgent, existing, options);
   }
 
   const allowSynchronousRemoteBootstrap = !options.deferRemoteBootstrap;
@@ -185,8 +170,7 @@ export async function ensureSystemContainer(
       rootState,
     );
     if (hydrated) {
-      await updateExistingSystemContainer(state, syncAgent, hydrated, options);
-      return toContainerNode(hydrated);
+      return updateExistingSystemContainer(state, syncAgent, hydrated, options);
     }
   }
 
@@ -227,12 +211,13 @@ export async function ensureSystemContainer(
     systemSlot,
   });
   if (finalized.adopted) {
-    await updateExistingSystemContainer(
+    const updated = await updateExistingSystemContainer(
       state,
       syncAgent,
       finalized.containerState,
       options,
     );
+    if (!updated) return null;
   }
   return toContainerNode(finalized.containerState);
 }
@@ -319,117 +304,18 @@ export async function renameContainer(
     runtime: state.runtime,
   });
   if (!renamed) {
+    removeMissingContainerState(state, existingState);
     return null;
   }
 
   existingState.container = renamed.container;
-  existingState.record = renamed.record;
+  installContainerMetadataRecord(existingState, renamed.record);
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: renamed container to "${trimmedName}"`,
   );
   return toContainerNode(existingState);
-}
-
-// Shared core for the user/group share operations: guard remote authority and
-// the target's shareable state, run the supplied share call, then apply the
-// shared state, prime the subtree's documents, and log.
-async function shareContainerUsing(
-  state: ContainerContentsStoreState,
-  syncAgent: ContainerContentsStoreSyncAgent,
-  containerId: string,
-  share: (
-    containerState: ContainerState,
-  ) => Promise<SharedContainerState | null>,
-  logMessage: string,
-) {
-  if (
-    state.runtime.infra.dbStatus !== "ready" ||
-    !state.snapshot.ready ||
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
-  ) {
-    return null;
-  }
-
-  const existingState = state.containersById.get(containerId);
-  const expectedAccessStateHash = existingState?.record.accessStateHash;
-  if (
-    !existingState?.record.documentId ||
-    typeof expectedAccessStateHash !== "string" ||
-    expectedAccessStateHash.length === 0
-  ) {
-    return null;
-  }
-
-  const shared = await share(existingState);
-  if (!shared) {
-    return null;
-  }
-
-  existingState.container = shared.container;
-  existingState.record = shared.record;
-  updateContainerContentsSnapshot(state);
-  await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  syncAgent.scheduleSync();
-  state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: ${logMessage}`,
-  );
-  return toContainerNode(existingState);
-}
-
-export async function shareContainerWithUser(
-  state: ContainerContentsStoreState,
-  syncAgent: ContainerContentsStoreSyncAgent,
-  containerId: string,
-  userId: string,
-) {
-  return shareContainerUsing(
-    state,
-    syncAgent,
-    containerId,
-    (containerState) =>
-      shareContainerState({
-        accessLevel: "write",
-        containerState,
-        persistence: state.persistence,
-        recipientUserId: userId,
-        resolveProjectionUserKey: state.resolveProjectionUserKey,
-        runtime: state.runtime,
-      }),
-    `shared container ${containerId} with ${userId}`,
-  );
-}
-
-export async function shareContainerWithGroup(
-  state: ContainerContentsStoreState,
-  syncAgent: ContainerContentsStoreSyncAgent,
-  containerId: string,
-  groupId: string,
-  accessLevel: ContainerContentsShareAccessLevel,
-  options: {
-    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-    requireExistingGrant?: boolean | undefined;
-  } = {},
-) {
-  return shareContainerUsing(
-    state,
-    syncAgent,
-    containerId,
-    (containerState) =>
-      shareContainerStateWithGroup({
-        accessLevel,
-        containerState,
-        knownContainerKeks: options.knownContainerKeks,
-        persistence: state.persistence,
-        recipientGroupId: groupId,
-        requireExistingGrant: options.requireExistingGrant,
-        resolveProjectionUserKey: state.resolveProjectionUserKey,
-        runtime: state.runtime,
-      }),
-    `shared container ${containerId} with group ${groupId}`,
-  );
 }
 
 export async function moveContainer(
@@ -461,9 +347,16 @@ export async function moveContainer(
   const isRemoteContainer = Boolean(existingState.record.documentId);
   const previousParentId = existingState.container.parentId;
   if (!isRemoteContainer) {
-    await persistContainerState(state, existingState, { parentId }, true, {
-      createIntent: { parentContainerId: parentId },
-    });
+    const persisted = await persistContainerState(
+      state,
+      existingState,
+      { parentId },
+      true,
+      {
+        createIntent: { parentContainerId: parentId },
+      },
+    );
+    if (persisted.status !== "persisted") return null;
     syncAgent.scheduleSync();
     state.runtime.util.log(
       `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
@@ -471,12 +364,19 @@ export async function moveContainer(
     return toContainerNode(existingState);
   }
 
-  await persistContainerState(state, existingState, { parentId }, true, {
-    moveIntent: {
-      parentContainerId: parentId,
-      previousParentContainerId: previousParentId,
+  const persisted = await persistContainerState(
+    state,
+    existingState,
+    { parentId },
+    true,
+    {
+      moveIntent: {
+        parentContainerId: parentId,
+        previousParentContainerId: previousParentId,
+      },
     },
-  });
+  );
+  if (persisted.status !== "persisted") return null;
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,

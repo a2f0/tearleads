@@ -5,7 +5,12 @@ import type {
   PendingUpdateRecord,
   SelectedPendingUpdateRow,
 } from "./documentPersistenceTypes";
-import { documentHistoryUpdates, documentPendingUpdates } from "./schema";
+import {
+  documentHistoryUpdates,
+  documentPendingUpdates,
+  documents,
+} from "./schema";
+import type { ClientSQLiteTransactionScope } from "./sqlitePersistenceRuntime";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -53,9 +58,10 @@ function pendingUpdateRow(
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
   createdAt: string,
+  id = crypto.randomUUID(),
 ) {
   return {
-    id: crypto.randomUUID(),
+    id,
     appKind: scope.appKind,
     localId: scope.localId,
     updateData: pendingUpdate.updateData,
@@ -70,13 +76,17 @@ export async function enqueueDocumentPendingUpdate(
   execSql: ExecSql,
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
-): Promise<void> {
+): Promise<string> {
+  const id = crypto.randomUUID();
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
       .insert(documentPendingUpdates)
-      .values(pendingUpdateRow(scope, pendingUpdate, new Date().toISOString()))
+      .values(
+        pendingUpdateRow(scope, pendingUpdate, new Date().toISOString(), id),
+      )
       .run();
   });
+  return id;
 }
 
 /**
@@ -90,25 +100,61 @@ export async function enqueueDocumentPendingUpdateWithHistory(
   execSql: ExecSql,
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
-): Promise<void> {
+  options?: { expectedDocumentId: string | null },
+): Promise<string | null> {
   const createdAt = new Date().toISOString();
-  await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await tx
-      .insert(documentHistoryUpdates)
-      .values({
-        id: crypto.randomUUID(),
-        appKind: scope.appKind,
-        localId: scope.localId,
-        updateData: pendingUpdate.updateData,
-        origin: "local",
-        createdAt,
-      })
-      .run();
-    await tx
-      .insert(documentPendingUpdates)
-      .values(pendingUpdateRow(scope, pendingUpdate, createdAt))
-      .run();
+  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+    if (options) {
+      const matchingDocuments = await tx
+        .select({ localId: documents.localId })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.appKind, scope.appKind),
+            eq(documents.localId, scope.localId),
+            sql`${documents.documentId} IS ${options.expectedDocumentId}`,
+          ),
+        )
+        .limit(1);
+      if (matchingDocuments.length === 0) {
+        return null;
+      }
+    }
+
+    return insertDocumentPendingUpdateWithHistoryInTransaction({
+      createdAt,
+      pendingUpdate,
+      scope,
+      tx,
+    });
   });
+}
+
+export async function insertDocumentPendingUpdateWithHistoryInTransaction(input: {
+  createdAt: string;
+  pendingUpdate: PendingUpdateFields;
+  scope: DocumentScope;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<string> {
+  const id = crypto.randomUUID();
+  await input.tx
+    .insert(documentHistoryUpdates)
+    .values({
+      id: crypto.randomUUID(),
+      appKind: input.scope.appKind,
+      localId: input.scope.localId,
+      updateData: input.pendingUpdate.updateData,
+      origin: "local",
+      createdAt: input.createdAt,
+    })
+    .run();
+  await input.tx
+    .insert(documentPendingUpdates)
+    .values(
+      pendingUpdateRow(input.scope, input.pendingUpdate, input.createdAt, id),
+    )
+    .run();
+  return id;
 }
 
 /**

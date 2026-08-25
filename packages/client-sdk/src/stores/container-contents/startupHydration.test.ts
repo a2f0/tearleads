@@ -13,7 +13,10 @@ import {
   defaultContainerContentsPersistence,
   markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
-import { saveTestDocument } from "../../workflows/container-contents/documentQueries.testFixtures";
+import {
+  saveTestDocument,
+  saveTestSyncedContainer,
+} from "../../workflows/container-contents/documentQueries.testFixtures";
 import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
@@ -240,6 +243,30 @@ test("hasStartupContainerSyncWork detects durable pending document updates", asy
       sourceVersionVector: null,
       updateData: "queued-update",
     });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("hasStartupContainerSyncWork detects a durable metadata pull continuation", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-metadata-pull-continuation",
+  );
+  try {
+    await saveTestSyncedContainer({
+      execSql,
+      id: "root-container",
+      name: "/",
+      organizationId: "organization-id",
+      pullContinuation: {
+        commitLsn: "0/2",
+        commitLsnMode: "tracked",
+        cursor: "metadata-page-2",
+      },
+      timestamp: "2026-08-24T00:00:00.000Z",
+    });
+
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
   } finally {
     close();

@@ -5,7 +5,10 @@ import {
   syncPendingDocumentMoveIntents,
 } from "../../workflows/container-contents/documentMoveIntentSync";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
-import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
+import {
+  installContainerMetadataRecord,
+  syncContainerMetadataState,
+} from "../../workflows/container-contents/metadata";
 import type {
   ContainerState,
   RemoteContainer,
@@ -30,6 +33,7 @@ import {
   clearMetadataSyncQueueIfUnchanged,
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
+import { removeMissingSyncedContainerState } from "./missingSyncedContainerState";
 import { createRemoteContainerIngestionController } from "./remoteContainerIngestion";
 import { handleContainerContentsRemoteEvents } from "./remoteEventSync";
 import {
@@ -283,10 +287,7 @@ async function syncSingleContainerMetadata(input: {
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
   const metadataDocumentId = containerState.record.documentId;
-  // Snapshot THIS metadata document's enqueue sequence before the network GET
-  // so the post-await clear can tell whether a remote event re-queued this
-  // specific id mid-pass (see metadataSyncSignal.ts). Per id, not a global
-  // counter, so an unrelated container's event does not force a re-sync here.
+  // Snapshot this signal before the GET so a mid-pass event survives clearing.
   const consumedSeqById = new Map<string, number>();
   if (typeof metadataDocumentId === "string") {
     consumedSeqById.set(
@@ -308,6 +309,14 @@ async function syncSingleContainerMetadata(input: {
   if (!synced) {
     return;
   }
+  if ("missing" in synced) {
+    removeMissingSyncedContainerState(
+      state,
+      containerState,
+      host.updateSnapshot,
+    );
+    return;
+  }
 
   for (const id of [metadataDocumentId, synced.record.documentId]) {
     if (typeof id === "string") {
@@ -320,7 +329,7 @@ async function syncSingleContainerMetadata(input: {
     }
   }
   containerState.container = synced.container;
-  containerState.record = synced.record;
+  installContainerMetadataRecord(containerState, synced.record);
   host.updateSnapshot();
 
   if (synced.shouldRequestFollowupSync) {

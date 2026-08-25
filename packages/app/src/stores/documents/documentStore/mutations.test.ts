@@ -59,12 +59,12 @@ test("document store does not replay intermediate persisted text during queued e
     "Document store did not become ready.",
   );
 
-  const originalSaveDocument = persistence.saveDocument;
+  const originalCommitDocumentMutation = persistence.commitDocumentMutation;
   const releaseFirstEditSave = createDeferred();
   const releaseSecondEditSave = createDeferred();
   let editSaveCount = 0;
 
-  persistence.saveDocument = async (...args) => {
+  persistence.commitDocumentMutation = async (...args) => {
     editSaveCount += 1;
     if (editSaveCount === 1) {
       await releaseFirstEditSave.promise;
@@ -72,7 +72,7 @@ test("document store does not replay intermediate persisted text during queued e
       await releaseSecondEditSave.promise;
     }
 
-    return originalSaveDocument(...args);
+    return originalCommitDocumentMutation(...args);
   };
 
   const firstWrite = store.setText("a");
@@ -106,13 +106,13 @@ test("a reset write cannot publish over replacement-generation text", async () =
     "Document store did not become ready.",
   );
 
-  const originalSaveDocument = persistence.saveDocument;
+  const originalCommitDocumentMutation = persistence.commitDocumentMutation;
   const oldSaveStarted = createDeferred();
   const releaseOldSave = createDeferred();
   const replacementSaveStarted = createDeferred();
   const releaseReplacementSave = createDeferred();
   let editSaveCount = 0;
-  persistence.saveDocument = async (...args) => {
+  persistence.commitDocumentMutation = async (...args) => {
     editSaveCount += 1;
     if (editSaveCount === 1) {
       oldSaveStarted.resolve();
@@ -121,7 +121,7 @@ test("a reset write cannot publish over replacement-generation text", async () =
       replacementSaveStarted.resolve();
       await releaseReplacementSave.promise;
     }
-    return originalSaveDocument(...args);
+    return originalCommitDocumentMutation(...args);
   };
 
   const oldWrite = store.setText("old generation");
@@ -144,13 +144,15 @@ test("a reset write cannot publish over replacement-generation text", async () =
   await replacementSaveStarted.promise;
 
   expect(store.getSnapshot().text).toBe("replacement generation");
-  expect(persistence.getState().document?.text).toBe("old generation");
+  expect(persistence.getState().document?.text).toBe("");
+  expect(persistence.getState().pendingUpdates).toHaveLength(0);
 
   releaseReplacementSave.resolve();
   await Promise.all([oldWrite, replacementWrite]);
 
   expect(store.getSnapshot().text).toBe("replacement generation");
   expect(persistence.getState().document?.text).toBe("replacement generation");
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
 });
 
 test("document store publishes structured field edits synchronously for controlled editors", async () => {
@@ -208,12 +210,12 @@ test("document store does not replay intermediate structured fields during queue
     "Structured document store did not become ready.",
   );
 
-  const originalSaveDocument = persistence.saveDocument;
+  const originalCommitDocumentMutation = persistence.commitDocumentMutation;
   const releaseFirstEditSave = createDeferred();
   const releaseSecondEditSave = createDeferred();
   let editSaveCount = 0;
 
-  persistence.saveDocument = async (...args) => {
+  persistence.commitDocumentMutation = async (...args) => {
     editSaveCount += 1;
     if (editSaveCount === 1) {
       await releaseFirstEditSave.promise;
@@ -221,7 +223,7 @@ test("document store does not replay intermediate structured fields during queue
       await releaseSecondEditSave.promise;
     }
 
-    return originalSaveDocument(...args);
+    return originalCommitDocumentMutation(...args);
   };
 
   const firstWrite = store.setStructuredFields("credit_card", {

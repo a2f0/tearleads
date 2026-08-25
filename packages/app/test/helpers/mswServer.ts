@@ -654,7 +654,7 @@ export function getProxiedApiNetworkActivitySnapshot(): ProxiedApiNetworkActivit
 }
 
 async function waitForProxiedApiRequestsToSettle(
-  timeoutMs = 2_000,
+  timeoutMs = 10_000,
   quietMs = 50,
 ): Promise<void> {
   const settled = await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);
@@ -662,9 +662,9 @@ async function waitForProxiedApiRequestsToSettle(
     return;
   }
 
-  const activity = getProxiedApiNetworkActivitySnapshot();
+  const state = getProxiedApiNetworkActivitySnapshot();
   throw new Error(
-    `Timed out waiting for proxied API network idle before resetting mock server. activeRequests=${activity.activeRequestCount}, completedRequests=${activity.completedRequestCount}, timeoutMs=${timeoutMs}, quietMs=${quietMs}`,
+    `Timed out waiting for proxied API network idle before resetting mock server. activeRequests=${state.activeRequestCount}, completedRequests=${state.completedRequestCount}, timeoutMs=${timeoutMs}, quietMs=${quietMs}`,
   );
 }
 
@@ -754,9 +754,9 @@ async function proxyRequestToApiApp(
   request: Request,
   options: TestApiAppHandlerOptions = {},
 ): Promise<Response> {
-  const apiApp = await ensureTestApiApp();
   activeProxiedApiRequestCount += 1;
   try {
+    const apiApp = await ensureTestApiApp();
     const requestBody =
       request.method === "GET" || request.method === "HEAD"
         ? null

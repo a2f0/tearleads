@@ -13,6 +13,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 export type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerHydrationTombstone,
   ContainerMetadataRecord,
   ContainerMetadataRecord as ContainerDocumentRecord,
   ContainerMoveIntentRecord,
@@ -31,16 +32,16 @@ export async function enqueuePendingContainerUpdate(
     sourceVersionVector?: string | null | undefined;
     update: Uint8Array;
   },
-): Promise<void> {
+): Promise<string | null> {
   const pendingUpdateFields = createPendingUpdateFields(
     params.update,
     params.sourceVersionVector,
   );
   if (!pendingUpdateFields) {
-    return;
+    return null;
   }
 
-  await persistence.enqueuePendingUpdate(execSql, {
+  return persistence.enqueuePendingUpdate(execSql, {
     containerId: params.containerId,
     ...pendingUpdateFields,
   });

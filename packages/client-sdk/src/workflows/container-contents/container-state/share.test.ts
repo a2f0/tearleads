@@ -127,7 +127,11 @@ test("shareContainerState treats an existing matching user grant as an idempoten
         snapshotEndVersion: "",
       },
     };
-
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      containerState.container,
+      containerState.record,
+    );
     const shared = await shareContainerState({
       accessLevel: "write",
       containerState,
@@ -141,7 +145,8 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     expect(logs).toContain(
       `Container contents: skipped duplicate share for container ${containerId} with user ${recipientUserId}`,
     );
-    expect(shared?.record).toEqual({
+    if (shared?.status !== "persisted") throw new Error("Expected");
+    expect(shared.record).toEqual({
       accessEpoch: remoteEpoch,
       accessStateHash: remoteAccessStateHash,
       contentKeyBundle: null,
@@ -151,15 +156,16 @@ test("shareContainerState treats an existing matching user grant as an idempoten
       id: containerId,
       lastCommitLsn: null,
       metadataUpdates: expect.any(String),
+      pullContinuation: null,
       snapshotEndVersion: "",
     });
-    expect(shared?.container.metadataDocumentId).toBe(
+    expect(shared.container.metadataDocumentId).toBe(
       `${containerId}-metadata-document`,
     );
-    expect(shared?.container.createdAt).toBe(remoteCreatedAt);
-    expect(shared?.container.serverCreatedAt).toBe(remoteCreatedAt);
-    expect(shared?.container.serverUpdatedAt).toBe(remoteUpdatedAt);
-    expect(shared?.container.updatedAt).toBe(remoteUpdatedAt);
+    expect(shared.container.createdAt).toBe(remoteCreatedAt);
+    expect(shared.container.serverCreatedAt).toBe(remoteCreatedAt);
+    expect(shared.container.serverUpdatedAt).toBe(remoteUpdatedAt);
+    expect(shared.container.updatedAt).toBe(remoteUpdatedAt);
     expect(requestedPrincipalPolicies).toEqual(["group:group-1"]);
   } finally {
     close();

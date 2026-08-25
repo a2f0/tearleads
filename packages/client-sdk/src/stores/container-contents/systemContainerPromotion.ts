@@ -1,6 +1,5 @@
 import { base64ToBytes } from "@symcrypt/encoding";
 import { enqueuePendingContainerUpdate } from "../../workflows/container-contents/containerPersistence";
-import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -24,10 +23,14 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   containerState: ContainerState;
   logLabel: string;
   options: EnsureSystemContainerOptions;
+  persistCreateIntent: (
+    containerState: ContainerState,
+    parentContainerId: string,
+  ) => Promise<boolean>;
   rootState: ContainerState | null;
   state: ContainerContentsStoreState;
   syncAgent: ContainerContentsStoreSyncAgent;
-}): Promise<void> {
+}): Promise<boolean> {
   const { containerState, options, rootState, state, syncAgent } = input;
   const parentContainerId = containerState.container.parentId;
   if (
@@ -36,7 +39,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     !parentContainerId ||
     containerState.record.documentId
   ) {
-    return;
+    return true;
   }
 
   if (
@@ -44,7 +47,7 @@ export async function promoteExistingLocalSystemContainerSync(input: {
     rootState &&
     hasAdvancedManagedPrincipalReference(rootState)
   ) {
-    return;
+    return true;
   }
 
   const execSql = state.runtime.infra.execSql;
@@ -58,17 +61,17 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   const shouldQueueCreateIntent = !hasPendingCreateIntent;
   const shouldQueueMetadataUpdate = pendingUpdates.length === 0;
   if (!shouldQueueCreateIntent && !shouldQueueMetadataUpdate) {
-    return;
+    return true;
   }
 
   if (shouldQueueCreateIntent) {
-    containerState.container = await state.persistence.saveContainer(
-      execSql,
-      containerState.container,
-      containerState.record,
-      { createIntent: { parentContainerId } },
+    const persisted = await input.persistCreateIntent(
+      containerState,
+      parentContainerId,
     );
-    updateContainerContentsSnapshot(state);
+    if (!persisted) {
+      return false;
+    }
   }
 
   if (shouldQueueMetadataUpdate) {
@@ -82,4 +85,5 @@ export async function promoteExistingLocalSystemContainerSync(input: {
   state.runtime.util.log(
     `${input.logLabel}: queued system container "${containerState.container.systemSlot ?? containerState.container.id}" for remote sync`,
   );
+  return true;
 }

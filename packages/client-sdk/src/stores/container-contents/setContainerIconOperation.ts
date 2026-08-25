@@ -1,5 +1,9 @@
-import { setContainerIconMetadataStateFromRuntime } from "../../workflows/container-contents/metadata";
+import {
+  installContainerMetadataRecord,
+  setContainerIconMetadataStateFromRuntime,
+} from "../../workflows/container-contents/metadata";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
+import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
@@ -35,9 +39,13 @@ export async function setContainerIcon(
     persistence: state.persistence,
     runtime: state.runtime,
   });
+  if (!updated) {
+    removeMissingContainerState(state, existingState);
+    return null;
+  }
 
   existingState.container = updated.container;
-  existingState.record = updated.record;
+  installContainerMetadataRecord(existingState, updated.record);
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
   state.runtime.util.log(

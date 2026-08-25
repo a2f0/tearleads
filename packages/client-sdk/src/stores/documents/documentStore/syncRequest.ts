@@ -14,6 +14,7 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -60,6 +61,7 @@ export async function deleteUpstreamDeletedDocument(
       canStartDurableMutation: canDeleteCapturedDocument,
       documentProjectors: state.runtime.infra.documentProjectors,
       execSql: generation.execSql,
+      expectedRecord: requestRecord,
       localId: requestRecord.id,
       // Invalidate the store generation INSIDE the deletion mutation: a
       // terminal failure handler queued behind it then observes the stale
@@ -84,7 +86,24 @@ export async function deleteUpstreamDeletedDocument(
   });
 }
 
-export async function requestRemoteDocumentSync(input: {
+function createDocumentSyncAttempt(input: {
+  currentRecord: DocumentRecord;
+  outgoingUpdateCount: number;
+  requestedPullContinuation: DocumentStoreState["pullContinuation"];
+  synced: DocumentSyncAttempt["synced"];
+}): DocumentSyncAttempt {
+  return {
+    consumedPullContinuation:
+      input.synced.plan.request.pullCursor === undefined
+        ? null
+        : input.requestedPullContinuation,
+    outgoingUpdateCount: input.outgoingUpdateCount,
+    requestRecord: input.currentRecord,
+    synced: input.synced,
+  };
+}
+
+interface RequestRemoteDocumentSyncInput {
   currentDoc: DocumentState;
   currentRecord: DocumentRecord;
   encapsulationKeyPair: EncapsulationKeyPair;
@@ -96,35 +115,43 @@ export async function requestRemoteDocumentSync(input: {
   queuedUpdateCount?: number | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
-}): Promise<DocumentSyncAttempt | null> {
-  const {
-    currentDoc,
-    currentRecord,
-    encapsulationKeyPair,
-    generation,
-    pendingUpdates,
-    state,
-    unavailableWriterLogMessage,
-  } = input;
-  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
+}
 
-  const runtime = state.runtime;
-  if (!currentRecord.documentId) return null;
-
-  const author = resolveDocumentCreateAuthor(runtime);
-  if (!author) {
-    runtime.util.log(unavailableWriterLogMessage);
-    return null;
+async function clearSuccessfulDocumentSyncFailure(input: {
+  generation: DocumentStoreSyncGeneration;
+  outgoingUpdateCount: number;
+  state: DocumentStoreState;
+  synced: DocumentSyncAttempt["synced"];
+}): Promise<boolean> {
+  if (
+    shouldClearDocumentSyncFailureAfterPass(
+      input.synced,
+      input.outgoingUpdateCount,
+    )
+  ) {
+    await clearDocumentSyncFailure(input.state.runtime.infra.execSql, {
+      appKind: DOCUMENTS_APP_KIND,
+      localId: input.state.localId,
+    });
   }
+  return isDocumentStoreSyncGenerationCurrent(input.state, input.generation);
+}
 
-  const synced = await syncRemoteDocument({
+function runRemoteDocumentSync(
+  input: RequestRemoteDocumentSyncInput,
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
+  documentId: string,
+  requestedPullContinuation: DocumentStoreState["pullContinuation"],
+) {
+  const { currentDoc, currentRecord, generation, pendingUpdates, state } =
+    input;
+  const runtime = state.runtime;
+  return syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
-    // Heals a stale content-key bundle (e.g. after a revoke rotated a linked
-    // container's KEK) by rotating to a fresh content key anchored by this
-    // full-history snapshot.
+    // Heal a stale content-key bundle from this full-history snapshot.
     buildRotationSnapshot: async () => exportFullHistorySnapshot(currentDoc),
-    documentId: currentRecord.documentId,
+    documentId,
     execSql: runtime.infra.execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector: encodeVersionVector(currentDoc),
@@ -142,18 +169,20 @@ export async function requestRemoteDocumentSync(input: {
       generation,
     ),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
-    onPullContinuationInvalidated: () => {
-      if (isDocumentStoreSyncGenerationCurrent(state, generation)) {
-        state.pullContinuation = null;
-      }
-    },
+    onPullContinuationInvalidated: (continuation) =>
+      invalidateDocumentStorePullContinuation({
+        continuation,
+        currentRecord,
+        generation,
+        state,
+      }),
     onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
       state,
       generation,
     ),
     pendingUpdates,
     persistedState: currentRecord,
-    pullContinuation: state.pullContinuation ?? undefined,
+    pullContinuation: requestedPullContinuation ?? undefined,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -161,7 +190,7 @@ export async function requestRemoteDocumentSync(input: {
       runtime,
       writerKeyLabel: "writer key",
     }),
-    targetSecretKey: encapsulationKeyPair.secretKey,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),
     writerProjection:
@@ -169,20 +198,55 @@ export async function requestRemoteDocumentSync(input: {
         ? state.writerProjection
         : undefined,
   });
+}
+
+export async function requestRemoteDocumentSync(
+  input: RequestRemoteDocumentSyncInput,
+): Promise<DocumentSyncAttempt | null> {
+  const {
+    currentRecord,
+    generation,
+    pendingUpdates,
+    state,
+    unavailableWriterLogMessage,
+  } = input;
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
+
+  const runtime = state.runtime;
+  if (!currentRecord.documentId) return null;
+
+  const requestedPullContinuation = state.pullContinuation;
+
+  const author = resolveDocumentCreateAuthor(runtime);
+  if (!author) {
+    runtime.util.log(unavailableWriterLogMessage);
+    return null;
+  }
+
+  const synced = await runRemoteDocumentSync(
+    input,
+    author,
+    currentRecord.documentId,
+    requestedPullContinuation,
+  );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;
 
   const outgoingUpdateCount = input.queuedUpdateCount ?? pendingUpdates.length;
-  if (shouldClearDocumentSyncFailureAfterPass(synced, outgoingUpdateCount)) {
-    await clearDocumentSyncFailure(runtime.infra.execSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: state.localId,
-    });
-    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
-  }
+  if (
+    !(await clearSuccessfulDocumentSyncFailure({
+      generation,
+      outgoingUpdateCount,
+      state,
+      synced,
+    }))
+  )
+    return null;
 
-  return {
+  return createDocumentSyncAttempt({
+    currentRecord,
     outgoingUpdateCount,
+    requestedPullContinuation,
     synced,
-  };
+  });
 }

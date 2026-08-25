@@ -55,7 +55,7 @@ test("rotation persists bounded pull progress but waits for full history", async
           return {
             ...response,
             acceptedOutgoingUpdateIds: [],
-            pullPage: { hasMore: true, nextCursor: "rotation-page-3" },
+            pullPage: { hasMore: false, nextCursor: null },
             updates: [],
           };
         }
@@ -83,7 +83,7 @@ test("rotation persists bounded pull progress but waits for full history", async
     expect(state.pullContinuation).toEqual({
       commitLsn: "0/16B6C50",
       commitLsnMode: "tracked",
-      cursor: "rotation-page-3",
+      cursor: "rotation-page-2",
     });
     expect(requestedSyncCount).toBe(1);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key rotation");
@@ -99,6 +99,31 @@ test("rotation persists bounded pull progress but waits for full history", async
       true,
     );
     expect(reloaded.doc && getTextValue(reloaded.doc)).toBe(
+      "survives key rotation",
+    );
+    expect(reloaded.pullContinuation).toEqual({
+      commitLsn: "0/16B6C50",
+      commitLsnMode: "tracked",
+      cursor: "rotation-page-2",
+    });
+
+    await expect(
+      assertDocumentStoreCanRotateContentKey(reloaded),
+    ).resolves.toBeInstanceOf(Uint8Array);
+    expect(reloaded.pullContinuation).toBeNull();
+
+    const afterDrainRestart = createDocumentStoreState(
+      localId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(
+      await ensureDocumentStoreReady(afterDrainRestart, () => undefined),
+    ).toBe(true);
+    expect(afterDrainRestart.pullContinuation).toBeNull();
+    expect(afterDrainRestart.doc && getTextValue(afterDrainRestart.doc)).toBe(
       "survives key rotation",
     );
   } finally {
@@ -153,6 +178,67 @@ test("a bounded rotation preflight re-arms its unsent queue tail", async () => {
     await assertDocumentStoreCanRotateContentKey(state);
 
     expect(await listPendingUpdates(state)).toHaveLength(1);
+    expect(requestedSyncCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("rotation aborts when another pane supersedes its durable pull settlement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-superseded-settlement",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-recovery-superseded-settlement-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const durableContinuation = {
+      commitLsn: "0/20",
+      commitLsnMode: "tracked" as const,
+      cursor: "other-pane-page-2",
+    };
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      responseForRequest: async (_request, response) => {
+        const durableRecord = await sqlDocumentsPersistence.loadDocument(
+          execSql,
+          localId,
+        );
+        if (!durableRecord) throw new Error("Expected durable document");
+        await sqlDocumentsPersistence.saveDocument(execSql, {
+          ...durableRecord,
+          lastCommitLsn: durableContinuation.commitLsn,
+          pullContinuation: durableContinuation,
+        });
+        return response;
+      },
+    });
+    const state = createDocumentStoreState(
+      localId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    let requestedSyncCount = 0;
+    state.syncLane = {
+      requestSync: () => {
+        requestedSyncCount += 1;
+      },
+    } as NonNullable<typeof state.syncLane>;
+
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "persisted a partial pull",
+    );
+    expect(state.pullContinuation).toEqual(durableContinuation);
     expect(requestedSyncCount).toBe(1);
   } finally {
     close();

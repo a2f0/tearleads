@@ -94,7 +94,11 @@ without counting as lane progress, so it cannot hot-loop the pump.
   that advance no container timestamp — group re-adds, policy changes —
   relist the container on the next lane pull. `deleted` tombstones are never
   pruned, and rows for containers the user did not regain survive for
-  clients that have not yet synced the loss.
+  clients that have not yet synced the loss. The client also records each
+  removal's own reason and timestamp as a durable hydration fence: a permanent
+  deletion rejects an equal-or-older fetched item, while an access-revoked
+  fence permits the unchanged item to re-attach after access returns. An
+  unrelated later tombstone in the same page cannot poison that comparison.
 - Resolved: dormant retained metadata records organization attribution before
   the revocation cascade removes the container row. A genuine denied→restored
   access edge requests sweeps for every organization present in the user's

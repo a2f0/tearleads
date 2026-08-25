@@ -89,8 +89,8 @@ test("restoration sweep purges only unmatched metadata in its organization", asy
     ]) {
       await defaultContainerContentsPersistence.deleteContainers(
         execSql,
-        [containerId],
-        { retainMetadataForContainerIds: [containerId], updatedAt: T1 },
+        [{ containerId, reason: "access_revoked", updatedAt: T1 }],
+        { retainMetadataForContainerIds: [containerId] },
       );
     }
 

@@ -7,7 +7,7 @@ import type { DocumentSyncApi, DocumentSyncPlan } from "./types";
 const DOCUMENT_ID = "document-pagination-validation";
 
 function page(input: {
-  readonly commitLsn: string;
+  readonly commitLsn: string | null;
   readonly cursor?: string | null | undefined;
   readonly updateId?: string | undefined;
 }): DocumentSyncResponse {
@@ -86,37 +86,33 @@ function apiWithResults(
   };
 }
 
-test("an empty page followed by failure does not success-loop", async () => {
+test("an empty page can durably advance its continuation cursor", async () => {
   const failure = {
     message: "offline",
     ok: false as const,
     report: () => undefined,
     status: null,
   };
+  const results = [
+    { data: page({ commitLsn: "0/2", cursor: "cursor-2" }), ok: true as const },
+    failure,
+  ];
   const result = await submitDocumentSync({
-    apiClient: apiWithResults([
-      { data: page({ commitLsn: "0/2", cursor: "cursor-2" }), ok: true },
-      failure,
-    ]),
+    apiClient: apiWithResults(results),
     plan: plan(),
   });
 
-  expect(result).toBe(failure);
+  expect(result?.ok).toBe(true);
+  if (!result?.ok) throw new Error("Expected durable cursor progress");
+  expect(result.pullComplete).toBe(false);
+  expect(results).toHaveLength(1);
 });
 
-test("a continuation without pull metadata is rejected", async () => {
+test("a page without pull metadata is rejected", async () => {
   const submitted = submitDocumentSync({
     apiClient: apiWithResults([
       {
-        data: page({
-          commitLsn: "0/2",
-          cursor: "cursor-2",
-          updateId: "update-1",
-        }),
-        ok: true,
-      },
-      {
-        data: page({ commitLsn: "0/3", updateId: "update-2" }),
+        data: page({ commitLsn: "0/2", updateId: "update-1" }),
         ok: true,
       },
     ]),
@@ -128,17 +124,32 @@ test("a continuation without pull metadata is rejected", async () => {
   );
 });
 
-test("a continuation cannot regress its tracked commit checkpoint", async () => {
-  const submitted = submitDocumentSync({
+test("a terminal unconstrained page may omit its commit checkpoint", async () => {
+  const terminalPlan = plan();
+  const { minLsn: _minLsn, ...request } = terminalPlan.request;
+  terminalPlan.request = request;
+  const result = await submitDocumentSync({
     apiClient: apiWithResults([
       {
-        data: page({
-          commitLsn: "0/3",
-          cursor: "cursor-2",
-          updateId: "update-1",
-        }),
+        data: page({ commitLsn: null, cursor: null }),
         ok: true,
       },
+    ]),
+    plan: terminalPlan,
+  });
+
+  expect(result).toMatchObject({ ok: true, pullComplete: true });
+});
+
+test("a resumed page cannot regress its tracked commit checkpoint", async () => {
+  const resumedPlan = plan();
+  resumedPlan.request = {
+    ...resumedPlan.request,
+    minLsn: "0/3",
+    pullCursor: "cursor-2",
+  };
+  const submitted = submitDocumentSync({
+    apiClient: apiWithResults([
       {
         data: page({
           commitLsn: "0/2",
@@ -148,7 +159,8 @@ test("a continuation cannot regress its tracked commit checkpoint", async () => 
         ok: true,
       },
     ]),
-    plan: plan(),
+    expectedCommitLsnMode: "tracked",
+    plan: resumedPlan,
   });
 
   await expect(submitted).rejects.toThrow(
@@ -156,7 +168,53 @@ test("a continuation cannot regress its tracked commit checkpoint", async () => 
   );
 });
 
-test("the aggregate update cap stops before another continuation", async () => {
+test("a first tracked page rejects a malformed checkpoint", async () => {
+  const firstPagePlan = plan();
+  const { minLsn: _minLsn, ...firstRequest } = firstPagePlan.request;
+  firstPagePlan.request = firstRequest;
+  const submitted = submitDocumentSync({
+    apiClient: apiWithResults([
+      {
+        data: page({
+          commitLsn: "not-an-lsn",
+          cursor: "cursor-2",
+          updateId: "update-1",
+        }),
+        ok: true,
+      },
+    ]),
+    plan: firstPagePlan,
+  });
+
+  await expect(submitted).rejects.toThrow(
+    "Document sync continuation commit LSN is invalid",
+  );
+});
+
+test("a resumed page cannot return the cursor it consumed", async () => {
+  const resumedPlan = plan();
+  resumedPlan.request = {
+    ...resumedPlan.request,
+    minLsn: "0/2",
+    pullCursor: "cursor-2",
+  };
+  const submitted = submitDocumentSync({
+    apiClient: apiWithResults([
+      {
+        data: page({ commitLsn: "0/3", cursor: "cursor-2" }),
+        ok: true,
+      },
+    ]),
+    expectedCommitLsnMode: "tracked",
+    plan: resumedPlan,
+  });
+
+  await expect(submitted).rejects.toThrow(
+    "Document sync continuation cursor did not advance",
+  );
+});
+
+test("one bounded page is returned before another continuation", async () => {
   const fullPage = {
     ...page({ commitLsn: "0/2", cursor: "cursor-2" }),
     updates: Array.from({ length: 64 }, (_, index) => ({

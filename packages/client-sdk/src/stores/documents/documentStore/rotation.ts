@@ -5,7 +5,6 @@ import {
   importUpdates,
   versionVectorsEqual,
 } from "@symcrypt/loro";
-import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import {
   createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,
@@ -14,11 +13,13 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { importPendingUpdates, installRebuiltDocument } from "./historyRebuild";
+import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import {
   enqueuePendingUpdate,
   listPendingUpdates,
   pendingDeltaSinceBase,
 } from "./persistence";
+import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import type { DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
@@ -30,7 +31,6 @@ import {
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
-  isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
@@ -70,6 +70,7 @@ async function pullVerifiedHistoryForRotation(input: {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
   const sentUpdateIds: string[] = [];
+  const requestedPullContinuation = input.state.pullContinuation;
 
   let abandonReason: string | null = null;
   const synced = await cleanupPreRegisteredUpdateIdsOnFailure(
@@ -102,13 +103,13 @@ async function pullVerifiedHistoryForRotation(input: {
             sentUpdateIds,
             updateIds,
           ),
-        onPullContinuationInvalidated: () => {
-          if (
-            isDocumentStoreSyncGenerationCurrent(input.state, input.generation)
-          ) {
-            input.state.pullContinuation = null;
-          }
-        },
+        onPullContinuationInvalidated: (continuation) =>
+          invalidateDocumentStorePullContinuation({
+            continuation,
+            currentRecord: input.currentRecord,
+            generation: input.generation,
+            state: input.state,
+          }),
         onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
           input.state,
           input.generation,
@@ -144,7 +145,13 @@ async function pullVerifiedHistoryForRotation(input: {
     sentUpdateIds,
     synced.response.acceptedOutgoingUpdateIds,
   );
-  return synced;
+  return {
+    consumedPullContinuation:
+      synced.plan.request.pullCursor === undefined
+        ? null
+        : requestedPullContinuation,
+    synced,
+  };
 }
 
 async function recoverFullHistoryForRotation(
@@ -171,19 +178,21 @@ async function recoverFullHistoryForRotation(
   const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
   const pendingUpdates = await listPendingUpdates(state);
   const localFullHistorySnapshot = exportFullHistorySnapshot(currentDoc);
+  let settlementRequiresRetry = false;
 
   // Always perform a verified pull. Another writer may have advanced the
   // remote frontier since our last sync; submitting the clean but stale local
   // snapshot would otherwise fail the atomic coverage check on every retry.
   // The local full history seeds the rebuild, so request only the missing
   // tail beyond the captured version.
-  const synced = await pullVerifiedHistoryForRotation({
-    currentRecord,
-    generation,
-    localVersionVector: capturedVersion,
-    pendingUpdates,
-    state,
-  });
+  const { consumedPullContinuation, synced } =
+    await pullVerifiedHistoryForRotation({
+      currentRecord,
+      generation,
+      localVersionVector: capturedVersion,
+      pendingUpdates,
+      state,
+    });
 
   try {
     // Do not replace or persist over a document that changed while the
@@ -209,22 +218,34 @@ async function recoverFullHistoryForRotation(
       importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
       // `pendingBaseVersion` can intentionally lag a deferred or interrupted
       // local write. Make that uncovered delta durable before advancing it.
-      await enqueuePendingUpdate(state, uncoveredLocalDelta);
+      const enqueued = await enqueuePendingUpdate(
+        state,
+        uncoveredLocalDelta,
+        undefined,
+        generation,
+      );
+      if (!enqueued) {
+        await rebaseDocumentAfterPendingUpdateRefusal(state, generation);
+        throw new Error(
+          "Document identity changed during rotation recovery; retry key rotation",
+        );
+      }
     }
 
-    const fullHistorySnapshot = await installRebuiltDocument({
+    const installed = await installRebuiltDocument({
+      consumedPullContinuation,
       currentRecord,
       rebuiltDoc,
       state,
       synced,
     });
-    state.pullContinuation = readPullContinuation(synced.response);
-    if (synced.hasIncompletePull) {
+    settlementRequiresRetry = installed.settlementRequiresRetry;
+    if (synced.hasIncompletePull || settlementRequiresRetry) {
       throw new Error(
         "Rotation full-history recovery persisted a partial pull; retry after sync completes",
       );
     }
-    return fullHistorySnapshot;
+    return installed.fullHistorySnapshot;
   } finally {
     // Durable progress that left queued work needs a follow-up lane pass; the
     // rotation that follows may abort before syncing again. Terminal recovery
@@ -232,7 +253,7 @@ async function recoverFullHistoryForRotation(
     // Request the follow-up only AFTER the rebuild/install window has closed —
     // scheduling it mid-window deterministically raced the lane's import
     // against the version check above and the rebuilt-document install.
-    if (shouldRequestRotationRecoverySync(synced)) {
+    if (shouldRequestRotationRecoverySync(synced) || settlementRequiresRetry) {
       requestDocumentStoreSync(state);
     }
   }

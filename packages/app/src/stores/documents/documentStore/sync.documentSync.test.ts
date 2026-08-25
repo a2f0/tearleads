@@ -7,12 +7,12 @@ import {
 import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
 import { createLargeText } from "@symcrypt/test-utils";
 import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
+import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import {
-  createDocumentsPersistence,
   isPendingUpdateDetailRow,
   isPendingUpdateLengthRow,
   isProjectionLengthRow,
-} from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
+} from "../../../../test/helpers/document-store/documentStoreSyncRows";
 import {
   createRuntime,
   createSqlRuntime,

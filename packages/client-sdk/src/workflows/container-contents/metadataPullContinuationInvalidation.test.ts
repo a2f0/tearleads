@@ -1,0 +1,168 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { exportAllUpdates } from "@symcrypt/loro";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
+import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  createContainerRecord,
+  createDocumentRecord,
+} from "./metadata.testFixtures";
+import { invalidateContainerMetadataPullContinuation } from "./metadataPullContinuationInvalidation";
+
+test("metadata cursor rejection is durable and cannot clear newer progress", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "metadata-pull-continuation-invalidation",
+  );
+  const container = createContainerRecord({
+    id: "container-1",
+    metadataDocumentId: "metadata-document-1",
+    parentId: null,
+  });
+  const rejectedContinuation = {
+    commitLsn: "0/2",
+    commitLsnMode: "tracked" as const,
+    cursor: "metadata-page-2",
+  };
+  const record = createDocumentRecord({
+    documentId: "metadata-document-1",
+    id: container.id,
+    pullContinuation: rejectedContinuation,
+  });
+  const metadataState = {
+    container,
+    doc: await createContainerMetadataDocument(container.id),
+    pullContinuation: rejectedContinuation,
+    record,
+  };
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      record,
+    );
+    await invalidateContainerMetadataPullContinuation({
+      continuation: rejectedContinuation,
+      metadataState,
+      persistence: sqlContainerContentsPersistence,
+      runtime: { infra: { execSql } },
+    });
+    expect(metadataState.pullContinuation).toBeNull();
+    const invalidated =
+      await sqlContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        container.id,
+      );
+    expect(invalidated?.pullContinuation).toBeUndefined();
+    expect(invalidated?.pullContinuationRecoveryRequired).toBe(true);
+    expect(metadataState.record.pullContinuationRecoveryRequired).toBe(true);
+
+    const advancedContinuation = {
+      commitLsn: "0/3",
+      commitLsnMode: "tracked" as const,
+      cursor: "metadata-page-3",
+    };
+    const advancedDoc = await createContainerMetadataDocument(container.id);
+    writeContainerMetadataValue(advancedDoc, {
+      icon: "cloud",
+      name: "Advanced page",
+    });
+    await sqlContainerContentsPersistence.saveContainer(execSql, container, {
+      ...record,
+      metadataUpdates: bytesToBase64(exportAllUpdates(advancedDoc)),
+      pullContinuation: advancedContinuation,
+    });
+    metadataState.pullContinuation = rejectedContinuation;
+    await invalidateContainerMetadataPullContinuation({
+      continuation: rejectedContinuation,
+      metadataState,
+      persistence: sqlContainerContentsPersistence,
+      runtime: { infra: { execSql } },
+    });
+    expect(
+      (
+        await sqlContainerContentsPersistence.loadContainerMetadataRecord(
+          execSql,
+          container.id,
+        )
+      )?.pullContinuation,
+    ).toEqual(advancedContinuation);
+    expect(metadataState.pullContinuation).toEqual(advancedContinuation);
+    expect(metadataState.record.pullContinuation).toEqual(advancedContinuation);
+    expect(readContainerMetadataValue(metadataState.doc, "/")).toEqual({
+      icon: "cloud",
+      name: "Advanced page",
+    });
+  } finally {
+    close();
+  }
+});
+
+test("malformed metadata progress survives restart until a page-one settlement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "metadata-pull-continuation-malformed-restart",
+  );
+  const container = createContainerRecord({
+    id: "container-1",
+    metadataDocumentId: "metadata-document-1",
+    parentId: null,
+  });
+  const record = createDocumentRecord({
+    contentKeyBundle: "content-key",
+    documentId: "metadata-document-1",
+    documentKekTargets: "targets",
+    documentManifestBundle: "manifest",
+    id: container.id,
+    lastCommitLsn: "0/2",
+  });
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      record,
+    );
+    await execSql(
+      "UPDATE documents SET pull_continuation = :cursor WHERE app_kind = 'container-metadata' AND local_id = :localId",
+      { ":cursor": "not-json", ":localId": container.id },
+    );
+
+    const restarted =
+      await sqlContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        container.id,
+      );
+    expect(restarted?.pullContinuationRecoveryRequired).toBe(true);
+    if (!restarted) throw new Error("Expected restarted metadata state");
+
+    await sqlContainerContentsPersistence.saveContainer(execSql, container, {
+      ...restarted,
+      lastCommitLsn: "0/2",
+    });
+    expect(
+      await execSql(
+        "SELECT pull_continuation FROM documents WHERE app_kind = 'container-metadata' AND local_id = :localId",
+        { ":localId": container.id },
+      ),
+    ).toEqual([{ pull_continuation: "not-json" }]);
+
+    await sqlContainerContentsPersistence.saveContainer(execSql, container, {
+      ...restarted,
+      pullContinuation: null,
+    });
+    expect(
+      await execSql(
+        "SELECT pull_continuation FROM documents WHERE app_kind = 'container-metadata' AND local_id = :localId",
+        { ":localId": container.id },
+      ),
+    ).toEqual([{ pull_continuation: null }]);
+  } finally {
+    close();
+  }
+});

@@ -96,17 +96,19 @@ must retain the first page's key identity and commit-LSN mode, and its tracked
 checkpoint must satisfy the prior page's `commitLsn`.
 
 One response page contains at most 64 updates and 128 MiB including its key
-envelope. Until durable cursor resumption is available, the SDK aggregates at
-most two pages (and at most 64 updates) per submission, persists any verified
-progress, retains the next cursor in the live document or metadata state, and
-schedules another bounded pull when more remain. This live cursor prevents an
-oversized local version vector from restarting at page one; PR3 persists it
-across process restarts. Queued writes wait until the frozen read snapshot is
-drained. A key-identity conflict invalidates the cursor and retries from a fresh
-snapshot. Rotation recovery persists verified partial pages but cannot rotate
-until the pull finishes. An incomplete pull with no accepted write or returned
-update is a failure, not success-path progress, so an unavailable continuation
-cannot create a busy loop.
+envelope. The SDK settles exactly one page per submission before requesting the
+next. Built-in document and container-metadata stores persist a versioned
+continuation in the shared local `documents` row; pulled document history is
+durable before that row advances, while metadata content and its continuation
+commit together. A process restart therefore replays, at worst, the prior page
+and resumes the same frozen snapshot instead of restarting at page one. The
+terminal page clears the continuation durably. Queued writes wait until that
+snapshot drains, and local writes made meanwhile preserve its progress. A
+document/key identity change or rejected cursor invalidates the progress and
+restarts from a fresh bounded snapshot. Rotation recovery persists partial
+pages but cannot rotate until the pull finishes. A cursor-only empty page still
+makes bounded durable progress; a failed request advances nothing and relies on
+the normal sync scheduler/backoff rather than creating a busy loop.
 
 Tracked checkpoints are durable backend positions and must satisfy a requested
 `minLsn`. A client advertises `supportsUntrackedCommitLsn: true` to accept an

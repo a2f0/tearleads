@@ -7,6 +7,7 @@ import {
 import type { LocalAttachmentRecord } from "../../../workflows/documents";
 import { reconcileLocalAttachmentDetachState } from "./attachmentDetachState";
 import { saveLocalAttachmentRecord } from "./attachmentPersistence";
+import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -72,7 +73,26 @@ export async function recoverDroppedAttachmentSlots(
   // local-edits discard) racing this recovery cannot see it re-enqueue or
   // re-persist the state the teardown just removed.
   if (update.byteLength > 0) {
-    await enqueuePendingUpdate(state, update, undefined, writeGeneration);
+    const enqueued = await enqueuePendingUpdate(
+      state,
+      update,
+      undefined,
+      writeGeneration,
+    );
+    if (!enqueued) {
+      const rebased = await rebaseDocumentAfterPendingUpdateRefusal(
+        state,
+        writeGeneration,
+      );
+      if (rebased) {
+        // Initialization captured the losing identity and must restart from
+        // the winner, including its attachment rows and detach markers.
+        throw new Error(
+          "Document identity changed during attachment recovery; retry initialization",
+        );
+      }
+      return;
+    }
   }
   // Derive the snapshot from the loaded doc (do NOT preserve the snapshot). This
   // runs during init, before the store is ready, so state.snapshot is still the
@@ -88,7 +108,11 @@ export async function recoverDroppedAttachmentSlots(
     {},
     writeGeneration,
   );
-  if (!persisted) {
+  if (
+    !persisted ||
+    persisted.pullContinuationSuperseded ||
+    persisted.syncIdentitySuperseded
+  ) {
     return;
   }
   advancePendingBaseVersion(state, doc);

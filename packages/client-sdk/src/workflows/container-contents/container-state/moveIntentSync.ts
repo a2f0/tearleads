@@ -1,6 +1,7 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import { installContainerMetadataRecord } from "../metadataPersistence";
 import type { RemoteContainer } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { moveRemoteContainer } from "./remote";
@@ -62,16 +63,16 @@ async function resolveMoveIntentLocalUpdatedAt(input: {
     : input.remoteUpdatedAt;
 }
 
-async function persistAcceptedMoveIntent(input: {
+export async function persistAcceptedMoveIntent(input: {
   host: ContainerMoveIntentSyncHost;
   intent: ContainerMoveIntentSyncInput["intent"];
   moved: RemoteContainer;
   state: ContainerMoveIntentSyncState;
-}): Promise<void> {
+}): Promise<boolean> {
   const { host, intent, moved, state } = input;
   const containerState = state.containersById.get(intent.containerId);
   if (!containerState) {
-    return;
+    return false;
   }
 
   await createRuntimePrincipalPolicyWarmer(state.runtime)({
@@ -90,7 +91,7 @@ async function persistAcceptedMoveIntent(input: {
     serverUpdatedAt: moved.updatedAt,
     updatedAt: moved.updatedAt,
   };
-  containerState.record = await host.persistContainerState(
+  const persistenceResult = await host.persistContainerState(
     containerState,
     {
       accessEpoch: moved.metadataAccessEpoch,
@@ -110,6 +111,9 @@ async function persistAcceptedMoveIntent(input: {
       },
     },
   );
+  if (persistenceResult.status !== "persisted") return false;
+  const { record: nextRecord } = persistenceResult;
+  installContainerMetadataRecord(containerState, nextRecord);
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: moved.metadataDocumentId,
@@ -121,6 +125,7 @@ async function persistAcceptedMoveIntent(input: {
     expectedUpdatedAt: intent.updatedAt,
     state,
   });
+  return true;
 }
 
 async function trySyncPendingContainerMoveIntent(
@@ -192,12 +197,15 @@ async function trySyncPendingContainerMoveIntent(
       return "failed";
     }
 
-    await persistAcceptedMoveIntent({
+    const persisted = await persistAcceptedMoveIntent({
       host,
       intent,
       moved,
       state,
     });
+    if (!persisted) {
+      return "failed";
+    }
     state.runtime.util.log(
       `Container contents: synced queued container move ${intent.containerId}`,
     );

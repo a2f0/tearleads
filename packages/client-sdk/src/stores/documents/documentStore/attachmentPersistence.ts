@@ -1,4 +1,3 @@
-import type { DocumentAttachment } from "../../../data/documents/documentContent";
 import {
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
@@ -179,26 +178,4 @@ export async function savePendingAttachmentUpload(
       persistence: state.persistence,
     }),
   );
-}
-
-export async function queuePendingAttachmentUpload(
-  state: DocumentStoreState,
-  attachment: DocumentAttachment,
-  storageKey: string,
-): Promise<PendingAttachmentRecord> {
-  const pendingAttachment: PendingAttachmentRecord = {
-    byteLength: attachment.byteLength,
-    localId: state.localId,
-    mimeType: attachment.mimeType,
-    name: attachment.name,
-    slotId: attachment.slotId,
-    storageKey,
-  };
-  await savePendingDocumentAttachment({
-    attachment: pendingAttachment,
-    execSql: state.runtime.infra.execSql,
-    persistence: state.persistence,
-  });
-  upsertPendingAttachments(state, [pendingAttachment]);
-  return pendingAttachment;
 }

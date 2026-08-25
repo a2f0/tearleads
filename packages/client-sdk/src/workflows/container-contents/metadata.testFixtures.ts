@@ -22,6 +22,58 @@ export interface SaveContainerCall {
   record: ContainerDocumentRecord | null;
 }
 
+const metadataTestPersistenceStubs = {
+  async claimDormantMetadataSweepAttempt() {
+    return false;
+  },
+  async completeDormantMetadataSweepRequest() {},
+  async containerExists() {
+    return false;
+  },
+  async deleteContainer() {},
+  async deleteContainers() {
+    return [];
+  },
+  async deletePendingUpdate() {},
+  async deletePendingUpdates() {},
+  async ensureSchema() {},
+  async listContainerIdsWithPendingUpdates() {
+    return [];
+  },
+  async listContainerIdsWithPullContinuations() {
+    return [];
+  },
+  async listDormantMetadataSweepCandidates() {
+    return [];
+  },
+  async listDormantMetadataSweepRequests() {
+    return [];
+  },
+  async listPendingCreateIntents() {
+    return [];
+  },
+  async listPendingUpdates() {
+    return [];
+  },
+  async listUnsyncedMoveIntents() {
+    return [];
+  },
+  async markCreateIntentSynced() {},
+  async markMoveIntentSynced() {},
+  async purgeDormantContainerMetadata() {},
+  async purgeDormantContainerMetadataCandidates() {
+    return 0;
+  },
+  async recordCreateIntentError() {},
+  async recordMoveIntentError() {},
+  async reassignContainerDocuments() {},
+  async reconcileLocalRootContainer() {},
+  async reconcileLocalSystemContainer() {},
+  async rekeyPendingUpdate() {
+    return null;
+  },
+} satisfies Partial<ContainerContentsPersistence>;
+
 export function createContainerRecord(
   input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
 ): ContainerRecord {
@@ -61,61 +113,63 @@ export function createContainerContentsPersistence(input: {
   storedContainers?: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
-    async claimDormantMetadataSweepAttempt() {
-      return false;
+    ...metadataTestPersistenceStubs,
+    async loadContainerHydrationTombstones() {
+      return [];
     },
-    async completeDormantMetadataSweepRequest() {},
-    async containerExists() {
-      return false;
+    async commitHydratedContainer(_execSql, { container }) {
+      return { committed: true, container };
     },
-    async deleteContainer() {},
-    async deleteContainers() {},
-    async deletePendingUpdates() {},
-    async ensureSchema() {},
+    async commitMetadataMutation(
+      receivedExecSql,
+      { container, pendingUpdate, record, saveOptions },
+    ) {
+      if (pendingUpdate) {
+        input.pendingUpdates?.push({
+          execSql: receivedExecSql,
+          input: { containerId: container.id, ...pendingUpdate },
+        });
+      }
+      const call: SaveContainerCall = {
+        container,
+        execSql: receivedExecSql,
+        record,
+      };
+      if (saveOptions) call.options = saveOptions;
+      input.savedContainers?.push(call);
+      return { committed: true, container };
+    },
     async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {
       input.pendingUpdates?.push({
         execSql: receivedExecSql,
         input: pendingUpdate,
       });
+      return crypto.randomUUID();
     },
-    async listPendingCreateIntents() {
-      return [];
+    async loadContainerMetadataRecord(_execSql, containerId) {
+      return (
+        input.storedContainers?.find(
+          ({ container }) => container.id === containerId,
+        )?.record ?? null
+      );
     },
-    async listUnsyncedMoveIntents() {
-      return [];
+    async invalidateMetadataPullContinuation(_execSql, invalidation) {
+      return (
+        input.storedContainers?.find(
+          ({ container }) => container.id === invalidation.containerId,
+        )?.record ?? null
+      );
     },
-    async listContainerIdsWithPendingUpdates() {
-      return [];
-    },
-    async loadContainerMetadataRecord() {
-      return null;
-    },
-    async purgeDormantContainerMetadata() {},
-    async listDormantMetadataSweepCandidates() {
-      return [];
-    },
-    async purgeDormantContainerMetadataCandidates() {
-      return 0;
-    },
-    async rekeyPendingUpdate() {
-      return null;
-    },
-    async listPendingUpdates() {
-      return [];
-    },
-    async listDormantMetadataSweepRequests() {
-      return [];
+    async loadContainerMetadataState(_execSql, containerId) {
+      return (
+        input.storedContainers?.find(
+          ({ container }) => container.id === containerId,
+        ) ?? null
+      );
     },
     async loadContainers() {
       return input.storedContainers ?? [];
     },
-    async markCreateIntentSynced() {},
-    async markMoveIntentSynced() {},
-    async recordCreateIntentError() {},
-    async recordMoveIntentError() {},
-    async reassignContainerDocuments() {},
-    async reconcileLocalRootContainer() {},
-    async reconcileLocalSystemContainer() {},
     async saveContainer(receivedExecSql, container, record, options) {
       const call: SaveContainerCall = {
         container,
@@ -130,6 +184,13 @@ export function createContainerContentsPersistence(input: {
     },
     async saveContainerAndDeletePendingUpdates(_execSql, container) {
       return container;
+    },
+    async settleAcceptedMetadataPendingUpdates(_execSql, settlement) {
+      return (
+        input.storedContainers?.find(
+          ({ container }) => container.id === settlement.containerId,
+        ) ?? null
+      );
     },
   };
 }

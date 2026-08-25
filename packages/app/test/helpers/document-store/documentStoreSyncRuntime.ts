@@ -34,7 +34,7 @@ import {
   type DocumentsRuntimeInput,
   type DocumentsTestRuntime,
 } from "./documentStoreSyncFixtures";
-import { readRowValue } from "./documentStoreSyncPersistence";
+import { readRowValue } from "./documentStoreSyncRows";
 
 export async function documentWorkflowRuntimePatch(input: {
   attachmentBinds?: Array<{

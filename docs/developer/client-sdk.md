@@ -109,8 +109,8 @@ stores share a sync and subscription boundary. Product app code should use:
 `symcrypt.deviceFirst.open().containerStore`, and
 `symcrypt.containerContents.documentQueries()`. For orphan recovery, queries
 accept a null container plus the active organization; use the indexed
-`hasOrphanedDocuments(...)` visibility probe. Import internals only when
-developing the SDK or a custom host.
+`hasOrphanedDocuments(...)` visibility probe. Import internals only for SDK
+development or [custom persistence](./custom-document-persistence.md).
 
 Document stores initialize automatically before mutating operations such as
 `setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,

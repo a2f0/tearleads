@@ -216,6 +216,11 @@ test("upsertDiscoveredDocument preserves document state for the same remote docu
         documentManifestBundle: JSON.stringify({
           manifestHash: "document-manifest-hash-1",
         }),
+        pullContinuation: {
+          commitLsn: "0/10",
+          commitLsnMode: "tracked",
+          cursor: "stale-page-2",
+        },
       },
       {
         updatedAt: "2026-04-05T00:00:00.000Z",
@@ -246,6 +251,11 @@ test("upsertDiscoveredDocument preserves document state for the same remote docu
       documentManifestBundle: JSON.stringify({
         manifestHash: "document-manifest-hash-1",
       }),
+      pullContinuation: {
+        commitLsn: "0/10",
+        commitLsnMode: "tracked",
+        cursor: "stale-page-2",
+      },
     });
   } finally {
     close();
@@ -277,6 +287,11 @@ test("relinkPersistedDocument clears document state for a different remote docum
       documentManifestBundle: JSON.stringify({
         manifestHash: "document-manifest-hash-1",
       }),
+      pullContinuation: {
+        commitLsn: "0/10",
+        commitLsnMode: "tracked",
+        cursor: "stale-page-2",
+      },
     });
 
     await sqlDocumentsPersistence.relinkPersistedDocument(execSql, {
@@ -301,6 +316,7 @@ test("relinkPersistedDocument clears document state for a different remote docum
     expect(note?.contentKeyBundle).toBeNull();
     expect(note?.documentKekTargets).toBeNull();
     expect(note?.documentManifestBundle).toBeNull();
+    expect(note?.pullContinuation).toBeUndefined();
   } finally {
     close();
   }
@@ -389,6 +405,11 @@ test("relinkPersistedDocument updates the stored container and clears stale bund
         contentKeyBundle: "stale-content-key-bundle",
         documentKekTargets: "stale-kek-targets",
         documentManifestBundle: "stale-manifest-bundle",
+        pullContinuation: {
+          commitLsn: "0/10",
+          commitLsnMode: "tracked",
+          cursor: "stale-page-2",
+        },
       },
       {
         updatedAt: "2026-04-05T02:00:00.000Z",
@@ -431,6 +452,7 @@ test("relinkPersistedDocument updates the stored container and clears stale bund
       ...emptyDocumentState,
     });
     expect(reloadedNote?.accessStateHash ?? null).toBeNull();
+    expect(reloadedNote?.pullContinuation).toBeUndefined();
   } finally {
     close();
   }

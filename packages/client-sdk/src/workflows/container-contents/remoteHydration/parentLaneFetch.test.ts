@@ -30,6 +30,10 @@ function createState(
   listContainerParentLanes: ListContainerParentLanes,
 ): RemoteContainerHydrationState {
   return {
+    containersById: new Map(),
+    persistence: {
+      loadContainerHydrationTombstones: async () => [],
+    },
     runtime: {
       apiClient: { listContainerParentLanes },
       infra: { execSql: unusedExecSql },
@@ -84,13 +88,15 @@ test("fetches four parent lanes once and restores request order", async () => {
     })),
   });
   expect(
-    fetched?.map(({ lane, response, syncLane }) => ({
+    fetched?.map(({ expectedContainerStates, lane, response, syncLane }) => ({
+      expectedContainerStateCount: expectedContainerStates.size,
       parentId: lane.parentId,
       responseWatermarkId: response.nextWatermark?.id,
       syncLane,
     })),
   ).toEqual(
     PARENT_IDS.map((parentId, index) => ({
+      expectedContainerStateCount: 0,
       parentId,
       responseWatermarkId: `response-lane-${index}`,
       syncLane: { kind: "container_parent", parentId },

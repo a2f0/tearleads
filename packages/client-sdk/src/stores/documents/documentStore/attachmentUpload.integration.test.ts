@@ -32,6 +32,7 @@ import { createDocumentStore } from "../documentStore";
 
 function createDocumentSyncResponse(input: {
   readonly commitLsn: string;
+  readonly pullPage?: DocumentSyncResponse["pullPage"];
   readonly request: DocumentSyncRequest;
   readonly storedDocument: DocumentCreateResponse;
 }): DocumentSyncResponse {
@@ -44,7 +45,7 @@ function createDocumentSyncResponse(input: {
     contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
-    pullPage: { hasMore: false, nextCursor: null },
+    pullPage: input.pullPage ?? { hasMore: false, nextCursor: null },
     updates: input.request.outgoingUpdates.map((update) => {
       const writeHeader = readWriteHeader(
         update.writeHeader,
@@ -75,6 +76,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     readonly blobId: string;
     readonly request: BlobAttachmentBindRequest;
   }> = [];
+  const attachmentBindSyncCounts: number[] = [];
   const attachments: BlobAttachmentSummary[] = [];
   const blobs = new Map<
     string,
@@ -89,6 +91,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     readonly outgoingUpdateCount: number;
   }> = [];
   let syncCount = 0;
+  let injectedSettlementRace = false;
   let storedDocument: DocumentCreateResponse | null = null;
   let completedBlob: {
     readonly byteLength: number;
@@ -135,6 +138,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         documentManifest: storedDocument.accessManifest,
         request,
       });
+      attachmentBindSyncCounts.push(syncCount);
       attachmentBinds.push({ blobId, request });
       attachments.push({
         bindingEvent: response.bindingEvent,
@@ -200,8 +204,32 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         outgoingUpdateCount: request.outgoingUpdates.length,
       });
       syncCount += 1;
+      const hasMore = syncCount <= 2;
+      if (syncCount === 3 && !injectedSettlementRace) {
+        const durableRecord = await defaultDocumentsPersistence.loadDocument(
+          execSql,
+          "attachment-upload",
+        );
+        if (!durableRecord) {
+          throw new Error("Expected durable attachment document");
+        }
+        injectedSettlementRace = true;
+        await defaultDocumentsPersistence.saveDocument(execSql, {
+          ...durableRecord,
+          lastCommitLsn: "0/35",
+          pullContinuation: {
+            commitLsn: "0/35",
+            commitLsnMode: "tracked",
+            cursor: "other-pane-attachment-page",
+          },
+        });
+      }
       return createDocumentSyncResponse({
         commitLsn: `0/${syncCount}0`,
+        pullPage: {
+          hasMore,
+          nextCursor: hasMore ? `attachment-page-${syncCount + 1}` : null,
+        },
         request,
         storedDocument,
       });
@@ -272,6 +300,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       throw new Error("Expected uploaded attachment fixtures.");
     }
     expect(bind.request.stagedBlob?.writeHeader).toBeDefined();
+    expect(attachmentBindSyncCounts).toEqual([4]);
     expect(syncCalls.some((call) => call.outgoingUpdateCount === 1)).toBe(true);
     expect(store.getSnapshot().attachments).toHaveLength(1);
 

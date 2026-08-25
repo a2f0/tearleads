@@ -92,7 +92,7 @@ export async function queueDocumentAttachmentBlobReclaims(input: {
   await queueDocumentAttachmentStorageKeys(tx, storageKeys);
 }
 
-async function queueDocumentAttachmentStorageKeys(
+export async function queueDocumentAttachmentStorageKeys(
   tx: ClientSQLiteTransactionScope,
   storageKeys: ReadonlyArray<string>,
 ): Promise<void> {
