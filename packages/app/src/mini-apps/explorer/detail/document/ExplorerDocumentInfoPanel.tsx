@@ -362,11 +362,12 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     if (!documentInfo?.remoteInfo) {
       return;
     }
-    params.requestAttributionProfileHydration(
-      documentInfo.remoteInfo.contributors.map(
+    params.requestAttributionProfileHydration({
+      contributorUserIds: documentInfo.remoteInfo.contributors.map(
         (contributor) => contributor.writerUserId,
       ),
-    );
+      documentId: documentInfo.local.documentId ?? params.localId,
+    });
   }, [documentInfo, params.requestAttributionProfileHydration]);
 
   return {

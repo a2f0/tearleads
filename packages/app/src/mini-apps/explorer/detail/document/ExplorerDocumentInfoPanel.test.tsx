@@ -14,6 +14,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { createElement } from "react";
+import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
 
 afterEach(() => cleanup());
@@ -116,7 +117,7 @@ const documentSummary = {
   updatedAt: "2026-06-20T10:00:00.000Z",
 } satisfies DocumentSummary;
 
-function renderDocumentInfoPanel(input: {
+interface DocumentInfoPanelTestInput {
   activateLinkedContainer?: (
     documentId: string,
     targetContainerId: string,
@@ -128,31 +129,17 @@ function renderDocumentInfoPanel(input: {
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
   requestAttributionProfileHydration?:
-    | ((contributorUserIds: ReadonlyArray<string>) => void)
+    | ExplorerAttributionProfileHydrationRequester
     | undefined;
   showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
-}) {
+}
+
+function renderDocumentInfoPanel(input: DocumentInfoPanelTestInput) {
   return render(createElement(ExplorerDocumentInfoPanel, panelProps(input)));
 }
 
-function panelProps(input: {
-  activateLinkedContainer?: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
-  canActivateLinkedContainer?: boolean | undefined;
-  fallbackDocumentSummary: DocumentSummary | null;
-  loadDocumentAttributionRanges?: () => Promise<DocumentAttributionRangesPage>;
-  loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
-  loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
-  localId?: string | undefined;
-  requestAttributionProfileHydration?:
-    | ((contributorUserIds: ReadonlyArray<string>) => void)
-    | undefined;
-  showDocumentEditRanges?: boolean | undefined;
-  showLinkedDocumentActivationControls?: boolean | undefined;
-}) {
+function panelProps(input: DocumentInfoPanelTestInput) {
   return {
     activateLinkedContainer:
       input.activateLinkedContainer ?? (async () => null),
@@ -196,16 +183,24 @@ test("document info hides edit ranges until the feature flag is enabled", async 
 });
 
 test("document info requests profile hydration for its contributors", async () => {
-  const requests: ReadonlyArray<string>[] = [];
+  const requests: Parameters<ExplorerAttributionProfileHydrationRequester>[0][] =
+    [];
 
   renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,
-    requestAttributionProfileHydration: (contributorUserIds) => {
-      requests.push(contributorUserIds);
+    requestAttributionProfileHydration: (request) => {
+      requests.push(request);
     },
   });
 
-  await waitFor(() => expect(requests).toEqual([["writer-1"]]));
+  await waitFor(() =>
+    expect(requests).toEqual([
+      {
+        contributorUserIds: ["writer-1"],
+        documentId: "document-1",
+      },
+    ]),
+  );
 });
 
 // Edit Ranges is flag-gated, so the truncated-attribution copy must not send

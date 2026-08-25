@@ -28,8 +28,13 @@ export async function loadExplorerAttributionDirectoryAndGroups(
 
 export const MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS = 32;
 
+export interface ExplorerAttributionProfileHydrationRequest {
+  readonly contributorUserIds: ReadonlyArray<string>;
+  readonly documentId: string;
+}
+
 export type ExplorerAttributionProfileHydrationRequester = (
-  contributorUserIds: ReadonlyArray<string>,
+  request: ExplorerAttributionProfileHydrationRequest,
 ) => void;
 
 export interface ExplorerAttributionProfileHydrationTarget {
@@ -51,6 +56,7 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
   readonly contributorUserIds: ReadonlyArray<string>;
   readonly directoryAndGroups: OrganizationDirectoryAndGroups;
   readonly excludedBindingKeys?: ReadonlySet<string> | undefined;
+  readonly includedBindingKeys?: ReadonlySet<string> | undefined;
   readonly limit?: number | undefined;
 }): ExplorerAttributionProfileHydrationTarget[] {
   if (!input.directoryAndGroups.directory.currentUser.isOrgAdmin) {
@@ -76,7 +82,12 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
           ]
         : [];
     })
-    .filter((target) => !input.excludedBindingKeys?.has(target.bindingKey));
+    .filter(
+      (target) =>
+        !input.excludedBindingKeys?.has(target.bindingKey) &&
+        (!input.includedBindingKeys ||
+          input.includedBindingKeys.has(target.bindingKey)),
+    );
   const orderedTargets = [
     ...targets.filter((target) => target.status === "disabled"),
     ...targets.filter((target) => target.status !== "disabled"),

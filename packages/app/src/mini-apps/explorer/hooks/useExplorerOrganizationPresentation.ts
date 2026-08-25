@@ -6,6 +6,7 @@ import {
 import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
+import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
   type ExplorerAttributionProfileHydrationRequester,
@@ -50,10 +51,12 @@ interface ProfileHydrationRequest {
   readonly containerStore: ContainerStore;
   readonly contributorUserIds: ReadonlyArray<string>;
   readonly currentScope: RefObject<AttributionHydrationScope>;
+  readonly documentId: string;
   readonly organizationId: string;
   readonly projection: OrganizationDirectoryAndGroups | null | undefined;
   readonly requestScope: AttributionHydrationScope;
   readonly requestedBindingKeys: Set<string>;
+  readonly selectedBindingKeysByDocumentId: Map<string, ReadonlySet<string>>;
   readonly symcrypt: SymCryptClient;
 }
 
@@ -80,11 +83,22 @@ function getPendingTargets(
   ) {
     return [];
   }
-  return selectExplorerAttributionProfileHydrationTargets({
+  const selectedBindingKeys = input.selectedBindingKeysByDocumentId.get(
+    input.documentId,
+  );
+  const targets = selectExplorerAttributionProfileHydrationTargets({
     contributorUserIds: input.contributorUserIds,
     directoryAndGroups: input.projection,
     excludedBindingKeys: input.requestedBindingKeys,
+    includedBindingKeys: selectedBindingKeys,
   });
+  if (!selectedBindingKeys) {
+    input.selectedBindingKeysByDocumentId.set(
+      input.documentId,
+      new Set(targets.map((target) => target.bindingKey)),
+    );
+  }
+  return targets;
 }
 
 async function hydratePendingTargets(
@@ -138,7 +152,35 @@ async function requestExplorerAttributionProfileHydration(
   }
 }
 
-function useExplorerAttributionProfileHydration(input: {
+function getAttributionHydrationScope(input: {
+  readonly appData: RuntimeSnapshot;
+  readonly containerStoreReady: boolean;
+  readonly enabled: boolean;
+  readonly projection?: OrganizationDirectoryAndGroups | null | undefined;
+  readonly revision: number;
+}): AttributionHydrationScope {
+  const organizationId = input.appData.auth.organizationId;
+  const directory = input.projection?.directory;
+  return {
+    active:
+      input.enabled &&
+      input.appData.auth.isAuthenticated &&
+      input.appData.infra.dbStatus === "ready" &&
+      input.containerStoreReady &&
+      input.revision > 0 &&
+      directory?.organizationId === organizationId &&
+      directory.currentUser.isOrgAdmin,
+    attributionKey: getExplorerAttributionProjectionKey({
+      projection: input.projection,
+      revision: input.revision,
+    }),
+    domainScope: input.appData.state.domainScope,
+    organizationId,
+    userId: input.appData.auth.userId,
+  };
+}
+
+export function useExplorerAttributionProfileHydration(input: {
   readonly appData: RuntimeSnapshot;
   readonly enabled: boolean;
   readonly readModelProjection?:
@@ -149,29 +191,21 @@ function useExplorerAttributionProfileHydration(input: {
 }): ExplorerAttributionProfileHydrationRequester {
   const symcrypt = useSymCrypt();
   const { containerStore } = useDeviceFirstContainerContents();
+  const containerSnapshot = useSymCryptExternalStoreSnapshot(containerStore);
   const requestedBindingKeysRef = useRef(new Set<string>());
-  const domainScope = input.appData.state.domainScope;
-  const organizationId = input.appData.auth.organizationId;
-  const userId = input.appData.auth.userId;
-  const attributionKey = getExplorerAttributionProjectionKey({
+  const selectedBindingKeysByDocumentIdRef = useRef(
+    new Map<string, ReadonlySet<string>>(),
+  );
+  const currentScope = getAttributionHydrationScope({
+    appData: input.appData,
+    containerStoreReady: containerSnapshot.ready,
+    enabled: input.enabled,
     projection: input.readModelProjection,
     revision: input.readModelRevision ?? 0,
   });
-  const projectionDirectory = input.readModelProjection?.directory;
-  const active =
-    input.enabled &&
-    input.appData.auth.isAuthenticated &&
-    input.appData.infra.dbStatus === "ready" &&
-    (input.readModelRevision ?? 0) > 0 &&
-    projectionDirectory?.organizationId === organizationId &&
-    projectionDirectory.currentUser.isOrgAdmin;
-  const scopeRef = useRef<AttributionHydrationScope>({
-    active,
-    attributionKey,
-    domainScope,
-    organizationId,
-    userId,
-  });
+  const { active, attributionKey, domainScope, organizationId, userId } =
+    currentScope;
+  const scopeRef = useRef<AttributionHydrationScope>(currentScope);
   useLayoutEffect(() => {
     const nextScope = {
       active,
@@ -182,19 +216,26 @@ function useExplorerAttributionProfileHydration(input: {
     };
     if (!scopesMatch(scopeRef.current, nextScope)) {
       requestedBindingKeysRef.current = new Set();
+      selectedBindingKeysByDocumentIdRef.current = new Map();
     }
     scopeRef.current = nextScope;
   }, [active, attributionKey, domainScope, organizationId, userId]);
 
   return useCallback(
-    (contributorUserIds) => {
-      if (!active || !organizationId || contributorUserIds.length === 0) {
+    ({ contributorUserIds, documentId }) => {
+      if (
+        !active ||
+        !organizationId ||
+        documentId.length === 0 ||
+        contributorUserIds.length === 0
+      ) {
         return;
       }
       void requestExplorerAttributionProfileHydration({
         containerStore,
         contributorUserIds,
         currentScope: scopeRef,
+        documentId,
         organizationId,
         projection: input.readModelProjection,
         requestScope: {
@@ -205,6 +246,8 @@ function useExplorerAttributionProfileHydration(input: {
           userId,
         },
         requestedBindingKeys: requestedBindingKeysRef.current,
+        selectedBindingKeysByDocumentId:
+          selectedBindingKeysByDocumentIdRef.current,
         symcrypt,
       });
     },
