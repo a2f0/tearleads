@@ -26,6 +26,7 @@ import {
   importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "./crypto";
+import { isDocumentSyncUpdateIsolationError } from "./documentSyncUpdateIsolation";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
 import {
   DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
@@ -235,6 +236,53 @@ test("decryptDocumentSyncUpdates verifies and decrypts content records", async (
   ).rejects.toThrow(
     "Document encrypted update version 2 is invalid; expected 1",
   );
+});
+
+test("decryptDocumentSyncUpdates identifies a poison update within a valid batch", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const poisonId = "550e8400-e29b-41d4-a716-4466554400aa";
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord(),
+      createPendingUpdateRecord({ id: poisonId }),
+    ],
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const poisonUpdate = response.updates[1];
+  if (!poisonUpdate) throw new Error("Expected a poison response update");
+
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: [
+        response.updates[0] as (typeof response.updates)[number],
+        await replaceEncryptedPlaintext({
+          contentKey,
+          documentId: materialized.plan.documentId,
+          organizationId: materialized.plan.organizationId,
+          update: poisonUpdate,
+        }),
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.updateId).toBe(poisonId);
+  expect(isolated.stage).toBe("plaintext_integrity");
+  expect(isolated.writerUserId).toBe(author.signerUserId);
 });
 
 test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {

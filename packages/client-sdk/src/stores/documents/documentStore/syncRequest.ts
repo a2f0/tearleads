@@ -11,6 +11,7 @@ import {
   resolveDocumentCreateAuthor,
   shouldClearDocumentSyncFailureAfterPass,
   syncRemoteDocument,
+  validateDocumentSyncUpdateImports,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
@@ -27,6 +28,7 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import {
+  documentIncomingUpdateIsolationFailureHandler,
   documentRevalidationFailureHandler,
   documentTerminalSubmitFailureHandler,
 } from "./syncShared";
@@ -168,6 +170,8 @@ function runRemoteDocumentSync(
       state,
       generation,
     ),
+    onIncomingUpdateIsolationFailure:
+      documentIncomingUpdateIsolationFailureHandler(state, generation),
     onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,
     onPullContinuationInvalidated: (continuation) =>
       invalidateDocumentStorePullContinuation({
@@ -191,6 +195,12 @@ function runRemoteDocumentSync(
       writerKeyLabel: "writer key",
     }),
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    validateIncomingUpdates: (result) =>
+      validateDocumentSyncUpdateImports({
+        currentDocument: currentDoc,
+        decryptedUpdates: result.decryptedUpdates,
+        responseUpdates: result.response.updates,
+      }),
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),
     writerProjection:

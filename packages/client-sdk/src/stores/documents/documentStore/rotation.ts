@@ -9,6 +9,7 @@ import {
   createDocumentWriterPublicKeyResolver,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
+  validateDocumentSyncUpdateImports,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
@@ -20,7 +21,7 @@ import {
   pendingDeltaSinceBase,
 } from "./persistence";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
-import type { DocumentStoreState } from "./state";
+import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
   cleanupPreRegisteredUpdateIdsOnFailure,
@@ -32,7 +33,10 @@ import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
 } from "./syncGeneration";
-import { documentTerminalSubmitFailureHandler } from "./syncShared";
+import {
+  documentIncomingUpdateIsolationFailureHandler,
+  documentTerminalSubmitFailureHandler,
+} from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 export function shouldRequestRotationRecoverySync(input: {
@@ -60,7 +64,33 @@ function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   return { author, documentId, encapsulationKeyPair };
 }
 
+function rotationIncomingUpdateIsolation(input: {
+  currentDocument: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}) {
+  return {
+    onIncomingUpdateIsolationFailure:
+      documentIncomingUpdateIsolationFailureHandler(
+        input.state,
+        input.generation,
+      ),
+    validateIncomingUpdates: (
+      result: Pick<
+        NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>,
+        "decryptedUpdates" | "response"
+      >,
+    ) =>
+      validateDocumentSyncUpdateImports({
+        currentDocument: input.currentDocument,
+        decryptedUpdates: result.decryptedUpdates,
+        responseUpdates: result.response.updates,
+      }),
+  };
+}
+
 async function pullVerifiedHistoryForRotation(input: {
+  currentDocument: DocumentState;
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
   localVersionVector: string | null;
@@ -95,6 +125,7 @@ async function pullVerifiedHistoryForRotation(input: {
         onSyncAbandoned: (reason) => {
           abandonReason = reason;
         },
+        ...rotationIncomingUpdateIsolation(input),
         onSyncTrace: (line) =>
           input.state.runtime.util.log(`Documents: ${line}`),
         onOutgoingUpdatesMaterialized: (updateIds) =>
@@ -187,6 +218,7 @@ async function recoverFullHistoryForRotation(
   // tail beyond the captured version.
   const { consumedPullContinuation, synced } =
     await pullVerifiedHistoryForRotation({
+      currentDocument: currentDoc,
       currentRecord,
       generation,
       localVersionVector: capturedVersion,

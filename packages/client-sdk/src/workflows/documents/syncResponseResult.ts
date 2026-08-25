@@ -39,6 +39,11 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   targetSecretKey: Uint8Array;
+  validateIncomingUpdates?:
+    | ((
+        result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
+      ) => void | Promise<void>)
+    | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
@@ -63,6 +68,10 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     documentId: plan.documentId,
     organizationId: plan.organizationId,
     updates: input.response.updates,
+  });
+  await input.validateIncomingUpdates?.({
+    decryptedUpdates,
+    response: input.response,
   });
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;

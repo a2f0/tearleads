@@ -1,4 +1,9 @@
 export {
+  type DocumentSyncUpdateIsolationError,
+  isDocumentSyncUpdateIsolationError,
+  validateDocumentSyncUpdateImports,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
+export {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";

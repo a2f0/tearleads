@@ -26,6 +26,7 @@ import {
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
+import { metadataIncomingUpdateIsolation } from "./metadataIncomingUpdateIsolation";
 import {
   createReadOnlyMetadataSyncSaveOptions,
   currentMetadataPullContinuation,
@@ -137,6 +138,7 @@ export function settleContainerMetadataOutgoingPass(
 interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
+  currentDocument: ContainerMetadataState["doc"];
   documentId: string | null;
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
@@ -178,6 +180,7 @@ async function syncRemoteContainerMetadata(
   const {
     buildRotationSnapshot,
     containerId,
+    currentDocument,
     documentId,
     lastCommitLsn,
     localVersionVector,
@@ -217,6 +220,11 @@ async function syncRemoteContainerMetadata(
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
+    ...metadataIncomingUpdateIsolation({
+      currentDocument,
+      execSql,
+      metadataScope,
+    }),
     onOutgoingUpdatesMaterialized,
     onPullContinuationInvalidated: input.onPullContinuationInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
@@ -364,6 +372,7 @@ export async function syncContainerMetadataState(
       syncRemoteContainerMetadata({
         buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
         containerId: metadataState.container.id,
+        currentDocument: metadataState.doc,
         documentId,
         lastCommitLsn: metadataState.record.lastCommitLsn,
         localVersionVector: encodeVersionVector(metadataState.doc),

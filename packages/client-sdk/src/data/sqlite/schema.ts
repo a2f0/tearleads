@@ -169,15 +169,14 @@ export const documentPendingUpdates = sqliteTable(
 );
 
 /**
- * Last terminal outbound-sync failure per document scope.
+ * Last terminal sync failure or quarantined incoming update per document scope.
  *
  * The durable write queue (`documentPendingUpdates`) has no status columns — a
- * row is either pending or settled-and-deleted. When a submission fails
- * terminally (e.g. the server denies the write with a 403 after group access
- * was revoked), the failure is recorded here so the write-queue view and the
- * footer sync indicator can surface *why* local data is not flushing. Rows are
- * upserted per scope on terminal failure and deleted when a later sync pass
- * for the scope succeeds or the scope's local state is torn down.
+ * row is either pending or settled-and-deleted. Terminal submissions and
+ * incoming updates that cannot be decrypted or imported are recorded here so
+ * the write-queue view and footer can surface why the document is blocked.
+ * Rows are upserted per scope and deleted only after a later fully validated
+ * sync pass succeeds or the scope's local state is torn down.
  *
  * Columns:
  * - `appKind`: Local document namespace matching `documents.appKind`.
