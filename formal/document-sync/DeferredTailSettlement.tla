@@ -267,8 +267,8 @@ ClearResponse ==
   /\ responseWellFormed' = TRUE
   /\ responseValidated' = FALSE
 
-(* Incoming plaintext is authenticated and imported into an isolated scratch *)
-(* document before any durable history, marker, queue, or live-document effect. *)
+(* Required validation authenticates content-key access and scratch-imports *)
+(* the page before effects; every durable path requires responseValidated.  *)
 ValidateIncomingResponse ==
   /\ responsePending
   /\ NoDurableOp

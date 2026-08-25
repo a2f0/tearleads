@@ -1,8 +1,18 @@
+import {
+  importDecryptedDocumentSyncUpdates,
+  validateDocumentSyncUpdateImports,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
 import type { SyncRemoteDocumentResult } from "../../data/documents/shared/types";
 import { recordDocumentSyncFailure } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { validateDocumentSyncUpdateImports } from "../documents";
 import type { ContainerMetadataState } from "./metadataTypes";
+
+export function applyIncomingContainerMetadataUpdates(
+  currentDocument: ContainerMetadataState["doc"],
+  result: Pick<SyncRemoteDocumentResult, "decryptedUpdates">,
+): void {
+  importDecryptedDocumentSyncUpdates(currentDocument, result.decryptedUpdates);
+}
 
 export function metadataIncomingUpdateIsolation(input: {
   currentDocument: ContainerMetadataState["doc"];

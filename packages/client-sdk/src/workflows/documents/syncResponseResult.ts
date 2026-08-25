@@ -3,6 +3,10 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
+import {
+  type IncomingDocumentSyncUpdateValidator,
+  isolateDocumentSyncUpdateError,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/responses";
 import type {
   DocumentWriterPublicKeyResolver,
@@ -28,6 +32,42 @@ import {
   settledPendingUpdateIdsFromSync,
 } from "./syncRecoveryRekey";
 
+function isolateContentKeyResponseFailure(
+  error: unknown,
+  currentContentKeyEpoch: number,
+  response: DocumentSyncResponse,
+): never {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalizedMessage = message.toLowerCase();
+  const bundleEpochs = new Set(
+    [response.contentKeyBundle, ...response.contentKeyBundles].map(
+      (bundle) => bundle.contentKeyEpoch,
+    ),
+  );
+  const update = response.updates.find((candidate) => {
+    const header = candidate.writeHeader;
+    if (!header || typeof header !== "object") return false;
+    const epoch = Reflect.get(header, "contentKeyEpoch");
+    if (typeof epoch !== "number") return false;
+    if (normalizedMessage.includes("future content-key epoch")) {
+      return epoch > currentContentKeyEpoch;
+    }
+    if (normalizedMessage.includes("content-key bundle missing")) {
+      return !bundleEpochs.has(epoch);
+    }
+    return false;
+  });
+  if (update) {
+    throw isolateDocumentSyncUpdateError({
+      cause: error,
+      responseUpdate: update,
+      stage: "content_key",
+      updateId: update.id,
+    });
+  }
+  throw error;
+}
+
 export async function syncRemoteDocumentResultFromResponse(input: {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
@@ -39,21 +79,28 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   targetSecretKey: Uint8Array;
-  validateIncomingUpdates?:
-    | ((
-        result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
-      ) => void | Promise<void>)
-    | undefined;
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
-  const persistedState = await persistedDocumentSyncStateFromResponse(
-    plan,
-    input.response,
-    {
-      resolveWriterPublicKey: input.resolveWriterPublicKey,
-    },
-  );
+  let persistedState: Awaited<
+    ReturnType<typeof persistedDocumentSyncStateFromResponse>
+  >;
+  try {
+    persistedState = await persistedDocumentSyncStateFromResponse(
+      plan,
+      input.response,
+      {
+        resolveWriterPublicKey: input.resolveWriterPublicKey,
+      },
+    );
+  } catch (error) {
+    isolateContentKeyResponseFailure(
+      error,
+      plan.contentKeyEpoch,
+      input.response,
+    );
+  }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
     currentContentKeyEpoch: plan.contentKeyEpoch,
@@ -69,7 +116,7 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
-  await input.validateIncomingUpdates?.({
+  await input.validateIncomingUpdates({
     decryptedUpdates,
     response: input.response,
   });

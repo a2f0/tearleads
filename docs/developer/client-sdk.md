@@ -123,11 +123,10 @@ Host adapters needing the raw runtime use `symcrypt.runtime.input(containerId)`
 instead of reconstructing it. This input omits API access and incident
 reporting; SDK facades own both.
 
-For headless sync, repeat `syncRemoteDocument(...)` while it reports
-`hasDeferredPendingUpdates` or `hasIncompletePull`. Resume with
-`readPullContinuation(result.response)` as `pullContinuation`; the typed value
-binds the cursor, replica checkpoint, and commit-LSN mode. Continuations are
-read-only and host-scheduled.
+For headless sync, repeat `syncRemoteDocument(...)` while either result work flag
+is true, resuming with `readPullContinuation(result.response)`. Supply
+`validateIncomingUpdates` via `validateDocumentSyncUpdateImports(...)` and the
+live Loro doc; quarantine `DocumentSyncUpdateIsolationError` and retry fail-closed.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

@@ -138,13 +138,12 @@ generation before the queued mutation returns, but the post-await check
 suppresses replacement in-memory publication, effect callbacks, and store
 removal.
 
-Incoming updates pass an all-or-nothing gate before response effects.
-Production authenticates and decrypts the batch, imports it into a scratch
-clone, then replays a failure one update at a time to attribute it. A rejection
-writes a document-scoped failure and rethrows without live import, history
-append, accepted-row settlement, or marker advancement. The model abstracts
-cryptographic and Loro checks as `responseWellFormed`; exact attribution stays
-production-tested.
+Incoming updates pass an all-or-nothing gate before response effects. Every
+headless caller supplies it. Production authenticates/decrypts content keys and
+updates, then scratch-imports the page. On Loro failure, leave-one-out batch
+retries preserve sibling dependencies and identify the poison. Rejection records
+the scope and rethrows before any response effect; `responseWellFormed` abstracts
+the checks while exact attribution stays production-tested.
 
 On the same executor, replacement mutations queue behind the already-claimed
 operation and therefore observe its ordering. If reset installs a different
@@ -194,7 +193,7 @@ The abstraction maps to production at these seams:
 | `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with a null persistence result suppressing replacement-store publication and effects |
 | `ResetReinitialize` | replacement of any `DocumentStoreSyncGeneration` identity: `currentDoc`, `domainScope`, `execSql`, or `resolveProjectionUserKey` |
 | `BeginSyncResponse` | `captureDocumentStoreSyncGeneration` plus the sync attempt's plan and captured `currentRecord` identity/access/keying context |
-| `ValidateIncomingResponse` | `validateDocumentSyncUpdateImports` authenticating the complete batch and importing it into an isolated scratch clone before the caller can persist the response |
+| `ValidateIncomingResponse` | required `SyncRemoteDocumentInput.validateIncomingUpdates`, normally `validateDocumentSyncUpdateImports`, after authenticated decryption and before the caller can persist the response; scratch imports free their WASM-backed documents deterministically |
 | `RejectIsolatedIncomingResponse` / `InvalidResponseCannotAdvance` | `DocumentSyncUpdateIsolationError` handling plus `documentIncomingUpdateIsolationFailureHandler`, which records the blocked scope without applying response-derived document or sync progress |
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |

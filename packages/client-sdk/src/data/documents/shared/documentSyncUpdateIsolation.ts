@@ -5,7 +5,10 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
-import type { DecryptedDocumentSyncUpdate } from "./types";
+import type {
+  DecryptedDocumentSyncUpdate,
+  SyncRemoteDocumentResult,
+} from "./types";
 
 type DocumentSyncUpdateIsolationStage =
   | "content_key"
@@ -17,6 +20,11 @@ type DocumentSyncUpdateIsolationStage =
   | "write_header";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
+type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
+
+export type IncomingDocumentSyncUpdateValidator = (
+  result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
+) => void | Promise<void>;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -124,7 +132,7 @@ function responseUpdatesById(
 }
 
 function importCheckpoints(
-  document: Awaited<ReturnType<typeof createDocument>>,
+  document: SyncDocument,
   updates: readonly DecryptedDocumentSyncUpdate[],
   responseById: ReadonlyMap<string, SyncResponseUpdate>,
 ): void {
@@ -144,14 +152,78 @@ function importCheckpoints(
 
 async function createValidationDocument(snapshot: Uint8Array) {
   const document = await createDocument(crypto.randomUUID());
-  importSnapshot(document, snapshot);
-  return document;
+  try {
+    importSnapshot(document, snapshot);
+    return document;
+  } catch (error) {
+    document.free();
+    throw error;
+  }
+}
+
+function splitDocumentSyncUpdates(
+  updates: readonly DecryptedDocumentSyncUpdate[],
+): {
+  checkpoints: DecryptedDocumentSyncUpdate[];
+  ordinaryUpdates: DecryptedDocumentSyncUpdate[];
+} {
+  const checkpoints: DecryptedDocumentSyncUpdate[] = [];
+  const ordinaryUpdates: DecryptedDocumentSyncUpdate[] = [];
+  for (const update of updates) {
+    if (
+      update.checkpointKind === "rotate_baseline" &&
+      update.checkpointPayloadKind === "full_history_snapshot"
+    ) {
+      checkpoints.push(update);
+    } else {
+      ordinaryUpdates.push(update);
+    }
+  }
+  return { checkpoints, ordinaryUpdates };
+}
+
+/** Applies checkpoints with the snapshot API before batching ordinary deltas. */
+export function importDecryptedDocumentSyncUpdates(
+  document: SyncDocument,
+  updates: readonly DecryptedDocumentSyncUpdate[],
+): void {
+  const { checkpoints, ordinaryUpdates } = splitDocumentSyncUpdates(updates);
+  for (const checkpoint of checkpoints) {
+    importSnapshot(document, checkpoint.updateData);
+  }
+  if (ordinaryUpdates.length > 0) {
+    importUpdates(
+      document,
+      ordinaryUpdates.map((update) => update.updateData),
+    );
+  }
+}
+
+async function validateOrdinaryUpdateBatch(input: {
+  checkpoints: readonly DecryptedDocumentSyncUpdate[];
+  currentSnapshot: Uint8Array;
+  ordinaryUpdates: readonly DecryptedDocumentSyncUpdate[];
+  responseById: ReadonlyMap<string, SyncResponseUpdate>;
+}): Promise<void> {
+  const document = await createValidationDocument(input.currentSnapshot);
+  try {
+    importCheckpoints(document, input.checkpoints, input.responseById);
+    if (input.ordinaryUpdates.length > 0) {
+      importUpdates(
+        document,
+        input.ordinaryUpdates.map((update) => update.updateData),
+      );
+    }
+  } finally {
+    document.free();
+  }
 }
 
 /**
  * Proves that a decrypted response can be imported before the live document or
- * any durable sync frontier is mutated. On failure, replays the ordinary page
- * one update at a time to attribute the first update that cannot be applied.
+ * any durable sync frontier is mutated. On failure, retries the page without
+ * each candidate so valid sibling dependencies remain in the same batch while
+ * the update whose removal repairs the batch is attributed exactly.
  */
 export async function validateDocumentSyncUpdateImports(input: {
   currentDocument: Awaited<ReturnType<typeof createDocument>>;
@@ -162,41 +234,52 @@ export async function validateDocumentSyncUpdateImports(input: {
 
   const currentSnapshot = exportFullHistorySnapshot(input.currentDocument);
   const responseById = responseUpdatesById(input.responseUpdates);
-  const checkpoints = input.decryptedUpdates.filter(
-    (update) =>
-      update.checkpointKind === "rotate_baseline" &&
-      update.checkpointPayloadKind === "full_history_snapshot",
-  );
-  const ordinaryUpdates = input.decryptedUpdates.filter(
-    (update) =>
-      update.checkpointKind !== "rotate_baseline" ||
-      update.checkpointPayloadKind !== "full_history_snapshot",
+  const { checkpoints, ordinaryUpdates } = splitDocumentSyncUpdates(
+    input.decryptedUpdates,
   );
   const validationDocument = await createValidationDocument(currentSnapshot);
-  importCheckpoints(validationDocument, checkpoints, responseById);
-  if (ordinaryUpdates.length === 0) return;
-
   let batchError: unknown;
   try {
+    importCheckpoints(validationDocument, checkpoints, responseById);
+    if (ordinaryUpdates.length === 0) return;
     importUpdates(
       validationDocument,
       ordinaryUpdates.map((update) => update.updateData),
     );
     return;
   } catch (error) {
+    if (isDocumentSyncUpdateIsolationError(error)) {
+      throw error;
+    }
     batchError = error;
-    // Rebuild from the same immutable snapshot: the failed batch may have
-    // partially mutated its scratch document before throwing.
+  } finally {
+    validationDocument.free();
   }
 
-  const isolationDocument = await createValidationDocument(currentSnapshot);
-  importCheckpoints(isolationDocument, checkpoints, responseById);
-  for (const update of ordinaryUpdates) {
+  // Rebuild from the same immutable snapshot for every candidate: a failed
+  // import may partially mutate its scratch document. Keeping every other
+  // ordinary update in one batch preserves out-of-order sibling dependencies;
+  // removing a required valid parent therefore cannot falsely blame it.
+  for (const [candidateIndex, update] of ordinaryUpdates.entries()) {
+    const withoutCandidate = ordinaryUpdates.filter(
+      (_, updateIndex) => updateIndex !== candidateIndex,
+    );
+    let importsWithoutCandidate = false;
     try {
-      importUpdates(isolationDocument, [update.updateData]);
-    } catch (error) {
+      await validateOrdinaryUpdateBatch({
+        checkpoints,
+        currentSnapshot,
+        ordinaryUpdates: withoutCandidate,
+        responseById,
+      });
+      importsWithoutCandidate = true;
+    } catch {
+      // This candidate is either valid and required by a sibling, or another
+      // poison update remains. Continue without attributing it.
+    }
+    if (importsWithoutCandidate) {
       throw isolateDocumentSyncUpdateError({
-        cause: error,
+        cause: batchError,
         responseUpdate: responseById.get(update.id),
         stage: "loro_import",
         updateId: update.id,
@@ -204,10 +287,9 @@ export async function validateDocumentSyncUpdateImports(input: {
     }
   }
 
-  // The live import uses the same batch API. If incremental replay succeeds
-  // but the batch still fails, reject it rather than allowing a later live
-  // import to mutate partially. The final update is the point at which the
-  // otherwise-valid prefix became the rejected batch.
+  // Multiple bad updates or a batch-level incompatibility may have no single
+  // removal that repairs the page. Fail closed and retain response-order
+  // attribution; no live or durable state has changed.
   const lastUpdate = ordinaryUpdates.at(-1);
   if (lastUpdate) {
     throw isolateDocumentSyncUpdateError({

@@ -4,6 +4,7 @@ import type {
 } from "@symcrypt/validators/response";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
+import { isolateDocumentSyncUpdateError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   collectContainerKeksForDocumentSync,
   unwrapDocumentContentKeyFromBundle,
@@ -88,6 +89,35 @@ function syncResponseContentKeyBundlesByEpoch(
   return byEpoch;
 }
 
+function syncResponseUpdatesByContentKeyEpoch(
+  response: DocumentSyncResponse,
+): ReadonlyMap<number, DocumentSyncResponse["updates"][number]> {
+  const firstUpdateByEpoch = new Map<
+    number,
+    DocumentSyncResponse["updates"][number]
+  >();
+  for (const update of response.updates) {
+    let contentKeyEpoch: number;
+    try {
+      contentKeyEpoch = readWriteHeader(
+        update.writeHeader,
+        "Document sync response write header",
+      ).contentKeyEpoch;
+    } catch (error) {
+      throw isolateDocumentSyncUpdateError({
+        cause: error,
+        responseUpdate: update,
+        stage: "write_header",
+        updateId: update.id,
+      });
+    }
+    if (!firstUpdateByEpoch.has(contentKeyEpoch)) {
+      firstUpdateByEpoch.set(contentKeyEpoch, update);
+    }
+  }
+  return firstUpdateByEpoch;
+}
+
 export async function unwrapDocumentSyncResponseContentKeys(
   input: {
     currentContentKey: Uint8Array;
@@ -107,43 +137,73 @@ export async function unwrapDocumentSyncResponseContentKeys(
       ? [[input.currentContentKeyEpoch, input.currentContentKey]]
       : [],
   );
-  const bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
-  const neededContentKeyEpochs = new Set(
-    input.response.updates.map(
-      (update) =>
-        readWriteHeader(
-          update.writeHeader,
-          "Document sync response write header",
-        ).contentKeyEpoch,
-    ),
+  const firstUpdateByContentKeyEpoch = syncResponseUpdatesByContentKeyEpoch(
+    input.response,
   );
-  const missingBundles = [...neededContentKeyEpochs]
-    .filter((contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch))
-    .map((contentKeyEpoch) => bundlesByEpoch.get(contentKeyEpoch));
-  if (missingBundles.length === 0) {
+  const missingContentKeyEpochs = [
+    ...firstUpdateByContentKeyEpoch.keys(),
+  ].filter((contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch));
+  if (missingContentKeyEpochs.length === 0) {
     return contentKeysByEpoch;
   }
+  const firstMissingUpdate = firstUpdateByContentKeyEpoch.get(
+    missingContentKeyEpochs[0] ?? -1,
+  );
+  let bundlesByEpoch: ReturnType<typeof syncResponseContentKeyBundlesByEpoch>;
+  try {
+    bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
+  } catch (error) {
+    throw isolateDocumentSyncUpdateError({
+      cause: error,
+      responseUpdate: firstMissingUpdate,
+      stage: "content_key",
+      updateId: firstMissingUpdate?.id ?? "unknown",
+    });
+  }
+  let collectedKeks: Awaited<
+    ReturnType<typeof collectContainerKeksForDocumentSync>
+  >;
+  try {
+    collectedKeks = await collectContainerKeksForDocumentSync({
+      execSql: input.execSql,
+      secretKey: input.targetSecretKey,
+      writerProjection: input.writerProjection,
+      ...projectionVerificationOptions(input),
+    });
+  } catch (error) {
+    throw isolateDocumentSyncUpdateError({
+      cause: error,
+      responseUpdate: firstMissingUpdate,
+      stage: "content_key",
+      updateId: firstMissingUpdate?.id ?? "unknown",
+    });
+  }
 
-  const collectedKeks = await collectContainerKeksForDocumentSync({
-    execSql: input.execSql,
-    secretKey: input.targetSecretKey,
-    writerProjection: input.writerProjection,
-    ...projectionVerificationOptions(input),
-  });
-
-  for (const bundle of missingBundles) {
-    if (!bundle) {
-      throw new Error("Document sync response content-key bundle missing");
+  for (const contentKeyEpoch of missingContentKeyEpochs) {
+    const bundle = bundlesByEpoch.get(contentKeyEpoch);
+    const responseUpdate =
+      firstUpdateByContentKeyEpoch.get(contentKeyEpoch) ?? firstMissingUpdate;
+    try {
+      if (!bundle) {
+        throw new Error("Document sync response content-key bundle missing");
+      }
+      contentKeysByEpoch.set(
+        bundle.contentKeyEpoch,
+        await unwrapDocumentContentKeyFromBundle(
+          bundle,
+          collectedKeks.keksByEpochId,
+          collectedKeks.predecessorFailuresByEpochId,
+          collectedKeks.unattributedPredecessorFailuresByContainerId,
+        ),
+      );
+    } catch (error) {
+      throw isolateDocumentSyncUpdateError({
+        cause: error,
+        responseUpdate,
+        stage: "content_key",
+        updateId: responseUpdate?.id ?? "unknown",
+      });
     }
-    contentKeysByEpoch.set(
-      bundle.contentKeyEpoch,
-      await unwrapDocumentContentKeyFromBundle(
-        bundle,
-        collectedKeks.keksByEpochId,
-        collectedKeks.predecessorFailuresByEpochId,
-        collectedKeks.unattributedPredecessorFailuresByContainerId,
-      ),
-    );
   }
 
   return contentKeysByEpoch;

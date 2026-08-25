@@ -9,10 +9,12 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
+  createSignedSyncResponseUpdate,
   createSyncResponse,
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { DocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import { syncRemoteDocument } from "./sync";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 
@@ -87,6 +89,7 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
       }),
       response,
       targetSecretKey: secretKey,
+      validateIncomingUpdates: () => undefined,
       writerProjection,
     };
 
@@ -102,6 +105,92 @@ test("isolated validation runs before conflict recovery mutates queued rows", as
 
     await syncRemoteDocumentResultFromResponse(commonInput);
     expect(rekeyCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("content-key unwrap failures identify and quarantine the blocked update", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-content-key-isolation",
+  );
+  try {
+    const {
+      author,
+      resolveProjectionUserKey,
+      secretKey,
+      signingPublicKey,
+      writerProjection,
+    } = await createMaterializedSyncFixture();
+    const rotatedProjection = {
+      ...writerProjection,
+      contentKeyBundle: {
+        ...writerProjection.contentKeyBundle,
+        contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
+      },
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author,
+      execSql,
+      localVersionVector: null,
+      resolveProjectionUserKey,
+      signedAt: "2026-04-27T00:00:00.000Z",
+      targetSecretKey: secretKey,
+      writerProjection: rotatedProjection,
+    });
+    const currentUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author,
+      contentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+      plan: materializedPlan.plan,
+      targetHash: materializedPlan.plan.expectedTargetHash,
+    });
+    const blockedUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author,
+      contentKeyEpoch: materializedPlan.plan.contentKeyEpoch - 1,
+      plan: materializedPlan.plan,
+      targetHash: materializedPlan.plan.expectedTargetHash,
+    });
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      updates: [currentUpdate, blockedUpdate],
+    });
+    const quarantined: DocumentSyncUpdateIsolationError[] = [];
+
+    await expect(
+      syncRemoteDocument({
+        apiClient: {
+          getDocumentWriterProjection: async () => rotatedProjection,
+          syncDocument: async () => response,
+        },
+        author,
+        documentId: rotatedProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        onIncomingUpdateIsolationFailure: (failure) => {
+          quarantined.push(failure);
+        },
+        pendingUpdates: [],
+        resolveProjectionUserKey,
+        resolveWriterPublicKey: writerKeyResolver({
+          author,
+          signingPublicKey,
+        }),
+        signedAt: "2026-04-27T00:00:00.000Z",
+        targetSecretKey: secretKey,
+        validateIncomingUpdates: () => undefined,
+        writerProjection: rotatedProjection,
+      }),
+    ).rejects.toMatchObject({
+      stage: "content_key",
+      updateId: blockedUpdate.id,
+    });
+    expect(quarantined).toHaveLength(1);
+    expect(quarantined[0]).toMatchObject({
+      stage: "content_key",
+      updateId: blockedUpdate.id,
+    });
   } finally {
     close();
   }

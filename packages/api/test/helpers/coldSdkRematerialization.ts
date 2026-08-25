@@ -3,6 +3,7 @@ import {
   cacheReferencedPrincipalPolicies,
   createRemoteDocument,
   syncRemoteDocument,
+  validateDocumentSyncUpdateImports,
 } from "@symcrypt/client-sdk";
 import { createTestTrustedUserIdentityResolver } from "@symcrypt/client-sdk/testing";
 import { bytesToBase64 } from "@symcrypt/encoding";
@@ -235,6 +236,12 @@ export async function createEncryptedColdDocument(input: {
       resolveProjectionUserKey: resolveTrustedUserIdentity,
       resolveWriterPublicKey: writerResolver(input.owner),
       targetSecretKey: input.owner.kem.secretKey,
+      validateIncomingUpdates: ({ decryptedUpdates, response }) =>
+        validateDocumentSyncUpdateImports({
+          currentDocument: document,
+          decryptedUpdates,
+          responseUpdates: response.updates,
+        }),
       warmReferencedPrincipalPolicies,
       writerProjection: created.writerProjection,
     });
@@ -279,6 +286,9 @@ export async function coldRematerializeEncryptedDocument(input: {
     });
 
   try {
+    const recovered = await createLoroDocument(
+      `cold-reader-${crypto.randomUUID()}`,
+    );
     const synced = await syncRemoteDocument({
       apiClient,
       author: documentAuthor(input.reader, input.organizationId),
@@ -288,14 +298,17 @@ export async function coldRematerializeEncryptedDocument(input: {
       resolveProjectionUserKey: resolveTrustedUserIdentity,
       resolveWriterPublicKey: writerResolver(input.owner),
       targetSecretKey: input.reader.kem.secretKey,
+      validateIncomingUpdates: ({ decryptedUpdates, response }) =>
+        validateDocumentSyncUpdateImports({
+          currentDocument: recovered,
+          decryptedUpdates,
+          responseUpdates: response.updates,
+        }),
       warmReferencedPrincipalPolicies,
     });
     if (!synced) {
       throw new Error("expected the cold SDK sync to succeed");
     }
-    const recovered = await createLoroDocument(
-      `cold-reader-${crypto.randomUUID()}`,
-    );
     importUpdates(
       recovered,
       synced.decryptedUpdates.map((update) => update.updateData),

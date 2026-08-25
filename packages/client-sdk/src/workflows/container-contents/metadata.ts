@@ -1,8 +1,4 @@
-import {
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  importUpdates,
-} from "@symcrypt/loro";
+import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
@@ -26,7 +22,10 @@ import {
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
-import { metadataIncomingUpdateIsolation } from "./metadataIncomingUpdateIsolation";
+import {
+  applyIncomingContainerMetadataUpdates,
+  metadataIncomingUpdateIsolation,
+} from "./metadataIncomingUpdateIsolation";
 import {
   createReadOnlyMetadataSyncSaveOptions,
   currentMetadataPullContinuation,
@@ -438,10 +437,7 @@ async function finalizeContainerMetadataSync(input: {
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {
-    importUpdates(
-      metadataState.doc,
-      synced.decryptedUpdates.map((update) => update.updateData),
-    );
+    applyIncomingContainerMetadataUpdates(metadataState.doc, synced);
   }
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,

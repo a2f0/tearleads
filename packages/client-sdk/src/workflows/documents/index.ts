@@ -1,5 +1,6 @@
 export {
   type DocumentSyncUpdateIsolationError,
+  type IncomingDocumentSyncUpdateValidator,
   isDocumentSyncUpdateIsolationError,
   validateDocumentSyncUpdateImports,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";

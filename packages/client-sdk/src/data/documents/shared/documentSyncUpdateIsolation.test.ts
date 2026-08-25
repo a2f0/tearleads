@@ -77,3 +77,57 @@ test("scratch import isolates the first poison update without mutating live stat
     versionVectorsEqual(encodeVersionVector(current), currentVersion),
   ).toBe(true);
 });
+
+test("batch isolation preserves reordered sibling dependencies", async () => {
+  const current = await createDocument("isolation-reordered-current");
+  const source = await createDocument("isolation-reordered-source");
+  source.getText("text").update("parent");
+  source.commit();
+  const parentUpdateData = exportUpdatesSince(source, undefined);
+  const parentEnd = encodeVersionVector(source);
+  source.getText("text").update("parent and child");
+  source.commit();
+  const childUpdateData = exportUpdatesSince(source, parentEnd);
+  const poisonId = "550e8400-e29b-41d4-a716-4466554400bb";
+  const parentUpdate = {
+    id: "550e8400-e29b-41d4-a716-4466554400b1",
+    ...getUpdateVersionVectors(parentUpdateData),
+    updateData: parentUpdateData,
+  };
+  const childUpdate = {
+    id: "550e8400-e29b-41d4-a716-4466554400b2",
+    ...getUpdateVersionVectors(childUpdateData),
+    updateData: childUpdateData,
+  };
+
+  await expect(
+    validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [childUpdate, parentUpdate],
+    }),
+  ).resolves.toBeUndefined();
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [
+        childUpdate,
+        parentUpdate,
+        {
+          id: poisonId,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([1, 2, 3]),
+        },
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (isDocumentSyncUpdateIsolationError(isolated)) {
+    expect(isolated.updateId).toBe(poisonId);
+  }
+});

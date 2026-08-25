@@ -11,6 +11,7 @@ import {
 } from "@symcrypt/validators/response";
 import {
   type DocumentSyncUpdateIsolationError,
+  type IncomingDocumentSyncUpdateValidator,
   isDocumentSyncUpdateIsolationError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
@@ -205,11 +206,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
-  validateIncomingUpdates?:
-    | ((
-        result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
-      ) => void | Promise<void>)
-    | undefined;
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
@@ -458,11 +455,7 @@ export interface SyncRemoteDocumentInput {
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   /** Validates decrypted updates against scratch state before callers persist. */
-  validateIncomingUpdates?:
-    | ((
-        result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
-      ) => void | Promise<void>)
-    | undefined;
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
