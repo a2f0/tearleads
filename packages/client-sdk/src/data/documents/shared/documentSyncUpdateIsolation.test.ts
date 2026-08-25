@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
+  exportFullHistorySnapshot,
   exportUpdatesSince,
   getTextValue,
   getUpdateVersionVectors,
@@ -13,6 +14,18 @@ import {
   isDocumentSyncUpdateIsolationError,
   validateDocumentSyncUpdateImports,
 } from "./documentSyncUpdateIsolation";
+
+function deterministicAscii(length: number): string {
+  const bytes = new Uint8Array(length);
+  let state = 0x9e3779b9;
+  for (let index = 0; index < bytes.length; index += 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    bytes[index] = 32 + ((state >>> 0) % 95);
+  }
+  return new TextDecoder().decode(bytes);
+}
 
 test("ambiguous repairing candidates do not receive exact attribution", async () => {
   const examined: string[] = [];
@@ -26,6 +39,70 @@ test("ambiguous repairing candidates do not receive exact attribution", async ()
 
   expect(candidate).toBeNull();
   expect(examined).toEqual(["first", "second", "third"]);
+});
+
+test("duplicate response ids receive anonymous batch attribution", async () => {
+  const current = await createDocument("isolation-duplicate-current");
+  const duplicateId = "550e8400-e29b-41d4-a716-446655440088";
+  const responseUpdate = {
+    accessEpoch: 1,
+    authorFingerprint: "first-fingerprint",
+    createdAt: "2026-08-25T00:00:00.000Z",
+    documentId: "document-id",
+    encryptedData: "encrypted-data",
+    id: duplicateId,
+    partialEndVersionVector: "AA==",
+    partialStartVersionVector: "AA==",
+    plaintextHash: "plaintext-hash",
+    writeHeader: {
+      ciphertextHash: "ciphertext-hash",
+      contentKeyEpoch: 4,
+      metadataHash: "metadata-hash",
+      writerUserId: "first-writer",
+    },
+  } as unknown as DocumentSyncResponse["updates"][number];
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [
+        {
+          id: duplicateId,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([1, 2, 3]),
+        },
+        {
+          id: duplicateId,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([4, 5, 6]),
+        },
+      ],
+      responseUpdates: [
+        responseUpdate,
+        {
+          ...responseUpdate,
+          authorFingerprint: "second-fingerprint",
+          writeHeader: {
+            ...responseUpdate.writeHeader,
+            writerUserId: "second-writer",
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.stage).toBe("encrypted_record");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual([duplicateId, duplicateId]);
 });
 
 test("scratch import isolates the first poison update without mutating live state", async () => {
@@ -187,6 +264,87 @@ test("multiple poison updates produce honest batch attribution", async () => {
   expect(isolated.updateId).toBeNull();
   expect(isolated.writerUserId).toBeNull();
   expect(isolated.batchUpdateIds).toEqual([...poisonIds, validId]);
+});
+
+test("mixed poison checkpoints and deltas receive batch attribution", async () => {
+  const current = await createDocument("isolation-mixed-poison-current");
+  const checkpointId = "550e8400-e29b-41d4-a716-4466554400e1";
+  const deltaId = "550e8400-e29b-41d4-a716-4466554400e2";
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [
+        {
+          checkpointKind: "rotate_baseline",
+          checkpointPayloadKind: "full_history_snapshot",
+          id: checkpointId,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([1, 2, 3]),
+        },
+        {
+          id: deltaId,
+          partialEndVersionVector: "AA==",
+          partialStartVersionVector: "AA==",
+          updateData: new Uint8Array([4, 5, 6]),
+        },
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual([checkpointId, deltaId]);
+});
+
+test("large current snapshots skip exact repeated-import isolation", async () => {
+  const current = await createDocument("isolation-snapshot-budget-current");
+  current.getText("text").update(deterministicAscii(1_300_000));
+  current.commit();
+  expect(exportFullHistorySnapshot(current).byteLength).toBeGreaterThan(
+    1024 * 1024,
+  );
+
+  const validSource = await createDocument("isolation-snapshot-budget-valid");
+  validSource.getText("text").update("valid sibling");
+  validSource.commit();
+  const validData = exportUpdatesSince(validSource, undefined);
+  const updates = [
+    {
+      id: "550e8400-e29b-41d4-a716-4466554400f0",
+      partialEndVersionVector: "AA==",
+      partialStartVersionVector: "AA==",
+      updateData: new Uint8Array([1, 2, 3]),
+    },
+    ...Array.from({ length: 7 }, (_, index) => ({
+      id: `550e8400-e29b-41d4-a716-4466554400f${index + 1}`,
+      ...getUpdateVersionVectors(validData),
+      updateData: validData,
+    })),
+  ];
+
+  let isolated: unknown;
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: updates,
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual(updates.map((update) => update.id));
 });
 
 test("large failed pages skip exact quadratic isolation", async () => {

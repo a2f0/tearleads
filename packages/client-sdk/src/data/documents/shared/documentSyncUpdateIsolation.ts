@@ -23,7 +23,7 @@ type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
 const MAX_EXACT_ISOLATION_CANDIDATES = 8;
-const MAX_EXACT_ISOLATION_BYTES = 8 * 1024 * 1024;
+const MAX_EXACT_ISOLATION_RETRY_BYTES = 8 * 1024 * 1024;
 
 export type IncomingDocumentSyncUpdateValidator = (
   result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
@@ -158,23 +158,15 @@ function responseUpdatesById(
   return new Map((updates ?? []).map((update) => [update.id, update]));
 }
 
-function importCheckpoints(
-  document: SyncDocument,
-  updates: readonly DecryptedDocumentSyncUpdate[],
-  responseById: ReadonlyMap<string, SyncResponseUpdate>,
-): void {
+function firstDuplicateUpdateId(
+  updates: readonly { readonly id: string }[],
+): string | null {
+  const seen = new Set<string>();
   for (const update of updates) {
-    try {
-      importSnapshot(document, update.updateData);
-    } catch (error) {
-      throw isolateDocumentSyncUpdateError({
-        cause: error,
-        responseUpdate: responseById.get(update.id),
-        stage: "loro_import",
-        updateId: update.id,
-      });
-    }
+    if (seen.has(update.id)) return update.id;
+    seen.add(update.id);
   }
+  return null;
 }
 
 async function createValidationDocument(snapshot: Uint8Array) {
@@ -226,24 +218,56 @@ export function importDecryptedDocumentSyncUpdates(
   }
 }
 
-async function validateOrdinaryUpdateBatch(input: {
-  checkpoints: readonly DecryptedDocumentSyncUpdate[];
+async function validateDecryptedUpdateBatch(input: {
   currentSnapshot: Uint8Array;
-  ordinaryUpdates: readonly DecryptedDocumentSyncUpdate[];
-  responseById: ReadonlyMap<string, SyncResponseUpdate>;
+  updates: readonly DecryptedDocumentSyncUpdate[];
 }): Promise<void> {
   const document = await createValidationDocument(input.currentSnapshot);
   try {
-    importCheckpoints(document, input.checkpoints, input.responseById);
-    if (input.ordinaryUpdates.length > 0) {
+    const { checkpoints, ordinaryUpdates } = splitDocumentSyncUpdates(
+      input.updates,
+    );
+    for (const checkpoint of checkpoints) {
+      importSnapshot(document, checkpoint.updateData);
+    }
+    if (ordinaryUpdates.length > 0) {
       importUpdates(
         document,
-        input.ordinaryUpdates.map((update) => update.updateData),
+        ordinaryUpdates.map((update) => update.updateData),
       );
     }
   } finally {
     document.free();
   }
+}
+
+function exactIsolationRetryExceedsBudget(input: {
+  candidates: readonly DecryptedDocumentSyncUpdate[];
+  currentSnapshot: Uint8Array;
+}): boolean {
+  if (input.candidates.length > MAX_EXACT_ISOLATION_CANDIDATES) return true;
+
+  let retryBytes = 0;
+  for (const candidateIndex of input.candidates.keys()) {
+    if (
+      input.currentSnapshot.byteLength >
+      MAX_EXACT_ISOLATION_RETRY_BYTES - retryBytes
+    ) {
+      return true;
+    }
+    retryBytes += input.currentSnapshot.byteLength;
+    for (const [updateIndex, update] of input.candidates.entries()) {
+      if (updateIndex === candidateIndex) continue;
+      if (
+        update.updateData.byteLength >
+        MAX_EXACT_ISOLATION_RETRY_BYTES - retryBytes
+      ) {
+        return true;
+      }
+      retryBytes += update.updateData.byteLength;
+    }
+  }
+  return false;
 }
 
 /** @internal Exported only to exercise the bounded exact-attribution policy. */
@@ -275,61 +299,62 @@ export async function validateDocumentSyncUpdateImports(input: {
 }): Promise<void> {
   if (input.decryptedUpdates.length === 0) return;
 
-  const currentSnapshot = exportFullHistorySnapshot(input.currentDocument);
-  const responseById = responseUpdatesById(input.responseUpdates);
-  const { checkpoints, ordinaryUpdates } = splitDocumentSyncUpdates(
-    input.decryptedUpdates,
-  );
-  const validationDocument = await createValidationDocument(currentSnapshot);
-  let batchError: unknown;
-  try {
-    importCheckpoints(validationDocument, checkpoints, responseById);
-    if (ordinaryUpdates.length === 0) return;
-    importUpdates(
-      validationDocument,
-      ordinaryUpdates.map((update) => update.updateData),
-    );
-    return;
-  } catch (error) {
-    if (isDocumentSyncUpdateIsolationError(error)) {
-      throw error;
-    }
-    batchError = error;
-  } finally {
-    validationDocument.free();
+  const duplicateUpdateId =
+    firstDuplicateUpdateId(input.decryptedUpdates) ??
+    firstDuplicateUpdateId(input.responseUpdates ?? []);
+  if (duplicateUpdateId !== null) {
+    throw isolateDocumentSyncBatchError({
+      cause: new Error(
+        `Document sync response update id is duplicated: ${duplicateUpdateId}`,
+      ),
+      stage: "encrypted_record",
+      updateIds: (input.responseUpdates ?? input.decryptedUpdates).map(
+        (update) => update.id,
+      ),
+    });
   }
 
-  const exactIsolationBytes = ordinaryUpdates.reduce(
-    (total, update) => total + update.updateData.byteLength,
-    0,
-  );
+  const currentSnapshot = exportFullHistorySnapshot(input.currentDocument);
+  const responseById = responseUpdatesById(input.responseUpdates);
+  let batchError: unknown;
+  try {
+    await validateDecryptedUpdateBatch({
+      currentSnapshot,
+      updates: input.decryptedUpdates,
+    });
+    return;
+  } catch (error) {
+    batchError = error;
+  }
+
   if (
-    ordinaryUpdates.length > MAX_EXACT_ISOLATION_CANDIDATES ||
-    exactIsolationBytes > MAX_EXACT_ISOLATION_BYTES
+    exactIsolationRetryExceedsBudget({
+      candidates: input.decryptedUpdates,
+      currentSnapshot,
+    })
   ) {
     throw isolateDocumentSyncBatchError({
       cause: batchError,
       stage: "loro_import",
-      updateIds: ordinaryUpdates.map((update) => update.id),
+      updateIds: input.decryptedUpdates.map((update) => update.id),
     });
   }
 
   // Rebuild from the same immutable snapshot for every candidate: a failed
-  // import may partially mutate its scratch document. Keeping every other
-  // ordinary update in one batch preserves out-of-order sibling dependencies;
-  // removing a required valid parent therefore cannot falsely blame it.
+  // import may partially mutate its scratch document. Checkpoints participate
+  // alongside ordinary updates so an incompatibility between the two kinds
+  // cannot falsely blame the ordinary writer. Keeping every other update in
+  // one batch also preserves out-of-order sibling dependencies.
   const isolatedUpdate = await findUniqueRepairingCandidate(
-    ordinaryUpdates,
+    input.decryptedUpdates,
     async (_update, candidateIndex) => {
-      const withoutCandidate = ordinaryUpdates.filter(
+      const withoutCandidate = input.decryptedUpdates.filter(
         (_, updateIndex) => updateIndex !== candidateIndex,
       );
       try {
-        await validateOrdinaryUpdateBatch({
-          checkpoints,
+        await validateDecryptedUpdateBatch({
           currentSnapshot,
-          ordinaryUpdates: withoutCandidate,
-          responseById,
+          updates: withoutCandidate,
         });
         return true;
       } catch {
@@ -354,6 +379,6 @@ export async function validateDocumentSyncUpdateImports(input: {
   throw isolateDocumentSyncBatchError({
     cause: batchError,
     stage: "loro_import",
-    updateIds: ordinaryUpdates.map((update) => update.id),
+    updateIds: input.decryptedUpdates.map((update) => update.id),
   });
 }

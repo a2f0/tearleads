@@ -138,13 +138,13 @@ generation before the queued mutation returns, but the post-await check
 suppresses replacement in-memory publication, effect callbacks, and store
 removal.
 
-Incoming updates pass a required all-or-nothing gate before response effects.
-Production authenticates/decrypts, then scratch-imports the page. Bounded
-leave-one-out retries preserve sibling dependencies and identify one poison
-when evidence is unambiguous; large or multi-poison pages get batch-level
-unknown attribution instead of a false writer. Projection integrity errors
-retain their security type. Rejection precedes every effect;
-`responseWellFormed` abstracts the gate while attribution stays tested in code.
+Incoming updates pass an all-or-nothing gate before response effects. Production
+authenticates/decrypts, then scratch-imports the page. Bounded leave-one-out
+covers checkpoints and deltas, retains sibling batches, and names one poison
+only when unambiguous. Duplicate IDs, excessive snapshot-plus-update work, and
+multi-poison pages receive unknown batch attribution. Projection integrity
+errors retain their type. `responseWellFormed` abstracts rejection-before-
+effects; attribution and bounds stay tested in code.
 
 On the same executor, replacement mutations queue behind the already-claimed
 operation and therefore observe its ordering. If reset installs a different
