@@ -57,6 +57,7 @@ export interface PersistDocumentStateInput
       >[1]["attachmentStaging"]
     | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
+  clearSyncFailure?: boolean | undefined;
   containerId?: string | null | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
@@ -396,6 +397,7 @@ async function commitOnePreparedDocumentMutation(input: {
     input.lockedExecSql,
     {
       acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+      clearSyncFailure: persistInput.clearSyncFailure,
       ...(persistInput.attachmentRemoval
         ? { attachmentRemoval: persistInput.attachmentRemoval }
         : {}),

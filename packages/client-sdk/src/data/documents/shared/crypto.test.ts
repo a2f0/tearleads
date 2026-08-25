@@ -26,6 +26,7 @@ import {
   importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "./crypto";
+import { isDocumentSyncUpdateIsolationError } from "./documentSyncUpdateIsolation";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
 import {
   DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
@@ -41,6 +42,25 @@ async function importPlaintextHashTestKey(seed: number): Promise<CryptoKey> {
     false,
     ["sign"],
   );
+}
+
+function errorCauseTree(error: unknown): unknown[] {
+  const pending = [error];
+  const seen = new Set<unknown>();
+  const found: unknown[] = [];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined || seen.has(current)) continue;
+    seen.add(current);
+    found.push(current);
+    if (current instanceof AggregateError) {
+      pending.push(...current.errors);
+    }
+    if (current instanceof Error && current.cause !== undefined) {
+      pending.push(current.cause);
+    }
+  }
+  return found;
 }
 
 test("plaintext hashes distinguish forged content with the same version-vector shape", async () => {
@@ -234,6 +254,112 @@ test("decryptDocumentSyncUpdates verifies and decrypts content records", async (
     }),
   ).rejects.toThrow(
     "Document encrypted update version 2 is invalid; expected 1",
+  );
+});
+
+test("decryptDocumentSyncUpdates identifies a poison update within a valid batch", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const poisonId = "550e8400-e29b-41d4-a716-4466554400aa";
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord(),
+      createPendingUpdateRecord({ id: poisonId }),
+    ],
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const poisonUpdate = response.updates[1];
+  if (!poisonUpdate) throw new Error("Expected a poison response update");
+
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: [
+        response.updates[0] as (typeof response.updates)[number],
+        await replaceEncryptedPlaintext({
+          contentKey,
+          documentId: materialized.plan.documentId,
+          organizationId: materialized.plan.organizationId,
+          update: poisonUpdate,
+        }),
+      ],
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.updateId).toBe(poisonId);
+  expect(isolated.stage).toBe("plaintext_integrity");
+  expect(isolated.writerUserId).toBe(author.signerUserId);
+});
+
+test("decryptDocumentSyncUpdates keeps multiple poison updates anonymous", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const poisonIds = [
+    "550e8400-e29b-41d4-a716-4466554400aa",
+    "550e8400-e29b-41d4-a716-4466554400ab",
+  ];
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: poisonIds.map((id) => createPendingUpdateRecord({ id })),
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const poisonedUpdates = await Promise.all(
+    response.updates.map((update) =>
+      replaceEncryptedPlaintext({
+        contentKey,
+        documentId: materialized.plan.documentId,
+        organizationId: materialized.plan.organizationId,
+        update,
+      }),
+    ),
+  );
+
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: poisonedUpdates,
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.authorFingerprint).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual(poisonIds);
+  expect(isolated.stage).toBe("plaintext_integrity");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+  const nestedCauses = errorCauseTree(isolated.cause);
+  expect(nestedCauses.some(isDocumentSyncUpdateIsolationError)).toBe(false);
+  const nestedMessages = nestedCauses
+    .map((cause) => (cause instanceof Error ? cause.message : String(cause)))
+    .join("\n");
+  expect(nestedMessages).not.toContain(author.signerUserId);
+  expect(nestedMessages).not.toContain(
+    poisonedUpdates[0]?.authorFingerprint ?? "missing fingerprint",
   );
 });
 

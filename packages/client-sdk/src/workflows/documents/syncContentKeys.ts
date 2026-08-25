@@ -5,7 +5,12 @@ import type {
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
 import {
+  isolateDocumentSyncBatchError,
+  isolateDocumentSyncUpdateError,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
+import {
   collectContainerKeksForDocumentSync,
+  DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
 import {
@@ -17,8 +22,11 @@ import type {
   ProjectionVerificationOptions,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+
+type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 
 export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
@@ -88,6 +96,53 @@ function syncResponseContentKeyBundlesByEpoch(
   return byEpoch;
 }
 
+function syncResponseUpdatesByContentKeyEpoch(
+  response: DocumentSyncResponse,
+): ReadonlyMap<number, readonly SyncResponseUpdate[]> {
+  const updatesByEpoch = new Map<number, SyncResponseUpdate[]>();
+  for (const update of response.updates) {
+    let contentKeyEpoch: number;
+    try {
+      contentKeyEpoch = readWriteHeader(
+        update.writeHeader,
+        "Document sync response write header",
+      ).contentKeyEpoch;
+    } catch (error) {
+      throw isolateDocumentSyncUpdateError({
+        cause: error,
+        responseUpdate: update,
+        stage: "write_header",
+        updateId: update.id,
+      });
+    }
+    const epochUpdates = updatesByEpoch.get(contentKeyEpoch);
+    if (epochUpdates) epochUpdates.push(update);
+    else updatesByEpoch.set(contentKeyEpoch, [update]);
+  }
+  return updatesByEpoch;
+}
+
+/** @internal Keeps epoch-wide failures anonymous and integrity failures typed. */
+export function throwDocumentSyncContentKeyFailure(input: {
+  cause: unknown;
+  updates: readonly SyncResponseUpdate[];
+}): never {
+  if (isKeyingVerificationError(input.cause)) {
+    throw input.cause;
+  }
+  if (
+    input.cause instanceof DocumentHistoryUnavailableError &&
+    isKeyingVerificationError(input.cause.historyCause)
+  ) {
+    throw input.cause.historyCause;
+  }
+  throw isolateDocumentSyncBatchError({
+    cause: input.cause,
+    stage: "content_key",
+    updateIds: input.updates.map((update) => update.id),
+  });
+}
+
 export async function unwrapDocumentSyncResponseContentKeys(
   input: {
     currentContentKey: Uint8Array;
@@ -107,23 +162,27 @@ export async function unwrapDocumentSyncResponseContentKeys(
       ? [[input.currentContentKeyEpoch, input.currentContentKey]]
       : [],
   );
-  const bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
-  const neededContentKeyEpochs = new Set(
-    input.response.updates.map(
-      (update) =>
-        readWriteHeader(
-          update.writeHeader,
-          "Document sync response write header",
-        ).contentKeyEpoch,
-    ),
+  const updatesByContentKeyEpoch = syncResponseUpdatesByContentKeyEpoch(
+    input.response,
   );
-  const missingBundles = [...neededContentKeyEpochs]
-    .filter((contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch))
-    .map((contentKeyEpoch) => bundlesByEpoch.get(contentKeyEpoch));
-  if (missingBundles.length === 0) {
+  const missingContentKeyEpochs = [...updatesByContentKeyEpoch.keys()].filter(
+    (contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch),
+  );
+  if (missingContentKeyEpochs.length === 0) {
     return contentKeysByEpoch;
   }
-
+  const missingUpdates = missingContentKeyEpochs.flatMap(
+    (contentKeyEpoch) => updatesByContentKeyEpoch.get(contentKeyEpoch) ?? [],
+  );
+  let bundlesByEpoch: ReturnType<typeof syncResponseContentKeyBundlesByEpoch>;
+  try {
+    bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
+  } catch (error) {
+    throwDocumentSyncContentKeyFailure({
+      cause: error,
+      updates: missingUpdates,
+    });
+  }
   const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
@@ -131,19 +190,29 @@ export async function unwrapDocumentSyncResponseContentKeys(
     ...projectionVerificationOptions(input),
   });
 
-  for (const bundle of missingBundles) {
-    if (!bundle) {
-      throw new Error("Document sync response content-key bundle missing");
+  for (const contentKeyEpoch of missingContentKeyEpochs) {
+    const bundle = bundlesByEpoch.get(contentKeyEpoch);
+    const responseUpdates =
+      updatesByContentKeyEpoch.get(contentKeyEpoch) ?? missingUpdates;
+    try {
+      if (!bundle) {
+        throw new Error("Document sync response content-key bundle missing");
+      }
+      contentKeysByEpoch.set(
+        bundle.contentKeyEpoch,
+        await unwrapDocumentContentKeyFromBundle(
+          bundle,
+          collectedKeks.keksByEpochId,
+          collectedKeks.predecessorFailuresByEpochId,
+          collectedKeks.unattributedPredecessorFailuresByContainerId,
+        ),
+      );
+    } catch (error) {
+      throwDocumentSyncContentKeyFailure({
+        cause: error,
+        updates: responseUpdates,
+      });
     }
-    contentKeysByEpoch.set(
-      bundle.contentKeyEpoch,
-      await unwrapDocumentContentKeyFromBundle(
-        bundle,
-        collectedKeks.keksByEpochId,
-        collectedKeks.predecessorFailuresByEpochId,
-        collectedKeks.unattributedPredecessorFailuresByContainerId,
-      ),
-    );
   }
 
   return contentKeysByEpoch;

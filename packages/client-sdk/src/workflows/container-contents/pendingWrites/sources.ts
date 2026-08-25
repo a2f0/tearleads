@@ -131,6 +131,35 @@ const PENDING_WRITE_SOURCE_SQL = `
 
   UNION ALL
 
+  -- An incoming metadata quarantine can exist without outbound updates. Keep
+  -- it visible as a zero-operation diagnostic while the container is live;
+  -- dormant retained metadata stays hidden until rehydration re-attaches it.
+  SELECT
+    'container' AS object_kind,
+    NULL AS namespace,
+    failure.local_id AS local_id,
+    CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
+    ${CONTAINER_DISPLAY_NAME_SQL} AS name,
+    container.id AS container_id,
+    NULLIF(container.organization_id, '') AS organization_id,
+    'revalidation' AS operation_kind,
+    0 AS operation_count,
+    0 AS byte_length,
+    failure.attempted_at AS created_at,
+    failure.attempted_at AS updated_at,
+    NULL AS target_container_id,
+    'pending' AS operation_status,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
+    'unless-item-covered' AS inclusion
+  FROM document_sync_failures failure
+  JOIN containers container ON container.id = failure.local_id
+  LEFT JOIN container_projection
+    ON container_projection.container_id = failure.local_id
+  WHERE failure.app_kind = 'container-metadata'
+
+  UNION ALL
+
   SELECT
     'unknown' AS object_kind,
     updates.app_kind AS namespace,

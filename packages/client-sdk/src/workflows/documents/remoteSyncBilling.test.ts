@@ -11,9 +11,9 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
-import { syncRemoteDocument } from "./sync";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 
 test("createRemoteDocument gates writes by the resolved container organization", async () => {

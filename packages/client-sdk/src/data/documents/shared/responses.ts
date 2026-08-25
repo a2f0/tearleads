@@ -16,6 +16,7 @@ import type {
 } from "./types";
 
 export {
+  DocumentSyncResponseUpdateContentKeyError,
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
   persistedDocumentSyncStateFromResponse,

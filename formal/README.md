@@ -138,6 +138,14 @@ generation before the queued mutation returns, but the post-await check
 suppresses replacement in-memory publication, effect callbacks, and store
 removal.
 
+Incoming updates pass an all-or-nothing gate before effects. Production
+authenticates/decrypts, then scratch-imports. Bounded leave-one-out covers
+checkpoints and deltas, retains sibling batches, and names one poison only when
+unambiguous. Duplicate IDs, missing dependencies, oversized retries, and
+multi-failure decrypt/key epochs use unknown batch attribution. Nested errors
+report; batch causes hide attribution. `responseWellFormed` abstracts rejection;
+CAS clearing and diagnostics stay code-tested.
+
 On the same executor, replacement mutations queue behind the already-claimed
 operation and therefore observe its ordering. If reset installs a different
 executor, the captured operation finishes on the old one. The model takes the
@@ -186,6 +194,8 @@ The abstraction maps to production at these seams:
 | `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with a null persistence result suppressing replacement-store publication and effects |
 | `ResetReinitialize` | replacement of any `DocumentStoreSyncGeneration` identity: `currentDoc`, `domainScope`, `execSql`, or `resolveProjectionUserKey` |
 | `BeginSyncResponse` | `captureDocumentStoreSyncGeneration` plus the sync attempt's plan and captured `currentRecord` identity/access/keying context |
+| `ValidateIncomingResponse` | required `SyncRemoteDocumentInput.validateIncomingUpdates`, normally `validateDocumentSyncUpdateImports`, after authenticated decryption and before the caller can persist the response; scratch imports free their WASM-backed documents deterministically |
+| `RejectIsolatedIncomingResponse` / `InvalidResponseCannotAdvance` | `DocumentSyncUpdateIsolationError` handling plus `documentIncomingUpdateIsolationFailureHandler`, which records the blocked scope without applying response-derived document or sync progress |
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |
 | `CompleteLiveResponsePersist` / `CompleteLiveDeletion` | the post-await generation check allowing response publication or `markDocumentStoreRemoved` only into the still-matching generation |
@@ -221,6 +231,8 @@ require that:
   and full identity/access context match the deletion request;
 - ignoring a response that was stale before its guarded start cannot mutate
   snapshot, markers, or queue, while stale preparation may retain/add coverage;
+- an incoming response that fails isolated validation cannot append history,
+  settle queued rows, advance markers, or mutate the live snapshot;
 - a stale deletion captured for A cannot remove a relinked live B store;
 - user-discarded local state has no queued or retained work, while an accepted
   authoritative remote deletion is tracked separately as a terminal state.
@@ -231,14 +243,17 @@ Relaxing the durable queue-claim guard violates
 `StaleDurableCompletionCannotPublish`, while letting relink overtake a claimed
 chain task violates
 `StartedDurableOpSerializesRelink`. Relaxing either
-deletion publication guard violates `AllPublicationsMatchContext`, and letting
+deletion publication guard violates `AllPublicationsMatchContext`, letting an
+unvalidated response start a durable operation violates
+`DurableStartRequiresLiveContext`, and letting
 a stale deletion remove the live store violates
 `StaleDeletionCannotRemoveLiveDocument`. These checks are independent from the
 tail-accounting invariants.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-3,067,900 generated and 568,008 distinct states at depth 40. Set union stands in
+7,290,584 generated and 1,188,552 distinct states at depth 43. Set union stands
+in
 for semantic version-vector merge, and each queued operation stands in for the
 coverage carried by one or more durable pending rows. A same-document key
 rotation is a new model identity even when its remote UUID is unchanged; key

@@ -174,6 +174,71 @@ test("a failure with no pending work surfaces as its own queue item", async () =
   }
 });
 
+test("a metadata quarantine with no pending updates stays visible", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "pending-writes-metadata-failure-only",
+  );
+  try {
+    await ensurePendingWriteSchema(execSql);
+    await saveTestSyncedContainer({
+      accessLevel: "write",
+      execSql,
+      id: "quarantined-container",
+      name: "Quarantined",
+      organizationId: "metadata-organization",
+      timestamp: T0,
+    });
+    await recordDocumentSyncFailure(
+      execSql,
+      { appKind: "container-metadata", localId: "quarantined-container" },
+      {
+        attemptedAt: T2,
+        message: "Incoming metadata update failed validation",
+        status: null,
+      },
+    );
+
+    const failureOnly = (await listPendingWrites(execSql)).filter(
+      (item) => item.localId === "quarantined-container",
+    );
+    expect(failureOnly).toHaveLength(1);
+    expect(failureOnly[0]).toMatchObject({
+      containerId: "quarantined-container",
+      objectKind: "container",
+      organizationId: "metadata-organization",
+      status: "error",
+    });
+    expect(failureOnly[0]?.operations).toEqual([
+      expect.objectContaining({
+        count: 0,
+        kind: "revalidation",
+        lastError: "Incoming metadata update failed validation",
+      }),
+    ]);
+
+    await insertTestPendingUpdate({
+      appKind: "container-metadata",
+      createdAt: T1,
+      execSql,
+      id: "metadata-update",
+      localId: "quarantined-container",
+    });
+    const withPending = (await listPendingWrites(execSql)).filter(
+      (item) => item.localId === "quarantined-container",
+    );
+    expect(withPending).toHaveLength(1);
+    expect(withPending[0]?.operations).toEqual([
+      expect.objectContaining({
+        count: 1,
+        kind: "update",
+        lastError: "Incoming metadata update failed validation",
+      }),
+    ]);
+  } finally {
+    close();
+  }
+});
+
 test("queue items keep their org id after the shared container is removed", async () => {
   const { close, execSql } = await createTestExecSql(
     "pending-writes-org-retention",

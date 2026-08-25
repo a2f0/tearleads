@@ -29,19 +29,18 @@ import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
  * the newcomer CAN decrypt) AND the pre-rotation updates (epoch N, which the
  * newcomer canNOT decrypt — it holds no wrap for the superseded KEK epoch).
  *
- * `decryptDocumentSyncUpdatesByEpoch` runs `Promise.all` over the whole batch and
- * throws on the first update whose epoch key is missing. So the undecryptable
- * old-epoch sibling poisons the entire import: the newcomer never imports the
- * baseline that would have converged it, and retries the same failing batch
- * forever. The decrypt is all-or-nothing; the rotate_baseline cannot rescue it.
+ * `decryptDocumentSyncUpdatesByEpoch` inspects every update but returns no
+ * plaintext unless the whole batch passes. An undecryptable old-epoch sibling
+ * is identified and quarantined, but the newcomer still cannot import the
+ * baseline or advance its frontier without an explicit recovery path.
  *
  * The numeric relationship of the epochs is immaterial — what matters is that the
  * batch contains one epoch the reader cannot unwrap.
  *
- * This characterizes the (unchanged) client decrypt invariant: a mixed-epoch
- * batch is fatal. The fix is server-side — see the coverage-gated baseline
- * redirect in `documentSyncBaselineRedirect.ts`, which keeps the server from ever
- * assembling such a batch for a post-rotation reader.
+ * This characterizes the fail-closed client decrypt invariant. Normal sync
+ * avoids the condition through the coverage-gated baseline redirect in
+ * `documentSyncBaselineRedirect.ts`; isolation makes an unexpected poison row
+ * attributable without pretending it was applied.
  */
 test("a post-rotation reader is stranded: one undecryptable epoch fails the whole batch", async () => {
   const { author, contentKey, secretKey, writerProjection } =
@@ -108,9 +107,8 @@ test("a post-rotation reader is stranded: one undecryptable epoch fails the whol
   importUpdates(newcomer, [baselineUpdateData]);
   expect(getTextValue(newcomer)).toBe("post-rotation baseline state");
 
-  // But the batch the server actually returns (pre-rotation update + baseline)
-  // throws on the undecryptable sibling and yields NOTHING — the newcomer cannot
-  // import even the baseline, so it never converges.
+  // The mixed batch identifies the undecryptable sibling and yields no
+  // plaintext, so the newcomer cannot advance around the missing epoch.
   await expect(
     decryptDocumentSyncUpdatesByEpoch({
       contentKeysByEpoch: newcomerKeysByEpoch,

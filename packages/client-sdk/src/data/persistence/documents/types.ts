@@ -172,6 +172,7 @@ export interface DocumentsPersistence {
       acceptedPendingUpdateIds: readonly string[];
       attachmentRemoval?: AttachmentRemovalRows | undefined;
       attachmentStaging?: AttachmentStagingRows | undefined;
+      clearSyncFailure?: boolean | undefined;
       document: StoredDocumentRecord;
       expectedRecord: StoredDocumentRecord;
       historyCheckpoint?:

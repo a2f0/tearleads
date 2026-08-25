@@ -3,6 +3,7 @@ import {
   createRemoteDocument,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentSyncUpdateIsolationError,
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
@@ -57,6 +58,20 @@ export function documentTerminalSubmitFailureHandler(
     generation,
     state,
   });
+}
+
+/** Persist an incoming poison update as this document's durable blocked row. */
+export function documentIncomingUpdateIsolationFailureHandler(
+  state: DocumentStoreState,
+  generation?: DocumentStoreSyncGeneration,
+) {
+  const recordFailure = documentSyncFailureHandler({
+    describeFailure: (failure) => failure.message,
+    generation,
+    state,
+  });
+  return (failure: DocumentSyncUpdateIsolationError) =>
+    recordFailure({ message: failure.message, status: null });
 }
 
 /**

@@ -4,6 +4,7 @@ import { readPullContinuation } from "../../../data/documents/shared/syncPaginat
 import {
   type DocumentRecord,
   settleOutgoingPassAndDecideReArm,
+  shouldClearDocumentSyncFailureAfterPass,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
@@ -107,6 +108,10 @@ function documentSyncSaveOptions(
 ): Parameters<typeof persistDocument>[3] {
   return {
     acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
+    clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
+      syncAttempt.synced,
+      syncAttempt.outgoingUpdateCount,
+    ),
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation,
       record: syncAttempt.requestRecord,

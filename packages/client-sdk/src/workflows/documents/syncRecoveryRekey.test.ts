@@ -12,6 +12,7 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
@@ -20,7 +21,6 @@ import {
   rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { syncRemoteDocument } from "./sync";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import {
   rekeyLimitSubmitFailure,

@@ -3,6 +3,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
+import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
@@ -82,6 +83,20 @@ async function submittedDocumentSyncResult(input: {
   sync: SyncRemoteDocumentInput;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
+  const result = await syncRemoteDocumentResultFromResponse({
+    ...projectionVerificationOptions(input.sync),
+    execSql: input.sync.execSql,
+    materializedPlan: input.materializedPlan,
+    onTerminalSubmitFailure: input.sync.onTerminalSubmitFailure,
+    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    rekeyPendingUpdate: input.sync.rekeyPendingUpdate,
+    resolveWriterPublicKey: input.sync.resolveWriterPublicKey,
+    response: input.response,
+    targetSecretKey: input.sync.targetSecretKey,
+    validateIncomingUpdates: input.sync.validateIncomingUpdates,
+    writerProjection: input.writerProjection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
   evictHealedWriterProjection(
     input.sync,
     input.materializedPlan,
@@ -97,19 +112,6 @@ async function submittedDocumentSyncResult(input: {
       epoch: input.materializedPlan.plan.contentKeyEpoch,
     });
   }
-  const result = await syncRemoteDocumentResultFromResponse({
-    ...projectionVerificationOptions(input.sync),
-    execSql: input.sync.execSql,
-    materializedPlan: input.materializedPlan,
-    onTerminalSubmitFailure: input.sync.onTerminalSubmitFailure,
-    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-    rekeyPendingUpdate: input.sync.rekeyPendingUpdate,
-    resolveWriterPublicKey: input.sync.resolveWriterPublicKey,
-    response: input.response,
-    targetSecretKey: input.sync.targetSecretKey,
-    writerProjection: input.writerProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-  });
   return {
     ...result,
     hasDeferredPendingUpdates:
@@ -390,7 +392,7 @@ function failureBlocksQueuedWrites(input: {
   );
 }
 
-export async function syncRemoteDocument(
+async function syncRemoteDocumentInternal(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
   const resolveProjectionUserKey = resolveRemoteSyncProjectionUserKey(input);
@@ -477,4 +479,17 @@ export async function syncRemoteDocument(
   }
 
   return abandonAfterRetryableConflicts(input);
+}
+
+export async function syncRemoteDocument(
+  input: SyncRemoteDocumentInput,
+): Promise<SyncRemoteDocumentResult | null> {
+  try {
+    return await syncRemoteDocumentInternal(input);
+  } catch (error) {
+    if (isDocumentSyncUpdateIsolationError(error)) {
+      await input.onIncomingUpdateIsolationFailure?.(error);
+    }
+    throw error;
+  }
 }

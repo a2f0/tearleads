@@ -47,6 +47,7 @@ import {
   writerKeyResolver,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import {
   createFullHistoryRotationSnapshot,
   createStaleBundleSyncFixture,
@@ -60,7 +61,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
 } from "./index";
-import { hasDocumentUpdateEvent, syncRemoteDocument } from "./sync";
+import { hasDocumentUpdateEvent } from "./sync";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 

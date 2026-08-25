@@ -5,7 +5,10 @@ import {
   replaceDocumentHistoryCheckpoint,
 } from "../../../sqlite/documentHistoryPersistence";
 import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPendingUpdatePersistence";
-import { documentPendingUpdates } from "../../../sqlite/schema";
+import {
+  documentPendingUpdates,
+  documentSyncFailures,
+} from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -61,6 +64,21 @@ async function deleteAcceptedPendingUpdates(
         eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
         eq(documentPendingUpdates.localId, localId),
         inArray(documentPendingUpdates.id, uniqueIds),
+      ),
+    )
+    .run();
+}
+
+async function clearSyncFailure(
+  tx: ClientSQLiteTransactionScope,
+  localId: string,
+): Promise<void> {
+  await tx
+    .delete(documentSyncFailures)
+    .where(
+      and(
+        eq(documentSyncFailures.appKind, DOCUMENTS_APP_KIND),
+        eq(documentSyncFailures.localId, localId),
       ),
     )
     .run();
@@ -172,6 +190,9 @@ export async function commitStoredDocumentMutation(
           input.document.id,
           input.acceptedPendingUpdateIds,
         );
+        if (input.clearSyncFailure) {
+          await clearSyncFailure(tx, input.document.id);
+        }
         const updatedAt = await resolveDocumentSaveTimestamp({
           document: input.document,
           options:

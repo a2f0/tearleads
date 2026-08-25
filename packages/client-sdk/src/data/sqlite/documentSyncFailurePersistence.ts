@@ -20,10 +20,10 @@ interface DocumentSyncFailureFields {
 }
 
 /**
- * Upsert the last terminal outbound-sync failure for a document scope. The
- * durable pending-update queue has no status columns, so this row is what lets
- * the write-queue view explain a stuck write (e.g. a 403 after shared-org
- * access was revoked). One row per scope: a newer failure replaces the old.
+ * Upsert the last terminal failure or incoming-update quarantine for a document
+ * scope. The durable pending-update queue has no status columns, so this row is
+ * what lets the write-queue view explain a blocked document. One row per scope:
+ * a newer failure replaces the old.
  */
 export async function recordDocumentSyncFailure(
   execSql: ExecSql,

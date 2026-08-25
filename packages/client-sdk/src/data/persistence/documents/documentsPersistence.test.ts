@@ -217,6 +217,79 @@ test("commitDocumentMutation aborts a stale generation before durable writes", a
   }
 });
 
+test("document failure clearance commits only with the expected sync state", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-failure-clearance-cas",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const document = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "remote-document-1",
+      id: "local-document-1",
+      snapshotEndVersion: "current",
+      text: "current",
+    };
+    await sqlDocumentsPersistence.saveDocument(execSql, document);
+    await execSql(
+      `INSERT INTO document_sync_failures
+        (app_kind, local_id, status, message, attempted_at)
+       VALUES ('documents', ?, NULL, 'quarantined', ?)`,
+      [document.id, "2026-08-25T00:00:00.000Z"],
+    );
+    const current = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      document.id,
+    );
+    if (!current) throw new Error("Expected stored document");
+
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          clearSyncFailure: true,
+          document: current,
+          expectedRecord: { ...current, snapshotEndVersion: "stale" },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => {},
+      ),
+    ).resolves.toMatchObject({ committed: false });
+    expect(
+      await execSql(
+        `SELECT message FROM document_sync_failures
+         WHERE app_kind = 'documents' AND local_id = ?`,
+        [document.id],
+      ),
+    ).toEqual([{ message: "quarantined" }]);
+
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          clearSyncFailure: true,
+          document: current,
+          expectedRecord: current,
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => {},
+      ),
+    ).resolves.toMatchObject({ committed: true });
+    expect(
+      await execSql(
+        `SELECT message FROM document_sync_failures
+         WHERE app_kind = 'documents' AND local_id = ?`,
+        [document.id],
+      ),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("commitDocumentMutation settles accepted ids only in its document scope", async () => {
   const { close, execSql } = await createTestExecSql(
     "documents-persistence-accepted-scope",

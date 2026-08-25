@@ -66,6 +66,7 @@ export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   attachmentRemoval?: AttachmentRemovalRows | undefined;
   attachmentStaging?: AttachmentStagingRows | undefined;
+  clearSyncFailure?: boolean | undefined;
   expectedSyncState?:
     | {
         pullContinuation: DocumentSyncPullContinuation | null;
@@ -192,9 +193,7 @@ function shallowEqualRecord<Value>(
 ): boolean {
   let leftKeyCount = 0;
   for (const key in left) {
-    if (!Object.hasOwn(left, key)) {
-      continue;
-    }
+    if (!Object.hasOwn(left, key)) continue;
 
     leftKeyCount += 1;
     if (!Object.hasOwn(right, key) || !Object.is(left[key], right[key])) {

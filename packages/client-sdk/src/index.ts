@@ -369,9 +369,11 @@ export {
 export type {
   DocumentRecord,
   DocumentSyncPullContinuation,
+  DocumentSyncUpdateIsolationError,
   DocumentsPersistence,
   DocumentsWorkflowRuntime,
   DocumentsWorkflowRuntimeInput,
+  IncomingDocumentSyncUpdateValidator,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateInsert,
@@ -388,11 +390,13 @@ export {
   DOCUMENTS_APP_KIND,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  isDocumentSyncUpdateIsolationError,
   persistedDocumentCreateStateFromResponse,
   readPullContinuation,
   syncRemoteDocument,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
+  validateDocumentSyncUpdateImports,
 } from "./workflows/documents";
 // Nominal identity constructors are deliberately absent here. Integration
 // tests that compose low-level runtimes use the testing package subpath.
