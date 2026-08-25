@@ -44,8 +44,10 @@ import {
   captureDocumentStoreRemoteSyncRequestGeneration,
   type DocumentStoreRemoteSyncRequestGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
+  hasPendingIndependentDocumentStoreRemoteSync,
   invalidateDocumentStoreRemoteSync,
   isDocumentStoreRemoteSyncBlocked,
+  markDocumentStoreRemoteSyncPending,
   registerDocumentStoreRemoteSyncWaiter,
 } from "./documentStore/syncGeneration";
 import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
@@ -129,12 +131,12 @@ function updateDocumentStoreRuntime(
 function requestRemoteDocumentStoreSync(
   state: DocumentStoreState,
   scheduleSync: () => void,
+  owner: "independent" | "waiter" = "independent",
 ): number {
   allowDocumentStoreRemoteSync(state);
-  state.remoteUpdatePending = true;
-  state.remoteUpdateSignalSeq += 1;
+  const signalSequence = markDocumentStoreRemoteSyncPending(state, owner);
   scheduleSync();
-  return state.remoteUpdateSignalSeq;
+  return signalSequence;
 }
 
 function requestOrdinaryDocumentStoreSync(
@@ -177,10 +179,14 @@ function requestRemoteDocumentStoreSyncAndWait(
       requestedSignalSequence = requestRemoteDocumentStoreSync(
         state,
         scheduleSync,
+        "waiter",
       );
     },
     onInvalidated: () => {
-      if (releaseWaiter()) {
+      if (
+        releaseWaiter() &&
+        !hasPendingIndependentDocumentStoreRemoteSync(state)
+      ) {
         invalidateDocumentStoreRemoteSync(state);
       }
     },

@@ -4,6 +4,13 @@ import type { DocumentState, DocumentStoreState } from "./state";
 const remoteSyncGenerations = new WeakMap<DocumentStoreState, number>();
 const remoteSyncBlockedStates = new WeakSet<DocumentStoreState>();
 const remoteSyncWaiterCounts = new WeakMap<DocumentStoreState, number>();
+const independentRemoteSyncSignals = new WeakMap<
+  DocumentStoreState,
+  {
+    readonly generation: DocumentStoreRemoteSyncRequestGeneration;
+    readonly signalSequence: number;
+  }
+>();
 
 function getRemoteSyncGeneration(state: DocumentStoreState): number {
   return remoteSyncGenerations.get(state) ?? 0;
@@ -63,6 +70,35 @@ export function invalidateDocumentStoreRemoteSync(
 
 export function allowDocumentStoreRemoteSync(state: DocumentStoreState): void {
   remoteSyncBlockedStates.delete(state);
+}
+
+export function markDocumentStoreRemoteSyncPending(
+  state: DocumentStoreState,
+  owner: "independent" | "waiter",
+): number {
+  state.remoteUpdatePending = true;
+  state.remoteUpdateSignalSeq += 1;
+  if (owner === "independent") {
+    independentRemoteSyncSignals.set(state, {
+      generation: captureDocumentStoreRemoteSyncRequestGeneration(state),
+      signalSequence: state.remoteUpdateSignalSeq,
+    });
+  }
+  return state.remoteUpdateSignalSeq;
+}
+
+export function hasPendingIndependentDocumentStoreRemoteSync(
+  state: DocumentStoreState,
+): boolean {
+  const signal = independentRemoteSyncSignals.get(state);
+  return (
+    signal !== undefined &&
+    isDocumentStoreRemoteSyncRequestGenerationCurrent(
+      state,
+      signal.generation,
+    ) &&
+    signal.signalSequence > state.remoteUpdateCompletedSignalSeq
+  );
 }
 
 /**

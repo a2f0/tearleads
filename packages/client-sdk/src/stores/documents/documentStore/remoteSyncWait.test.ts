@@ -371,3 +371,61 @@ test("aborting one waiter preserves a concurrent remote probe", async () => {
     database.close();
   }
 });
+
+test("aborting the last waiter preserves a concurrent manual refresh", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql(
+    "remote-sync-wait-manual-refresh-abort",
+  );
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        markSyncStarted();
+        await responseGate;
+      }
+      return fixture.response;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "manual-refresh-abort-profile",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    const abortController = new AbortController();
+    const aborted = store.requestRemoteSyncAndWait(abortController.signal);
+    await settleWithin(syncStarted);
+
+    store.requestRemoteSync();
+    abortController.abort();
+    releaseResponse();
+
+    expect(await settleWithin(aborted)).toBe(false);
+    await settleCoordinator(runtime.state.domainScope);
+    const persisted = await defaultDocumentsPersistence.loadDocumentStoreState(
+      database.execSql,
+      "manual-refresh-abort-profile",
+    );
+    expect(syncCalls).toBeGreaterThanOrEqual(2);
+    expect(persisted.document?.text).toBe("survives key rotation");
+  } finally {
+    releaseResponse();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});

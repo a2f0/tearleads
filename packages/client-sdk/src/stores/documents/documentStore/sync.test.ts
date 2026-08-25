@@ -28,7 +28,10 @@ function createRemoteEventState(
     remoteUpdateCompletedSignalSeq: 0,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
-    runtime: { state: { events: [...events] } },
+    runtime: {
+      infra: { execSql: async () => [] },
+      state: { events: [...events] },
+    },
   } as unknown as DocumentStoreState;
 }
 
