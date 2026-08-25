@@ -239,22 +239,22 @@ test("each document keeps one bounded attribution hydration selection", async ()
         documentId: "document-b",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(33),
-    );
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
 
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(33);
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
   } finally {
     harness.restore();
   }
 });
 
-test("a shared profile remains retryable after another document's reservation fails", async () => {
+test("a shared profile retains its slot in a full hydration selection", async () => {
   const harness = installHarnesses(true);
+  const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
   let resolveFirstEnsure: ((value: { id: string } | null) => void) | undefined;
   const firstEnsure = new Promise<{ id: string } | null>((resolve) => {
     resolveFirstEnsure = resolve;
@@ -267,35 +267,49 @@ test("a shared profile remains retryable after another document's reservation fa
       useExplorerAttributionProfileHydration({
         appData: runtimeSnapshot(),
         enabled: true,
-        readModelProjection: projection([rosterUser(0)]),
+        readModelProjection: projection(users),
         readModelRevision: 1,
       }),
     );
-    const contributorUserIds = ["profile-user-0"];
     act(() =>
-      view.result.current({ contributorUserIds, documentId: "document-a" }),
+      view.result.current({
+        contributorUserIds: ["profile-user-0"],
+        documentId: "document-a",
+      }),
     );
     await waitFor(() =>
       expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1),
     );
 
     act(() =>
-      view.result.current({ contributorUserIds, documentId: "document-b" }),
+      view.result.current({
+        contributorUserIds: users.map((user) => user.userId),
+        documentId: "document-b",
+      }),
     );
-    await act(async () => Promise.resolve());
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1);
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    await waitFor(() =>
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(31),
+    );
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       resolveFirstEnsure?.(null);
       await firstEnsure;
     });
     act(() =>
-      view.result.current({ contributorUserIds, documentId: "document-b" }),
+      view.result.current({
+        contributorUserIds: users.map((user) => user.userId),
+        documentId: "document-b",
+      }),
     );
-    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
-    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
+    );
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(3);
+    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(32);
+    expect(harness.symcrypt.open).not.toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: "profile-32" }),
+    );
   } finally {
     harness.restore();
   }
