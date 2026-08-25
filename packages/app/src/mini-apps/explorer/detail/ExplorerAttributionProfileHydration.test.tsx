@@ -12,12 +12,16 @@ import { useExplorerAttributionProfileHydration } from "../hooks/useExplorerOrga
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 
-function rosterUser(index: number): OrganizationDirectoryUser {
+function rosterUser(
+  index: number,
+  status: "active" | "disabled" = "active",
+): OrganizationDirectoryUser {
   const userId = `profile-user-${index}`;
+  const disabled = status === "disabled";
   return {
     createdAt: "2026-05-20T12:00:00.000Z",
-    disabledAt: null,
-    disabledByUserId: null,
+    disabledAt: disabled ? "2026-05-21T12:00:00.000Z" : null,
+    disabledByUserId: disabled ? "viewer-user-id" : null,
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     encapsulationPublicKey: `encapsulation-key-${userId}`,
     isSelf: false,
@@ -25,7 +29,7 @@ function rosterUser(index: number): OrganizationDirectoryUser {
     profileDocumentId: `profile-${index}`,
     signingKeyFingerprint: `signing-${userId}`,
     signingPublicKey: `signing-key-${userId}`,
-    status: "active",
+    status,
     updatedAt: "2026-05-20T12:00:00.000Z",
     userId,
   };
@@ -62,7 +66,9 @@ function runtimeSnapshot(): RuntimeSnapshot {
 
 function createSymCryptHarness() {
   const requestRemoteSync = mock(() => undefined);
-  const open = mock(() => ({ requestRemoteSync }));
+  const open = mock((_input: { documentId?: string | null }) => ({
+    requestRemoteSync,
+  }));
   const symcrypt = {
     documents: { open },
     logError: mock(() => undefined),
@@ -310,6 +316,53 @@ test("a shared profile retains its slot in a full hydration selection", async ()
     expect(harness.symcrypt.open).not.toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-32" }),
     );
+  } finally {
+    harness.restore();
+  }
+});
+
+test("a newly disabled contributor displaces an active profile at the cap", async () => {
+  const harness = installHarnesses(true);
+  const appData = runtimeSnapshot();
+  const activeUsers = Array.from({ length: 33 }, (_, index) =>
+    rosterUser(index),
+  );
+  try {
+    const view = renderHook(
+      (props: { readModelProjection: OrganizationDirectoryAndGroups }) =>
+        useExplorerAttributionProfileHydration({
+          appData,
+          enabled: true,
+          readModelProjection: props.readModelProjection,
+          readModelRevision: 1,
+        }),
+      { initialProps: { readModelProjection: projection(activeUsers) } },
+    );
+    const contributorUserIds = activeUsers.map((user) => user.userId);
+    act(() =>
+      view.result.current({ contributorUserIds, documentId: "document-a" }),
+    );
+    await waitFor(() =>
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
+    );
+
+    const usersWithNewlyDisabledContributor = activeUsers.map((user, index) =>
+      index === 32 ? rosterUser(index, "disabled") : user,
+    );
+    view.rerender({
+      readModelProjection: projection(usersWithNewlyDisabledContributor),
+    });
+    act(() =>
+      view.result.current({ contributorUserIds, documentId: "document-a" }),
+    );
+    await waitFor(() =>
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(64),
+    );
+    const refreshedDocumentIds = harness.symcrypt.open.mock.calls
+      .slice(32)
+      .map(([input]) => input.documentId);
+    expect(refreshedDocumentIds).toContain("profile-32");
+    expect(refreshedDocumentIds).not.toContain("profile-31");
   } finally {
     harness.restore();
   }

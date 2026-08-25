@@ -4,6 +4,7 @@ import type {
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
 } from "@symcrypt/client-sdk";
+import { getRosterProfileDocumentLocalId } from "@symcrypt/client-sdk";
 import {
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDisplayNames,
@@ -322,6 +323,54 @@ test("profile pointer replacements hydrate through distinct local identities", (
         totalCount: 2,
       },
       profileBindingsByLocalId: currentBindings,
+    }),
+  ).toEqual(new Map([["disabled-user-id", "Current Name"]]));
+});
+
+test("the newest current profile copy supplies the attribution name", () => {
+  const user = rosterUser({
+    profileDocumentId: "current-profile-id",
+    status: "disabled",
+    userId: "disabled-user-id",
+  });
+  const bindings = getExplorerAttributionProfileBindingsByLocalId({
+    directoryAndGroups: projection({ users: [user] }),
+    organizationId: ORGANIZATION_ID,
+  });
+  const remoteLocalId = getExplorerAttributionProfileDocumentLocalId({
+    organizationId: ORGANIZATION_ID,
+    profileDocumentId: "current-profile-id",
+    userId: "disabled-user-id",
+  });
+  const canonicalLocalId = getRosterProfileDocumentLocalId({
+    organizationId: ORGANIZATION_ID,
+    userId: "disabled-user-id",
+  });
+
+  expect(
+    getExplorerAttributionProfileDisplayNames({
+      documents: {
+        rows: [
+          {
+            containerId: "roster-profile-container-id",
+            documentId: "current-profile-id",
+            documentKind: "contact",
+            id: remoteLocalId,
+            title: "Current Name",
+            updatedAt: "2026-08-25T14:00:00.000Z",
+          },
+          {
+            containerId: "roster-profile-container-id",
+            documentId: "current-profile-id",
+            documentKind: "contact",
+            id: canonicalLocalId,
+            title: "Older Name",
+            updatedAt: "2026-08-25T13:00:00.000Z",
+          },
+        ],
+        totalCount: 2,
+      },
+      profileBindingsByLocalId: bindings,
     }),
   ).toEqual(new Map([["disabled-user-id", "Current Name"]]));
 });

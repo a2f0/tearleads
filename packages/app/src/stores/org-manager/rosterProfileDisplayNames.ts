@@ -45,19 +45,34 @@ export function getLocalRosterProfileDisplayNames(input: {
   readonly documents: DocumentList | null;
   readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
 }): ReadonlyMap<string, string> {
-  const names = new Map<string, string>();
+  const latestDocumentsByUserId = new Map<
+    string,
+    { readonly id: string; readonly title: string; readonly updatedAt: string }
+  >();
   for (const document of input.documents?.rows ?? []) {
     const profile = input.profileBindingsByLocalId.get(document.id);
     if (!profile || document.documentId !== profile.profileDocumentId) {
       continue;
     }
+    const current = latestDocumentsByUserId.get(profile.userId);
+    if (
+      !current ||
+      document.updatedAt > current.updatedAt ||
+      (document.updatedAt === current.updatedAt && document.id > current.id)
+    ) {
+      latestDocumentsByUserId.set(profile.userId, document);
+    }
+  }
+
+  const names = new Map<string, string>();
+  for (const [userId, document] of latestDocumentsByUserId) {
     const displayName = document.title.trim();
     if (
       displayName.length > 0 &&
       displayName !== "Untitled contact" &&
-      displayName !== profile.userId
+      displayName !== userId
     ) {
-      names.set(profile.userId, displayName);
+      names.set(userId, displayName);
     }
   }
   return names;

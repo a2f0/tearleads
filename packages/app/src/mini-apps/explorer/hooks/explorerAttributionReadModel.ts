@@ -138,7 +138,10 @@ export function getExplorerAttributionProjectionKey(input: {
     return "purged";
   }
   const profileDocuments = directory.users
-    .map(getRosterProfileDocumentBindingKey)
+    .map((user) => {
+      const bindingKey = getRosterProfileDocumentBindingKey(user);
+      return bindingKey ? `${bindingKey}\0${user.status}` : null;
+    })
     .filter((key): key is string => key !== null)
     .sort();
   return JSON.stringify([directory.currentUser.isOrgAdmin, profileDocuments]);
