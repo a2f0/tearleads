@@ -105,7 +105,10 @@ export async function installRebuiltDocument(input: {
       "Document was deleted while its history rebuild was in flight",
     );
   }
-  if (!persisted.syncIdentitySuperseded) {
+  if (
+    !persisted.pullContinuationSuperseded &&
+    !persisted.syncIdentitySuperseded
+  ) {
     input.state.doc = input.rebuiltDoc;
   }
   input.state.writerProjection = persisted.pullContinuationSuperseded

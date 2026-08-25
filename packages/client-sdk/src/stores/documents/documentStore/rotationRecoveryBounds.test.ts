@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -230,6 +231,14 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
       commitLsnMode: "tracked" as const,
       cursor: "other-pane-page-2",
     };
+    const winningDocument = await createDocument("rotation-other-pane-winner");
+    importSnapshot(
+      winningDocument,
+      exportFullHistorySnapshot(fixture.remoteDocument),
+    );
+    winningDocument.getText("text").update("other pane winner");
+    winningDocument.commit();
+    const winningEndVersion = encodeVersionVector(winningDocument);
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
@@ -239,10 +248,20 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
           localId,
         );
         if (!durableRecord) throw new Error("Expected durable document");
+        await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
+          coveredTailIds: [],
+          endVersionVector: winningEndVersion,
+          force: true,
+          localId,
+          snapshot: bytesToBase64(exportFullHistorySnapshot(winningDocument)),
+        });
         await sqlDocumentsPersistence.saveDocument(execSql, {
           ...durableRecord,
           lastCommitLsn: durableContinuation.commitLsn,
+          pendingBaseVersion: winningEndVersion,
           pullContinuation: durableContinuation,
+          snapshotEndVersion: winningEndVersion,
+          text: getTextValue(winningDocument),
         });
         return response;
       },
@@ -263,6 +282,7 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
     );
     const queuedCheckpoint = (await listPendingUpdates(state))[0];
     if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+    const losingDocument = state.doc;
     let requestedSyncCount = 0;
     state.syncLane = {
       requestSync: () => {
@@ -274,6 +294,8 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
       "superseded during its atomic install",
     );
     expect(state.pullContinuation).toEqual(durableContinuation);
+    expect(state.doc).not.toBe(losingDocument);
+    expect(state.doc && getTextValue(state.doc)).toBe("other pane winner");
     expect(
       (await listPendingUpdates(state)).map((update) => update.id),
     ).toEqual([queuedCheckpoint.id]);

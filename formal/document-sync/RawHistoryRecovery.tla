@@ -7,7 +7,7 @@ EXTENDS Naturals
 (* document, without ordinary pending-row provenance. Authenticated rotation  *)
 (* checkpoints are validated but the ordinary update stream is the source of  *)
 (* truth. Durable history changes only after settlement succeeds, every page  *)
-(* validates, and no unverified local gap remains.                            *)
+(* validates, no unverified local gap remains, and no newer install wins.     *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -30,6 +30,7 @@ VARIABLES phase,
           queuedCheckpoints,
           initialQueuedCheckpoints,
           hasUnverifiedLocalGap,
+          installSuperseded,
           scratchHistory,
           initialDurableHistory,
           durableHistory,
@@ -39,8 +40,9 @@ VARIABLES phase,
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            epochAvailable, ordinaryUpdates, localPending,
            queuedCheckpoints, initialQueuedCheckpoints,
-           hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
-           durableHistory, durablePublished, reportedUnavailableEpoch >>
+           hasUnverifiedLocalGap, installSuperseded, scratchHistory,
+           initialDurableHistory, durableHistory, durablePublished,
+           reportedUnavailableEpoch >>
 
 PageUpdates(page) == {id \in UpdateIds : pageOf[id] = page}
 
@@ -67,6 +69,7 @@ TypeOK ==
   /\ queuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ hasUnverifiedLocalGap \in BOOLEAN
+  /\ installSuperseded \in BOOLEAN
   /\ scratchHistory \subseteq ordinaryUpdates
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory \in SUBSET UpdateIds
@@ -85,6 +88,7 @@ Init ==
   /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ queuedCheckpoints = initialQueuedCheckpoints
   /\ hasUnverifiedLocalGap \in BOOLEAN
+  /\ installSuperseded \in BOOLEAN
   /\ scratchHistory = {}
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory = initialDurableHistory
@@ -98,7 +102,7 @@ StartRawCollection ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
-                  hasUnverifiedLocalGap, scratchHistory,
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -110,7 +114,7 @@ CommitPendingOrdinary ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, queuedCheckpoints,
                   initialQueuedCheckpoints, hasUnverifiedLocalGap,
-                  scratchHistory,
+                  installSuperseded, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -121,7 +125,7 @@ RejectPendingSettlement ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
-                  hasUnverifiedLocalGap, scratchHistory,
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -136,8 +140,8 @@ ValidatePage ==
   /\ UNCHANGED << phase, pageOf, updateEpoch, updateValid, epochAvailable,
                   ordinaryUpdates, localPending, queuedCheckpoints,
                   initialQueuedCheckpoints, hasUnverifiedLocalGap,
-                  initialDurableHistory, durableHistory, durablePublished,
-                  reportedUnavailableEpoch >>
+                  installSuperseded, initialDurableHistory, durableHistory,
+                  durablePublished, reportedUnavailableEpoch >>
 
 RejectUnavailablePage ==
   /\ phase = "collecting"
@@ -149,8 +153,8 @@ RejectUnavailablePage ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
-                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
-                  durableHistory, durablePublished >>
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished >>
 
 RejectInvalidPage ==
   /\ phase = "collecting"
@@ -160,8 +164,9 @@ RejectInvalidPage ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
-                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
-                  durableHistory, durablePublished, reportedUnavailableEpoch >>
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
 
 RejectUnverifiedLocalGap ==
   /\ phase = "collecting"
@@ -171,13 +176,28 @@ RejectUnverifiedLocalGap ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
-                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
-                  durableHistory, durablePublished, reportedUnavailableEpoch >>
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
+RejectSupersededInstall ==
+  /\ phase = "collecting"
+  /\ nextPage = MaxPage + 1
+  /\ ~hasUnverifiedLocalGap
+  /\ installSuperseded
+  /\ phase' = "failed"
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  hasUnverifiedLocalGap, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
 
 PublishRecovery ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
+  /\ ~installSuperseded
   /\ phase' = "complete"
   /\ durableHistory' = scratchHistory
   /\ durablePublished' = TRUE
@@ -185,7 +205,7 @@ PublishRecovery ==
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   initialQueuedCheckpoints, hasUnverifiedLocalGap,
-                  scratchHistory, initialDurableHistory,
+                  installSuperseded, scratchHistory, initialDurableHistory,
                   reportedUnavailableEpoch >>
 
 RemainTerminal ==
@@ -200,6 +220,7 @@ Next ==
   \/ RejectUnavailablePage
   \/ RejectInvalidPage
   \/ RejectUnverifiedLocalGap
+  \/ RejectSupersededInstall
   \/ PublishRecovery
   \/ RemainTerminal
 
@@ -229,6 +250,9 @@ RawCollectionStartsAfterLocalSettlement ==
 
 UnverifiedLocalHistoryNeverPublishes ==
   ~hasUnverifiedLocalGap \/ phase # "complete"
+
+SupersededInstallNeverPublishes ==
+  ~installSuperseded \/ phase # "complete"
 
 UnavailableEpochReportIsDeterministic ==
   phase # "failed" \/ reportedUnavailableEpoch = 0 \/

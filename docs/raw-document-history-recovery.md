@@ -74,6 +74,7 @@ history for three updates, two epochs, and two pages.
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
+| `RejectSupersededInstall` | guarded install loses to a newer durable record and retains that winner |
 | `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
@@ -82,6 +83,6 @@ ordinary settlement, incomplete or failed recovery to preserve the old durable
 history, successful recovery to contain every retained ordinary update,
 successful recovery to retire covered queued checkpoints, scratch state never
 to trust a rotation checkpoint, unverified local history never to publish, the
-reported unavailable epoch to be the deterministic lowest missing epoch on the
-failing page, and invalid updates never to be mislabeled as availability
-failures.
+scratch rebuild never to replace a superseding pane's winner, the reported
+unavailable epoch to be the deterministic lowest missing epoch on the failing
+page, and invalid updates never to be mislabeled as availability failures.
