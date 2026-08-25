@@ -222,6 +222,57 @@ test("each deletion fence keeps its own remote timestamp", async () => {
   }
 });
 
+test("cross-reason tombstones retain their newest timestamp", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-hydration-cross-reason-fence-order",
+  );
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: container.id,
+        reason: "access_revoked",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: container.id,
+        reason: "deleted",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+      },
+    ]);
+    await expect(
+      sqlContainerContentsPersistence.loadContainerHydrationTombstones(execSql),
+    ).resolves.toEqual([
+      {
+        containerId: container.id,
+        reason: "deleted",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: container.id,
+        reason: "access_revoked",
+        updatedAt: "2026-01-04T00:00:00.000Z",
+      },
+    ]);
+    await expect(
+      sqlContainerContentsPersistence.loadContainerHydrationTombstones(execSql),
+    ).resolves.toEqual([
+      {
+        containerId: container.id,
+        reason: "deleted",
+        updatedAt: "2026-01-04T00:00:00.000Z",
+      },
+    ]);
+  } finally {
+    await close();
+  }
+});
+
 test("a tombstone transaction refuses a newer pane's container state", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-hydration-deletion-state-guard",

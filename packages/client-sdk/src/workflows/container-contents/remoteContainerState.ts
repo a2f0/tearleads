@@ -22,7 +22,7 @@ import type {
   RemoteContainerHydrationState,
   SaveContainerOptions,
 } from "./remoteHydration/types";
-import { hydrateStoredContainerState } from "./storedContainerState";
+import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
 
 function applyRemoteContainerTimestamps(
   container: ContainerRecord,
@@ -404,11 +404,16 @@ async function insertRemoteContainerState(
       remoteContainer.id,
     );
     if (!winningStoredState) return null;
-    installedState = await hydrateStoredContainerState({
-      execSql,
-      persistence,
+    const winningState = await materializeStoredContainerStateReadOnly({
       storedContainer: winningStoredState,
     });
+    if (
+      !winningState ||
+      !(await persistence.containerExists(execSql, remoteContainer.id))
+    ) {
+      return null;
+    }
+    installedState = winningState;
     installedState.metadataReferencedPrincipals =
       remoteContainer.metadataReferencedPrincipals;
   }

@@ -104,3 +104,27 @@ export async function hydrateStoredContainerState(input: {
 
   return { container: nextContainer, doc, record: nextRecord };
 }
+
+/** Materialize a CAS winner without writing repair rows from a stale caller. */
+export async function materializeStoredContainerStateReadOnly(input: {
+  storedContainer: StoredContainerState;
+}): Promise<ContainerState | null> {
+  const { container, record } = input.storedContainer;
+  if (!record) return null;
+  const doc = await createContainerMetadataDocument(container.id);
+  let nextContainer = container;
+  if (record.metadataUpdates) {
+    importUpdates(doc, [base64ToBytes(record.metadataUpdates)]);
+    const metadata = readContainerMetadataValue(
+      doc,
+      getDefaultContainerName(container.parentId),
+    );
+    nextContainer = { ...container, icon: metadata.icon, name: metadata.name };
+  } else {
+    writeContainerMetadataValue(doc, {
+      icon: container.icon,
+      name: container.name,
+    });
+  }
+  return { container: nextContainer, doc, record };
+}

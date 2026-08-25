@@ -88,13 +88,7 @@ export async function recordContainerHydrationTombstones(input: {
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
         END`,
-        updatedAt: sql`CASE
-          WHEN ${containerHydrationTombstones.reason} = 'deleted' AND excluded.reason = 'access_revoked'
-            THEN ${containerHydrationTombstones.updatedAt}
-          WHEN ${containerHydrationTombstones.reason} = 'access_revoked' AND excluded.reason = 'deleted'
-            THEN excluded.updated_at
-          ELSE MAX(${containerHydrationTombstones.updatedAt}, excluded.updated_at)
-        END`,
+        updatedAt: sql`MAX(${containerHydrationTombstones.updatedAt}, excluded.updated_at)`,
       },
     })
     .run();

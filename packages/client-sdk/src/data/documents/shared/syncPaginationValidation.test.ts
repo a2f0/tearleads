@@ -151,6 +151,29 @@ test("a resumed page cannot regress its tracked commit checkpoint", async () => 
   );
 });
 
+test("a first tracked page rejects a malformed checkpoint", async () => {
+  const firstPagePlan = plan();
+  const { minLsn: _minLsn, ...firstRequest } = firstPagePlan.request;
+  firstPagePlan.request = firstRequest;
+  const submitted = submitDocumentSync({
+    apiClient: apiWithResults([
+      {
+        data: page({
+          commitLsn: "not-an-lsn",
+          cursor: "cursor-2",
+          updateId: "update-1",
+        }),
+        ok: true,
+      },
+    ]),
+    plan: firstPagePlan,
+  });
+
+  await expect(submitted).rejects.toThrow(
+    "Document sync continuation commit LSN is invalid",
+  );
+});
+
 test("a resumed page cannot return the cursor it consumed", async () => {
   const resumedPlan = plan();
   resumedPlan.request = {

@@ -152,3 +152,52 @@ test("a two-pane hydration insert loser adopts the durable winner", async () => 
     second.close();
   }
 });
+
+test("an insert loser cannot repair or publish a concurrently deleted winner", async () => {
+  const connection = await openTestConnection({
+    dbName: `/${crypto.randomUUID()}.db`,
+    key: "container-delete-race",
+  });
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(
+      connection.runtime.execSql,
+    );
+    const winningState = createState(
+      connection.runtime,
+      sqlContainerContentsPersistence,
+    );
+    await upsert(winningState);
+    const deletingPersistence: ContainerContentsPersistence = {
+      ...sqlContainerContentsPersistence,
+      commitHydratedContainer: async () => ({ committed: false }),
+      async loadContainerMetadataState(execSql, containerId) {
+        const stored =
+          await sqlContainerContentsPersistence.loadContainerMetadataState(
+            execSql,
+            containerId,
+          );
+        await sqlContainerContentsPersistence.deleteContainer(
+          execSql,
+          containerId,
+          {
+            reason: "access_revoked",
+            updatedAt: remoteContainer.updatedAt,
+          },
+        );
+        return stored;
+      },
+    };
+    const losingState = createState(connection.runtime, deletingPersistence);
+
+    await expect(upsert(losingState)).resolves.toBeNull();
+    expect(losingState.containersById.has(remoteContainer.id)).toBe(false);
+    await expect(
+      sqlContainerContentsPersistence.containerExists(
+        connection.runtime.execSql,
+        remoteContainer.id,
+      ),
+    ).resolves.toBe(false);
+  } finally {
+    connection.close();
+  }
+});

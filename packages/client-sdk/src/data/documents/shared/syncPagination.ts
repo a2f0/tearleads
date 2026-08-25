@@ -88,11 +88,29 @@ function assertPageCheckpoint(input: {
     }
     return;
   }
+  if (input.response.commitLsn === null) {
+    throw new InvalidDocumentSyncPullContinuationError(
+      "Document sync pull continuation is missing its checkpoint",
+    );
+  }
+  let responseLsn: bigint;
+  try {
+    responseLsn = parseWalLsn(input.response.commitLsn);
+  } catch {
+    throw new InvalidDocumentSyncPullContinuationError(
+      "Document sync continuation commit LSN is invalid",
+    );
+  }
   if (input.minLsn === undefined) return;
-  if (
-    input.response.commitLsn === null ||
-    parseWalLsn(input.response.commitLsn) < parseWalLsn(input.minLsn)
-  ) {
+  let minimumLsn: bigint;
+  try {
+    minimumLsn = parseWalLsn(input.minLsn);
+  } catch {
+    throw new InvalidDocumentSyncPullContinuationError(
+      "Document sync minimum commit LSN is invalid",
+    );
+  }
+  if (responseLsn < minimumLsn) {
     throw new InvalidDocumentSyncPullContinuationError(
       "Document sync continuation commit LSN regressed",
     );
