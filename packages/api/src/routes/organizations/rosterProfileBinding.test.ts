@@ -74,9 +74,16 @@ test("roster bindings reject an organization document outside the roster contain
   expect(memberRosterEntry?.profileDocumentId).toBeNull();
 });
 
-test("roster bindings accept a current document in the roster profile container", async () => {
+test("admins can bind their roster document to another member", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor,
+    memberUserId: member.userId,
+    organizationId,
+  });
   const rosterProfileContainerId = crypto.randomUUID();
   await db.insert(containers).values({
     depth: 1,
@@ -94,7 +101,7 @@ test("roster bindings accept a current document in the roster profile container"
   });
 
   const response = await routeApp.request(
-    `/organizations/${organizationId}/roster/${actor.userId}`,
+    `/organizations/${organizationId}/roster/${member.userId}`,
     {
       method: "PUT",
       headers: {
@@ -112,8 +119,59 @@ test("roster bindings accept a current document in the roster profile container"
     .where(
       and(
         eq(organizationRosterEntries.organizationId, organizationId),
-        eq(organizationRosterEntries.userId, actor.userId),
+        eq(organizationRosterEntries.userId, member.userId),
       ),
     );
   expect(rosterEntry?.profileDocumentId).toBe(profile.id);
+});
+
+test("members cannot bind another user's roster profile document", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor,
+    memberUserId: member.userId,
+    organizationId,
+  });
+  const rosterProfileContainerId = crypto.randomUUID();
+  await db.insert(containers).values({
+    depth: 1,
+    id: rosterProfileContainerId,
+    organizationId,
+    parentId: actor.rootContainerId,
+    systemSlot: await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId,
+    }),
+  });
+  const actorProfile = await createCurrentDocumentProjection({
+    containerIds: [rosterProfileContainerId],
+    createdByFingerprint: actor.fingerprint,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/roster/${member.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: actorProfile.id }),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  const [memberRosterEntry] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, organizationId),
+        eq(organizationRosterEntries.userId, member.userId),
+      ),
+    );
+  expect(memberRosterEntry?.profileDocumentId).toBeNull();
 });

@@ -193,7 +193,7 @@ test("a graceful null remote probe reports incomplete", async () => {
   }
 });
 
-test("an abort during initialization keeps the startup probe blocked", async () => {
+test("an abort during initialization stays blocked until a normal reopen", async () => {
   const fixture = await createMaterializedSyncFixture();
   const database = await createTestExecSql("remote-sync-wait-initializing");
   const localId = "initializing-profile";
@@ -255,6 +255,10 @@ test("an abort during initialization keeps the startup probe blocked", async () 
     expect(await initialization).toBe(true);
     await settleCoordinator(runtime.state.domainScope);
     expect(syncCalls).toBe(0);
+
+    store.requestSync();
+    await settleCoordinator(runtime.state.domainScope);
+    expect(syncCalls).toBe(1);
   } finally {
     releaseLoad();
     disposeDomainSyncCoordinator(seedRuntime.state.domainScope);

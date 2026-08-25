@@ -4,7 +4,9 @@ import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   containers,
+  documents,
   organizationRosterEntries,
+  users,
 } from "@symcrypt/api-shared/schema";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
@@ -278,6 +280,58 @@ export async function isOrganizationProfileDocument(input: {
     .limit(1);
 
   return Boolean(head);
+}
+
+export async function isOrganizationRosterProfileDocumentForUser(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly profileDocumentId: string;
+  readonly userId: string;
+}): Promise<boolean> {
+  const rosterProfileSystemSlot =
+    await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId: input.organizationId,
+    });
+  const [link] = await input.executor
+    .select({ objectId: accessManifestHeads.objectId })
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifestDocumentLinkProjection,
+      and(
+        eq(
+          accessManifestDocumentLinkProjection.documentId,
+          accessManifestHeads.objectId,
+        ),
+        eq(
+          accessManifestDocumentLinkProjection.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+      ),
+    )
+    .innerJoin(
+      containers,
+      eq(containers.id, accessManifestDocumentLinkProjection.containerId),
+    )
+    .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
+    .innerJoin(
+      users,
+      and(
+        eq(users.id, input.userId),
+        eq(users.fingerprint, documents.createdByFingerprint),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, input.profileDocumentId),
+        eq(accessManifestHeads.organizationId, input.organizationId),
+        eq(containers.organizationId, input.organizationId),
+        eq(containers.systemSlot, rosterProfileSystemSlot),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(link);
 }
 
 export async function isOrganizationRosterProfileDocument(input: {

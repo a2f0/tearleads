@@ -49,7 +49,10 @@ import {
   setReadySnapshot,
 } from "./state";
 import { createStoredDocument } from "./storedDocument";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import {
+  captureDocumentStoreSyncGeneration,
+  invalidateDocumentStoreRemoteSync,
+} from "./syncGeneration";
 
 async function createInitialDocumentRecord(
   state: DocumentStoreState,
@@ -377,6 +380,7 @@ export async function relinkDocumentStore(
     return null;
   }
   const currentDoc = state.doc;
+  const currentDocumentId = state.record?.documentId ?? null;
   // Read the record and persist on the identity-write chain so an in-flight
   // eager create cannot interleave: a create that captured a null identity
   // before its network round trip would otherwise write the derived documentId
@@ -424,6 +428,10 @@ export async function relinkDocumentStore(
   // guard); there is no summary to report.
   if (!persisted) {
     return null;
+  }
+  if (currentDocumentId !== input.documentId) {
+    state.writerProjection = null;
+    invalidateDocumentStoreRemoteSync(state);
   }
   if (persisted.updatedAt === undefined) {
     return null;

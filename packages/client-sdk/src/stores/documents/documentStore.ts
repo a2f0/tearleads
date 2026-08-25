@@ -41,6 +41,9 @@ import {
 import { registerDocumentStoreSyncLane } from "./documentStore/sync";
 import {
   allowDocumentStoreRemoteSync,
+  captureDocumentStoreRemoteSyncRequestGeneration,
+  type DocumentStoreRemoteSyncRequestGeneration,
+  didDocumentStoreRemoteSyncRequestComplete,
   invalidateDocumentStoreRemoteSync,
 } from "./documentStore/syncGeneration";
 import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
@@ -132,6 +135,16 @@ function requestRemoteDocumentStoreSync(
   return state.remoteUpdateSignalSeq;
 }
 
+function requestOrdinaryDocumentStoreSync(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+): void {
+  // A normal UI reopen is a fresh owner for remote-only work. It may recover
+  // a probe that an earlier, now-unmounted owner aborted.
+  allowDocumentStoreRemoteSync(state);
+  scheduleSync();
+}
+
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
@@ -193,16 +206,25 @@ function createBackingDocumentStore(
     requestRemoteSync: () =>
       requestRemoteDocumentStoreSync(state, scheduleSync),
     requestRemoteSyncAndWait: (signal) => {
+      let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null =
+        null;
       let requestedSignalSequence = 0;
       // A coordinator can be disposed and recreated while this same-scope
       // store remains registered. Refresh its handle before requesting work.
       state.syncLane = registerDocumentStoreSyncLane(state);
       return requestDocumentSyncLaneAndWait({
         didCompleteRequest: () =>
-          state.remoteUpdateCompletedSignalSeq >= requestedSignalSequence,
+          requestGeneration !== null &&
+          didDocumentStoreRemoteSyncRequestComplete(
+            state,
+            requestGeneration,
+            requestedSignalSequence,
+          ),
         domainScope: state.runtime.state.domainScope,
         localId: state.localId,
         request: () => {
+          requestGeneration =
+            captureDocumentStoreRemoteSyncRequestGeneration(state);
           requestedSignalSequence = requestRemoteDocumentStoreSync(
             state,
             scheduleSync,
@@ -212,7 +234,7 @@ function createBackingDocumentStore(
         signal,
       });
     },
-    requestSync: () => scheduleSync(),
+    requestSync: () => requestOrdinaryDocumentStoreSync(state, scheduleSync),
     relink: (input) => relinkDocumentStore(state, input, scheduleSync),
     setStructuredFields: (kind, patch, options) =>
       setDocumentStructuredFields(state, scheduleSync, kind, patch, options),

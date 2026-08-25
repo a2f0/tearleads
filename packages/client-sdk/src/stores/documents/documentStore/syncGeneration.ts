@@ -8,13 +8,31 @@ function getRemoteSyncGeneration(state: DocumentStoreState): number {
   return remoteSyncGenerations.get(state) ?? 0;
 }
 
-/** Immutable identities that define one live document-store generation. */
-export interface DocumentStoreSyncGeneration {
-  readonly currentDoc: DocumentState | null;
+/** Immutable identities that define one remote-sync request generation. */
+export interface DocumentStoreRemoteSyncRequestGeneration {
   readonly domainScope: DocumentStoreState["runtime"]["state"]["domainScope"];
   readonly execSql: DocumentStoreState["runtime"]["infra"]["execSql"];
+  readonly localWriteGeneration: number;
   readonly remoteSyncGeneration: number;
   readonly resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+}
+
+/** Immutable identities that define one live document-store generation. */
+export interface DocumentStoreSyncGeneration
+  extends DocumentStoreRemoteSyncRequestGeneration {
+  readonly currentDoc: DocumentState | null;
+}
+
+export function captureDocumentStoreRemoteSyncRequestGeneration(
+  state: DocumentStoreState,
+): DocumentStoreRemoteSyncRequestGeneration {
+  return {
+    domainScope: state.runtime.state.domainScope,
+    execSql: state.runtime.infra.execSql,
+    localWriteGeneration: state.localWriteGeneration,
+    remoteSyncGeneration: getRemoteSyncGeneration(state),
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+  };
 }
 
 export function captureDocumentStoreSyncGeneration(
@@ -25,10 +43,7 @@ export function captureDocumentStoreSyncGeneration(
 
   return {
     currentDoc,
-    domainScope: state.runtime.state.domainScope,
-    execSql: state.runtime.infra.execSql,
-    remoteSyncGeneration: getRemoteSyncGeneration(state),
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    ...captureDocumentStoreRemoteSyncRequestGeneration(state),
   };
 }
 
@@ -55,15 +70,36 @@ export function isDocumentStoreRemoteSyncBlocked(
   return remoteSyncBlockedStates.has(state);
 }
 
+export function isDocumentStoreRemoteSyncRequestGenerationCurrent(
+  state: DocumentStoreState,
+  generation: DocumentStoreRemoteSyncRequestGeneration,
+): boolean {
+  return (
+    state.runtime.state.domainScope === generation.domainScope &&
+    state.runtime.infra.execSql === generation.execSql &&
+    state.localWriteGeneration === generation.localWriteGeneration &&
+    getRemoteSyncGeneration(state) === generation.remoteSyncGeneration &&
+    state.resolveProjectionUserKey === generation.resolveProjectionUserKey
+  );
+}
+
+export function didDocumentStoreRemoteSyncRequestComplete(
+  state: DocumentStoreState,
+  generation: DocumentStoreRemoteSyncRequestGeneration,
+  requestedSignalSequence: number,
+): boolean {
+  return (
+    isDocumentStoreRemoteSyncRequestGenerationCurrent(state, generation) &&
+    state.remoteUpdateCompletedSignalSeq >= requestedSignalSequence
+  );
+}
+
 export function isDocumentStoreSyncGenerationCurrent(
   state: DocumentStoreState,
   generation: DocumentStoreSyncGeneration,
 ): boolean {
   return (
     state.doc === generation.currentDoc &&
-    state.runtime.state.domainScope === generation.domainScope &&
-    state.runtime.infra.execSql === generation.execSql &&
-    getRemoteSyncGeneration(state) === generation.remoteSyncGeneration &&
-    state.resolveProjectionUserKey === generation.resolveProjectionUserKey
+    isDocumentStoreRemoteSyncRequestGenerationCurrent(state, generation)
   );
 }
