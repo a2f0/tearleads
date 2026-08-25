@@ -59,6 +59,8 @@ edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
 `loadDocumentStoreState(...)` must return the canonical record, history, and
 attachment rows from one database snapshot so startup cannot cross a relink.
+`deleteDocumentSideRowsIfAbsent(...)` likewise owns one transaction spanning
+the canonical absence check and orphaned side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue
 fallback.
 

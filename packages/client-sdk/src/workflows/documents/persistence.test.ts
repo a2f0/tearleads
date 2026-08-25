@@ -19,6 +19,16 @@ function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;
 }
 
+function createMemoryAbsentCleanup(
+  documentExists: () => boolean,
+): DocumentsPersistence["deleteDocumentSideRowsIfAbsent"] {
+  return async (execSql, _localId, deleteClientProjection) => {
+    if (documentExists()) return false;
+    await deleteClientProjection(execSql);
+    return true;
+  };
+}
+
 test("loadPersistedDocumentStoreState uses the provided executor", async () => {
   const execSql = createNoopExecSql();
   const calls: string[] = [];
@@ -124,6 +134,9 @@ test("persistDocumentState ensures client projection tables once per executor an
       await saveProjection(nextExecSql, updatedAt);
       return updatedAt;
     },
+    deleteDocumentSideRowsIfAbsent: createMemoryAbsentCleanup(
+      () => currentRecord !== null,
+    ),
     hasDocument: async () => currentRecord !== null,
     loadDocument: async () => currentRecord,
     loadDocumentContainer: async () =>
@@ -250,6 +263,7 @@ test("a persist without an explicit frontier retains the stored one", async () =
     },
     // The row exists (orphan placement): a missing row would now refuse the
     // update-persist outright via the resurrect guard.
+    deleteDocumentSideRowsIfAbsent: createMemoryAbsentCleanup(() => true),
     hasDocument: async () => true,
     loadDocument: async () => currentRecord,
     loadDocumentContainer: async () => ({ containerId: null }),
@@ -306,6 +320,9 @@ test("local writes preserve pull progress until the security context changes", a
       await saveProjection(nextExecSql, updatedAt);
       return { committed: true as const, updatedAt };
     },
+    deleteDocumentSideRowsIfAbsent: createMemoryAbsentCleanup(
+      () => durableRecord !== null,
+    ),
     hasDocument: async () => true,
     loadHistoryRestoreState: async () => null,
     loadDocument: async () => durableRecord,
@@ -368,6 +385,7 @@ test("a missing container projection does not delete a canonical document", asyn
     deleteDocument: async () => {
       deletes += 1;
     },
+    deleteDocumentSideRowsIfAbsent: createMemoryAbsentCleanup(() => true),
     hasDocument: async () => true,
     loadDocument: async () => currentRecord,
     loadDocumentContainer: async () => undefined,

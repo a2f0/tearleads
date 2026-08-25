@@ -26,6 +26,7 @@ test("document mutation conflict exhaustion fails instead of dropping the edit",
       conflictCount += 1;
       return { committed: false as const, currentRecord };
     },
+    deleteDocumentSideRowsIfAbsent: async () => false,
     hasDocument: async () => true,
     loadDocument: async () => currentRecord,
     loadDocumentContainer: async () => ({ containerId: "container-1" }),

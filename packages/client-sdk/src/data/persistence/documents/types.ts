@@ -346,6 +346,16 @@ export interface DocumentsPersistence {
     },
   ) => Promise<string>;
   deleteDocument: (execSql: ExecSql, localId: string) => Promise<void>;
+  /**
+   * Delete orphaned side rows only if the canonical document is still absent.
+   * The absence check, row cleanup, and client projection callback must share
+   * one write transaction so a concurrent create is preserved.
+   */
+  deleteDocumentSideRowsIfAbsent: (
+    execSql: ExecSql,
+    localId: string,
+    deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+  ) => Promise<boolean>;
   upsertDiscoveredDocument: (
     execSql: ExecSql,
     input: DiscoveredDocumentInput,

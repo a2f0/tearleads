@@ -7,7 +7,7 @@ import type { DocumentSyncApi, DocumentSyncPlan } from "./types";
 const DOCUMENT_ID = "document-pagination-validation";
 
 function page(input: {
-  readonly commitLsn: string;
+  readonly commitLsn: string | null;
   readonly cursor?: string | null | undefined;
   readonly updateId?: string | undefined;
 }): DocumentSyncResponse {
@@ -122,6 +122,23 @@ test("a page without pull metadata is rejected", async () => {
   await expect(submitted).rejects.toThrow(
     "Document sync response is missing pull page metadata",
   );
+});
+
+test("a terminal unconstrained page may omit its commit checkpoint", async () => {
+  const terminalPlan = plan();
+  const { minLsn: _minLsn, ...request } = terminalPlan.request;
+  terminalPlan.request = request;
+  const result = await submitDocumentSync({
+    apiClient: apiWithResults([
+      {
+        data: page({ commitLsn: null, cursor: null }),
+        ok: true,
+      },
+    ]),
+    plan: terminalPlan,
+  });
+
+  expect(result).toMatchObject({ ok: true, pullComplete: true });
 });
 
 test("a resumed page cannot regress its tracked commit checkpoint", async () => {

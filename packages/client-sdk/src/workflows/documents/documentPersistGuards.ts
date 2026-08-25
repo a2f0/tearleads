@@ -14,16 +14,17 @@ export async function refuseDeletedDocumentPersist(input: {
   localId: string;
   persistence: DocumentsPersistence;
 }): Promise<boolean> {
-  if (!input.currentRecord) return false;
-  if (await input.persistence.hasDocument(input.execSql, input.localId)) {
-    return false;
-  }
-
-  await input.persistence.deleteDocument(input.execSql, input.localId);
-  await input.documentProjectors.deleteStoredDocumentClientProjection({
-    documentKind: input.currentRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    execSql: input.execSql,
-    localId: input.localId,
-  });
-  return true;
+  const { currentRecord } = input;
+  if (!currentRecord) return false;
+  return input.persistence.deleteDocumentSideRowsIfAbsent(
+    input.execSql,
+    input.localId,
+    async (transactionExecSql) => {
+      await input.documentProjectors.deleteStoredDocumentClientProjection({
+        documentKind: currentRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        execSql: transactionExecSql,
+        localId: input.localId,
+      });
+    },
+  );
 }

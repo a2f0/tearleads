@@ -6,6 +6,7 @@ import type {
   PendingAttachmentRecord,
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
+import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 
 export interface StoredDocumentsState {
   document: DocumentRecord | null;
@@ -118,9 +119,20 @@ export function createDocumentWritePersistence(
   | "saveDocument"
   | "saveDocumentAndDeletePendingUpdates"
   | "deleteDocument"
+  | "deleteDocumentSideRowsIfAbsent"
   | "upsertDiscoveredDocument"
   | "relinkPersistedDocument"
 > {
+  const deleteSideRows = (localId: string) => {
+    historyByLocalId.delete(localId);
+    state.pendingUpdates = [];
+    state.pendingAttachments = state.pendingAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+    state.localAttachments = state.localAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+  };
   return {
     async createDocumentWithHistoryCheckpoint(
       execSql,
@@ -262,15 +274,12 @@ export function createDocumentWritePersistence(
     },
     async deleteDocument(_execSql, localId) {
       if (state.document?.id === localId) state.document = null;
-      historyByLocalId.delete(localId);
-      state.pendingUpdates = [];
-      state.pendingAttachments = state.pendingAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-      state.localAttachments = state.localAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
+      deleteSideRows(localId);
     },
+    ...createMemoryAbsentDocumentCleanup({
+      deleteSideRows,
+      documentExists: (localId) => state.document?.id === localId,
+    }),
     async upsertDiscoveredDocument(_execSql, input) {
       const nextDocument: DocumentRecord = {
         accessEpoch: input.accessEpoch,

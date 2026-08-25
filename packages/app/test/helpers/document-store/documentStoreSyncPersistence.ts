@@ -1,6 +1,5 @@
 import type {
   DocumentRecord,
-  DocumentSummary,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -8,7 +7,9 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
+import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
+import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
 import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
 import {
   applyMemoryAttachmentRemoval,
@@ -32,18 +33,16 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     return history;
   };
 
-  const buildDocumentSummaries = (): DocumentSummary[] =>
-    document
-      ? [
-          {
-            id: document.id,
-            containerId: document.containerId,
-            documentId: document.documentId,
-            title: document.text.trim() || "Untitled note",
-            updatedAt: "2026-04-06T00:00:00.000Z",
-          },
-        ]
-      : [];
+  const deleteSideRows = (localId: string) => {
+    historyByLocalId.delete(localId);
+    pendingUpdates = [];
+    pendingAttachments = pendingAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+    localAttachments = localAttachments.filter(
+      (attachment) => attachment.localId !== localId,
+    );
+  };
 
   return {
     async createDocumentWithHistoryCheckpoint(
@@ -203,17 +202,17 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     getState() {
       return {
         document,
-        documentSummaries: buildDocumentSummaries(),
+        documentSummaries: buildMemoryDocumentSummaries(document),
         localAttachments,
         pendingAttachments,
         pendingUpdates,
       };
     },
     async listDocuments() {
-      return buildDocumentSummaries();
+      return buildMemoryDocumentSummaries(document);
     },
     async listDocumentSummaries() {
-      const rows = buildDocumentSummaries();
+      const rows = buildMemoryDocumentSummaries(document);
       return {
         rows,
         totalCount: rows.length,
@@ -281,15 +280,12 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (document?.id === localId) {
         document = null;
       }
-      historyByLocalId.delete(localId);
-      pendingUpdates = [];
-      pendingAttachments = pendingAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
-      localAttachments = localAttachments.filter(
-        (attachment) => attachment.localId !== localId,
-      );
+      deleteSideRows(localId);
     },
+    ...createMemoryAbsentDocumentCleanup({
+      deleteSideRows,
+      documentExists: (localId) => document?.id === localId,
+    }),
     async appendHistoryUpdates(_execSql, input) {
       const history = historyFor(input.localId);
       history.tail = [

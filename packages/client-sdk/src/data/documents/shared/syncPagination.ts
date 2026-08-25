@@ -78,6 +78,7 @@ export function resolvePullContinuationMinLsn(
 
 function assertPageCheckpoint(input: {
   readonly minLsn: string | undefined;
+  readonly nextCursor: string | null;
   readonly response: DocumentSyncResponse;
 }): void {
   if (input.response.commitLsnMode === "untracked") {
@@ -89,6 +90,7 @@ function assertPageCheckpoint(input: {
     return;
   }
   if (input.response.commitLsn === null) {
+    if (input.minLsn === undefined && input.nextCursor === null) return;
     throw new InvalidDocumentSyncPullContinuationError(
       "Document sync pull continuation is missing its checkpoint",
     );
@@ -139,11 +141,12 @@ async function submitDocumentSyncPage(input: {
       "Document sync continuation commit LSN mode changed",
     );
   }
+  const nextCursor = requirePullPage(page.response).nextCursor;
   assertPageCheckpoint({
     minLsn: input.plan.request.minLsn,
+    nextCursor,
     response: page.response,
   });
-  const nextCursor = requirePullPage(page.response).nextCursor;
   if (nextCursor !== null && page.response.commitLsn === null) {
     throw new InvalidDocumentSyncPullContinuationError(
       "Document sync pull continuation is missing its checkpoint",

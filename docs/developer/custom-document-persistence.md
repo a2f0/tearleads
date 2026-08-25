@@ -44,6 +44,11 @@ pending attachments, and local attachment projections from one database
 snapshot. Startup installs that coherent state as a unit; adapters must not
 implement it as independent reads that can straddle a relink or key rotation.
 
+`deleteDocumentSideRowsIfAbsent(...)` checks that the canonical row is absent,
+deletes its orphaned queue/history/attachment/projection rows, and invokes the
+host projection callback in one write transaction. A concurrent initializer
+must either be observed and preserved or begin after cleanup commits.
+
 `invalidatePullContinuation(...)` atomically replaces only the exact rejected
 cursor and matching sync identity with the durable recovery marker. It returns
 the authoritative current record after the compare-and-set (including after a
