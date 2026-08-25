@@ -4,7 +4,11 @@ import {
   createProbeRuntime,
   settleWithin,
 } from "../../../../test/helpers/remoteSyncWait";
-import { disposeDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
+import { waitFor } from "../../../../test/helpers/waitFor";
+import {
+  disposeDomainSyncCoordinator,
+  getDomainSyncCoordinatorSnapshot,
+} from "../../../data/sync/syncCoordinator";
 import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -184,6 +188,140 @@ test("an ordinary remote request re-registers a disposed sync lane", async () =>
     await settleWithin(postDisposalSync, "post-disposal remote sync");
     expect(syncCalls).toBeGreaterThan(callsBeforeDisposal);
   } finally {
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("a stale pass cannot recreate its coordinator after disposal", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("disposed-lane-no-follow-up");
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      markSyncStarted();
+      await responseGate;
+      return fixture.response;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "disposed-lane-no-follow-up",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    store.requestRemoteSync();
+    await settleWithin(syncStarted, "sync before coordinator disposal");
+
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    releaseResponse();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(syncCalls).toBe(1);
+  } finally {
+    releaseResponse();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("a pass disposed during initialization cannot adopt a replacement lane", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("disposed-lane-initialization");
+  let releaseLoad: () => void = () => undefined;
+  const loadGate = new Promise<void>((resolve) => {
+    releaseLoad = resolve;
+  });
+  let releaseSync: () => void = () => undefined;
+  const syncGate = new Promise<void>((resolve) => {
+    releaseSync = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  let markLoadStarted: () => void = () => undefined;
+  const loadStarted = new Promise<void>((resolve) => {
+    markLoadStarted = resolve;
+  });
+  let syncCalls = 0;
+  const persistence: DocumentsPersistence = {
+    ...defaultDocumentsPersistence,
+    async loadDocumentStoreState(execSql, localId) {
+      markLoadStarted();
+      await loadGate;
+      return defaultDocumentsPersistence.loadDocumentStoreState(
+        execSql,
+        localId,
+      );
+    },
+  };
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        markSyncStarted();
+        await syncGate;
+      }
+      return null;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "disposed-lane-initialization",
+      runtime,
+      persistence,
+      fixture.writerProjection.documentId,
+    );
+    const initialization = store.ensureInitialized();
+    await settleWithin(loadStarted, "document initialization");
+    store.requestRemoteSync();
+    await waitFor(
+      () =>
+        getDomainSyncCoordinatorSnapshot(runtime.state.domainScope).lanes.some(
+          (lane) => lane.running,
+        ),
+      "Initial sync lane did not start",
+    );
+
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    store.requestRemoteSync();
+    releaseLoad();
+    expect(await initialization).toBe(true);
+    await settleWithin(syncStarted, "replacement sync pass");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(syncCalls).toBe(1);
+    releaseSync();
+    await waitFor(
+      () =>
+        syncCalls >= 1 &&
+        getDomainSyncCoordinatorSnapshot(runtime.state.domainScope).lanes.every(
+          (lane) => !lane.running && !lane.requested,
+        ),
+      "Replacement sync lane did not settle",
+    );
+  } finally {
+    releaseLoad();
+    releaseSync();
     disposeDomainSyncCoordinator(runtime.state.domainScope);
     database.close();
   }

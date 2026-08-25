@@ -42,7 +42,9 @@ import { registerDocumentStoreSyncLane } from "./documentStore/sync";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreRemoteSyncRequestGeneration,
+  captureDocumentStoreSyncLaneGeneration,
   type DocumentStoreRemoteSyncRequestGeneration,
+  type DocumentStoreSyncLaneGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
   hasPendingIndependentDocumentStoreRemoteSync,
   invalidateDocumentStoreRemoteSync,
@@ -84,7 +86,12 @@ function refreshDocumentStoreSyncLane(
   if (state.syncLane) {
     invalidateDocumentStoreSyncLane(state);
   }
-  state.syncLane = registerDocumentStoreSyncLane(state);
+  let syncLaneGeneration: DocumentStoreSyncLaneGeneration | null = null;
+  state.syncLane = registerDocumentStoreSyncLane(
+    state,
+    () => syncLaneGeneration,
+  );
+  syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
 }
 
 function updateDocumentStoreRuntime(
@@ -108,8 +115,8 @@ function updateDocumentStoreRuntime(
     state.writerProjection = null;
   }
   state.runtime = nextRuntime;
+  refreshDocumentStoreSyncLane(state, domainScopeChanged);
   if (domainScopeChanged) {
-    refreshDocumentStoreSyncLane(state, true);
     state.locallyAcceptedUpdateIds = new Set();
     state.remoteUpdatePending = false;
     state.writerProjection = null;
@@ -147,7 +154,6 @@ function requestRemoteDocumentStoreSync(
   scheduleSync: () => void,
   owner: "independent" | "waiter" = "independent",
 ): number {
-  state.ensureSyncLane?.();
   allowDocumentStoreRemoteSync(state);
   const signalSequence = markDocumentStoreRemoteSyncPending(state, owner);
   scheduleSync();
@@ -211,6 +217,40 @@ function requestRemoteDocumentStoreSyncAndWait(
   });
 }
 
+async function assertBackingDocumentStoreCanRotate(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+) {
+  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+    throw new Error(
+      "Document must finish loading before its content key can rotate",
+    );
+  }
+  return assertDocumentStoreCanRotateContentKey(state);
+}
+
+async function discardBackingDocumentStoreLocalState(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  expectedDocumentId: string,
+) {
+  try {
+    return await discardDocumentStoreLocalState(state, expectedDocumentId);
+  } finally {
+    // Restart hydration whenever the attempt reset the store. This runs outside
+    // its identity-chained task because initialization also chains writes.
+    ensureDocumentStoreInitialized(state, scheduleSync);
+    scheduleSync();
+  }
+}
+
+function createLiveSyncLaneRequest(state: DocumentStoreState) {
+  return <Result>(request: () => Result): Result => {
+    refreshDocumentStoreSyncLane(state);
+    return request();
+  };
+}
+
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
@@ -231,58 +271,70 @@ function createBackingDocumentStore(
     initialText,
     initialDocumentKind,
   );
-  state.ensureSyncLane = () => refreshDocumentStoreSyncLane(state);
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
+  const withLiveSyncLane = createLiveSyncLaneRequest(state);
 
   return {
-    addRow: (fields) => addRowToDocumentStore(state, scheduleSync, fields),
-    assertCanRotateContentKey: async () => {
-      if (
-        !(await ensureDocumentStoreReady(state, scheduleSync)) ||
-        !state.doc
-      ) {
-        throw new Error(
-          "Document must finish loading before its content key can rotate",
-        );
-      }
-      return assertDocumentStoreCanRotateContentKey(state);
-    },
+    addRow: (fields) =>
+      withLiveSyncLane(() =>
+        addRowToDocumentStore(state, scheduleSync, fields),
+      ),
+    assertCanRotateContentKey: () =>
+      withLiveSyncLane(() =>
+        assertBackingDocumentStoreCanRotate(state, scheduleSync),
+      ),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      attachFilesToDocumentStore(state, scheduleSync, files),
-    discardLocalState: async (expectedDocumentId: string) => {
-      try {
-        return await discardDocumentStoreLocalState(state, expectedDocumentId);
-      } finally {
-        // Restart hydration whenever the attempt reset the store — success
-        // re-pulls the shell, and a refusal or failure reloads the surviving
-        // rows. A no-op when the store was never reset. This runs outside
-        // the discard's identity-chained task because initialization chains
-        // identity writes of its own and would deadlock inside it.
-        ensureDocumentStoreInitialized(state, scheduleSync);
-        scheduleSync();
-      }
-    },
-    ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
+      withLiveSyncLane(() =>
+        attachFilesToDocumentStore(state, scheduleSync, files),
+      ),
+    discardLocalState: (expectedDocumentId: string) =>
+      withLiveSyncLane(() =>
+        discardBackingDocumentStoreLocalState(
+          state,
+          scheduleSync,
+          expectedDocumentId,
+        ),
+      ),
+    ensureInitialized: () =>
+      withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>
-      removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
-    removeRow: (id) => removeRowFromDocumentStore(state, scheduleSync, id),
+      withLiveSyncLane(() =>
+        removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
+      ),
+    removeRow: (id) =>
+      withLiveSyncLane(() =>
+        removeRowFromDocumentStore(state, scheduleSync, id),
+      ),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
+      withLiveSyncLane(() =>
+        replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
+      ),
     requestRemoteSync: () =>
-      requestRemoteDocumentStoreSync(state, scheduleSync),
+      withLiveSyncLane(() =>
+        requestRemoteDocumentStoreSync(state, scheduleSync),
+      ),
     requestRemoteSyncAndWait: (signal) =>
       requestRemoteDocumentStoreSyncAndWait(state, scheduleSync, signal),
-    requestSync: () => requestOrdinaryDocumentStoreSync(state, scheduleSync),
-    relink: (input) => relinkDocumentStore(state, input, scheduleSync),
+    requestSync: () =>
+      withLiveSyncLane(() =>
+        requestOrdinaryDocumentStoreSync(state, scheduleSync),
+      ),
+    relink: (input) =>
+      withLiveSyncLane(() => relinkDocumentStore(state, input, scheduleSync)),
     setStructuredFields: (kind, patch, options) =>
-      setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
-    setText: (value: string) => setDocumentText(state, scheduleSync, value),
+      withLiveSyncLane(() =>
+        setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
+      ),
+    setText: (value: string) =>
+      withLiveSyncLane(() => setDocumentText(state, scheduleSync, value)),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),
     updateRowFields: (id, patch) =>
-      updateRowInDocumentStore(state, scheduleSync, id, patch),
+      withLiveSyncLane(() =>
+        updateRowInDocumentStore(state, scheduleSync, id, patch),
+      ),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };

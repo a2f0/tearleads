@@ -4,9 +4,11 @@ import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentStoreState } from "./state";
 import {
+  captureDocumentStoreAttachmentSyncGeneration,
   captureDocumentStoreRemoteSyncGeneration,
   captureDocumentStoreRemoteSyncRequestGeneration,
   captureDocumentStoreSyncGeneration,
+  captureDocumentStoreSyncLaneGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
   invalidateDocumentStoreRemoteSync,
   invalidateDocumentStoreSyncLane,
@@ -92,7 +94,7 @@ test("reset or relink sequence reuse cannot complete an old remote request", asy
   ).toBe(false);
 });
 
-test("remote probe cancellation leaves a concurrent local generation current", async () => {
+test("remote probe cancellation preserves local and pending attachment work", async () => {
   const currentDoc = await createDocument("local-generation-after-abort");
   const state = {
     doc: currentDoc,
@@ -104,20 +106,31 @@ test("remote probe cancellation leaves a concurrent local generation current", a
       state: { domainScope: createDomainScope() },
     },
   } as unknown as DocumentStoreState;
+  const syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
   const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const attachmentGeneration = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
   const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
     state,
     currentDoc,
+    syncLaneGeneration,
   );
   expect(localGeneration).not.toBeNull();
+  expect(attachmentGeneration).not.toBeNull();
   expect(remoteGeneration).not.toBeNull();
-  if (!localGeneration || !remoteGeneration) return;
+  if (!localGeneration || !attachmentGeneration || !remoteGeneration) return;
 
   invalidateDocumentStoreRemoteSync(state);
 
   expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
     true,
   );
+  expect(
+    isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration),
+  ).toBe(true);
   expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
     false,
   );
@@ -136,14 +149,22 @@ test("coordinator disposal invalidates remote work but not local persistence", a
     },
     syncLane: { isDisposed: () => disposed },
   } as unknown as DocumentStoreState;
+  const syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
   const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const attachmentGeneration = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
   const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
     state,
     currentDoc,
+    syncLaneGeneration,
   );
   expect(localGeneration).not.toBeNull();
+  expect(attachmentGeneration).not.toBeNull();
   expect(remoteGeneration).not.toBeNull();
-  if (!localGeneration || !remoteGeneration) return;
+  if (!localGeneration || !attachmentGeneration || !remoteGeneration) return;
 
   disposed = true;
   invalidateDocumentStoreSyncLane(state);
@@ -151,6 +172,9 @@ test("coordinator disposal invalidates remote work but not local persistence", a
   expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
     true,
   );
+  expect(
+    isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration),
+  ).toBe(false);
   expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
     false,
   );

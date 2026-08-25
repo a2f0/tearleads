@@ -29,6 +29,8 @@ interface DocumentStoreSyncLaneIdentity {
   readonly syncLaneIsDisposed: (() => boolean) | null;
 }
 
+export type DocumentStoreSyncLaneGeneration = DocumentStoreSyncLaneIdentity;
+
 function hasDocumentStoreSyncLaneIdentity(
   generation: DocumentStoreGenerationIdentity,
 ): generation is DocumentStoreGenerationIdentity &
@@ -78,6 +80,12 @@ function captureDocumentStoreSyncLaneIdentity(
   };
 }
 
+export function captureDocumentStoreSyncLaneGeneration(
+  state: DocumentStoreState,
+): DocumentStoreSyncLaneGeneration {
+  return captureDocumentStoreSyncLaneIdentity(state);
+}
+
 /** Invalidate passes owned by a coordinator that has been replaced. */
 export function invalidateDocumentStoreSyncLane(
   state: DocumentStoreState,
@@ -110,14 +118,35 @@ export function captureDocumentStoreSyncGeneration(
 export function captureDocumentStoreRemoteSyncGeneration(
   state: DocumentStoreState,
   currentDoc: DocumentState | null,
+  syncLaneGeneration: DocumentStoreSyncLaneGeneration,
 ): DocumentStoreRemoteSyncGeneration | null {
   const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) return null;
+  if (
+    !generation ||
+    !isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
+  ) {
+    return null;
+  }
   return {
     ...generation,
-    ...captureDocumentStoreSyncLaneIdentity(state),
+    ...syncLaneGeneration,
     remoteSyncGeneration: getRemoteSyncGeneration(state),
   };
+}
+
+export function captureDocumentStoreAttachmentSyncGeneration(
+  state: DocumentStoreState,
+  currentDoc: DocumentState | null,
+  syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+): DocumentStoreSyncGeneration | null {
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (
+    !generation ||
+    !isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
+  ) {
+    return null;
+  }
+  return { ...generation, ...syncLaneGeneration };
 }
 
 /**
@@ -230,6 +259,16 @@ export function isDocumentStoreSyncGenerationCurrent(
   );
 }
 
+export function isDocumentStoreSyncLaneGenerationCurrent(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncLaneGeneration,
+): boolean {
+  return (
+    (syncLaneGenerations.get(state) ?? 0) === generation.syncLaneGeneration &&
+    !generation.syncLaneIsDisposed?.()
+  );
+}
+
 function isDocumentStoreGenerationIdentityCurrent(
   state: DocumentStoreState,
   generation: DocumentStoreGenerationIdentity,
@@ -240,8 +279,6 @@ function isDocumentStoreGenerationIdentityCurrent(
     state.localWriteGeneration === generation.localWriteGeneration &&
     state.resolveProjectionUserKey === generation.resolveProjectionUserKey &&
     (!hasDocumentStoreSyncLaneIdentity(generation) ||
-      ((syncLaneGenerations.get(state) ?? 0) ===
-        generation.syncLaneGeneration &&
-        !generation.syncLaneIsDisposed?.()))
+      isDocumentStoreSyncLaneGenerationCurrent(state, generation))
   );
 }

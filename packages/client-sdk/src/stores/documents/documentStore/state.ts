@@ -158,7 +158,6 @@ export interface DocumentStoreState {
   remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
-  ensureSyncLane: (() => void) | null;
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
@@ -262,7 +261,6 @@ export function createDocumentStoreState(
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
     snapshot: { ...EMPTY_DOCUMENT_SNAPSHOT },
-    ensureSyncLane: null,
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,
