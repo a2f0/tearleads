@@ -127,7 +127,7 @@ test("rotation commits pending writes before consecutive raw recoveries", async 
   }
 });
 
-test("raw rotation recovery never submits a queued rotation checkpoint", async () => {
+test("raw recovery rejects a checkpoint-only local history gap", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-fast-baseline-echo",
   );
@@ -144,26 +144,15 @@ test("raw rotation recovery never submits a queued rotation checkpoint", async (
 
     const submittedIds: string[][] = [];
     const historyModes: Array<"raw" | undefined> = [];
-    const committedUpdates: DocumentSyncResponse["updates"] = [];
     const state = createDocumentStoreState(
       localId,
       createRotationRecoveryRuntime({
         execSql,
         fixture,
-        requireRawHistory: false,
         responseForRequest: (request, response) => {
           submittedIds.push(request.outgoingUpdates.map((update) => update.id));
           historyModes.push(request.historyMode);
-          const outgoingIds = new Set(
-            request.outgoingUpdates.map((update) => update.id),
-          );
-          committedUpdates.push(
-            ...response.updates.filter((update) => outgoingIds.has(update.id)),
-          );
-          return {
-            ...response,
-            updates: [...fixture.response.updates, ...committedUpdates],
-          };
+          return response;
         },
       }),
       sqlDocumentsPersistence,
@@ -184,16 +173,13 @@ test("raw rotation recovery never submits a queued rotation checkpoint", async (
     const queuedCheckpoint = (await listPendingUpdates(state))[0];
     if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
 
-    const recoveredBaseline =
-      await assertDocumentStoreCanRotateContentKey(state);
-    expect(recoveredBaseline).toBeInstanceOf(Uint8Array);
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "unverified local history",
+    );
 
-    expect(submittedIds).toHaveLength(3);
+    expect(submittedIds).toHaveLength(1);
     expect(submittedIds[0]).toEqual([]);
-    expect(submittedIds[1]).toHaveLength(1);
-    expect(submittedIds[1]).not.toContain(queuedCheckpoint.id);
-    expect(submittedIds[2]).toEqual([]);
-    expect(historyModes).toEqual(["raw", undefined, "raw"]);
+    expect(historyModes).toEqual(["raw"]);
     expect(
       (await listPendingUpdates(state)).map((update) => update.id),
     ).toEqual([queuedCheckpoint.id]);

@@ -109,7 +109,7 @@ test("rotation validates every bounded page before one durable install", async (
   }
 });
 
-test("rotation drains a bounded local queue before raw recovery", async () => {
+test("rotation invalidates a continuation and drains a bounded local queue", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-bounded-tail",
   );
@@ -122,6 +122,21 @@ test("rotation drains a bounded local queue before raw recovery", async () => {
       documentId: fixture.writerProjection.documentId,
       execSql,
       localId,
+    });
+    const continuation = {
+      commitLsn: "0/20",
+      commitLsnMode: "tracked" as const,
+      cursor: "stale-page-2",
+    };
+    const persistedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      localId,
+    );
+    if (!persistedRecord) throw new Error("Expected persisted document");
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...persistedRecord,
+      lastCommitLsn: continuation.commitLsn,
+      pullContinuation: continuation,
     });
 
     const committedUpdates: DocumentSyncResponse["updates"] = [];
@@ -153,6 +168,7 @@ test("rotation drains a bounded local queue before raw recovery", async () => {
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    expect(state.pullContinuation).toEqual(continuation);
     if (!state.doc) {
       throw new Error("Expected full-history document");
     }
@@ -177,6 +193,7 @@ test("rotation drains a bounded local queue before raw recovery", async () => {
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
     expect(await listPendingUpdates(state)).toHaveLength(0);
+    expect(state.pullContinuation).toBeNull();
     expect(outgoingCounts).toEqual([64, 1, 0]);
     expect(historyModes).toEqual([undefined, undefined, "raw"]);
     expect(requestedSyncCount).toBe(0);

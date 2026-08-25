@@ -19,8 +19,9 @@ A raw consumer must:
 3. retain the cursor only in memory and drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
-5. commit every local-only delta to the ordinary stream and repeat the frozen
-   raw pull if a checkpoint-only gap is discovered;
+5. commit every proven ordinary pending delta before the raw pull and fail
+   closed if the installed document still contains operations absent from the
+   verified raw history;
 6. publish the rebuilt document once through a guarded atomic install.
 
 Rotation checkpoints are still authenticated, decrypted, and scratch-imported
@@ -33,9 +34,10 @@ The built-in document content-key rotation preflight implements this contract.
 An interrupted page, a poison update, a changing document generation, or a
 superseding pane leaves the previous durable document intact. Durable pending
 ordinary rows are settled remotely before the baseline can be returned. Queued
-rotation checkpoints remain queued and excluded from reconstruction; if one
-was the only durable carrier of a local op, the preflight converts that gap to
-an ordinary update, commits it, and repeats raw recovery.
+rotation checkpoints remain queued and excluded from reconstruction. If a
+checkpoint is the only durable carrier of an operation, the client cannot
+prove that operation originated locally rather than in a forged checkpoint,
+so the preflight fails without re-encrypting or publishing it.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable, the public `DocumentRawHistoryUnavailableError`
@@ -66,12 +68,14 @@ history for three updates, two epochs, and two pages.
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import in `pullVerifiedRawHistoryForRotation` |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
+| `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
 | `PublishRecovery` | guarded `installRebuiltDocument` |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require raw collection to start only after local
 ordinary settlement, incomplete or failed recovery to preserve the old durable
 history, successful recovery to contain every retained ordinary update,
-scratch state never to trust a rotation checkpoint, the reported unavailable
-epoch to be the deterministic lowest missing epoch on the failing page, and
-invalid updates never to be mislabeled as availability failures.
+scratch state never to trust a rotation checkpoint, unverified local history
+never to publish, the reported unavailable epoch to be the deterministic
+lowest missing epoch on the failing page, and invalid updates never to be
+mislabeled as availability failures.

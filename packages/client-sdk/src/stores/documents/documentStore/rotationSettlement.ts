@@ -1,6 +1,7 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@symcrypt/loro";
 import type { PendingUpdateRecord } from "../../../workflows/documents";
 import { listPendingUpdates, persistDocument } from "./persistence";
+import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import type {
   DocumentState,
   DocumentStoreState,
@@ -34,6 +35,40 @@ function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
     .join("\n");
 }
 
+async function invalidateExistingPullContinuation(
+  state: DocumentStoreState,
+): Promise<void> {
+  const continuation = state.pullContinuation;
+  if (!continuation) return;
+  const currentDoc = state.doc;
+  const currentRecord = state.record;
+  if (!currentDoc || !currentRecord) {
+    throw new Error(
+      "Document changed while its pull continuation was invalidated for key rotation",
+    );
+  }
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    throw new Error(
+      "Document changed while its pull continuation was invalidated for key rotation",
+    );
+  }
+  await invalidateDocumentStorePullContinuation({
+    continuation,
+    currentRecord,
+    generation,
+    state,
+  });
+  if (
+    state.pullContinuation !== null ||
+    !isDocumentStoreSyncGenerationCurrent(state, generation)
+  ) {
+    throw new Error(
+      "Document pull continuation could not be invalidated before key rotation",
+    );
+  }
+}
+
 async function persistStagedSettlement(input: {
   currentDocument: DocumentState;
   generation: DocumentStoreSyncGeneration;
@@ -56,6 +91,7 @@ async function persistStagedSettlement(input: {
         syncAttempt.synced.response.commitLsn ??
         input.preparedRecord.lastCommitLsn ??
         null,
+      pullContinuation: null,
     },
     {
       acceptedPendingUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
@@ -165,6 +201,7 @@ async function settleOrdinaryUpdatePass(input: {
 export async function settleOrdinaryDocumentUpdatesBeforeRotation(
   state: DocumentStoreState,
 ): Promise<void> {
+  await invalidateExistingPullContinuation(state);
   const stalledQueueStates = new Set<string>();
 
   while (true) {

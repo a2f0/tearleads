@@ -1,6 +1,5 @@
 import {
   encodeVersionVector,
-  exportUpdatesSince,
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "@symcrypt/loro";
@@ -15,8 +14,6 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
-import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
-import { enqueuePendingUpdate } from "./persistence";
 import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
@@ -161,140 +158,86 @@ async function pullVerifiedRawHistoryForRotation(input: {
   }
 }
 
-async function commitLocalHistoryGap(input: {
-  currentDocument: DocumentState;
-  generation: DocumentStoreSyncGeneration;
-  rebuiltDocument: DocumentState;
-  submittedEarlierGap: boolean;
-  state: DocumentStoreState;
-}): Promise<boolean> {
-  const currentVersion = encodeVersionVector(input.currentDocument);
-  const rebuiltVersion = encodeVersionVector(input.rebuiltDocument);
-  if (satisfiesVersionVector(rebuiltVersion, currentVersion)) return false;
-  const localOnlyDelta = exportUpdatesSince(
-    input.currentDocument,
-    rebuiltVersion,
-  );
-  if (input.submittedEarlierGap) {
-    throw new Error(
-      "Committed local document updates were absent from raw history",
-    );
-  }
-  const enqueued = await enqueuePendingUpdate(
-    input.state,
-    localOnlyDelta,
-    undefined,
-    input.generation,
-  );
-  if (!enqueued) {
-    await rebaseDocumentAfterPendingUpdateRefusal(
-      input.state,
-      input.generation,
-    );
-    throw new Error(
-      "Document identity changed during rotation recovery; retry key rotation",
-    );
-  }
-  await settleOrdinaryDocumentUpdatesBeforeRotation(input.state);
-  return true;
-}
-
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
   assertRotationRecoveryPrerequisites(state);
   await settleOrdinaryDocumentUpdatesBeforeRotation(state);
-  let submittedLocalHistoryGap = false;
+  const currentDoc = state.doc;
+  const currentRecord = state.record;
+  if (!currentDoc || !currentRecord) {
+    throw new Error(
+      "Document must finish loading before its content key can rotate",
+    );
+  }
+  // The teardown guard for the recovery's terminal-failure handler: captured
+  // before the pull so a discard (row 21) racing this preflight invalidates
+  // it, and the stale handler cannot resurrect a deleted failure row.
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    throw new Error(
+      "Document changed during rotation recovery; retry key rotation",
+    );
+  }
 
-  while (true) {
-    const currentDoc = state.doc;
-    const currentRecord = state.record;
-    if (!currentDoc || !currentRecord) {
-      throw new Error(
-        "Document must finish loading before its content key can rotate",
-      );
-    }
-    // The teardown guard for the recovery's terminal-failure handler: captured
-    // before the pull so a discard (row 21) racing this preflight invalidates
-    // it, and the stale handler cannot resurrect a deleted failure row.
-    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-    if (!generation) {
+  const capturedVersion = encodeVersionVector(currentDoc);
+  const consumedPullContinuation = state.pullContinuation;
+  let settlementRequiresRetry = false;
+
+  // A raw recovery starts from an empty scratch document, bypasses untrusted
+  // rotation-baseline redirects, drains every retained page in memory, and
+  // publishes nothing until all response updates have validated. Checkpoints
+  // are authenticated and decrypted but are not reconstruction inputs: the
+  // original ordinary update stream is the source of truth in this mode.
+  const rebuiltDoc = await createStoredDocument(state);
+
+  try {
+    const synced = await pullVerifiedRawHistoryForRotation({
+      currentRecord,
+      generation,
+      rebuiltDocument: rebuiltDoc,
+      state,
+    });
+
+    if (
+      state.doc !== currentDoc ||
+      !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
+    ) {
       throw new Error(
         "Document changed during rotation recovery; retry key rotation",
       );
     }
+    if (
+      !satisfiesVersionVector(encodeVersionVector(rebuiltDoc), capturedVersion)
+    ) {
+      // The missing ops have no remaining ordinary pending-row provenance.
+      // They may have arrived through a forged checkpoint, so never launder
+      // them into the ordinary stream or a new rotation baseline.
+      throw new Error(
+        "Rotation raw-history recovery found unverified local history; key rotation was not started",
+      );
+    }
 
-    const capturedVersion = encodeVersionVector(currentDoc);
-    const consumedPullContinuation = state.pullContinuation;
-    let settlementRequiresRetry = false;
-
-    // A raw recovery starts from an empty scratch document, bypasses untrusted
-    // rotation-baseline redirects, drains every retained page in memory, and
-    // publishes nothing until all response updates have validated. Checkpoints
-    // are authenticated and decrypted but are not reconstruction inputs: the
-    // original ordinary update stream is the source of truth in this mode.
-    const rebuiltDoc = await createStoredDocument(state);
-
-    try {
-      const synced = await pullVerifiedRawHistoryForRotation({
-        currentRecord,
-        generation,
-        rebuiltDocument: rebuiltDoc,
-        state,
-      });
-
-      // Do not replace or persist over a document that changed while the
-      // verified pull was in flight. A retry can recover the newer frontier
-      // safely.
-      if (
-        state.doc !== currentDoc ||
-        !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
-      ) {
-        throw new Error(
-          "Document changed during rotation recovery; retry key rotation",
-        );
-      }
-
-      // A checkpoint-only queue can make pendingBaseVersion look covered even
-      // though the ordinary remote stream still lacks local ops. Convert that
-      // gap into an ordinary update, commit it, then recover from a new frozen
-      // raw snapshot. Never publish a baseline from the pre-commit scratch.
-      const committedLocalHistoryGap = await commitLocalHistoryGap({
-        currentDocument: currentDoc,
-        generation,
-        rebuiltDocument: rebuiltDoc,
-        submittedEarlierGap: submittedLocalHistoryGap,
-        state,
-      });
-      if (committedLocalHistoryGap) {
-        submittedLocalHistoryGap = true;
-        continue;
-      }
-
-      const installed = await installRebuiltDocument({
-        consumedPullContinuation,
-        currentRecord,
-        rebuiltDoc,
-        state,
-        synced,
-      });
-      settlementRequiresRetry = installed.settlementRequiresRetry;
-      if (settlementRequiresRetry) {
-        throw new Error(
-          "Rotation raw-history recovery was superseded during its atomic install; retry key rotation",
-        );
-      }
-      return installed.fullHistorySnapshot;
-    } finally {
-      // Failed or superseded scratch documents never transfer to the store and
-      // must release their WASM allocation. A successfully installed document
-      // is now store-owned and remains live.
-      if (state.doc !== rebuiltDoc) {
-        rebuiltDoc.free();
-      }
-      if (settlementRequiresRetry) {
-        requestDocumentStoreSync(state);
-      }
+    const installed = await installRebuiltDocument({
+      consumedPullContinuation,
+      currentRecord,
+      rebuiltDoc,
+      state,
+      synced,
+    });
+    settlementRequiresRetry = installed.settlementRequiresRetry;
+    if (settlementRequiresRetry) {
+      throw new Error(
+        "Rotation raw-history recovery was superseded during its atomic install; retry key rotation",
+      );
+    }
+    return installed.fullHistorySnapshot;
+  } finally {
+    if (state.doc !== rebuiltDoc) {
+      rebuiltDoc.free();
+    }
+    if (settlementRequiresRetry) {
+      requestDocumentStoreSync(state);
     }
   }
 }

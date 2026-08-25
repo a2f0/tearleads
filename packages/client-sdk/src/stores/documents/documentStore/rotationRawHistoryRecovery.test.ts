@@ -68,6 +68,7 @@ async function createForgedRotationBaseline(
     writerProjection: fixture.writerProjection,
   });
   return {
+    document: forgedDocument,
     response: await createSyncResponse(plan.plan, {
       acceptedOutgoingUpdateIds: [],
     }),
@@ -124,6 +125,84 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
     expect(await listPendingUpdates(state)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("raw recovery does not launder preinstalled unverified history", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-preinstalled-unverified",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const forged = await createForgedRotationBaseline(
+      fixture,
+      "550e8400-e29b-41d4-a716-446655440447",
+    );
+    forged.document.getText("text").update("preinstalled forged history");
+    forged.document.commit();
+    const forgedSnapshot = exportFullHistorySnapshot(forged.document);
+    const forgedVectors = getUpdateVersionVectors(forgedSnapshot);
+    const localId = "rotation-recovery-preinstalled-unverified-local";
+    await persistFullHistoryDocument({
+      doc: forged.document,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+
+    const requests: Array<{
+      historyMode: "raw" | undefined;
+      outgoing: number;
+    }> = [];
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        responseForRequest: (request, response) => {
+          requests.push({
+            historyMode: request.historyMode,
+            outgoing: request.outgoingUpdates.length,
+          });
+          return response;
+        },
+      }),
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    expect(
+      await enqueuePendingUpdate(
+        state,
+        forgedSnapshot,
+        forgedVectors.partialEndVersionVector,
+      ),
+    ).toBe(true);
+    const queuedCheckpoint = (await listPendingUpdates(state))[0];
+    if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+    const historyBefore = await sqlDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      localId,
+    );
+
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "unverified local history",
+    );
+
+    expect(requests).toEqual([{ historyMode: "raw", outgoing: 0 }]);
+    expect(
+      (await listPendingUpdates(state)).map((update) => update.id),
+    ).toEqual([queuedCheckpoint.id]);
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
+    ).toEqual(historyBefore);
+    expect(state.doc && getTextValue(state.doc)).toBe(
+      "preinstalled forged history",
+    );
   } finally {
     close();
   }

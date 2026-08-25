@@ -1,12 +1,13 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* A rotation preflight commits every local ordinary update before the raw   *)
-(* recovery that can publish drains retained pages into scratch. The model   *)
-(* abstracts checkpoint-only gap discovery into localPending at Init.         *)
-(* Authenticated rotation checkpoints are validated but the ordinary update  *)
-(* stream is the reconstruction source of truth. Durable history changes     *)
-(* only after settlement succeeds and every page validates.                  *)
+(* A rotation preflight commits every proven local ordinary update before    *)
+(* the raw recovery that can publish drains retained pages into scratch.      *)
+(* hasUnverifiedLocalGap represents state found only in the installed local   *)
+(* document, without ordinary pending-row provenance. Authenticated rotation  *)
+(* checkpoints are validated but the ordinary update stream is the source of  *)
+(* truth. Durable history changes only after settlement succeeds, every page  *)
+(* validates, and no unverified local gap remains.                            *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -26,6 +27,7 @@ VARIABLES phase,
           epochAvailable,
           ordinaryUpdates,
           localPending,
+          hasUnverifiedLocalGap,
           scratchHistory,
           initialDurableHistory,
           durableHistory,
@@ -33,9 +35,9 @@ VARIABLES phase,
           reportedUnavailableEpoch
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
-           epochAvailable, ordinaryUpdates, localPending, scratchHistory,
-           initialDurableHistory, durableHistory, durablePublished,
-           reportedUnavailableEpoch >>
+           epochAvailable, ordinaryUpdates, localPending,
+           hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
+           durableHistory, durablePublished, reportedUnavailableEpoch >>
 
 PageUpdates(page) == {id \in UpdateIds : pageOf[id] = page}
 
@@ -59,6 +61,7 @@ TypeOK ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ localPending \in SUBSET ordinaryUpdates
+  /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ scratchHistory \subseteq ordinaryUpdates
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory \in SUBSET UpdateIds
@@ -74,6 +77,7 @@ Init ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ localPending \in SUBSET ordinaryUpdates
+  /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ scratchHistory = {}
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory = initialDurableHistory
@@ -86,8 +90,9 @@ StartRawCollection ==
   /\ phase' = "collecting"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
-                  scratchHistory, initialDurableHistory, durableHistory,
-                  durablePublished, reportedUnavailableEpoch >>
+                  hasUnverifiedLocalGap, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
 
 CommitPendingOrdinary ==
   /\ phase = "settling"
@@ -95,7 +100,8 @@ CommitPendingOrdinary ==
   /\ phase' = "collecting"
   /\ localPending' = {}
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
-                  epochAvailable, ordinaryUpdates, scratchHistory,
+                  epochAvailable, ordinaryUpdates, hasUnverifiedLocalGap,
+                  scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -105,8 +111,9 @@ RejectPendingSettlement ==
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
-                  scratchHistory, initialDurableHistory, durableHistory,
-                  durablePublished, reportedUnavailableEpoch >>
+                  hasUnverifiedLocalGap, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
 
 ValidatePage ==
   /\ phase = "collecting"
@@ -117,8 +124,8 @@ ValidatePage ==
        scratchHistory \cup (PageUpdates(nextPage) \cap ordinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, pageOf, updateEpoch, updateValid, epochAvailable,
-                  ordinaryUpdates, localPending, initialDurableHistory,
-                  durableHistory, durablePublished,
+                  ordinaryUpdates, localPending, hasUnverifiedLocalGap,
+                  initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
 RejectUnavailablePage ==
@@ -129,8 +136,9 @@ RejectUnavailablePage ==
   /\ phase' = "failed"
   /\ reportedUnavailableEpoch' = MinEpoch(UnavailableEpochs(nextPage))
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
-                  epochAvailable, ordinaryUpdates, localPending, scratchHistory,
-                  initialDurableHistory, durableHistory, durablePublished >>
+                  epochAvailable, ordinaryUpdates, localPending,
+                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
+                  durableHistory, durablePublished >>
 
 RejectInvalidPage ==
   /\ phase = "collecting"
@@ -138,19 +146,30 @@ RejectInvalidPage ==
   /\ PageHasInvalidUpdate(nextPage)
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
-                  epochAvailable, ordinaryUpdates, localPending, scratchHistory,
-                  initialDurableHistory, durableHistory, durablePublished,
-                  reportedUnavailableEpoch >>
+                  epochAvailable, ordinaryUpdates, localPending,
+                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
+                  durableHistory, durablePublished, reportedUnavailableEpoch >>
+
+RejectUnverifiedLocalGap ==
+  /\ phase = "collecting"
+  /\ nextPage = MaxPage + 1
+  /\ hasUnverifiedLocalGap
+  /\ phase' = "failed"
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
+                  durableHistory, durablePublished, reportedUnavailableEpoch >>
 
 PublishRecovery ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
+  /\ ~hasUnverifiedLocalGap
   /\ phase' = "complete"
   /\ durableHistory' = scratchHistory
   /\ durablePublished' = TRUE
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
-                  epochAvailable, ordinaryUpdates, localPending, scratchHistory,
-                  initialDurableHistory,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  hasUnverifiedLocalGap, scratchHistory, initialDurableHistory,
                   reportedUnavailableEpoch >>
 
 RemainTerminal ==
@@ -164,6 +183,7 @@ Next ==
   \/ ValidatePage
   \/ RejectUnavailablePage
   \/ RejectInvalidPage
+  \/ RejectUnverifiedLocalGap
   \/ PublishRecovery
   \/ RemainTerminal
 
@@ -185,6 +205,9 @@ ScratchNeverTrustsRotationCheckpoints ==
 
 RawCollectionStartsAfterLocalSettlement ==
   phase \notin {"collecting", "complete"} \/ localPending = {}
+
+UnverifiedLocalHistoryNeverPublishes ==
+  ~hasUnverifiedLocalGap \/ phase # "complete"
 
 UnavailableEpochReportIsDeterministic ==
   phase # "failed" \/ reportedUnavailableEpoch = 0 \/
