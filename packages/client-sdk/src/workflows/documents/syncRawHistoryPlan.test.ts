@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { isDocumentSyncRequest } from "@symcrypt/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
 import {
   createMaterializedSyncFixture,
   createPreparedUpdate,
@@ -128,6 +129,63 @@ test("raw history fails a stale cursor without restarting its frozen pull", asyn
 
     await expect(recovery).rejects.toBeInstanceOf(
       InvalidDocumentSyncPullContinuationError,
+    );
+    expect(requestedCursors).toEqual([pullContinuation.cursor]);
+    expect(invalidationCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("raw history fails a page-two state conflict without restarting", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "raw-history-page-two-state-conflict",
+  );
+  try {
+    const fixture = await createMaterializedSyncFixture();
+    const requestedCursors: Array<string | undefined> = [];
+    let invalidationCount = 0;
+    const pullContinuation = {
+      commitLsn: "0/16B6C50",
+      commitLsnMode: "tracked" as const,
+      cursor: "conflicted-raw-page-2",
+    };
+
+    const recovery = syncRemoteDocument({
+      apiClient: {
+        getDocumentWriterProjection: async () => fixture.writerProjection,
+        syncDocument: async () => {
+          throw new Error("Expected syncDocumentResult to handle raw sync");
+        },
+        syncDocumentResult: async (_documentId, request) => {
+          requestedCursors.push(request.pullCursor);
+          return {
+            code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+            message: "Document sync state changed during frozen raw pull",
+            ok: false,
+            report: () => undefined,
+            status: 409,
+          };
+        },
+      },
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      onPullContinuationInvalidated: () => {
+        invalidationCount += 1;
+      },
+      pendingUpdates: [],
+      pullContinuation,
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+    });
+
+    await expect(recovery).rejects.toThrow(
+      "raw-history continuation became stale",
     );
     expect(requestedCursors).toEqual([pullContinuation.cursor]);
     expect(invalidationCount).toBe(0);

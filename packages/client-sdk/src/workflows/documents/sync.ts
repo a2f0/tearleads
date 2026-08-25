@@ -27,6 +27,7 @@ import {
 } from "./readOnlySync";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
+  assertRawContinuationCanRetry,
   resolveSyncAttemptWriterProjection,
   retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
@@ -451,6 +452,7 @@ async function syncRemoteDocumentInternal(
       failureBlocksQueuedWrites: blocksQueuedWrites,
     });
     if (submitted === "retry") {
+      assertRawContinuationCanRetry(input.historyMode, pullContinuation);
       evictStaleProjectionForRetry(input);
       pullContinuation = await invalidatePullCursor(input, pullContinuation);
       continue;

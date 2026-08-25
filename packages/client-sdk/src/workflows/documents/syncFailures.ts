@@ -6,7 +6,11 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
   submitDocumentSync,
 } from "../../data/documents/shared/responses";
-import type { DocumentSyncCommitLsnMode } from "../../data/documents/shared/syncPagination";
+import {
+  type DocumentSyncCommitLsnMode,
+  type DocumentSyncPullContinuation,
+  InvalidDocumentSyncPullContinuationError,
+} from "../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncApi,
   DocumentSyncPlan,
@@ -30,6 +34,17 @@ import {
 } from "./syncTrace";
 
 const REMOTE_DOCUMENT_DELETED = Symbol("remoteDocumentDeleted");
+
+export function assertRawContinuationCanRetry(
+  historyMode: "raw" | undefined,
+  pullContinuation: DocumentSyncPullContinuation | undefined,
+): void {
+  if (historyMode === "raw" && pullContinuation !== undefined) {
+    throw new InvalidDocumentSyncPullContinuationError(
+      "Document raw-history continuation became stale",
+    );
+  }
+}
 
 type DocumentWriterProjectionResolution =
   | DocumentWriterProjectionResponse
