@@ -11,9 +11,16 @@ import {
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import {
   createDocumentStoreState,
+  resetDocumentStore,
   setDocumentSnapshot,
   subscribeToDocumentStore,
 } from "./state";
+import {
+  hasPendingIndependentDocumentStoreRemoteSync,
+  invalidateDocumentStoreRemoteSync,
+  isDocumentStoreRemoteSyncBlocked,
+  markDocumentStoreRemoteSyncPending,
+} from "./syncGeneration";
 
 function createTestBlobStore(): BlobStore {
   return {
@@ -83,4 +90,47 @@ test("setDocumentSnapshot treats missing keys differently from undefined values"
   unsubscribe();
 
   expect(emits).toBe(1);
+});
+
+test("reset clears cancellation blocking for the next hydration", () => {
+  const state = createDocumentStoreState(
+    "remote-reset-test",
+    createTestRuntime(),
+    {} as DocumentsPersistence,
+    noopDocumentStorePersistenceEffects,
+    "document-1",
+  );
+
+  invalidateDocumentStoreRemoteSync(state);
+  expect(isDocumentStoreRemoteSyncBlocked(state)).toBe(true);
+
+  resetDocumentStore(state);
+  expect(isDocumentStoreRemoteSyncBlocked(state)).toBe(false);
+});
+
+test("independent remote ownership spans every pull continuation page", () => {
+  const state = createDocumentStoreState(
+    "remote-pagination-owner-test",
+    createTestRuntime(),
+    {} as DocumentsPersistence,
+    noopDocumentStorePersistenceEffects,
+    "document-1",
+  );
+
+  const signalSequence = markDocumentStoreRemoteSyncPending(
+    state,
+    "independent",
+  );
+  state.remoteUpdateCompletedSignalSeq = signalSequence;
+  state.remoteUpdatePending = false;
+  state.pullContinuation = {
+    commitLsn: "0/20",
+    commitLsnMode: "tracked",
+    cursor: "page-2",
+  };
+
+  expect(hasPendingIndependentDocumentStoreRemoteSync(state)).toBe(true);
+
+  state.pullContinuation = null;
+  expect(hasPendingIndependentDocumentStoreRemoteSync(state)).toBe(false);
 });

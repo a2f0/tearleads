@@ -9,7 +9,6 @@ import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
-import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileBindingPreserved } from "../../organizations/rosterProfileBindingInvariant";
 import {
   appendAtomicRotationBaseline,
@@ -145,24 +144,14 @@ async function lockDocumentLinkSetMutationFrontier(input: {
   return locked;
 }
 
-async function lockDocumentOrganization(input: {
+async function resolveDocumentOrganization(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<string> {
-  // Container rekeys take group -> organization locks. Relink authorization
-  // then takes organization -> container/document locks, matching container
-  // mutations while serializing roster binds against this link-set change.
   const { organizationId } = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.executor,
   );
-  const headLocked = await lockOrganizationReadModelHeadForUpdateInTransaction(
-    input.executor,
-    organizationId,
-  );
-  if (!headLocked) {
-    throw new Error("Organization read-model cursor head is missing");
-  }
   return organizationId;
 }
 
@@ -188,13 +177,17 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       fingerprint: input.fingerprint,
       userId: input.userId,
     });
+    const organizationId = await resolveDocumentOrganization(input);
+    // Rekeys and the document organization share one group -> sorted-org lock
+    // plan. Locking the document organization after independently sorted rekey
+    // organizations permits opposing cross-organization requests to deadlock.
     await applyContainerRekeys({
+      additionalOrganizationIds: [organizationId],
       executor: input.executor,
       fingerprint: input.fingerprint,
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
-    const organizationId = await lockDocumentOrganization(input);
     const previousManifest = await lockDocumentLinkSetMutationFrontier({
       documentId: input.documentId,
       executor: input.executor,

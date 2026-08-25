@@ -50,6 +50,7 @@ import {
   invalidateDocumentStoreRemoteSync,
   invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncBlocked,
+  isDocumentStoreRemoteSyncRequestGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
   registerDocumentStoreRemoteSyncWaiter,
 } from "./documentStore/syncGeneration";
@@ -204,8 +205,14 @@ function requestRemoteDocumentStoreSyncAndWait(
       );
     },
     onInvalidated: () => {
+      const releasedLastWaiter = releaseWaiter();
       if (
-        releaseWaiter() &&
+        releasedLastWaiter &&
+        requestGeneration !== null &&
+        isDocumentStoreRemoteSyncRequestGenerationCurrent(
+          state,
+          requestGeneration,
+        ) &&
         !hasPendingIndependentDocumentStoreRemoteSync(state)
       ) {
         invalidateDocumentStoreRemoteSync(state);

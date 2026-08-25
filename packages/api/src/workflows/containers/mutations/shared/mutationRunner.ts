@@ -180,8 +180,8 @@ async function assertGroupGrantSetChangesAreAtomic(
 }
 
 interface PrelockedContainerMutationBatchScope {
-  readonly groupIds: ReadonlySet<string>;
-  readonly organizationIds: ReadonlySet<string>;
+  readonly groupIds: Set<string>;
+  readonly organizationIds: Set<string>;
 }
 
 const prelockedBatchScopeByContext = new WeakMap<
@@ -351,8 +351,9 @@ async function lockVerifiedBatchScope(
 export async function prelockContainerMutationBatch(
   context: ContainerMutationContext,
   inputs: readonly MutateContainerInput[],
+  additionalOrganizationIds: readonly string[] = [],
 ): Promise<void> {
-  if (inputs.length === 0) {
+  if (inputs.length === 0 && additionalOrganizationIds.length === 0) {
     return;
   }
   if (prelockedBatchScopeByContext.has(context)) {
@@ -360,6 +361,9 @@ export async function prelockContainerMutationBatch(
   }
 
   const scope = await deriveVerifiedBatchScope(context, inputs);
+  for (const organizationId of additionalOrganizationIds) {
+    scope.organizationIds.add(organizationId);
+  }
   await lockVerifiedBatchScope(context, scope);
   prelockedBatchScopeByContext.set(context, scope);
 }

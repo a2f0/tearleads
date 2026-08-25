@@ -120,6 +120,32 @@ test("one registered profile document resolves every current roster binding", as
         [SECOND_USER_ID, "Ada Lovelace"],
       ]),
     );
+
+    const [hydratedProfile] = persistedDocuments.rows;
+    expect(hydratedProfile).toBeDefined();
+    if (!hydratedProfile) return;
+    expect(
+      getLocalRosterProfileDisplayNames({
+        documents: {
+          rows: [
+            { ...hydratedProfile, updatedAt: "2026-08-25T12:00:00.000Z" },
+            {
+              ...hydratedProfile,
+              id: `${hydratedProfile.id}-newer-shell`,
+              title: "Untitled contact",
+              updatedAt: "2026-08-25T13:00:00.000Z",
+            },
+          ],
+          totalCount: 2,
+        },
+        profileBindingsByLocalId: bindings,
+      }),
+    ).toEqual(
+      new Map([
+        [FIRST_USER_ID, "Ada Lovelace"],
+        [SECOND_USER_ID, "Ada Lovelace"],
+      ]),
+    );
   } finally {
     close();
   }

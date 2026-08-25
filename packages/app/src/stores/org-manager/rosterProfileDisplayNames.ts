@@ -51,6 +51,30 @@ export function getRosterProfileDocumentIds(
   );
 }
 
+function getUsableRosterProfileTitle(title: string): string | null {
+  const displayName = title.trim();
+  return displayName.length > 0 && displayName !== "Untitled contact"
+    ? displayName
+    : null;
+}
+
+interface RosterProfileTitleRow {
+  readonly id: string;
+  readonly title: string;
+  readonly updatedAt: string;
+}
+
+function isNewerRosterProfileTitle(
+  candidate: RosterProfileTitleRow,
+  current: RosterProfileTitleRow | undefined,
+): boolean {
+  return (
+    !current ||
+    candidate.updatedAt > current.updatedAt ||
+    (candidate.updatedAt === current.updatedAt && candidate.id > current.id)
+  );
+}
+
 export function getLocalRosterProfileDisplayNames(input: {
   readonly documents: DocumentList | null;
   readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
@@ -63,11 +87,12 @@ export function getLocalRosterProfileDisplayNames(input: {
     userIds.add(profile.userId);
     userIdsByProfileDocumentId.set(profile.profileDocumentId, userIds);
   }
-  const latestDocumentsByUserId = new Map<
-    string,
-    { readonly id: string; readonly title: string; readonly updatedAt: string }
-  >();
+  const latestDocumentsByUserId = new Map<string, RosterProfileTitleRow>();
   for (const document of input.documents?.rows ?? []) {
+    const displayName = getUsableRosterProfileTitle(document.title);
+    if (!displayName) {
+      continue;
+    }
     const userIds = document.documentId
       ? userIdsByProfileDocumentId.get(document.documentId)
       : undefined;
@@ -75,12 +100,11 @@ export function getLocalRosterProfileDisplayNames(input: {
       continue;
     }
     for (const userId of userIds) {
+      if (displayName === userId) {
+        continue;
+      }
       const current = latestDocumentsByUserId.get(userId);
-      if (
-        !current ||
-        document.updatedAt > current.updatedAt ||
-        (document.updatedAt === current.updatedAt && document.id > current.id)
-      ) {
+      if (isNewerRosterProfileTitle(document, current)) {
         latestDocumentsByUserId.set(userId, document);
       }
     }
@@ -88,14 +112,7 @@ export function getLocalRosterProfileDisplayNames(input: {
 
   const names = new Map<string, string>();
   for (const [userId, document] of latestDocumentsByUserId) {
-    const displayName = document.title.trim();
-    if (
-      displayName.length > 0 &&
-      displayName !== "Untitled contact" &&
-      displayName !== userId
-    ) {
-      names.set(userId, displayName);
-    }
+    names.set(userId, document.title.trim());
   }
   return names;
 }

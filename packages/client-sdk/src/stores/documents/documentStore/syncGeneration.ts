@@ -3,7 +3,6 @@ import type { DocumentState, DocumentStoreState } from "./state";
 
 const remoteSyncGenerations = new WeakMap<DocumentStoreState, number>();
 const syncLaneGenerations = new WeakMap<DocumentStoreState, number>();
-const remoteSyncBlockedStates = new WeakSet<DocumentStoreState>();
 const remoteSyncWaiterCounts = new WeakMap<DocumentStoreState, number>();
 const independentRemoteSyncSignals = new WeakMap<
   DocumentStoreState,
@@ -158,12 +157,12 @@ export function invalidateDocumentStoreRemoteSync(
   state: DocumentStoreState,
 ): void {
   remoteSyncGenerations.set(state, getRemoteSyncGeneration(state) + 1);
-  remoteSyncBlockedStates.add(state);
+  state.remoteSyncBlocked = true;
   state.remoteUpdatePending = false;
 }
 
 export function allowDocumentStoreRemoteSync(state: DocumentStoreState): void {
-  remoteSyncBlockedStates.delete(state);
+  state.remoteSyncBlocked = false;
 }
 
 export function markDocumentStoreRemoteSyncPending(
@@ -191,7 +190,9 @@ export function hasPendingIndependentDocumentStoreRemoteSync(
       state,
       signal.generation,
     ) &&
-    signal.signalSequence > state.remoteUpdateCompletedSignalSeq
+    (signal.signalSequence > state.remoteUpdateCompletedSignalSeq ||
+      state.pullContinuation !== null ||
+      state.record?.pullContinuationRecoveryRequired === true)
   );
 }
 
@@ -223,7 +224,7 @@ export function registerDocumentStoreRemoteSyncWaiter(
 export function isDocumentStoreRemoteSyncBlocked(
   state: DocumentStoreState,
 ): boolean {
-  return remoteSyncBlockedStates.has(state);
+  return state.remoteSyncBlocked;
 }
 
 export function isDocumentStoreRemoteSyncRequestGenerationCurrent(

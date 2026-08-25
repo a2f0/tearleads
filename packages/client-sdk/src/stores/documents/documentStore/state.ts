@@ -153,6 +153,8 @@ export interface DocumentStoreState {
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
   /** Latest remote-update sequence durably applied by a completed probe. */
   remoteUpdateCompletedSignalSeq: number;
+  /** A cancelled remote-only owner blocks late responses until fresh work. */
+  remoteSyncBlocked: boolean;
   remoteUpdatePending: boolean;
   /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
@@ -257,6 +259,7 @@ export function createDocumentStoreState(
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdateCompletedSignalSeq: 0,
+    remoteSyncBlocked: false,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
@@ -329,6 +332,7 @@ function clearDocumentStoreState(
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
+  state.remoteSyncBlocked = false;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;
