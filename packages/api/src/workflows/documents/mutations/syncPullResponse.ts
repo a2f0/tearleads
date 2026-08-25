@@ -10,6 +10,7 @@ import type { StoredDocumentContentKeyBundle } from "../../../access/read/docume
 import {
   resolveBaselineRedirectAfterSequence,
   selectServedSyncUpdateEntries,
+  selectServedSyncUpdates,
 } from "../../../documents/documentSyncBaselineRedirect";
 import { DocumentMutationError, documentSyncStateStale } from "./errors";
 import { toContentKeyBundleResponse } from "./shared/records";
@@ -100,8 +101,14 @@ export async function listMissingSyncUpdatesForResponse(input: {
   // older ciphertext only when that authenticated baseline covers every
   // omitted update. The sequence ceiling keeps a newer concurrent baseline
   // from redirecting a snapshot that cannot include it.
-  const servedUpdateEntries =
-    effectivePullPagePlan === null && !rawHistoryRequested
+  const servedUpdateEntries = rawHistoryRequested
+    ? selectServedSyncUpdates({
+        baselineCoverage: null,
+        currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+        entries: missingUpdateEntries,
+        historyMode: "raw",
+      })
+    : effectivePullPagePlan === null
       ? await selectServedSyncUpdateEntries({
           currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
           documentId: input.documentId,
