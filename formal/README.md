@@ -67,14 +67,15 @@ The one-readable-baseline abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Dominated` | `isDocumentUpdateDominatedByBaseline` |
-| `Serve` | `selectServedSyncUpdates` |
+| `Serve` | `listMissingSyncUpdatesForResponse` |
 
 TLC explores the sync serve decision. The checked invariants require that:
 
 - only dominated older updates are omitted from the response;
 - every uncovered update is served;
 - current-or-newer-epoch updates are served;
-- after serving, every unserved update is carried by the readable baseline.
+- every unserved update is carried by the readable baseline, while raw mode
+  serves the complete retained missing frontier.
 
 The invariants are stated with the same `Dominated`/`Older` operators that
 guard the action, so TLC verifies the redirect decision relative to those
@@ -90,11 +91,9 @@ zero through two, three content-key epochs, and two arbitrary updates. The
 TypeScript bounded-parity test
 `packages/api/src/documents/documentBaselineDominance.test.ts` independently
 constructs real Loro version vectors for the same bounds. It checks 729
-predicate cases, 39,366 readable-baseline redirect cases across both candidate
-orders, and 4,374 missing-baseline cases. It also checks the order-preserving
-behavior that the set-based TLA+ abstraction intentionally omits. The test does
-not consume TLC-generated traces, so the explicit mapping above must stay
-synchronized as either side evolves.
+predicate cases, 39,366 normal and raw serve cases, and 4,374 missing-baseline
+cases. It also checks ordering, which the set-based TLA+ model omits. The test
+does not consume TLC traces, so the mapping above must stay synchronized.
 
 This is exhaustive bounded model checking, not an unbounded mathematical proof.
 The model assumes well-formed persisted version vectors, one same-document

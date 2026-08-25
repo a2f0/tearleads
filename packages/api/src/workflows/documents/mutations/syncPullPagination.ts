@@ -22,8 +22,9 @@ interface SyncPullIdentity {
 
 interface SyncPullCursorPayload extends SyncPullIdentity {
   readonly afterUpdateId: string;
+  readonly historyMode?: "raw" | undefined;
   readonly upperBoundUpdateId: string;
-  readonly version: 1;
+  readonly version: 1 | 2;
 }
 
 interface SyncPullCursor extends SyncPullCursorPayload {
@@ -41,6 +42,20 @@ type SyncPullCursorPayloadWire = readonly [
 ];
 type SyncPullCursorWire = readonly [
   ...payload: SyncPullCursorPayloadWire,
+  signature: string,
+];
+type RawSyncPullCursorPayloadWire = readonly [
+  version: 2,
+  historyMode: "raw",
+  contentKeyEpoch: number,
+  documentId: string,
+  linkSetManifestHash: string,
+  targetHash: string,
+  afterUpdateId: string,
+  upperBoundUpdateId: string,
+];
+type RawSyncPullCursorWire = readonly [
+  ...payload: RawSyncPullCursorPayloadWire,
   signature: string,
 ];
 
@@ -84,21 +99,25 @@ function invalidPullCursor(): DocumentMutationError {
 }
 
 function parsePullCursor(value: unknown): SyncPullCursor | undefined {
-  if (!Array.isArray(value) || value.length !== 8) {
+  if (!Array.isArray(value) || (value.length !== 8 && value.length !== 9)) {
     return undefined;
   }
-  const [
-    version,
-    contentKeyEpoch,
-    documentId,
-    linkSetManifestHash,
-    targetHash,
-    afterUpdateId,
-    upperBoundUpdateId,
-    signature,
-  ] = value;
+  const version = value[0];
+  const rawHistoryCursor = version === 2;
+  const offset = rawHistoryCursor ? 1 : 0;
+  const historyMode = rawHistoryCursor ? value[1] : undefined;
+  const contentKeyEpoch = value[1 + offset];
+  const documentId = value[2 + offset];
+  const linkSetManifestHash = value[3 + offset];
+  const targetHash = value[4 + offset];
+  const afterUpdateId = value[5 + offset];
+  const upperBoundUpdateId = value[6 + offset];
+  const signature = value[7 + offset];
   if (
-    version !== 1 ||
+    (version !== 1 && version !== 2) ||
+    (version === 1 && value.length !== 8) ||
+    (version === 2 && value.length !== 9) ||
+    (rawHistoryCursor && historyMode !== "raw") ||
     typeof afterUpdateId !== "string" ||
     !isUuidV4String(afterUpdateId) ||
     typeof contentKeyEpoch !== "number" ||
@@ -118,6 +137,7 @@ function parsePullCursor(value: unknown): SyncPullCursor | undefined {
     afterUpdateId,
     contentKeyEpoch,
     documentId,
+    ...(rawHistoryCursor ? { historyMode: "raw" as const } : {}),
     linkSetManifestHash,
     signature,
     targetHash,
@@ -128,9 +148,21 @@ function parsePullCursor(value: unknown): SyncPullCursor | undefined {
 
 function cursorPayloadWire(
   cursor: SyncPullCursorPayload,
-): SyncPullCursorPayloadWire {
+): SyncPullCursorPayloadWire | RawSyncPullCursorPayloadWire {
+  if (cursor.version === 2 && cursor.historyMode === "raw") {
+    return [
+      cursor.version,
+      cursor.historyMode,
+      cursor.contentKeyEpoch,
+      cursor.documentId,
+      cursor.linkSetManifestHash,
+      cursor.targetHash,
+      cursor.afterUpdateId,
+      cursor.upperBoundUpdateId,
+    ];
+  }
   return [
-    cursor.version,
+    1,
     cursor.contentKeyEpoch,
     cursor.documentId,
     cursor.linkSetManifestHash,
@@ -169,21 +201,43 @@ function encodePullCursor(
   cursor: SyncPullCursorPayload,
   cursorHmacKey: string,
 ): string {
+  const signature = signPullCursor(cursor, cursorHmacKey);
+  if (cursor.version === 2 && cursor.historyMode === "raw") {
+    return encodeCursor([
+      cursor.version,
+      cursor.historyMode,
+      cursor.contentKeyEpoch,
+      cursor.documentId,
+      cursor.linkSetManifestHash,
+      cursor.targetHash,
+      cursor.afterUpdateId,
+      cursor.upperBoundUpdateId,
+      signature,
+    ] satisfies RawSyncPullCursorWire);
+  }
   return encodeCursor([
-    ...cursorPayloadWire(cursor),
-    signPullCursor(cursor, cursorHmacKey),
+    1,
+    cursor.contentKeyEpoch,
+    cursor.documentId,
+    cursor.linkSetManifestHash,
+    cursor.targetHash,
+    cursor.afterUpdateId,
+    cursor.upperBoundUpdateId,
+    signature,
   ] satisfies SyncPullCursorWire);
 }
 
 function cursorMatchesIdentity(
   cursor: SyncPullCursor,
   identity: SyncPullIdentity,
+  historyMode: DocumentSyncRequest["historyMode"],
 ): boolean {
   return (
     cursor.contentKeyEpoch === identity.contentKeyEpoch &&
     cursor.documentId === identity.documentId &&
     cursor.linkSetManifestHash === identity.linkSetManifestHash &&
-    cursor.targetHash === identity.targetHash
+    cursor.targetHash === identity.targetHash &&
+    cursor.historyMode === historyMode
   );
 }
 
@@ -224,7 +278,9 @@ export async function resolveSyncPullPagePlan(input: {
       "Document pull cursor authentication changed; restart the pull",
     );
   }
-  if (!cursorMatchesIdentity(cursor, input.identity)) {
+  if (
+    !cursorMatchesIdentity(cursor, input.identity, input.request.historyMode)
+  ) {
     throw documentSyncStateStale(
       "Document key state changed during paginated pull",
     );
@@ -246,6 +302,7 @@ export async function resolveSyncPullPagePlan(input: {
 export function createSyncPullPageResponse(input: {
   readonly cursorHmacKey: string | null;
   readonly hasMore: boolean;
+  readonly historyMode?: DocumentSyncRequest["historyMode"];
   readonly identity: SyncPullIdentity;
   readonly lastUpdateId: string | null;
   readonly plan: SyncPullPagePlan;
@@ -266,8 +323,9 @@ export function createSyncPullPageResponse(input: {
       {
         ...input.identity,
         afterUpdateId,
+        ...(input.historyMode === "raw" ? { historyMode: "raw" as const } : {}),
         upperBoundUpdateId,
-        version: 1,
+        version: input.historyMode === "raw" ? 2 : 1,
       },
       input.cursorHmacKey,
     );
