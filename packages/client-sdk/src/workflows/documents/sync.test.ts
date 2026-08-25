@@ -242,8 +242,43 @@ test("buildDocumentSyncPlan omits write-only fields for read-only syncs", async 
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
   expect(plan.request.outgoingUpdates).toEqual([]);
+  expect(plan.request.historyMode).toBeUndefined();
   expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
   expect(plan.request.contentKeyBundle).toBeUndefined();
+});
+
+test("buildDocumentSyncPlan creates an explicit raw-history pull", async () => {
+  const { author, createResponse } = await createSyncFixture();
+  const plan = await buildDocumentSyncPlan({
+    author,
+    contentKeyBundle: createResponse.contentKeyBundle,
+    documentKekTargets: createResponse.documentKekTargets,
+    documentManifest: createResponse.accessManifest,
+    historyMode: "raw",
+    localVersionVector: null,
+  });
+
+  expect(isDocumentSyncRequest(plan.request)).toBe(true);
+  expect(plan.request.historyMode).toBe("raw");
+  expect(plan.request.outgoingUpdates).toEqual([]);
+  expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
+  expect(plan.request.contentKeyBundle).toBeUndefined();
+});
+
+test("buildDocumentSyncPlan rejects outgoing updates in raw-history mode", async () => {
+  const { author, createResponse } = await createSyncFixture();
+
+  await expect(
+    buildDocumentSyncPlan({
+      author,
+      contentKeyBundle: createResponse.contentKeyBundle,
+      documentKekTargets: createResponse.documentKekTargets,
+      documentManifest: createResponse.accessManifest,
+      historyMode: "raw",
+      localVersionVector: null,
+      outgoingUpdates: [await createPreparedUpdate()],
+    }),
+  ).rejects.toThrow("raw-history sync must be read-only");
 });
 
 test("buildDocumentSyncPlan creates a read-only resumed pull", async () => {

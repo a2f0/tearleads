@@ -62,6 +62,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
   const materializedPlan = await buildMaterializedDocumentSyncPlan({
     author: input.author,
     execSql: input.execSql,
+    historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     pullCursor: input.pullContinuation?.cursor,
@@ -150,6 +151,7 @@ function parsePersistedDocumentSyncState(
 async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   author: DocumentCreateAuthor;
   documentId: string;
+  historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -170,6 +172,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentId: input.documentId,
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
+    historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
@@ -194,6 +197,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   author: DocumentCreateAuthor;
   documentId: string;
   execSql: ExecSql;
+  historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -416,6 +420,8 @@ export interface SyncRemoteDocumentInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   documentId: string;
   execSql: ExecSql;
+  /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
+  historyMode?: "raw" | undefined;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;

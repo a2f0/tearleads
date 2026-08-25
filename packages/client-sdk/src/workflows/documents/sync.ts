@@ -141,6 +141,7 @@ function buildRemoteDocumentSyncPlan(input: {
     author: input.sync.author,
     buildRotationSnapshot: input.sync.buildRotationSnapshot,
     execSql: input.sync.execSql,
+    historyMode: input.sync.historyMode,
     localVersionVector: input.sync.localVersionVector,
     minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
@@ -368,7 +369,7 @@ async function preparePersistedDocumentSync(
       resolveProjectionUserKey,
     );
     if (persisted?.kind === "completed") return persisted;
-    if (persisted?.kind === "not_completed") {
+    if (persisted?.kind === "not_completed" && input.historyMode !== "raw") {
       pullContinuation = await invalidatePullCursor(input, pullContinuation);
     }
   } catch (error) {

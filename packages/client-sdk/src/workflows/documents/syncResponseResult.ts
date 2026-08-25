@@ -8,6 +8,7 @@ import {
   type IncomingDocumentSyncUpdateValidator,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import { readWriteHeader } from "../../data/documents/shared/readers";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
@@ -24,7 +25,10 @@ import type {
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { unwrapDocumentSyncResponseContentKeys } from "./syncContentKeys";
+import {
+  DocumentRawHistoryUnavailableError,
+  unwrapDocumentSyncResponseContentKeys,
+} from "./syncContentKeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
   acceptedHeldBackPendingUpdateIds,
@@ -39,12 +43,33 @@ import {
 function isolateContentKeyResponseFailure(
   error: unknown,
   response: DocumentSyncResponse,
+  historyMode: "raw" | undefined,
 ): never {
   if (
     !(error instanceof DocumentSyncResponseUpdateContentKeyError) ||
     response.updates.length === 0
   ) {
     throw error;
+  }
+  if (historyMode === "raw") {
+    const availableEpochs = new Set(
+      [response.contentKeyBundle, ...response.contentKeyBundles].map(
+        (bundle) => bundle.contentKeyEpoch,
+      ),
+    );
+    const unavailableEpoch = response.updates
+      .map((update) =>
+        readWriteHeader(
+          update.writeHeader,
+          "Document raw-history response write header",
+        ),
+      )
+      .map((header) => header.contentKeyEpoch)
+      .filter((epoch) => !availableEpochs.has(epoch))
+      .sort((left, right) => left - right)[0];
+    if (unavailableEpoch !== undefined) {
+      throw new DocumentRawHistoryUnavailableError(unavailableEpoch, error);
+    }
   }
   throw isolateDocumentSyncBatchError({
     cause: new KeyingVerificationError("invalid_shape", error.message),
@@ -80,12 +105,17 @@ export async function syncRemoteDocumentResultFromResponse(input: {
       },
     );
   } catch (error) {
-    isolateContentKeyResponseFailure(error, input.response);
+    isolateContentKeyResponseFailure(
+      error,
+      input.response,
+      plan.request.historyMode,
+    );
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
     currentContentKeyEpoch: plan.contentKeyEpoch,
     execSql: input.execSql,
+    historyMode: plan.request.historyMode,
     response: input.response,
     targetSecretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,

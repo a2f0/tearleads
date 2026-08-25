@@ -28,6 +28,22 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 
+/** A raw recovery cannot reconstruct history without this retained epoch. */
+export class DocumentRawHistoryUnavailableError extends Error {
+  readonly code = "document_raw_history_epoch_unavailable";
+
+  constructor(
+    readonly contentKeyEpoch: number,
+    cause: unknown,
+  ) {
+    super(
+      `Document raw-history recovery cannot decrypt content-key epoch ${contentKeyEpoch}`,
+      { cause },
+    );
+    this.name = "DocumentRawHistoryUnavailableError";
+  }
+}
+
 export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
   contentKeyEpoch: number;
@@ -148,6 +164,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
     currentContentKey: Uint8Array;
     currentContentKeyEpoch: number;
     execSql?: ExecSql | undefined;
+    historyMode?: "raw" | undefined;
     response: DocumentSyncResponse;
     targetSecretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;
@@ -208,6 +225,9 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
+      if (input.historyMode === "raw") {
+        throw new DocumentRawHistoryUnavailableError(contentKeyEpoch, error);
+      }
       throwDocumentSyncContentKeyFailure({
         cause: error,
         updates: responseUpdates,

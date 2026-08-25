@@ -145,11 +145,11 @@ The resulting risk has these bounds:
   when the client can unwrap every historical epoch key
 
 The stronger mitigation remains per-update re-encryption with inner author
-signatures. Other possible hardening measures include:
+signatures. Other hardening includes:
 
 - restrict `rotate_baseline` authorship by policy, narrowing which principals
   can trigger redirection
-- use raw-history recovery to replay retained ciphertext
+- [use raw-history recovery to replay retained ciphertext](./raw-document-history-recovery.md)
 
 ### There Must Be Only One Canonical Bundle Per Epoch
 

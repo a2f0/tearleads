@@ -45,6 +45,7 @@ export function createRotationRecoveryRuntime(input: {
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>;
   execSql: DocumentsRuntime["infra"]["execSql"];
   online?: boolean | undefined;
+  requireRawHistory?: boolean | undefined;
   responseForRequest?:
     | ((
         request: DocumentSyncRequest,
@@ -62,6 +63,16 @@ export function createRotationRecoveryRuntime(input: {
       documentId: string,
       request: DocumentSyncRequest,
     ): Promise<DocumentSyncResponse> => {
+      if (
+        input.requireRawHistory !== false &&
+        (request.historyMode !== "raw" ||
+          request.localVersionVector !== null ||
+          request.outgoingUpdates.length !== 0)
+      ) {
+        throw new Error(
+          "Rotation recovery must request complete read-only raw history",
+        );
+      }
       if (input.syncCalls) {
         input.syncCalls.count += 1;
       }

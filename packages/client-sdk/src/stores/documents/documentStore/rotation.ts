@@ -1,12 +1,12 @@
 import {
   encodeVersionVector,
-  exportFullHistorySnapshot,
-  importSnapshot,
   importUpdates,
   versionVectorsEqual,
 } from "@symcrypt/loro";
 import {
   createDocumentWriterPublicKeyResolver,
+  type DocumentSyncPullContinuation,
+  readPullContinuation,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
@@ -20,30 +20,19 @@ import {
   listPendingUpdates,
   pendingDeltaSinceBase,
 } from "./persistence";
-import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
-import {
-  cleanupPreRegisteredUpdateIdsOnFailure,
-  discardPreRegisteredUpdateIds,
-  discardUnacceptedPreRegisteredUpdateIds,
-  preRegisterMaterializedDocumentSyncUpdateIds,
-} from "./syncAcceptedUpdateIds";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
 } from "./syncGeneration";
-import {
-  documentIncomingUpdateIsolationFailureHandler,
-  documentTerminalSubmitFailureHandler,
-} from "./syncShared";
+import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
-export function shouldRequestRotationRecoverySync(input: {
-  readonly hasDeferredPendingUpdates: boolean;
-  readonly hasIncompletePull: boolean;
-}): boolean {
-  return input.hasDeferredPendingUpdates || input.hasIncompletePull;
+function ordinaryRawHistoryUpdates<T extends { checkpointKind?: string }>(
+  updates: readonly T[],
+): T[] {
+  return updates.filter((update) => update.checkpointKind === undefined);
 }
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
@@ -75,114 +64,103 @@ function rotationIncomingUpdateIsolation(input: {
         input.state,
         input.generation,
       ),
-    validateIncomingUpdates: (
+    validateIncomingUpdates: async (
       result: Pick<
         NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>,
         "decryptedUpdates" | "response"
       >,
-    ) =>
-      validateDocumentSyncUpdateImports({
+    ) => {
+      await validateDocumentSyncUpdateImports({
         currentDocument: input.currentDocument,
         decryptedUpdates: result.decryptedUpdates,
         responseUpdates: result.response.updates,
-      }),
+      });
+      const decryptedUpdates = ordinaryRawHistoryUpdates(
+        result.decryptedUpdates,
+      );
+      const ordinaryUpdateIds = new Set(
+        decryptedUpdates.map((update) => update.id),
+      );
+      await validateDocumentSyncUpdateImports({
+        currentDocument: input.currentDocument,
+        decryptedUpdates,
+        responseUpdates: result.response.updates.filter((update) =>
+          ordinaryUpdateIds.has(update.id),
+        ),
+      });
+    },
   };
 }
 
-async function pullVerifiedHistoryForRotation(input: {
-  currentDocument: DocumentState;
+async function pullVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
-  localVersionVector: string | null;
-  pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>;
+  rebuiltDocument: DocumentState;
   state: DocumentStoreState;
 }) {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
-  const sentUpdateIds: string[] = [];
-  const requestedPullContinuation = input.state.pullContinuation;
+  let pullContinuation: DocumentSyncPullContinuation | undefined;
+  let writerProjection =
+    input.state.writerProjection?.documentId === documentId
+      ? input.state.writerProjection
+      : undefined;
 
-  let abandonReason: string | null = null;
-  const synced = await cleanupPreRegisteredUpdateIdsOnFailure(
-    input.state,
-    sentUpdateIds,
-    () =>
-      syncRemoteDocument({
-        apiClient: input.state.runtime.apiClient,
-        author,
-        // The recovery pull can meet a stale content-key bundle too; heal it
-        // from the live document's full history like the ordinary sync lane
-        // does, instead of aborting the rotation preflight.
-        buildRotationSnapshot: async () => {
-          const currentDoc = input.state.doc;
-          return currentDoc ? exportFullHistorySnapshot(currentDoc) : null;
-        },
-        documentId,
-        execSql: input.state.runtime.infra.execSql,
-        isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
-        localVersionVector: input.localVersionVector,
-        minLsn: input.currentRecord.lastCommitLsn ?? undefined,
-        onSyncAbandoned: (reason) => {
-          abandonReason = reason;
-        },
-        ...rotationIncomingUpdateIsolation(input),
-        onSyncTrace: (line) =>
-          input.state.runtime.util.log(`Documents: ${line}`),
-        onOutgoingUpdatesMaterialized: (updateIds) =>
-          preRegisterMaterializedDocumentSyncUpdateIds(
-            input.state,
-            sentUpdateIds,
-            updateIds,
-          ),
-        onPullContinuationInvalidated: (continuation) =>
-          invalidateDocumentStorePullContinuation({
-            continuation,
-            currentRecord: input.currentRecord,
-            generation: input.generation,
-            state: input.state,
-          }),
-        onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
-          input.state,
-          input.generation,
-        ),
-        pendingUpdates: input.pendingUpdates,
-        persistedState: input.currentRecord,
-        pullContinuation: input.state.pullContinuation ?? undefined,
-        rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
-        resolveProjectionUserKey: input.state.resolveProjectionUserKey,
-        resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-          logPrefix: "Documents",
-          runtime: input.state.runtime,
-          writerKeyLabel: "writer key",
-        }),
-        targetSecretKey: encapsulationKeyPair.secretKey,
-        warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-          input.state.runtime,
-        ),
-        writerProjection:
-          input.state.writerProjection?.documentId === documentId
-            ? input.state.writerProjection
-            : undefined,
+  while (true) {
+    let abandonReason: string | null = null;
+    const synced = await syncRemoteDocument({
+      apiClient: input.state.runtime.apiClient,
+      author,
+      documentId,
+      execSql: input.state.runtime.infra.execSql,
+      historyMode: "raw",
+      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
+      localVersionVector: null,
+      minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+      onSyncAbandoned: (reason) => {
+        abandonReason = reason;
+      },
+      ...rotationIncomingUpdateIsolation({
+        currentDocument: input.rebuiltDocument,
+        generation: input.generation,
+        state: input.state,
       }),
-  );
-  if (!synced) {
-    discardPreRegisteredUpdateIds(input.state, sentUpdateIds);
-    throw new Error(
-      `Rotation full-history recovery could not complete (${abandonReason ?? "sync did not finish"}); key rotation was not started`,
+      onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
+      pendingUpdates: [],
+      pullContinuation,
+      resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+      resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+        logPrefix: "Documents",
+        runtime: input.state.runtime,
+        writerKeyLabel: "writer key",
+      }),
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.state.runtime,
+      ),
+      writerProjection,
+    });
+    if (!synced) {
+      throw new Error(
+        `Rotation raw-history recovery could not complete (${abandonReason ?? "sync did not finish"}); key rotation was not started`,
+      );
+    }
+
+    importSyncedDocumentUpdates(
+      input.rebuiltDocument,
+      ordinaryRawHistoryUpdates(synced.decryptedUpdates),
     );
+    if (!synced.hasIncompletePull) return synced;
+
+    const nextContinuation = readPullContinuation(synced.response);
+    if (!nextContinuation) {
+      throw new Error(
+        "Rotation raw-history recovery ended before the retained history was complete",
+      );
+    }
+    pullContinuation = nextContinuation;
+    writerProjection = synced.writerProjection;
   }
-  discardUnacceptedPreRegisteredUpdateIds(
-    input.state,
-    sentUpdateIds,
-    synced.response.acceptedOutgoingUpdateIds,
-  );
-  return {
-    consumedPullContinuation:
-      synced.plan.request.pullCursor === undefined
-        ? null
-        : requestedPullContinuation,
-    synced,
-  };
 }
 
 async function recoverFullHistoryForRotation(
@@ -208,23 +186,21 @@ async function recoverFullHistoryForRotation(
   const capturedVersion = encodeVersionVector(currentDoc);
   const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
   const pendingUpdates = await listPendingUpdates(state);
-  const localFullHistorySnapshot = exportFullHistorySnapshot(currentDoc);
+  const consumedPullContinuation = state.pullContinuation;
   let settlementRequiresRetry = false;
 
-  // Always perform a verified pull. Another writer may have advanced the
-  // remote frontier since our last sync; submitting the clean but stale local
-  // snapshot would otherwise fail the atomic coverage check on every retry.
-  // The local full history seeds the rebuild, so request only the missing
-  // tail beyond the captured version.
-  const { consumedPullContinuation, synced } =
-    await pullVerifiedHistoryForRotation({
-      currentDocument: currentDoc,
-      currentRecord,
-      generation,
-      localVersionVector: capturedVersion,
-      pendingUpdates,
-      state,
-    });
+  // A raw recovery starts from an empty scratch document, bypasses untrusted
+  // rotation-baseline redirects, drains every retained page in memory, and
+  // publishes nothing until all response updates have validated. Checkpoints
+  // are authenticated and decrypted but are not reconstruction inputs: the
+  // original ordinary update stream is the source of truth in this mode.
+  const rebuiltDoc = await createStoredDocument(state);
+  const synced = await pullVerifiedRawHistoryForRotation({
+    currentRecord,
+    generation,
+    rebuiltDocument: rebuiltDoc,
+    state,
+  });
 
   try {
     // Do not replace or persist over a document that changed while the
@@ -239,12 +215,8 @@ async function recoverFullHistoryForRotation(
       );
     }
 
-    const rebuiltDoc = await createStoredDocument(state);
-    importSnapshot(rebuiltDoc, localFullHistorySnapshot);
-    importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
-    // A successful write pull normally echoes accepted local updates, but
-    // merge the durable queue too so recovery does not depend on that
-    // response detail.
+    // Raw recovery is read-only, so durable local queue rows remain queued;
+    // merge their content into the recovered document before installation.
     importPendingUpdates(rebuiltDoc, pendingUpdates);
     if (uncoveredLocalDelta.byteLength > 0) {
       importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
@@ -272,20 +244,17 @@ async function recoverFullHistoryForRotation(
       synced,
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
-    if (synced.hasIncompletePull || settlementRequiresRetry) {
+    if (settlementRequiresRetry) {
       throw new Error(
-        "Rotation full-history recovery persisted a partial pull; retry after sync completes",
+        "Rotation raw-history recovery was superseded during its atomic install; retry key rotation",
       );
     }
     return installed.fullHistorySnapshot;
   } finally {
-    // Durable progress that left queued work needs a follow-up lane pass; the
-    // rotation that follows may abort before syncing again. Terminal recovery
-    // exhaustion and no-progress responses deliberately do not self-arm.
-    // Request the follow-up only AFTER the rebuild/install window has closed —
-    // scheduling it mid-window deterministically raced the lane's import
-    // against the version check above and the rebuilt-document install.
-    if (shouldRequestRotationRecoverySync(synced) || settlementRequiresRetry) {
+    // A superseding pane left work for the ordinary lane. Existing pending
+    // rows were already armed when enqueued; do not start their old-boundary
+    // sync in the narrow window before the caller submits its rotation.
+    if (settlementRequiresRetry) {
       requestDocumentStoreSync(state);
     }
   }

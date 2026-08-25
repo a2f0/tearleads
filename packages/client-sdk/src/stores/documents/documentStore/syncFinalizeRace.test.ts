@@ -47,6 +47,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
+      requireRawHistory: false,
       responseForRequest: async (_request, response) => {
         const durableRecord = await sqlDocumentsPersistence.loadDocument(
           execSql,

@@ -122,11 +122,14 @@ startup or independent request. See
 [custom persistence](./custom-document-persistence.md#on-demand-document-lifecycle)
 for identity precedence and lifecycle details.
 
-Loop `syncRemoteDocument(...)` while work remains; resume via
-`readPullContinuation(result.response)`. Validate imports with
-`validateDocumentSyncUpdateImports(...)` and a live Loro doc. Large/ambiguous
-pages use bounded batch scope (`updateId: null`) without a writer. Fail closed;
-preserve `KeyingVerificationError`.
+Hosts needing runtime input use `symcrypt.runtime.input(containerId)`
+instead of reconstructing it. This input omits API access and incident
+reporting; SDK facades own both.
+
+Loop `syncRemoteDocument(...)`; resume with `readPullContinuation(...)`.
+Validate each page with `validateDocumentSyncUpdateImports(...)`, failing
+closed. For raw mode, see [recovery](../raw-document-history-recovery.md);
+missing epochs throw `DocumentRawHistoryUnavailableError`.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

@@ -372,6 +372,7 @@ export async function buildMaterializedDocumentSyncPlan(
      */
     buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
     execSql?: ExecSql | undefined;
+    historyMode?: "raw" | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
     pullCursor?: string | undefined;
@@ -464,6 +465,7 @@ export async function buildMaterializedDocumentSyncPlan(
     documentId,
     documentKekTargets,
     documentManifest,
+    historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,

@@ -88,6 +88,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "DOCUMENT_SYNC_TRACE_PATTERN",
   "Database",
   "DirectCheckoutUnavailableError",
+  "DocumentRawHistoryUnavailableError",
   "Events",
   "HistoricalWrapUnavailableError",
   "IDENTITY_KEY_PACKAGE_FORMAT",

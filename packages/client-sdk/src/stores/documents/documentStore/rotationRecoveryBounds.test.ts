@@ -14,17 +14,14 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import {
-  assertDocumentStoreCanRotateContentKey,
-  shouldRequestRotationRecoverySync,
-} from "./rotation";
+import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
 
-test("rotation persists bounded pull progress but waits for full history", async () => {
+test("rotation validates every bounded page before one durable install", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-partial-pull",
   );
@@ -41,10 +38,11 @@ test("rotation persists bounded pull progress but waits for full history", async
       localId,
     });
 
+    let failBeforeSecondPage = true;
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
-      responseForRequest: (request, response) => {
+      responseForRequest: async (request, response) => {
         if (request.pullCursor === undefined) {
           return {
             ...response,
@@ -52,6 +50,9 @@ test("rotation persists bounded pull progress but waits for full history", async
           };
         }
         if (request.pullCursor === "rotation-page-2") {
+          if (failBeforeSecondPage) {
+            throw new Error("Simulated failure before raw-history page 2");
+          }
           return {
             ...response,
             acceptedOutgoingUpdateIds: [],
@@ -70,23 +71,11 @@ test("rotation persists bounded pull progress but waits for full history", async
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-    let requestedSyncCount = 0;
-    state.syncLane = {
-      requestSync: () => {
-        requestedSyncCount += 1;
-      },
-    } as NonNullable<typeof state.syncLane>;
-
     await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
-      "persisted a partial pull",
+      "Simulated failure before raw-history page 2",
     );
-    expect(state.pullContinuation).toEqual({
-      commitLsn: "0/16B6C50",
-      commitLsnMode: "tracked",
-      cursor: "rotation-page-2",
-    });
-    expect(requestedSyncCount).toBe(1);
-    expect(state.doc && getTextValue(state.doc)).toBe("survives key rotation");
+    expect(state.pullContinuation).toBeNull();
+    expect(state.doc && getTextValue(state.doc)).toBe("survives key");
 
     const reloaded = createDocumentStoreState(
       localId,
@@ -98,32 +87,15 @@ test("rotation persists bounded pull progress but waits for full history", async
     expect(await ensureDocumentStoreReady(reloaded, () => undefined)).toBe(
       true,
     );
-    expect(reloaded.doc && getTextValue(reloaded.doc)).toBe(
-      "survives key rotation",
-    );
-    expect(reloaded.pullContinuation).toEqual({
-      commitLsn: "0/16B6C50",
-      commitLsnMode: "tracked",
-      cursor: "rotation-page-2",
-    });
+    expect(reloaded.pullContinuation).toBeNull();
+    expect(reloaded.doc && getTextValue(reloaded.doc)).toBe("survives key");
 
+    failBeforeSecondPage = false;
     await expect(
       assertDocumentStoreCanRotateContentKey(reloaded),
     ).resolves.toBeInstanceOf(Uint8Array);
     expect(reloaded.pullContinuation).toBeNull();
-
-    const afterDrainRestart = createDocumentStoreState(
-      localId,
-      runtime,
-      sqlDocumentsPersistence,
-      noopDocumentStorePersistenceEffects,
-      fixture.writerProjection.documentId,
-    );
-    expect(
-      await ensureDocumentStoreReady(afterDrainRestart, () => undefined),
-    ).toBe(true);
-    expect(afterDrainRestart.pullContinuation).toBeNull();
-    expect(afterDrainRestart.doc && getTextValue(afterDrainRestart.doc)).toBe(
+    expect(reloaded.doc && getTextValue(reloaded.doc)).toBe(
       "survives key rotation",
     );
   } finally {
@@ -131,7 +103,7 @@ test("rotation persists bounded pull progress but waits for full history", async
   }
 });
 
-test("a bounded rotation preflight re-arms its unsent queue tail", async () => {
+test("a raw rotation preflight preserves its already-armed local queue", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-bounded-tail",
   );
@@ -177,8 +149,8 @@ test("a bounded rotation preflight re-arms its unsent queue tail", async () => {
 
     await assertDocumentStoreCanRotateContentKey(state);
 
-    expect(await listPendingUpdates(state)).toHaveLength(1);
-    expect(requestedSyncCount).toBe(1);
+    expect(await listPendingUpdates(state)).toHaveLength(65);
+    expect(requestedSyncCount).toBe(0);
   } finally {
     close();
   }
@@ -236,32 +208,11 @@ test("rotation aborts when another pane supersedes its durable pull settlement",
     } as NonNullable<typeof state.syncLane>;
 
     await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
-      "persisted a partial pull",
+      "superseded during its atomic install",
     );
     expect(state.pullContinuation).toEqual(durableContinuation);
     expect(requestedSyncCount).toBe(1);
   } finally {
     close();
   }
-});
-
-test("rotation recovery only re-arms for deferred durable progress", () => {
-  expect(
-    shouldRequestRotationRecoverySync({
-      hasDeferredPendingUpdates: true,
-      hasIncompletePull: false,
-    }),
-  ).toBe(true);
-  expect(
-    shouldRequestRotationRecoverySync({
-      hasDeferredPendingUpdates: false,
-      hasIncompletePull: false,
-    }),
-  ).toBe(false);
-  expect(
-    shouldRequestRotationRecoverySync({
-      hasDeferredPendingUpdates: false,
-      hasIncompletePull: true,
-    }),
-  ).toBe(true);
 });
