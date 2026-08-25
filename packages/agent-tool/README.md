@@ -21,18 +21,22 @@ Both actions:
 1. Resolve the review base from git + `gh` — the PR's base when the branch has an
    open PR, the repository's default branch when it does not.
 2. Verify there are changes against that base.
-3. Build the repo's verdict-gated review prompt over the diff and hand it to the
-   target agent's CLI on stdin.
+3. Read the review policy from the fetched base commit, build the repo's
+   verdict-gated prompt with the diff marked as untrusted input, and hand it to
+   the target agent's CLI on stdin.
 4. Relay the review to stdout and gate it: a usable review carries a
    `VERDICT: BLOCKER|MAJOR|MINOR|SUGGESTION|CLEAN` line. An exit-0 run without
    one is retried once (the observed failure mode is stochastic), then reported
    as a nonzero exit.
 
-Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`). Codex reviews
-via `codex exec` in a **read-only sandbox with the user config ignored**
-(the sandbox confines shell commands, not user-configured MCP tools), and
-only its final message — captured with `--output-last-message` — is relayed, so
-the output is the review itself rather than the session's investigative
+Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`) in safe mode,
+with browser integration and session persistence disabled. Codex reviews via
+`codex exec` in a **read-only sandbox with the user config ignored** (the
+sandbox confines shell commands, not user-configured MCP tools). It runs from a
+neutral temporary directory while the repository is exposed only for file
+inspection, so the branch's `AGENTS.md` is not injected as reviewer policy.
+Only Codex's final message — captured with `--output-last-message` — is relayed,
+so the output is the review itself rather than the session's investigative
 transcript.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to

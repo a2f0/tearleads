@@ -83,39 +83,39 @@ describe("spawnClaudeReview", () => {
   test("accepts a review that ends with a verdict", () => {
     stubClaude("## Review\n\n- Minor: `a.ts:1` naming.\n\nVERDICT: MINOR\n");
 
-    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(0);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(0);
   });
 
   test("rejects a bare intent sentence despite a success exit", () => {
     // The regression: claude exits 0 having only announced what it would do.
     stubClaude("I'll review this PR diff using the project's guidelines.\n");
 
-    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(1);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(1);
   });
 
   test("recovers when the degenerate output does not repeat", () => {
     // The observed flake is stochastic; one retry should absorb it.
     stubFlakyClaude("## Review\n\nLooks fine.\n\nVERDICT: CLEAN\n");
 
-    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(0);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(0);
     expect(existsSync(path.join(stubDir, "flaked-once"))).toBe(true);
   });
 
   test("rejects empty output despite a success exit", () => {
     stubClaude("");
 
-    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(1);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(1);
   });
 
   test("passes through a nonzero exit without second-guessing it", () => {
     stubClaude("Credit balance too low\n", 2);
 
-    expect(spawnClaudeReview("prompt", "xhigh", stubEnv)).toBe(2);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(2);
   });
 
   test("reports failure when the CLI is missing entirely", () => {
     stubClaude("VERDICT: CLEAN"); // installed, but not on bareEnv's PATH
 
-    expect(spawnClaudeReview("prompt", "xhigh", bareEnv)).toBe(1);
+    expect(spawnClaudeReview("prompt", "xhigh", stubDir, bareEnv)).toBe(1);
   });
 });

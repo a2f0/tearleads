@@ -49,6 +49,9 @@ describe("buildClaudeReviewArgs", () => {
       "--effort",
       "xhigh",
       "--print",
+      "--safe-mode",
+      "--no-chrome",
+      "--no-session-persistence",
       "--tools",
       "Read,Grep,Glob",
     ]);
@@ -63,11 +66,23 @@ describe("buildClaudeReviewArgs", () => {
   test("withholds Bash: a review needs no shell, and the diff is untrusted", () => {
     expect(buildClaudeReviewArgs("high").at(-1)).not.toContain("Bash");
   });
+
+  test("disables ambient customization and external integrations", () => {
+    const args = buildClaudeReviewArgs("high");
+
+    expect(args).toContain("--safe-mode");
+    expect(args).toContain("--no-chrome");
+    expect(args).toContain("--no-session-persistence");
+  });
 });
 
 describe("buildCodexReviewArgs", () => {
   test("pins the effort via a TOML-quoted config override", () => {
-    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
+    const args = buildCodexReviewArgs(
+      "high",
+      "/tmp/x/review-1.md",
+      "/repo/root",
+    );
     const overrides = args.filter((_, i) => i > 0 && args[i - 1] === "-c");
     expect(overrides).toContain('model_reasoning_effort="high"');
   });

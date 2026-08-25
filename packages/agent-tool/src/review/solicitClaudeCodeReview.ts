@@ -30,6 +30,10 @@ import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
  * denies what would need approval, hands the denial back, and carries on). And
  * the session's context is a PR diff — attacker-influenceable text on a public
  * repo — which is not something to hand a shell.
+ *
+ * `--safe-mode` also disables project/user instructions, skills, plugins,
+ * hooks, and MCP servers so the branch cannot expand the reviewer's authority.
+ * Browser integration and session persistence are disabled explicitly too.
  */
 const REVIEW_TOOLS = ["Read", "Grep", "Glob"] as const;
 
@@ -38,7 +42,16 @@ const REVIEW_TOOLS = ["Read", "Grep", "Glob"] as const;
  * level. The prompt itself goes over stdin, not argv.
  */
 export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
-  return ["--effort", effort, "--print", "--tools", REVIEW_TOOLS.join(",")];
+  return [
+    "--effort",
+    effort,
+    "--print",
+    "--safe-mode",
+    "--no-chrome",
+    "--no-session-persistence",
+    "--tools",
+    REVIEW_TOOLS.join(","),
+  ];
 }
 
 /**
@@ -52,6 +65,7 @@ export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
 export function spawnClaudeReview(
   prompt: string,
   effort: ReviewEffort,
+  rootDir: string,
   env: ReviewerEnv = process.env,
 ): number {
   return relayReviewWithRetry("claude", () => {
@@ -63,6 +77,7 @@ export function spawnClaudeReview(
       input: prompt,
       encoding: "utf8",
       maxBuffer: MAX_BUFFER_BYTES,
+      cwd: rootDir,
       // Passed explicitly so `claude` resolves against this PATH rather than the
       // one the runtime snapshotted at startup.
       env,
@@ -93,9 +108,10 @@ export function solicitClaudeCodeReview(
   const prompt = buildReviewPrompt({
     context,
     diff,
-    reviewInstructions: readReviewInstructions(rootDir),
+    reviewInstructions: readReviewInstructions(rootDir, context.baseRef),
     accessNote: CLAUDE_ACCESS_NOTE,
+    repositoryRoot: rootDir,
   });
 
-  return spawnClaudeReview(prompt, effort);
+  return spawnClaudeReview(prompt, effort, rootDir);
 }

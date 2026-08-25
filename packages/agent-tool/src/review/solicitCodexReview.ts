@@ -47,10 +47,14 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * `--disable plugins/hooks/apps` closes the remaining gaps: plugin-provided
  * MCP servers, trusted hooks, and app connectors all live outside
  * `config.toml`, so ignoring the config alone would leave them active.
+ * Codex also runs from a temporary non-repository cwd so branch-controlled
+ * AGENTS.md files are not injected into its prompt; the repository is exposed
+ * separately for read-only inspection.
  */
 export function buildCodexReviewArgs(
   effort: ReviewEffort,
   lastMessageFile: string,
+  repositoryRoot: string,
 ): string[] {
   return [
     "exec",
@@ -63,6 +67,9 @@ export function buildCodexReviewArgs(
     "apps",
     "--sandbox",
     "read-only",
+    "--add-dir",
+    repositoryRoot,
+    "--skip-git-repo-check",
     "-c",
     `model_reasoning_effort="${effort}"`,
     "--color",
@@ -97,6 +104,7 @@ function readLastMessage(lastMessageFile: string): string {
 export function spawnCodexReview(
   prompt: string,
   effort: ReviewEffort,
+  repositoryRoot: string,
   env: ReviewerEnv = process.env,
 ): number {
   const outDir = mkdtempSync(path.join(tmpdir(), "agent-tool-codex-"));
@@ -109,12 +117,15 @@ export function spawnCodexReview(
       const lastMessageFile = path.join(outDir, `review-${attempt}.md`);
       const result = spawnSync(
         "codex",
-        buildCodexReviewArgs(effort, lastMessageFile),
+        buildCodexReviewArgs(effort, lastMessageFile, repositoryRoot),
         {
           stdio: ["pipe", "pipe", "pipe"],
           input: prompt,
           encoding: "utf8",
           maxBuffer: MAX_BUFFER_BYTES,
+          // Codex loads project AGENTS.md from its cwd. Keep cwd neutral and
+          // grant read-only access to the reviewed repository explicitly.
+          cwd: outDir,
           env,
         },
       );
@@ -150,9 +161,10 @@ export function solicitCodexReview(
   const prompt = buildReviewPrompt({
     context,
     diff,
-    reviewInstructions: readReviewInstructions(rootDir),
+    reviewInstructions: readReviewInstructions(rootDir, context.baseRef),
     accessNote: CODEX_ACCESS_NOTE,
+    repositoryRoot: rootDir,
   });
 
-  return spawnCodexReview(prompt, effort);
+  return spawnCodexReview(prompt, effort, rootDir);
 }
