@@ -132,7 +132,6 @@ export async function commitStoredHydratedContainer(
         fence &&
         fence.updatedAt >= input.remoteUpdatedAt &&
         (fence.reason === "deleted" ||
-          currentDormantRecord === null ||
           !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
       ) {
         return { committed: false as const };

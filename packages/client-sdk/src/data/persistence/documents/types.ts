@@ -149,6 +149,8 @@ export interface DocumentsPersistence {
     options:
       | {
           pendingUpdate?: PendingUpdateFields;
+          /** Recheck volatile caller ownership inside the create transaction. */
+          stillCurrent?: (() => boolean) | undefined;
           updatedAt?: string;
         }
       | undefined,

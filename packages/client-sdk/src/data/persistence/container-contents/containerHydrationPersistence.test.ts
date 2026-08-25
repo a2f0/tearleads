@@ -139,6 +139,48 @@ test("dormant metadata reattaches only when the fetch observed its revocation fe
   }
 });
 
+test("an observed fence-only revocation permits unchanged rehydration", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-hydration-fence-only-restore",
+  );
+  const revokedAt = "2026-01-03T00:00:00.000Z";
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: container.id,
+        reason: "access_revoked",
+        updatedAt: revokedAt,
+      },
+    ]);
+    const expectedHydrationTombstone = (
+      await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+        execSql,
+      )
+    ).find((tombstone) => tombstone.containerId === container.id);
+    if (!expectedHydrationTombstone) {
+      throw new Error("Expected the access-revocation fence");
+    }
+
+    await expect(
+      sqlContainerContentsPersistence.commitHydratedContainer(execSql, {
+        container,
+        expectedDormantRecord: null,
+        expectedHydrationTombstone,
+        purgeDormantMetadata: false,
+        record,
+        remoteUpdatedAt: revokedAt,
+        saveOptions: {},
+      }),
+    ).resolves.toMatchObject({ committed: true });
+    await expect(
+      sqlContainerContentsPersistence.loadContainerHydrationTombstones(execSql),
+    ).resolves.toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
 test("each deletion fence keeps its own remote timestamp", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-hydration-per-container-fence",

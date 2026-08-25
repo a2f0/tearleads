@@ -68,12 +68,19 @@ const host: RemoteContainerHydrationHost = {
   updateSnapshot: () => {},
 };
 
-function upsert(state: RemoteContainerHydrationState) {
+function upsert(
+  state: RemoteContainerHydrationState,
+  input?: {
+    childIdsByParentId?: Map<string, Set<string>>;
+    remoteContainer?: RemoteContainer;
+  },
+) {
   return upsertRemoteContainerState({
+    childIdsByParentId: input?.childIdsByParentId,
     containerIdsWithPendingMetadataUpdates: new Set(),
     containerIdsWithPendingStructuralIntents: new Set(),
     host,
-    remoteContainer,
+    remoteContainer: input?.remoteContainer ?? remoteContainer,
     state,
   });
 }
@@ -114,9 +121,13 @@ test("a two-pane hydration insert loser adopts the durable winner", async () => 
       second.runtime,
       sqlContainerContentsPersistence,
     );
-    const firstUpsert = upsert(firstState);
+    const childIdsByParentId = new Map<string, Set<string>>();
+    const firstUpsert = upsert(firstState, { childIdsByParentId });
     await firstCommitStarted;
-    const secondResult = await upsert(secondState);
+    const winningParentId = "parent-2";
+    const secondResult = await upsert(secondState, {
+      remoteContainer: { ...remoteContainer, parentId: winningParentId },
+    });
     releaseFirstCommit();
     const firstResult = await firstUpsert;
 
@@ -124,6 +135,12 @@ test("a two-pane hydration insert loser adopts the durable winner", async () => 
     expect(firstResult?.container.id).toBe(remoteContainer.id);
     expect(firstState.containersById.has(remoteContainer.id)).toBe(true);
     expect(secondState.containersById.has(remoteContainer.id)).toBe(true);
+    expect(childIdsByParentId.get(winningParentId)).toEqual(
+      new Set([remoteContainer.id]),
+    );
+    expect(childIdsByParentId.has(remoteContainer.parentId as string)).toBe(
+      false,
+    );
     expect(
       await sqlContainerContentsPersistence.loadContainers(
         first.runtime.execSql,

@@ -52,6 +52,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       options,
       saveClientProjection,
     ) {
+      if (options?.stillCurrent && !options.stillCurrent()) return null;
       if (document?.id === nextDocument.id) return null;
       const previousPendingUpdates = structuredClone(pendingUpdates);
       const updatedAt = options?.updatedAt ?? "2026-04-06T00:00:00.000Z";

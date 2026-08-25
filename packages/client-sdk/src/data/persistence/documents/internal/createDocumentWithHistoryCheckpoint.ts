@@ -34,6 +34,9 @@ export async function createStoredDocumentWithHistoryCheckpoint(
           options,
           tx,
         });
+        if (options?.stillCurrent && !options.stillCurrent()) {
+          return null;
+        }
         const created = await createDocumentRowsIfAbsent({
           document,
           tx,

@@ -294,6 +294,27 @@ async function loadConcurrentCreationWinner(input: {
   return winner;
 }
 
+async function resolveInitialDocumentCreation(input: {
+  execSql: ExecSql;
+  persistInput: PersistDocumentStateInput;
+  record: StoredDocumentRecord;
+  savedAt: string | null;
+}): Promise<PersistedDocumentState | null> {
+  if (input.savedAt !== null) {
+    return { record: input.record, updatedAt: input.savedAt };
+  }
+  if (
+    input.persistInput.canStartDurableMutation &&
+    !input.persistInput.canStartDurableMutation()
+  ) {
+    return null;
+  }
+  return loadConcurrentCreationWinner({
+    execSql: input.execSql,
+    persistInput: input.persistInput,
+  });
+}
+
 async function resolveDocumentMutationCommit(input: {
   committed: Awaited<
     ReturnType<DocumentsPersistence["commitDocumentMutation"]>
@@ -351,6 +372,7 @@ async function commitOnePreparedDocumentMutation(input: {
       pendingUpdate: persistInput.pendingUpdate,
       persistence: persistInput.persistence,
       record,
+      stillCurrent: persistInput.canStartDurableMutation,
       saveClientProjection: (transactionExecSql, updatedAt) =>
         saveDocumentClientProjection({
           currentRecord: null,
@@ -362,13 +384,12 @@ async function commitOnePreparedDocumentMutation(input: {
           updatedAt,
         }),
     });
-    if (savedAt === null) {
-      return loadConcurrentCreationWinner({
-        execSql: input.lockedExecSql,
-        persistInput,
-      });
-    }
-    return { record, updatedAt: savedAt };
+    return resolveInitialDocumentCreation({
+      execSql: input.lockedExecSql,
+      persistInput,
+      record,
+      savedAt,
+    });
   }
 
   const committed = await persistInput.persistence.commitDocumentMutation(

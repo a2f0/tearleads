@@ -129,6 +129,7 @@ export function createDocumentWritePersistence(
       options,
       saveClientProjection,
     ) {
+      if (options?.stillCurrent && !options.stillCurrent()) return null;
       if (state.document?.id === nextDocument.id) return null;
       const previousState = structuredClone(state);
       const updatedAt = options?.updatedAt ?? "2026-04-06T00:00:00.000Z";

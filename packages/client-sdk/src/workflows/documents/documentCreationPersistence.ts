@@ -13,6 +13,7 @@ export function createInitialDocumentRows(input: {
   persistence: DocumentsPersistence;
   pendingUpdate?: PendingUpdateFields | undefined;
   record: StoredDocumentRecord;
+  stillCurrent?: (() => boolean) | undefined;
   saveClientProjection: Parameters<
     DocumentsPersistence["createDocumentWithHistoryCheckpoint"]
   >[4];
@@ -24,7 +25,14 @@ export function createInitialDocumentRows(input: {
       endVersionVector: encodeVersionVector(input.currentDoc),
       snapshot: bytesToBase64(exportFullHistorySnapshot(input.currentDoc)),
     },
-    input.pendingUpdate ? { pendingUpdate: input.pendingUpdate } : undefined,
+    input.pendingUpdate || input.stillCurrent
+      ? {
+          ...(input.pendingUpdate
+            ? { pendingUpdate: input.pendingUpdate }
+            : {}),
+          ...(input.stillCurrent ? { stillCurrent: input.stillCurrent } : {}),
+        }
+      : undefined,
     input.saveClientProjection,
   );
 }

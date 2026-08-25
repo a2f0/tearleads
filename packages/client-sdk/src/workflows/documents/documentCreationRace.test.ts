@@ -100,3 +100,50 @@ test("concurrent initializers keep one document identity and birth checkpoint", 
     close();
   }
 });
+
+test("initial creation stops when its lifecycle expires before the transaction", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-creation-lifecycle-race",
+  );
+  const localId = "stale-lifecycle-document";
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const doc = await createDocument("document-creation-stale-lifecycle");
+    doc.getText("text").update("must not persist");
+    doc.commit();
+    let isCurrent = true;
+    const persistence = {
+      ...sqlDocumentsPersistence,
+      createDocumentWithHistoryCheckpoint: async (
+        ...input: Parameters<
+          typeof sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint
+        >
+      ) => {
+        isCurrent = false;
+        return sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+          ...input,
+        );
+      },
+    };
+
+    await expect(
+      persistDocumentState({
+        canStartDurableMutation: () => isCurrent,
+        currentDoc: doc,
+        currentRecord: null,
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+        localId,
+        persistence,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, localId),
+    ).resolves.toBeNull();
+    await expect(
+      sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});

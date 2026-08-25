@@ -420,7 +420,7 @@ async function insertRemoteContainerState(
     addIndexedContainerChild(
       childIdsByParentId,
       remoteContainer.id,
-      remoteContainer.parentId,
+      installedState.container.parentId,
     );
   }
   await reconcileLocalOnlyRootContainers({
