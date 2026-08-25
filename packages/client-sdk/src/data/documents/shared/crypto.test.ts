@@ -285,6 +285,56 @@ test("decryptDocumentSyncUpdates identifies a poison update within a valid batch
   expect(isolated.writerUserId).toBe(author.signerUserId);
 });
 
+test("decryptDocumentSyncUpdates keeps multiple poison updates anonymous", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const poisonIds = [
+    "550e8400-e29b-41d4-a716-4466554400aa",
+    "550e8400-e29b-41d4-a716-4466554400ab",
+  ];
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: poisonIds.map((id) => createPendingUpdateRecord({ id })),
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const poisonedUpdates = await Promise.all(
+    response.updates.map((update) =>
+      replaceEncryptedPlaintext({
+        contentKey,
+        documentId: materialized.plan.documentId,
+        organizationId: materialized.plan.organizationId,
+        update,
+      }),
+    ),
+  );
+
+  let isolated: unknown;
+  try {
+    await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: poisonedUpdates,
+    });
+  } catch (error) {
+    isolated = error;
+  }
+
+  expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+  if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+  expect(isolated.attribution).toBe("batch");
+  expect(isolated.authorFingerprint).toBeNull();
+  expect(isolated.batchUpdateIds).toEqual(poisonIds);
+  expect(isolated.stage).toBe("plaintext_integrity");
+  expect(isolated.updateId).toBeNull();
+  expect(isolated.writerUserId).toBeNull();
+});
+
 test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {
   const { author, contentKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();

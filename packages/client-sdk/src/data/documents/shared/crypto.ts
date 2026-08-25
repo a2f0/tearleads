@@ -17,7 +17,11 @@ import {
   importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { decryptDocumentSyncUpdate } from "./documentSyncUpdateDecryption";
-import { isolateDocumentSyncUpdateError } from "./documentSyncUpdateIsolation";
+import {
+  isDocumentSyncUpdateIsolationError,
+  isolateDocumentSyncBatchError,
+  isolateDocumentSyncUpdateError,
+} from "./documentSyncUpdateIsolation";
 import { asWebCryptoBytes, readWriteHeader } from "./readers";
 import {
   type DecryptedDocumentSyncUpdate,
@@ -195,11 +199,35 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
       });
     }),
   );
-  const firstFailure = inspections.find(
-    (inspection) => inspection.status === "rejected",
+  const failures = inspections.flatMap((inspection, index) =>
+    inspection.status === "rejected"
+      ? [{ index, reason: inspection.reason }]
+      : [],
   );
-  if (firstFailure?.status === "rejected") {
+  const firstFailure = failures[0];
+  if (failures.length === 1 && firstFailure) {
     throw firstFailure.reason;
+  }
+  if (failures.length > 1 && firstFailure) {
+    const stage =
+      isDocumentSyncUpdateIsolationError(firstFailure.reason) &&
+      failures.every(
+        ({ reason }) =>
+          isDocumentSyncUpdateIsolationError(reason) &&
+          reason.stage === firstFailure.reason.stage,
+      )
+        ? firstFailure.reason.stage
+        : "decrypt";
+    throw isolateDocumentSyncBatchError({
+      cause: new AggregateError(
+        failures.map(({ reason }) => reason),
+        "Multiple document sync updates failed decryption inspection",
+      ),
+      stage,
+      updateIds: failures.map(
+        ({ index }) => input.updates[index]?.id ?? "unknown",
+      ),
+    });
   }
   return inspections.map((inspection) => {
     if (inspection.status === "rejected") {

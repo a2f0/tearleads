@@ -1,13 +1,16 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
-import { isolateDocumentSyncUpdateError } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import {
+  isolateDocumentSyncBatchError,
+  isolateDocumentSyncUpdateError,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   collectContainerKeksForDocumentSync,
+  DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
 import {
@@ -19,8 +22,11 @@ import type {
   ProjectionVerificationOptions,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+
+type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 
 export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
@@ -92,11 +98,8 @@ function syncResponseContentKeyBundlesByEpoch(
 
 function syncResponseUpdatesByContentKeyEpoch(
   response: DocumentSyncResponse,
-): ReadonlyMap<number, DocumentSyncResponse["updates"][number]> {
-  const firstUpdateByEpoch = new Map<
-    number,
-    DocumentSyncResponse["updates"][number]
-  >();
+): ReadonlyMap<number, readonly SyncResponseUpdate[]> {
+  const updatesByEpoch = new Map<number, SyncResponseUpdate[]>();
   for (const update of response.updates) {
     let contentKeyEpoch: number;
     try {
@@ -112,11 +115,32 @@ function syncResponseUpdatesByContentKeyEpoch(
         updateId: update.id,
       });
     }
-    if (!firstUpdateByEpoch.has(contentKeyEpoch)) {
-      firstUpdateByEpoch.set(contentKeyEpoch, update);
-    }
+    const epochUpdates = updatesByEpoch.get(contentKeyEpoch);
+    if (epochUpdates) epochUpdates.push(update);
+    else updatesByEpoch.set(contentKeyEpoch, [update]);
   }
-  return firstUpdateByEpoch;
+  return updatesByEpoch;
+}
+
+/** @internal Keeps epoch-wide failures anonymous and integrity failures typed. */
+export function throwDocumentSyncContentKeyFailure(input: {
+  cause: unknown;
+  updates: readonly SyncResponseUpdate[];
+}): never {
+  if (isKeyingVerificationError(input.cause)) {
+    throw input.cause;
+  }
+  if (
+    input.cause instanceof DocumentHistoryUnavailableError &&
+    isKeyingVerificationError(input.cause.historyCause)
+  ) {
+    throw input.cause.historyCause;
+  }
+  throw isolateDocumentSyncBatchError({
+    cause: input.cause,
+    stage: "content_key",
+    updateIds: input.updates.map((update) => update.id),
+  });
 }
 
 export async function unwrapDocumentSyncResponseContentKeys(
@@ -138,27 +162,25 @@ export async function unwrapDocumentSyncResponseContentKeys(
       ? [[input.currentContentKeyEpoch, input.currentContentKey]]
       : [],
   );
-  const firstUpdateByContentKeyEpoch = syncResponseUpdatesByContentKeyEpoch(
+  const updatesByContentKeyEpoch = syncResponseUpdatesByContentKeyEpoch(
     input.response,
   );
-  const missingContentKeyEpochs = [
-    ...firstUpdateByContentKeyEpoch.keys(),
-  ].filter((contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch));
+  const missingContentKeyEpochs = [...updatesByContentKeyEpoch.keys()].filter(
+    (contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch),
+  );
   if (missingContentKeyEpochs.length === 0) {
     return contentKeysByEpoch;
   }
-  const firstMissingUpdate = firstUpdateByContentKeyEpoch.get(
-    missingContentKeyEpochs[0] ?? -1,
+  const missingUpdates = missingContentKeyEpochs.flatMap(
+    (contentKeyEpoch) => updatesByContentKeyEpoch.get(contentKeyEpoch) ?? [],
   );
   let bundlesByEpoch: ReturnType<typeof syncResponseContentKeyBundlesByEpoch>;
   try {
     bundlesByEpoch = syncResponseContentKeyBundlesByEpoch(input.response);
   } catch (error) {
-    throw isolateDocumentSyncUpdateError({
+    throwDocumentSyncContentKeyFailure({
       cause: error,
-      responseUpdate: firstMissingUpdate,
-      stage: "content_key",
-      updateId: firstMissingUpdate?.id ?? "unknown",
+      updates: missingUpdates,
     });
   }
   const collectedKeks = await collectContainerKeksForDocumentSync({
@@ -170,8 +192,8 @@ export async function unwrapDocumentSyncResponseContentKeys(
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
     const bundle = bundlesByEpoch.get(contentKeyEpoch);
-    const responseUpdate =
-      firstUpdateByContentKeyEpoch.get(contentKeyEpoch) ?? firstMissingUpdate;
+    const responseUpdates =
+      updatesByContentKeyEpoch.get(contentKeyEpoch) ?? missingUpdates;
     try {
       if (!bundle) {
         throw new Error("Document sync response content-key bundle missing");
@@ -186,14 +208,9 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
-      if (error instanceof KeyingVerificationError) {
-        throw error;
-      }
-      throw isolateDocumentSyncUpdateError({
+      throwDocumentSyncContentKeyFailure({
         cause: error,
-        responseUpdate,
-        stage: "content_key",
-        updateId: responseUpdate?.id ?? "unknown",
+        updates: responseUpdates,
       });
     }
   }
