@@ -217,9 +217,6 @@ export async function unwrapDocumentSyncResponseContentKeys(
       const error = new Error(
         "Document sync response content-key bundle missing",
       );
-      if (input.historyMode === "raw") {
-        throw new DocumentRawHistoryUnavailableError(contentKeyEpoch, error);
-      }
       throwDocumentSyncContentKeyFailure({
         cause: error,
         updates: responseUpdates,

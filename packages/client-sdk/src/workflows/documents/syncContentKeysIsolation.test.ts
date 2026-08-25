@@ -106,10 +106,28 @@ test("raw history reports the lowest unavailable epoch regardless of response or
     ...response.contentKeyBundle,
     contentKeyEpoch: 3,
   };
+  const target = response.contentKeyBundle.targets[0];
+  if (!target) throw new Error("Expected a content-key target");
+  const unavailableTarget = {
+    ...target,
+    containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440499",
+  };
   const reversedEpochResponse = {
     ...response,
     contentKeyBundle: currentBundle,
-    contentKeyBundles: [currentBundle],
+    contentKeyBundles: [
+      {
+        ...response.contentKeyBundle,
+        contentKeyEpoch: 1,
+        targets: [unavailableTarget],
+      },
+      {
+        ...response.contentKeyBundle,
+        contentKeyEpoch: 2,
+        targets: [unavailableTarget],
+      },
+      currentBundle,
+    ],
     updates: [
       {
         ...epochTwoUpdate,
@@ -137,6 +155,75 @@ test("raw history reports the lowest unavailable epoch regardless of response or
 
   expect(error).toBeInstanceOf(DocumentRawHistoryUnavailableError);
   expect((error as DocumentRawHistoryUnavailableError).contentKeyEpoch).toBe(1);
+});
+
+test("a forged old-epoch header cannot bypass poison isolation through a missing bundle", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "raw-history-forged-missing-bundle",
+  );
+  try {
+    const fixture = await createMaterializedSyncFixture();
+    const currentBundle = {
+      ...fixture.writerProjection.contentKeyBundle,
+      contentKeyEpoch: 3,
+    };
+    const currentWriterProjection = {
+      ...fixture.writerProjection,
+      contentKeyBundle: currentBundle,
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      historyMode: "raw",
+      localVersionVector: null,
+      pendingUpdates: [],
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: currentWriterProjection,
+    });
+    const signedUpdate = await createSignedSyncResponseUpdate({
+      accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+      author: fixture.author,
+      contentKeyEpoch: 1,
+      id: "550e8400-e29b-41d4-a716-446655440459",
+      plan: materializedPlan.plan,
+      targetHash: currentBundle.targetHash,
+    });
+    const forgedUpdate = {
+      ...signedUpdate,
+      writeHeader: {
+        ...signedUpdate.writeHeader,
+        signature: bytesToBase64(new Uint8Array(64).fill(7)),
+      },
+    };
+    const response = await createSyncResponse(materializedPlan.plan, {
+      acceptedOutgoingUpdateIds: [],
+      contentKeyBundles: [currentBundle],
+      updates: [forgedUpdate],
+    });
+
+    const error = await syncRemoteDocumentResultFromResponse({
+      execSql,
+      materializedPlan,
+      recoveryPendingUpdatesById: new Map(),
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+      response,
+      targetSecretKey: fixture.secretKey,
+      validateIncomingUpdates: () => undefined,
+      writerProjection: currentWriterProjection,
+    }).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
+    if (!isDocumentSyncUpdateIsolationError(error)) return;
+    expect(error.stage).toBe("content_key");
+    expect(error.batchUpdateIds).toEqual([forgedUpdate.id]);
+  } finally {
+    close();
+  }
 });
 
 test("raw response validation defers an absent epoch behind an earlier unwrappable bundle", async () => {

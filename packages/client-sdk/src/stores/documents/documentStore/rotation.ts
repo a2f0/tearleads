@@ -1,6 +1,7 @@
 import {
   encodeVersionVector,
-  importUpdates,
+  exportUpdatesSince,
+  satisfiesVersionVector,
   versionVectorsEqual,
 } from "@symcrypt/loro";
 import {
@@ -13,18 +14,12 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
-import {
-  importPendingOrdinaryUpdates,
-  installRebuiltDocument,
-} from "./historyRebuild";
+import { installRebuiltDocument } from "./historyRebuild";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
-import {
-  enqueuePendingUpdate,
-  listPendingUpdates,
-  pendingDeltaSinceBase,
-} from "./persistence";
+import { enqueuePendingUpdate } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
+import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./sync";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
@@ -166,108 +161,140 @@ async function pullVerifiedRawHistoryForRotation(input: {
   }
 }
 
+async function commitLocalHistoryGap(input: {
+  currentDocument: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  rebuiltDocument: DocumentState;
+  submittedEarlierGap: boolean;
+  state: DocumentStoreState;
+}): Promise<boolean> {
+  const currentVersion = encodeVersionVector(input.currentDocument);
+  const rebuiltVersion = encodeVersionVector(input.rebuiltDocument);
+  if (satisfiesVersionVector(rebuiltVersion, currentVersion)) return false;
+  const localOnlyDelta = exportUpdatesSince(
+    input.currentDocument,
+    rebuiltVersion,
+  );
+  if (input.submittedEarlierGap) {
+    throw new Error(
+      "Committed local document updates were absent from raw history",
+    );
+  }
+  const enqueued = await enqueuePendingUpdate(
+    input.state,
+    localOnlyDelta,
+    undefined,
+    input.generation,
+  );
+  if (!enqueued) {
+    await rebaseDocumentAfterPendingUpdateRefusal(
+      input.state,
+      input.generation,
+    );
+    throw new Error(
+      "Document identity changed during rotation recovery; retry key rotation",
+    );
+  }
+  await settleOrdinaryDocumentUpdatesBeforeRotation(input.state);
+  return true;
+}
+
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
-  const currentDoc = state.doc;
-  const currentRecord = state.record;
-  if (!currentDoc || !currentRecord) {
-    throw new Error(
-      "Document must finish loading before its content key can rotate",
-    );
-  }
-  // The teardown guard for the recovery's terminal-failure handler: captured
-  // before the pull so a discard (row 21) racing this preflight invalidates
-  // it, and the stale handler cannot resurrect a deleted failure row.
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
-    throw new Error(
-      "Document changed during rotation recovery; retry key rotation",
-    );
-  }
+  assertRotationRecoveryPrerequisites(state);
+  await settleOrdinaryDocumentUpdatesBeforeRotation(state);
+  let submittedLocalHistoryGap = false;
 
-  const capturedVersion = encodeVersionVector(currentDoc);
-  const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
-  const pendingUpdates = await listPendingUpdates(state);
-  const consumedPullContinuation = state.pullContinuation;
-  let settlementRequiresRetry = false;
-
-  // A raw recovery starts from an empty scratch document, bypasses untrusted
-  // rotation-baseline redirects, drains every retained page in memory, and
-  // publishes nothing until all response updates have validated. Checkpoints
-  // are authenticated and decrypted but are not reconstruction inputs: the
-  // original ordinary update stream is the source of truth in this mode.
-  const rebuiltDoc = await createStoredDocument(state);
-
-  try {
-    const synced = await pullVerifiedRawHistoryForRotation({
-      currentRecord,
-      generation,
-      rebuiltDocument: rebuiltDoc,
-      state,
-    });
-
-    // Do not replace or persist over a document that changed while the
-    // verified pull was in flight. A retry can recover the newer frontier
-    // safely.
-    if (
-      state.doc !== currentDoc ||
-      !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
-    ) {
+  while (true) {
+    const currentDoc = state.doc;
+    const currentRecord = state.record;
+    if (!currentDoc || !currentRecord) {
+      throw new Error(
+        "Document must finish loading before its content key can rotate",
+      );
+    }
+    // The teardown guard for the recovery's terminal-failure handler: captured
+    // before the pull so a discard (row 21) racing this preflight invalidates
+    // it, and the stale handler cannot resurrect a deleted failure row.
+    const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+    if (!generation) {
       throw new Error(
         "Document changed during rotation recovery; retry key rotation",
       );
     }
 
-    // Raw recovery is read-only, so durable local queue rows remain queued.
-    // Merge ordinary local deltas, but never trust queued rotation snapshots:
-    // their coverage claims are excluded for the same reason as remote
-    // rotate_baseline checkpoints.
-    importPendingOrdinaryUpdates(rebuiltDoc, pendingUpdates);
-    if (uncoveredLocalDelta.byteLength > 0) {
-      importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
-      // `pendingBaseVersion` can intentionally lag a deferred or interrupted
-      // local write. Make that uncovered delta durable before advancing it.
-      const enqueued = await enqueuePendingUpdate(
-        state,
-        uncoveredLocalDelta,
-        undefined,
+    const capturedVersion = encodeVersionVector(currentDoc);
+    const consumedPullContinuation = state.pullContinuation;
+    let settlementRequiresRetry = false;
+
+    // A raw recovery starts from an empty scratch document, bypasses untrusted
+    // rotation-baseline redirects, drains every retained page in memory, and
+    // publishes nothing until all response updates have validated. Checkpoints
+    // are authenticated and decrypted but are not reconstruction inputs: the
+    // original ordinary update stream is the source of truth in this mode.
+    const rebuiltDoc = await createStoredDocument(state);
+
+    try {
+      const synced = await pullVerifiedRawHistoryForRotation({
+        currentRecord,
         generation,
-      );
-      if (!enqueued) {
-        await rebaseDocumentAfterPendingUpdateRefusal(state, generation);
+        rebuiltDocument: rebuiltDoc,
+        state,
+      });
+
+      // Do not replace or persist over a document that changed while the
+      // verified pull was in flight. A retry can recover the newer frontier
+      // safely.
+      if (
+        state.doc !== currentDoc ||
+        !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
+      ) {
         throw new Error(
-          "Document identity changed during rotation recovery; retry key rotation",
+          "Document changed during rotation recovery; retry key rotation",
         );
       }
-    }
 
-    const installed = await installRebuiltDocument({
-      consumedPullContinuation,
-      currentRecord,
-      rebuiltDoc,
-      state,
-      synced,
-    });
-    settlementRequiresRetry = installed.settlementRequiresRetry;
-    if (settlementRequiresRetry) {
-      throw new Error(
-        "Rotation raw-history recovery was superseded during its atomic install; retry key rotation",
-      );
-    }
-    return installed.fullHistorySnapshot;
-  } finally {
-    // Failed or superseded scratch documents never transfer to the store and
-    // must release their WASM allocation. A successfully installed document
-    // is now store-owned and remains live.
-    if (state.doc !== rebuiltDoc) {
-      rebuiltDoc.free();
-    }
-    // A superseding pane left work for the ordinary lane. Existing pending
-    // rows were already armed when enqueued; do not start their old-boundary
-    // sync in the narrow window before the caller submits its rotation.
-    if (settlementRequiresRetry) {
-      requestDocumentStoreSync(state);
+      // A checkpoint-only queue can make pendingBaseVersion look covered even
+      // though the ordinary remote stream still lacks local ops. Convert that
+      // gap into an ordinary update, commit it, then recover from a new frozen
+      // raw snapshot. Never publish a baseline from the pre-commit scratch.
+      const committedLocalHistoryGap = await commitLocalHistoryGap({
+        currentDocument: currentDoc,
+        generation,
+        rebuiltDocument: rebuiltDoc,
+        submittedEarlierGap: submittedLocalHistoryGap,
+        state,
+      });
+      if (committedLocalHistoryGap) {
+        submittedLocalHistoryGap = true;
+        continue;
+      }
+
+      const installed = await installRebuiltDocument({
+        consumedPullContinuation,
+        currentRecord,
+        rebuiltDoc,
+        state,
+        synced,
+      });
+      settlementRequiresRetry = installed.settlementRequiresRetry;
+      if (settlementRequiresRetry) {
+        throw new Error(
+          "Rotation raw-history recovery was superseded during its atomic install; retry key rotation",
+        );
+      }
+      return installed.fullHistorySnapshot;
+    } finally {
+      // Failed or superseded scratch documents never transfer to the store and
+      // must release their WASM allocation. A successfully installed document
+      // is now store-owned and remains live.
+      if (state.doc !== rebuiltDoc) {
+        rebuiltDoc.free();
+      }
+      if (settlementRequiresRetry) {
+        requestDocumentStoreSync(state);
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   createRemoteHistoryFixture,
@@ -108,7 +109,7 @@ test("rotation validates every bounded page before one durable install", async (
   }
 });
 
-test("a raw rotation preflight preserves its already-armed local queue", async () => {
+test("rotation drains a bounded local queue before raw recovery", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-bounded-tail",
   );
@@ -123,9 +124,30 @@ test("a raw rotation preflight preserves its already-armed local queue", async (
       localId,
     });
 
+    const committedUpdates: DocumentSyncResponse["updates"] = [];
+    const outgoingCounts: number[] = [];
+    const historyModes: Array<"raw" | undefined> = [];
     const state = createDocumentStoreState(
       localId,
-      createRotationRecoveryRuntime({ execSql, fixture }),
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        requireRawHistory: false,
+        responseForRequest: (request, response) => {
+          outgoingCounts.push(request.outgoingUpdates.length);
+          historyModes.push(request.historyMode);
+          const outgoingIds = new Set(
+            request.outgoingUpdates.map((update) => update.id),
+          );
+          committedUpdates.push(
+            ...response.updates.filter((update) => outgoingIds.has(update.id)),
+          );
+          return {
+            ...response,
+            updates: [...fixture.response.updates, ...committedUpdates],
+          };
+        },
+      }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -152,10 +174,15 @@ test("a raw rotation preflight preserves its already-armed local queue", async (
       },
     } as NonNullable<typeof state.syncLane>;
 
-    await assertDocumentStoreCanRotateContentKey(state);
+    const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
-    expect(await listPendingUpdates(state)).toHaveLength(65);
-    expect(requestedSyncCount).toBe(0);
+    expect(await listPendingUpdates(state)).toHaveLength(0);
+    expect(outgoingCounts).toEqual([64, 1, 0]);
+    expect(historyModes).toEqual([undefined, undefined, "raw"]);
+    expect(requestedSyncCount).toBe(1);
+    const recovered = await createDocument("bounded-tail-reader");
+    importSnapshot(recovered, baseline);
+    expect(getTextValue(recovered)).toBe("pending local edit 64");
   } finally {
     close();
   }

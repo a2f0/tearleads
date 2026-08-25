@@ -9,6 +9,7 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
@@ -35,7 +36,7 @@ import {
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
 
-test("a raw-history preflight preserves pending writes in its baseline", async () => {
+test("rotation commits pending writes before consecutive raw recoveries", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-pending",
   );
@@ -51,9 +52,23 @@ test("a raw-history preflight preserves pending writes in its baseline", async (
     });
 
     const syncCalls = { count: 0 };
+    const committedUpdates: DocumentSyncResponse["updates"] = [];
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
+      requireRawHistory: false,
+      responseForRequest: (request, response) => {
+        const outgoingIds = new Set(
+          request.outgoingUpdates.map((update) => update.id),
+        );
+        committedUpdates.push(
+          ...response.updates.filter((update) => outgoingIds.has(update.id)),
+        );
+        return {
+          ...response,
+          updates: [...fixture.response.updates, ...committedUpdates],
+        };
+      },
       syncCalls,
     });
     const state = createDocumentStoreState(
@@ -76,11 +91,37 @@ test("a raw-history preflight preserves pending writes in its baseline", async (
 
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
-    expect(syncCalls.count).toBe(1);
-    expect(await listPendingUpdates(state)).toHaveLength(1);
+    expect(syncCalls.count).toBe(2);
+    expect(await listPendingUpdates(state)).toHaveLength(0);
     const freshReader = await createDocument("pending-rotation-reader");
     importSnapshot(freshReader, baseline);
     expect(getTextValue(freshReader)).toBe("pending local edit");
+
+    // A different client can perform the next rotation from retained ordinary
+    // history alone. It does not need this client's queue or first baseline.
+    const nextLocalId = "rotation-recovery-next-client";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId: nextLocalId,
+    });
+    const nextState = createDocumentStoreState(
+      nextLocalId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(nextState, () => undefined)).toBe(
+      true,
+    );
+    const nextBaseline =
+      await assertDocumentStoreCanRotateContentKey(nextState);
+    expect(syncCalls.count).toBe(3);
+    const nextReader = await createDocument("next-rotation-reader");
+    importSnapshot(nextReader, nextBaseline);
+    expect(getTextValue(nextReader)).toBe("pending local edit");
   } finally {
     close();
   }
@@ -103,15 +144,26 @@ test("raw rotation recovery never submits a queued rotation checkpoint", async (
 
     const submittedIds: string[][] = [];
     const historyModes: Array<"raw" | undefined> = [];
+    const committedUpdates: DocumentSyncResponse["updates"] = [];
     const state = createDocumentStoreState(
       localId,
       createRotationRecoveryRuntime({
         execSql,
         fixture,
+        requireRawHistory: false,
         responseForRequest: (request, response) => {
           submittedIds.push(request.outgoingUpdates.map((update) => update.id));
           historyModes.push(request.historyMode);
-          return response;
+          const outgoingIds = new Set(
+            request.outgoingUpdates.map((update) => update.id),
+          );
+          committedUpdates.push(
+            ...response.updates.filter((update) => outgoingIds.has(update.id)),
+          );
+          return {
+            ...response,
+            updates: [...fixture.response.updates, ...committedUpdates],
+          };
         },
       }),
       sqlDocumentsPersistence,
@@ -121,6 +173,9 @@ test("raw rotation recovery never submits a queued rotation checkpoint", async (
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
     if (!state.doc) throw new Error("Expected full-history document");
 
+    state.doc.getText("text").update("checkpoint-only local edit");
+    await persistDocument(state, state.doc);
+    advancePendingBaseVersion(state, state.doc);
     await enqueuePendingUpdate(
       state,
       exportFullHistorySnapshot(state.doc),
@@ -129,15 +184,22 @@ test("raw rotation recovery never submits a queued rotation checkpoint", async (
     const queuedCheckpoint = (await listPendingUpdates(state))[0];
     if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
 
-    await expect(
-      assertDocumentStoreCanRotateContentKey(state),
-    ).resolves.toBeInstanceOf(Uint8Array);
+    const recoveredBaseline =
+      await assertDocumentStoreCanRotateContentKey(state);
+    expect(recoveredBaseline).toBeInstanceOf(Uint8Array);
 
-    expect(submittedIds).toEqual([[]]);
-    expect(historyModes).toEqual(["raw"]);
+    expect(submittedIds).toHaveLength(3);
+    expect(submittedIds[0]).toEqual([]);
+    expect(submittedIds[1]).toHaveLength(1);
+    expect(submittedIds[1]).not.toContain(queuedCheckpoint.id);
+    expect(submittedIds[2]).toEqual([]);
+    expect(historyModes).toEqual(["raw", undefined, "raw"]);
     expect(
       (await listPendingUpdates(state)).map((update) => update.id),
     ).toEqual([queuedCheckpoint.id]);
+    expect(state.doc && getTextValue(state.doc)).toBe(
+      "checkpoint-only local edit",
+    );
   } finally {
     close();
   }

@@ -203,7 +203,7 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
   }
 });
 
-test("an unavailable raw-history epoch leaves durable document state unchanged", async () => {
+test("a missing raw-history bundle is poison-isolated without durable mutation", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-unavailable-epoch",
   );
@@ -266,13 +266,10 @@ test("an unavailable raw-history epoch leaves durable document state unchanged",
       (thrown: unknown) => thrown,
     );
 
-    expect(error).toBeInstanceOf(DocumentRawHistoryUnavailableError);
-    expect((error as DocumentRawHistoryUnavailableError).code).toBe(
-      "document_raw_history_epoch_unavailable",
-    );
-    expect((error as DocumentRawHistoryUnavailableError).contentKeyEpoch).toBe(
-      1,
-    );
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    if (!isDocumentSyncUpdateIsolationError(error)) return;
+    expect(error.stage).toBe("content_key");
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key");
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, localId),

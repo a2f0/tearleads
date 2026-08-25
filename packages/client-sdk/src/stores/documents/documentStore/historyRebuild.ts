@@ -1,9 +1,5 @@
-import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
-import {
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  importUpdates,
-} from "@symcrypt/loro";
+import { bytesToBase64 } from "@symcrypt/encoding";
+import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
 import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
 import type {
   DocumentSyncPullContinuation,
@@ -12,7 +8,6 @@ import type {
 import {
   advancePendingBaseVersion,
   coveredHistoryTailIds,
-  type listPendingUpdates,
   persistDocument,
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
@@ -23,22 +18,6 @@ import type { DocumentState, DocumentStoreState } from "./state";
  * log, replays it into a fresh document alongside the durable local queue,
  * and installs the rebuilt document — preserving op identity end to end.
  */
-
-export function importPendingOrdinaryUpdates(
-  document: DocumentState,
-  pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>,
-): void {
-  const ordinaryUpdates = pendingUpdates
-    .filter(
-      (pendingUpdate) =>
-        pendingUpdate.sourceVersionVector === null ||
-        pendingUpdate.sourceVersionVector === undefined,
-    )
-    .map((pendingUpdate) => base64ToBytes(pendingUpdate.updateData));
-  if (ordinaryUpdates.length > 0) {
-    importUpdates(document, ordinaryUpdates);
-  }
-}
 
 export async function installRebuiltDocument(input: {
   consumedPullContinuation: DocumentSyncPullContinuation | null;

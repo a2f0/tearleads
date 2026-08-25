@@ -19,7 +19,8 @@ A raw consumer must:
 3. retain the cursor only in memory and drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
-5. merge durable local ordinary deltas after the remote frontier validates;
+5. commit every local-only delta to the ordinary stream and repeat the frozen
+   raw pull if a checkpoint-only gap is discovered;
 6. publish the rebuilt document once through a guarded atomic install.
 
 Rotation checkpoints are still authenticated, decrypted, and scratch-imported
@@ -31,21 +32,27 @@ the recovery source of truth.
 The built-in document content-key rotation preflight implements this contract.
 An interrupted page, a poison update, a changing document generation, or a
 superseding pane leaves the previous durable document intact. Durable pending
-rows remain queued. Ordinary deltas are merged into the returned full-history
-snapshot, while queued rotation checkpoints are excluded from reconstruction.
+ordinary rows are settled remotely before the baseline can be returned. Queued
+rotation checkpoints remain queued and excluded from reconstruction; if one
+was the only durable carrier of a local op, the preflight converts that gap to
+an ordinary update, commits it, and repeats raw recovery.
 
-If a retained update's content-key epoch cannot be resolved, the public
-`DocumentRawHistoryUnavailableError` reports the stable code
+If a retained update references a present, verified content-key bundle whose
+key is no longer reachable, the public `DocumentRawHistoryUnavailableError`
+reports the stable code
 `document_raw_history_epoch_unavailable` and numeric `contentKeyEpoch`. Callers
 do not need to parse an integrity-error message, and the failed recovery does
-not install partial document state.
+not install partial document state. An absent bundle cannot establish that
+distinction before its update is authenticated, so it remains a poison
+incident instead of being reported as benign history unavailability.
 
 ## Verification
 
 Store-level tests cover honest recovery, forged remote and queued baselines,
-malformed historical bundles, unavailable historical epochs without durable
-mutation, interrupted multi-page recovery, pending local updates, and the
-unchanged ordinary-sync request shape.
+malformed or missing historical bundles without durable mutation, unavailable
+historical epochs, interrupted multi-page recovery, pre-rotation settlement of
+pending local updates, cross-client consecutive rotation, and the unchanged
+ordinary-sync request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
@@ -55,13 +62,16 @@ history for three updates, two epochs, and two pages.
 
 | Model action or state | Production implementation |
 | --- | --- |
+| `CommitPendingOrdinary` | bounded ordinary queue settlement before the raw pull that can publish |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import in `pullVerifiedRawHistoryForRotation` |
-| `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` |
+| `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
+| `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `PublishRecovery` | guarded `installRebuiltDocument` |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
-The checked invariants require incomplete or failed recovery to preserve the
-old durable history, successful recovery to contain every retained ordinary
-update, scratch state never to trust a rotation checkpoint, and the reported
-unavailable epoch to be the deterministic lowest missing epoch on the failing
-page.
+The checked invariants require raw collection to start only after local
+ordinary settlement, incomplete or failed recovery to preserve the old durable
+history, successful recovery to contain every retained ordinary update,
+scratch state never to trust a rotation checkpoint, the reported unavailable
+epoch to be the deterministic lowest missing epoch on the failing page, and
+invalid updates never to be mislabeled as availability failures.
