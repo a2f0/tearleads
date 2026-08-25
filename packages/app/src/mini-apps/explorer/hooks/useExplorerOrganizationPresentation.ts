@@ -28,6 +28,7 @@ interface AttributionHydrationScope {
   readonly containerId: string | null | undefined;
   readonly domainScope: RuntimeSnapshot["state"]["domainScope"];
   readonly organizationId: string | null | undefined;
+  readonly syncPrerequisitesReady: boolean;
   readonly userId: string | null | undefined;
 }
 
@@ -41,6 +42,7 @@ function scopesMatch(
     left.containerId === right.containerId &&
     left.domainScope === right.domainScope &&
     left.organizationId === right.organizationId &&
+    left.syncPrerequisitesReady === right.syncPrerequisitesReady &&
     left.userId === right.userId
   );
 }
@@ -116,14 +118,14 @@ async function hydrateTargetWithRetries(
   input: ProfileHydrationRequest,
   containerId: string,
   target: ExplorerAttributionProfileHydrationTarget,
-): Promise<void> {
+): Promise<boolean> {
   for (
     let attempt = 0;
     attempt < MAX_PROFILE_HYDRATION_ATTEMPTS;
     attempt += 1
   ) {
     if (!scopesMatch(input.currentScope.current, input.requestScope)) {
-      return;
+      return false;
     }
     try {
       const completed = await hydrateExplorerAttributionProfileDocument({
@@ -134,7 +136,7 @@ async function hydrateTargetWithRetries(
         target,
       });
       if (completed) {
-        return;
+        return true;
       }
     } catch (error) {
       input.symcrypt.logError(
@@ -143,17 +145,18 @@ async function hydrateTargetWithRetries(
       );
     }
   }
+  return false;
 }
 
 async function hydratePendingTargets(
   input: ProfileHydrationRequest,
   targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>,
-): Promise<boolean> {
+): Promise<ReadonlyArray<ExplorerAttributionProfileHydrationTarget> | null> {
   const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot({
     organizationId: input.organizationId,
   });
   if (!scopesMatch(input.currentScope.current, input.requestScope)) {
-    return false;
+    return null;
   }
   const container = input.containerStore
     .getSnapshot()
@@ -167,14 +170,14 @@ async function hydratePendingTargets(
     !container ||
     !scopesMatch(input.currentScope.current, input.requestScope)
   ) {
-    return false;
+    return null;
   }
-  await Promise.all(
+  const results = await Promise.all(
     targets.map((target) =>
       hydrateTargetWithRetries(input, container.id, target),
     ),
   );
-  return true;
+  return targets.filter((_target, index) => !results[index]);
 }
 
 async function requestExplorerAttributionProfileHydration(
@@ -187,8 +190,11 @@ async function requestExplorerAttributionProfileHydration(
       return;
     }
     setTargetReservations(targets, input.requestedBindingKeys, true);
-    if (!(await hydratePendingTargets(input, targets))) {
+    const failedTargets = await hydratePendingTargets(input, targets);
+    if (failedTargets === null) {
       setTargetReservations(targets, input.requestedBindingKeys, false);
+    } else {
+      setTargetReservations(failedTargets, input.requestedBindingKeys, false);
     }
   } catch (error) {
     setTargetReservations(targets, input.requestedBindingKeys, false);
@@ -208,6 +214,11 @@ function getAttributionHydrationScope(input: {
 }): AttributionHydrationScope {
   const organizationId = input.appData.auth.organizationId;
   const directory = input.projection?.directory;
+  const syncPrerequisitesReady =
+    input.appData.state.online &&
+    Boolean(input.appData.crypto.encapsulationKeyPair) &&
+    Boolean(input.appData.crypto.signingFingerprint) &&
+    Boolean(input.appData.crypto.signingKeyPair);
   return {
     active:
       input.enabled &&
@@ -215,6 +226,7 @@ function getAttributionHydrationScope(input: {
       input.appData.infra.dbStatus === "ready" &&
       input.containerStoreReady &&
       input.revision > 0 &&
+      syncPrerequisitesReady &&
       Boolean(input.appData.state.containerId) &&
       directory?.organizationId === organizationId &&
       directory.currentUser.isOrgAdmin,
@@ -225,6 +237,7 @@ function getAttributionHydrationScope(input: {
     containerId: input.appData.state.containerId,
     domainScope: input.appData.state.domainScope,
     organizationId,
+    syncPrerequisitesReady,
     userId: input.appData.auth.userId,
   };
 }
@@ -243,6 +256,7 @@ function useCommittedAttributionHydrationScope(
     containerId,
     domainScope,
     organizationId,
+    syncPrerequisitesReady,
     userId,
   } = currentScope;
   const scopeRef = useRef<AttributionHydrationScope>(currentScope);
@@ -253,6 +267,7 @@ function useCommittedAttributionHydrationScope(
       containerId,
       domainScope,
       organizationId,
+      syncPrerequisitesReady,
       userId,
     };
     if (!scopesMatch(scopeRef.current, nextScope)) {
@@ -274,6 +289,7 @@ function useCommittedAttributionHydrationScope(
     containerId,
     domainScope,
     organizationId,
+    syncPrerequisitesReady,
     userId,
   ]);
   return scopeRef;
@@ -309,6 +325,7 @@ export function useExplorerAttributionProfileHydration(input: {
     containerId,
     domainScope,
     organizationId,
+    syncPrerequisitesReady,
     userId,
   } = currentScope;
   const scopeRef = useCommittedAttributionHydrationScope(
@@ -344,6 +361,7 @@ export function useExplorerAttributionProfileHydration(input: {
           containerId,
           domainScope,
           organizationId,
+          syncPrerequisitesReady,
           userId,
         },
         requestedBindingKeys: requestedBindingKeysRef.current,
@@ -361,6 +379,7 @@ export function useExplorerAttributionProfileHydration(input: {
       input.readModelProjection,
       input.readModelRevision,
       organizationId,
+      syncPrerequisitesReady,
       symcrypt,
       userId,
     ],

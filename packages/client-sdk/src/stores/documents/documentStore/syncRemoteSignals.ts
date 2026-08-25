@@ -52,6 +52,7 @@ export function clearConsumedRemoteUpdateSignal(
       consumedSignalSequence,
     )
   ) {
+    state.remoteUpdateCompletedSignalSeq = consumedSignalSequence;
     state.remoteUpdatePending = false;
   }
 }

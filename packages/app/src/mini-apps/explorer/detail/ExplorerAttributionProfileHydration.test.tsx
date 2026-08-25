@@ -68,6 +68,7 @@ function projection(
 function runtimeSnapshot(
   organizationId = ORGANIZATION_ID,
   containerId = ROOT_CONTAINER_ID,
+  syncPrerequisitesReady = true,
 ): RuntimeSnapshot {
   return {
     auth: {
@@ -76,8 +77,13 @@ function runtimeSnapshot(
       organizationId,
       userId: "viewer-user-id",
     },
+    crypto: {
+      encapsulationKeyPair: syncPrerequisitesReady ? {} : null,
+      signingFingerprint: "viewer-signing-fingerprint",
+      signingKeyPair: {},
+    },
     infra: { dbStatus: "ready" },
-    state: { containerId, domainScope: {} },
+    state: { containerId, domainScope: {}, online: syncPrerequisitesReady },
   } as unknown as RuntimeSnapshot;
 }
 
@@ -168,7 +174,6 @@ function createContainerStoreHarness(initiallyReady: boolean) {
     },
   };
 }
-
 function installHarnesses(
   initiallyReady: boolean,
   remoteSync?: (documentId: string) => Promise<boolean>,
@@ -198,13 +203,13 @@ function installHarnesses(
     symcrypt,
   };
 }
-
-test("attribution hydration retries when the container store becomes ready", async () => {
+test("attribution hydration retries as prerequisites become ready", async () => {
   const harness = installHarnesses(false);
+  let appData = runtimeSnapshot(ORGANIZATION_ID, ROOT_CONTAINER_ID, false);
   try {
-    renderHook(() => {
+    const view = renderHook(() => {
       const requestHydration = useExplorerAttributionProfileHydration({
-        appData: runtimeSnapshot(),
+        appData,
         enabled: true,
         readModelProjection: projection([rosterUser(0)]),
         readModelRevision: 1,
@@ -219,8 +224,11 @@ test("attribution hydration retries when the container store becomes ready", asy
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-
     act(() => harness.containers.setReady(true));
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    appData = runtimeSnapshot();
+    view.rerender();
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
@@ -251,7 +259,6 @@ test("attribution hydration retries when a ready store gains its system containe
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-
     act(() => harness.containers.setContainerAvailable(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
@@ -279,13 +286,11 @@ test("each document keeps one bounded attribution hydration selection", async ()
     await waitFor(() =>
       expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
     );
-
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
-
     act(() =>
       view.result.current({
         contributorUserIds: contributorUserIds.slice(0, 33),
@@ -294,7 +299,6 @@ test("each document keeps one bounded attribution hydration selection", async ()
     );
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
-
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
@@ -330,7 +334,6 @@ test("a shared profile retains its slot in a full hydration selection", async ()
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-
     act(() => harness.containers.setContainerAvailable(true));
     act(() =>
       view.result.current({
@@ -386,7 +389,6 @@ test("an organization switch invalidates pending container resolution", async ()
       readModelProjection: projection([user], OTHER_ORGANIZATION_ID),
     });
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
   } finally {
@@ -413,7 +415,6 @@ test("unmount invalidates pending container resolution", async () => {
     );
     view.unmount();
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
   } finally {
@@ -442,17 +443,18 @@ test("profile sync retries transient failures within its attempt cap", async () 
         documentId: "document-a",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(
-        5,
-      ),
+    await waitFor(() => expect(attemptsByDocumentId.get("profile-1")).toBe(3));
+    await act(async () => Promise.resolve());
+    act(() =>
+      view.result.current({
+        contributorUserIds: ["profile-user-1"],
+        documentId: "document-a",
+      }),
     );
-    expect(attemptsByDocumentId).toEqual(
-      new Map([
-        ["profile-0", 2],
-        ["profile-1", 3],
-      ]),
-    );
+    await waitFor(() => expect(attemptsByDocumentId.get("profile-1")).toBe(6));
+    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(8);
+    expect(attemptsByDocumentId.get("profile-0")).toBe(2);
+    expect(attemptsByDocumentId.get("profile-1")).toBe(6);
   } finally {
     harness.restore();
   }
@@ -480,7 +482,6 @@ test("a later-page disabled contributor displaces an active profile", async () =
     await waitFor(() =>
       expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
     );
-
     act(() =>
       view.result.current({
         contributorUserIds: [users[32]?.userId ?? ""],

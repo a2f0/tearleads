@@ -1,10 +1,8 @@
 import type { DomainScope } from "../../data/domainScope";
 import {
-  getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
   type SyncLane,
-  subscribeToDomainSyncCoordinator,
 } from "../../data/sync/syncCoordinator";
 
 // Facade re-export: document stores must reach this shared sync helper
@@ -37,6 +35,7 @@ export function registerDocumentSyncLane(input: {
 }
 
 export function requestDocumentSyncLaneAndWait(input: {
+  readonly didCompleteRequest: () => boolean;
   readonly domainScope: DomainScope;
   readonly localId: string;
   readonly request: () => void;
@@ -45,23 +44,32 @@ export function requestDocumentSyncLaneAndWait(input: {
   if (input.signal?.aborted) {
     return Promise.resolve(false);
   }
+  const coordinator = getOrCreateDomainSyncCoordinator(input.domainScope);
   const laneKey = getDocumentSyncLaneKey(input.localId);
   const baselineRunCount =
-    getDomainSyncCoordinatorSnapshot(input.domainScope).lanes.find(
-      (lane) => lane.key === laneKey,
-    )?.runCount ?? 0;
+    coordinator.getSnapshot().lanes.find((lane) => lane.key === laneKey)
+      ?.runCount ?? 0;
   return new Promise((resolve) => {
+    let settled = false;
     let unsubscribe: () => void = () => undefined;
     const finish = (completed: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       unsubscribe();
       input.signal?.removeEventListener("abort", handleAbort);
       resolve(completed);
     };
     const handleAbort = () => finish(false);
     const inspect = () => {
-      const lane = getDomainSyncCoordinatorSnapshot(
-        input.domainScope,
-      ).lanes.find((candidate) => candidate.key === laneKey);
+      if (coordinator.isDisposed()) {
+        finish(false);
+        return;
+      }
+      const lane = coordinator
+        .getSnapshot()
+        .lanes.find((candidate) => candidate.key === laneKey);
       if (
         !lane ||
         lane.runCount <= baselineRunCount ||
@@ -71,11 +79,15 @@ export function requestDocumentSyncLaneAndWait(input: {
         return;
       }
       if (lane.lastAction === "completed" || lane.lastAction === "failed") {
-        finish(lane.lastAction === "completed");
+        finish(lane.lastAction === "completed" && input.didCompleteRequest());
       }
     };
-    unsubscribe = subscribeToDomainSyncCoordinator(input.domainScope, inspect);
+    unsubscribe = coordinator.subscribe(inspect);
     input.signal?.addEventListener("abort", handleAbort, { once: true });
+    if (input.signal?.aborted) {
+      finish(false);
+      return;
+    }
     input.request();
     inspect();
   });

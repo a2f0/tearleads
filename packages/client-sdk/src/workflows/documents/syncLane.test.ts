@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainSyncPrerequisites,
+  disposeDomainSyncCoordinator,
   getDomainSyncCoordinatorSnapshot,
   isDatabaseUnavailableError,
   type SyncRuntimeStatus,
@@ -61,6 +62,7 @@ test("requested document sync reports completion and failure", async () => {
 
   expect(
     await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
       domainScope,
       localId: "profile-local-id",
       request,
@@ -69,6 +71,7 @@ test("requested document sync reports completion and failure", async () => {
   shouldFail = false;
   expect(
     await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
       domainScope,
       localId: "profile-local-id",
       request,
@@ -81,7 +84,7 @@ test("requested document sync reports completion and failure", async () => {
 
 test("requested document sync can be aborted while a pass is pending", async () => {
   const domainScope = createDomainScope();
-  let finishRun = () => undefined;
+  let finishRun: () => void = () => undefined;
   const pendingRun = new Promise<void>((resolve) => {
     finishRun = resolve;
   });
@@ -92,6 +95,7 @@ test("requested document sync can be aborted while a pass is pending", async () 
   });
   const abortController = new AbortController();
   const result = requestDocumentSyncLaneAndWait({
+    didCompleteRequest: () => true,
     domainScope,
     localId: "profile-local-id",
     request: () => lane.requestSync(),
@@ -101,6 +105,42 @@ test("requested document sync can be aborted while a pass is pending", async () 
   abortController.abort();
   expect(await result).toBe(false);
   finishRun();
+});
+
+test("a completed lane reports an unconsumed request as incomplete", async () => {
+  const domainScope = createDomainScope();
+  const lane = registerDocumentSyncLane({
+    domainScope,
+    localId: "profile-local-id",
+    run: async () => undefined,
+  });
+
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => false,
+      domainScope,
+      localId: "profile-local-id",
+      request: () => lane.requestSync(),
+    }),
+  ).toBe(false);
+});
+
+test("coordinator disposal resolves a pending request as incomplete", async () => {
+  const domainScope = createDomainScope();
+  const lane = registerDocumentSyncLane({
+    domainScope,
+    localId: "profile-local-id",
+    run: () => new Promise(() => undefined),
+  });
+  const result = requestDocumentSyncLaneAndWait({
+    didCompleteRequest: () => false,
+    domainScope,
+    localId: "profile-local-id",
+    request: () => lane.requestSync(),
+  });
+
+  disposeDomainSyncCoordinator(domainScope);
+  expect(await result).toBe(false);
 });
 
 test("didRegainSyncPrerequisites detects restored sync inputs", () => {

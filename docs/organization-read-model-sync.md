@@ -183,11 +183,17 @@ Explorer presentation loaders read the SQLite projection only. They do not
 reconcile as a cold-miss fallback; the latched demand catch-up above is the one
 network owner and repaints consumers after the atomic projection update.
 Roster and attribution display names are joined only from already-persisted
-local contact summaries. Explorer and Org Manager never provision the
-roster-profile container, open profile document stores, or schedule
-profile-document synchronization to render the roster. A cold profile
-therefore falls back to its user ID until the normal document sync path
-persists that profile locally. Opening the selected profile editor remains an
+local contact summaries. Org Manager never opens profile document stores or
+schedules profile-document synchronization merely to render the roster.
+Explorer preserves that behavior for non-admins. For an organization admin
+viewing document attribution, Explorer may open and probe only contributor
+profile documents already named by the organization projection and already
+located beneath the existing roster-profile container; it never provisions
+that container. Hydration is disabled-first, capped at 32 contributors per
+document across at most 32 recently viewed documents, retries a failed probe at
+most three times, and is cancelled when the authenticated organization scope
+changes. Until a probe persists a profile locally, attribution falls back to
+the contributor's user ID. Opening the selected profile editor remains an
 explicit document operation and may synchronize that one selected profile.
 
 Demand is exact to the authenticated domain, organization, and user scope.

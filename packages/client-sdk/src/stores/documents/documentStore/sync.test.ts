@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { DocumentStoreState } from "./state";
 import {
   canClearRemoteUpdateSignalAfterSync,
+  clearConsumedRemoteUpdateSignal,
   handleDocumentRemoteEvents,
   hasRemoteDocumentUpdateEvent,
 } from "./syncRemoteSignals";
@@ -24,6 +25,7 @@ function createRemoteEventState(
     lastEventCount: 0,
     locallyAcceptedUpdateIds: new Set<string>(),
     record: { documentId: "document-1" },
+    remoteUpdateCompletedSignalSeq: 0,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: { state: { events: [...events] } },
@@ -113,7 +115,12 @@ test("a remote event arriving mid-pass keeps the signal set so the re-run fetche
 });
 
 test("a quiescent pass clears the signal so it does not re-sync forever", () => {
-  // No remote event arrived during the pass: the sequence is unchanged from
-  // what the pass consumed, so the signal is safely cleared.
-  expect(canClearRemoteUpdateSignalAfterSync(3, 3)).toBe(true);
+  const state = createRemoteEventState([]);
+  state.remoteUpdatePending = true;
+  state.remoteUpdateSignalSeq = 3;
+
+  clearConsumedRemoteUpdateSignal(state, 3);
+
+  expect(state.remoteUpdateCompletedSignalSeq).toBe(3);
+  expect(state.remoteUpdatePending).toBe(false);
 });

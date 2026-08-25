@@ -150,15 +150,13 @@ export interface DocumentStoreState {
    */
   rekeyOnlyPassCount: number;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+  /** Latest remote-update sequence durably applied by a completed probe. */
+  remoteUpdateCompletedSignalSeq: number;
   remoteUpdatePending: boolean;
   /**
-   * Monotonically incremented every time a remote update event sets
-   * `remoteUpdatePending`. A sync pass snapshots this when it consumes the
-   * signal so it can tell, after its async network/persist window, whether a
-   * NEW remote event arrived mid-pass. Without this a boolean alone cannot
-   * distinguish "the signal I consumed" from "a fresh signal that arrived
-   * during the await", and clearing it unconditionally drops the new event —
-   * stalling convergence until an unrelated trigger re-arms the lane.
+   * Monotonically incremented when `remoteUpdatePending` is set. A pass
+   * snapshots this so it does not clear a newer event delivered during its
+   * network/persist window and stall convergence.
    */
   remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
@@ -263,6 +261,7 @@ export function createDocumentStoreState(
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
+    remoteUpdateCompletedSignalSeq: 0,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
@@ -334,6 +333,7 @@ function clearDocumentStoreState(
   state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
+  state.remoteUpdateCompletedSignalSeq = 0;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;

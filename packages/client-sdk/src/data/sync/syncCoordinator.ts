@@ -56,6 +56,7 @@ export interface DomainSyncCoordinator {
   // Request one registered pump lane without re-driving unrelated owners.
   requestLane: (key: string) => void;
   hasPendingWork: () => boolean;
+  isDisposed: () => boolean;
   subscribe: (listener: () => void) => () => void;
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
 }
@@ -113,6 +114,9 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         !!coordinatorState.pump ||
         hasPendingLaneWork(coordinatorState.lanes.values())
       );
+    },
+    isDisposed() {
+      return coordinatorState.disposed;
     },
     registerLane(key: string, config: SyncLaneConfig): SyncLane {
       const existingLane = coordinatorState.lanes.get(key);
