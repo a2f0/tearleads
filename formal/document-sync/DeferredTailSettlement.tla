@@ -26,13 +26,15 @@ VARIABLES snapshot, durableSnapshot, durableBase, workingBase, queued, remote,
           liveIdentity, liveGeneration,
           responseIdentity, responseGeneration, responseIncoming,
           responseAccepted, responseDeletes, responsePending,
+          responseWellFormed, responseValidated,
           durableOp, allPublicationsMatchedContext
 coverageVars == << snapshot, durableSnapshot, durableBase, workingBase,
                   queued, remote, durableRemoteRows >>
 captureVars == << capturedFrontier, capturedCoverage, capturedGeneration,
                   capturedIdentity, rerunRequested >>
 responseVars == << responseIdentity, responseGeneration, responseIncoming,
-                   responseAccepted, responseDeletes, responsePending >>
+                   responseAccepted, responseDeletes, responsePending,
+                   responseWellFormed, responseValidated >>
 durableOpVars == << durableOp >>
 auditVars == << allPublicationsMatchedContext >>
 presenceVars == << localPresent, durablePresent, authoritativelyDeleted >>
@@ -75,6 +77,7 @@ TypeOK ==
   /\ responseIdentity \in Identities /\ responseGeneration \in 0..MaxGeneration
   /\ responseIncoming \subseteq Ops /\ responseAccepted \subseteq Ops
   /\ responseDeletes \in BOOLEAN /\ responsePending \in BOOLEAN
+  /\ responseWellFormed \in BOOLEAN /\ responseValidated \in BOOLEAN
   /\ durableOp \in {"none", "marker", "tail", "response", "delete"}
   /\ allPublicationsMatchedContext \in BOOLEAN
 Init ==
@@ -90,6 +93,7 @@ Init ==
   /\ responseIdentity = liveIdentity /\ responseGeneration = 0
   /\ responseIncoming = {} /\ responseAccepted = {}
   /\ responseDeletes = FALSE /\ responsePending = FALSE
+  /\ responseWellFormed = TRUE /\ responseValidated = FALSE
   /\ durableOp = "none" /\ allPublicationsMatchedContext = TRUE
 QueueEdit(op) ==
   /\ localPresent
@@ -197,7 +201,7 @@ CompleteStaleMarkerPersist ==
   /\ durableOp' = "none"
   /\ UNCHANGED << coverageVars, presenceVars, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
-BeginSyncResponse(incoming, accepted, deletes) ==
+BeginSyncResponse(incoming, accepted, deletes, wellFormed) ==
   /\ localPresent
   /\ NoDurableOp
   /\ lane = "prepared"
@@ -206,13 +210,17 @@ BeginSyncResponse(incoming, accepted, deletes) ==
   /\ incoming \subseteq Ops
   /\ accepted \subseteq (queued \cap capturedFrontier)
   /\ deletes \in BOOLEAN
+  /\ wellFormed \in BOOLEAN
   /\ (deletes => (incoming = {} /\ accepted = {}))
+  /\ (deletes => wellFormed)
   /\ responseIdentity' = liveIdentity
   /\ responseGeneration' = liveGeneration
   /\ responseIncoming' = incoming
   /\ responseAccepted' = accepted
   /\ responseDeletes' = deletes
   /\ responsePending' = TRUE
+  /\ responseWellFormed' = wellFormed
+  /\ responseValidated' = FALSE
   /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
                   liveIdentity, liveGeneration, durableOpVars, auditVars >>
 
@@ -256,6 +264,32 @@ ClearResponse ==
   /\ responseIncoming' = {}
   /\ responseAccepted' = {}
   /\ responseDeletes' = FALSE
+  /\ responseWellFormed' = TRUE
+  /\ responseValidated' = FALSE
+
+(* Required validation authenticates keys and scratch-imports the page.     *)
+(* Batch attribution still cannot bypass responseValidated.                *)
+ValidateIncomingResponse ==
+  /\ responsePending
+  /\ NoDurableOp
+  /\ responseWellFormed
+  /\ ~responseValidated
+  /\ responseValidated' = TRUE
+  /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseIdentity,
+                  responseGeneration, responseIncoming, responseAccepted,
+                  responseDeletes, responsePending, responseWellFormed,
+                  durableOpVars, auditVars >>
+
+RejectIsolatedIncomingResponse ==
+  /\ responsePending
+  /\ NoDurableOp
+  /\ ~responseWellFormed
+  /\ ~responseValidated
+  /\ ClearResponse
+  /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
+                  liveIdentity, liveGeneration, responseIdentity,
+                  responseGeneration, durableOpVars, auditVars >>
 
 (* Durable history tail append of the pulled updates — its own durable *)
 (* write, landing BEFORE the record persist, as the implementation *)
@@ -269,6 +303,7 @@ ClearResponse ==
 StartResponseTailAppend ==
   /\ localPresent
   /\ responsePending
+  /\ responseValidated
   /\ NoDurableOp
   /\ ResponseIsLive
   /\ ~(responseIncoming \subseteq durableRemoteRows)
@@ -289,6 +324,7 @@ CompleteResponseTailAppend ==
 StartResponseDurableOp ==
   /\ localPresent
   /\ responsePending
+  /\ responseValidated
   /\ NoDurableOp
   /\ ResponseIsLive
   /\ responseIncoming \subseteq durableRemoteRows
@@ -415,10 +451,13 @@ Next ==
   \/ \E incoming \in SUBSET Ops :
        \E accepted \in SUBSET queued :
          \E deletes \in BOOLEAN :
-           BeginSyncResponse(incoming, accepted, deletes)
+           \E wellFormed \in BOOLEAN :
+             BeginSyncResponse(incoming, accepted, deletes, wellFormed)
   \/ \E nextIdentity \in Identities : Relink(nextIdentity)
   \/ \E nextIdentity \in Identities : ResetReinitialize(nextIdentity)
   \/ AbortStalePreparation
+  \/ ValidateIncomingResponse
+  \/ RejectIsolatedIncomingResponse
   \/ StartResponseTailAppend
   \/ CompleteResponseTailAppend
   \/ StartResponseDurableOp
@@ -457,6 +496,12 @@ StaleResponsePreservesCoverage ==
 
 StaleResponseCannotAdvance == [][StaleResponsePreservesCoverage]_vars
 
+InvalidResponsePreservesProgress ==
+  (responsePending /\ ~responseWellFormed /\ ~responsePending')
+    => UNCHANGED << coverageVars, presenceVars >>
+
+InvalidResponseCannotAdvance == [][InvalidResponsePreservesProgress]_vars
+
 StaleDeletionPreservesLiveDocument ==
   ( /\ localPresent
     /\ responsePending
@@ -470,7 +515,7 @@ StaleDeletionCannotRemoveLiveDocument ==
 DurableStartIsGuarded ==
   /\ (durableOp = "none" /\ durableOp' = "marker") => CaptureIsLive
   /\ (durableOp = "none" /\ durableOp' \in {"tail", "response", "delete"})
-       => ResponseIsLive
+       => (ResponseIsLive /\ responseValidated)
 
 DurableStartRequiresLiveContext == [][DurableStartIsGuarded]_vars
 

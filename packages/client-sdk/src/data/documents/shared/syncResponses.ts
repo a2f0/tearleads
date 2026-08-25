@@ -41,6 +41,13 @@ import type {
 // consistency capability; the authenticated server remains the source of data.
 const UNTRACKED_COMMIT_LSN = "0/0";
 
+export class DocumentSyncResponseUpdateContentKeyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DocumentSyncResponseUpdateContentKeyError";
+  }
+}
+
 function assertAcceptedOutgoingUpdateIdsMatchPlan(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
@@ -101,14 +108,16 @@ function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
 }): DocumentSyncResponse["contentKeyBundle"] {
   const { header, plan } = input;
   if (header.contentKeyEpoch > plan.contentKeyEpoch) {
-    throw new Error(
+    throw new DocumentSyncResponseUpdateContentKeyError(
       "Document sync response includes a future content-key epoch",
     );
   }
 
   const bundle = input.contentKeyBundlesByEpoch.get(header.contentKeyEpoch);
   if (!bundle) {
-    throw new Error("Document sync response content-key bundle missing");
+    throw new DocumentSyncResponseUpdateContentKeyError(
+      "Document sync response content-key bundle missing",
+    );
   }
   if (
     bundle.documentId !== plan.documentId ||
@@ -435,7 +444,10 @@ export async function persistedDocumentSyncStateFromResponse(
     );
   } catch (error) {
     rethrowDatabaseUnavailableError(error);
-    if (error instanceof KeyingVerificationError) {
+    if (
+      error instanceof KeyingVerificationError ||
+      error instanceof DocumentSyncResponseUpdateContentKeyError
+    ) {
       throw error;
     }
     throw new KeyingVerificationError(

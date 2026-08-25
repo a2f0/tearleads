@@ -9,6 +9,7 @@ import {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  LoroImportUnresolvedDependenciesError,
   listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
   listSnapshotFieldEditors,
@@ -133,8 +134,16 @@ test("importUpdates rejects a dependency-bearing update", async () => {
   const dependencyBearingUpdate = exportUpdatesSince(author, base);
   const newcomer = await createDocument("pending-newcomer");
 
-  expect(() => importUpdates(newcomer, [dependencyBearingUpdate])).toThrow(
-    "unresolved pending dependencies",
+  let importError: unknown;
+  try {
+    importUpdates(newcomer, [dependencyBearingUpdate]);
+  } catch (error) {
+    importError = error;
+  }
+  expect(importError).toBeInstanceOf(LoroImportUnresolvedDependenciesError);
+  expect(importError).toHaveProperty(
+    "message",
+    expect.stringContaining("unresolved pending dependencies"),
   );
 });
 

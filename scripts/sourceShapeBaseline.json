@@ -74,8 +74,8 @@
       "bytes": 28553
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 521,
-      "bytes": 21569
+      "lines": 566,
+      "bytes": 23392
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,

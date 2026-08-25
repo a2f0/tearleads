@@ -1,8 +1,4 @@
-import {
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  importUpdates,
-} from "@symcrypt/loro";
+import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
@@ -11,11 +7,9 @@ import {
   type ContainerContentsPersistence,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
-  clearDocumentSyncFailure,
   type PendingUpdateRecord,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
@@ -26,6 +20,10 @@ import {
   syncRemoteDocument,
 } from "../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
+import {
+  applyIncomingContainerMetadataUpdates,
+  metadataIncomingUpdateIsolation,
+} from "./metadataIncomingUpdateIsolation";
 import {
   createReadOnlyMetadataSyncSaveOptions,
   currentMetadataPullContinuation,
@@ -137,6 +135,7 @@ export function settleContainerMetadataOutgoingPass(
 interface SyncRemoteContainerMetadataInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   containerId: string;
+  currentDocument: ContainerMetadataState["doc"];
   documentId: string | null;
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
@@ -156,28 +155,13 @@ interface SyncRemoteContainerMetadataInput {
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
-async function clearSuccessfulMetadataSyncFailure(input: {
-  execSql: ExecSql;
-  metadataScope: { appKind: string; localId: string };
-  pendingUpdateCount: number;
-  synced: ContainerMetadataSyncResult;
-}): Promise<void> {
-  if (
-    shouldClearDocumentSyncFailureAfterPass(
-      input.synced,
-      input.pendingUpdateCount,
-    )
-  ) {
-    await clearDocumentSyncFailure(input.execSql, input.metadataScope);
-  }
-}
-
 async function syncRemoteContainerMetadata(
   input: SyncRemoteContainerMetadataInput,
 ): Promise<ContainerMetadataSyncAttempt | null> {
   const {
     buildRotationSnapshot,
     containerId,
+    currentDocument,
     documentId,
     lastCommitLsn,
     localVersionVector,
@@ -217,6 +201,11 @@ async function syncRemoteContainerMetadata(
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
+    ...metadataIncomingUpdateIsolation({
+      currentDocument,
+      execSql,
+      metadataScope,
+    }),
     onOutgoingUpdatesMaterialized,
     onPullContinuationInvalidated: input.onPullContinuationInvalidated,
     onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
@@ -246,13 +235,6 @@ async function syncRemoteContainerMetadata(
   if (!synced) {
     return null;
   }
-
-  await clearSuccessfulMetadataSyncFailure({
-    execSql,
-    metadataScope,
-    pendingUpdateCount: pendingUpdates.length,
-    synced,
-  });
 
   return createContainerMetadataSyncAttempt({
     outgoingUpdateCount: pendingUpdates.length,
@@ -364,6 +346,7 @@ export async function syncContainerMetadataState(
       syncRemoteContainerMetadata({
         buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
         containerId: metadataState.container.id,
+        currentDocument: metadataState.doc,
         documentId,
         lastCommitLsn: metadataState.record.lastCommitLsn,
         localVersionVector: encodeVersionVector(metadataState.doc),
@@ -429,13 +412,14 @@ async function finalizeContainerMetadataSync(input: {
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {
-    importUpdates(
-      metadataState.doc,
-      synced.decryptedUpdates.map((update) => update.updateData),
-    );
+    applyIncomingContainerMetadataUpdates(metadataState.doc, synced);
   }
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+    clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
+      synced,
+      outgoingUpdateCount,
+    ),
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation ?? null,
       record: syncAttempt.requestRecord,

@@ -16,6 +16,7 @@ export {
   type ImportBlobMode,
   importSnapshot,
   importUpdates,
+  LoroImportUnresolvedDependenciesError,
   listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
   listSnapshotFieldEditors,

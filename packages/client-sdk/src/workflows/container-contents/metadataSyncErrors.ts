@@ -1,5 +1,10 @@
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
+import {
+  isKeyingVerificationError,
+  reportKeyingVerificationErrorInCauseChain,
+} from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   // Signed-state verification failures are terminal integrity incidents, even
@@ -20,11 +25,34 @@ function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   );
 }
 
-export function deferRecoverableMetadataSyncError(input: {
+export async function deferRecoverableMetadataSyncError(input: {
   containerId: string;
   error: unknown;
-  runtime: { util: { log: (message: string) => void } };
-}): null {
+  runtime: {
+    auth: { organizationId: string | null };
+    util: {
+      log: (message: string) => void;
+      reportSecurityIncident: SecurityIncidentReporter;
+    };
+  };
+}): Promise<null> {
+  if (isDocumentSyncUpdateIsolationError(input.error)) {
+    await reportKeyingVerificationErrorInCauseChain(
+      input.error,
+      input.runtime.util.reportSecurityIncident,
+      {
+        objectId: input.containerId,
+        objectKind: "container",
+        operation: "container.metadata.sync",
+        organizationId: input.runtime.auth.organizationId,
+      },
+    );
+    input.runtime.util.log(
+      `Container contents: quarantined incoming metadata updates for ${input.containerId}; deferred this container without blocking later metadata syncs.`,
+    );
+    return null;
+  }
+
   if (isStaleContainerMetadataSecurityStateError(input.error)) {
     input.runtime.util.log(
       `Container contents: deferred metadata sync for ${input.containerId} because its content-key targets are stale.`,

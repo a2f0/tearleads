@@ -115,6 +115,7 @@ export async function saveDocumentRecord(
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     attachmentRemoval: options.attachmentRemoval,
     attachmentStaging: options.attachmentStaging,
+    clearSyncFailure: options.clearSyncFailure,
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,

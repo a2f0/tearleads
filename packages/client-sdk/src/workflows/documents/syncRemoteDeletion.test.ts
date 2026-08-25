@@ -5,7 +5,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
 } from "../../../test/helpers/documentFixtures";
-import { syncRemoteDocument } from "./sync";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

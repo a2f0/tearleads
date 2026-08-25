@@ -15,11 +15,11 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { createStaleBundleSyncFixture } from "../../../test/helpers/staleBundleSyncFixture";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { syncRemoteDocument } from "./sync";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 

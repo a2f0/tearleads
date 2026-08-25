@@ -243,6 +243,91 @@ test("overlapping metadata CAS writes return one conflict without busy-snapshot"
   }
 });
 
+test("metadata failure clearance commits only with the expected state", async () => {
+  const { close, runtime } = await openTestConnection({
+    dbName: `/${crypto.randomUUID()}.db`,
+    key: "metadata-failure-clearance-cas",
+  });
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(runtime.execSql);
+    const container = {
+      effectiveAccessLevel: "write" as const,
+      icon: null,
+      id: "container-failure-clearance",
+      metadataDocumentId: "metadata-failure-clearance",
+      name: "Container",
+      organizationId: "organization-1",
+      parentId: null,
+    };
+    const record = {
+      accessEpoch: 1,
+      accessStateHash: "access-1",
+      documentId: container.metadataDocumentId,
+      id: container.id,
+      metadataUpdates: "current",
+      snapshotEndVersion: "current-version",
+    };
+    await sqlContainerContentsPersistence.saveContainer(
+      runtime.execSql,
+      container,
+      record,
+      { localUpdatedAt: T1 },
+    );
+    await runtime.execSql(
+      `INSERT INTO document_sync_failures
+        (app_kind, local_id, status, message, attempted_at)
+       VALUES ('container-metadata', ?, NULL, 'quarantined', ?)`,
+      [container.id, T2],
+    );
+    const current =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        runtime.execSql,
+        container.id,
+      );
+    if (!current?.record) throw new Error("Expected metadata state");
+
+    await expect(
+      sqlContainerContentsPersistence.commitMetadataMutation(runtime.execSql, {
+        acceptedPendingUpdateIds: [],
+        clearSyncFailure: true,
+        container: current.container,
+        expectedContainer: current.container,
+        expectedRecord: { ...current.record, metadataUpdates: "stale" },
+        record: current.record,
+        settleAcceptedPendingOnConflict: false,
+      }),
+    ).resolves.toMatchObject({ committed: false });
+    expect(
+      await runtime.execSql(
+        `SELECT message FROM document_sync_failures
+         WHERE app_kind = 'container-metadata' AND local_id = ?`,
+        [container.id],
+      ),
+    ).toEqual([{ message: "quarantined" }]);
+
+    await expect(
+      sqlContainerContentsPersistence.commitMetadataMutation(runtime.execSql, {
+        acceptedPendingUpdateIds: [],
+        clearSyncFailure: true,
+        container: current.container,
+        expectedContainer: current.container,
+        expectedRecord: current.record,
+        record: current.record,
+        settleAcceptedPendingOnConflict: false,
+      }),
+    ).resolves.toMatchObject({ committed: true });
+    expect(
+      await runtime.execSql(
+        `SELECT message FROM document_sync_failures
+         WHERE app_kind = 'container-metadata' AND local_id = ?`,
+        [container.id],
+      ),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("an out-of-order remote mutation cannot roll back a metadata access epoch", async () => {
   const { close, runtime } = await openTestConnection({
     dbName: `/${crypto.randomUUID()}.db`,

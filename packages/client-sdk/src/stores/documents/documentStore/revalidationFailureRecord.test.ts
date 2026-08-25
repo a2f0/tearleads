@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { clearDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentSyncFailurePersistence";
@@ -13,10 +14,43 @@ import type {
 import type { DocumentStoreSyncGeneration } from "./syncGeneration";
 import { deleteUpstreamDeletedDocument } from "./syncRequest";
 import {
+  documentIncomingUpdateIsolationFailureHandler,
   documentRevalidationFailureHandler,
   documentTerminalSubmitFailureHandler,
   ensureRemoteDocument,
 } from "./syncShared";
+
+test("incoming poison updates record a durable document-scoped quarantine", async () => {
+  const { close, execSql } = await createTestExecSql("incoming-quarantine");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const state = {
+      localId: "quarantined-doc",
+      runtime: { infra: { execSql } },
+    } as unknown as DocumentStoreState;
+    const failure = new DocumentSyncUpdateIsolationError({
+      cause: new Error("invalid Loro payload"),
+      stage: "loro_import",
+      updateId: "550e8400-e29b-41d4-a716-4466554400aa",
+    });
+
+    await documentIncomingUpdateIsolationFailureHandler(state)(failure);
+
+    expect(
+      await execSql(
+        `SELECT status, message FROM document_sync_failures
+         WHERE app_kind = 'documents' AND local_id = 'quarantined-doc'`,
+      ),
+    ).toEqual([
+      {
+        message: failure.message,
+        status: null,
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
 
 // Edge-case row 13's durable surface, with row 9's suppression intact: a
 // refused read-only revalidation lands on the document's failure row, but a

@@ -8,7 +8,7 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
-import { syncRemoteDocument } from "./sync";
+import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 

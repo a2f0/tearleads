@@ -1,9 +1,17 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
-import { persistedDocumentSyncStateFromResponse } from "../../data/documents/shared/responses";
+import {
+  type IncomingDocumentSyncUpdateValidator,
+  isolateDocumentSyncBatchError,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
+import {
+  DocumentSyncResponseUpdateContentKeyError,
+  persistedDocumentSyncStateFromResponse,
+} from "../../data/documents/shared/responses";
 import type {
   DocumentWriterPublicKeyResolver,
   MaterializedDocumentSyncPlan,
@@ -28,6 +36,23 @@ import {
   settledPendingUpdateIdsFromSync,
 } from "./syncRecoveryRekey";
 
+function isolateContentKeyResponseFailure(
+  error: unknown,
+  response: DocumentSyncResponse,
+): never {
+  if (
+    !(error instanceof DocumentSyncResponseUpdateContentKeyError) ||
+    response.updates.length === 0
+  ) {
+    throw error;
+  }
+  throw isolateDocumentSyncBatchError({
+    cause: new KeyingVerificationError("invalid_shape", error.message),
+    stage: "content_key",
+    updateIds: response.updates.map((update) => update.id),
+  });
+}
+
 export async function syncRemoteDocumentResultFromResponse(input: {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
@@ -39,16 +64,24 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   response: DocumentSyncResponse;
   targetSecretKey: Uint8Array;
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
-  const persistedState = await persistedDocumentSyncStateFromResponse(
-    plan,
-    input.response,
-    {
-      resolveWriterPublicKey: input.resolveWriterPublicKey,
-    },
-  );
+  let persistedState: Awaited<
+    ReturnType<typeof persistedDocumentSyncStateFromResponse>
+  >;
+  try {
+    persistedState = await persistedDocumentSyncStateFromResponse(
+      plan,
+      input.response,
+      {
+        resolveWriterPublicKey: input.resolveWriterPublicKey,
+      },
+    );
+  } catch (error) {
+    isolateContentKeyResponseFailure(error, input.response);
+  }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
     currentContentKeyEpoch: plan.contentKeyEpoch,
@@ -63,6 +96,10 @@ export async function syncRemoteDocumentResultFromResponse(input: {
     documentId: plan.documentId,
     organizationId: plan.organizationId,
     updates: input.response.updates,
+  });
+  await input.validateIncomingUpdates({
+    decryptedUpdates,
+    response: input.response,
   });
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;

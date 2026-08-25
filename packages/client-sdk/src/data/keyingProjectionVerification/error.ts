@@ -7,6 +7,7 @@ import type {
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
+const KEYING_VERIFICATION_CAUSE_LIMIT = 16;
 
 /**
  * Preserve identity and projection verification failures across workflow
@@ -29,8 +30,38 @@ export function rethrowKeyingVerificationError(error: unknown): void {
   }
 }
 
+function keyingVerificationErrorInCauseChain(
+  error: unknown,
+): (Error & { readonly code?: unknown }) | null {
+  let current = error;
+  const seen = new Set<unknown>();
+  for (let depth = 0; depth < KEYING_VERIFICATION_CAUSE_LIMIT; depth += 1) {
+    if (isKeyingVerificationError(current)) return current;
+    if (!(current instanceof Error) || seen.has(current)) return null;
+    seen.add(current);
+    current = current.cause;
+  }
+  return null;
+}
+
+export async function reportKeyingVerificationErrorInCauseChain(
+  error: unknown,
+  reporter: SecurityIncidentReporter | undefined,
+  context: SecurityIncidentContext,
+): Promise<boolean> {
+  const verificationError = keyingVerificationErrorInCauseChain(error);
+  if (!verificationError) return false;
+  try {
+    await reporter?.(verificationError, context);
+  } catch {
+    // Incident reporting is best-effort at this boundary. It must never replace
+    // the boundary behavior that stopped use of untrusted data.
+  }
+  return true;
+}
+
 /**
- * Persist a terminal integrity failure before preserving its original type.
+ * Persist a terminal integrity failure before preserving the boundary error.
  * Call only outside an open persistence transaction: the reporter serializes
  * its own write and awaiting it from that transaction would deadlock.
  */
@@ -39,13 +70,12 @@ export async function reportAndRethrowKeyingVerificationError(
   reporter: SecurityIncidentReporter | undefined,
   context: SecurityIncidentContext,
 ): Promise<void> {
-  if (!isKeyingVerificationError(error)) return;
-  try {
-    await reporter?.(error, context);
-  } catch {
-    // Incident reporting is best-effort at this boundary. It must never replace
-    // the verification failure that stopped use of untrusted data.
-  }
+  const reported = await reportKeyingVerificationErrorInCauseChain(
+    error,
+    reporter,
+    context,
+  );
+  if (!reported) return;
   throw error;
 }
 

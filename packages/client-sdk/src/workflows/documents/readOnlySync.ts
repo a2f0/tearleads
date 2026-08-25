@@ -10,6 +10,11 @@ import {
   isDocumentKekTargetsResponse,
 } from "@symcrypt/validators/response";
 import {
+  type DocumentSyncUpdateIsolationError,
+  type IncomingDocumentSyncUpdateValidator,
+  isDocumentSyncUpdateIsolationError,
+} from "../../data/documents/shared/documentSyncUpdateIsolation";
+import {
   isRetryableDocumentSyncConflict,
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
@@ -76,6 +81,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     response: input.response,
     targetSecretKey: input.targetSecretKey,
+    validateIncomingUpdates: input.validateIncomingUpdates,
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
@@ -200,6 +206,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
@@ -215,6 +222,9 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
+    if (isDocumentSyncUpdateIsolationError(error)) {
+      throw error;
+    }
     if (
       input.allowCachedProjectionRefresh &&
       error instanceof KeyingVerificationError &&
@@ -424,6 +434,10 @@ export interface SyncRemoteDocumentInput {
    * explain why (edge-case row 13).
    */
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
+  /** Records a verified response update that could not be decrypted/imported. */
+  onIncomingUpdateIsolationFailure?:
+    | ((failure: DocumentSyncUpdateIsolationError) => void | Promise<void>)
+    | undefined;
   /** Fires immediately before a materialized outgoing batch is submitted. */
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
@@ -440,6 +454,8 @@ export interface SyncRemoteDocumentInput {
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  /** Validates decrypted updates against scratch state before callers persist. */
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
