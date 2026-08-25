@@ -19,7 +19,7 @@ A raw consumer must:
 3. retain the cursor only in memory and drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
-5. merge durable local pending updates after the remote frontier validates;
+5. merge durable local ordinary deltas after the remote frontier validates;
 6. publish the rebuilt document once through a guarded atomic install.
 
 Rotation checkpoints are still authenticated, decrypted, and scratch-imported
@@ -31,7 +31,8 @@ the recovery source of truth.
 The built-in document content-key rotation preflight implements this contract.
 An interrupted page, a poison update, a changing document generation, or a
 superseding pane leaves the previous durable document intact. Durable pending
-rows remain queued and are merged into the returned full-history snapshot.
+rows remain queued. Ordinary deltas are merged into the returned full-history
+snapshot, while queued rotation checkpoints are excluded from reconstruction.
 
 If a retained update's content-key epoch cannot be resolved, the public
 `DocumentRawHistoryUnavailableError` reports the stable code
@@ -41,15 +42,16 @@ not install partial document state.
 
 ## Verification
 
-Store-level tests cover honest recovery, forged-baseline recovery, unavailable
-historical epochs without durable mutation, interrupted multi-page recovery,
-pending local updates, and the unchanged ordinary-sync request shape.
+Store-level tests cover honest recovery, forged remote and queued baselines,
+malformed historical bundles, unavailable historical epochs without durable
+mutation, interrupted multi-page recovery, pending local updates, and the
+unchanged ordinary-sync request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
 explores arbitrary page assignment, ordinary/checkpoint classification,
-per-update validity, and epoch availability for three updates, two epochs, and
-two pages.
+per-update validity, epoch availability, and arbitrary preexisting durable
+history for three updates, two epochs, and two pages.
 
 | Model action or state | Production implementation |
 | --- | --- |

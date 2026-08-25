@@ -2,7 +2,6 @@ import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   encodeVersionVector,
   exportFullHistorySnapshot,
-  importSnapshot,
   importUpdates,
 } from "@symcrypt/loro";
 import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
@@ -25,18 +24,10 @@ import type { DocumentState, DocumentStoreState } from "./state";
  * and installs the rebuilt document — preserving op identity end to end.
  */
 
-export function importPendingUpdates(
+export function importPendingOrdinaryUpdates(
   document: DocumentState,
   pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>,
 ): void {
-  for (const pendingUpdate of pendingUpdates) {
-    if (
-      pendingUpdate.sourceVersionVector !== null &&
-      pendingUpdate.sourceVersionVector !== undefined
-    ) {
-      importSnapshot(document, base64ToBytes(pendingUpdate.updateData));
-    }
-  }
   const ordinaryUpdates = pendingUpdates
     .filter(
       (pendingUpdate) =>

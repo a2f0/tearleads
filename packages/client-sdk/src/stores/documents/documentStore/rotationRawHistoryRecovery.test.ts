@@ -18,13 +18,18 @@ import {
   collectContainerKeksForDocumentSync,
 } from "../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { DocumentRawHistoryUnavailableError } from "../../../workflows/documents";
+import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
+import {
+  DocumentRawHistoryUnavailableError,
+  isDocumentSyncUpdateIsolationError,
+} from "../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
+import { enqueuePendingUpdate, listPendingUpdates } from "./persistence";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import {
   createRotationRecoveryRuntime,
@@ -90,12 +95,106 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    expect(
+      await enqueuePendingUpdate(
+        state,
+        forgedSnapshot,
+        forgedVectors.partialEndVersionVector,
+      ),
+    ).toBe(true);
 
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
     const recovered = await createDocument("forged-baseline-reader");
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
+    expect(await listPendingUpdates(state)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("a malformed historical bundle is poison-isolated instead of reported unavailable", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-malformed-historical-bundle",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const collectedKeks = await collectContainerKeksForDocumentSync({
+      secretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: fixture.writerProjection,
+    });
+    const currentContentKeyBundle = await buildRotatedDocumentContentKeyBundle({
+      containerKeksByEpochId: collectedKeks.keksByEpochId,
+      contentKey: crypto.getRandomValues(new Uint8Array(32)),
+      writerProjection: fixture.writerProjection,
+    });
+    const [historicalTarget, ...otherHistoricalTargets] =
+      fixture.response.contentKeyBundle.targets;
+    if (!historicalTarget) {
+      throw new Error("Expected historical content-key target");
+    }
+    const malformedHistoricalBundle = {
+      ...fixture.response.contentKeyBundle,
+      targets: [
+        {
+          ...historicalTarget,
+          wrappedKey: bytesToBase64(new Uint8Array([1, 2, 3])),
+        },
+        ...otherHistoricalTargets,
+      ],
+    };
+    const currentFixture = {
+      ...fixture,
+      response: {
+        ...fixture.response,
+        contentKeyBundle: currentContentKeyBundle,
+        contentKeyBundles: [malformedHistoricalBundle, currentContentKeyBundle],
+      },
+      writerProjection: {
+        ...fixture.writerProjection,
+        contentKeyBundle: currentContentKeyBundle,
+      },
+    };
+    const localId = "rotation-recovery-malformed-historical-bundle-local";
+    const behindReader = await createDocument("malformed-bundle-behind");
+    importSnapshot(behindReader, fixture.behindSnapshot);
+    await persistFullHistoryDocument({
+      doc: behindReader,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const originalRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      localId,
+    );
+    const state = createDocumentStoreState(
+      localId,
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture: currentFixture,
+      }),
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+
+    const error = await assertDocumentStoreCanRotateContentKey(state).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(state.doc && getTextValue(state.doc)).toBe("survives key");
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, localId),
+    ).toEqual(originalRecord);
   } finally {
     close();
   }

@@ -13,7 +13,10 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
-import { importPendingUpdates, installRebuiltDocument } from "./historyRebuild";
+import {
+  importPendingOrdinaryUpdates,
+  installRebuiltDocument,
+} from "./historyRebuild";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
 import {
   enqueuePendingUpdate,
@@ -215,9 +218,11 @@ async function recoverFullHistoryForRotation(
       );
     }
 
-    // Raw recovery is read-only, so durable local queue rows remain queued;
-    // merge their content into the recovered document before installation.
-    importPendingUpdates(rebuiltDoc, pendingUpdates);
+    // Raw recovery is read-only, so durable local queue rows remain queued.
+    // Merge ordinary local deltas, but never trust queued rotation snapshots:
+    // their coverage claims are excluded for the same reason as remote
+    // rotate_baseline checkpoints.
+    importPendingOrdinaryUpdates(rebuiltDoc, pendingUpdates);
     if (uncoveredLocalDelta.byteLength > 0) {
       importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
       // `pendingBaseVersion` can intentionally lag a deferred or interrupted

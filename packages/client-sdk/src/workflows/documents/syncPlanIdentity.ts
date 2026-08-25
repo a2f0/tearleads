@@ -205,6 +205,11 @@ export async function buildDocumentSyncPlan(
     organizationId,
   } = await resolveDocumentSyncIdentity(input);
   const outgoingUpdateInputs = [...(input.outgoingUpdates ?? [])];
+  if (input.historyMode === "raw" && input.localVersionVector !== null) {
+    throw new Error(
+      "Document raw-history sync must start from a null version vector",
+    );
+  }
   if (input.historyMode === "raw" && outgoingUpdateInputs.length > 0) {
     throw new Error("Document raw-history sync must be read-only");
   }

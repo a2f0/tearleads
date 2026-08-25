@@ -24,13 +24,15 @@ VARIABLES phase,
           epochAvailable,
           ordinaryUpdates,
           scratchHistory,
+          initialDurableHistory,
           durableHistory,
           durablePublished,
           reportedUnavailableEpoch
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            epochAvailable, ordinaryUpdates, scratchHistory,
-           durableHistory, durablePublished, reportedUnavailableEpoch >>
+           initialDurableHistory, durableHistory, durablePublished,
+           reportedUnavailableEpoch >>
 
 PageUpdates(page) == {id \in UpdateIds : pageOf[id] = page}
 
@@ -54,7 +56,8 @@ TypeOK ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ scratchHistory \subseteq ordinaryUpdates
-  /\ durableHistory \subseteq ordinaryUpdates
+  /\ initialDurableHistory \in SUBSET UpdateIds
+  /\ durableHistory \in SUBSET UpdateIds
   /\ durablePublished \in BOOLEAN
   /\ reportedUnavailableEpoch \in 0..MaxEpoch
 
@@ -67,7 +70,8 @@ Init ==
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ scratchHistory = {}
-  /\ durableHistory = {}
+  /\ initialDurableHistory \in SUBSET UpdateIds
+  /\ durableHistory = initialDurableHistory
   /\ durablePublished = FALSE
   /\ reportedUnavailableEpoch = 0
 
@@ -80,8 +84,8 @@ ValidatePage ==
        scratchHistory \cup (PageUpdates(nextPage) \cap ordinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, pageOf, updateEpoch, updateValid, epochAvailable,
-                  ordinaryUpdates, durableHistory, durablePublished,
-                  reportedUnavailableEpoch >>
+                  ordinaryUpdates, initialDurableHistory, durableHistory,
+                  durablePublished, reportedUnavailableEpoch >>
 
 RejectUnavailablePage ==
   /\ phase = "collecting"
@@ -91,7 +95,7 @@ RejectUnavailablePage ==
   /\ reportedUnavailableEpoch' = MinEpoch(UnavailableEpochs(nextPage))
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, scratchHistory,
-                  durableHistory, durablePublished >>
+                  initialDurableHistory, durableHistory, durablePublished >>
 
 RejectInvalidPage ==
   /\ phase = "collecting"
@@ -101,7 +105,7 @@ RejectInvalidPage ==
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, scratchHistory,
-                  durableHistory, durablePublished,
+                  initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
 PublishRecovery ==
@@ -112,6 +116,7 @@ PublishRecovery ==
   /\ durablePublished' = TRUE
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, scratchHistory,
+                  initialDurableHistory,
                   reportedUnavailableEpoch >>
 
 RemainTerminal ==
@@ -128,10 +133,12 @@ Next ==
 Spec == Init /\ [][Next]_vars
 
 NoDurableMutationBeforeComplete ==
-  phase = "complete" \/ (~durablePublished /\ durableHistory = {})
+  phase = "complete" \/
+    (~durablePublished /\ durableHistory = initialDurableHistory)
 
 FailedRecoveryPreservesDurableHistory ==
-  phase # "failed" \/ (~durablePublished /\ durableHistory = {})
+  phase # "failed" \/
+    (~durablePublished /\ durableHistory = initialDurableHistory)
 
 CompleteRecoveryContainsAllOrdinaryHistory ==
   phase # "complete" \/ durableHistory = ordinaryUpdates

@@ -146,6 +146,14 @@ export class DocumentHistoryUnavailableError extends Error {
   }
 }
 
+/** No verified target or predecessor path can supply this content key. */
+export class DocumentContentKeyUnavailableError extends Error {
+  constructor() {
+    super("Document content key could not be unwrapped");
+    this.name = "DocumentContentKeyUnavailableError";
+  }
+}
+
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
@@ -260,7 +268,7 @@ export async function unwrapDocumentContentKeyFromBundle(
     if (predecessorFailure !== undefined) {
       throw new DocumentHistoryUnavailableError(predecessorFailure);
     }
-    throw new Error("Document content key could not be unwrapped");
+    throw new DocumentContentKeyUnavailableError();
   }
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");

@@ -10,6 +10,7 @@ import {
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   collectContainerKeksForDocumentSync,
+  DocumentContentKeyUnavailableError,
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
@@ -211,10 +212,19 @@ export async function unwrapDocumentSyncResponseContentKeys(
     const bundle = bundlesByEpoch.get(contentKeyEpoch);
     const responseUpdates =
       updatesByContentKeyEpoch.get(contentKeyEpoch) ?? missingUpdates;
-    try {
-      if (!bundle) {
-        throw new Error("Document sync response content-key bundle missing");
+    if (!bundle) {
+      const error = new Error(
+        "Document sync response content-key bundle missing",
+      );
+      if (input.historyMode === "raw") {
+        throw new DocumentRawHistoryUnavailableError(contentKeyEpoch, error);
       }
+      throwDocumentSyncContentKeyFailure({
+        cause: error,
+        updates: responseUpdates,
+      });
+    }
+    try {
       contentKeysByEpoch.set(
         bundle.contentKeyEpoch,
         await unwrapDocumentContentKeyFromBundle(
@@ -225,7 +235,10 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
-      if (input.historyMode === "raw") {
+      if (
+        input.historyMode === "raw" &&
+        error instanceof DocumentContentKeyUnavailableError
+      ) {
         throw new DocumentRawHistoryUnavailableError(contentKeyEpoch, error);
       }
       throwDocumentSyncContentKeyFailure({
