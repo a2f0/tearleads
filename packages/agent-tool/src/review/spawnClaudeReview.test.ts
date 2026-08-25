@@ -3,6 +3,8 @@ import {
   chmodSync,
   existsSync,
   mkdtempSync,
+  readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -30,6 +32,7 @@ const stubEnv: ReviewerEnv = {
 
 /** An environment with no `claude` on it at all. */
 const bareEnv: ReviewerEnv = { PATH: SYSTEM_PATH };
+const cwdPath = path.join(stubDir, "cwd");
 
 /**
  * Install a stub `claude` that prints `stdout` and exits with `exitCode`. The
@@ -42,6 +45,7 @@ function stubClaude(stdout: string, exitCode = 0): void {
   const script = [
     "#!/bin/sh",
     "cat > /dev/null", // drain the prompt on stdin, as the real CLI does
+    `pwd > ${JSON.stringify(cwdPath)}`,
     `cat ${JSON.stringify(payloadPath)}`,
     `exit ${exitCode}`,
   ].join("\n");
@@ -63,6 +67,7 @@ function stubFlakyClaude(review: string): void {
   const script = [
     "#!/bin/sh",
     "cat > /dev/null",
+    `pwd > ${JSON.stringify(cwdPath)}`,
     `if [ -f ${JSON.stringify(markerPath)} ]; then`,
     `  cat ${JSON.stringify(payloadPath)}`,
     "else",
@@ -84,6 +89,9 @@ describe("spawnClaudeReview", () => {
     stubClaude("## Review\n\n- Minor: `a.ts:1` naming.\n\nVERDICT: MINOR\n");
 
     expect(spawnClaudeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(0);
+    expect(realpathSync(readFileSync(cwdPath, "utf8").trim())).toBe(
+      realpathSync(stubDir),
+    );
   });
 
   test("rejects a bare intent sentence despite a success exit", () => {

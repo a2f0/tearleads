@@ -22,22 +22,27 @@ Both actions:
    open PR, the repository's default branch when it does not.
 2. Verify there are changes against that base.
 3. Read the review policy from the fetched base commit, build the repo's
-   verdict-gated prompt with the diff marked as untrusted input, and hand it to
-   the target agent's CLI on stdin.
+   verdict-gated prompt with the diff marked as untrusted input, export the
+   exact tracked `HEAD` into a temporary read-only snapshot, and hand the prompt
+   to the target agent's CLI on stdin.
 4. Relay the review to stdout and gate it: a usable review carries a
    `VERDICT: BLOCKER|MAJOR|MINOR|SUGGESTION|CLEAN` line. An exit-0 run without
    one is retried once (the observed failure mode is stochastic), then reported
    as a nonzero exit.
 
-Claude reviews with read-only tools (`Read,Grep,Glob`, no `Bash`) in safe mode,
-with browser integration and session persistence disabled. Codex reviews via
-`codex exec` in a **read-only sandbox with the user config ignored** (the
-sandbox confines shell commands, not user-configured MCP tools). It runs from a
-neutral temporary directory while the repository is exposed only for file
-inspection, so the branch's `AGENTS.md` is not injected as reviewer policy.
-Only Codex's final message — captured with `--output-last-message` — is relayed,
-so the output is the review itself rather than the session's investigative
-transcript.
+The snapshot comes from `git archive` rather than the working tree, so it
+contains no untracked files, local edits, or `.git` metadata and is deleted
+after the review. Claude reviews that snapshot with read-only tools
+(`Read,Grep,Glob`, no `Bash`) under an absolute snapshot-scoped allow rule in
+safe and `dontAsk` modes, with browser integration and session persistence
+disabled. Codex reviews via an ephemeral `codex exec` session with the user
+config ignored. Its custom permission profile denies the host filesystem and
+network by default, grants read access only to the snapshot and minimal runtime
+paths, and strips the environment from model-generated commands. Codex runs
+from a neutral temporary directory so the branch's `AGENTS.md` is not injected
+as reviewer policy. Only its final message — captured with
+`--output-last-message` — is relayed, so the output is the review itself rather
+than the session's investigative transcript.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to
 **`xhigh` for Claude** and **`high` for Codex**. It is passed as

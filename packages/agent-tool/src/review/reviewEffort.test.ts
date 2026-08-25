@@ -45,34 +45,42 @@ describe("resolveReviewEffort", () => {
 
 describe("buildClaudeReviewArgs", () => {
   test("passes --effort and keeps --print", () => {
-    expect(buildClaudeReviewArgs("xhigh")).toEqual([
+    expect(buildClaudeReviewArgs("xhigh", "/review/snapshot")).toEqual([
       "--effort",
       "xhigh",
       "--print",
       "--safe-mode",
       "--no-chrome",
       "--no-session-persistence",
+      "--permission-mode",
+      "dontAsk",
       "--tools",
       "Read,Grep,Glob",
+      "--allowedTools",
+      "Read(//review/snapshot/**)",
     ]);
   });
 
   test("grants the read-only tools a finding may depend on", () => {
-    const tools = buildClaudeReviewArgs("high").at(-1) ?? "";
+    const args = buildClaudeReviewArgs("high", "/review/snapshot");
+    const tools = args[args.indexOf("--tools") + 1] ?? "";
 
     expect(tools.split(",")).toEqual(["Read", "Grep", "Glob"]);
   });
 
   test("withholds Bash: a review needs no shell, and the diff is untrusted", () => {
-    expect(buildClaudeReviewArgs("high").at(-1)).not.toContain("Bash");
+    const args = buildClaudeReviewArgs("high", "/review/snapshot");
+    const tools = args[args.indexOf("--tools") + 1] ?? "";
+    expect(tools).not.toContain("Bash");
   });
 
   test("disables ambient customization and external integrations", () => {
-    const args = buildClaudeReviewArgs("high");
+    const args = buildClaudeReviewArgs("high", "/review/snapshot");
 
     expect(args).toContain("--safe-mode");
     expect(args).toContain("--no-chrome");
     expect(args).toContain("--no-session-persistence");
+    expect(args).toContain("dontAsk");
   });
 });
 

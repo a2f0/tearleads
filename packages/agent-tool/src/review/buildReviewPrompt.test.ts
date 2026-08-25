@@ -95,7 +95,7 @@ describe("buildReviewPrompt", () => {
     );
   });
 
-  test("tells Codex to read with its shell, sandboxed read-only", () => {
+  test("tells Codex to read with its shell under read-only permissions", () => {
     // Codex reads files *through* its shell, so its note must not say "you
     // cannot run commands" — that would talk it out of reading at all.
     const prompt = buildReviewPrompt({
@@ -103,7 +103,7 @@ describe("buildReviewPrompt", () => {
       accessNote: CODEX_ACCESS_NOTE,
     });
 
-    expect(prompt).toContain("your sandbox is read-only");
+    expect(prompt).toContain("your filesystem permissions are read-only");
     expect(prompt).not.toContain("You cannot run commands");
   });
 

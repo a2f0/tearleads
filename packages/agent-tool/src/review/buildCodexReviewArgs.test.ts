@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { buildCodexReviewArgs } from "./solicitCodexReview";
 
 describe("buildCodexReviewArgs", () => {
-  test("execs read-only with pinned effort, capturing the last message", () => {
+  test("execs ephemerally with pinned permissions and output", () => {
     const args = buildCodexReviewArgs(
       "high",
       "/tmp/x/review-1.md",
@@ -13,19 +13,26 @@ describe("buildCodexReviewArgs", () => {
     expect(args).toEqual([
       "exec",
       "--ignore-user-config",
+      "--ignore-rules",
+      "--strict-config",
+      "--ephemeral",
       "--disable",
       "plugins",
       "--disable",
       "hooks",
       "--disable",
       "apps",
-      "--sandbox",
-      "read-only",
-      "--add-dir",
-      "/repo/root",
       "--skip-git-repo-check",
       "-c",
       'model_reasoning_effort="high"',
+      "-c",
+      'default_permissions="review-snapshot"',
+      "-c",
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/repo/root"="read"}',
+      "-c",
+      "permissions.review-snapshot.network.enabled=false",
+      "-c",
+      'shell_environment_policy.inherit="none"',
       "--color",
       "never",
       "--output-last-message",
@@ -35,7 +42,7 @@ describe("buildCodexReviewArgs", () => {
   });
 
   test("withholds MCP tools: the sandbox does not confine them", () => {
-    // `--sandbox read-only` restricts shell commands only; user-configured MCP
+    // Legacy sandbox modes restrict shell commands only; user-configured MCP
     // servers would still load and could mutate external state on behalf of an
     // attacker-influenceable diff. `-c mcp_servers={}` cannot remove them —
     // table overrides merge — so the user config is ignored wholesale, and
@@ -54,7 +61,7 @@ describe("buildCodexReviewArgs", () => {
     expect(disabled).toEqual(["plugins", "hooks", "apps"]);
   });
 
-  test("opens the repository without making it the instruction root", () => {
+  test("exposes only the snapshot and minimal runtime paths", () => {
     const args = buildCodexReviewArgs(
       "high",
       "/tmp/x/review-1.md",
@@ -62,7 +69,12 @@ describe("buildCodexReviewArgs", () => {
     );
 
     expect(args).toContain("--skip-git-repo-check");
-    expect(args[args.indexOf("--add-dir") + 1]).toBe("/repo/root");
+    expect(args).not.toContain("--sandbox");
+    expect(args).not.toContain("--add-dir");
+    expect(args).toContain(
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/repo/root"="read"}',
+    );
+    expect(args).toContain('shell_environment_policy.inherit="none"');
   });
 
   test("reads the prompt from stdin, never argv", () => {

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 import {
   ensureChanges,
@@ -17,6 +18,7 @@ import {
   CLAUDE_ACCESS_NOTE,
   readReviewInstructions,
 } from "./reviewPrompt";
+import { withReviewSnapshot } from "./reviewSnapshot";
 import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
 
 /**
@@ -34,14 +36,24 @@ import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
  * `--safe-mode` also disables project/user instructions, skills, plugins,
  * hooks, and MCP servers so the branch cannot expand the reviewer's authority.
  * Browser integration and session persistence are disabled explicitly too.
+ * `dontAsk` fails closed on unapproved access, while the absolute Read rule
+ * confines file inspection to the immutable snapshot.
  */
 const REVIEW_TOOLS = ["Read", "Grep", "Glob"] as const;
+
+function absoluteClaudeReadRule(snapshotRoot: string): string {
+  const normalized = path.resolve(snapshotRoot).replaceAll("\\", "/");
+  return `Read(//${normalized.replace(/^\/+/, "")}/**)`;
+}
 
 /**
  * Build the `claude` argv for a non-interactive review at the given effort
  * level. The prompt itself goes over stdin, not argv.
  */
-export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
+export function buildClaudeReviewArgs(
+  effort: ReviewEffort,
+  snapshotRoot: string,
+): string[] {
   return [
     "--effort",
     effort,
@@ -49,8 +61,12 @@ export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
     "--safe-mode",
     "--no-chrome",
     "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
     "--tools",
     REVIEW_TOOLS.join(","),
+    "--allowedTools",
+    absoluteClaudeReadRule(snapshotRoot),
   ];
 }
 
@@ -65,23 +81,27 @@ export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
 export function spawnClaudeReview(
   prompt: string,
   effort: ReviewEffort,
-  rootDir: string,
+  snapshotRoot: string,
   env: ReviewerEnv = process.env,
 ): number {
   return relayReviewWithRetry("claude", () => {
     // Captured rather than inherited: a review has to be read to be judged, and
     // `claude` exits 0 whether it reviewed the diff or merely said it would.
     // `--print` emits the review in one final block, so nothing streams anyway.
-    const result = spawnSync("claude", buildClaudeReviewArgs(effort), {
-      stdio: ["pipe", "pipe", "inherit"],
-      input: prompt,
-      encoding: "utf8",
-      maxBuffer: MAX_BUFFER_BYTES,
-      cwd: rootDir,
-      // Passed explicitly so `claude` resolves against this PATH rather than the
-      // one the runtime snapshotted at startup.
-      env,
-    });
+    const result = spawnSync(
+      "claude",
+      buildClaudeReviewArgs(effort, snapshotRoot),
+      {
+        stdio: ["pipe", "pipe", "inherit"],
+        input: prompt,
+        encoding: "utf8",
+        maxBuffer: MAX_BUFFER_BYTES,
+        cwd: snapshotRoot,
+        // Passed explicitly so `claude` resolves against this PATH rather than
+        // the one the runtime snapshotted at startup.
+        env,
+      },
+    );
     return {
       exitCode: spawnExitCode("claude", result),
       review: result.stdout ?? "",
@@ -105,13 +125,16 @@ export function solicitClaudeCodeReview(
   ensureChanges(context.baseRef);
 
   const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);
-  const prompt = buildReviewPrompt({
-    context,
-    diff,
-    reviewInstructions: readReviewInstructions(rootDir, context.baseRef),
-    accessNote: CLAUDE_ACCESS_NOTE,
-    repositoryRoot: rootDir,
-  });
+  const reviewInstructions = readReviewInstructions(rootDir, context.baseRef);
+  return withReviewSnapshot(rootDir, (snapshotRoot) => {
+    const prompt = buildReviewPrompt({
+      context,
+      diff,
+      reviewInstructions,
+      accessNote: CLAUDE_ACCESS_NOTE,
+      repositoryRoot: snapshotRoot,
+    });
 
-  return spawnClaudeReview(prompt, effort, rootDir);
+    return spawnClaudeReview(prompt, effort, snapshotRoot);
+  });
 }

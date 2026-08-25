@@ -213,10 +213,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **Both directions use the same gate:** every review must end with a
    `VERDICT:` line (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`, or `CLEAN`). The
    actions retry once after an exit-0 missing a verdict, then fail into fallback.
-   Prompts use base-commit policy and label the diff untrusted. Claude uses safe
-   mode and read-only tools. Codex uses a neutral cwd, disabled integrations,
-   and a read-only sandbox; it relays only its final message. The verdict is a
-   completion sentinel, not proof of quality — still read the findings.
+   Prompts use base-commit policy and label the diff untrusted. Both reviewers
+   inspect a temporary read-only export of tracked `HEAD`, never the live
+   checkout. Claude uses safe mode and snapshot-scoped read tools. Codex uses a
+   neutral cwd, disabled integrations, an ephemeral session, and a
+   deny-by-default filesystem profile; it relays only its final message. The
+   verdict is a completion sentinel, not proof of quality — still read the
+   findings.
 
    After review, confirm the head is still the snapshot:
 
