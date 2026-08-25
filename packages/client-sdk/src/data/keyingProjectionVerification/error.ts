@@ -44,6 +44,22 @@ function keyingVerificationErrorInCauseChain(
   return null;
 }
 
+export async function reportKeyingVerificationErrorInCauseChain(
+  error: unknown,
+  reporter: SecurityIncidentReporter | undefined,
+  context: SecurityIncidentContext,
+): Promise<boolean> {
+  const verificationError = keyingVerificationErrorInCauseChain(error);
+  if (!verificationError) return false;
+  try {
+    await reporter?.(verificationError, context);
+  } catch {
+    // Incident reporting is best-effort at this boundary. It must never replace
+    // the boundary behavior that stopped use of untrusted data.
+  }
+  return true;
+}
+
 /**
  * Persist a terminal integrity failure before preserving the boundary error.
  * Call only outside an open persistence transaction: the reporter serializes
@@ -54,14 +70,12 @@ export async function reportAndRethrowKeyingVerificationError(
   reporter: SecurityIncidentReporter | undefined,
   context: SecurityIncidentContext,
 ): Promise<void> {
-  const verificationError = keyingVerificationErrorInCauseChain(error);
-  if (!verificationError) return;
-  try {
-    await reporter?.(verificationError, context);
-  } catch {
-    // Incident reporting is best-effort at this boundary. It must never replace
-    // the boundary error that stopped use of untrusted data.
-  }
+  const reported = await reportKeyingVerificationErrorInCauseChain(
+    error,
+    reporter,
+    context,
+  );
+  if (!reported) return;
   throw error;
 }
 

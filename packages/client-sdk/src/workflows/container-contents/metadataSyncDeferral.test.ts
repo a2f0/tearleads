@@ -14,6 +14,9 @@ import {
 function createMetadataSyncRuntime(input: {
   getDocumentWriterProjection: (documentId: string) => Promise<never>;
   logs: string[];
+  reportSecurityIncident?:
+    | ((error: unknown, context: unknown) => Promise<void>)
+    | undefined;
 }) {
   return {
     apiClient: {
@@ -41,6 +44,8 @@ function createMetadataSyncRuntime(input: {
       log: (message: string) => {
         input.logs.push(message);
       },
+      reportSecurityIncident:
+        input.reportSecurityIncident ?? (async () => undefined),
     },
   } as never;
 }
@@ -146,6 +151,62 @@ test("an isolated metadata response does not starve the next container", async (
   ]);
   expect(logs).toEqual([
     "Container contents: quarantined incoming metadata updates for container-isolated; deferred this container without blocking later metadata syncs.",
+  ]);
+});
+
+test("isolated metadata reports a nested verification incident", async () => {
+  const container = createContainerRecord({
+    id: "container-isolated-integrity",
+    metadataDocumentId: "metadata-document-isolated-integrity",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    documentId: "metadata-document-isolated-integrity",
+    id: container.id,
+  });
+  const logs: string[] = [];
+  const integrityError = new KeyingVerificationError(
+    "signature_mismatch",
+    "metadata writer signature mismatch",
+  );
+  const isolationError = new DocumentSyncUpdateIsolationError({
+    batchUpdateIds: ["550e8400-e29b-41d4-a716-4466554400ee"],
+    cause: integrityError,
+    stage: "write_header",
+    updateId: null,
+  });
+  const incidents: Array<{ context: unknown; error: unknown }> = [];
+
+  const synced = await syncContainerMetadataState({
+    ...createForcedMetadataSyncInput(
+      createMetadataSyncRuntime({
+        getDocumentWriterProjection: async () => {
+          throw isolationError;
+        },
+        logs,
+        reportSecurityIncident: async (error, context) => {
+          incidents.push({ context, error });
+        },
+      }),
+    ),
+    metadataState: { container, doc, record },
+  });
+
+  expect(synced).toBeNull();
+  expect(incidents).toEqual([
+    {
+      context: {
+        objectId: container.id,
+        objectKind: "container",
+        operation: "container.metadata.sync",
+        organizationId: "org-1",
+      },
+      error: integrityError,
+    },
+  ]);
+  expect(logs).toEqual([
+    "Container contents: quarantined incoming metadata updates for container-isolated-integrity; deferred this container without blocking later metadata syncs.",
   ]);
 });
 
