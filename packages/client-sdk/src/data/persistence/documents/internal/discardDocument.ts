@@ -16,7 +16,10 @@ import {
   documentMoveIntentTables,
   documentPendingAttachments,
 } from "../../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -61,93 +64,172 @@ function buildDiscardShellDocument(
   };
 }
 
-// The single transaction behind the discard: row teardown, the document-kind
-// client-projection clear, and the shell upsert commit together, so an
-// interruption leaves either the fully old or the fully shelled document.
-// Staged-upload rows AND detached local-attachment markers both go: a marker
-// for a locally-discarded detach would otherwise keep filtering the slot out
-// of every projection after the re-pull restores it (hydration skips the slot
-// because its cached storage key still matches), leaving the attachment
-// permanently invisible.
-async function discardDocumentRowsToShell(input: {
-  documentProjectors: DocumentProjectorRegistry;
+interface DiscardCandidate {
+  detachedStorageKeys: string[];
   existingDocument: StoredDocumentRecord;
+  pendingAttachments: ReadonlyArray<{ slotId: string; storageKey: string }>;
+}
+
+async function loadDiscardCandidate(input: {
+  expectedDocumentId: string;
   localId: string;
   lockedExecSql: ExecSql;
-  pendingAttachments: ReadonlyArray<{ slotId: string; storageKey: string }>;
-}): Promise<void> {
-  const {
-    documentProjectors,
-    existingDocument,
-    localId,
+  persistence: Pick<
+    DocumentsPersistence,
+    "listPendingAttachments" | "loadDocument"
+  >;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<DiscardCandidate | null> {
+  const { expectedDocumentId, localId, lockedExecSql, persistence, tx } = input;
+  const existingDocument = await persistence.loadDocument(
     lockedExecSql,
-    pendingAttachments,
-  } = input;
-  const shellDocument = buildDiscardShellDocument(localId, existingDocument);
-  const clientProjectionTables = documentProjectors.getClientProjectionTables();
-  if (clientProjectionTables.length > 0) {
-    await ensureSqlTables(lockedExecSql, clientProjectionTables);
+    localId,
+  );
+  if (
+    !existingDocument?.documentId ||
+    existingDocument.documentId !== expectedDocumentId ||
+    !existingDocument.containerId
+  ) {
+    return null;
   }
-  await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-    async (tx) => {
-      await deleteDocumentPendingUpdates(
-        lockedExecSql,
-        getDocumentScope(localId),
-      );
-      await tx
-        .delete(documentPendingAttachments)
-        .where(eq(documentPendingAttachments.localId, localId))
-        .run();
-      for (const pendingAttachment of pendingAttachments) {
-        await tx
-          .delete(documentAttachmentBlobProjection)
-          .where(
-            and(
-              eq(documentAttachmentBlobProjection.localId, localId),
-              eq(
-                documentAttachmentBlobProjection.slotId,
-                pendingAttachment.slotId,
-              ),
-              eq(
-                documentAttachmentBlobProjection.storageKey,
-                pendingAttachment.storageKey,
-              ),
-            ),
-          )
-          .run();
-      }
-      await tx
-        .delete(documentAttachmentBlobProjection)
-        .where(
-          and(
-            eq(documentAttachmentBlobProjection.localId, localId),
-            isNotNull(documentAttachmentBlobProjection.detachedAt),
+  const moveIntentRows = await tx
+    .select({ id: documentMoveIntents.id })
+    .from(documentMoveIntents)
+    .where(eq(documentMoveIntents.localId, localId))
+    .limit(1);
+  if (moveIntentRows.length > 0) return null;
+
+  const pendingAttachments = await persistence.listPendingAttachments(
+    lockedExecSql,
+    localId,
+  );
+  const detachedRows = await tx
+    .select({ storageKey: documentAttachmentBlobProjection.storageKey })
+    .from(documentAttachmentBlobProjection)
+    .where(
+      and(
+        eq(documentAttachmentBlobProjection.localId, localId),
+        isNotNull(documentAttachmentBlobProjection.detachedAt),
+      ),
+    );
+  return {
+    detachedStorageKeys: detachedRows.map((row) => row.storageKey),
+    existingDocument,
+    pendingAttachments,
+  };
+}
+
+// Staged-upload rows AND detached local-attachment markers both go: a marker
+// for a locally-discarded detach would otherwise keep filtering the slot out
+// after a re-pull restores it, leaving the attachment permanently invisible.
+async function clearDiscardedDocumentRows(input: {
+  candidate: DiscardCandidate;
+  localId: string;
+  lockedExecSql: ExecSql;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  const { candidate, localId, lockedExecSql, tx } = input;
+  await deleteDocumentPendingUpdates(lockedExecSql, getDocumentScope(localId));
+  await tx
+    .delete(documentPendingAttachments)
+    .where(eq(documentPendingAttachments.localId, localId))
+    .run();
+  for (const pendingAttachment of candidate.pendingAttachments) {
+    await tx
+      .delete(documentAttachmentBlobProjection)
+      .where(
+        and(
+          eq(documentAttachmentBlobProjection.localId, localId),
+          eq(documentAttachmentBlobProjection.slotId, pendingAttachment.slotId),
+          eq(
+            documentAttachmentBlobProjection.storageKey,
+            pendingAttachment.storageKey,
           ),
-        )
-        .run();
-      await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
-      await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
-      // The document-kind client projection (e.g. a contact's projected
-      // fields) derives from the discarded content and is read directly by
-      // consumers, so it must not outlive the rows it derived from. Clearing
-      // it INSIDE the transaction keeps the discard all-or-nothing; the
-      // re-pull's persist rebuilds it. Projector deletes are runMutation
-      // -based plain statements, so they join this open transaction.
-      await documentProjectors.deleteStoredDocumentClientProjection({
-        documentKind: shellDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
-        execSql: lockedExecSql,
-        localId,
-      });
-      const updatedAt = await resolveDocumentSaveTimestamp({
-        document: shellDocument,
+        ),
+      )
+      .run();
+  }
+  await tx
+    .delete(documentAttachmentBlobProjection)
+    .where(
+      and(
+        eq(documentAttachmentBlobProjection.localId, localId),
+        isNotNull(documentAttachmentBlobProjection.detachedAt),
+      ),
+    )
+    .run();
+  await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
+  await clearDocumentSyncFailure(lockedExecSql, getDocumentScope(localId));
+}
+
+async function saveDiscardShell(input: {
+  candidate: DiscardCandidate;
+  documentProjectors: DocumentProjectorRegistry;
+  localId: string;
+  lockedExecSql: ExecSql;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  const { candidate, documentProjectors, localId, lockedExecSql, tx } = input;
+  const shellDocument = buildDiscardShellDocument(
+    localId,
+    candidate.existingDocument,
+  );
+  // The document-kind projection derives from discarded content, so clear it
+  // inside the transaction and let the next pull rebuild it.
+  await documentProjectors.deleteStoredDocumentClientProjection({
+    documentKind: shellDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
+    execSql: lockedExecSql,
+    localId,
+  });
+  const updatedAt = await resolveDocumentSaveTimestamp({
+    document: shellDocument,
+    tx,
+  });
+  await saveDocumentRows({ document: shellDocument, tx, updatedAt });
+}
+
+// Eligibility, teardown, client-projection clearing, and shell replacement
+// share one immediate transaction, so a second connection cannot relink the
+// local id between identity validation and destructive writes.
+async function discardDocumentRowsToShell(input: {
+  documentProjectors: DocumentProjectorRegistry;
+  expectedDocumentId: string;
+  localId: string;
+  lockedExecSql: ExecSql;
+  persistence: Pick<
+    DocumentsPersistence,
+    "listPendingAttachments" | "loadDocument"
+  >;
+}): Promise<DiscardDocumentToShellResult> {
+  const clientProjectionTables =
+    input.documentProjectors.getClientProjectionTables();
+  if (clientProjectionTables.length > 0) {
+    await ensureSqlTables(input.lockedExecSql, clientProjectionTables);
+  }
+  return getClientSQLitePersistenceRuntime(input.lockedExecSql).transaction(
+    async (tx) => {
+      const candidate = await loadDiscardCandidate({ ...input, tx });
+      if (!candidate) return { discarded: false };
+      await clearDiscardedDocumentRows({
+        candidate,
+        localId: input.localId,
+        lockedExecSql: input.lockedExecSql,
         tx,
       });
-      await saveDocumentRows({
-        document: shellDocument,
-        tx,
-        updatedAt,
-      });
+      await saveDiscardShell({ ...input, candidate, tx });
+      return {
+        discarded: true,
+        documentKind:
+          candidate.existingDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        reclaimableBlobStorageKeys: [
+          ...new Set([
+            ...candidate.pendingAttachments.map((row) => row.storageKey),
+            ...candidate.detachedStorageKeys,
+          ]),
+        ],
+      };
     },
+    { behavior: "immediate" },
   );
 }
 
@@ -181,62 +263,14 @@ export async function discardStoredDocumentToShell(input: {
   const { expectedDocumentId, localId, persistence } = input;
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-    const existingDocument = await persistence.loadDocument(
-      lockedExecSql,
-      localId,
-    );
-    if (
-      !existingDocument?.documentId ||
-      existingDocument.documentId !== expectedDocumentId ||
-      !existingDocument.containerId
-    ) {
-      return { discarded: false };
-    }
-    const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-    const moveIntentRows = await db
-      .select({ id: documentMoveIntents.id })
-      .from(documentMoveIntents)
-      .where(eq(documentMoveIntents.localId, localId))
-      .limit(1);
-    if (moveIntentRows.length > 0) {
-      return { discarded: false };
-    }
-    const pendingAttachments = await persistence.listPendingAttachments(
-      lockedExecSql,
-      localId,
-    );
-    const detachedRows = await db
-      .select({
-        storageKey: documentAttachmentBlobProjection.storageKey,
-      })
-      .from(documentAttachmentBlobProjection)
-      .where(
-        and(
-          eq(documentAttachmentBlobProjection.localId, localId),
-          isNotNull(documentAttachmentBlobProjection.detachedAt),
-        ),
-      );
-
-    await discardDocumentRowsToShell({
+    return discardDocumentRowsToShell({
       documentProjectors: resolveDocumentProjectorRegistry(
         input.documentProjectors,
       ),
-      existingDocument,
+      expectedDocumentId,
       localId,
       lockedExecSql,
-      pendingAttachments,
+      persistence,
     });
-    return {
-      discarded: true,
-      documentKind: existingDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
-      reclaimableBlobStorageKeys: [
-        ...new Set([
-          ...pendingAttachments.map(
-            (pendingAttachment) => pendingAttachment.storageKey,
-          ),
-          ...detachedRows.map((detachedRow) => detachedRow.storageKey),
-        ]),
-      ],
-    };
   });
 }
