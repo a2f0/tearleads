@@ -1,7 +1,17 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationUserDetail } from "@symcrypt/client-sdk";
-import { cleanup, render } from "@testing-library/react";
-import type { ContextType } from "react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import type { ContextType, PropsWithChildren } from "react";
+import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "../../../components/window/WindowMenuContext";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -41,28 +51,56 @@ const orgManagerActionsStub = {
   ensureRosterProfileContainer: async () => null,
 } as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;
 
+function ToolbarProbe() {
+  const actions = useWindowTitleBarActions();
+
+  return (
+    <div aria-label="Toolbar" role="toolbar">
+      {actions.map((action) => (
+        <button
+          aria-label={action.label}
+          disabled={action.disabled}
+          key={action.id}
+          type="button"
+          onClick={action.onClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TestProviders({ children }: PropsWithChildren) {
+  return (
+    <OrgManagerContext.Provider value={orgManagerActionsStub}>
+      <WindowMenuProvider>
+        <ToolbarProbe />
+        {children}
+      </WindowMenuProvider>
+    </OrgManagerContext.Provider>
+  );
+}
+
 function renderUserDetailView(
   props: Partial<Parameters<typeof UserDetailView>[0]> = {},
 ) {
   return render(
-    <OrgManagerContext.Provider value={orgManagerActionsStub}>
-      <UserDetailView
-        canEditRosterProfile={false}
-        canRevokeGrants={false}
-        detail={detail}
-        pending={false}
-        mutating={false}
-        onRosterProfileDisplayNameChange={() => undefined}
-        openGrantRoute={() => undefined}
-        openGroupRoute={() => undefined}
-        organizationId={detail.organizationId}
-        profileDisplayName={undefined}
-        revokeGrant={() => undefined}
-        rosterProfileEditRequestKey={null}
-        syncSeatAssigned={null}
-        {...props}
-      />
-    </OrgManagerContext.Provider>,
+    <UserDetailView
+      canEditRosterProfile={false}
+      canRevokeGrants={false}
+      detail={detail}
+      pending={false}
+      mutating={false}
+      onRosterProfileDisplayNameChange={() => undefined}
+      openGrantRoute={() => undefined}
+      openGroupRoute={() => undefined}
+      organizationId={detail.organizationId}
+      profileDisplayName={undefined}
+      revokeGrant={() => undefined}
+      rosterProfileEditRequestKey={null}
+      syncSeatAssigned={null}
+      {...props}
+    />,
+    { wrapper: TestProviders },
   );
 }
 
@@ -90,4 +128,32 @@ test("a seatless active user keeps the joined date beside the sync warning", () 
     view.getAllByText(formatMiniAppDate(rosterUser.joinedAt)),
   ).toHaveLength(2);
   expect(view.getByText(ORG_MANAGER_LABELS.syncSeatUnavailable)).toBeTruthy();
+});
+
+test("roster profile editing is controlled from the toolbar", async () => {
+  const view = renderUserDetailView({ canEditRosterProfile: true });
+  const toolbar = view.getByRole("toolbar", { name: "Toolbar" });
+  const detailHeader = view.container.querySelector(
+    ".org-manager-detail-header",
+  );
+
+  expect(detailHeader).not.toBeNull();
+  expect(
+    within(detailHeader as HTMLElement).queryByRole("button", {
+      name: ORG_MANAGER_LABELS.edit,
+    }),
+  ).toBeNull();
+  await waitFor(() => {
+    expect(
+      within(toolbar).getByRole("button", { name: ORG_MANAGER_LABELS.edit }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(
+    within(toolbar).getByRole("button", { name: ORG_MANAGER_LABELS.edit }),
+  );
+
+  expect(
+    within(toolbar).getByRole("button", { name: ORG_MANAGER_LABELS.done }),
+  ).toBeTruthy();
 });
