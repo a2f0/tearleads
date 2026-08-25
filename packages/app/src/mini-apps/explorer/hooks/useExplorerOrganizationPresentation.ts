@@ -25,6 +25,7 @@ import {
 
 interface AttributionHydrationScope {
   readonly active: boolean;
+  readonly authenticated: boolean;
   readonly attributionKey: string;
   readonly containerId: string | null | undefined;
   readonly domainScope: RuntimeSnapshot["state"]["domainScope"];
@@ -39,11 +40,25 @@ function scopesMatch(
 ): boolean {
   return (
     left.active === right.active &&
+    left.authenticated === right.authenticated &&
     left.attributionKey === right.attributionKey &&
     left.containerId === right.containerId &&
     left.domainScope === right.domainScope &&
     left.organizationId === right.organizationId &&
     left.syncPrerequisitesReady === right.syncPrerequisitesReady &&
+    left.userId === right.userId
+  );
+}
+
+function selectionLedgerScopesMatch(
+  left: AttributionHydrationScope,
+  right: AttributionHydrationScope,
+): boolean {
+  return (
+    left.authenticated &&
+    right.authenticated &&
+    left.domainScope === right.domainScope &&
+    left.organizationId === right.organizationId &&
     left.userId === right.userId
   );
 }
@@ -223,6 +238,7 @@ function getAttributionHydrationScope(input: {
       Boolean(input.appData.state.containerId) &&
       directory?.organizationId === organizationId &&
       directory.currentUser.isOrgAdmin,
+    authenticated: input.appData.auth.isAuthenticated,
     attributionKey: getExplorerAttributionProjectionKey({
       projection: input.projection,
       revision: input.revision,
@@ -245,6 +261,7 @@ function useCommittedAttributionHydrationScope(
 ): RefObject<AttributionHydrationScope> {
   const {
     active,
+    authenticated,
     attributionKey,
     containerId,
     domainScope,
@@ -256,6 +273,7 @@ function useCommittedAttributionHydrationScope(
   useLayoutEffect(() => {
     const nextScope = {
       active,
+      authenticated,
       attributionKey,
       containerId,
       domainScope,
@@ -267,7 +285,9 @@ function useCommittedAttributionHydrationScope(
       abortControllerRef.current.abort();
       abortControllerRef.current = new AbortController();
       requestedBindingKeysRef.current = new Set();
-      selectionsByDocumentIdRef.current = new Map();
+      if (!selectionLedgerScopesMatch(scopeRef.current, nextScope)) {
+        selectionsByDocumentIdRef.current = new Map();
+      }
     }
     scopeRef.current = nextScope;
     return () => {
@@ -278,6 +298,7 @@ function useCommittedAttributionHydrationScope(
     };
   }, [
     active,
+    authenticated,
     attributionKey,
     containerId,
     domainScope,
@@ -288,7 +309,7 @@ function useCommittedAttributionHydrationScope(
   return scopeRef;
 }
 
-export function useExplorerAttributionProfileHydration(input: {
+interface ExplorerAttributionProfileHydrationInput {
   readonly appData: RuntimeSnapshot;
   readonly enabled: boolean;
   readonly readModelProjection?:
@@ -296,7 +317,11 @@ export function useExplorerAttributionProfileHydration(input: {
     | null
     | undefined;
   readonly readModelRevision?: number | undefined;
-}): ExplorerAttributionProfileHydrationRequester {
+}
+
+export function useExplorerAttributionProfileHydration(
+  input: ExplorerAttributionProfileHydrationInput,
+): ExplorerAttributionProfileHydrationRequester {
   const symcrypt = useSymCrypt();
   const { containerStore } = useDeviceFirstContainerContents();
   const containerSnapshot = useSymCryptExternalStoreSnapshot(containerStore);
@@ -314,6 +339,7 @@ export function useExplorerAttributionProfileHydration(input: {
   });
   const {
     active,
+    authenticated,
     attributionKey,
     containerId,
     domainScope,
@@ -350,6 +376,7 @@ export function useExplorerAttributionProfileHydration(input: {
         projection: input.readModelProjection,
         requestScope: {
           active,
+          authenticated,
           attributionKey,
           containerId,
           domainScope,
@@ -366,11 +393,11 @@ export function useExplorerAttributionProfileHydration(input: {
       containerStore,
       containerSnapshot,
       active,
+      authenticated,
       attributionKey,
       containerId,
       domainScope,
       input.readModelProjection,
-      input.readModelRevision,
       organizationId,
       syncPrerequisitesReady,
       symcrypt,

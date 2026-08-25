@@ -2,6 +2,7 @@ import type { DocumentProjectionUserKeyResolver } from "../../../workflows/docum
 import type { DocumentState, DocumentStoreState } from "./state";
 
 const remoteSyncGenerations = new WeakMap<DocumentStoreState, number>();
+const syncLaneGenerations = new WeakMap<DocumentStoreState, number>();
 const remoteSyncBlockedStates = new WeakSet<DocumentStoreState>();
 const remoteSyncWaiterCounts = new WeakMap<DocumentStoreState, number>();
 const independentRemoteSyncSignals = new WeakMap<
@@ -21,6 +22,8 @@ interface DocumentStoreGenerationIdentity {
   readonly execSql: DocumentStoreState["runtime"]["infra"]["execSql"];
   readonly localWriteGeneration: number;
   readonly resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+  readonly syncLaneGeneration: number;
+  readonly syncLaneIsDisposed: (() => boolean) | null;
 }
 
 /** Immutable identities that define one remote-sync request generation. */
@@ -49,7 +52,16 @@ function captureDocumentStoreGenerationIdentity(
     execSql: state.runtime.infra.execSql,
     localWriteGeneration: state.localWriteGeneration,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    syncLaneGeneration: syncLaneGenerations.get(state) ?? 0,
+    syncLaneIsDisposed: state.syncLane?.isDisposed ?? null,
   };
+}
+
+/** Invalidate passes owned by a coordinator that has been replaced. */
+export function invalidateDocumentStoreSyncLane(
+  state: DocumentStoreState,
+): void {
+  syncLaneGenerations.set(state, (syncLaneGenerations.get(state) ?? 0) + 1);
 }
 
 export function captureDocumentStoreRemoteSyncRequestGeneration(
@@ -203,6 +215,8 @@ function isDocumentStoreGenerationIdentityCurrent(
     state.runtime.state.domainScope === generation.domainScope &&
     state.runtime.infra.execSql === generation.execSql &&
     state.localWriteGeneration === generation.localWriteGeneration &&
-    state.resolveProjectionUserKey === generation.resolveProjectionUserKey
+    state.resolveProjectionUserKey === generation.resolveProjectionUserKey &&
+    (syncLaneGenerations.get(state) ?? 0) === generation.syncLaneGeneration &&
+    !generation.syncLaneIsDisposed?.()
   );
 }

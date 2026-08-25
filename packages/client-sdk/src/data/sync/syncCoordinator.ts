@@ -68,6 +68,7 @@ function createSyncLaneHandle(
   lane: SyncLaneState,
 ): SyncLane {
   return {
+    isDisposed: () => coordinatorState.disposed,
     requestSync: () => requestLaneSync(coordinatorState, lane),
     requestSyncAfter: (delayMs) =>
       requestLaneSyncAfter(coordinatorState, lane, delayMs),

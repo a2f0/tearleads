@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  formatContainerSystemSlot,
   isContainerSystemSlot,
 } from "./containerSystemSlot";
 
@@ -28,4 +29,13 @@ test("derived organization slots satisfy the wire schema", async () => {
       }),
     ),
   ).toBe(true);
+});
+
+test("system slot formatting rejects non-SHA-256 digest lengths", () => {
+  expect(() => formatContainerSystemSlot(new Uint8Array(31))).toThrow(
+    "exactly 32 bytes",
+  );
+  expect(() => formatContainerSystemSlot(new Uint8Array(33))).toThrow(
+    "exactly 32 bytes",
+  );
 });

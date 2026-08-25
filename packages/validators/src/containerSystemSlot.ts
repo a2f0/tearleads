@@ -6,6 +6,9 @@ const CONTAINER_SYSTEM_SLOT_PATTERN = /^sys_v1_[A-Za-z0-9_-]{43}$/;
 export function formatContainerSystemSlot(
   digest: Uint8Array,
 ): ContainerSystemSlot {
+  if (digest.byteLength !== 32) {
+    throw new Error("Container system slot digests must be exactly 32 bytes");
+  }
   const encoded = btoa(String.fromCharCode(...digest))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")

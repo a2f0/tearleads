@@ -46,6 +46,7 @@ import {
   didDocumentStoreRemoteSyncRequestComplete,
   hasPendingIndependentDocumentStoreRemoteSync,
   invalidateDocumentStoreRemoteSync,
+  invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncBlocked,
   markDocumentStoreRemoteSyncPending,
   registerDocumentStoreRemoteSyncWaiter,
@@ -73,6 +74,13 @@ export {
   subscribeToPersistedDocuments,
 } from "./registry";
 
+function refreshDocumentStoreSyncLane(state: DocumentStoreState): void {
+  if (state.syncLane?.isDisposed?.()) {
+    invalidateDocumentStoreSyncLane(state);
+  }
+  state.syncLane = registerDocumentStoreSyncLane(state);
+}
+
 function updateDocumentStoreRuntime(
   state: DocumentStoreState,
   nextRuntime: DocumentsRuntime,
@@ -95,7 +103,7 @@ function updateDocumentStoreRuntime(
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
-    state.syncLane = registerDocumentStoreSyncLane(state);
+    refreshDocumentStoreSyncLane(state);
     state.locallyAcceptedUpdateIds = new Set();
     state.remoteUpdatePending = false;
     state.writerProjection = null;
@@ -162,7 +170,7 @@ function requestRemoteDocumentStoreSyncAndWait(
   const releaseWaiter = registerDocumentStoreRemoteSyncWaiter(state);
   // A coordinator can be disposed and recreated while this same-scope store
   // remains registered. Refresh its handle before requesting work.
-  state.syncLane = registerDocumentStoreSyncLane(state);
+  refreshDocumentStoreSyncLane(state);
   return requestDocumentSyncLaneAndWait({
     didCompleteRequest: () =>
       requestGeneration !== null &&
@@ -216,7 +224,7 @@ function createBackingDocumentStore(
     initialText,
     initialDocumentKind,
   );
-  state.syncLane = registerDocumentStoreSyncLane(state);
+  refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {

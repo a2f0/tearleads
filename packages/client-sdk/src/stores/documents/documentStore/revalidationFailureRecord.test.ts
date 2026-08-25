@@ -11,7 +11,7 @@ import type {
   DocumentStoreState,
   EncapsulationKeyPair,
 } from "./state";
-import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { deleteUpstreamDeletedDocument } from "./syncRequest";
 import {
   documentIncomingUpdateIsolationFailureHandler,
@@ -153,7 +153,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       throw new Error("expected seeded document record");
     }
 
-    const doc = {};
+    const doc = {} as unknown as DocumentState;
     const resolveProjectionUserKey = () => null;
     const state = {
       doc,
@@ -171,14 +171,10 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       },
       snapshot: { attachments: [], attachmentStatusBySlotId: {} },
     } as unknown as DocumentStoreState;
-    const generation = {
-      currentDoc: doc,
-      domainScope: "scope",
-      execSql,
-      localWriteGeneration: 0,
-      remoteSyncGeneration: 0,
-      resolveProjectionUserKey,
-    } as unknown as DocumentStoreSyncGeneration;
+    const generation = captureDocumentStoreSyncGeneration(state, doc);
+    if (!generation) {
+      throw new Error("expected a live document-store generation");
+    }
 
     await deleteUpstreamDeletedDocument(
       state,
@@ -208,7 +204,7 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
   const { close, execSql } = await createTestExecSql("stale-terminal-handler");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const doc = {};
+    const doc = {} as unknown as DocumentState;
     const resolveProjectionUserKey = () => null;
     const state = {
       doc,
@@ -220,14 +216,10 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
         util: { log: () => undefined },
       },
     } as unknown as DocumentStoreState;
-    const generation = {
-      currentDoc: doc,
-      domainScope: "scope",
-      execSql,
-      localWriteGeneration: 0,
-      remoteSyncGeneration: 0,
-      resolveProjectionUserKey,
-    } as unknown as DocumentStoreSyncGeneration;
+    const generation = captureDocumentStoreSyncGeneration(state, doc);
+    if (!generation) {
+      throw new Error("expected a live document-store generation");
+    }
     const handler = documentTerminalSubmitFailureHandler(state, generation);
 
     // Hold the serialized mutation as the "teardown": clear failure rows and
@@ -285,7 +277,7 @@ test("a handler racing authoritative deletion records nothing", async () => {
       throw new Error("expected seeded document record");
     }
 
-    const doc = {};
+    const doc = {} as unknown as DocumentState;
     const resolveProjectionUserKey = () => null;
     const state = {
       doc,
@@ -303,14 +295,10 @@ test("a handler racing authoritative deletion records nothing", async () => {
       },
       snapshot: { attachments: [], attachmentStatusBySlotId: {} },
     } as unknown as DocumentStoreState;
-    const generation = {
-      currentDoc: doc,
-      domainScope: "scope",
-      execSql,
-      localWriteGeneration: 0,
-      remoteSyncGeneration: 0,
-      resolveProjectionUserKey,
-    } as unknown as DocumentStoreSyncGeneration;
+    const generation = captureDocumentStoreSyncGeneration(state, doc);
+    if (!generation) {
+      throw new Error("expected a live document-store generation");
+    }
     const handler = documentTerminalSubmitFailureHandler(state, generation);
 
     const deletion = deleteUpstreamDeletedDocument(
