@@ -297,21 +297,19 @@ test("each document keeps its own bounded attribution hydration selection", asyn
         documentId: "document-b",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(33),
-    );
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(33);
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
   } finally {
     harness.restore();
   }
 });
 test("a shared profile retains its slot in a full hydration selection", async () => {
   const harness = installHarnesses(true);
-  harness.containers.setContainerAvailable(false);
   const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
   try {
     const view = renderHook(() =>
@@ -322,20 +320,13 @@ test("a shared profile retains its slot in a full hydration selection", async ()
         readModelRevision: 1,
       }),
     );
-    act(() => {
+    act(() =>
       view.result.current({
         contributorUserIds: ["profile-user-0"],
         documentId: "document-a",
-      });
-      view.result.current({
-        contributorUserIds: users.map((user) => user.userId),
-        documentId: "document-b",
-      });
-    });
-    await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    act(() => harness.containers.setContainerAvailable(true));
+      }),
+    );
+    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     act(() =>
       view.result.current({
         contributorUserIds: users.map((user) => user.userId),

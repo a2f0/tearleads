@@ -1,9 +1,12 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
+  accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  containers,
   organizationRosterEntries,
 } from "@symcrypt/api-shared/schema";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
@@ -275,4 +278,47 @@ export async function isOrganizationProfileDocument(input: {
     .limit(1);
 
   return Boolean(head);
+}
+
+export async function isOrganizationRosterProfileDocument(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly profileDocumentId: string;
+}): Promise<boolean> {
+  const rosterProfileSystemSlot =
+    await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId: input.organizationId,
+    });
+  const [link] = await input.executor
+    .select({ objectId: accessManifestHeads.objectId })
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifestDocumentLinkProjection,
+      and(
+        eq(
+          accessManifestDocumentLinkProjection.documentId,
+          accessManifestHeads.objectId,
+        ),
+        eq(
+          accessManifestDocumentLinkProjection.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+      ),
+    )
+    .innerJoin(
+      containers,
+      eq(containers.id, accessManifestDocumentLinkProjection.containerId),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, input.profileDocumentId),
+        eq(accessManifestHeads.organizationId, input.organizationId),
+        eq(containers.organizationId, input.organizationId),
+        eq(containers.systemSlot, rosterProfileSystemSlot),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(link);
 }

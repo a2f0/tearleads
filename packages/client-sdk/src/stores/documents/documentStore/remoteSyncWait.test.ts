@@ -11,6 +11,7 @@ import {
 } from "../../../data/sync/syncCoordinator";
 import {
   createDocumentsWorkflowRuntime,
+  type DocumentsPersistence,
   type DocumentsWorkflowRuntimeInput,
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
@@ -21,14 +22,17 @@ type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>
 >;
 
-async function settleWithin<T>(promise: Promise<T>): Promise<T> {
+async function settleWithin<T>(
+  promise: Promise<T>,
+  label = "remote sync probe",
+): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_, reject) => {
         timeout = setTimeout(
-          () => reject(new Error("Timed out waiting for a remote sync probe")),
+          () => reject(new Error(`Timed out waiting for ${label}`)),
           3_000,
         );
       }),
@@ -184,6 +188,76 @@ test("a graceful null remote probe reports incomplete", async () => {
     expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
     expect(syncCalls).toBeGreaterThan(previousSyncCalls);
   } finally {
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("an abort during initialization keeps the startup probe blocked", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const database = await createTestExecSql("remote-sync-wait-initializing");
+  const localId = "initializing-profile";
+  const seedRuntime = createUnavailableRuntime(database.execSql);
+  let releaseLoad: () => void = () => undefined;
+  const loadGate = new Promise<void>((resolve) => {
+    releaseLoad = resolve;
+  });
+  let markLoadStarted: () => void = () => undefined;
+  const loadStarted = new Promise<void>((resolve) => {
+    markLoadStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      return null;
+    },
+  });
+  const gatedPersistence: DocumentsPersistence = {
+    ...defaultDocumentsPersistence,
+    async loadDocumentStoreState(execSql, requestedLocalId) {
+      markLoadStarted();
+      await loadGate;
+      return defaultDocumentsPersistence.loadDocumentStoreState(
+        execSql,
+        requestedLocalId,
+      );
+    },
+  };
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const seedStore = createDocumentStore(
+      localId,
+      seedRuntime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await seedStore.ensureInitialized()).toBe(true);
+    disposeDomainSyncCoordinator(seedRuntime.state.domainScope);
+
+    const store = createDocumentStore(
+      localId,
+      runtime,
+      gatedPersistence,
+      fixture.writerProjection.documentId,
+    );
+    const initialization = store.ensureInitialized();
+    await settleWithin(loadStarted, "initialization load");
+    const abortController = new AbortController();
+    const result = store.requestRemoteSyncAndWait(abortController.signal);
+
+    abortController.abort();
+    expect(await settleWithin(result, "initialization abort")).toBe(false);
+    releaseLoad();
+
+    expect(await initialization).toBe(true);
+    await settleCoordinator(runtime.state.domainScope);
+    expect(syncCalls).toBe(0);
+  } finally {
+    releaseLoad();
+    disposeDomainSyncCoordinator(seedRuntime.state.domainScope);
     disposeDomainSyncCoordinator(runtime.state.domainScope);
     database.close();
   }

@@ -8,7 +8,7 @@ import { OrganizationManagerError } from "./errors";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import {
-  isOrganizationProfileDocument,
+  isOrganizationRosterProfileDocument,
   loadOrganizationRosterEntry,
   toOrganizationDirectoryUser,
 } from "./roster";
@@ -41,14 +41,14 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
 
     if (
       input.profileDocumentId &&
-      !(await isOrganizationProfileDocument({
+      !(await isOrganizationRosterProfileDocument({
         executor: tx,
         organizationId,
         profileDocumentId: input.profileDocumentId,
       }))
     ) {
       throw new OrganizationManagerError(
-        "Profile document is not in this organization",
+        "Profile document is not in this organization's roster profile container",
         400,
       );
     }

@@ -156,7 +156,6 @@ export function selectExplorerAttributionHydrationTargetsForDocument(input: {
       (userId) => !input.selection.contributorUserIds.has(userId),
     ),
     directoryAndGroups: input.directoryAndGroups,
-    excludedBindingKeys: input.excludedBindingKeys,
     limit: remaining,
   });
   for (const target of additionalTargets) {

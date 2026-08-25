@@ -38,11 +38,12 @@ export function requestDocumentSyncLaneAndWait(input: {
   readonly didCompleteRequest: () => boolean;
   readonly domainScope: DomainScope;
   readonly localId: string;
-  readonly onAbort?: (() => void) | undefined;
+  readonly onInvalidated?: (() => void) | undefined;
   readonly request: () => void;
   readonly signal?: AbortSignal | undefined;
 }): Promise<boolean> {
   if (input.signal?.aborted) {
+    input.onInvalidated?.();
     return Promise.resolve(false);
   }
   const coordinator = getOrCreateDomainSyncCoordinator(input.domainScope);
@@ -67,19 +68,22 @@ export function requestDocumentSyncLaneAndWait(input: {
       resolve(completed);
     };
     const handleAbort = () => {
-      input.onAbort?.();
+      if (settled) {
+        return;
+      }
+      input.onInvalidated?.();
       finish(false);
     };
     const inspect = () => {
       if (coordinator.isDisposed()) {
-        finish(false);
+        handleAbort();
         return;
       }
       const lane = coordinator
         .getSnapshot()
         .lanes.find((candidate) => candidate.key === laneKey);
       if (!lane) {
-        finish(false);
+        handleAbort();
         return;
       }
       if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
@@ -92,7 +96,7 @@ export function requestDocumentSyncLaneAndWait(input: {
     unsubscribe = coordinator.subscribe(inspect);
     input.signal?.addEventListener("abort", handleAbort, { once: true });
     if (input.signal?.aborted) {
-      finish(false);
+      handleAbort();
       return;
     }
     input.request();

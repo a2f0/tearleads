@@ -127,6 +127,7 @@ test("a completed lane reports an unconsumed request as incomplete", async () =>
 
 test("coordinator disposal resolves a pending request as incomplete", async () => {
   const domainScope = createDomainScope();
+  let invalidationCount = 0;
   const lane = registerDocumentSyncLane({
     domainScope,
     localId: "profile-local-id",
@@ -136,11 +137,46 @@ test("coordinator disposal resolves a pending request as incomplete", async () =
     didCompleteRequest: () => false,
     domainScope,
     localId: "profile-local-id",
+    onInvalidated: () => {
+      invalidationCount += 1;
+    },
     request: () => lane.requestSync(),
   });
 
   disposeDomainSyncCoordinator(domainScope);
   expect(await result).toBe(false);
+  expect(invalidationCount).toBe(1);
+});
+
+test("an already-aborted request invalidates without scheduling work", async () => {
+  const domainScope = createDomainScope();
+  const lane = registerDocumentSyncLane({
+    domainScope,
+    localId: "profile-local-id",
+    run: async () => undefined,
+  });
+  const abortController = new AbortController();
+  abortController.abort();
+  let invalidated = false;
+  let requested = false;
+
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
+      domainScope,
+      localId: "profile-local-id",
+      onInvalidated: () => {
+        invalidated = true;
+      },
+      request: () => {
+        requested = true;
+        lane.requestSync();
+      },
+      signal: abortController.signal,
+    }),
+  ).toBe(false);
+  expect(invalidated).toBe(true);
+  expect(requested).toBe(false);
 });
 
 test("a missing document lane reports the request as incomplete", async () => {

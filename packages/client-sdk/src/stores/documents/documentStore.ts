@@ -208,7 +208,7 @@ function createBackingDocumentStore(
             scheduleSync,
           );
         },
-        onAbort: () => invalidateDocumentStoreRemoteSync(state),
+        onInvalidated: () => invalidateDocumentStoreRemoteSync(state),
         signal,
       });
     },

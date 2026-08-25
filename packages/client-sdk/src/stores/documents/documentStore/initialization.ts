@@ -49,10 +49,7 @@ import {
   setReadySnapshot,
 } from "./state";
 import { createStoredDocument } from "./storedDocument";
-import {
-  allowDocumentStoreRemoteSync,
-  captureDocumentStoreSyncGeneration,
-} from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 async function createInitialDocumentRecord(
   state: DocumentStoreState,
@@ -302,7 +299,6 @@ async function initializeDocumentStore(
     // the restart to distinguish a clean local snapshot from a stale one. Probe
     // each opened remote document once after loading it; unopened documents stay
     // lazy, while body and attachment state for a restored window converges.
-    allowDocumentStoreRemoteSync(state);
     state.remoteUpdatePending = true;
     state.remoteUpdateSignalSeq += 1;
     logRevalidationScheduled(state.runtime, "startup");
