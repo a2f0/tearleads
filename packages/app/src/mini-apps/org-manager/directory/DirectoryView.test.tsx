@@ -4,8 +4,12 @@ import type {
   OrganizationDirectoryUser,
   OrganizationUserDetail,
 } from "@symcrypt/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { ContextType } from "react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ContextType, PropsWithChildren } from "react";
+import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "../../../components/window/WindowMenuContext";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { DirectoryView } from "./DirectoryView";
@@ -63,39 +67,67 @@ const orgManagerActionsStub = {
   ensureRosterProfileContainer: async () => null,
 } as unknown as NonNullable<ContextType<typeof OrgManagerContext>>;
 
+function ToolbarProbe() {
+  const actions = useWindowTitleBarActions();
+
+  return (
+    <div aria-label="Toolbar" role="toolbar">
+      {actions.map((action) => (
+        <button
+          aria-label={action.label}
+          disabled={action.disabled}
+          key={action.id}
+          type="button"
+          onClick={action.onClick}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TestProviders({ children }: PropsWithChildren) {
+  return (
+    <OrgManagerContext.Provider value={orgManagerActionsStub}>
+      <WindowMenuProvider>
+        <ToolbarProbe />
+        {children}
+      </WindowMenuProvider>
+    </OrgManagerContext.Provider>
+  );
+}
+
 function renderDirectoryView(
   props: Partial<Parameters<typeof DirectoryView>[0]> = {},
 ) {
   return render(
-    <OrgManagerContext.Provider value={orgManagerActionsStub}>
-      <DirectoryView
-        canImportRosterUser={false}
-        canRevokeGrants={false}
-        canUpdateSelectedRosterEntry={false}
-        closeImportUserDialog={() => undefined}
-        detail={null}
-        directory={directory}
-        error={null}
-        importRosterUser={() => undefined}
-        importUserIdDraft=""
-        isImportUserDialogOpen={false}
-        loadingUserDetail={false}
-        organizationId={directory.organizationId}
-        pending={false}
-        mutating={false}
-        openGrantRoute={() => undefined}
-        openGroupRoute={() => undefined}
-        profileDisplayNamesByUserId={new Map()}
-        revokeGrant={() => undefined}
-        rosterProfileEditRequest={null}
-        selectedUserId={null}
-        selectUser={() => undefined}
-        setSelectedProfileDisplayName={() => undefined}
-        setImportUserIdDraft={() => undefined}
-        syncSeatUserIds={null}
-        {...props}
-      />
-    </OrgManagerContext.Provider>,
+    <DirectoryView
+      canImportRosterUser={false}
+      canRevokeGrants={false}
+      canUpdateSelectedRosterEntry={false}
+      closeImportUserDialog={() => undefined}
+      detail={null}
+      directory={directory}
+      error={null}
+      importRosterUser={() => undefined}
+      importUserIdDraft=""
+      isImportUserDialogOpen={false}
+      loadingUserDetail={false}
+      organizationId={directory.organizationId}
+      pending={false}
+      mutating={false}
+      openGrantRoute={() => undefined}
+      openGroupRoute={() => undefined}
+      profileDisplayNamesByUserId={new Map()}
+      revokeGrant={() => undefined}
+      rosterProfileEditRequest={null}
+      selectedUserId={null}
+      selectUser={() => undefined}
+      setSelectedProfileDisplayName={() => undefined}
+      setImportUserIdDraft={() => undefined}
+      syncSeatUserIds={null}
+      {...props}
+    />,
+    { wrapper: TestProviders },
   );
 }
 
@@ -151,7 +183,7 @@ test("org manager roster view copies the selected user id", () => {
   expect(clipboardWrites).toEqual([rosterUser.userId]);
 });
 
-test("org manager roster view toggles roster profile editing", () => {
+test("org manager roster view toggles roster profile editing", async () => {
   const view = renderDirectoryView({
     canUpdateSelectedRosterEntry: true,
     detail,
@@ -164,14 +196,17 @@ test("org manager roster view toggles roster profile editing", () => {
   ).toBeTruthy();
   expect(view.queryByText(ORG_MANAGER_LABELS.directory)).toBeNull();
 
-  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.edit }));
+  const editButton = await waitFor(() =>
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.edit }),
+  );
+  fireEvent.click(editButton);
 
   expect(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.done }),
   ).toBeTruthy();
 });
 
-test("org manager roster view opens selected detail in edit mode from edit requests", () => {
+test("org manager roster view opens selected detail in edit mode from edit requests", async () => {
   const view = renderDirectoryView({
     canUpdateSelectedRosterEntry: true,
     detail,
@@ -179,9 +214,11 @@ test("org manager roster view opens selected detail in edit mode from edit reque
     selectedUserId: rosterUser.userId,
   });
 
-  expect(
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.done }),
-  ).toBeTruthy();
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.done }),
+    ).toBeTruthy();
+  });
 });
 
 test("org manager roster detail uses profile names before self fallback labels", () => {
