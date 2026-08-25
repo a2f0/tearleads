@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -46,7 +47,7 @@ function isolateContentKeyResponseFailure(
     throw error;
   }
   throw isolateDocumentSyncBatchError({
-    cause: error,
+    cause: new KeyingVerificationError("invalid_shape", error.message),
     stage: "content_key",
     updateIds: response.updates.map((update) => update.id),
   });

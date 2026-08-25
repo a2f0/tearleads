@@ -98,6 +98,7 @@ export class DocumentSyncUpdateIsolationError extends Error {
         : `update ${input.updateId} from writer ${author} (fingerprint ${fingerprint}, epoch ${epoch})`;
     super(
       `Document sync quarantined ${subject} during ${input.stage}: ${causeMessage}`,
+      { cause: input.cause },
     );
     this.name = "DocumentSyncUpdateIsolationError";
     this.attribution = input.updateId === null ? "batch" : "update";

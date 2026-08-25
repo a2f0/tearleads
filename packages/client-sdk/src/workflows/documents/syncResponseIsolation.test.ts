@@ -198,6 +198,10 @@ test("pre-auth content-key failures quarantine the batch without naming a writer
       updateId: null,
       writerUserId: null,
     });
+    expect(quarantined[0]?.cause).toMatchObject({
+      code: "invalid_shape",
+      name: "KeyingVerificationError",
+    });
   } finally {
     close();
   }

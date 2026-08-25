@@ -143,7 +143,7 @@ authenticates/decrypts, then scratch-imports. Bounded leave-one-out covers
 checkpoints and deltas, retains sibling batches, and names one poison only when
 unambiguous. Duplicate IDs, missing dependencies, oversized retries, and
 multi-failure decrypt/key epochs use unknown batch attribution. Nested
-projection errors retain their type. `responseWellFormed` abstracts rejection;
+integrity errors stay typed and report. `responseWellFormed` abstracts rejection;
 attribution and bounds stay tested in code.
 
 On the same executor, replacement mutations queue behind the already-claimed
