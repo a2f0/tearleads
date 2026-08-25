@@ -303,6 +303,7 @@ test("cursor invalidation reloads progress advanced by another pane", async () =
     updates: [bytesToBase64(exportAllUpdates(advancedDocument))],
   });
   const runtime = {
+    auth: { isAuthenticated: false, organizationId: null, userId: null },
     infra: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: database.execSql,
@@ -390,6 +391,7 @@ test("cursor invalidation uses a non-SQL persistence adapter", async () => {
     },
   } as unknown as DocumentsPersistence;
   const runtime = {
+    auth: { isAuthenticated: false, organizationId: null, userId: null },
     infra: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,

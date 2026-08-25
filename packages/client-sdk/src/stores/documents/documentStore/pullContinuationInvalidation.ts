@@ -5,7 +5,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { importDurableDocumentHistory } from "./durableDocumentReload";
-import type { DocumentStoreState } from "./state";
+import { type DocumentStoreState, setReadySnapshot } from "./state";
 import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -75,5 +75,15 @@ export async function invalidateDocumentStorePullContinuation(input: {
     state.pullContinuation = durableRecord.pullContinuation ?? null;
     state.pendingBaseVersion =
       durableRecord.pendingBaseVersion ?? durableRecord.snapshotEndVersion;
+    const preserveOptimisticProjection = state.pendingLocalWrites > 0;
+    setReadySnapshot(
+      state,
+      liveDoc,
+      state.snapshot.syncing,
+      preserveOptimisticProjection ? state.snapshot.text : undefined,
+      preserveOptimisticProjection
+        ? state.snapshot.structuredFields
+        : undefined,
+    );
   });
 }
