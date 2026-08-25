@@ -1,4 +1,5 @@
 import { mergeVersionVectors, satisfiesVersionVector } from "@symcrypt/loro";
+import { canWriteEffectiveAccessLevel } from "../../data/accessLevel";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
@@ -165,6 +166,19 @@ function ordinarySaveIdentityWasReplaced(
   );
 }
 
+function ordinarySaveWriteAccessWasRevoked(
+  input: PrepareDocumentMutationInput,
+  durableRecord: StoredDocumentRecord | null,
+): boolean {
+  return (
+    input.expectedSyncState === undefined &&
+    input.currentRecord !== null &&
+    durableRecord !== null &&
+    canWriteEffectiveAccessLevel(input.currentRecord.effectiveAccessLevel) &&
+    !canWriteEffectiveAccessLevel(durableRecord.effectiveAccessLevel)
+  );
+}
+
 function resolveSyncSettlementState(
   current: StoredDocumentRecord | null,
   expected: ExpectedDocumentSyncState | undefined,
@@ -218,8 +232,12 @@ export async function prepareDocumentMutation(
     input,
     durableCurrentRecord,
   );
+  const writeAccessWasRevoked = ordinarySaveWriteAccessWasRevoked(
+    input,
+    durableCurrentRecord,
+  );
   const { pullContinuationSuperseded, securityContextMatches } =
-    creationSuperseded || identityWasReplaced
+    creationSuperseded || identityWasReplaced || writeAccessWasRevoked
       ? { pullContinuationSuperseded: true, securityContextMatches: false }
       : resolveSyncSettlementState(
           mutationCurrentRecord,

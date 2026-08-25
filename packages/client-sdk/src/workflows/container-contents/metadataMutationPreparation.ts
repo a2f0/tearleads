@@ -4,6 +4,7 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@symcrypt/loro";
+import { canWriteEffectiveAccessLevel } from "../../data/accessLevel";
 import {
   getDefaultContainerName,
   readContainerMetadataValue,
@@ -101,6 +102,24 @@ export async function loadAuthoritativeContainerMetadataState(input: {
   return stored?.record
     ? { container: stored.container, record: stored.record }
     : null;
+}
+
+function localMetadataWriteAccessWasRevoked(input: {
+  authoritativeState: NonNullable<
+    Awaited<ReturnType<typeof loadAuthoritativeContainerMetadataState>>
+  >;
+  mutationInput: PersistContainerMetadataStateInput;
+}): boolean {
+  return (
+    input.mutationInput.expectedSyncState === undefined &&
+    input.mutationInput.localUpdate !== undefined &&
+    canWriteEffectiveAccessLevel(
+      input.mutationInput.metadataState.container.effectiveAccessLevel,
+    ) &&
+    !canWriteEffectiveAccessLevel(
+      input.authoritativeState.container.effectiveAccessLevel,
+    )
+  );
 }
 
 async function prepareRebasedLocalMetadataMutation(input: {
@@ -205,6 +224,22 @@ export async function prepareContainerMetadataMutation(
   if (!authoritativeState) {
     return {
       authoritativeState: null,
+      pullContinuationSuperseded: true,
+      securityContextMatches: false,
+    };
+  }
+  if (
+    localMetadataWriteAccessWasRevoked({
+      authoritativeState,
+      mutationInput: input,
+    })
+  ) {
+    await replaceSupersededMetadataIdentity({
+      durableRecord: authoritativeState.record,
+      metadataState,
+    });
+    return {
+      authoritativeState,
       pullContinuationSuperseded: true,
       securityContextMatches: false,
     };

@@ -147,7 +147,7 @@ test("a structural metadata save cannot resurrect a deleted container", async ()
   }
 });
 
-test("a metadata rename preserves newer same-identity container structure", async () => {
+test("a metadata rename cannot cross a newer read-only container state", async () => {
   const { close, execSql } = await createTestExecSql(
     "metadata-rename-structural-race",
   );
@@ -155,6 +155,7 @@ test("a metadata rename preserves newer same-identity container structure", asyn
     effectiveAccessLevel: "admin",
     id: "container-1",
     metadataDocumentId: "metadata-document-1",
+    name: "Old name",
     organizationId: "organization-old",
     parentId: "parent-old",
   });
@@ -189,7 +190,7 @@ test("a metadata rename preserves newer same-identity container structure", asyn
     expect(saved?.container).toMatchObject({
       effectiveAccessLevel: "read",
       metadataDocumentId: "metadata-document-1",
-      name: "New name",
+      name: "Old name",
       organizationId: "organization-new",
       parentId: "parent-new",
     });
@@ -199,7 +200,7 @@ test("a metadata rename preserves newer same-identity container structure", asyn
     ).toMatchObject({
       effectiveAccessLevel: "read",
       metadataDocumentId: "metadata-document-1",
-      name: "New name",
+      name: "Old name",
       organizationId: "organization-new",
       parentId: "parent-new",
     });
