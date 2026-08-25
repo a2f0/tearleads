@@ -1,8 +1,9 @@
-import { expect, mock, spyOn, test } from "bun:test";
+import { beforeAll, expect, mock, spyOn, test } from "bun:test";
 import type {
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
 } from "@symcrypt/client-sdk";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/SymCryptProvider";
@@ -11,6 +12,18 @@ import * as DeviceFirstProvider from "../../../stores/device-first/DeviceFirstPr
 import { useExplorerAttributionProfileHydration } from "../hooks/useExplorerOrganizationPresentation";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
+const OTHER_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000002";
+const ROOT_CONTAINER_ID = "root-container-id";
+let rosterProfileSystemSlot: Awaited<
+  ReturnType<typeof deriveOrganizationRosterProfileContainerSystemSlot>
+>;
+
+beforeAll(async () => {
+  rosterProfileSystemSlot =
+    await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId: ORGANIZATION_ID,
+    });
+});
 
 function rosterUser(
   index: number,
@@ -37,11 +50,12 @@ function rosterUser(
 
 function projection(
   users: ReadonlyArray<OrganizationDirectoryUser>,
+  organizationId = ORGANIZATION_ID,
 ): OrganizationDirectoryAndGroups {
   return {
     directory: {
       currentUser: { isOrgAdmin: true },
-      organizationId: ORGANIZATION_ID,
+      organizationId,
       profileDocumentId: null,
       users: [...users],
     },
@@ -51,16 +65,19 @@ function projection(
   };
 }
 
-function runtimeSnapshot(): RuntimeSnapshot {
+function runtimeSnapshot(
+  organizationId = ORGANIZATION_ID,
+  containerId = ROOT_CONTAINER_ID,
+): RuntimeSnapshot {
   return {
     auth: {
       authToken: "token",
       isAuthenticated: true,
-      organizationId: ORGANIZATION_ID,
+      organizationId,
       userId: "viewer-user-id",
     },
     infra: { dbStatus: "ready" },
-    state: { domainScope: {} },
+    state: { containerId, domainScope: {} },
   } as unknown as RuntimeSnapshot;
 }
 
@@ -79,7 +96,16 @@ function createSymCryptHarness() {
 function createContainerStoreHarness(initiallyReady: boolean) {
   let containerAvailable = initiallyReady;
   let snapshot = {
-    nodes: containerAvailable ? [{ id: "roster-profile-container" }] : [],
+    nodes: containerAvailable
+      ? [
+          {
+            id: "roster-profile-container",
+            organizationId: ORGANIZATION_ID,
+            parentId: ROOT_CONTAINER_ID,
+            systemSlot: rosterProfileSystemSlot,
+          },
+        ]
+      : [],
     ready: initiallyReady,
   };
   const listeners = new Set<() => void>();
@@ -107,14 +133,32 @@ function createContainerStoreHarness(initiallyReady: boolean) {
       containerAvailable = available;
       snapshot = {
         ...snapshot,
-        nodes: available ? [{ id: "roster-profile-container" }] : [],
+        nodes: available
+          ? [
+              {
+                id: "roster-profile-container",
+                organizationId: ORGANIZATION_ID,
+                parentId: ROOT_CONTAINER_ID,
+                systemSlot: rosterProfileSystemSlot,
+              },
+            ]
+          : [],
       };
       for (const listener of listeners) listener();
     },
     setReady(ready: boolean) {
       containerAvailable = ready;
       snapshot = {
-        nodes: ready ? [{ id: "roster-profile-container" }] : [],
+        nodes: ready
+          ? [
+              {
+                id: "roster-profile-container",
+                organizationId: ORGANIZATION_ID,
+                parentId: ROOT_CONTAINER_ID,
+                systemSlot: rosterProfileSystemSlot,
+              },
+            ]
+          : [],
         ready,
       };
       for (const listener of listeners) listener();
@@ -172,7 +216,7 @@ test("attribution hydration retries when the container store becomes ready", asy
 
     act(() => harness.containers.setReady(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
@@ -199,14 +243,13 @@ test("attribution hydration retries when a ready store gains its system containe
         });
       }, [requestHydration]);
     });
-    await waitFor(() =>
-      expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1),
-    );
+    await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
 
     act(() => harness.containers.setContainerAvailable(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
@@ -260,14 +303,8 @@ test("each document keeps one bounded attribution hydration selection", async ()
 
 test("a shared profile retains its slot in a full hydration selection", async () => {
   const harness = installHarnesses(true);
+  harness.containers.setContainerAvailable(false);
   const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
-  let resolveFirstEnsure: ((value: { id: string } | null) => void) | undefined;
-  const firstEnsure = new Promise<{ id: string } | null>((resolve) => {
-    resolveFirstEnsure = resolve;
-  });
-  harness.containers.ensureSystemContainer.mockImplementationOnce(
-    () => firstEnsure,
-  );
   try {
     const view = renderHook(() =>
       useExplorerAttributionProfileHydration({
@@ -277,31 +314,21 @@ test("a shared profile retains its slot in a full hydration selection", async ()
         readModelRevision: 1,
       }),
     );
-    act(() =>
+    act(() => {
       view.result.current({
         contributorUserIds: ["profile-user-0"],
         documentId: "document-a",
-      }),
-    );
-    await waitFor(() =>
-      expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1),
-    );
-
-    act(() =>
+      });
       view.result.current({
         contributorUserIds: users.map((user) => user.userId),
         documentId: "document-b",
-      }),
-    );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(31),
-    );
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
-
-    await act(async () => {
-      resolveFirstEnsure?.(null);
-      await firstEnsure;
+      });
     });
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
+
+    act(() => harness.containers.setContainerAvailable(true));
     act(() =>
       view.result.current({
         contributorUserIds: users.map((user) => user.userId),
@@ -311,11 +338,83 @@ test("a shared profile retains its slot in a full hydration selection", async ()
     await waitFor(() =>
       expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
     );
-    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(3);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
     expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(32);
+    expect(harness.symcrypt.open).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: "profile-0" }),
+    );
     expect(harness.symcrypt.open).not.toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-32" }),
     );
+  } finally {
+    harness.restore();
+  }
+});
+
+test("an organization switch invalidates pending container resolution", async () => {
+  const harness = installHarnesses(true);
+  const user = rosterUser(0);
+  try {
+    const view = renderHook(
+      (props: {
+        appData: RuntimeSnapshot;
+        readModelProjection: OrganizationDirectoryAndGroups;
+      }) =>
+        useExplorerAttributionProfileHydration({
+          appData: props.appData,
+          enabled: true,
+          readModelProjection: props.readModelProjection,
+          readModelRevision: 1,
+        }),
+      {
+        initialProps: {
+          appData: runtimeSnapshot(),
+          readModelProjection: projection([user]),
+        },
+      },
+    );
+    act(() =>
+      view.result.current({
+        contributorUserIds: [user.userId],
+        documentId: "document-a",
+      }),
+    );
+    view.rerender({
+      appData: runtimeSnapshot(OTHER_ORGANIZATION_ID, "other-root-id"),
+      readModelProjection: projection([user], OTHER_ORGANIZATION_ID),
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("unmount invalidates pending container resolution", async () => {
+  const harness = installHarnesses(true);
+  const user = rosterUser(0);
+  try {
+    const view = renderHook(() =>
+      useExplorerAttributionProfileHydration({
+        appData: runtimeSnapshot(),
+        enabled: true,
+        readModelProjection: projection([user]),
+        readModelRevision: 1,
+      }),
+    );
+    act(() =>
+      view.result.current({
+        contributorUserIds: [user.userId],
+        documentId: "document-a",
+      }),
+    );
+    view.unmount();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
   } finally {
     harness.restore();
   }

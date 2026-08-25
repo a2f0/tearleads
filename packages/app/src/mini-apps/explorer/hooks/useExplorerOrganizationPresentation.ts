@@ -1,6 +1,5 @@
 import {
   deriveOrganizationRosterProfileContainerSystemSlot,
-  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   type OrganizationDirectoryAndGroups,
 } from "@symcrypt/client-sdk";
 import { type RefObject, useCallback, useLayoutEffect, useRef } from "react";
@@ -25,6 +24,7 @@ import {
 interface AttributionHydrationScope {
   readonly active: boolean;
   readonly attributionKey: string;
+  readonly containerId: string | null | undefined;
   readonly domainScope: RuntimeSnapshot["state"]["domainScope"];
   readonly organizationId: string | null | undefined;
   readonly userId: string | null | undefined;
@@ -37,6 +37,7 @@ function scopesMatch(
   return (
     left.active === right.active &&
     left.attributionKey === right.attributionKey &&
+    left.containerId === right.containerId &&
     left.domainScope === right.domainScope &&
     left.organizationId === right.organizationId &&
     left.userId === right.userId
@@ -119,10 +120,14 @@ async function hydratePendingTargets(
   if (!scopesMatch(input.currentScope.current, input.requestScope)) {
     return false;
   }
-  const container = await input.containerStore.ensureSystemContainer(
-    systemSlot,
-    ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-  );
+  const container = input.containerStore
+    .getSnapshot()
+    .nodes.find(
+      (node) =>
+        node.systemSlot === systemSlot &&
+        node.organizationId === input.requestScope.organizationId &&
+        node.parentId === input.requestScope.containerId,
+    );
   if (
     !container ||
     !scopesMatch(input.currentScope.current, input.requestScope)
@@ -176,16 +181,62 @@ function getAttributionHydrationScope(input: {
       input.appData.infra.dbStatus === "ready" &&
       input.containerStoreReady &&
       input.revision > 0 &&
+      Boolean(input.appData.state.containerId) &&
       directory?.organizationId === organizationId &&
       directory.currentUser.isOrgAdmin,
     attributionKey: getExplorerAttributionProjectionKey({
       projection: input.projection,
       revision: input.revision,
     }),
+    containerId: input.appData.state.containerId,
     domainScope: input.appData.state.domainScope,
     organizationId,
     userId: input.appData.auth.userId,
   };
+}
+
+function useCommittedAttributionHydrationScope(
+  currentScope: AttributionHydrationScope,
+  requestedBindingKeysRef: RefObject<Set<string>>,
+  selectedBindingKeysByDocumentIdRef: RefObject<Map<string, Set<string>>>,
+): RefObject<AttributionHydrationScope> {
+  const {
+    active,
+    attributionKey,
+    containerId,
+    domainScope,
+    organizationId,
+    userId,
+  } = currentScope;
+  const scopeRef = useRef<AttributionHydrationScope>(currentScope);
+  useLayoutEffect(() => {
+    const nextScope = {
+      active,
+      attributionKey,
+      containerId,
+      domainScope,
+      organizationId,
+      userId,
+    };
+    if (!scopesMatch(scopeRef.current, nextScope)) {
+      requestedBindingKeysRef.current = new Set();
+      selectedBindingKeysByDocumentIdRef.current = new Map();
+    }
+    scopeRef.current = nextScope;
+    return () => {
+      if (scopesMatch(scopeRef.current, nextScope)) {
+        scopeRef.current = { ...nextScope, active: false };
+      }
+    };
+  }, [
+    active,
+    attributionKey,
+    containerId,
+    domainScope,
+    organizationId,
+    userId,
+  ]);
+  return scopeRef;
 }
 
 export function useExplorerAttributionProfileHydration(input: {
@@ -211,29 +262,26 @@ export function useExplorerAttributionProfileHydration(input: {
     projection: input.readModelProjection,
     revision: input.readModelRevision ?? 0,
   });
-  const { active, attributionKey, domainScope, organizationId, userId } =
-    currentScope;
-  const scopeRef = useRef<AttributionHydrationScope>(currentScope);
-  useLayoutEffect(() => {
-    const nextScope = {
-      active,
-      attributionKey,
-      domainScope,
-      organizationId,
-      userId,
-    };
-    if (!scopesMatch(scopeRef.current, nextScope)) {
-      requestedBindingKeysRef.current = new Set();
-      selectedBindingKeysByDocumentIdRef.current = new Map();
-    }
-    scopeRef.current = nextScope;
-  }, [active, attributionKey, domainScope, organizationId, userId]);
+  const {
+    active,
+    attributionKey,
+    containerId,
+    domainScope,
+    organizationId,
+    userId,
+  } = currentScope;
+  const scopeRef = useCommittedAttributionHydrationScope(
+    currentScope,
+    requestedBindingKeysRef,
+    selectedBindingKeysByDocumentIdRef,
+  );
 
   return useCallback(
     ({ contributorUserIds, documentId }) => {
       if (
         !active ||
         !containerSnapshot.ready ||
+        !containerId ||
         !organizationId ||
         documentId.length === 0 ||
         contributorUserIds.length === 0
@@ -250,6 +298,7 @@ export function useExplorerAttributionProfileHydration(input: {
         requestScope: {
           active,
           attributionKey,
+          containerId,
           domainScope,
           organizationId,
           userId,
@@ -265,6 +314,7 @@ export function useExplorerAttributionProfileHydration(input: {
       containerSnapshot,
       active,
       attributionKey,
+      containerId,
       domainScope,
       input.readModelProjection,
       input.readModelRevision,
