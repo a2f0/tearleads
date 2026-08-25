@@ -90,7 +90,9 @@ function documentSyncStateDiffers(
     !documentSyncPullContinuationsEqual(
       current.pullContinuation,
       cached.pullContinuation,
-    )
+    ) ||
+    Boolean(current.pullContinuationRecoveryRequired) !==
+      Boolean(cached.pullContinuationRecoveryRequired)
   );
 }
 
@@ -184,10 +186,14 @@ function resolveSyncSettlementState(
       current?.pendingBaseVersion,
       expected.record.pendingBaseVersion,
     );
+  const recoveryStateMatches =
+    Boolean(current?.pullContinuationRecoveryRequired) ===
+    Boolean(expected.record.pullContinuationRecoveryRequired);
   return {
     pullContinuationSuperseded:
       !securityContextMatches ||
       !contentFrontiersMatch ||
+      !recoveryStateMatches ||
       !documentSyncPullContinuationsEqual(
         current?.pullContinuation,
         expected.pullContinuation,

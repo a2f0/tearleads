@@ -168,6 +168,8 @@ function resolveMetadataSettlementMatch(
       durableRecord?.lastCommitLsn,
       expectedSyncState.record.lastCommitLsn,
     ) &&
+    Boolean(durableRecord?.pullContinuationRecoveryRequired) ===
+      Boolean(expectedSyncState.record.pullContinuationRecoveryRequired) &&
     documentSyncPullContinuationsEqual(
       durableRecord?.pullContinuation,
       expectedSyncState.pullContinuation,
