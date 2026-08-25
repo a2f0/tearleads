@@ -27,7 +27,7 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
   return row.organizationId;
 }
 
-test("roster bindings reject an organization document outside the roster container", async () => {
+test("self bindings reject an owned document outside the roster container", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
   const member = createTestUser();
@@ -39,7 +39,7 @@ test("roster bindings reject an organization document outside the roster contain
   });
   const nonRosterProfile = await createCurrentDocumentProjection({
     containerIds: [actor.rootContainerId],
-    createdByFingerprint: actor.fingerprint,
+    createdByFingerprint: member.fingerprint,
     organizationId,
   });
 
@@ -62,6 +62,49 @@ test("roster bindings reject an organization document outside the roster contain
     error:
       "Profile document is not in this organization's roster profile container",
   });
+  const [memberRosterEntry] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, organizationId),
+        eq(organizationRosterEntries.userId, member.userId),
+      ),
+    );
+  expect(memberRosterEntry?.profileDocumentId).toBeNull();
+});
+
+test("admin bindings reject a document outside the roster container", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor,
+    memberUserId: member.userId,
+    organizationId,
+  });
+  const nonRosterProfile = await createCurrentDocumentProjection({
+    containerIds: [actor.rootContainerId],
+    createdByFingerprint: actor.fingerprint,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/roster/${member.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        profileDocumentId: nonRosterProfile.id,
+      }),
+    },
+  );
+
+  expect(response.status).toBe(400);
   const [memberRosterEntry] = await db
     .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
     .from(organizationRosterEntries)

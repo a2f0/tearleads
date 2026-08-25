@@ -45,6 +45,8 @@ import {
   type DocumentStoreRemoteSyncRequestGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
   invalidateDocumentStoreRemoteSync,
+  isDocumentStoreRemoteSyncBlocked,
+  registerDocumentStoreRemoteSyncWaiter,
 } from "./documentStore/syncGeneration";
 import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
 import {
@@ -141,8 +143,51 @@ function requestOrdinaryDocumentStoreSync(
 ): void {
   // A normal UI reopen is a fresh owner for remote-only work. It may recover
   // a probe that an earlier, now-unmounted owner aborted.
-  allowDocumentStoreRemoteSync(state);
+  if (isDocumentStoreRemoteSyncBlocked(state)) {
+    requestRemoteDocumentStoreSync(state, scheduleSync);
+    return;
+  }
   scheduleSync();
+}
+
+function requestRemoteDocumentStoreSyncAndWait(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null = null;
+  let requestedSignalSequence = 0;
+  const releaseWaiter = registerDocumentStoreRemoteSyncWaiter(state);
+  // A coordinator can be disposed and recreated while this same-scope store
+  // remains registered. Refresh its handle before requesting work.
+  state.syncLane = registerDocumentStoreSyncLane(state);
+  return requestDocumentSyncLaneAndWait({
+    didCompleteRequest: () =>
+      requestGeneration !== null &&
+      didDocumentStoreRemoteSyncRequestComplete(
+        state,
+        requestGeneration,
+        requestedSignalSequence,
+      ),
+    domainScope: state.runtime.state.domainScope,
+    localId: state.localId,
+    request: () => {
+      requestGeneration =
+        captureDocumentStoreRemoteSyncRequestGeneration(state);
+      requestedSignalSequence = requestRemoteDocumentStoreSync(
+        state,
+        scheduleSync,
+      );
+    },
+    onInvalidated: () => {
+      if (releaseWaiter()) {
+        invalidateDocumentStoreRemoteSync(state);
+      }
+    },
+    signal,
+  }).finally(() => {
+    releaseWaiter();
+  });
 }
 
 function createBackingDocumentStore(
@@ -205,35 +250,8 @@ function createBackingDocumentStore(
       replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     requestRemoteSync: () =>
       requestRemoteDocumentStoreSync(state, scheduleSync),
-    requestRemoteSyncAndWait: (signal) => {
-      let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null =
-        null;
-      let requestedSignalSequence = 0;
-      // A coordinator can be disposed and recreated while this same-scope
-      // store remains registered. Refresh its handle before requesting work.
-      state.syncLane = registerDocumentStoreSyncLane(state);
-      return requestDocumentSyncLaneAndWait({
-        didCompleteRequest: () =>
-          requestGeneration !== null &&
-          didDocumentStoreRemoteSyncRequestComplete(
-            state,
-            requestGeneration,
-            requestedSignalSequence,
-          ),
-        domainScope: state.runtime.state.domainScope,
-        localId: state.localId,
-        request: () => {
-          requestGeneration =
-            captureDocumentStoreRemoteSyncRequestGeneration(state);
-          requestedSignalSequence = requestRemoteDocumentStoreSync(
-            state,
-            scheduleSync,
-          );
-        },
-        onInvalidated: () => invalidateDocumentStoreRemoteSync(state),
-        signal,
-      });
-    },
+    requestRemoteSyncAndWait: (signal) =>
+      requestRemoteDocumentStoreSyncAndWait(state, scheduleSync, signal),
     requestSync: () => requestOrdinaryDocumentStoreSync(state, scheduleSync),
     relink: (input) => relinkDocumentStore(state, input, scheduleSync),
     setStructuredFields: (kind, patch, options) =>

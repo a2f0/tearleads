@@ -3,6 +3,7 @@ import type { DocumentState, DocumentStoreState } from "./state";
 
 const remoteSyncGenerations = new WeakMap<DocumentStoreState, number>();
 const remoteSyncBlockedStates = new WeakSet<DocumentStoreState>();
+const remoteSyncWaiterCounts = new WeakMap<DocumentStoreState, number>();
 
 function getRemoteSyncGeneration(state: DocumentStoreState): number {
   return remoteSyncGenerations.get(state) ?? 0;
@@ -62,6 +63,31 @@ export function invalidateDocumentStoreRemoteSync(
 
 export function allowDocumentStoreRemoteSync(state: DocumentStoreState): void {
   remoteSyncBlockedStates.delete(state);
+}
+
+/**
+ * Register one live owner of a shared remote probe. The returned release
+ * function reports whether that owner was the last one still waiting.
+ */
+export function registerDocumentStoreRemoteSyncWaiter(
+  state: DocumentStoreState,
+): () => boolean {
+  remoteSyncWaiterCounts.set(
+    state,
+    (remoteSyncWaiterCounts.get(state) ?? 0) + 1,
+  );
+  let active = true;
+  return () => {
+    if (!active) return false;
+    active = false;
+    const remaining = Math.max(0, (remoteSyncWaiterCounts.get(state) ?? 1) - 1);
+    if (remaining === 0) {
+      remoteSyncWaiterCounts.delete(state);
+      return true;
+    }
+    remoteSyncWaiterCounts.set(state, remaining);
+    return false;
+  };
 }
 
 export function isDocumentStoreRemoteSyncBlocked(

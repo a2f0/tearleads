@@ -320,3 +320,54 @@ test("aborting an in-flight probe prevents its late response from persisting", a
     database.close();
   }
 });
+
+test("aborting one waiter preserves a concurrent remote probe", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("remote-sync-wait-concurrent-abort");
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      markSyncStarted();
+      await responseGate;
+      return fixture.response;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "concurrent-abort-profile",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    const abortController = new AbortController();
+    const aborted = store.requestRemoteSyncAndWait(abortController.signal);
+    const live = store.requestRemoteSyncAndWait();
+    await settleWithin(syncStarted);
+
+    abortController.abort();
+    releaseResponse();
+
+    expect(await settleWithin(aborted)).toBe(false);
+    expect(await settleWithin(live)).toBe(true);
+    const persisted = await defaultDocumentsPersistence.loadDocumentStoreState(
+      database.execSql,
+      "concurrent-abort-profile",
+    );
+    expect(persisted.document?.text).toBe("survives key rotation");
+  } finally {
+    releaseResponse();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
