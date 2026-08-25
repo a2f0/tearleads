@@ -44,6 +44,10 @@ function createStore(
     removeRow: async () => undefined,
     replaceAttachment: () => Promise.resolve(),
     requestRemoteSync: onRemoteSync,
+    requestRemoteSyncAndWait: async () => {
+      onRemoteSync();
+      return true;
+    },
     requestSync: () => undefined,
     relink: async () => null,
     setStructuredFields: async () => undefined,

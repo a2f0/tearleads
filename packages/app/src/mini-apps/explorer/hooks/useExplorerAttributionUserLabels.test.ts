@@ -10,7 +10,7 @@ import {
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDisplayNames,
   getExplorerAttributionProfileDocumentLocalId,
-  hydrateExplorerAttributionProfileDocuments,
+  hydrateExplorerAttributionProfileDocument,
   loadExplorerAttributionDirectoryAndGroups,
   MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS,
   MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
@@ -177,7 +177,7 @@ test("profile hydration never exceeds the per-document cap", () => {
 });
 
 test("profile hydration evicts the least recently viewed document", () => {
-  const selections = new Map<string, Set<string>>();
+  const selections = new Map();
   for (
     let index = 0;
     index < MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS;
@@ -227,24 +227,22 @@ test("profiles reserved by another document do not consume the hydration cap", (
   ]);
 });
 
-test("cold and cached profiles open by retained identity and remote-probe", () => {
-  const requestRemoteSync = mock(() => undefined);
-  const open = mock(() => ({ requestRemoteSync }));
+test("cold and cached profiles open by retained identity and remote-probe", async () => {
+  const requestRemoteSyncAndWait = mock(async () => true);
+  const open = mock(() => ({ requestRemoteSyncAndWait }));
 
   const input = {
     containerId: "roster-profile-container-id",
     documents: { open } as unknown as Documents,
     organizationId: ORGANIZATION_ID,
-    targets: [
-      {
-        bindingKey: "disabled-user-id\0disabled-profile-id",
-        profileDocumentId: "disabled-profile-id",
-        userId: "disabled-user-id",
-      },
-    ],
+    target: {
+      bindingKey: "disabled-user-id\0disabled-profile-id",
+      profileDocumentId: "disabled-profile-id",
+      userId: "disabled-user-id",
+    },
   };
-  hydrateExplorerAttributionProfileDocuments(input);
-  hydrateExplorerAttributionProfileDocuments(input);
+  await hydrateExplorerAttributionProfileDocument(input);
+  await hydrateExplorerAttributionProfileDocument(input);
 
   expect(open).toHaveBeenCalledWith({
     containerId: "roster-profile-container-id",
@@ -256,14 +254,14 @@ test("cold and cached profiles open by retained identity and remote-probe", () =
     }),
   });
   expect(open).toHaveBeenCalledTimes(2);
-  expect(requestRemoteSync).toHaveBeenCalledTimes(2);
+  expect(requestRemoteSyncAndWait).toHaveBeenCalledTimes(2);
 });
 
-test("profile pointer replacements hydrate through distinct local identities", () => {
+test("profile pointer replacements hydrate through distinct local identities", async () => {
   const syncedDocumentIds: string[] = [];
   const storesByLocalId = new Map<
     string,
-    { documentId: string; requestRemoteSync: () => void }
+    { documentId: string; requestRemoteSyncAndWait: () => Promise<boolean> }
   >();
   const open = mock(
     (input: { documentId?: string | null; localId?: string }) => {
@@ -275,7 +273,10 @@ test("profile pointer replacements hydrate through distinct local identities", (
       }
       const store = {
         documentId,
-        requestRemoteSync: () => syncedDocumentIds.push(documentId),
+        requestRemoteSyncAndWait: async () => {
+          syncedDocumentIds.push(documentId);
+          return true;
+        },
       };
       storesByLocalId.set(localId, store);
       return store;
@@ -288,17 +289,17 @@ test("profile pointer replacements hydrate through distinct local identities", (
     userId: "disabled-user-id",
   });
 
-  hydrateExplorerAttributionProfileDocuments({
+  await hydrateExplorerAttributionProfileDocument({
     containerId: "roster-profile-container-id",
     documents,
     organizationId: ORGANIZATION_ID,
-    targets: [target("old-profile-id")],
+    target: target("old-profile-id"),
   });
-  hydrateExplorerAttributionProfileDocuments({
+  await hydrateExplorerAttributionProfileDocument({
     containerId: "roster-profile-container-id",
     documents,
     organizationId: ORGANIZATION_ID,
-    targets: [target("new-profile-id")],
+    target: target("new-profile-id"),
   });
 
   expect(storesByLocalId.size).toBe(2);

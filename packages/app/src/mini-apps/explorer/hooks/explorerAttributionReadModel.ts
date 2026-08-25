@@ -38,10 +38,17 @@ export type ExplorerAttributionProfileHydrationRequester = (
   request: ExplorerAttributionProfileHydrationRequest,
 ) => void;
 
+export interface ExplorerAttributionHydrationDocumentSelection {
+  readonly contributorUserIds: Set<string>;
+}
+
 export function getExplorerAttributionHydrationDocumentSelection(
-  selectionsByDocumentId: Map<string, Set<string>>,
+  selectionsByDocumentId: Map<
+    string,
+    ExplorerAttributionHydrationDocumentSelection
+  >,
   documentId: string,
-): Set<string> {
+): ExplorerAttributionHydrationDocumentSelection {
   const existing = selectionsByDocumentId.get(documentId);
   if (existing) {
     selectionsByDocumentId.delete(documentId);
@@ -56,7 +63,9 @@ export function getExplorerAttributionHydrationDocumentSelection(
       selectionsByDocumentId.delete(oldestDocumentId);
     }
   }
-  const selection = new Set<string>();
+  const selection = {
+    contributorUserIds: new Set<string>(),
+  };
   selectionsByDocumentId.set(documentId, selection);
   return selection;
 }
@@ -128,26 +137,26 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
     .map(({ status: _status, ...target }) => target);
 }
 
-/** Opens only the requested encrypted profile documents and probes remote state. */
-export function hydrateExplorerAttributionProfileDocuments(input: {
+/** Opens one requested encrypted profile document and probes remote state. */
+export function hydrateExplorerAttributionProfileDocument(input: {
   readonly containerId: string;
   readonly documents: Documents;
   readonly organizationId: string;
-  readonly targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>;
-}): void {
-  for (const target of input.targets) {
-    input.documents
-      .open({
-        containerId: input.containerId,
-        documentId: target.profileDocumentId,
-        localId: getExplorerAttributionProfileDocumentLocalId({
-          organizationId: input.organizationId,
-          profileDocumentId: target.profileDocumentId,
-          userId: target.userId,
-        }),
-      })
-      .requestRemoteSync();
-  }
+  readonly signal?: AbortSignal | undefined;
+  readonly target: ExplorerAttributionProfileHydrationTarget;
+}): Promise<boolean> {
+  const { target } = input;
+  return input.documents
+    .open({
+      containerId: input.containerId,
+      documentId: target.profileDocumentId,
+      localId: getExplorerAttributionProfileDocumentLocalId({
+        organizationId: input.organizationId,
+        profileDocumentId: target.profileDocumentId,
+        userId: target.userId,
+      }),
+    })
+    .requestRemoteSyncAndWait(input.signal);
 }
 
 export function getExplorerAttributionProjectionKey(input: {

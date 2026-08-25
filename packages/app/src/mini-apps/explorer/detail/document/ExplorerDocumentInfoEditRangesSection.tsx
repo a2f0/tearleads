@@ -2,7 +2,13 @@ import type {
   DocumentAttributionRangesPage,
   DocumentInfo,
 } from "@symcrypt/client-sdk";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   MiniAppButton,
   MiniAppInfoSection,
@@ -125,9 +131,6 @@ function useEditRangesState(input: {
   compactAttributionRevision: number | null;
   documentId: string | null;
   load: ExplorerDocumentAttributionRangesLoader;
-  requestAttributionProfileHydration?:
-    | ExplorerAttributionProfileHydrationRequester
-    | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [state, setState] = useState(createEmptyEditRangesState);
@@ -169,15 +172,6 @@ function useEditRangesState(input: {
         if (requestIdRef.current !== requestId) {
           return;
         }
-        const contributorUserIds = [
-          ...new Set(page.items.map((item) => item.writerUserId)),
-        ];
-        if (contributorUserIds.length > 0) {
-          input.requestAttributionProfileHydration?.({
-            contributorUserIds,
-            documentId: page.documentId,
-          });
-        }
         setState((current) => ({
           attributionRevision: page.attributionRevision,
           error: null,
@@ -197,7 +191,7 @@ function useEditRangesState(input: {
         }));
       }
     },
-    [input.documentId, input.load, input.requestAttributionProfileHydration],
+    [input.documentId, input.load],
   );
 
   const toggleExpanded = () => {
@@ -281,9 +275,25 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
     compactAttributionRevision,
     documentId,
     load: params.loadDocumentAttributionRanges,
-    requestAttributionProfileHydration:
-      params.requestAttributionProfileHydration,
   });
+  useEffect(() => {
+    if (!documentId) {
+      return;
+    }
+    const contributorUserIds = [
+      ...new Set(model.state.items.map((item) => item.writerUserId)),
+    ];
+    if (contributorUserIds.length > 0) {
+      params.requestAttributionProfileHydration?.({
+        contributorUserIds,
+        documentId,
+      });
+    }
+  }, [
+    documentId,
+    model.state.items,
+    params.requestAttributionProfileHydration,
+  ]);
 
   if (
     !remoteInfo ||

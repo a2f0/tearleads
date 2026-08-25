@@ -8,12 +8,12 @@ import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useSymCryptExternalStoreSnapshot } from "../../../providers/sdk/useSymCryptSubscription";
 import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
 import {
+  type ExplorerAttributionHydrationDocumentSelection,
   type ExplorerAttributionProfileHydrationRequester,
   type ExplorerAttributionProfileHydrationTarget,
   getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProjectionKey,
-  hydrateExplorerAttributionProfileDocuments,
-  MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+  hydrateExplorerAttributionProfileDocument,
   selectExplorerAttributionProfileHydrationTargets,
 } from "./explorerAttributionReadModel";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
@@ -51,6 +51,7 @@ type ContainerStore = ReturnType<
 >["containerStore"];
 
 interface ProfileHydrationRequest {
+  readonly abortSignal: AbortSignal;
   readonly containerStore: ContainerStore;
   readonly contributorUserIds: ReadonlyArray<string>;
   readonly currentScope: RefObject<AttributionHydrationScope>;
@@ -59,9 +60,14 @@ interface ProfileHydrationRequest {
   readonly projection: OrganizationDirectoryAndGroups | null | undefined;
   readonly requestScope: AttributionHydrationScope;
   readonly requestedBindingKeys: Set<string>;
-  readonly selectedBindingKeysByDocumentId: Map<string, Set<string>>;
+  readonly selectionsByDocumentId: Map<
+    string,
+    ExplorerAttributionHydrationDocumentSelection
+  >;
   readonly symcrypt: SymCryptClient;
 }
+
+const MAX_PROFILE_HYDRATION_ATTEMPTS = 3;
 
 function setTargetReservations(
   targets: ReadonlyArray<ExplorerAttributionProfileHydrationTarget>,
@@ -86,26 +92,57 @@ function getPendingTargets(
   ) {
     return [];
   }
-  const selectedBindingKeys = getExplorerAttributionHydrationDocumentSelection(
-    input.selectedBindingKeysByDocumentId,
+  const selection = getExplorerAttributionHydrationDocumentSelection(
+    input.selectionsByDocumentId,
     input.documentId,
   );
-  const newTargets = selectExplorerAttributionProfileHydrationTargets({
-    contributorUserIds: input.contributorUserIds,
+  const selectedTargets = selectExplorerAttributionProfileHydrationTargets({
+    contributorUserIds: [
+      ...selection.contributorUserIds,
+      ...input.contributorUserIds,
+    ],
     directoryAndGroups: input.projection,
-    excludedBindingKeys: selectedBindingKeys,
-    limit:
-      MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS - selectedBindingKeys.size,
   });
-  for (const target of newTargets) {
-    selectedBindingKeys.add(target.bindingKey);
+  selection.contributorUserIds.clear();
+  for (const target of selectedTargets) {
+    selection.contributorUserIds.add(target.userId);
   }
-  return selectExplorerAttributionProfileHydrationTargets({
-    contributorUserIds: input.contributorUserIds,
-    directoryAndGroups: input.projection,
-    excludedBindingKeys: input.requestedBindingKeys,
-    includedBindingKeys: selectedBindingKeys,
-  });
+  return selectedTargets.filter(
+    (target) => !input.requestedBindingKeys.has(target.bindingKey),
+  );
+}
+
+async function hydrateTargetWithRetries(
+  input: ProfileHydrationRequest,
+  containerId: string,
+  target: ExplorerAttributionProfileHydrationTarget,
+): Promise<void> {
+  for (
+    let attempt = 0;
+    attempt < MAX_PROFILE_HYDRATION_ATTEMPTS;
+    attempt += 1
+  ) {
+    if (!scopesMatch(input.currentScope.current, input.requestScope)) {
+      return;
+    }
+    try {
+      const completed = await hydrateExplorerAttributionProfileDocument({
+        containerId,
+        documents: input.symcrypt.documents,
+        organizationId: input.organizationId,
+        signal: input.abortSignal,
+        target,
+      });
+      if (completed) {
+        return;
+      }
+    } catch (error) {
+      input.symcrypt.logError(
+        "Failed to hydrate explorer attribution roster profile",
+        error,
+      );
+    }
+  }
 }
 
 async function hydratePendingTargets(
@@ -132,12 +169,11 @@ async function hydratePendingTargets(
   ) {
     return false;
   }
-  hydrateExplorerAttributionProfileDocuments({
-    containerId: container.id,
-    documents: input.symcrypt.documents,
-    organizationId: input.organizationId,
-    targets,
-  });
+  await Promise.all(
+    targets.map((target) =>
+      hydrateTargetWithRetries(input, container.id, target),
+    ),
+  );
   return true;
 }
 
@@ -195,8 +231,11 @@ function getAttributionHydrationScope(input: {
 
 function useCommittedAttributionHydrationScope(
   currentScope: AttributionHydrationScope,
+  abortControllerRef: RefObject<AbortController>,
   requestedBindingKeysRef: RefObject<Set<string>>,
-  selectedBindingKeysByDocumentIdRef: RefObject<Map<string, Set<string>>>,
+  selectionsByDocumentIdRef: RefObject<
+    Map<string, ExplorerAttributionHydrationDocumentSelection>
+  >,
 ): RefObject<AttributionHydrationScope> {
   const {
     active,
@@ -217,12 +256,15 @@ function useCommittedAttributionHydrationScope(
       userId,
     };
     if (!scopesMatch(scopeRef.current, nextScope)) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = new AbortController();
       requestedBindingKeysRef.current = new Set();
-      selectedBindingKeysByDocumentIdRef.current = new Map();
+      selectionsByDocumentIdRef.current = new Map();
     }
     scopeRef.current = nextScope;
     return () => {
       if (scopesMatch(scopeRef.current, nextScope)) {
+        abortControllerRef.current.abort();
         scopeRef.current = { ...nextScope, active: false };
       }
     };
@@ -250,8 +292,9 @@ export function useExplorerAttributionProfileHydration(input: {
   const { containerStore } = useDeviceFirstContainerContents();
   const containerSnapshot = useSymCryptExternalStoreSnapshot(containerStore);
   const requestedBindingKeysRef = useRef(new Set<string>());
-  const selectedBindingKeysByDocumentIdRef = useRef(
-    new Map<string, Set<string>>(),
+  const abortControllerRef = useRef(new AbortController());
+  const selectionsByDocumentIdRef = useRef(
+    new Map<string, ExplorerAttributionHydrationDocumentSelection>(),
   );
   const currentScope = getAttributionHydrationScope({
     appData: input.appData,
@@ -270,8 +313,9 @@ export function useExplorerAttributionProfileHydration(input: {
   } = currentScope;
   const scopeRef = useCommittedAttributionHydrationScope(
     currentScope,
+    abortControllerRef,
     requestedBindingKeysRef,
-    selectedBindingKeysByDocumentIdRef,
+    selectionsByDocumentIdRef,
   );
 
   return useCallback(
@@ -287,6 +331,7 @@ export function useExplorerAttributionProfileHydration(input: {
         return;
       }
       void requestExplorerAttributionProfileHydration({
+        abortSignal: abortControllerRef.current.signal,
         containerStore,
         contributorUserIds,
         currentScope: scopeRef,
@@ -302,8 +347,7 @@ export function useExplorerAttributionProfileHydration(input: {
           userId,
         },
         requestedBindingKeys: requestedBindingKeysRef.current,
-        selectedBindingKeysByDocumentId:
-          selectedBindingKeysByDocumentIdRef.current,
+        selectionsByDocumentId: selectionsByDocumentIdRef.current,
         symcrypt,
       });
     },

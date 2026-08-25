@@ -7,6 +7,7 @@ import {
   defaultDocumentsPersistence,
   didDocumentProjectionKeyRuntimeChange,
   didRegainSyncPrerequisites,
+  requestDocumentSyncLaneAndWait,
 } from "../../workflows/documents";
 import {
   attachFilesToDocumentStore,
@@ -185,6 +186,13 @@ function createBackingDocumentStore(
       replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     requestRemoteSync: () =>
       requestRemoteDocumentStoreSync(state, scheduleSync),
+    requestRemoteSyncAndWait: (signal) =>
+      requestDocumentSyncLaneAndWait({
+        domainScope: state.runtime.state.domainScope,
+        localId: state.localId,
+        request: () => requestRemoteDocumentStoreSync(state, scheduleSync),
+        signal,
+      }),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkDocumentStore(state, input, scheduleSync),
     setStructuredFields: (kind, patch, options) =>

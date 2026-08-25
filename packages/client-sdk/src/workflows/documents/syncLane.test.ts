@@ -2,10 +2,14 @@ import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainSyncPrerequisites,
+  getDomainSyncCoordinatorSnapshot,
   isDatabaseUnavailableError,
   type SyncRuntimeStatus,
 } from "../../data/sync/syncCoordinator";
-import { registerDocumentSyncLane } from "./syncLane";
+import {
+  registerDocumentSyncLane,
+  requestDocumentSyncLaneAndWait,
+} from "./syncLane";
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -41,6 +45,62 @@ test("registerDocumentSyncLane registers a document lane by local id", async () 
   await flushSyncLane();
 
   expect(calls.sort()).toEqual(["other", "second"]);
+});
+
+test("requested document sync reports completion and failure", async () => {
+  const domainScope = createDomainScope();
+  let shouldFail = true;
+  const lane = registerDocumentSyncLane({
+    domainScope,
+    localId: "profile-local-id",
+    run: async () => {
+      if (shouldFail) throw new Error("transient failure");
+    },
+  });
+  const request = () => lane.requestSync();
+
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      domainScope,
+      localId: "profile-local-id",
+      request,
+    }),
+  ).toBe(false);
+  shouldFail = false;
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      domainScope,
+      localId: "profile-local-id",
+      request,
+    }),
+  ).toBe(true);
+  expect(getDomainSyncCoordinatorSnapshot(domainScope).lanes[0]?.runCount).toBe(
+    2,
+  );
+});
+
+test("requested document sync can be aborted while a pass is pending", async () => {
+  const domainScope = createDomainScope();
+  let finishRun = () => undefined;
+  const pendingRun = new Promise<void>((resolve) => {
+    finishRun = resolve;
+  });
+  const lane = registerDocumentSyncLane({
+    domainScope,
+    localId: "profile-local-id",
+    run: () => pendingRun,
+  });
+  const abortController = new AbortController();
+  const result = requestDocumentSyncLaneAndWait({
+    domainScope,
+    localId: "profile-local-id",
+    request: () => lane.requestSync(),
+    signal: abortController.signal,
+  });
+
+  abortController.abort();
+  expect(await result).toBe(false);
+  finishRun();
 });
 
 test("didRegainSyncPrerequisites detects restored sync inputs", () => {

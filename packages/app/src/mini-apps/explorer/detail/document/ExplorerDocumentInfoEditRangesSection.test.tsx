@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
@@ -154,7 +154,6 @@ test("loads only after expansion and lists detailed uploads", async () => {
   );
   expect(view.getByText("update-bbbb")).toBeTruthy();
 });
-
 test("appends a revision-bound next page", async () => {
   const cursors: Array<string | null | undefined> = [];
   const loadDocumentAttributionRanges = async (input: {
@@ -194,7 +193,6 @@ test("appends a revision-bound next page", async () => {
   expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
   expect(view.queryByRole("button", { name: "Load more" })).toBeNull();
 });
-
 test("shows an error and retries the failed page", async () => {
   let attempt = 0;
   const loadDocumentAttributionRanges =
@@ -230,7 +228,6 @@ test("shows an error and retries the failed page", async () => {
   expect(await view.findByText("update-retried")).toBeTruthy();
   expect(attempt).toBe(2);
 });
-
 test("closes and clears when the compact revision changes", async () => {
   let requestCount = 0;
   const loadDocumentAttributionRanges =
@@ -272,7 +269,6 @@ test("closes and clears when the compact revision changes", async () => {
   expect(view.container.querySelector("table")).toBeNull();
   expect(requestCount).toBe(1);
 });
-
 test("closes and clears when the attribution manifest scope changes", async () => {
   let requestCount = 0;
   const loadDocumentAttributionRanges =
@@ -316,7 +312,6 @@ test("closes and clears when the attribution manifest scope changes", async () =
   expect(view.container.querySelector("table")).toBeNull();
   expect(requestCount).toBe(1);
 });
-
 test("ignores a stale page that resolves after the revision changes", async () => {
   let resolvePage: ((page: DocumentAttributionRangesPage) => void) | null =
     null;
@@ -359,7 +354,6 @@ test("ignores a stale page that resolves after the revision changes", async () =
   expect(view.queryByText("stale-update")).toBeNull();
   expect(view.container.querySelector("table")).toBeNull();
 });
-
 test("surfaces a page revision mismatch without mixing its rows", async () => {
   const requests: DocumentAttributionRangesInput[] = [];
   const loadDocumentAttributionRanges = async (
@@ -414,7 +408,6 @@ test("surfaces a page revision mismatch without mixing its rows", async () => {
     limit: 100,
   });
 });
-
 test("rejects an initial page from a newer compact attribution revision", async () => {
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, {
@@ -442,7 +435,6 @@ test("rejects an initial page from a newer compact attribution revision", async 
   expect(view.queryByText("newer-update")).toBeNull();
   expect(view.container.querySelector("table")).toBeNull();
 });
-
 test("is hidden without compact attribution", () => {
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, {
@@ -454,7 +446,6 @@ test("is hidden without compact attribution", () => {
 
   expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
 });
-
 test("truncated attribution hydrates paginated range writers", async () => {
   const documentInfo = createDocumentInfo();
   if (!documentInfo.remoteInfo) {
@@ -462,31 +453,40 @@ test("truncated attribution hydrates paginated range writers", async () => {
   }
   documentInfo.remoteInfo.attributionStatus = "truncated";
   documentInfo.remoteInfo.attributionSegments = [];
-  const hydrationRequests: unknown[] = [];
+  const requestHydration = mock(() => undefined);
+  const props = {
+    documentInfo,
+    loadDocumentAttributionRanges: async () => ({
+      attributionRevision: 7,
+      documentId: "document-1",
+      hasMore: false,
+      items: [{ ...compactAttributionSegment, updateId: "page-update" }],
+      nextCursor: null,
+    }),
+  };
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, {
-      documentInfo,
-      loadDocumentAttributionRanges: async () => ({
-        attributionRevision: 7,
-        documentId: "document-1",
-        hasMore: false,
-        items: [{ ...compactAttributionSegment, updateId: "page-update" }],
-        nextCursor: null,
-      }),
-      requestAttributionProfileHydration: (request) => {
-        hydrationRequests.push(request);
-      },
+      ...props,
+      requestAttributionProfileHydration: requestHydration,
     }),
   );
 
   fireEvent.click(view.getByRole("button", { name: "Show edit ranges" }));
   await waitFor(() =>
-    expect(hydrationRequests).toEqual([
-      { contributorUserIds: ["writer-1"], documentId: "document-1" },
-    ]),
+    expect(requestHydration).toHaveBeenCalledWith({
+      contributorUserIds: ["writer-1"],
+      documentId: "document-1",
+    }),
   );
+  const replayHydration = mock(() => undefined);
+  view.rerender(
+    createElement(ExplorerDocumentInfoEditRangesSection, {
+      ...props,
+      requestAttributionProfileHydration: replayHydration,
+    }),
+  );
+  await waitFor(() => expect(replayHydration).toHaveBeenCalledTimes(1));
 });
-
 test("is hidden for local-only documents", () => {
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, {

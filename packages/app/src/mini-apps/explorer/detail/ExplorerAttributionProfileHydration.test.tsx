@@ -81,16 +81,19 @@ function runtimeSnapshot(
   } as unknown as RuntimeSnapshot;
 }
 
-function createSymCryptHarness() {
-  const requestRemoteSync = mock(() => undefined);
-  const open = mock((_input: { documentId?: string | null }) => ({
-    requestRemoteSync,
+function createSymCryptHarness(
+  remoteSync: (documentId: string) => Promise<boolean> = async () => true,
+) {
+  const requestRemoteSyncAndWait = mock(remoteSync);
+  const open = mock((input: { documentId?: string | null }) => ({
+    requestRemoteSyncAndWait: () =>
+      requestRemoteSyncAndWait(input.documentId ?? ""),
   }));
   const symcrypt = {
     documents: { open },
     logError: mock(() => undefined),
   } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
-  return { open, requestRemoteSync, symcrypt };
+  return { open, requestRemoteSyncAndWait, symcrypt };
 }
 
 function createContainerStoreHarness(initiallyReady: boolean) {
@@ -166,8 +169,11 @@ function createContainerStoreHarness(initiallyReady: boolean) {
   };
 }
 
-function installHarnesses(initiallyReady: boolean) {
-  const symcrypt = createSymCryptHarness();
+function installHarnesses(
+  initiallyReady: boolean,
+  remoteSync?: (documentId: string) => Promise<boolean>,
+) {
+  const symcrypt = createSymCryptHarness(remoteSync);
   const containers = createContainerStoreHarness(initiallyReady);
   const useSymCryptSpy = spyOn(
     SymCryptProvider,
@@ -217,12 +223,11 @@ test("attribution hydration retries when the container store becomes ready", asy
     act(() => harness.containers.setReady(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
+    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }
 });
-
 test("attribution hydration retries when a ready store gains its system container", async () => {
   const harness = installHarnesses(true);
   harness.containers.setContainerAvailable(false);
@@ -250,12 +255,11 @@ test("attribution hydration retries when a ready store gains its system containe
     act(() => harness.containers.setContainerAvailable(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
+    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }
 });
-
 test("each document keeps one bounded attribution hydration selection", async () => {
   const users = Array.from({ length: 65 }, (_, index) => rosterUser(index));
   const harness = installHarnesses(true);
@@ -300,7 +304,6 @@ test("each document keeps one bounded attribution hydration selection", async ()
     harness.restore();
   }
 });
-
 test("a shared profile retains its slot in a full hydration selection", async () => {
   const harness = installHarnesses(true);
   harness.containers.setContainerAvailable(false);
@@ -339,7 +342,7 @@ test("a shared profile retains its slot in a full hydration selection", async ()
       expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
     );
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(0);
-    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(32);
+    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(32);
     expect(harness.symcrypt.open).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-0" }),
     );
@@ -350,7 +353,6 @@ test("a shared profile retains its slot in a full hydration selection", async ()
     harness.restore();
   }
 });
-
 test("an organization switch invalidates pending container resolution", async () => {
   const harness = installHarnesses(true);
   const user = rosterUser(0);
@@ -391,7 +393,6 @@ test("an organization switch invalidates pending container resolution", async ()
     harness.restore();
   }
 });
-
 test("unmount invalidates pending container resolution", async () => {
   const harness = installHarnesses(true);
   const user = rosterUser(0);
@@ -419,49 +420,79 @@ test("unmount invalidates pending container resolution", async () => {
     harness.restore();
   }
 });
-
-test("a newly disabled contributor displaces an active profile at the cap", async () => {
+test("profile sync retries transient failures within its attempt cap", async () => {
+  const attemptsByDocumentId = new Map<string, number>();
+  const harness = installHarnesses(true, async (documentId) => {
+    const attempts = (attemptsByDocumentId.get(documentId) ?? 0) + 1;
+    attemptsByDocumentId.set(documentId, attempts);
+    return documentId === "profile-0" && attempts === 2;
+  });
+  try {
+    const view = renderHook(() =>
+      useExplorerAttributionProfileHydration({
+        appData: runtimeSnapshot(),
+        enabled: true,
+        readModelProjection: projection([rosterUser(0), rosterUser(1)]),
+        readModelRevision: 1,
+      }),
+    );
+    act(() =>
+      view.result.current({
+        contributorUserIds: ["profile-user-0", "profile-user-1"],
+        documentId: "document-a",
+      }),
+    );
+    await waitFor(() =>
+      expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(
+        5,
+      ),
+    );
+    expect(attemptsByDocumentId).toEqual(
+      new Map([
+        ["profile-0", 2],
+        ["profile-1", 3],
+      ]),
+    );
+  } finally {
+    harness.restore();
+  }
+});
+test("a later-page disabled contributor displaces an active profile", async () => {
   const harness = installHarnesses(true);
-  const appData = runtimeSnapshot();
-  const activeUsers = Array.from({ length: 33 }, (_, index) =>
-    rosterUser(index),
+  const users = Array.from({ length: 33 }, (_, index) =>
+    rosterUser(index, index === 32 ? "disabled" : "active"),
   );
   try {
-    const view = renderHook(
-      (props: { readModelProjection: OrganizationDirectoryAndGroups }) =>
-        useExplorerAttributionProfileHydration({
-          appData,
-          enabled: true,
-          readModelProjection: props.readModelProjection,
-          readModelRevision: 1,
-        }),
-      { initialProps: { readModelProjection: projection(activeUsers) } },
+    const view = renderHook(() =>
+      useExplorerAttributionProfileHydration({
+        appData: runtimeSnapshot(),
+        enabled: true,
+        readModelProjection: projection(users),
+        readModelRevision: 1,
+      }),
     );
-    const contributorUserIds = activeUsers.map((user) => user.userId);
     act(() =>
-      view.result.current({ contributorUserIds, documentId: "document-a" }),
+      view.result.current({
+        contributorUserIds: users.slice(0, 32).map((user) => user.userId),
+        documentId: "document-a",
+      }),
     );
     await waitFor(() =>
       expect(harness.symcrypt.open).toHaveBeenCalledTimes(32),
     );
 
-    const usersWithNewlyDisabledContributor = activeUsers.map((user, index) =>
-      index === 32 ? rosterUser(index, "disabled") : user,
-    );
-    view.rerender({
-      readModelProjection: projection(usersWithNewlyDisabledContributor),
-    });
     act(() =>
-      view.result.current({ contributorUserIds, documentId: "document-a" }),
+      view.result.current({
+        contributorUserIds: [users[32]?.userId ?? ""],
+        documentId: "document-a",
+      }),
     );
     await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(64),
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(33),
     );
-    const refreshedDocumentIds = harness.symcrypt.open.mock.calls
-      .slice(32)
-      .map(([input]) => input.documentId);
-    expect(refreshedDocumentIds).toContain("profile-32");
-    expect(refreshedDocumentIds).not.toContain("profile-31");
+    expect(harness.symcrypt.open.mock.calls[32]?.[0].documentId).toBe(
+      "profile-32",
+    );
   } finally {
     harness.restore();
   }
