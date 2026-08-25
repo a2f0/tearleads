@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { MAX_BUFFER_BYTES } from "../git/prContext";
+import { materializeRawGitTree } from "./rawGitTree";
 
 function git(rootDir: string, args: string[]): string {
   return execFileSync("git", args, {
@@ -55,7 +56,7 @@ function removeSnapshot(tempRoot: string, repositoryRoot: string): void {
 }
 
 /**
- * Run a callback against an immutable export of the exact tracked `HEAD`.
+ * Run a callback against immutable raw blobs from the exact tracked `HEAD`.
  * Working-tree edits, untracked files, and `.git` metadata never enter it.
  */
 export function withReviewSnapshot<T>(
@@ -64,20 +65,11 @@ export function withReviewSnapshot<T>(
 ): T {
   const tempRoot = mkdtempSync(path.join(tmpdir(), "agent-tool-review-"));
   const repositoryRoot = path.join(tempRoot, "repository");
-  const archivePath = path.join(tempRoot, "head.tar");
   mkdirSync(repositoryRoot);
 
   try {
     const head = git(rootDir, ["rev-parse", "--verify", "HEAD^{commit}"]);
-    execFileSync(
-      "git",
-      ["archive", "--format=tar", `--output=${archivePath}`, head],
-      { cwd: rootDir, stdio: ["ignore", "ignore", "pipe"] },
-    );
-    execFileSync("tar", ["-xf", archivePath, "-C", repositoryRoot], {
-      stdio: ["ignore", "ignore", "pipe"],
-    });
-    rmSync(archivePath, { force: true });
+    materializeRawGitTree(rootDir, head, repositoryRoot);
     makeTreeReadOnly(repositoryRoot);
     return callback(repositoryRoot);
   } finally {

@@ -30,15 +30,17 @@ Both actions:
    one is retried once (the observed failure mode is stochastic), then reported
    as a nonzero exit.
 
-The snapshot comes from `git archive` rather than the working tree, so it
+The snapshot is materialized directly from the raw blobs in Git's exact `HEAD`
+tree, bypassing branch-controlled export attributes and content filters. It
 contains no untracked files, local edits, or `.git` metadata and is deleted
 after the review. Claude reviews that snapshot with read-only tools
 (`Read,Grep,Glob`, no `Bash`) under an absolute snapshot-scoped allow rule in
 safe and `dontAsk` modes, with browser integration and session persistence
 disabled. Codex reviews via an ephemeral `codex exec` session with the user
 config ignored. Its custom permission profile denies the host filesystem and
-network by default, grants read access only to the snapshot and minimal runtime
-paths, and strips the environment from model-generated commands. Codex runs
+network by default, grants read access only to the snapshot, the resolved Codex
+installation directory, and minimal runtime paths, and strips the environment
+from model-generated commands. Codex runs
 from a neutral temporary directory so the branch's `AGENTS.md` is not injected
 as reviewer policy. Only its final message — captured with
 `--output-last-message` — is relayed, so the output is the review itself rather

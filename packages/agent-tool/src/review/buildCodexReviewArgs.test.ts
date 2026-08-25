@@ -8,6 +8,7 @@ describe("buildCodexReviewArgs", () => {
       "high",
       "/tmp/x/review-1.md",
       "/repo/root",
+      "/opt/codex/bin",
     );
 
     expect(args).toEqual([
@@ -28,7 +29,7 @@ describe("buildCodexReviewArgs", () => {
       "-c",
       'default_permissions="review-snapshot"',
       "-c",
-      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/repo/root"="read"}',
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/opt/codex/bin"="read","/repo/root"="read"}',
       "-c",
       "permissions.review-snapshot.network.enabled=false",
       "-c",
@@ -52,6 +53,7 @@ describe("buildCodexReviewArgs", () => {
       "high",
       "/tmp/x/review-1.md",
       "/repo/root",
+      "/opt/codex/bin",
     );
 
     expect(args).toContain("--ignore-user-config");
@@ -66,13 +68,14 @@ describe("buildCodexReviewArgs", () => {
       "high",
       "/tmp/x/review-1.md",
       "/repo/root",
+      "/opt/codex/bin",
     );
 
     expect(args).toContain("--skip-git-repo-check");
     expect(args).not.toContain("--sandbox");
     expect(args).not.toContain("--add-dir");
     expect(args).toContain(
-      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/repo/root"="read"}',
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/opt/codex/bin"="read","/repo/root"="read"}',
     );
     expect(args).toContain('shell_environment_policy.inherit="none"');
   });
@@ -82,6 +85,7 @@ describe("buildCodexReviewArgs", () => {
       "xhigh",
       "/tmp/x/review-1.md",
       "/repo/root",
+      "/opt/codex/bin",
     );
 
     // `-` must be the trailing positional: it is what makes codex read the

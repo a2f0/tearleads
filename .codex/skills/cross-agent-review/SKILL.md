@@ -369,10 +369,9 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   diff — an unchanged branch further up the file, a source-shape baseline, the
   callers a signature change breaks. `Bash` is withheld because a review needs no
   shell, and the session's context is a PR diff — attacker-influenceable text.
-  The Codex reviewer is confined by `--sandbox read-only` with MCP
-  servers disabled (the sandbox confines shell commands, not MCP tools). The
-  repair rounds run in *this* session, not the reviewer's; the reviewer stays
-  read-only no matter how many rounds run.
+  Codex uses deny-by-default filesystem permissions limited to the raw snapshot
+  and CLI/runtime paths; network and integrations are disabled. Repair rounds
+  run in *this* session; the reviewer stays read-only.
 - **Why a review can come back empty is not known.** The one observed failure —
   Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
   was never reproduced and looks stochastic. The verdict check plus the tool's

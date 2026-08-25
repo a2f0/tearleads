@@ -90,6 +90,7 @@ describe("buildCodexReviewArgs", () => {
       "high",
       "/tmp/x/review-1.md",
       "/repo/root",
+      "/opt/codex/bin",
     );
     const overrides = args.filter((_, i) => i > 0 && args[i - 1] === "-c");
     expect(overrides).toContain('model_reasoning_effort="high"');

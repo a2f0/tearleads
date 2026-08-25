@@ -74,4 +74,64 @@ describe("withReviewSnapshot", () => {
     ).toThrow("review failed");
     expect(existsSync(snapshotRoot)).toBe(false);
   });
+
+  test("ignores branch-controlled export attributes and content filters", () => {
+    const rootDir = createRepository();
+    writeFileSync(
+      path.join(rootDir, ".gitattributes"),
+      [
+        "hidden.txt export-ignore",
+        "subst.txt export-subst",
+        "filtered.txt filter=review-snapshot-test",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(path.join(rootDir, "hidden.txt"), "still visible\n");
+    writeFileSync(path.join(rootDir, "subst.txt"), "$Format:%H$\n");
+    writeFileSync(path.join(rootDir, "filtered.txt"), "raw\n");
+    git(rootDir, [
+      "config",
+      "filter.review-snapshot-test.smudge",
+      "sed s/raw/smudged/",
+    ]);
+    git(rootDir, ["add", "."]);
+    git(rootDir, ["commit", "--quiet", "-m", "test: add hostile attributes"]);
+
+    withReviewSnapshot(rootDir, (repositoryRoot) => {
+      expect(
+        readFileSync(path.join(repositoryRoot, "hidden.txt"), "utf8"),
+      ).toBe("still visible\n");
+      expect(readFileSync(path.join(repositoryRoot, "subst.txt"), "utf8")).toBe(
+        "$Format:%H$\n",
+      );
+      expect(
+        readFileSync(path.join(repositoryRoot, "filtered.txt"), "utf8"),
+      ).toBe("raw\n");
+    });
+  });
+
+  test("reads the committed blobs rather than local replacement refs", () => {
+    const rootDir = createRepository();
+    const originalBlob = execFileSync(
+      "git",
+      ["rev-parse", "HEAD:src/tracked.txt"],
+      { cwd: rootDir, encoding: "utf8" },
+    ).trim();
+    const replacementBlob = execFileSync(
+      "git",
+      ["hash-object", "-w", "--stdin"],
+      {
+        cwd: rootDir,
+        encoding: "utf8",
+        input: "locally replaced\n",
+      },
+    ).trim();
+    git(rootDir, ["replace", originalBlob, replacementBlob]);
+
+    withReviewSnapshot(rootDir, (repositoryRoot) => {
+      expect(
+        readFileSync(path.join(repositoryRoot, "src", "tracked.txt"), "utf8"),
+      ).toBe("committed\n");
+    });
+  });
 });

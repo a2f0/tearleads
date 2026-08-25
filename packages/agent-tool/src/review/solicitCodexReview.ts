@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -58,11 +65,14 @@ export function buildCodexReviewArgs(
   effort: ReviewEffort,
   lastMessageFile: string,
   snapshotRoot: string,
+  codexRuntimeRoot: string,
 ): string[] {
+  const readableRoots = [...new Set([codexRuntimeRoot, snapshotRoot])];
   const filesystemPermissions = [
-    '{":root"="deny",":minimal"="read",',
-    `${JSON.stringify(snapshotRoot)}="read"}`,
-  ].join("");
+    '":root"="deny"',
+    '":minimal"="read"',
+    ...readableRoots.map((root) => `${JSON.stringify(root)}="read"`),
+  ];
   return [
     "exec",
     "--ignore-user-config",
@@ -81,7 +91,7 @@ export function buildCodexReviewArgs(
     "-c",
     'default_permissions="review-snapshot"',
     "-c",
-    `permissions.review-snapshot.filesystem=${filesystemPermissions}`,
+    `permissions.review-snapshot.filesystem={${filesystemPermissions.join(",")}}`,
     "-c",
     "permissions.review-snapshot.network.enabled=false",
     "-c",
@@ -92,6 +102,23 @@ export function buildCodexReviewArgs(
     lastMessageFile,
     "-",
   ];
+}
+
+function resolveCodexExecutable(env: ReviewerEnv): string {
+  const { PATH: pathValue } = env;
+  if (pathValue === undefined) {
+    return "codex";
+  }
+  for (const pathEntry of pathValue.split(path.delimiter)) {
+    const candidate = path.resolve(pathEntry || ".", "codex");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return realpathSync(candidate);
+    } catch {
+      // Continue through PATH exactly as the process launcher would.
+    }
+  }
+  return "codex";
 }
 
 /** Content of the last-message file, or "" when codex never wrote one. */
@@ -122,6 +149,8 @@ export function spawnCodexReview(
   env: ReviewerEnv = process.env,
 ): number {
   const outDir = mkdtempSync(path.join(tmpdir(), "agent-tool-codex-"));
+  const codexExecutable = resolveCodexExecutable(env);
+  const codexRuntimeRoot = path.dirname(codexExecutable);
   let attempt = 0;
   try {
     return relayReviewWithRetry("codex", () => {
@@ -130,8 +159,13 @@ export function spawnCodexReview(
       attempt += 1;
       const lastMessageFile = path.join(outDir, `review-${attempt}.md`);
       const result = spawnSync(
-        "codex",
-        buildCodexReviewArgs(effort, lastMessageFile, snapshotRoot),
+        codexExecutable,
+        buildCodexReviewArgs(
+          effort,
+          lastMessageFile,
+          snapshotRoot,
+          codexRuntimeRoot,
+        ),
         {
           stdio: ["pipe", "pipe", "pipe"],
           input: prompt,
