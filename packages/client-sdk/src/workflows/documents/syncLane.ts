@@ -38,6 +38,7 @@ export function requestDocumentSyncLaneAndWait(input: {
   readonly didCompleteRequest: () => boolean;
   readonly domainScope: DomainScope;
   readonly localId: string;
+  readonly onAbort?: (() => void) | undefined;
   readonly request: () => void;
   readonly signal?: AbortSignal | undefined;
 }): Promise<boolean> {
@@ -46,9 +47,13 @@ export function requestDocumentSyncLaneAndWait(input: {
   }
   const coordinator = getOrCreateDomainSyncCoordinator(input.domainScope);
   const laneKey = getDocumentSyncLaneKey(input.localId);
-  const baselineRunCount =
-    coordinator.getSnapshot().lanes.find((lane) => lane.key === laneKey)
-      ?.runCount ?? 0;
+  const initialLane = coordinator
+    .getSnapshot()
+    .lanes.find((lane) => lane.key === laneKey);
+  if (!initialLane) {
+    return Promise.resolve(false);
+  }
+  const baselineRunCount = initialLane.runCount;
   return new Promise((resolve) => {
     let settled = false;
     let unsubscribe: () => void = () => undefined;
@@ -61,7 +66,10 @@ export function requestDocumentSyncLaneAndWait(input: {
       input.signal?.removeEventListener("abort", handleAbort);
       resolve(completed);
     };
-    const handleAbort = () => finish(false);
+    const handleAbort = () => {
+      input.onAbort?.();
+      finish(false);
+    };
     const inspect = () => {
       if (coordinator.isDisposed()) {
         finish(false);
@@ -70,12 +78,11 @@ export function requestDocumentSyncLaneAndWait(input: {
       const lane = coordinator
         .getSnapshot()
         .lanes.find((candidate) => candidate.key === laneKey);
-      if (
-        !lane ||
-        lane.runCount <= baselineRunCount ||
-        lane.running ||
-        lane.requested
-      ) {
+      if (!lane) {
+        finish(false);
+        return;
+      }
+      if (lane.runCount <= baselineRunCount || lane.running || lane.requested) {
         return;
       }
       if (lane.lastAction === "completed" || lane.lastAction === "failed") {

@@ -1,6 +1,7 @@
 import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
+import { allowDocumentStoreRemoteSync } from "./syncGeneration";
 
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
@@ -70,6 +71,7 @@ export function handleDocumentRemoteEvents(
   state.lastEventCount = state.runtime.state.events.length;
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
+    allowDocumentStoreRemoteSync(state);
     state.remoteUpdatePending = true;
     // Let an in-flight pass distinguish this new signal from the one it
     // consumed before its network request.

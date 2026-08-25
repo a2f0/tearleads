@@ -39,6 +39,10 @@ import {
   subscribeToDocumentStore,
 } from "./documentStore/state";
 import { registerDocumentStoreSyncLane } from "./documentStore/sync";
+import {
+  allowDocumentStoreRemoteSync,
+  invalidateDocumentStoreRemoteSync,
+} from "./documentStore/syncGeneration";
 import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
 import {
   createDocumentStoreFacade,
@@ -121,6 +125,7 @@ function requestRemoteDocumentStoreSync(
   state: DocumentStoreState,
   scheduleSync: () => void,
 ): number {
+  allowDocumentStoreRemoteSync(state);
   state.remoteUpdatePending = true;
   state.remoteUpdateSignalSeq += 1;
   scheduleSync();
@@ -189,6 +194,9 @@ function createBackingDocumentStore(
       requestRemoteDocumentStoreSync(state, scheduleSync),
     requestRemoteSyncAndWait: (signal) => {
       let requestedSignalSequence = 0;
+      // A coordinator can be disposed and recreated while this same-scope
+      // store remains registered. Refresh its handle before requesting work.
+      state.syncLane = registerDocumentStoreSyncLane(state);
       return requestDocumentSyncLaneAndWait({
         didCompleteRequest: () =>
           state.remoteUpdateCompletedSignalSeq >= requestedSignalSequence,
@@ -200,6 +208,7 @@ function createBackingDocumentStore(
             scheduleSync,
           );
         },
+        onAbort: () => invalidateDocumentStoreRemoteSync(state),
         signal,
       });
     },

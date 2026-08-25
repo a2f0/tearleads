@@ -267,7 +267,7 @@ test("attribution hydration retries when a ready store gains its system containe
     harness.restore();
   }
 });
-test("each document keeps one bounded attribution hydration selection", async () => {
+test("each document keeps its own bounded attribution hydration selection", async () => {
   const users = Array.from({ length: 65 }, (_, index) => rosterUser(index));
   const harness = installHarnesses(true);
   try {
@@ -297,13 +297,14 @@ test("each document keeps one bounded attribution hydration selection", async ()
         documentId: "document-b",
       }),
     );
-    await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    await waitFor(() =>
+      expect(harness.symcrypt.open).toHaveBeenCalledTimes(33),
+    );
     act(() =>
       view.result.current({ contributorUserIds, documentId: "document-a" }),
     );
     await act(async () => Promise.resolve());
-    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(33);
   } finally {
     harness.restore();
   }
@@ -459,7 +460,7 @@ test("profile sync retries transient failures within its attempt cap", async () 
     harness.restore();
   }
 });
-test("a later-page disabled contributor displaces an active profile", async () => {
+test("a later-page disabled contributor cannot displace a selected profile", async () => {
   const harness = installHarnesses(true);
   const users = Array.from({ length: 33 }, (_, index) =>
     rosterUser(index, index === 32 ? "disabled" : "active"),
@@ -488,12 +489,8 @@ test("a later-page disabled contributor displaces an active profile", async () =
         documentId: "document-a",
       }),
     );
-    await waitFor(() =>
-      expect(harness.symcrypt.open).toHaveBeenCalledTimes(33),
-    );
-    expect(harness.symcrypt.open.mock.calls[32]?.[0].documentId).toBe(
-      "profile-32",
-    );
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(32);
   } finally {
     harness.restore();
   }

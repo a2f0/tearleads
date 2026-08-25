@@ -143,6 +143,23 @@ test("coordinator disposal resolves a pending request as incomplete", async () =
   expect(await result).toBe(false);
 });
 
+test("a missing document lane reports the request as incomplete", async () => {
+  const domainScope = createDomainScope();
+  let requested = false;
+
+  expect(
+    await requestDocumentSyncLaneAndWait({
+      didCompleteRequest: () => true,
+      domainScope,
+      localId: "missing-profile-local-id",
+      request: () => {
+        requested = true;
+      },
+    }),
+  ).toBe(false);
+  expect(requested).toBe(false);
+});
+
 test("didRegainSyncPrerequisites detects restored sync inputs", () => {
   const runtime: SyncRuntimeStatus = {
     auth: {

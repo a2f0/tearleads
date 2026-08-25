@@ -14,7 +14,7 @@ import {
   getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProjectionKey,
   hydrateExplorerAttributionProfileDocument,
-  selectExplorerAttributionProfileHydrationTargets,
+  selectExplorerAttributionHydrationTargetsForDocument,
 } from "./explorerAttributionReadModel";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
 import {
@@ -98,17 +98,12 @@ function getPendingTargets(
     input.selectionsByDocumentId,
     input.documentId,
   );
-  const selectedTargets = selectExplorerAttributionProfileHydrationTargets({
-    contributorUserIds: [
-      ...selection.contributorUserIds,
-      ...input.contributorUserIds,
-    ],
+  const selectedTargets = selectExplorerAttributionHydrationTargetsForDocument({
+    contributorUserIds: input.contributorUserIds,
     directoryAndGroups: input.projection,
+    excludedBindingKeys: input.requestedBindingKeys,
+    selection,
   });
-  selection.contributorUserIds.clear();
-  for (const target of selectedTargets) {
-    selection.contributorUserIds.add(target.userId);
-  }
   return selectedTargets.filter(
     (target) => !input.requestedBindingKeys.has(target.bindingKey),
   );

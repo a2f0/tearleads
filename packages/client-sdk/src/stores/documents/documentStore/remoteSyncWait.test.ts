@@ -1,16 +1,21 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
-import { disposeDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
+import {
+  disposeDomainSyncCoordinator,
+  getDomainSyncCoordinatorSnapshot,
+} from "../../../data/sync/syncCoordinator";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntimeInput,
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
 import { createDocumentStore } from "../documentStore";
+import { createRemoteHistoryFixture } from "./documentStore.testFixtures";
 
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>
@@ -68,20 +73,17 @@ function createUnavailableRuntime(
   });
 }
 
-function createFailingProbeRuntime(input: {
+function createProbeRuntime(input: {
   readonly execSql: DocumentsWorkflowRuntimeInput["infra"]["execSql"];
   readonly fixture: MaterializedSyncFixture;
-  readonly onSync: () => void;
+  readonly syncDocument: () => Promise<DocumentSyncResponse | null>;
 }) {
   const { fixture } = input;
   return createDocumentsWorkflowRuntime({
     apiClient: createMockApiClient({
       getContainerWriterProjection: async () => fixture.projection,
       getDocumentWriterProjection: async () => fixture.writerProjection,
-      syncDocument: async () => {
-        input.onSync();
-        return null;
-      },
+      syncDocument: input.syncDocument,
     }),
     auth: {
       isAuthenticated: true,
@@ -119,6 +121,19 @@ function createFailingProbeRuntime(input: {
   });
 }
 
+async function settleCoordinator(
+  domainScope: ReturnType<typeof createDomainScope>,
+): Promise<void> {
+  for (let index = 0; index < 100; index += 1) {
+    const lanes = getDomainSyncCoordinatorSnapshot(domainScope).lanes;
+    if (lanes.every((lane) => !lane.running && !lane.requested)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Timed out waiting for the document sync lane to settle");
+}
+
 test("a probe skipped for unavailable prerequisites reports incomplete", async () => {
   const database = await createTestExecSql("remote-sync-wait-unavailable");
   const runtime = createUnavailableRuntime(database.execSql);
@@ -143,11 +158,12 @@ test("a graceful null remote probe reports incomplete", async () => {
   const fixture = await createMaterializedSyncFixture();
   const database = await createTestExecSql("remote-sync-wait-null");
   let syncCalls = 0;
-  const runtime = createFailingProbeRuntime({
+  const runtime = createProbeRuntime({
     execSql: database.execSql,
     fixture,
-    onSync: () => {
+    syncDocument: async () => {
       syncCalls += 1;
+      return null;
     },
   });
   try {
@@ -162,7 +178,66 @@ test("a graceful null remote probe reports incomplete", async () => {
 
     expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
     expect(syncCalls).toBeGreaterThan(0);
+
+    const previousSyncCalls = syncCalls;
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
+    expect(syncCalls).toBeGreaterThan(previousSyncCalls);
   } finally {
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("aborting an in-flight probe prevents its late response from persisting", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("remote-sync-wait-abort");
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      markSyncStarted();
+      await responseGate;
+      return fixture.response;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "aborted-profile",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    const abortController = new AbortController();
+    const result = store.requestRemoteSyncAndWait(abortController.signal);
+    await settleWithin(syncStarted);
+
+    abortController.abort();
+    releaseResponse();
+
+    expect(await settleWithin(result)).toBe(false);
+    await settleCoordinator(runtime.state.domainScope);
+    const persisted = await defaultDocumentsPersistence.loadDocumentStoreState(
+      database.execSql,
+      "aborted-profile",
+    );
+    expect(syncCalls).toBe(1);
+    expect(persisted.document?.text).toBe("");
+    expect(store.getSnapshot().text).toBe("");
+  } finally {
+    releaseResponse();
     disposeDomainSyncCoordinator(runtime.state.domainScope);
     database.close();
   }

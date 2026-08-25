@@ -14,6 +14,7 @@ import {
   loadExplorerAttributionDirectoryAndGroups,
   MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS,
   MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+  selectExplorerAttributionHydrationTargetsForDocument,
   selectExplorerAttributionProfileHydrationTargets,
 } from "./explorerAttributionReadModel";
 
@@ -225,6 +226,44 @@ test("profiles reserved by another document do not consume the hydration cap", (
       userId: "user-32",
     },
   ]);
+});
+
+test("later contributors cannot exceed a document's cumulative hydration cap", () => {
+  const users = Array.from(
+    { length: MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS + 1 },
+    (_, index) =>
+      rosterUser({
+        profileDocumentId: `profile-${index}`,
+        status:
+          index === MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS
+            ? "disabled"
+            : "active",
+        userId: `user-${index}`,
+      }),
+  );
+  const selection = { contributorUserIds: new Set<string>() };
+  const firstTargets = selectExplorerAttributionHydrationTargetsForDocument({
+    contributorUserIds: users.slice(0, -1).map((user) => user.userId),
+    directoryAndGroups: projection({ users }),
+    excludedBindingKeys: new Set(),
+    selection,
+  });
+  const requestedBindingKeys = new Set(
+    firstTargets.map((target) => target.bindingKey),
+  );
+
+  expect(
+    selectExplorerAttributionHydrationTargetsForDocument({
+      contributorUserIds: [users.at(-1)?.userId ?? ""],
+      directoryAndGroups: projection({ users }),
+      excludedBindingKeys: requestedBindingKeys,
+      selection,
+    }),
+  ).toEqual([]);
+  expect(selection.contributorUserIds.has("user-32")).toBe(false);
+  expect(selection.contributorUserIds.size).toBe(
+    MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
+  );
 });
 
 test("cold and cached profiles open by retained identity and remote-probe", async () => {

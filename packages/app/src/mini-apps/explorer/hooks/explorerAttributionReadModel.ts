@@ -137,6 +137,36 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
     .map(({ status: _status, ...target }) => target);
 }
 
+/** Retains a cumulative per-document selection while resolving fresh bindings. */
+export function selectExplorerAttributionHydrationTargetsForDocument(input: {
+  readonly contributorUserIds: ReadonlyArray<string>;
+  readonly directoryAndGroups: OrganizationDirectoryAndGroups;
+  readonly excludedBindingKeys: ReadonlySet<string>;
+  readonly selection: ExplorerAttributionHydrationDocumentSelection;
+}): ExplorerAttributionProfileHydrationTarget[] {
+  const selectedTargets = selectExplorerAttributionProfileHydrationTargets({
+    contributorUserIds: [...input.selection.contributorUserIds],
+    directoryAndGroups: input.directoryAndGroups,
+  });
+  const remaining =
+    MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS -
+    input.selection.contributorUserIds.size;
+  const additionalTargets = selectExplorerAttributionProfileHydrationTargets({
+    contributorUserIds: input.contributorUserIds.filter(
+      (userId) => !input.selection.contributorUserIds.has(userId),
+    ),
+    directoryAndGroups: input.directoryAndGroups,
+    excludedBindingKeys: input.excludedBindingKeys,
+    limit: remaining,
+  });
+  for (const target of additionalTargets) {
+    input.selection.contributorUserIds.add(target.userId);
+  }
+  return [...selectedTargets, ...additionalTargets].filter(
+    (target) => !input.excludedBindingKeys.has(target.bindingKey),
+  );
+}
+
 /** Opens one requested encrypted profile document and probes remote state. */
 export function hydrateExplorerAttributionProfileDocument(input: {
   readonly containerId: string;

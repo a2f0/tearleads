@@ -29,6 +29,7 @@ import { finalizeDocumentSync } from "./syncFinalize";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreRemoteSyncBlocked,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
@@ -135,6 +136,9 @@ async function syncDocumentState(
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
     return state.record ?? nextRecord;
+  }
+  if (pendingUpdates.length === 0 && isDocumentStoreRemoteSyncBlocked(state)) {
+    return nextRecord;
   }
   // Create the remote document even when nothing is queued to send: a note
   // created and never edited enqueues no updates, but its local row is still a

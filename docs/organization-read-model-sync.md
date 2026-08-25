@@ -189,12 +189,13 @@ Explorer preserves that behavior for non-admins. For an organization admin
 viewing document attribution, Explorer may open and probe only contributor
 profile documents already named by the organization projection and already
 located beneath the existing roster-profile container; it never provisions
-that container. Hydration is disabled-first, capped at 32 contributors per
-document across at most 32 recently viewed documents, retries a failed probe at
-most three times, and is cancelled when the authenticated organization scope
-changes. Until a probe persists a profile locally, attribution falls back to
-the contributor's user ID. Opening the selected profile editor remains an
-explicit document operation and may synchronize that one selected profile.
+that container. Hydration is disabled-first, cumulatively capped at a sticky 32
+contributors per document across at most 32 recently viewed documents, retries
+a failed probe at most three times, and is cancelled when the authenticated
+organization scope changes. Until a probe persists a profile locally,
+attribution falls back to the contributor's user ID. Opening the selected
+profile editor remains an explicit document operation and may synchronize that
+one selected profile.
 
 Demand is exact to the authenticated domain, organization, and user scope.
 Offline consumers may keep rendering their last-known-good local projection,

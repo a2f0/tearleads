@@ -141,6 +141,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       currentDoc: doc,
       domainScope: "scope",
       execSql,
+      remoteSyncGeneration: 0,
       resolveProjectionUserKey,
     } as unknown as DocumentStoreSyncGeneration;
 
@@ -188,6 +189,7 @@ test("a stale terminal handler cannot recreate a deleted failure row", async () 
       currentDoc: doc,
       domainScope: "scope",
       execSql,
+      remoteSyncGeneration: 0,
       resolveProjectionUserKey,
     } as unknown as DocumentStoreSyncGeneration;
     const handler = documentTerminalSubmitFailureHandler(state, generation);
@@ -269,6 +271,7 @@ test("a handler racing authoritative deletion records nothing", async () => {
       currentDoc: doc,
       domainScope: "scope",
       execSql,
+      remoteSyncGeneration: 0,
       resolveProjectionUserKey,
     } as unknown as DocumentStoreSyncGeneration;
     const handler = documentTerminalSubmitFailureHandler(state, generation);
