@@ -104,7 +104,7 @@ export function selectExplorerAttributionProfileHydrationTargets(input: {
     .map(({ status: _status, ...target }) => target);
 }
 
-/** Opens only the requested encrypted profile documents and asks them to sync. */
+/** Opens only the requested encrypted profile documents and probes remote state. */
 export function hydrateExplorerAttributionProfileDocuments(input: {
   readonly containerId: string;
   readonly documents: Documents;
@@ -116,14 +116,13 @@ export function hydrateExplorerAttributionProfileDocuments(input: {
       .open({
         containerId: input.containerId,
         documentId: target.profileDocumentId,
-        initialDocumentKind: "contact",
         localId: getExplorerAttributionProfileDocumentLocalId({
           organizationId: input.organizationId,
           profileDocumentId: target.profileDocumentId,
           userId: target.userId,
         }),
       })
-      .requestSync();
+      .requestRemoteSync();
   }
 }
 

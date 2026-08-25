@@ -13,6 +13,7 @@ import {
   type ExplorerAttributionProfileHydrationTarget,
   getExplorerAttributionProjectionKey,
   hydrateExplorerAttributionProfileDocuments,
+  MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS,
   selectExplorerAttributionProfileHydrationTargets,
 } from "./explorerAttributionReadModel";
 import { useExplorerAttributionUserLabels } from "./useExplorerAttributionUserLabels";
@@ -56,7 +57,7 @@ interface ProfileHydrationRequest {
   readonly projection: OrganizationDirectoryAndGroups | null | undefined;
   readonly requestScope: AttributionHydrationScope;
   readonly requestedBindingKeys: Set<string>;
-  readonly selectedBindingKeysByDocumentId: Map<string, ReadonlySet<string>>;
+  readonly attemptedBindingKeysByDocumentId: Map<string, Set<string>>;
   readonly symcrypt: SymCryptClient;
 }
 
@@ -83,22 +84,34 @@ function getPendingTargets(
   ) {
     return [];
   }
-  const selectedBindingKeys = input.selectedBindingKeysByDocumentId.get(
+  const attemptedBindingKeys =
+    input.attemptedBindingKeysByDocumentId.get(input.documentId) ??
+    new Set<string>();
+  input.attemptedBindingKeysByDocumentId.set(
     input.documentId,
+    attemptedBindingKeys,
   );
-  const targets = selectExplorerAttributionProfileHydrationTargets({
+  const retryTargets = selectExplorerAttributionProfileHydrationTargets({
     contributorUserIds: input.contributorUserIds,
     directoryAndGroups: input.projection,
     excludedBindingKeys: input.requestedBindingKeys,
-    includedBindingKeys: selectedBindingKeys,
+    includedBindingKeys: attemptedBindingKeys,
   });
-  if (!selectedBindingKeys) {
-    input.selectedBindingKeysByDocumentId.set(
-      input.documentId,
-      new Set(targets.map((target) => target.bindingKey)),
-    );
+  const excludedNewBindingKeys = new Set([
+    ...input.requestedBindingKeys,
+    ...attemptedBindingKeys,
+  ]);
+  const newTargets = selectExplorerAttributionProfileHydrationTargets({
+    contributorUserIds: input.contributorUserIds,
+    directoryAndGroups: input.projection,
+    excludedBindingKeys: excludedNewBindingKeys,
+    limit:
+      MAX_EXPLORER_ATTRIBUTION_PROFILE_HYDRATIONS - attemptedBindingKeys.size,
+  });
+  for (const target of newTargets) {
+    attemptedBindingKeys.add(target.bindingKey);
   }
-  return targets;
+  return [...retryTargets, ...newTargets];
 }
 
 async function hydratePendingTargets(
@@ -193,8 +206,8 @@ export function useExplorerAttributionProfileHydration(input: {
   const { containerStore } = useDeviceFirstContainerContents();
   const containerSnapshot = useSymCryptExternalStoreSnapshot(containerStore);
   const requestedBindingKeysRef = useRef(new Set<string>());
-  const selectedBindingKeysByDocumentIdRef = useRef(
-    new Map<string, ReadonlySet<string>>(),
+  const attemptedBindingKeysByDocumentIdRef = useRef(
+    new Map<string, Set<string>>(),
   );
   const currentScope = getAttributionHydrationScope({
     appData: input.appData,
@@ -216,7 +229,7 @@ export function useExplorerAttributionProfileHydration(input: {
     };
     if (!scopesMatch(scopeRef.current, nextScope)) {
       requestedBindingKeysRef.current = new Set();
-      selectedBindingKeysByDocumentIdRef.current = new Map();
+      attemptedBindingKeysByDocumentIdRef.current = new Map();
     }
     scopeRef.current = nextScope;
   }, [active, attributionKey, domainScope, organizationId, userId]);
@@ -225,6 +238,7 @@ export function useExplorerAttributionProfileHydration(input: {
     ({ contributorUserIds, documentId }) => {
       if (
         !active ||
+        !containerSnapshot.ready ||
         !organizationId ||
         documentId.length === 0 ||
         contributorUserIds.length === 0
@@ -245,14 +259,15 @@ export function useExplorerAttributionProfileHydration(input: {
           organizationId,
           userId,
         },
+        attemptedBindingKeysByDocumentId:
+          attemptedBindingKeysByDocumentIdRef.current,
         requestedBindingKeys: requestedBindingKeysRef.current,
-        selectedBindingKeysByDocumentId:
-          selectedBindingKeysByDocumentIdRef.current,
         symcrypt,
       });
     },
     [
       containerStore,
+      containerSnapshot,
       active,
       attributionKey,
       domainScope,

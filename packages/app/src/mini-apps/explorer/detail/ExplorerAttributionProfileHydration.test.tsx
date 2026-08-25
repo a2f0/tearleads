@@ -61,20 +61,28 @@ function runtimeSnapshot(): RuntimeSnapshot {
 }
 
 function createSymCryptHarness() {
-  const requestSync = mock(() => undefined);
-  const open = mock(() => ({ requestSync }));
+  const requestRemoteSync = mock(() => undefined);
+  const open = mock(() => ({ requestRemoteSync }));
   const symcrypt = {
     documents: { open },
     logError: mock(() => undefined),
   } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
-  return { open, requestSync, symcrypt };
+  return { open, requestRemoteSync, symcrypt };
 }
 
 function createContainerStoreHarness(initiallyReady: boolean) {
-  let snapshot = { nodes: [], ready: initiallyReady };
+  let containerAvailable = initiallyReady;
+  let snapshot = {
+    nodes: containerAvailable ? [{ id: "roster-profile-container" }] : [],
+    ready: initiallyReady,
+  };
   const listeners = new Set<() => void>();
   const ensureSystemContainer = mock(() =>
-    Promise.resolve(snapshot.ready ? { id: "roster-profile-container" } : null),
+    Promise.resolve(
+      snapshot.ready && containerAvailable
+        ? { id: "roster-profile-container" }
+        : null,
+    ),
   );
   const containerStore = {
     ensureSystemContainer,
@@ -89,8 +97,20 @@ function createContainerStoreHarness(initiallyReady: boolean) {
   return {
     containerStore,
     ensureSystemContainer,
+    setContainerAvailable(available: boolean) {
+      containerAvailable = available;
+      snapshot = {
+        ...snapshot,
+        nodes: available ? [{ id: "roster-profile-container" }] : [],
+      };
+      for (const listener of listeners) listener();
+    },
     setReady(ready: boolean) {
-      snapshot = { ...snapshot, ready };
+      containerAvailable = ready;
+      snapshot = {
+        nodes: ready ? [{ id: "roster-profile-container" }] : [],
+        ready,
+      };
       for (const listener of listeners) listener();
     },
   };
@@ -147,7 +167,41 @@ test("attribution hydration retries when the container store becomes ready", asy
     act(() => harness.containers.setReady(true));
     await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
     expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1);
-    expect(harness.symcrypt.requestSync).toHaveBeenCalledTimes(1);
+    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("attribution hydration retries when a ready store gains its system container", async () => {
+  const harness = installHarnesses(true);
+  harness.containers.setContainerAvailable(false);
+  const appData = runtimeSnapshot();
+  const readModelProjection = projection([rosterUser(0)]);
+  try {
+    renderHook(() => {
+      const requestHydration = useExplorerAttributionProfileHydration({
+        appData,
+        enabled: true,
+        readModelProjection,
+        readModelRevision: 1,
+      });
+      useEffect(() => {
+        requestHydration({
+          contributorUserIds: ["profile-user-0"],
+          documentId: "selected-document-id",
+        });
+      }, [requestHydration]);
+    });
+    await waitFor(() =>
+      expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1),
+    );
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+
+    act(() => harness.containers.setContainerAvailable(true));
+    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
+    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }
@@ -194,6 +248,54 @@ test("each document keeps one bounded attribution hydration selection", async ()
     );
     await act(async () => Promise.resolve());
     expect(harness.symcrypt.open).toHaveBeenCalledTimes(33);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("a shared profile remains retryable after another document's reservation fails", async () => {
+  const harness = installHarnesses(true);
+  let resolveFirstEnsure: ((value: { id: string } | null) => void) | undefined;
+  const firstEnsure = new Promise<{ id: string } | null>((resolve) => {
+    resolveFirstEnsure = resolve;
+  });
+  harness.containers.ensureSystemContainer.mockImplementationOnce(
+    () => firstEnsure,
+  );
+  try {
+    const view = renderHook(() =>
+      useExplorerAttributionProfileHydration({
+        appData: runtimeSnapshot(),
+        enabled: true,
+        readModelProjection: projection([rosterUser(0)]),
+        readModelRevision: 1,
+      }),
+    );
+    const contributorUserIds = ["profile-user-0"];
+    act(() =>
+      view.result.current({ contributorUserIds, documentId: "document-a" }),
+    );
+    await waitFor(() =>
+      expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1),
+    );
+
+    act(() =>
+      view.result.current({ contributorUserIds, documentId: "document-b" }),
+    );
+    await act(async () => Promise.resolve());
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(1);
+    expect(harness.symcrypt.open).toHaveBeenCalledTimes(0);
+
+    await act(async () => {
+      resolveFirstEnsure?.(null);
+      await firstEnsure;
+    });
+    act(() =>
+      view.result.current({ contributorUserIds, documentId: "document-b" }),
+    );
+    await waitFor(() => expect(harness.symcrypt.open).toHaveBeenCalledTimes(1));
+    expect(harness.containers.ensureSystemContainer).toHaveBeenCalledTimes(2);
+    expect(harness.symcrypt.requestRemoteSync).toHaveBeenCalledTimes(1);
   } finally {
     harness.restore();
   }

@@ -204,11 +204,11 @@ test("profiles reserved by another document do not consume the hydration cap", (
   ]);
 });
 
-test("selected profiles open by retained roster identity and request sync", () => {
-  const requestSync = mock(() => undefined);
-  const open = mock(() => ({ requestSync }));
+test("cold and cached profiles open by retained identity and remote-probe", () => {
+  const requestRemoteSync = mock(() => undefined);
+  const open = mock(() => ({ requestRemoteSync }));
 
-  hydrateExplorerAttributionProfileDocuments({
+  const input = {
     containerId: "roster-profile-container-id",
     documents: { open } as unknown as Documents,
     organizationId: ORGANIZATION_ID,
@@ -219,26 +219,28 @@ test("selected profiles open by retained roster identity and request sync", () =
         userId: "disabled-user-id",
       },
     ],
-  });
+  };
+  hydrateExplorerAttributionProfileDocuments(input);
+  hydrateExplorerAttributionProfileDocuments(input);
 
   expect(open).toHaveBeenCalledWith({
     containerId: "roster-profile-container-id",
     documentId: "disabled-profile-id",
-    initialDocumentKind: "contact",
     localId: getExplorerAttributionProfileDocumentLocalId({
       organizationId: ORGANIZATION_ID,
       profileDocumentId: "disabled-profile-id",
       userId: "disabled-user-id",
     }),
   });
-  expect(requestSync).toHaveBeenCalledTimes(1);
+  expect(open).toHaveBeenCalledTimes(2);
+  expect(requestRemoteSync).toHaveBeenCalledTimes(2);
 });
 
 test("profile pointer replacements hydrate through distinct local identities", () => {
   const syncedDocumentIds: string[] = [];
   const storesByLocalId = new Map<
     string,
-    { documentId: string; requestSync: () => void }
+    { documentId: string; requestRemoteSync: () => void }
   >();
   const open = mock(
     (input: { documentId?: string | null; localId?: string }) => {
@@ -250,7 +252,7 @@ test("profile pointer replacements hydrate through distinct local identities", (
       }
       const store = {
         documentId,
-        requestSync: () => syncedDocumentIds.push(documentId),
+        requestRemoteSync: () => syncedDocumentIds.push(documentId),
       };
       storesByLocalId.set(localId, store);
       return store;
