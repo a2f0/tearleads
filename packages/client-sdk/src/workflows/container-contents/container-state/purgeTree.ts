@@ -3,11 +3,11 @@ import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVe
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import { unlinkRemoteContainerDocument } from "../documentLinks";
 import {
   purgeLocalContainerDocument,
   purgeRemoteContainerDocument,
-  unlinkRemoteContainerDocument,
-} from "../documentLinks";
+} from "../documentPurge";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { deleteContainerState } from "./delete";
@@ -279,6 +279,7 @@ async function teardownSubtreeDocuments(input: {
     const purged = await purgeRemoteContainerDocument({
       documentId: document.documentId,
       noteId: document.id,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
       runtime: input.runtime,
     });
     input.reportStep(purged !== null);

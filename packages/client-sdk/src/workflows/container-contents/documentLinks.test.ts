@@ -21,10 +21,8 @@ import { sqlDocumentContainerProjectionPersistence } from "../../data/persistenc
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../documents";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
-import {
-  purgeLocalContainerDocument,
-  relinkRemoteContainerDocument,
-} from "./documentLinks";
+import { relinkRemoteContainerDocument } from "./documentLinks";
+import { purgeLocalContainerDocument } from "./documentPurge";
 
 test("relinkRemoteContainerDocument persists linked container projections after a successful remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(

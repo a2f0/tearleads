@@ -63,7 +63,10 @@ export async function verifyDocumentEvent(input: {
   readonly body: unknown;
   readonly executor: DatabaseTransaction;
   readonly expectedDocumentId?: string;
-  readonly expectedEventType?: "document.link" | "document.unlink";
+  readonly expectedEventType?:
+    | "document.link"
+    | "document.purge"
+    | "document.unlink";
   readonly event: Record<string, unknown>;
   readonly fingerprint: string;
   readonly userId: string;
@@ -259,7 +262,7 @@ export async function assertCurrentContainerPathRefGroups(
  * resolution, containerId check, and head pin) for endpoints whose authorizing
  * path is a single container chain, e.g. a create/link-set targetContainerPath.
  */
-async function assertCurrentContainerPathRefs(
+export async function assertCurrentContainerPathRefs(
   executor: DatabaseSession,
   refs: readonly ContainerManifestRef[] | undefined,
   label: string,
@@ -279,9 +282,7 @@ export async function verifyDocumentManifestFromRequest(input: {
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   assertDependencies(input.request, input.event.event);
-  // Run sequentially: this verification runs inside a transaction, so both
-  // reads share one pinned connection. Concurrent issue only trips pg's
-  // already-executing-query deprecation without buying any parallelism.
+  // Run sequentially because both reads share one transaction connection.
   const targetContainerPath = await assertCurrentContainerPathRefs(
     input.executor,
     input.request.targetContainerPathRefs,

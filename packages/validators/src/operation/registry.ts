@@ -41,8 +41,9 @@ import {
 } from "./documentAttribution";
 import {
   createDocumentOperation,
-  deleteDocumentOperation,
+  getDocumentPurgeProofOperation,
   linkDocumentOperation,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "./documentMutations";
 import { documentSyncOperation } from "./documentSync";
@@ -109,8 +110,9 @@ export const protocolOperations = [
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
   createDocumentOperation,
-  deleteDocumentOperation,
+  getDocumentPurgeProofOperation,
   linkDocumentOperation,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
   getContainerKekLogOperation,
   listContainerDocumentsOperation,

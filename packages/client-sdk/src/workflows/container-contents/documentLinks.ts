@@ -6,11 +6,7 @@ import { sqlDocumentContainerProjectionPersistence } from "../../data/persistenc
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type DocumentLinkSetFailureHandler,
-  type DocumentsPersistence,
-  defaultDocumentsPersistence,
-  deletePersistedDocument,
   type RelinkRemoteDocumentResult,
-  reclaimDocumentOrphanBlobs,
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
@@ -20,13 +16,6 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 type ContainerDocumentLinkApi = Parameters<
   typeof relinkRemoteDocument
 >[0]["apiClient"];
-type ContainerDocumentPurgeApi = Pick<
-  ContainerContentsWorkflowRuntime["apiClient"],
-  "purgeDocument"
->;
-type DocumentPurgeResult = Awaited<
-  ReturnType<ContainerDocumentPurgeApi["purgeDocument"]>
->;
 type ContainerDocumentLinkOperation = Parameters<
   typeof relinkRemoteDocument
 >[0]["operation"];
@@ -261,105 +250,6 @@ export async function relinkRemoteContainerDocument(input: {
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${message}`,
     );
     input.onFailure?.({ message, status: null });
-    return null;
-  }
-}
-
-interface ContainerDocumentPurgeRuntime
-  extends Pick<ContainerContentsWorkflowRuntime, "infra" | "util"> {
-  apiClient: ContainerDocumentPurgeApi;
-}
-
-export async function purgeRemoteContainerDocument(input: {
-  documentId: string;
-  noteId: string;
-  persistence?: DocumentsPersistence | undefined;
-  runtime: ContainerDocumentPurgeRuntime;
-}): Promise<DocumentPurgeResult> {
-  const { documentId, noteId, runtime } = input;
-  const persistence = input.persistence ?? defaultDocumentsPersistence;
-
-  try {
-    const response = await runtime.apiClient.purgeDocument(documentId);
-    if (!response) {
-      runtime.util.log(
-        `Container contents: failed to purge note ${noteId} (document ${documentId})`,
-      );
-      return null;
-    }
-
-    // Tear down the purged document's local state. `deletePersistedDocument`
-    // reuses the same SQLite delete path as a document delete, which removes the
-    // document record, its client projection, pending updates, pending/local
-    // attachment rows, the attachment blob projection, and the
-    // document-container link projection in a single transaction.
-    const deleted = await deletePersistedDocument({
-      documentProjectors: runtime.infra.documentProjectors,
-      execSql: runtime.infra.execSql,
-      localId: noteId,
-      persistence,
-    });
-    if (deleted && persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(runtime);
-    }
-
-    runtime.util.log(
-      `Container contents: purged note ${noteId} (document ${documentId})`,
-    );
-    return response;
-  } catch (error) {
-    await reportAndRethrowKeyingVerificationError(
-      error,
-      runtime.util.reportSecurityIncident,
-      {
-        objectId: documentId,
-        objectKind: "document",
-        operation: "document.purge",
-      },
-    );
-    runtime.util.log(
-      `Container contents: failed to purge note ${noteId} (document ${documentId}): ${errorMessage(error)}`,
-    );
-    return null;
-  }
-}
-
-interface ContainerDocumentLocalPurgeRuntime
-  extends Pick<ContainerContentsWorkflowRuntime, "infra" | "util"> {}
-
-// Purge a document that was never synced to the server (no remote document id):
-// there is nothing to delete server-side, so we only tear down the local state
-// via the same path a server purge uses. Returns a purge result so the caller
-// treats it like any other successful purge (and refreshes the listing).
-export async function purgeLocalContainerDocument(input: {
-  noteId: string;
-  persistence?: DocumentsPersistence | undefined;
-  runtime: ContainerDocumentLocalPurgeRuntime;
-}): Promise<DocumentPurgeResult> {
-  const { noteId, runtime } = input;
-  const persistence = input.persistence ?? defaultDocumentsPersistence;
-
-  try {
-    const deleted = await deletePersistedDocument({
-      documentProjectors: runtime.infra.documentProjectors,
-      execSql: runtime.infra.execSql,
-      localId: noteId,
-      persistence,
-    });
-    if (deleted && persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(runtime);
-    }
-
-    runtime.util.log(`Container contents: purged local-only note ${noteId}`);
-    return {
-      documentId: noteId,
-      purgedAt: new Date().toISOString(),
-      reclaimedBlobStorageKeys: [],
-    };
-  } catch (error) {
-    runtime.util.log(
-      `Container contents: failed to purge local-only note ${noteId}: ${errorMessage(error)}`,
-    );
     return null;
   }
 }

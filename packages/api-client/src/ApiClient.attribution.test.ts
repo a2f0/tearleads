@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import {
   createDocumentLinkSetMutationRequest,
   createDocumentLinkSetMutationResponse,
+  createDocumentPurgeRequest,
   createDocumentSyncRequest,
   createDocumentSyncResponse,
 } from "../test/helpers/apiClientTestFactories";
@@ -42,7 +43,8 @@ const attributionMutationCases = [
   },
   {
     name: "purge",
-    run: (client: ApiClient) => client.purgeDocument("document-1"),
+    run: (client: ApiClient) =>
+      client.purgeDocument("document-1", createDocumentPurgeRequest()),
   },
 ] as const;
 
@@ -144,9 +146,15 @@ for (const mutationCase of attributionMutationCases) {
       const mutationHandler = async (request: Request) => {
         mutationStarted.resolve();
         await finishMutation.promise;
-        if (request.method === "DELETE") {
+        if (request.url.endsWith("/purge")) {
           return HttpResponse.json({
+            authorizingContainerPath: [],
+            documentContainerManifestHistory: [],
             documentId: "document-1",
+            documentManifest: {},
+            documentManifestContainerPaths: [],
+            documentManifestHistory: [],
+            purgeEvent: {},
             purgedAt: "2026-07-14T12:00:00.000Z",
             reclaimedBlobStorageKeys: [],
           });
@@ -175,9 +183,6 @@ for (const mutationCase of attributionMutationCases) {
         http.all(
           `${apiBaseUrl}/documents/:documentId/:mutation`,
           ({ request }) => mutationHandler(request),
-        ),
-        http.delete(`${apiBaseUrl}/documents/:documentId`, ({ request }) =>
-          mutationHandler(request),
         ),
       );
 

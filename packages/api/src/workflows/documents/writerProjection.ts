@@ -148,12 +148,12 @@ async function loadCurrentDocumentManifestBundle(
   return toAccessManifestBundleWireResponse(bundle);
 }
 
-interface LoadedProjectionManifestBundle {
+export interface LoadedProjectionManifestBundle {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly objectKind: AccessManifest["objectKind"];
 }
 
-async function loadProjectionManifestBundleByHash(
+export async function loadProjectionManifestBundleByHash(
   executor: DatabaseSession,
   manifestHash: string,
   cache: Map<string, LoadedProjectionManifestBundle>,
@@ -277,7 +277,7 @@ function collectDocumentDependencyManifestHashes(
   return [...manifestHashes].sort();
 }
 
-async function loadDocumentManifestHistory(input: {
+export async function loadDocumentManifestHistory(input: {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly executor: DatabaseSession;
   readonly manifestCache: Map<string, LoadedProjectionManifestBundle>;
@@ -322,7 +322,7 @@ interface ContainerDependencyMaterial {
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
 }
 
-interface ContainerDependencyLoadState {
+export interface ContainerDependencyLoadState {
   readonly containerHistoryByHash: Map<
     string,
     AccessManifestBundleWireResponse
@@ -371,7 +371,7 @@ async function collectContainerDependencyPredecessors(input: {
   }
 }
 
-async function loadContainerDependencyPath(input: {
+export async function loadContainerDependencyPath(input: {
   readonly leafManifestHash: string;
   readonly state: ContainerDependencyLoadState;
 }): Promise<void> {
@@ -422,7 +422,7 @@ async function loadContainerDependencyPath(input: {
   );
 }
 
-async function loadDocumentContainerDependencyMaterial(input: {
+export async function loadDocumentContainerDependencyMaterial(input: {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestHistory: readonly AccessManifestBundleWireResponse[];
   readonly executor: DatabaseSession;

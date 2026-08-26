@@ -9,8 +9,11 @@ import {
   documentContainerLinks,
   documents,
 } from "@symcrypt/api-shared/schema";
+import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
+import { storeVerifiedAccessEventInTransaction } from "../../../access/write/accessManifestStore";
+import { projectionVerifiedAccessEventRecord } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { lockBlobMutationRows } from "../../blobs/mutations/blobMutationLocks";
 import {
@@ -19,9 +22,11 @@ import {
 } from "../../containers/writerProjection";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
-import { DocumentMutationError } from "./errors";
+import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
+import { DocumentMutationError, toMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
-import type { PurgeDocumentWorkflowResult } from "./types";
+import { verifyDocumentPurgeRequest } from "./shared/purgeVerification";
+import type { PurgeDocumentInput, PurgeDocumentWorkflowResult } from "./types";
 
 function toDocumentMutationError(
   error: ContainerWriterProjectionError,
@@ -212,24 +217,13 @@ async function writePurgeTombstone(input: {
     });
 }
 
-async function purgeDocumentWithExecutor(input: {
+async function resolveLockedPurgeAuthorization(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly userId: string;
-}): Promise<PurgeDocumentWorkflowResult> {
-  // Resolve the candidate organization before taking locks, then follow the
-  // organization -> document order shared with link-set and roster mutations.
-  // Every authorization/read below is repeated under those locks, so a
-  // concurrent relink, bind, or purge cannot make the preliminary view
-  // authoritative.
-  await assertDocumentIsPurgeable({
-    documentId: input.documentId,
-    executor: input.executor,
-  });
-  const candidateContainerId = await resolveSolePurgeContainerId({
-    documentId: input.documentId,
-    executor: input.executor,
-  });
+}): Promise<{ readonly containerId: string; readonly organizationId: string }> {
+  await assertDocumentIsPurgeable(input);
+  const candidateContainerId = await resolveSolePurgeContainerId(input);
   const candidateOrganizationId = await authorizePurge({
     containerId: candidateContainerId,
     executor: input.executor,
@@ -243,23 +237,13 @@ async function purgeDocumentWithExecutor(input: {
   if (!organizationHeadLocked) {
     throw new Error("Organization read-model cursor head is missing");
   }
-
-  // Sync writers hold this head FOR UPDATE while inserting content rows. Once
-  // the organization lock is held, taking it before the authoritative reads
-  // below prevents an in-flight writer from committing rows after deletion.
   await lockAccessManifestHeadsForUpdate(
     "document",
     [input.documentId],
     input.executor,
   );
-  await assertDocumentIsPurgeable({
-    documentId: input.documentId,
-    executor: input.executor,
-  });
-  const containerId = await resolveSolePurgeContainerId({
-    documentId: input.documentId,
-    executor: input.executor,
-  });
+  await assertDocumentIsPurgeable(input);
+  const containerId = await resolveSolePurgeContainerId(input);
   const organizationId = await authorizePurge({
     containerId,
     executor: input.executor,
@@ -268,11 +252,54 @@ async function purgeDocumentWithExecutor(input: {
   if (organizationId !== candidateOrganizationId) {
     throw new DocumentMutationError("Document organization mismatch", 409);
   }
+  return { containerId, organizationId };
+}
+
+async function purgeDocumentWithExecutor(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly fingerprint: string;
+  readonly request: DocumentPurgeRequest;
+  readonly userId: string;
+}): Promise<PurgeDocumentWorkflowResult> {
+  // Resolve the candidate organization before taking locks, then follow the
+  // organization -> document order shared with link-set and roster mutations.
+  // Every authorization/read below is repeated under those locks, so a
+  // concurrent relink, bind, or purge cannot make the preliminary view
+  // authoritative.
+  const { containerId, organizationId } = await resolveLockedPurgeAuthorization(
+    {
+      documentId: input.documentId,
+      executor: input.executor,
+      userId: input.userId,
+    },
+  );
   await assertRosterProfileDocumentUnbound({
     documentId: input.documentId,
     executor: input.executor,
   });
   await assertOrganizationCanSync(input.executor, organizationId, input.userId);
+
+  const verifiedPurge = await verifyDocumentPurgeRequest({
+    documentId: input.documentId,
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    request: input.request,
+    userId: input.userId,
+  });
+  const authorizingContainerManifest =
+    verifiedPurge.authorizingContainerPath.at(-1);
+  if (!authorizingContainerManifest) {
+    throw new DocumentMutationError(
+      "Document purge authorization path is missing",
+      409,
+    );
+  }
+  const proofMaterial = await loadDocumentPurgeProofMaterial({
+    authorizingContainerManifestHash: authorizingContainerManifest.manifestHash,
+    documentManifestHash: verifiedPurge.documentManifest.manifestHash,
+    executor: input.executor,
+  });
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,
@@ -280,6 +307,10 @@ async function purgeDocumentWithExecutor(input: {
   });
   const purgedAt = new Date();
 
+  await storeVerifiedAccessEventInTransaction(
+    verifiedPurge.event,
+    input.executor,
+  );
   await deleteDocumentRows({
     documentId: input.documentId,
     executor: input.executor,
@@ -298,7 +329,9 @@ async function purgeDocumentWithExecutor(input: {
   return {
     containerIds: [containerId],
     response: {
+      ...proofMaterial,
       documentId: input.documentId,
+      purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),
       reclaimedBlobStorageKeys: [],
     },
@@ -314,18 +347,25 @@ async function purgeDocumentWithExecutor(input: {
 // after re-checking reachability, so `reclaimedBlobStorageKeys` is empty.
 export async function runPurgeDocumentWorkflow(
   db: ApiDatabase,
-  input: {
-    readonly documentId: string;
-    readonly userId: string;
-  },
+  input: PurgeDocumentInput,
 ): Promise<PurgeDocumentWorkflowResult> {
-  return db.transaction((tx) =>
-    purgeDocumentWithExecutor({
-      documentId: input.documentId,
-      executor: tx,
-      userId: input.userId,
-    }),
-  );
+  try {
+    return await db.transaction((tx) =>
+      purgeDocumentWithExecutor({
+        documentId: input.documentId,
+        executor: tx,
+        fingerprint: input.fingerprint,
+        request: input.request,
+        userId: input.userId,
+      }),
+    );
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
 }
 
 /**

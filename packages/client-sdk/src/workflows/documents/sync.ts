@@ -18,6 +18,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import { isDocumentSyncRequestLimitError } from "../../data/sync/documentSyncOutgoingBatch";
+import { createVerifiedRemoteDocumentDeletionHandler } from "./purge";
 import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
@@ -407,7 +408,16 @@ export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
   try {
-    return await syncRemoteDocumentInternal(input);
+    return await syncRemoteDocumentInternal({
+      ...input,
+      onRemoteDocumentDeleted: createVerifiedRemoteDocumentDeletionHandler({
+        apiClient: input.apiClient,
+        execSql: input.execSql,
+        onVerifiedDeletion: input.onRemoteDocumentDeleted,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      }),
+    });
   } catch (error) {
     if (isDocumentSyncUpdateIsolationError(error)) {
       await input.onIncomingUpdateIsolationFailure?.(error);

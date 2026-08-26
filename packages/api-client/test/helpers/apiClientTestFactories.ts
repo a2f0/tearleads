@@ -6,6 +6,7 @@ import type {
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
   DocumentSyncRequest,
   PutPrincipalPolicyRequest,
 } from "@symcrypt/validators/request";
@@ -128,6 +129,16 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
         },
       ],
     },
+  };
+}
+
+export function createDocumentPurgeRequest(): DocumentPurgeRequest {
+  return {
+    authorizingContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+    body: { eventType: "document.purge" },
+    event: { eventType: "document.purge" },
   };
 }
 

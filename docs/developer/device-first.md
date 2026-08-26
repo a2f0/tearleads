@@ -224,9 +224,11 @@ delivered or causes the in-flight probe's signal sequence to arm a trailing pass
 
 All three probes use the normal HTTP document-sync response: verified incoming
 Loro updates are merged and projected first, then current attachment bindings
-and blob bytes are hydrated. Only the existing coded `document_not_found`
-response authorizes local destruction; a bare 404 remains non-destructive, and
-403s keep the normal read-only suppression or write-bearing parking behavior.
+and blob bytes are hydrated. A coded `document_not_found` response triggers a
+purge-proof fetch; local destruction occurs only after the SDK verifies the
+signed terminal event and retained document/container evidence. A missing or
+invalid proof fails hard, a bare 404 remains non-destructive, and 403s keep the
+normal read-only suppression or write-bearing parking behavior.
 After the initial missing-listing convergence pass, ordinary documents that
 have never been opened remain lazy until a document window, explicit
 registered-store revalidation, or other owning workflow opens them.

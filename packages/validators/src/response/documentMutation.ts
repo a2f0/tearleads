@@ -5,7 +5,10 @@ import {
   nonEmptyArraySchema,
   nonEmptyStringSchema,
 } from "../schema";
-import { AccessManifestBundleWireResponseSchema } from "../util";
+import {
+  AccessEventBundleWireResponseSchema,
+  AccessManifestBundleWireResponseSchema,
+} from "../util";
 import { ContainerWriterProjectionResponseSchema } from "./container";
 import {
   type DocumentContentKeyBundleResponse,
@@ -54,9 +57,33 @@ export type DocumentLinkSetMutationResponse = z.infer<
   typeof DocumentLinkSetMutationResponseSchema
 >;
 
-export const DocumentPurgeResponseSchema = loosePlainObject({
+const documentPurgeProofShape = {
+  authorizingContainerPath: nonEmptyArraySchema(
+    AccessManifestBundleWireResponseSchema,
+  ),
+  documentContainerManifestHistory: arraySchema(
+    AccessManifestBundleWireResponseSchema,
+  ),
   documentId: nonEmptyStringSchema,
+  documentManifest: AccessManifestBundleWireResponseSchema,
+  documentManifestContainerPaths: arraySchema(
+    arraySchema(AccessManifestBundleWireResponseSchema),
+  ),
+  documentManifestHistory: arraySchema(AccessManifestBundleWireResponseSchema),
+  purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,
+} as const;
+
+export const DocumentPurgeProofResponseSchema = loosePlainObject(
+  documentPurgeProofShape,
+);
+
+export type DocumentPurgeProofResponse = z.infer<
+  typeof DocumentPurgeProofResponseSchema
+>;
+
+export const DocumentPurgeResponseSchema = loosePlainObject({
+  ...documentPurgeProofShape,
   reclaimedBlobStorageKeys: arraySchema(z.string()),
 });
 
@@ -144,6 +171,12 @@ export function isDocumentPurgeResponse(
   value: unknown,
 ): value is DocumentPurgeResponse {
   return DocumentPurgeResponseSchema.safeParse(value).success;
+}
+
+export function isDocumentPurgeProofResponse(
+  value: unknown,
+): value is DocumentPurgeProofResponse {
+  return DocumentPurgeProofResponseSchema.safeParse(value).success;
 }
 
 export function isDocumentSyncResponse(

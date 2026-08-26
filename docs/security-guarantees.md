@@ -211,6 +211,13 @@ Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
 
+Document purge is likewise a signed terminal event. It commits the exact
+document head and sole authorizing container head, and requires signer write
+access through that path. The API retains the event and manifest evidence after
+content deletion. On another device, a coded not-found response is only a
+prompt to fetch that proof; the SDK deletes local state only after independently
+verifying it against pinned identities and local checkpoints.
+
 ### Content Confidentiality
 
 Encrypted document, blob, and metadata content remains confidential from a

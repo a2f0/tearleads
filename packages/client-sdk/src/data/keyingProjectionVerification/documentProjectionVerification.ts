@@ -98,7 +98,7 @@ function reconstructVerifiedContainerPath(input: {
   return path;
 }
 
-function addReconstructedVerifiedContainerPaths(input: {
+export function addReconstructedVerifiedContainerPaths(input: {
   readonly containerPathByManifestHash: Map<
     string,
     readonly VerifiedContainerAccessManifest[]
@@ -255,7 +255,7 @@ function previousDocumentManifestFromCache(input: {
   return previousManifest;
 }
 
-async function verifyDocumentManifestBundle(input: {
+export async function verifyDocumentManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly containerPathByManifestHash: ReadonlyMap<

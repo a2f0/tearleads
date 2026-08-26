@@ -293,6 +293,7 @@ function isAccessEventType(value: string): value is AccessEventType {
     value === "container.rekey" ||
     value === "container.revoke" ||
     value === "document.link" ||
+    value === "document.purge" ||
     value === "document.unlink"
   );
 }

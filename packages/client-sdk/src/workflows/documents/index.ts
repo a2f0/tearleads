@@ -90,6 +90,11 @@ export {
   type DocumentProjectionUserKeyResolver,
   didDocumentProjectionKeyRuntimeChange,
 } from "./projectionKeys";
+export {
+  buildDocumentPurgeRequest,
+  purgeRemoteDocument,
+  verifyRemoteDocumentPurgeProof,
+} from "./purge";
 export type { SyncRemoteDocumentInput } from "./readOnlySync";
 export {
   createDocumentsWorkflowRuntime,

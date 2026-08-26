@@ -13,6 +13,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -158,9 +159,11 @@ test("a bound roster profile document cannot be purged", async () => {
   );
   expect(bindResponse.status).toBe(200);
 
-  const purgeResponse = await routeApp.request(`/documents/${profile.id}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${actor.token}` },
+  const purgeResponse = await postDocumentPurge({
+    documentId: profile.id,
+    documentManifestHash: profile.accessManifest.manifestHash,
+    owner: actor,
+    root,
   });
 
   expect(purgeResponse.status).toBe(409);

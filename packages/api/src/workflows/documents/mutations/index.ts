@@ -2,7 +2,8 @@ export {
   createDocumentWithExecutor,
   runCreateDocumentWorkflow,
 } from "./createDocument";
-export { DocumentMutationError } from "./errors";
+export { loadDocumentPurgeProof } from "./documentPurgeProof";
+export { DocumentMutationError, toMutationError } from "./errors";
 export {
   type DocumentLinkSetMutationWorkflowResult,
   runDocumentLinkSetMutationWorkflow,
@@ -19,6 +20,7 @@ export {
 export type {
   CreateDocumentInput,
   MutateDocumentLinkSetInput,
+  PurgeDocumentInput,
   PurgeDocumentWorkflowResult,
   SyncDocumentInput,
 } from "./types";

@@ -422,18 +422,24 @@ the blob content key and decrypt the committed bytes.
 
 ## Delete And Purge Semantics
 
-Removal is terminal and structural. Link, unlink, share, revoke, rekey, and
-move are signed access-event mutations that rewrite manifests; container delete
-and document purge instead remove rows outright and are authenticated
-operations rather than signed access events.
+Removal is terminal and structural. Link, unlink, share, revoke, rekey, move,
+and document purge carry signed access events. Container delete remains an
+authenticated control-plane operation without a signed artifact.
 
-`DELETE /documents/:documentId` purges a document and every per-document row it
-owns. The API requires that the caller holds write access through the
-document's linked container, that the document is linked to exactly one
-container — a document still linked to more than one container must be unlinked
-down to a single link first — and that the target is not a container metadata
-document, which is withheld from purge and torn down only when its container is
-deleted. An unknown document id returns not found. Blobs the purge orphans —
+`POST /documents/:documentId/purge` accepts a signed `document.purge` event.
+The signature binds the current document manifest, the sole linked container,
+and that container's current manifest. The API independently verifies the
+event, exact heads, and signer write access, stores the terminal event, and then
+removes the document's mutable row, content keys, encrypted updates,
+attachments, and live-head pointer. It retains the signed document manifest
+chain and its container dependencies so another device can retrieve the proof
+from `GET /documents/:documentId/purge` after the live document is gone.
+
+The API also requires that the document is linked to exactly one container — a
+document still linked to more than one container must be unlinked down to a
+single link first — and that the target is not a container metadata document,
+which is withheld from purge and torn down only when its container is deleted.
+An unknown document id returns not found. Blobs the purge orphans —
 referenced only by the purged document once its rows are gone — are
 soft-deleted: `dereferencedAt` is stamped while the encrypted bytes, stored
 objects, and key material are retained for a later garbage-collection sweep. A
@@ -470,9 +476,10 @@ unlink its source containers); a container is relocated by re-parenting it under
 Trash with `container.move`. The move workflow guards only the moved container's
 own system slot, not the destination's, so a normal folder and its whole subtree
 may be moved into Trash, and moved back out again to restore it. Terminal
-removal is the separate, structural step: `DELETE /documents/:documentId` for a
-document and `DELETE /containers/:containerId` for a folder — a non-empty folder
-is torn down by a client-orchestrated cascade of those two primitives applied
+removal is the separate, structural step:
+`POST /documents/:documentId/purge` for a document and
+`DELETE /containers/:containerId` for a folder — a non-empty folder is torn
+down by a client-orchestrated cascade of those two primitives applied
 leaf-first.
 
 ## Failure Semantics

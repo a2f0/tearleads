@@ -124,6 +124,14 @@ export type DocumentLinkSetMutationRequest = z.infer<
   typeof DocumentLinkSetMutationRequestSchema
 >;
 
+export const DocumentPurgeRequestSchema = loosePlainObject({
+  authorizingContainerPathRefs: ContainerManifestPathSchema,
+  body: requiredUnknownSchema,
+  event: plainObjectSchema,
+});
+
+export type DocumentPurgeRequest = z.infer<typeof DocumentPurgeRequestSchema>;
+
 export function isContainerManifestRefArrayArray(
   value: unknown,
 ): value is ContainerManifestRef[][] {
@@ -146,6 +154,12 @@ export function isDocumentLinkSetMutationRequest(
   value: unknown,
 ): value is DocumentLinkSetMutationRequest {
   return DocumentLinkSetMutationRequestSchema.safeParse(value).success;
+}
+
+export function isDocumentPurgeRequest(
+  value: unknown,
+): value is DocumentPurgeRequest {
+  return DocumentPurgeRequestSchema.safeParse(value).success;
 }
 
 export function isDocumentSyncRequest(

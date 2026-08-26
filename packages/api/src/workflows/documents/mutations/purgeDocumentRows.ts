@@ -1,10 +1,6 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
-  accessEvents,
-  accessManifestDocumentLinkProjection,
   accessManifestHeads,
-  accessManifests,
   attachmentBindings,
   blobs,
   documentAttachmentAuditEvents,
@@ -117,44 +113,20 @@ async function deleteDocumentAttachmentRows(input: {
   }
 }
 
-// Signed access history and its projections for this document.
-async function deleteDocumentAccessHistory(
+// Retain signed access history so every device can verify the terminal purge
+// event after the mutable document row and encrypted content are gone. Only the
+// live-head pointer is removed; manifests, events, and their derived
+// projections remain append-only proof material.
+async function deleteDocumentAccessHead(
   documentId: string,
   executor: DatabaseTransaction,
 ): Promise<void> {
-  await executor
-    .delete(accessEventDependencyProjection)
-    .where(
-      and(
-        eq(accessEventDependencyProjection.objectKind, "document"),
-        eq(accessEventDependencyProjection.objectId, documentId),
-      ),
-    );
-  await executor
-    .delete(accessManifestDocumentLinkProjection)
-    .where(eq(accessManifestDocumentLinkProjection.documentId, documentId));
-  await executor
-    .delete(accessEvents)
-    .where(
-      and(
-        eq(accessEvents.objectKind, "document"),
-        eq(accessEvents.objectId, documentId),
-      ),
-    );
   await executor
     .delete(accessManifestHeads)
     .where(
       and(
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, documentId),
-      ),
-    );
-  await executor
-    .delete(accessManifests)
-    .where(
-      and(
-        eq(accessManifests.objectKind, "document"),
-        eq(accessManifests.objectId, documentId),
       ),
     );
 }
@@ -169,7 +141,7 @@ export async function deleteDocumentRows(input: {
   await deleteDocumentAuditRows(documentId, executor);
   await deleteDocumentContentRows(documentId, executor);
   await deleteDocumentAttachmentRows(input);
-  await deleteDocumentAccessHistory(documentId, executor);
+  await deleteDocumentAccessHead(documentId, executor);
 
   // Current link projection, then the document row itself.
   await executor

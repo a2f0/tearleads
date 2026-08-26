@@ -18,6 +18,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeProofResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
@@ -168,10 +169,7 @@ export interface DocumentCreateApi {
   createDocument(
     input: DocumentCreateRequest,
   ): Promise<DocumentCreateResponse | null>;
-  // Result-returning variant used by the idempotent-create adopt path so an
-  // expected "manifest already exists" conflict can be inspected (and not
-  // reported as a UI error) instead of collapsing to null. Optional so simple
-  // test doubles need only implement `createDocument`.
+  // Lets idempotent create inspect an expected already-exists conflict.
   createDocumentResult?(
     input: DocumentCreateRequest,
     options?: DocumentSyncRequestResultOptions | undefined,
@@ -501,6 +499,9 @@ export interface DocumentSyncRequestResultOptions {
 export interface DocumentSyncApi {
   clearWriterProjectionCaches?(): void;
   evictDocumentWriterProjection?(documentId: string): void;
+  getDocumentPurgeProof?(
+    documentId: string,
+  ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;

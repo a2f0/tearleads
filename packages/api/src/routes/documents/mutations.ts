@@ -1,14 +1,16 @@
 import {
   createDocumentOperation,
-  deleteDocumentOperation,
   documentSyncOperation,
+  getDocumentPurgeProofOperation,
   linkDocumentOperation,
   operationRoutePath,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
   DocumentSyncRequest,
 } from "@symcrypt/validators/request";
 import {
@@ -17,6 +19,7 @@ import {
   type DocumentCreateResponse,
   type DocumentLinkSetMutationResponse,
   type DocumentNotFoundErrorResponse,
+  type DocumentPurgeProofResponse,
   type DocumentPurgeResponse,
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
@@ -28,6 +31,7 @@ import type { SessionEnv } from "../../middleware/session";
 import {
   createDocument,
   DocumentMutationError,
+  getDocumentPurgeProof,
   mutateDocumentLinkSet,
   purgeDocument,
   syncDocument,
@@ -318,6 +322,7 @@ async function respondWithDocumentPurge(
   input: {
     readonly documentId: string;
     readonly publish: DocumentMutationsRouteDeps["publish"];
+    readonly request: DocumentPurgeRequest;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
@@ -327,6 +332,8 @@ async function respondWithDocumentPurge(
   try {
     const { containerIds, response } = await purgeDocument(input.runtime, {
       documentId,
+      fingerprint: session.fingerprint,
+      request: input.request,
       userId: session.userId,
     });
     await publishDocumentPurgeEvent({
@@ -340,6 +347,59 @@ async function respondWithDocumentPurge(
     const result = handleDocumentMutationError(error);
     return c.json({ error: result.error }, result.status);
   }
+}
+
+async function respondWithDocumentPurgeProof(
+  c: DocumentRouteContext,
+  input: {
+    readonly documentId: string;
+    readonly runtime: ApiServiceRuntime;
+  },
+) {
+  const session = c.get("session");
+
+  try {
+    return c.json<DocumentPurgeProofResponse>(
+      await getDocumentPurgeProof(input.runtime, {
+        documentId: input.documentId,
+        userId: session.userId,
+      }),
+    );
+  } catch (error) {
+    const result = handleDocumentMutationError(error);
+    return c.json({ error: result.error }, result.status);
+  }
+}
+
+function registerDocumentPurgeRoutes(
+  route: Hono<SessionEnv>,
+  input: DocumentMutationsRouteDeps,
+): void {
+  route.on(
+    purgeDocumentOperation.method,
+    operationRoutePath(purgeDocumentOperation),
+    input.requireAuth,
+    pathParamsValidator(purgeDocumentOperation.params),
+    jsonRequestValidator(purgeDocumentOperation.body),
+    (c) =>
+      respondWithDocumentPurge(c, {
+        documentId: c.req.valid("param").documentId,
+        publish: input.publish,
+        request: c.req.valid("json"),
+        runtime: input.runtime,
+      }),
+  );
+  route.on(
+    getDocumentPurgeProofOperation.method,
+    operationRoutePath(getDocumentPurgeProofOperation),
+    input.requireAuth,
+    pathParamsValidator(getDocumentPurgeProofOperation.params),
+    (c) =>
+      respondWithDocumentPurgeProof(c, {
+        documentId: c.req.valid("param").documentId,
+        runtime: input.runtime,
+      }),
+  );
 }
 
 export function createDocumentMutationsRoute({
@@ -408,18 +468,7 @@ export function createDocumentMutationsRoute({
       }),
   );
 
-  route.on(
-    deleteDocumentOperation.method,
-    operationRoutePath(deleteDocumentOperation),
-    requireAuth,
-    pathParamsValidator(deleteDocumentOperation.params),
-    (c) =>
-      respondWithDocumentPurge(c, {
-        documentId: c.req.valid("param").documentId,
-        publish,
-        runtime,
-      }),
-  );
+  registerDocumentPurgeRoutes(route, { publish, requireAuth, runtime });
 
   return route;
 }

@@ -171,6 +171,7 @@ export function isAccessEventType(
     value === "container.rekey" ||
     value === "container.revoke" ||
     value === "document.link" ||
+    value === "document.purge" ||
     value === "document.unlink"
   );
 }

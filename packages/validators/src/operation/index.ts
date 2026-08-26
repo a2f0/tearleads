@@ -127,13 +127,16 @@ export {
   createDocumentOperation,
   type DocumentMutationPathParams,
   DocumentMutationPathParamsSchema,
-  deleteDocumentOperation,
+  getDocumentPurgeProofOperation,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,
-  isDeleteDocumentOperationResponse,
   isDocumentLinkSetMutationOperationRequest,
   isDocumentLinkSetMutationOperationResponse,
+  isGetDocumentPurgeProofOperationResponse,
+  isPurgeDocumentOperationRequest,
+  isPurgeDocumentOperationResponse,
   linkDocumentOperation,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "./documentMutations";
 export {

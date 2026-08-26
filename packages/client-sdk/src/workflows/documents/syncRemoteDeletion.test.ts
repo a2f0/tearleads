@@ -5,6 +5,7 @@ import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
 } from "../../../test/helpers/documentFixtures";
+import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
@@ -14,9 +15,11 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   const reportedErrors: string[] = [];
   const message = "Document not found";
   const { close, execSql } = await createTestExecSql("deleted-document-sync");
+  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
 
   const synced = await syncRemoteDocument({
     apiClient: {
+      getDocumentPurgeProof: async () => purgeProof,
       getDocumentWriterProjection: async () => {
         throw new Error("Unexpected writer projection fetch");
       },
@@ -51,6 +54,57 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   expect(synced).toBeNull();
   expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
   expect(reportedErrors).toEqual([]);
+});
+
+test("syncRemoteDocument rejects a coded document 404 with an invalid purge proof", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const deletedDocumentIds: string[] = [];
+  const { close, execSql } = await createTestExecSql(
+    "invalid-purge-proof-sync",
+  );
+  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
+
+  try {
+    await expect(
+      syncRemoteDocument({
+        apiClient: {
+          getDocumentPurgeProof: async () => ({
+            ...purgeProof,
+            documentId: "server-substituted-document",
+          }),
+          getDocumentWriterProjection: async () => {
+            throw new Error("Unexpected writer projection fetch");
+          },
+          syncDocument: async () => {
+            throw new Error("Expected syncDocumentResult failure");
+          },
+          syncDocumentResult: async () => ({
+            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+            message: "Document not found",
+            ok: false,
+            report: () => undefined,
+            status: 404,
+          }),
+        },
+        author,
+        documentId: writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        onRemoteDocumentDeleted: ({ documentId }) => {
+          deletedDocumentIds.push(documentId);
+        },
+        pendingUpdates: [createPendingUpdateRecord()],
+        resolveProjectionUserKey,
+        resolveWriterPublicKey: async () => null,
+        targetSecretKey: secretKey,
+        writerProjection,
+      }),
+    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+    expect(deletedDocumentIds).toEqual([]);
+  } finally {
+    close();
+  }
 });
 
 test("syncRemoteDocument fails closed on a bare 404 without the deletion code", async () => {
@@ -156,9 +210,11 @@ test("syncRemoteDocument notifies when writer projection returns coded document 
   const { close, execSql } = await createTestExecSql(
     "deleted-document-projection-sync",
   );
+  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
 
   const synced = await syncRemoteDocument({
     apiClient: {
+      getDocumentPurgeProof: async () => purgeProof,
       getDocumentWriterProjection: async () => {
         throw new Error("Expected getDocumentWriterProjectionResult");
       },

@@ -27,7 +27,7 @@ import {
 import {
   purgeLocalContainerDocument,
   purgeRemoteContainerDocument,
-} from "../workflows/container-contents/documentLinks";
+} from "../workflows/container-contents/documentPurge";
 import {
   type ContainerDocumentQueries,
   createContainerDocumentQueriesFromRuntime,
@@ -193,6 +193,26 @@ function isActiveContainerInfoOrganizationScope(
   );
 }
 
+function purgeDocumentFromLinks(input: {
+  readonly document: Parameters<ContainerDocumentLinks["purgeDocument"]>[0];
+  readonly resolveProjectionUserKey: ContainerDocumentLinks["resolveProjectionUserKey"];
+  readonly runtime: ContainerDocumentLinks;
+}) {
+  const { note } = input.document;
+  if (!note.documentId) {
+    return purgeLocalContainerDocument({
+      noteId: note.id,
+      runtime: input.runtime,
+    });
+  }
+  return purgeRemoteContainerDocument({
+    documentId: note.documentId,
+    noteId: note.id,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    runtime: input.runtime,
+  });
+}
+
 class ContainerContentsService implements ContainerContents {
   private readonly organizationReadModels: OrganizationReadModelCoordinator;
 
@@ -219,6 +239,8 @@ class ContainerContentsService implements ContainerContents {
 
   documentLinks(): ContainerDocumentLinks {
     const runtime = this.workflowRuntime();
+    const resolveProjectionUserKey =
+      createContainerContentsDocumentProjectionUserKeyResolver(runtime);
     const documentRuntime = (containerId: string | null) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
     const openContainerDocument = (input: OpenContainerDocumentInput) =>
@@ -273,25 +295,13 @@ class ContainerContentsService implements ContainerContents {
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
         }),
-      purgeDocument: (input) => {
-        // A never-synced document has no server row to delete; tear down its
-        // local state only. A synced document is purged server-side first, then
-        // locally.
-        if (!input.note.documentId) {
-          return purgeLocalContainerDocument({
-            noteId: input.note.id,
-            runtime: documentLinks,
-          });
-        }
-
-        return purgeRemoteContainerDocument({
-          documentId: input.note.documentId,
-          noteId: input.note.id,
+      purgeDocument: (document) =>
+        purgeDocumentFromLinks({
+          document,
+          resolveProjectionUserKey,
           runtime: documentLinks,
-        });
-      },
-      resolveProjectionUserKey:
-        createContainerContentsDocumentProjectionUserKeyResolver(runtime),
+        }),
+      resolveProjectionUserKey,
       unlinkDocumentFromContainer: (input) =>
         removeDocumentLink({
           host: createDocumentLinkHost(

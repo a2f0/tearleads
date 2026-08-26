@@ -14,6 +14,7 @@ import {
   buildBind,
   stageBlob,
 } from "../../../../test/helpers/blobAttachmentKit";
+import { buildDocumentPurgeRequest } from "../../../../test/helpers/documentPurge";
 import {
   bootstrapRoot,
   createDocument,
@@ -69,6 +70,12 @@ async function createPurgeBindRaceFixture() {
     blobId,
     destinationDocument,
     owner,
+    purgeRequest: await buildDocumentPurgeRequest({
+      documentId: sourceDocument.id,
+      documentManifestHash: sourceDocument.accessManifest.manifestHash,
+      owner,
+      root,
+    }),
     racingBind,
     sourceDocument,
   };
@@ -106,6 +113,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       expect(bindSettled).toBe(false);
       const activePurge = runPurgeDocumentWorkflow(db, {
         documentId: fixture.sourceDocument.id,
+        fingerprint: fixture.owner.fingerprint,
+        request: fixture.purgeRequest,
         userId: fixture.owner.userId,
       }).then((result) => {
         purgeSettled = true;
@@ -171,6 +180,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     let purgeSettled = false;
     const purge = runPurgeDocumentWorkflow(db, {
       documentId: fixture.sourceDocument.id,
+      fingerprint: fixture.owner.fingerprint,
+      request: fixture.purgeRequest,
       userId: fixture.owner.userId,
     }).then((result) => {
       purgeSettled = true;

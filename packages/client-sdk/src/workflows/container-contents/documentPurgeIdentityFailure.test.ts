@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@symcrypt/crypto";
+import { createAuthor } from "../../../test/helpers/documentFixtures";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../documents";
-import { purgeRemoteContainerDocument } from "./documentLinks";
+import { purgeRemoteContainerDocument } from "./documentPurge";
 
 test("remote document purge propagates identity failures without deleting local state", async () => {
   const integrityError = new KeyingVerificationError(
@@ -11,6 +15,8 @@ test("remote document purge propagates identity failures without deleting local 
     "trusted session identity changed",
   );
   const execSql: ExecSql = async () => [];
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
   const logs: string[] = [];
   let localDeletes = 0;
   const persistence = {
@@ -24,10 +30,28 @@ test("remote document purge propagates identity failures without deleting local 
       documentId: "document",
       noteId: "note",
       persistence,
+      resolveProjectionUserKey: async () => null,
       runtime: {
         apiClient: {
-          purgeDocument: async () => {
+          getCurrentPrincipalPolicy: async () => null,
+          getDocumentWriterProjection: async () => {
             throw integrityError;
+          },
+          purgeDocument: async () => {
+            throw new Error("Unexpected purge call");
+          },
+        },
+        auth: {
+          isAuthenticated: true,
+          organizationId: author.organizationId,
+          userId: author.signerUserId,
+        },
+        crypto: {
+          encapsulationKeyPair: keyPair,
+          signingFingerprint: author.signerKeyFingerprint,
+          signingKeyPair: {
+            signingPrivateKey: author.signerPrivateKey,
+            signingPublicKey,
           },
         },
         infra: {
@@ -35,6 +59,13 @@ test("remote document purge propagates identity failures without deleting local 
           dbStatus: "ready",
           documentProjectors: defaultDocumentProjectorRegistry,
           execSql,
+        },
+        resolveTrustedUserIdentity: async () => null,
+        state: {
+          containerId: null,
+          domainScope: null as never,
+          events: [],
+          online: true,
         },
         util: {
           log: (message) => logs.push(message),

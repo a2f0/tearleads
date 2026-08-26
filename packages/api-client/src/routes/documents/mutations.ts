@@ -1,13 +1,16 @@
 import {
   createDocumentOperation,
-  deleteDocumentOperation,
+  getDocumentPurgeProofOperation,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,
-  isDeleteDocumentOperationResponse,
   isDocumentLinkSetMutationOperationRequest,
   isDocumentLinkSetMutationOperationResponse,
+  isGetDocumentPurgeProofOperationResponse,
+  isPurgeDocumentOperationRequest,
+  isPurgeDocumentOperationResponse,
   linkDocumentOperation,
   operationRequestPath,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
 
@@ -41,9 +44,17 @@ export const documentUnlink = {
     documentLinkSetMutationPath(unlinkDocumentOperation, documentId),
 } as const;
 
-export const documentDelete = {
-  isResponse: isDeleteDocumentOperationResponse,
-  method: deleteDocumentOperation.method,
+export const documentPurge = {
+  isRequest: isPurgeDocumentOperationRequest,
+  isResponse: isPurgeDocumentOperationResponse,
+  method: purgeDocumentOperation.method,
   path: (documentId: string) =>
-    operationRequestPath(deleteDocumentOperation, { documentId }),
+    operationRequestPath(purgeDocumentOperation, { documentId }),
+} as const;
+
+export const documentPurgeProof = {
+  isResponse: isGetDocumentPurgeProofOperationResponse,
+  method: getDocumentPurgeProofOperation.method,
+  path: (documentId: string) =>
+    operationRequestPath(getDocumentPurgeProofOperation, { documentId }),
 } as const;

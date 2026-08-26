@@ -62,16 +62,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 53841,
-      "bytes": 2234907
+      "lines": 54655,
+      "bytes": 2264617
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 541,
-      "bytes": 28553
+      "lines": 548,
+      "bytes": 28972
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 566,
@@ -82,8 +82,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1843,
-      "bytes": 59743
+      "lines": 1851,
+      "bytes": 59952
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -350,8 +350,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20692,
-      "bytes": 854901
+      "lines": 21061,
+      "bytes": 868919
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

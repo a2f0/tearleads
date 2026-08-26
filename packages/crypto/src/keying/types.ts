@@ -61,6 +61,7 @@ export type AccessEventType =
   | "container.rekey"
   | "container.revoke"
   | "document.link"
+  | "document.purge"
   | "document.unlink";
 
 export type AccessObjectKind = "blob" | "container" | "document";
