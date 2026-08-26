@@ -89,7 +89,7 @@ test("rotation aborts a paged recovery when the runtime generation changes", asy
   }
 });
 
-test("rotation refuses a persistence adapter without atomic recovery pruning", async () => {
+test("rotation refuses an adapter that cannot prune recovery history atomically", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-adapter-capability",
   );
@@ -104,14 +104,14 @@ test("rotation refuses a persistence adapter without atomic recovery pruning", a
       localId,
     });
     const syncCalls = { count: 0 };
-    const legacyPersistence = {
+    const nonAtomicPersistence = {
       ...sqlDocumentsPersistence,
-      supportsAtomicRecoveryHistoryPruning: undefined,
+      supportsAtomicRecoveryHistoryPruning: false,
     } satisfies DocumentsPersistence;
     const state = createDocumentStoreState(
       localId,
       createRotationRecoveryRuntime({ execSql, fixture, syncCalls }),
-      legacyPersistence,
+      nonAtomicPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );

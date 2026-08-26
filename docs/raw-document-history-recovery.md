@@ -82,9 +82,7 @@ rejecting an unrelated or same-frontier forged tail, and rejecting any selected
 tail that lacks a durable row identifier and therefore cannot be pruned.
 Replacing the checkpoint, pruning the selected rows, and committing the
 canonical document must be one guarded transaction. Rotation recovery refuses
-adapters that omit the
-capability or declare it `false` instead of assuming compatible behavior. If
-the exact
+adapters that declare the capability `false`. If the exact
 checkpoint-history gate or canonical-record comparison rejects the recovery
 candidate, or if volatile runtime/trust ownership changes before the
 transaction commits, the adapter rolls back the complete install, including

@@ -37,6 +37,7 @@ export function mapSelectedDocumentRecord(
   const record: DocumentRecord = {
     id: row.id,
     documentId: row.documentId,
+    recoveryGeneration: row.recoveryGeneration,
     snapshotEndVersion: row.snapshotEndVersion,
     accessEpoch: row.accessEpoch,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
@@ -47,12 +48,6 @@ export function mapSelectedDocumentRecord(
     documentKekTargets: row.documentKekTargets,
     documentManifestBundle: row.documentManifestBundle,
   };
-
-  // Keep the initial generation shape-compatible with records created before
-  // the fence existed; every comparison normalizes absence to zero.
-  if (row.recoveryGeneration !== 0) {
-    record.recoveryGeneration = row.recoveryGeneration;
-  }
 
   if (row.accessStateHash !== null) {
     record.accessStateHash = row.accessStateHash;

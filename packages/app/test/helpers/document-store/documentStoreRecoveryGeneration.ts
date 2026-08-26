@@ -39,13 +39,12 @@ export function memoryDocumentWriteFenceMatches(
   document: DocumentRecord | null,
   localId: string,
   expectedDocumentId: string | null,
-  expectedRecoveryGeneration?: number,
+  expectedRecoveryGeneration: number,
 ): boolean {
   return (
     document?.id === localId &&
     document.documentId === expectedDocumentId &&
-    (expectedRecoveryGeneration === undefined ||
-      (document.recoveryGeneration ?? 0) === expectedRecoveryGeneration)
+    (document.recoveryGeneration ?? 0) === expectedRecoveryGeneration
   );
 }
 

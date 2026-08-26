@@ -7,7 +7,7 @@ export interface DocumentRecord {
   /**
    * Durable fence advanced by an atomic raw-history recovery install. Writers
    * capture this before waiting for the mutation queue and must refuse to
-   * publish when recovery advanced it first. Missing means the initial zero.
+   * publish when recovery advanced it first.
    */
   recoveryGeneration?: number;
   /**

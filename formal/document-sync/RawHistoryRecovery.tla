@@ -14,6 +14,7 @@ EXTENDS Naturals
 (* blockedWriterFence is the durable recovery revision captured before a      *)
 (* writer waits. Publication advances it, forcing an older waiter to reject   *)
 (* without appending queue/history rows or saving its stale record.            *)
+(* Production mapping and checked bounds: RawHistoryRecovery.md.              *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 

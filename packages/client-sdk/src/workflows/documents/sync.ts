@@ -1,7 +1,4 @@
-import type {
-  DocumentSyncResponse,
-  DocumentWriterProjectionResponse,
-} from "@symcrypt/validators/response";
+import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
@@ -33,13 +30,8 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
-import {
-  hasDeferredPendingUpdatesAfterSubmit,
-  responseAcceptedRecoveryBaseline,
-  submittedPendingUpdates,
-} from "./syncPlanRequestBounds";
-import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
-import { traceHealed } from "./syncTrace";
+import { submittedPendingUpdates } from "./syncPlanRequestBounds";
+import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -53,81 +45,6 @@ export function hasDocumentUpdateEvent(
     (event) =>
       isDocumentUpdateCreatedEvent(event) && event.documentId === documentId,
   );
-}
-
-/**
- * After a sync submit that healed a stale content-key bundle, the cached
- * projection still carries the bundle that was just superseded; drop it so
- * later passes fetch the healed state instead of pushing another (redundant)
- * epoch bump.
- */
-function evictHealedWriterProjection(
-  input: SyncRemoteDocumentInput,
-  materializedPlan: MaterializedDocumentSyncPlan,
-  response: DocumentSyncResponse,
-): void {
-  if (
-    materializedPlan.healedStaleContentKeyBundle &&
-    responseAcceptedRecoveryBaseline(materializedPlan, response)
-  ) {
-    input.apiClient.evictDocumentWriterProjection?.(input.documentId);
-  }
-}
-
-async function submittedDocumentSyncResult(input: {
-  materializedPlan: MaterializedDocumentSyncPlan;
-  pendingUpdateIds: readonly string[];
-  pullComplete: boolean;
-  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  response: DocumentSyncResponse;
-  sync: SyncRemoteDocumentInput;
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<SyncRemoteDocumentResult> {
-  const result = await syncRemoteDocumentResultFromResponse({
-    ...projectionVerificationOptions(input.sync),
-    execSql: input.sync.execSql,
-    materializedPlan: input.materializedPlan,
-    onTerminalSubmitFailure: input.sync.onTerminalSubmitFailure,
-    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-    rekeyPendingUpdate: input.sync.rekeyPendingUpdate,
-    resolveWriterPublicKey: input.sync.resolveWriterPublicKey,
-    response: input.response,
-    targetSecretKey: input.sync.targetSecretKey,
-    validateIncomingUpdates: input.sync.validateIncomingUpdates,
-    writerProjection: input.writerProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-  });
-  evictHealedWriterProjection(
-    input.sync,
-    input.materializedPlan,
-    input.response,
-  );
-  if (
-    input.materializedPlan.healedStaleContentKeyBundle &&
-    responseAcceptedRecoveryBaseline(input.materializedPlan, input.response)
-  ) {
-    traceHealed(input.sync.onSyncTrace, {
-      accepted: input.response.acceptedOutgoingUpdateIds.length,
-      documentId: input.materializedPlan.plan.documentId,
-      epoch: input.materializedPlan.plan.contentKeyEpoch,
-    });
-  }
-  return {
-    ...result,
-    hasDeferredPendingUpdates:
-      (input.materializedPlan.plan.request.pullCursor !== undefined &&
-        input.pendingUpdateIds.length > 0 &&
-        result.exhaustedPendingUpdateCount === 0) ||
-      hasDeferredPendingUpdatesAfterSubmit({
-        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-        pendingUpdateIds: input.pendingUpdateIds,
-        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-        settledPendingUpdateIds: result.settledPendingUpdateIds,
-      }),
-    hasIncompletePull: !input.pullComplete,
-  };
 }
 
 function buildRemoteDocumentSyncPlan(input: {
@@ -471,7 +388,7 @@ async function syncRemoteDocumentInternal(
       continue;
     }
 
-    return submittedDocumentSyncResult({
+    return resolveSubmittedDocumentSyncResult({
       materializedPlan,
       pendingUpdateIds,
       pullComplete: submitted.pullComplete,

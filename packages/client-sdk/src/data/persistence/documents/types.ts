@@ -143,7 +143,7 @@ export interface DocumentsPersistence {
    * recovery generation. An unrelated history tail not covered by the rebuild
    * must abort that transaction.
    */
-  readonly supportsAtomicRecoveryHistoryPruning?: boolean | undefined;
+  readonly supportsAtomicRecoveryHistoryPruning: boolean;
   /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.
@@ -252,7 +252,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
     expectedDocumentId: string | null,
-    expectedRecoveryGeneration?: number,
+    expectedRecoveryGeneration: number,
   ) => Promise<boolean>;
   loadDocument: (
     execSql: ExecSql,
@@ -419,7 +419,7 @@ export interface DocumentsPersistence {
     pendingUpdate: PendingUpdateInsert,
     options?: {
       expectedDocumentId: string | null;
-      expectedRecoveryGeneration?: number;
+      expectedRecoveryGeneration: number;
     },
   ) => Promise<boolean>;
   saveLocalAttachment: (

@@ -13,15 +13,26 @@ export async function listPendingDocumentUpdates(input: {
   return input.persistence.listPendingUpdates(input.execSql, input.localId);
 }
 
-export async function enqueuePendingDocumentUpdate(input: {
+type EnqueuePendingDocumentUpdateInput = {
   execSql: ExecSql;
-  expectedDocumentId?: string | null;
-  expectedRecoveryGeneration?: number;
   localId: string;
   persistence: DocumentsPersistence;
   sourceVersionVector?: string | null;
   update: Uint8Array;
-}): Promise<boolean> {
+} & (
+  | {
+      expectedDocumentId: string | null;
+      expectedRecoveryGeneration: number;
+    }
+  | {
+      expectedDocumentId?: undefined;
+      expectedRecoveryGeneration?: never;
+    }
+);
+
+export async function enqueuePendingDocumentUpdate(
+  input: EnqueuePendingDocumentUpdateInput,
+): Promise<boolean> {
   const pendingUpdateFields = createPendingUpdateFields(
     input.update,
     input.sourceVersionVector,
@@ -47,11 +58,7 @@ export async function enqueuePendingDocumentUpdate(input: {
       ? undefined
       : {
           expectedDocumentId: input.expectedDocumentId,
-          ...(input.expectedRecoveryGeneration === undefined
-            ? {}
-            : {
-                expectedRecoveryGeneration: input.expectedRecoveryGeneration,
-              }),
+          expectedRecoveryGeneration: input.expectedRecoveryGeneration,
         },
   );
 }

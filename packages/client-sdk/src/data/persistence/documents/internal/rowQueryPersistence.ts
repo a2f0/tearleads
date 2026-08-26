@@ -89,8 +89,7 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
     const record = await loadDocumentRecord(execSql, getDocumentScope(localId));
     return (
       record?.documentId === expectedDocumentId &&
-      (expectedRecoveryGeneration === undefined ||
-        (record.recoveryGeneration ?? 0) === expectedRecoveryGeneration)
+      (record.recoveryGeneration ?? 0) === expectedRecoveryGeneration
     );
   },
   async loadDocument(execSql, localId) {
