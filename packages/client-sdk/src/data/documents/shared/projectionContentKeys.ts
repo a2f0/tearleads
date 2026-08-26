@@ -168,6 +168,18 @@ function preferredPredecessorFailure(
   );
 }
 
+function recordPreferredPredecessorFailure(
+  failures: Map<string, Error>,
+  key: string,
+  failure: Error,
+): void {
+  const existing = failures.get(key);
+  const preferred = preferredPredecessorFailure(
+    existing ? [existing, failure] : [failure],
+  );
+  if (preferred) failures.set(key, preferred);
+}
+
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
@@ -205,17 +217,21 @@ export async function collectContainerKeksForDocumentSync(
       containerKeyEpochId,
       failure,
     ] of projectionKeks.predecessorFailuresByEpochId) {
-      if (!predecessorFailuresByEpochId.has(containerKeyEpochId)) {
-        predecessorFailuresByEpochId.set(containerKeyEpochId, failure);
-      }
+      recordPreferredPredecessorFailure(
+        predecessorFailuresByEpochId,
+        containerKeyEpochId,
+        failure,
+      );
     }
     for (const [
       containerId,
       failure,
     ] of projectionKeks.unattributedPredecessorFailuresByContainerId) {
-      if (!unattributedPredecessorFailuresByContainerId.has(containerId)) {
-        unattributedPredecessorFailuresByContainerId.set(containerId, failure);
-      }
+      recordPreferredPredecessorFailure(
+        unattributedPredecessorFailuresByContainerId,
+        containerId,
+        failure,
+      );
     }
     for (const [
       containerKeyEpochId,

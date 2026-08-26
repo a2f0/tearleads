@@ -19,6 +19,7 @@ import {
   tamperSealedKeyring,
 } from "../../../../test/helpers/keyringRotationFixtures";
 import {
+  ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
   DocumentHistoryUnavailableError,
   unwrapContainerKekPath,
@@ -148,6 +149,44 @@ test("document projection shares keyring-recovered keys across authorizing paths
     collected.predecessorFailuresByEpochId,
   );
   expect(Array.from(unwrappedContentKey)).toEqual(Array.from(contentKey));
+});
+
+test("shared-path integrity failures outrank unavailable history in either order", async () => {
+  const rotated = await rotateRootKekKeyringFixture();
+  const unavailable = rootOnlyProjection(rotated, {
+    ...rotated.successor,
+    keyring: null,
+  });
+  const damaged = structuredClone(rootOnlyProjection(rotated));
+  const damagedKek = damaged.containerKeks[0];
+  if (!damagedKek?.keyring) throw new Error("Expected a damaged keyring");
+  damagedKek.keyring = tamperSealedKeyring(damagedKek.keyring);
+  const { bundle } = await wrapContentKeyToEpoch1(rotated);
+
+  for (const paths of [
+    [unavailable, damaged],
+    [damaged, unavailable],
+  ]) {
+    const collected = await collectContainerKeksForDocumentSync({
+      writerProjection: writerProjectionFor(paths),
+      secretKey: rotated.fixture.secretKey,
+      trustedLocalProjection: true,
+    });
+    const error = await unwrapDocumentContentKeyFromBundle(
+      bundle,
+      collected.keksByEpochId,
+      collected.predecessorFailuresByEpochId,
+      collected.unattributedPredecessorFailuresByContainerId,
+    ).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(DocumentHistoryUnavailableError);
+    expect(
+      (error as DocumentHistoryUnavailableError).historyCause,
+    ).not.toBeInstanceOf(ContainerKekHistoryUnavailableError);
+  }
 });
 
 test("unwrapContainerKekPath rejects missing or inconsistent keyrings", async () => {

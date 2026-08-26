@@ -73,9 +73,11 @@ pruning the selected rows, and committing the canonical document must be one
 guarded transaction. Rotation recovery refuses adapters that omit the
 capability instead of assuming compatible behavior. If the exact
 checkpoint-history gate or canonical-record comparison rejects the recovery
-candidate, or if volatile runtime/trust ownership changes before the transaction
-commits, the adapter rolls back the complete install, including checkpoint/tail
-pruning, projection writes, and pending-row settlement.
+candidate, or if volatile runtime/trust ownership changes before the
+transaction commits, the adapter rolls back the complete install, including
+checkpoint/tail pruning, projection writes, and pending-row settlement. The
+generation guard and SQLite `COMMIT` dispatch share one synchronous slice, so
+ownership cannot change between the final decision and commit dispatch.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
@@ -90,11 +92,13 @@ consumer checks every referenced epoch before reporting unavailability so a
 malformed bundle in the same page always takes poison-isolation precedence.
 Within a multi-target bundle it likewise aggregates unreachable-target causes,
 so integrity failures outrank an absent predecessor keyring regardless of
-target order. Before reporting an unavailable epoch, the client decrypts and
-import-validates every sibling whose content key is available. Any poison
-retains precedence, including an unresolved dependency: the current wire
-contract authenticates operation ranges but not an exact dependency set, so
-the client cannot prove that an unavailable sibling carries that parent.
+target order. Failures for a shared predecessor epoch are merged with the same
+priority across authorizing paths, so an earlier unavailable path cannot hide a
+later integrity failure. Before reporting an unavailable epoch, the client
+decrypts and import-validates every sibling whose content key is available. Any
+poison retains precedence, including an unresolved dependency: the current
+wire contract authenticates operation ranges but not an exact dependency set,
+so the client cannot prove that an unavailable sibling carries that parent.
 Every encrypted record is structurally parsed and checked against its
 authenticated header before any missing epoch can be classified as benign
 unavailability. Every historical bundle's target list is also recomputed and

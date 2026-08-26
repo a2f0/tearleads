@@ -278,8 +278,6 @@ type SaveClientProjection = Parameters<
   DocumentsPersistence["commitDocumentMutation"]
 >[2];
 
-class DocumentMutationGenerationSupersededError extends Error {}
-
 async function applyStoredDocumentMutation(input: {
   lockedExecSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0];
   mutation: CommitDocumentMutationInput;
@@ -338,9 +336,6 @@ async function applyStoredDocumentMutation(input: {
   });
   await saveDocumentRows({ document: mutation.document, tx, updatedAt });
   await input.saveClientProjection(lockedExecSql, updatedAt);
-  if (mutation.stillCurrent && !mutation.stillCurrent()) {
-    throw new DocumentMutationGenerationSupersededError();
-  }
   return { committed: true as const, updatedAt };
 }
 
@@ -350,24 +345,23 @@ async function runStoredDocumentMutationTransaction(input: {
   saveClientProjection: SaveClientProjection;
   loadDocument: DocumentsPersistence["loadDocument"];
 }) {
-  try {
-    return await getClientSQLitePersistenceRuntime(
-      input.lockedExecSql,
-    ).transaction((tx) => applyStoredDocumentMutation({ ...input, tx }), {
-      behavior: "immediate",
-    });
-  } catch (error) {
-    if (!(error instanceof DocumentMutationGenerationSupersededError)) {
-      throw error;
-    }
-    return {
-      committed: false as const,
-      currentRecord: await input.loadDocument(
-        input.lockedExecSql,
-        input.mutation.document.id,
-      ),
-    };
+  const outcome = await getClientSQLitePersistenceRuntime(
+    input.lockedExecSql,
+  ).guardedTransaction(
+    (tx) => applyStoredDocumentMutation({ ...input, tx }),
+    () => !input.mutation.stillCurrent || input.mutation.stillCurrent(),
+    { behavior: "immediate" },
+  );
+  if (outcome.committed && outcome.result) {
+    return outcome.result;
   }
+  return {
+    committed: false as const,
+    currentRecord: await input.loadDocument(
+      input.lockedExecSql,
+      input.mutation.document.id,
+    ),
+  };
 }
 
 export async function commitStoredDocumentMutation(
