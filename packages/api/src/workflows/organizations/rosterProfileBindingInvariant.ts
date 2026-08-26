@@ -7,6 +7,12 @@ import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { and, eq, inArray } from "drizzle-orm";
 import { DocumentMutationError } from "../documents/mutations/errors";
+import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
+
+export interface RepairedRosterProfileBinding {
+  readonly organizationId: string;
+  readonly userId: string;
+}
 
 export async function assertRosterProfileDocumentUnbound(input: {
   readonly documentId: string;
@@ -45,15 +51,18 @@ export async function assertRosterProfileDocumentIdCanBeCreated(input: {
 export async function assertRosterProfileBindingPreserved(input: {
   readonly executor: DatabaseSession;
   readonly manifest: VerifiedDocumentLinkSetManifest;
-}): Promise<void> {
+}): Promise<readonly RepairedRosterProfileBinding[]> {
   const { documentId, linkedContainerIds, organizationId } =
     input.manifest.state;
   const bindings = await input.executor
-    .select({ organizationId: organizationRosterEntries.organizationId })
+    .select({
+      organizationId: organizationRosterEntries.organizationId,
+      userId: organizationRosterEntries.userId,
+    })
     .from(organizationRosterEntries)
     .where(eq(organizationRosterEntries.profileDocumentId, documentId));
   if (bindings.length === 0) {
-    return;
+    return [];
   }
   if (bindings.some((binding) => binding.organizationId !== organizationId)) {
     throw new DocumentMutationError(
@@ -61,6 +70,13 @@ export async function assertRosterProfileBindingPreserved(input: {
       409,
     );
   }
+  const profileWasValid = (
+    await listValidRosterProfileDocumentIds({
+      executor: input.executor,
+      organizationId,
+      profileDocumentIds: [documentId],
+    })
+  ).has(documentId);
 
   const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot({
     organizationId,
@@ -82,4 +98,5 @@ export async function assertRosterProfileBindingPreserved(input: {
       409,
     );
   }
+  return profileWasValid ? [] : bindings;
 }
