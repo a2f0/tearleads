@@ -29,6 +29,7 @@ function createLane(blobStorageKey: string | null): SyncLaneSnapshot {
     registrationIndex: 0,
     requestCount: 1,
     requested: false,
+    runAbandoned: false,
     runCount: 1,
     running: false,
     status: "complete",

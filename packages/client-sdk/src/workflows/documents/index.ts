@@ -112,6 +112,7 @@ export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailureClearance"
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
+  requestDocumentSyncLaneAndWait,
 } from "./syncLane";
 export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
 export {

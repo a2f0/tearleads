@@ -2,7 +2,13 @@ import type {
   DocumentAttributionRangesPage,
   DocumentInfo,
 } from "@symcrypt/client-sdk";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   MiniAppButton,
   MiniAppInfoSection,
@@ -11,6 +17,7 @@ import {
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   type ExplorerAttributionUserLabelResolver,
@@ -256,6 +263,9 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
     | undefined;
   documentInfo: DocumentInfo | null;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
+  requestAttributionProfileHydration?:
+    | ExplorerAttributionProfileHydrationRequester
+    | undefined;
 }) {
   const remoteInfo = params.documentInfo?.remoteInfo;
   const documentId = params.documentInfo?.local.documentId ?? null;
@@ -266,6 +276,24 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
     documentId,
     load: params.loadDocumentAttributionRanges,
   });
+  useEffect(() => {
+    if (!documentId) {
+      return;
+    }
+    const contributorUserIds = [
+      ...new Set(model.state.items.map((item) => item.writerUserId)),
+    ];
+    if (contributorUserIds.length > 0) {
+      params.requestAttributionProfileHydration?.({
+        contributorUserIds,
+        documentId,
+      });
+    }
+  }, [
+    documentId,
+    model.state.items,
+    params.requestAttributionProfileHydration,
+  ]);
 
   if (
     !remoteInfo ||

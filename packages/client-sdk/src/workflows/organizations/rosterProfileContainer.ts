@@ -1,7 +1,11 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
 import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
+
+export {
+  deriveOrganizationMetadataContainerSystemSlot,
+  deriveOrganizationRosterProfileContainerSystemSlot,
+} from "@symcrypt/validators/containerSystemSlot";
+
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   initializeStoredDocumentKind,
@@ -22,42 +26,6 @@ export const ORGANIZATION_METADATA_CONTAINER_NAME = "Organization Metadata";
 // not override it. The demo host passes each pane's peer-labeled self name
 // instead (e.g. "Peer 1 (You)").
 export const DEFAULT_ROSTER_PROFILE_SELF_NICKNAME = "You";
-
-async function deriveOrganizationSystemSlot(input: {
-  readonly namespace: string;
-  readonly organizationId: string;
-}): Promise<ContainerSystemSlot> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(
-      JSON.stringify({
-        namespace: input.namespace,
-        organizationId: input.organizationId,
-        version: 1,
-      }),
-    ),
-  );
-
-  return formatContainerSystemSlot(new Uint8Array(digest));
-}
-
-export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
-  readonly organizationId: string;
-}): Promise<ContainerSystemSlot> {
-  return deriveOrganizationSystemSlot({
-    namespace: "symcrypt.organization-roster-profiles",
-    organizationId: input.organizationId,
-  });
-}
-
-export function deriveOrganizationMetadataContainerSystemSlot(input: {
-  readonly organizationId: string;
-}): Promise<ContainerSystemSlot> {
-  return deriveOrganizationSystemSlot({
-    namespace: "symcrypt.organization-metadata",
-    organizationId: input.organizationId,
-  });
-}
 
 export function getRosterProfileDocumentLocalId(input: {
   readonly organizationId: string;

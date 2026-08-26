@@ -42,6 +42,7 @@ export interface SyncLaneSnapshot {
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
+  runAbandoned: boolean;
   runCount: number;
   running: boolean;
   status: SyncLaneStatus;
@@ -75,6 +76,7 @@ interface SyncLaneTelemetryState {
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
+  runAbandoned: boolean;
   runCount: number;
   running: boolean;
 }
@@ -156,6 +158,7 @@ function createSyncLaneSnapshot(
     registrationIndex: state.registrationIndex,
     requestCount: state.requestCount,
     requested: state.requested,
+    runAbandoned: state.runAbandoned,
     runCount: state.runCount,
     running: state.running,
     status: getSyncLaneStatus(state),

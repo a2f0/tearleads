@@ -226,6 +226,15 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<string[]>;
+  /**
+   * Select one local row for a remote document identity. Prefer any row with
+   * queued updates or a deferred-sync frontier, then break duplicates by
+   * updatedAt and localId descending.
+   */
+  findLocalIdByDocumentId: (
+    execSql: ExecSql,
+    documentId: string,
+  ) => Promise<string | null>;
   /** Canonical-row probe; false authorizes destructive orphan teardown. */
   hasDocument: (execSql: ExecSql, localId: string) => Promise<boolean>;
   /** Observe whether the canonical row still names the expected remote stream. */

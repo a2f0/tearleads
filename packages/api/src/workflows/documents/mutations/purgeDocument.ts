@@ -17,6 +17,8 @@ import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
 } from "../../containers/writerProjection";
+import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
+import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
 import { DocumentMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
 import type { PurgeDocumentWorkflowResult } from "./types";
@@ -215,13 +217,36 @@ async function purgeDocumentWithExecutor(input: {
   readonly executor: DatabaseTransaction;
   readonly userId: string;
 }): Promise<PurgeDocumentWorkflowResult> {
-  // Take the document manifest-head lock BEFORE any read or delete, mirroring
-  // the link-set mutation path. Sync writers hold this head FOR UPDATE while
-  // inserting content rows, so without it a purge interleaving with an
-  // in-flight sync write silently skips the writer's uncommitted rows
-  // (invisible under READ COMMITTED), commits the head/document delete after
-  // the writer commits, and strands orphaned update rows that permanently
-  // wedge any re-create of the same client-chosen document id.
+  // Resolve the candidate organization before taking locks, then follow the
+  // organization -> document order shared with link-set and roster mutations.
+  // Every authorization/read below is repeated under those locks, so a
+  // concurrent relink, bind, or purge cannot make the preliminary view
+  // authoritative.
+  await assertDocumentIsPurgeable({
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+  const candidateContainerId = await resolveSolePurgeContainerId({
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+  const candidateOrganizationId = await authorizePurge({
+    containerId: candidateContainerId,
+    executor: input.executor,
+    userId: input.userId,
+  });
+  const organizationHeadLocked =
+    await lockOrganizationReadModelHeadForUpdateInTransaction(
+      input.executor,
+      candidateOrganizationId,
+    );
+  if (!organizationHeadLocked) {
+    throw new Error("Organization read-model cursor head is missing");
+  }
+
+  // Sync writers hold this head FOR UPDATE while inserting content rows. Once
+  // the organization lock is held, taking it before the authoritative reads
+  // below prevents an in-flight writer from committing rows after deletion.
   await lockAccessManifestHeadsForUpdate(
     "document",
     [input.documentId],
@@ -239,6 +264,13 @@ async function purgeDocumentWithExecutor(input: {
     containerId,
     executor: input.executor,
     userId: input.userId,
+  });
+  if (organizationId !== candidateOrganizationId) {
+    throw new DocumentMutationError("Document organization mismatch", 409);
+  }
+  await assertRosterProfileDocumentUnbound({
+    documentId: input.documentId,
+    executor: input.executor,
   });
   await assertOrganizationCanSync(input.executor, organizationId, input.userId);
 

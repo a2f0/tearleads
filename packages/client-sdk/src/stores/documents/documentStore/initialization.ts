@@ -49,7 +49,12 @@ import {
   setReadySnapshot,
 } from "./state";
 import { createStoredDocument } from "./storedDocument";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import {
+  allowDocumentStoreRemoteSync,
+  captureDocumentStoreSyncGeneration,
+  invalidateDocumentStoreRemoteSync,
+  markDocumentStoreRemoteSyncPending,
+} from "./syncGeneration";
 
 async function createInitialDocumentRecord(
   state: DocumentStoreState,
@@ -293,14 +298,14 @@ async function initializeDocumentStore(
   state.initializePromise = null;
   setReadySnapshot(state, restored.doc, false);
 
-  if (restored.activeRecord.documentId) {
+  if (restored.activeRecord.documentId && state.scheduleStartupRemoteSync) {
     // Websocket invalidations are intentionally session-local. A process can
     // stop before receiving a peer device's update event, and no event survives
     // the restart to distinguish a clean local snapshot from a stale one. Probe
     // each opened remote document once after loading it; unopened documents stay
     // lazy, while body and attachment state for a restored window converges.
-    state.remoteUpdatePending = true;
-    state.remoteUpdateSignalSeq += 1;
+    allowDocumentStoreRemoteSync(state);
+    markDocumentStoreRemoteSyncPending(state, "independent");
     logRevalidationScheduled(state.runtime, "startup");
   }
   scheduleSync();
@@ -382,6 +387,7 @@ export async function relinkDocumentStore(
   // before its network round trip would otherwise write the derived documentId
   // over the one this relink assigns.
   const persisted = await chainIdentityWrite(state, async () => {
+    const currentDocumentId = state.record?.documentId ?? null;
     const currentAccessEpoch =
       state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
     const patch: Partial<DocumentRecord> = {
@@ -415,10 +421,15 @@ export async function relinkDocumentStore(
     if (state.doc !== currentDoc) {
       return null;
     }
-    return persistDocument(state, currentDoc, patch, {
+    const result = await persistDocument(state, currentDoc, patch, {
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     });
+    if (result && currentDocumentId !== input.documentId) {
+      state.writerProjection = null;
+      invalidateDocumentStoreRemoteSync(state);
+    }
+    return result;
   });
   // A refused persist means the durable row vanished mid-relink (resurrect
   // guard); there is no summary to report.

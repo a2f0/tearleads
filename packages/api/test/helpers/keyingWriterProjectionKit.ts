@@ -382,12 +382,12 @@ export function createContainerKeyWrap(input: {
     wrapManifestHash: input.wrapManifestHash,
   };
 }
-
 export async function createDocumentRequest(input: {
+  readonly documentId?: string | undefined;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentCreateRequest> {
-  const documentId = crypto.randomUUID();
+  const documentId = input.documentId ?? crypto.randomUUID();
   const body: DocumentLinkAccessEventBody = {
     eventType: "document.link",
     containerId: input.root.kekState.containerId,

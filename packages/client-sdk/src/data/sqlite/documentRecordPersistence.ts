@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../accessLevel";
 import { deserializeDocumentSyncPullContinuation } from "../documents/shared/pullContinuation";
 import type {
@@ -6,7 +6,7 @@ import type {
   DocumentScope,
   SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
-import { documents } from "./schema";
+import { documentPendingUpdates, documents } from "./schema";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -94,11 +94,31 @@ export async function findLocalIdByDocumentId(
   documentId: string,
 ): Promise<string | null> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const hasPendingUpdates = sql<number>`EXISTS (
+    SELECT 1
+    FROM ${documentPendingUpdates}
+    WHERE ${documentPendingUpdates.appKind} = ${documents.appKind}
+      AND ${documentPendingUpdates.localId} = ${documents.localId}
+  )`;
+  const hasPendingLocalWork = sql<number>`(
+    ${hasPendingUpdates}
+    OR (
+      ${documents.pendingBaseVersion} IS NOT NULL
+      AND ${documents.pendingBaseVersion} <> ${documents.snapshotEndVersion}
+    )
+  )`;
   const rows = await db
     .select({ localId: documents.localId })
     .from(documents)
     .where(
       and(eq(documents.appKind, appKind), eq(documents.documentId, documentId)),
+    )
+    // Duplicate remote identities can survive an interrupted local adoption.
+    // Preserve queued or deferred edits, then make the fallback stable.
+    .orderBy(
+      desc(hasPendingLocalWork),
+      desc(documents.updatedAt),
+      desc(documents.localId),
     )
     .limit(1);
 

@@ -36,6 +36,7 @@ function createLaneSnapshot(input: {
     registrationIndex: 0,
     requestCount: 0,
     requested: false,
+    runAbandoned: false,
     runCount: 0,
     running: input.status === "running",
     status: input.status,

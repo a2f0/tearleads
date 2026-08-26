@@ -12,6 +12,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { requestDocumentStoreSync } from "../registry";
 import { deletePendingAttachment } from "./attachmentPersistence";
 import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
@@ -35,7 +36,6 @@ import {
   settleUploadedAttachment,
 } from "./syncAttachmentSettlement";
 import {
-  captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -56,10 +56,20 @@ interface AttachmentSyncProgress {
   uploadedAttachment: boolean;
 }
 
+function rearmStaleAttachmentSync(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+): void {
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+  }
+}
+
 export async function syncPendingAttachments(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
+  attachmentGeneration: DocumentStoreSyncGeneration,
 ): Promise<PendingMutationSyncResult> {
   if (state.pendingAttachments.length === 0) {
     return { completed: false, nextRecord };
@@ -67,18 +77,6 @@ export async function syncPendingAttachments(
 
   const currentDoc = state.doc;
   if (!currentDoc) {
-    return { completed: false, nextRecord };
-  }
-
-  // A store reset (runtime loss, remote deletion, or a local-edits discard)
-  // mid-pass swaps or drops the live doc; every local write below would then
-  // resurrect rows the teardown removed. Capture the generation now and stop
-  // at the loop boundaries once it goes stale.
-  const attachmentGeneration = captureDocumentStoreSyncGeneration(
-    state,
-    currentDoc,
-  );
-  if (!attachmentGeneration) {
     return { completed: false, nextRecord };
   }
 
@@ -103,6 +101,7 @@ export async function syncPendingAttachments(
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
     if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      requestDocumentStoreSync(state);
       return {
         completed: progress.settledAttachment,
         nextRecord: currentRecord,
@@ -130,6 +129,7 @@ export async function syncPendingAttachments(
       state,
     });
     if (outcome === "retry") {
+      rearmStaleAttachmentSync(state, attachmentGeneration);
       return {
         completed: progress.settledAttachment,
         nextRecord: currentRecord,
@@ -139,6 +139,7 @@ export async function syncPendingAttachments(
     // Re-check after the upload's awaits: settling writes local rows, which a
     // teardown that happened mid-upload has just deleted on purpose.
     if (!isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration)) {
+      requestDocumentStoreSync(state);
       return {
         completed: progress.settledAttachment,
         nextRecord: currentRecord,

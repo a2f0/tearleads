@@ -1,6 +1,10 @@
 import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
 import type { DocumentStoreState } from "./state";
+import {
+  allowDocumentStoreRemoteSync,
+  markDocumentStoreRemoteSyncPending,
+} from "./syncGeneration";
 
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
@@ -52,6 +56,7 @@ export function clearConsumedRemoteUpdateSignal(
       consumedSignalSequence,
     )
   ) {
+    state.remoteUpdateCompletedSignalSeq = consumedSignalSequence;
     state.remoteUpdatePending = false;
   }
 }
@@ -69,10 +74,10 @@ export function handleDocumentRemoteEvents(
   state.lastEventCount = state.runtime.state.events.length;
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
-    state.remoteUpdatePending = true;
+    allowDocumentStoreRemoteSync(state);
     // Let an in-flight pass distinguish this new signal from the one it
     // consumed before its network request.
-    state.remoteUpdateSignalSeq += 1;
+    markDocumentStoreRemoteSyncPending(state, "independent");
     scheduleSync();
   }
 }

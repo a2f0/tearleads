@@ -9,6 +9,7 @@ import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
+import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   assertCreateCanAdvanceDocumentHead,
@@ -96,6 +97,10 @@ export async function createDocumentWithExecutor(input: {
       );
     }
 
+    await assertRosterProfileDocumentIdCanBeCreated({
+      documentId: manifest.state.documentId,
+      executor: input.executor,
+    });
     await assertCreateCanAdvanceDocumentHead(
       input.executor,
       manifest.state.documentId,

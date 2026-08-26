@@ -27,9 +27,14 @@ import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import { finalizeDocumentSync } from "./syncFinalize";
 import {
+  captureDocumentStoreAttachmentSyncGeneration,
+  captureDocumentStoreRemoteSyncGeneration,
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  type DocumentStoreSyncLaneGeneration,
+  isDocumentStoreRemoteSyncBlocked,
   isDocumentStoreSyncGenerationCurrent,
+  isDocumentStoreSyncLaneGenerationCurrent,
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
@@ -136,6 +141,9 @@ async function syncDocumentState(
     requestDocumentStoreSync(state);
     return state.record ?? nextRecord;
   }
+  if (pendingUpdates.length === 0 && isDocumentStoreRemoteSyncBlocked(state)) {
+    return nextRecord;
+  }
   // Create the remote document even when nothing is queued to send: a note
   // created and never edited enqueues no updates, but its local row is still a
   // pending create the write queue reports — it must flush, not sit. Defer
@@ -231,15 +239,10 @@ async function revalidateRemoteDocumentBeforeAttachments(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
+  generation: DocumentStoreSyncGeneration,
 ): Promise<{ canSyncAttachments: boolean; nextRecord: DocumentRecord }> {
   if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
     return { canSyncAttachments: true, nextRecord };
-  }
-
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
-    requestDocumentStoreSync(state);
-    return { canSyncAttachments: false, nextRecord };
   }
 
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
@@ -255,6 +258,7 @@ async function revalidateRemoteDocumentBeforeAttachments(
       "Documents: skipped pre-attachment revalidation because the writer context is unavailable.",
   });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
     return { canSyncAttachments: false, nextRecord };
   }
   if (!syncAttempt) {
@@ -282,7 +286,10 @@ async function revalidateRemoteDocumentBeforeAttachments(
   };
 }
 
-async function runDocumentSyncPass(state: DocumentStoreState) {
+async function runDocumentSyncPass(
+  state: DocumentStoreState,
+  syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   let nextRecord = state.record;
@@ -291,11 +298,27 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     return;
   }
 
+  const generation = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  const attachmentGeneration = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  if (!generation || !attachmentGeneration) {
+    requestDocumentStoreSync(state);
+    return;
+  }
+
   const revalidation = await revalidateRemoteDocumentBeforeAttachments(
     state,
     currentDoc,
     nextRecord,
     encapsulationKeyPair,
+    generation,
   );
   nextRecord = revalidation.nextRecord;
   if (!revalidation.canSyncAttachments) {
@@ -306,18 +329,13 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     state,
     nextRecord,
     encapsulationKeyPair,
+    attachmentGeneration,
   );
   nextRecord = attachmentResult.nextRecord;
   if (state.pendingAttachments.length > 0) {
     return;
   }
   if (attachmentResult.completed) {
-    requestDocumentStoreSync(state);
-    return;
-  }
-
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
     requestDocumentStoreSync(state);
     return;
   }
@@ -352,9 +370,15 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   }
 }
 
-async function runScheduledSyncIteration(state: DocumentStoreState) {
+async function runScheduledSyncIteration(
+  state: DocumentStoreState,
+  syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+) {
   if (!(await awaitInitializationForSync(state))) {
     return false;
+  }
+  if (!isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)) {
+    return true;
   }
 
   if (!canRunScheduledSync(state)) {
@@ -362,7 +386,7 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
   }
 
   try {
-    await runDocumentSyncPass(state);
+    await runDocumentSyncPass(state, syncLaneGeneration);
     return true;
   } catch (error) {
     if (isDatabaseUnavailableError(error)) {
@@ -383,7 +407,10 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
   }
 }
 
-async function runScheduledSyncLoop(state: DocumentStoreState) {
+async function runScheduledSyncLoop(
+  state: DocumentStoreState,
+  syncLaneGeneration: DocumentStoreSyncLaneGeneration,
+) {
   const syncingGeneration = captureDocumentStoreSyncGeneration(
     state,
     state.doc,
@@ -391,11 +418,12 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
   setDocumentSyncing(state, true);
 
   try {
-    await runScheduledSyncIteration(state);
+    await runScheduledSyncIteration(state, syncLaneGeneration);
   } finally {
     if (
       syncingGeneration &&
-      isDocumentStoreSyncGenerationCurrent(state, syncingGeneration)
+      isDocumentStoreSyncGenerationCurrent(state, syncingGeneration) &&
+      isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
     ) {
       setDocumentSyncing(state, false);
     }
@@ -404,10 +432,16 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
 
 export function registerDocumentStoreSyncLane(
   state: DocumentStoreState,
+  getSyncLaneGeneration: () => DocumentStoreSyncLaneGeneration | null,
 ): DocumentSyncLane {
   return registerDocumentSyncLane({
     domainScope: state.runtime.state.domainScope,
     localId: state.localId,
-    run: () => runScheduledSyncLoop(state),
+    run: () => {
+      const syncLaneGeneration = getSyncLaneGeneration();
+      return syncLaneGeneration
+        ? runScheduledSyncLoop(state, syncLaneGeneration)
+        : Promise.resolve();
+    },
   });
 }

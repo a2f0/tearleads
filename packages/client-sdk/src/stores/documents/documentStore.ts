@@ -7,6 +7,7 @@ import {
   defaultDocumentsPersistence,
   didDocumentProjectionKeyRuntimeChange,
   didRegainSyncPrerequisites,
+  requestDocumentSyncLaneAndWait,
 } from "../../workflows/documents";
 import {
   attachFilesToDocumentStore,
@@ -38,6 +39,21 @@ import {
   subscribeToDocumentStore,
 } from "./documentStore/state";
 import { registerDocumentStoreSyncLane } from "./documentStore/sync";
+import {
+  allowDocumentStoreRemoteSync,
+  captureDocumentStoreRemoteSyncRequestGeneration,
+  captureDocumentStoreSyncLaneGeneration,
+  type DocumentStoreRemoteSyncRequestGeneration,
+  type DocumentStoreSyncLaneGeneration,
+  didDocumentStoreRemoteSyncRequestComplete,
+  hasPendingIndependentDocumentStoreRemoteSync,
+  invalidateDocumentStoreRemoteSync,
+  invalidateDocumentStoreSyncLane,
+  isDocumentStoreRemoteSyncBlocked,
+  isDocumentStoreRemoteSyncRequestGenerationCurrent,
+  markDocumentStoreRemoteSyncPending,
+  registerDocumentStoreRemoteSyncWaiter,
+} from "./documentStore/syncGeneration";
 import { handleDocumentRemoteEvents } from "./documentStore/syncRemoteSignals";
 import {
   createDocumentStoreFacade,
@@ -61,6 +77,24 @@ export {
   subscribeToPersistedDocuments,
 } from "./registry";
 
+function refreshDocumentStoreSyncLane(
+  state: DocumentStoreState,
+  force = false,
+): void {
+  if (!force && state.syncLane && !state.syncLane.isDisposed?.()) {
+    return;
+  }
+  if (state.syncLane) {
+    invalidateDocumentStoreSyncLane(state);
+  }
+  let syncLaneGeneration: DocumentStoreSyncLaneGeneration | null = null;
+  state.syncLane = registerDocumentStoreSyncLane(
+    state,
+    () => syncLaneGeneration,
+  );
+  syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
+}
+
 function updateDocumentStoreRuntime(
   state: DocumentStoreState,
   nextRuntime: DocumentsRuntime,
@@ -82,8 +116,8 @@ function updateDocumentStoreRuntime(
     state.writerProjection = null;
   }
   state.runtime = nextRuntime;
+  refreshDocumentStoreSyncLane(state, domainScopeChanged);
   if (domainScopeChanged) {
-    state.syncLane = registerDocumentStoreSyncLane(state);
     state.locallyAcceptedUpdateIds = new Set();
     state.remoteUpdatePending = false;
     state.writerProjection = null;
@@ -119,10 +153,122 @@ function updateDocumentStoreRuntime(
 function requestRemoteDocumentStoreSync(
   state: DocumentStoreState,
   scheduleSync: () => void,
-): void {
-  state.remoteUpdatePending = true;
-  state.remoteUpdateSignalSeq += 1;
+  owner: "independent" | "waiter" = "independent",
+): number {
+  allowDocumentStoreRemoteSync(state);
+  const signalSequence = markDocumentStoreRemoteSyncPending(state, owner);
   scheduleSync();
+  return signalSequence;
+}
+
+function requestOrdinaryDocumentStoreSync(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+): void {
+  // A normal UI reopen is a fresh owner for remote-only work. It may recover
+  // a probe that an earlier, now-unmounted owner aborted.
+  if (isDocumentStoreRemoteSyncBlocked(state)) {
+    requestRemoteDocumentStoreSync(state, scheduleSync);
+    return;
+  }
+  scheduleSync();
+}
+
+function requestRemoteDocumentStoreSyncAndWait(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null = null;
+  let requestedSignalSequence = 0;
+  let releaseWaiter: (() => boolean) | null = null;
+  const releaseRemoteSyncWaiter = (invalidate: boolean) => {
+    const releasedLastWaiter = releaseWaiter?.() ?? false;
+    if (
+      invalidate &&
+      releasedLastWaiter &&
+      requestGeneration !== null &&
+      isDocumentStoreRemoteSyncRequestGenerationCurrent(
+        state,
+        requestGeneration,
+      ) &&
+      !hasPendingIndependentDocumentStoreRemoteSync(state)
+    ) {
+      invalidateDocumentStoreRemoteSync(state);
+    }
+  };
+  // A coordinator can be disposed and recreated while this same-scope store
+  // remains registered. Refresh its handle before requesting work.
+  refreshDocumentStoreSyncLane(state);
+  return requestDocumentSyncLaneAndWait({
+    didCompleteRequest: () =>
+      requestGeneration !== null &&
+      didDocumentStoreRemoteSyncRequestComplete(
+        state,
+        requestGeneration,
+        requestedSignalSequence,
+      ),
+    domainScope: state.runtime.state.domainScope,
+    localId: state.localId,
+    request: () => {
+      requestGeneration =
+        captureDocumentStoreRemoteSyncRequestGeneration(state);
+      releaseWaiter = registerDocumentStoreRemoteSyncWaiter(
+        state,
+        requestGeneration,
+      );
+      requestedSignalSequence = requestRemoteDocumentStoreSync(
+        state,
+        scheduleSync,
+        "waiter",
+      );
+    },
+    onInvalidated: () => releaseRemoteSyncWaiter(true),
+    signal,
+  }).then(
+    (completed) => {
+      releaseRemoteSyncWaiter(!completed);
+      return completed;
+    },
+    (error: unknown) => {
+      releaseRemoteSyncWaiter(true);
+      throw error;
+    },
+  );
+}
+
+async function assertBackingDocumentStoreCanRotate(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+) {
+  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+    throw new Error(
+      "Document must finish loading before its content key can rotate",
+    );
+  }
+  return assertDocumentStoreCanRotateContentKey(state);
+}
+
+async function discardBackingDocumentStoreLocalState(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  expectedDocumentId: string,
+) {
+  try {
+    return await discardDocumentStoreLocalState(state, expectedDocumentId);
+  } finally {
+    // Restart hydration whenever the attempt reset the store. This runs outside
+    // its identity-chained task because initialization also chains writes.
+    ensureDocumentStoreInitialized(state, scheduleSync);
+    scheduleSync();
+  }
+}
+
+function createLiveSyncLaneRequest(state: DocumentStoreState) {
+  return <Result>(request: () => Result): Result => {
+    refreshDocumentStoreSyncLane(state);
+    return request();
+  };
 }
 
 function createBackingDocumentStore(
@@ -132,6 +278,7 @@ function createBackingDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const state = createDocumentStoreState(
     localId,
@@ -144,56 +291,71 @@ function createBackingDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode === "startup",
   );
-  state.syncLane = registerDocumentStoreSyncLane(state);
+  refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
+  const withLiveSyncLane = createLiveSyncLaneRequest(state);
 
   return {
-    addRow: (fields) => addRowToDocumentStore(state, scheduleSync, fields),
-    assertCanRotateContentKey: async () => {
-      if (
-        !(await ensureDocumentStoreReady(state, scheduleSync)) ||
-        !state.doc
-      ) {
-        throw new Error(
-          "Document must finish loading before its content key can rotate",
-        );
-      }
-      return assertDocumentStoreCanRotateContentKey(state);
-    },
+    addRow: (fields) =>
+      withLiveSyncLane(() =>
+        addRowToDocumentStore(state, scheduleSync, fields),
+      ),
+    assertCanRotateContentKey: () =>
+      withLiveSyncLane(() =>
+        assertBackingDocumentStoreCanRotate(state, scheduleSync),
+      ),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      attachFilesToDocumentStore(state, scheduleSync, files),
-    discardLocalState: async (expectedDocumentId: string) => {
-      try {
-        return await discardDocumentStoreLocalState(state, expectedDocumentId);
-      } finally {
-        // Restart hydration whenever the attempt reset the store — success
-        // re-pulls the shell, and a refusal or failure reloads the surviving
-        // rows. A no-op when the store was never reset. This runs outside
-        // the discard's identity-chained task because initialization chains
-        // identity writes of its own and would deadlock inside it.
-        ensureDocumentStoreInitialized(state, scheduleSync);
-        scheduleSync();
-      }
-    },
-    ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
+      withLiveSyncLane(() =>
+        attachFilesToDocumentStore(state, scheduleSync, files),
+      ),
+    discardLocalState: (expectedDocumentId: string) =>
+      withLiveSyncLane(() =>
+        discardBackingDocumentStoreLocalState(
+          state,
+          scheduleSync,
+          expectedDocumentId,
+        ),
+      ),
+    ensureInitialized: () =>
+      withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>
-      removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
-    removeRow: (id) => removeRowFromDocumentStore(state, scheduleSync, id),
+      withLiveSyncLane(() =>
+        removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
+      ),
+    removeRow: (id) =>
+      withLiveSyncLane(() =>
+        removeRowFromDocumentStore(state, scheduleSync, id),
+      ),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
+      withLiveSyncLane(() =>
+        replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
+      ),
     requestRemoteSync: () =>
-      requestRemoteDocumentStoreSync(state, scheduleSync),
-    requestSync: () => scheduleSync(),
-    relink: (input) => relinkDocumentStore(state, input, scheduleSync),
+      withLiveSyncLane(() =>
+        requestRemoteDocumentStoreSync(state, scheduleSync),
+      ),
+    requestRemoteSyncAndWait: (signal) =>
+      requestRemoteDocumentStoreSyncAndWait(state, scheduleSync, signal),
+    requestSync: () =>
+      withLiveSyncLane(() =>
+        requestOrdinaryDocumentStoreSync(state, scheduleSync),
+      ),
+    relink: (input) =>
+      withLiveSyncLane(() => relinkDocumentStore(state, input, scheduleSync)),
     setStructuredFields: (kind, patch, options) =>
-      setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
-    setText: (value: string) => setDocumentText(state, scheduleSync, value),
-    subscribe: (listener: () => void) =>
-      subscribeToDocumentStore(state, listener),
+      withLiveSyncLane(() =>
+        setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
+      ),
+    setText: (value: string) =>
+      withLiveSyncLane(() => setDocumentText(state, scheduleSync, value)),
+    subscribe: (listener) => subscribeToDocumentStore(state, listener),
     updateRowFields: (id, patch) =>
-      updateRowInDocumentStore(state, scheduleSync, id, patch),
+      withLiveSyncLane(() =>
+        updateRowInDocumentStore(state, scheduleSync, id, patch),
+      ),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
@@ -206,6 +368,7 @@ export function createDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStoreFacade {
   return createDocumentStoreFacade(
     createBackingDocumentStore(
@@ -215,6 +378,7 @@ export function createDocumentStore(
       initialDocumentId,
       initialText,
       initialDocumentKind,
+      remoteSyncMode,
     ),
   );
 }
@@ -226,6 +390,7 @@ export function getOrCreateDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
   const existingStore = registry.storesByKey.get(
@@ -248,6 +413,7 @@ export function getOrCreateDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode,
   );
   registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
@@ -260,6 +426,7 @@ export function openDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const store = getOrCreateDocumentStore(
     domainScope,
@@ -268,6 +435,7 @@ export function openDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode,
   );
   store.updateRuntime(runtime);
   return store;

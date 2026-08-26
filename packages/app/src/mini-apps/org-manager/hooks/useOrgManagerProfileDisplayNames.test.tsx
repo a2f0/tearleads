@@ -170,7 +170,7 @@ test("59 roster profiles use one local query and no hydration fanout", async () 
   expect(harness.subscribe).toHaveBeenCalledTimes(1);
 });
 
-test("local changes repaint and current profile bindings reject stale rows", async () => {
+test("reused-store changes repaint and current bindings reject stale rows", async () => {
   const user = rosterUser({
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
@@ -337,7 +337,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
   expect(harness.list).toHaveBeenCalledTimes(2);
 });
 
-test("local roster names require the deterministic id and current remote binding", () => {
+test("local roster names require the current remote binding", () => {
   const user = rosterUser({
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: USER_ID,
@@ -352,7 +352,14 @@ test("local roster names require the deterministic id and current remote binding
   });
 
   expect([...profileBindingsByLocalId]).toEqual([
-    [localId, { profileDocumentId: PROFILE_DOCUMENT_ID, userId: USER_ID }],
+    [
+      localId,
+      {
+        canonicalLocalId: localId,
+        profileDocumentId: PROFILE_DOCUMENT_ID,
+        userId: USER_ID,
+      },
+    ],
   ]);
   expect(
     getLocalRosterProfileDisplayNames({
