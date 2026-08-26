@@ -294,6 +294,22 @@ export const accessManifestCheckpoints = sqliteTable(
 );
 
 /**
+ * Durable terminal pins for documents whose signed purge proof was verified.
+ * These survive remote-state resets so a dishonest API cannot later replay the
+ * pre-purge writer projection and resurrect locally deleted content.
+ */
+export const documentPurgeCheckpoints = sqliteTable(
+  "document_purge_checkpoints",
+  {
+    documentId: text("document_id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    documentManifestHash: text("document_manifest_hash").notNull(),
+    purgeEventHash: text("purge_event_hash").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+);
+
+/**
  * Durable trust-on-first-use pins for remote user identity bundles.
  *
  * The first validated identity observed for a user in a configured API trust
@@ -790,6 +806,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(accessManifestCheckpoints),
+  defineSqlTableSchema(documentPurgeCheckpoints),
   defineSqlTableSchema(principalPolicyCheckpoints),
 ];
 
@@ -856,6 +873,7 @@ export const clientSQLiteSchema = {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   accessManifestCheckpoints,
+  documentPurgeCheckpoints,
   principalPolicyCheckpoints,
   trustedUserIdentityPins,
   securityIncidents,

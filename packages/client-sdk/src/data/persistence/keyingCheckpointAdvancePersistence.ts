@@ -17,6 +17,10 @@ import {
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {
+  type DocumentPurgeCheckpoint,
+  storeDocumentPurgeCheckpointInTransaction,
+} from "./documentPurgeCheckpointPersistence";
+import {
   accessManifestObjectKey,
   loadStoredAccessManifestCheckpoint,
   loadStoredPrincipalPolicyCheckpoint,
@@ -244,6 +248,7 @@ async function writePolicyCheckpoints(
  */
 export async function advanceKeyingCheckpointsAtomically(input: {
   readonly access: readonly AccessManifestCheckpointAdvance[];
+  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
   readonly policies: readonly VerifiedPrincipalPolicy[];
 }): Promise<void> {
@@ -257,6 +262,13 @@ export async function advanceKeyingCheckpointsAtomically(input: {
 
       await writeAccessCheckpoints(tx, access, updatedAt);
       await writePolicyCheckpoints(tx, policies, updatedAt);
+      if (input.documentPurgeCheckpoint) {
+        await storeDocumentPurgeCheckpointInTransaction(
+          tx,
+          input.documentPurgeCheckpoint,
+          updatedAt,
+        );
+      }
     },
     { behavior: "immediate" },
   );

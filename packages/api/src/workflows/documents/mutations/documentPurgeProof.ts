@@ -7,7 +7,7 @@ import type {
 } from "@symcrypt/crypto";
 import {
   normalizeDocumentPurgeAccessEventBody,
-  resolveContainerPathUserAccessLevel,
+  resolveHistoricalContainerPathUserAccessLevel,
   verifyDocumentPurgeEvent,
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
@@ -170,7 +170,7 @@ export async function loadDocumentPurgeProof(input: {
   // current state. A replica that had access when the purge was signed must
   // still be able to learn that it should delete its local copy after the user
   // is revoked or the container itself is deleted.
-  const historicalAccessLevel = resolveContainerPathUserAccessLevel({
+  const historicalAccessLevel = resolveHistoricalContainerPathUserAccessLevel({
     path: authorizingContainerPath,
     principalPolicies,
     userId: input.userId,

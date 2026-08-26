@@ -1,6 +1,11 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
 import {
+  accessEventDependencyProjection,
+  accessEvents,
+  accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  accessManifestPrincipalHeadProjection,
+  accessManifests,
   attachmentBindings,
   blobs,
   documentAttachmentAuditEvents,
@@ -131,10 +136,52 @@ async function deleteDocumentAccessHead(
     );
 }
 
+async function deleteDocumentAccessHistory(
+  documentId: string,
+  executor: DatabaseTransaction,
+): Promise<void> {
+  await executor
+    .delete(accessEventDependencyProjection)
+    .where(
+      and(
+        eq(accessEventDependencyProjection.objectKind, "document"),
+        eq(accessEventDependencyProjection.objectId, documentId),
+      ),
+    );
+  await executor
+    .delete(accessManifestDocumentLinkProjection)
+    .where(eq(accessManifestDocumentLinkProjection.documentId, documentId));
+  await executor
+    .delete(accessManifestPrincipalHeadProjection)
+    .where(
+      and(
+        eq(accessManifestPrincipalHeadProjection.objectKind, "document"),
+        eq(accessManifestPrincipalHeadProjection.objectId, documentId),
+      ),
+    );
+  await executor
+    .delete(accessEvents)
+    .where(
+      and(
+        eq(accessEvents.objectKind, "document"),
+        eq(accessEvents.objectId, documentId),
+      ),
+    );
+  await executor
+    .delete(accessManifests)
+    .where(
+      and(
+        eq(accessManifests.objectKind, "document"),
+        eq(accessManifests.objectId, documentId),
+      ),
+    );
+}
+
 export async function deleteDocumentRows(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
+  readonly retainAccessHistory: boolean;
 }): Promise<void> {
   const { documentId, executor } = input;
 
@@ -142,6 +189,9 @@ export async function deleteDocumentRows(input: {
   await deleteDocumentContentRows(documentId, executor);
   await deleteDocumentAttachmentRows(input);
   await deleteDocumentAccessHead(documentId, executor);
+  if (!input.retainAccessHistory) {
+    await deleteDocumentAccessHistory(documentId, executor);
+  }
 
   // Current link projection, then the document row itself.
   await executor

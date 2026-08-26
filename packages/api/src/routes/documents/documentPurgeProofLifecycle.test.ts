@@ -13,12 +13,14 @@ import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   accessManifestFromContainerResponse,
+  asVerifiedContainerManifest,
   bootstrapRoot,
   createDocument,
   createDocumentRequest,
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -125,6 +127,45 @@ test("a purged document cannot be resurrected by replaying its create", async ()
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(writerProjectionResponse.status).toBe(404);
+});
+
+test("purge proof access uses the exact historical group membership", async () => {
+  const owner = createTestUser();
+  const laterAdmin = createTestUser();
+  await registerAndAuthenticate(owner);
+  await registerAndAuthenticate(laterAdmin);
+  const root = await bootstrapRoot(owner);
+  const organizationId = asVerifiedContainerManifest(root.bundle).state
+    .organizationId;
+  const created = await createDocument({ owner, root });
+  const purgeResponse = await postDocumentPurge({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
+  });
+  expect(purgeResponse.status).toBe(200);
+
+  await addUserToAdminGroup({
+    actor: owner,
+    member: laterAdmin,
+    organizationId,
+  });
+
+  const formerAdminProof = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(formerAdminProof.status).toBe(200);
+  expect(isDocumentPurgeProofResponse(await formerAdminProof.json())).toBe(
+    true,
+  );
+
+  const laterAdminProof = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${laterAdmin.token}` } },
+  );
+  expect(laterAdminProof.status).toBe(403);
 });
 
 test("purge proof remains available to a later-revoked replica", async () => {

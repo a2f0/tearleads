@@ -10,6 +10,7 @@ import {
   normalizeContainerGrantPrincipalHead,
   normalizeContainerGrantPrincipalHeads,
 } from "./containerGrantPrincipalHead";
+import { principalPolicyEntryForReference } from "./principalPolicyReference";
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -722,30 +723,12 @@ export function principalPolicyMatchesReference(input: {
   readonly policy: VerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
 }): boolean {
-  const policyHeadMatches =
-    input.policy.principalType === input.reference.principalType &&
-    input.policy.principalId === input.reference.principalId &&
-    input.policy.version === input.reference.version &&
-    input.policy.keyEpoch === input.reference.keyEpoch &&
-    input.policy.stateHash === input.reference.stateHash &&
-    input.policy.state.keyFingerprint === input.reference.keyFingerprint;
-
-  return (
-    policyHeadMatches ||
-    input.policy.history?.some(
-      (entry) =>
-        entry.state.principalType === input.reference.principalType &&
-        entry.state.principalId === input.reference.principalId &&
-        entry.state.version === input.reference.version &&
-        entry.state.keyEpoch === input.reference.keyEpoch &&
-        entry.state.stateHash === input.reference.stateHash &&
-        entry.state.keyFingerprint === input.reference.keyFingerprint,
-    ) === true
-  );
+  return principalPolicyEntryForReference(input) !== undefined;
 }
 
 function grantAccessLevelForUser(input: {
   readonly grant: ContainerDirectGrant;
+  readonly membershipAt: "current" | "referenced";
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly state: Pick<
     ContainerAccessManifestState,
@@ -772,19 +755,24 @@ function grantAccessLevelForUser(input: {
   const verifiedPolicy = input.principalPolicies.find((policy) =>
     principalPolicyMatchesReference({ policy, reference: referencedHead }),
   );
-
   if (!verifiedPolicy) {
     return null;
   }
+  const projection =
+    input.membershipAt === "current"
+      ? verifiedPolicy.projection
+      : principalPolicyEntryForReference({
+          policy: verifiedPolicy,
+          reference: referencedHead,
+        })?.projection;
 
-  return verifiedPolicy.projection.some(
-    (member) => member.userId === input.userId,
-  )
+  return projection?.some((member) => member.userId === input.userId)
     ? input.grant.accessLevel
     : null;
 }
 
-export function resolveContainerPathUserAccessLevel(input: {
+function resolveContainerPathUserAccessLevelAt(input: {
+  readonly membershipAt: "current" | "referenced";
   readonly path: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly userId: string;
@@ -795,6 +783,7 @@ export function resolveContainerPathUserAccessLevel(input: {
     for (const grant of containerManifest.state.directGrants) {
       const grantAccessLevel = grantAccessLevelForUser({
         grant,
+        membershipAt: input.membershipAt,
         principalPolicies: input.principalPolicies ?? [],
         state: containerManifest.state,
         userId: input.userId,
@@ -807,6 +796,30 @@ export function resolveContainerPathUserAccessLevel(input: {
   }
 
   return accessLevel;
+}
+
+export function resolveContainerPathUserAccessLevel(
+  input: Omit<
+    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
+    "membershipAt"
+  >,
+): ContainerAccessLevel | null {
+  return resolveContainerPathUserAccessLevelAt({
+    ...input,
+    membershipAt: "current",
+  });
+}
+
+export function resolveHistoricalContainerPathUserAccessLevel(
+  input: Omit<
+    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
+    "membershipAt"
+  >,
+): ContainerAccessLevel | null {
+  return resolveContainerPathUserAccessLevelAt({
+    ...input,
+    membershipAt: "referenced",
+  });
 }
 
 export function requireContainerPathUserAccess(input: {
@@ -884,6 +897,7 @@ function requireRootCreateSignerAdmin(input: {
       (current, grant) => {
         const grantAccessLevel = grantAccessLevelForUser({
           grant,
+          membershipAt: "current",
           principalPolicies: input.principalPolicies,
           state: {
             referencedPrincipalHeads: input.body.referencedPrincipalHeads,

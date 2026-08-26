@@ -3,6 +3,7 @@ import {
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
+import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
@@ -51,8 +52,12 @@ export function observePrincipalPolicy(
 
 export async function commitProjectionCheckpoints(
   context: ProjectionCheckpointContext,
+  input?: {
+    readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+  },
 ): Promise<void> {
   await enforceAccessManifestCheckpoints({
+    documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: context.execSql,
     policies: context.policies,
     verifiedHeads: context.verifiedHeads,

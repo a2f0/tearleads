@@ -3,6 +3,7 @@ import {
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
+import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import {
   type AccessManifestCheckpointAdvance,
   advanceKeyingCheckpointsAtomically,
@@ -60,12 +61,14 @@ function accessManifestCheckpointAdvances(input: {
 
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
+  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly VerifiedPrincipalPolicy[];
   readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
   readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
 }): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
+    documentPurgeCheckpoint: input.documentPurgeCheckpoint,
     execSql: input.execSql,
     policies: input.policies,
   });

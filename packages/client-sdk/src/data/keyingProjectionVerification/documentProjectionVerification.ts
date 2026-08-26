@@ -29,6 +29,7 @@ import {
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowDatabaseUnavailableError } from "./error";
 import {
   loadManifestCheckpointVerification,
@@ -197,12 +198,7 @@ async function verifyProjectionContainerPaths(input: {
   for (const [index, path] of readDocumentProjectionContainerPaths(
     input.projection,
   ).entries()) {
-    // These are signed historical dependencies of document-manifest events,
-    // not claims about a container's current head. Enforcing the current local
-    // checkpoint here would reject legitimate document history after that
-    // container advances. Current authorizingContainerPaths were verified
-    // above with checkpoints enabled; this pass contributes only verified
-    // predecessor evidence and never advances a head.
+    // Historical dependencies provide evidence without advancing heads.
     const verifiedPath = await verifyContainerManifestPath({
       bundlesByHash,
       checkpointContext: input.checkpointContext,
@@ -444,6 +440,10 @@ async function verifyDocumentWriterProjectionWithContext(
     verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  await rejectPurgedDocumentProjection(
+    headManifest.state.documentId,
+    checkpointContext.execSql,
+  );
 
   observeAccessManifestCheckpoints(checkpointContext, {
     verifiedHeads: [headManifest],

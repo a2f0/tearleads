@@ -224,6 +224,7 @@ export {
   openContainerKekKeyring,
   principalPolicyTransparencyLeaf,
   resolveContainerPathUserAccessLevel,
+  resolveHistoricalContainerPathUserAccessLevel,
   sealContainerKekKeyring,
   serializeKeyingCanonicalJson,
   signAccessEvent,

@@ -92,10 +92,12 @@ async function verifyPurgeContainerPaths(input: {
   const authorizingContainerPath = await verifyContainerManifestPath({
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    // This was the authorizing head when the terminal purge event was signed,
-    // not a claim about the container's current head. A container can advance
-    // (including by revocation) before an offline replica receives the proof.
-    enforceLocalCheckpoints: false,
+    // Without a signed ordering link from a newer container head back to this
+    // purge, accepting an older authorization path would let a revoked writer
+    // sign a purge against retained history. Fail hard when a local head has
+    // already advanced; a future protocol can relax this only with ordering
+    // evidence that the purge preceded the advance.
+    enforceLocalCheckpoints: true,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -144,7 +146,7 @@ async function verifyPurgeContainerPaths(input: {
     manifests: verifiedByHash,
   });
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: [],
+    verifiedHeads: [authorizingLeaf],
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,
@@ -282,7 +284,14 @@ export async function verifyDocumentPurgeProof(
     if (!verified.ok) {
       throw verified.error;
     }
-    await commitProjectionCheckpoints(checkpointContext);
+    await commitProjectionCheckpoints(checkpointContext, {
+      documentPurgeCheckpoint: {
+        documentId: input.expectedDocumentId,
+        documentManifestHash: documentManifest.manifestHash,
+        organizationId: documentManifest.state.organizationId,
+        purgeEventHash: verified.value.eventHash,
+      },
+    });
   } catch (error) {
     rethrowDatabaseUnavailableError(error);
     if (error instanceof KeyingVerificationError) {

@@ -315,6 +315,7 @@ async function purgeDocumentWithExecutor(input: {
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,
+    retainAccessHistory: true,
   });
   await writePurgeTombstone({
     containerId,
@@ -426,5 +427,6 @@ export async function teardownContainerMetadataDocument(input: {
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,
+    retainAccessHistory: false,
   });
 }
