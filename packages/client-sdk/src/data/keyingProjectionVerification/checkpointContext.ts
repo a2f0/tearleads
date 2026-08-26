@@ -54,11 +54,12 @@ export async function commitProjectionCheckpoints(
   context: ProjectionCheckpointContext,
   input?: {
     readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+    readonly execSql?: ExecSql | undefined;
   },
 ): Promise<void> {
   await enforceAccessManifestCheckpoints({
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
-    execSql: context.execSql,
+    execSql: input?.execSql ?? context.execSql,
     policies: context.policies,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,

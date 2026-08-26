@@ -1,4 +1,5 @@
 import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
@@ -43,6 +44,7 @@ export async function deleteUpstreamDeletedDocument(
   generation: DocumentStoreSyncGeneration,
   requestRecord: DocumentRecord,
   remoteDocumentId: string,
+  commitPurgeProof?: (transactionExecSql: ExecSql) => Promise<void>,
 ) {
   await chainIdentityWrite(state, async () => {
     if (
@@ -57,6 +59,7 @@ export async function deleteUpstreamDeletedDocument(
       documentSyncContextMatches(state.record, requestRecord, remoteDocumentId);
     let removedInMutation = false;
     const deletionStarted = await deletePersistedDocument({
+      beforeDeleteInTransaction: commitPurgeProof,
       canStartDurableMutation: canDeleteCapturedDocument,
       documentProjectors: state.runtime.infra.documentProjectors,
       execSql: generation.execSql,
@@ -142,12 +145,13 @@ function runRemoteDocumentSync(
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
-    onRemoteDocumentDeleted: ({ documentId }) =>
+    onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
       deleteUpstreamDeletedDocument(
         state,
         generation,
         currentRecord,
         documentId,
+        commitPurgeProof,
       ),
     onSyncTrace: (line) => runtime.util.log(`Documents: ${line}`),
     onReadOnlyProjectionFailure: documentRevalidationFailureHandler(

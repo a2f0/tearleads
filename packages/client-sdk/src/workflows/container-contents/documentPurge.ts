@@ -56,11 +56,42 @@ export async function purgeRemoteContainerDocument(input: {
       );
       return null;
     }
+    let deleted = false;
     const response = await purgeRemoteDocument({
       apiClient: runtime.apiClient,
       author,
       documentId,
       execSql: runtime.infra.execSql,
+      onVerifiedPurge: async ({ commitPurgeProof }) => {
+        await persistence.ensureSchema(runtime.infra.execSql);
+        const expectedRecord = await persistence.loadDocument(
+          runtime.infra.execSql,
+          noteId,
+        );
+        if (!expectedRecord) {
+          await commitPurgeProof(runtime.infra.execSql);
+          deleted = true;
+          return;
+        }
+        if (expectedRecord.documentId !== documentId) {
+          throw new Error(
+            "Local document identity changed while its remote purge was committing",
+          );
+        }
+        deleted = await deletePersistedDocument({
+          beforeDeleteInTransaction: commitPurgeProof,
+          documentProjectors: runtime.infra.documentProjectors,
+          execSql: runtime.infra.execSql,
+          expectedRecord,
+          localId: noteId,
+          persistence,
+        });
+        if (!deleted) {
+          throw new Error(
+            "Local document state changed while its remote purge was committing",
+          );
+        }
+      },
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies:
         createRuntimePrincipalPolicyWarmer(runtime),
@@ -71,12 +102,6 @@ export async function purgeRemoteContainerDocument(input: {
       );
       return null;
     }
-    const deleted = await deletePersistedDocument({
-      documentProjectors: runtime.infra.documentProjectors,
-      execSql: runtime.infra.execSql,
-      localId: noteId,
-      persistence,
-    });
     if (deleted && persistence === defaultDocumentsPersistence) {
       void reclaimDocumentOrphanBlobs(runtime);
     }

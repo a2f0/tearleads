@@ -111,6 +111,11 @@ detected rows. Network and SQLite availability errors are not incidents.
 Incident rows intentionally exclude exception messages, ciphertext, and
 decrypted values, and remote-state reset does not erase them.
 
+Remote document deletion commits its verified terminal purge checkpoint in the
+same local transaction as the matching document teardown. An interruption,
+stale store generation, or identity replacement leaves both operations
+uncommitted so the current generation can retry the retained proof.
+
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
 the strict version 6 organization read-model feed and keeps the opaque cursor in

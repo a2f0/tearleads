@@ -6,8 +6,13 @@ import {
 } from "../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type RemoteDocumentDeletionHandler = (input: {
+  /** Present only after the SDK has verified the signed terminal purge proof. */
+  readonly commitPurgeProof?:
+    | ((transactionExecSql: ExecSql) => Promise<void>)
+    | undefined;
   readonly documentId: string;
 }) => Promise<void> | void;
 

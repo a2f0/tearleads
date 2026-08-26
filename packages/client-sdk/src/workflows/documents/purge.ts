@@ -120,7 +120,12 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly execSql: ExecSql;
   readonly onVerifiedDeletion?:
-    | ((input: { readonly documentId: string }) => Promise<void> | void)
+    | ((input: {
+        readonly commitPurgeProof: (
+          transactionExecSql: ExecSql,
+        ) => Promise<void>;
+        readonly documentId: string;
+      }) => Promise<void> | void)
     | undefined;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly warmReferencedPrincipalPolicies?:
@@ -141,14 +146,21 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
         "Remote document deletion is missing its signed purge proof",
       );
     }
-    await verifyRemoteDocumentPurgeProof({
-      documentId,
+    const verified = await verifyDocumentPurgeProof({
       execSql: input.execSql,
+      expectedDocumentId: documentId,
       proof,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    await input.onVerifiedDeletion?.({ documentId });
+    if (input.onVerifiedDeletion) {
+      await input.onVerifiedDeletion({
+        commitPurgeProof: verified.commitCheckpoints,
+        documentId,
+      });
+      return;
+    }
+    await verified.commitCheckpoints(input.execSql);
   };
 }
 
@@ -161,13 +173,14 @@ export async function verifyRemoteDocumentPurgeProof(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<void> {
-  await verifyDocumentPurgeProof({
+  const verified = await verifyDocumentPurgeProof({
     execSql: input.execSql,
     expectedDocumentId: input.documentId,
     proof: input.proof,
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  await verified.commitCheckpoints(input.execSql);
 }
 
 export async function purgeRemoteDocument(input: {
@@ -175,6 +188,13 @@ export async function purgeRemoteDocument(input: {
   readonly author: DocumentCreateAuthor;
   readonly documentId: string;
   readonly execSql: ExecSql;
+  readonly onVerifiedPurge?:
+    | ((input: {
+        readonly commitPurgeProof: (
+          transactionExecSql: ExecSql,
+        ) => Promise<void>;
+      }) => Promise<void> | void)
+    | undefined;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -203,12 +223,19 @@ export async function purgeRemoteDocument(input: {
   if (!response) {
     return null;
   }
-  await verifyRemoteDocumentPurgeProof({
-    documentId: input.documentId,
+  const verified = await verifyDocumentPurgeProof({
     execSql: input.execSql,
+    expectedDocumentId: input.documentId,
     proof: response,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  if (input.onVerifiedPurge) {
+    await input.onVerifiedPurge({
+      commitPurgeProof: verified.commitCheckpoints,
+    });
+  } else {
+    await verified.commitCheckpoints(input.execSql);
+  }
   return response;
 }

@@ -443,7 +443,11 @@ every container in the purge authorization path and the predecessor material
 connecting each head back to the signed purge path. An honest client reconciles
 those descendant heads with its durable container checkpoints, so ordinary
 container changes after the purge do not suppress terminal local deletion while
-an omitted or forked ordering chain still fails closed.
+an omitted or forked ordering chain still fails closed. The SDK commits the
+terminal purge checkpoint in the same local SQLite transaction that removes the
+matching document row and its side state. A stale local generation, identity
+replacement, failed cleanup, or interruption rolls back both the checkpoint and
+the deletion so the verified proof can be retried safely.
 
 The API also requires that the document is linked to exactly one container — a
 document still linked to more than one container must be unlinked down to a

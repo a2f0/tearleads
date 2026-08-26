@@ -50,7 +50,11 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
     documentId: writerProjection.documentId,
     execSql,
     localVersionVector: null,
-    onRemoteDocumentDeleted: ({ documentId }) => {
+    onRemoteDocumentDeleted: async ({ commitPurgeProof, documentId }) => {
+      if (!commitPurgeProof) {
+        throw new Error("Expected a verified purge-proof commit");
+      }
+      await commitPurgeProof(execSql);
       deletedDocumentIds.push(documentId);
     },
     pendingUpdates: [createPendingUpdateRecord()],

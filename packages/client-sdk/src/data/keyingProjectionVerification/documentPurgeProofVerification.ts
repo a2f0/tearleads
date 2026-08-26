@@ -47,6 +47,10 @@ interface VerifyDocumentPurgeProofInput {
     | undefined;
 }
 
+export interface VerifiedDocumentPurgeProofCommit {
+  readonly commitCheckpoints: (execSql?: ExecSql) => Promise<void>;
+}
+
 function collectContainerBundles(
   proof: DocumentPurgeProofResponse,
 ): Map<string, AccessManifestBundleWireResponse> {
@@ -330,7 +334,7 @@ async function verifyPurgeDocumentManifest(input: {
 
 export async function verifyDocumentPurgeProof(
   input: VerifyDocumentPurgeProofInput,
-): Promise<void> {
+): Promise<VerifiedDocumentPurgeProofCommit> {
   try {
     if (
       input.proof.documentId !== input.expectedDocumentId ||
@@ -385,14 +389,19 @@ export async function verifyDocumentPurgeProof(
     if (!verified.ok) {
       throw verified.error;
     }
-    await commitProjectionCheckpoints(checkpointContext, {
-      documentPurgeCheckpoint: {
-        documentId: input.expectedDocumentId,
-        documentManifestHash: documentManifest.manifestHash,
-        organizationId: documentManifest.state.organizationId,
-        purgeEventHash: verified.value.eventHash,
-      },
-    });
+    const documentPurgeCheckpoint = {
+      documentId: input.expectedDocumentId,
+      documentManifestHash: documentManifest.manifestHash,
+      organizationId: documentManifest.state.organizationId,
+      purgeEventHash: verified.value.eventHash,
+    };
+    return {
+      commitCheckpoints: (execSql = input.execSql) =>
+        commitProjectionCheckpoints(checkpointContext, {
+          documentPurgeCheckpoint,
+          execSql,
+        }),
+    };
   } catch (error) {
     rethrowDatabaseUnavailableError(error);
     if (error instanceof KeyingVerificationError) {
