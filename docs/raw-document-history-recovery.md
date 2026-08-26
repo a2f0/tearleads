@@ -44,6 +44,13 @@ Coverage is selected only after the guarded install transaction acquires its
 write lock, preventing a concurrent append from surviving as a stale or forged
 redirect after recovery.
 
+Custom `DocumentsPersistence` adapters must declare
+`supportsAtomicRecoveryHistoryPruning: true` and implement that guarantee in
+`commitDocumentMutation`: selecting covered pending checkpoints and history
+tail rows, replacing the checkpoint, pruning those rows, and committing the
+canonical document must be one guarded transaction. Rotation recovery refuses
+adapters that omit the capability instead of assuming compatible behavior.
+
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
 keyring is absent — the public `DocumentRawHistoryUnavailableError`
@@ -80,7 +87,8 @@ history for three updates, two epochs, and two pages.
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
-| `RejectSupersededInstall` | guarded install loses to a newer durable record and retains that winner |
+| `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
+| `RejectSupersededInstall` | a newer durable record supersedes the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
 | `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
@@ -92,6 +100,7 @@ successful recovery to retire covered queued checkpoints, scratch state never
 to trust a rotation checkpoint, covered local artifacts appended during
 collection to survive every failure or retire with the successful transaction,
 unverified local history never to publish, the
-scratch rebuild never to replace a superseding pane's winner, the reported
+scratch rebuild never to replace a superseding pane's winner, the captured
+runtime generation never to publish after it changes, the reported
 unavailable epoch to be the deterministic lowest missing epoch on the failing
 page, and invalid updates never to be mislabeled as availability failures.

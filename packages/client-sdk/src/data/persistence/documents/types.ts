@@ -136,6 +136,12 @@ export interface DocumentSummaryList {
 
 export interface DocumentsPersistence {
   /**
+   * The adapter guarantees that recovery checkpoint replacement, selection of
+   * covered local history, and pruning of those rows share the guarded
+   * `commitDocumentMutation` transaction.
+   */
+  readonly supportsAtomicRecoveryHistoryPruning: true;
+  /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.
    */
@@ -179,7 +185,7 @@ export interface DocumentsPersistence {
         | {
             coveredTailIds: readonly string[];
             endVersionVector: string;
-            pruneCoveredLocalState?: boolean | undefined;
+            pruneCoveredLocalState: boolean;
             snapshot: string;
           }
         | undefined;

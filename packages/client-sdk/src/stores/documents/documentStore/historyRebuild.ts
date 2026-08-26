@@ -5,8 +5,12 @@ import type {
   DocumentSyncPullContinuation,
   syncRemoteDocument,
 } from "../../../workflows/documents";
-import { advancePendingBaseVersion, persistDocument } from "./persistence";
+import { persistDocument } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 
 /**
  * Machinery for reconstructing a full-history document from a verified remote
@@ -18,6 +22,7 @@ import type { DocumentState, DocumentStoreState } from "./state";
 export async function installRebuiltDocument(input: {
   consumedPullContinuation: DocumentSyncPullContinuation | null;
   currentRecord: NonNullable<DocumentStoreState["record"]>;
+  generation: DocumentStoreSyncGeneration;
   rebuiltDoc: DocumentState;
   state: DocumentStoreState;
   synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
@@ -30,44 +35,43 @@ export async function installRebuiltDocument(input: {
   // reads the checkpoint and the record catches up on the next persist.
   const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
   const rebuiltEndVersion = encodeVersionVector(input.rebuiltDoc);
-  const previousPendingBaseVersion = input.state.pendingBaseVersion;
-  advancePendingBaseVersion(input.state, input.rebuiltDoc);
-  let persisted: Awaited<ReturnType<typeof persistDocument>>;
-  try {
-    persisted = await persistDocument(
-      input.state,
-      input.rebuiltDoc,
-      {
-        ...input.synced.persistedState,
-        lastCommitLsn:
-          input.synced.response.commitLsn ??
-          input.currentRecord.lastCommitLsn ??
-          null,
-        pullContinuation: readPullContinuation(input.synced.response),
-        // The guarded checkpoint below covers exactly this frontier.
-        snapshotEndVersion: rebuiltEndVersion,
+  const persisted = await persistDocument(
+    input.state,
+    input.rebuiltDoc,
+    {
+      ...input.synced.persistedState,
+      lastCommitLsn:
+        input.synced.response.commitLsn ??
+        input.currentRecord.lastCommitLsn ??
+        null,
+      pullContinuation: readPullContinuation(input.synced.response),
+      // The guarded checkpoint below covers exactly this frontier.
+      snapshotEndVersion: rebuiltEndVersion,
+    },
+    {
+      acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+      expectedSyncState: {
+        pullContinuation: input.consumedPullContinuation,
+        record: input.currentRecord,
       },
-      {
-        acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
-        expectedSyncState: {
-          pullContinuation: input.consumedPullContinuation,
-          record: input.currentRecord,
-        },
-        historyCheckpoint: {
-          coveredTailIds: [],
-          endVersionVector: rebuiltEndVersion,
-          pruneCoveredLocalState: true,
-          snapshot: bytesToBase64(fullHistorySnapshot),
-        },
-        preserveSnapshotStructuredFields: input.state.pendingLocalWrites > 0,
-        preserveSnapshotText: input.state.pendingLocalWrites > 0,
+      historyCheckpoint: {
+        coveredTailIds: [],
+        endVersionVector: rebuiltEndVersion,
+        pruneCoveredLocalState: true,
+        snapshot: bytesToBase64(fullHistorySnapshot),
       },
-    );
-  } catch (error) {
-    input.state.pendingBaseVersion = previousPendingBaseVersion;
-    throw error;
-  }
+      pendingBaseVersionOverride: rebuiltEndVersion,
+      preserveSnapshotStructuredFields: input.state.pendingLocalWrites > 0,
+      preserveSnapshotText: input.state.pendingLocalWrites > 0,
+    },
+    input.generation,
+  );
   if (!persisted) {
+    if (!isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
+      throw new Error(
+        "Document changed during rotation recovery; retry key rotation",
+      );
+    }
     // The resurrect guard refused: another subsystem deleted this document
     // while the rebuild was in flight, and saveDocumentRecord cleared the
     // zombie store — pendingBaseVersion included. Restoring the rebuilt doc,
@@ -81,6 +85,7 @@ export async function installRebuiltDocument(input: {
     !persisted.pullContinuationSuperseded &&
     !persisted.syncIdentitySuperseded
   ) {
+    input.state.pendingBaseVersion = rebuiltEndVersion;
     input.state.doc = input.rebuiltDoc;
   }
   input.state.writerProjection = persisted.pullContinuationSuperseded

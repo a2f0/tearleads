@@ -218,6 +218,7 @@ test("record and history reads cannot tear across a replacement commit", async (
               historyCheckpoint: {
                 coveredTailIds: [],
                 endVersionVector: history.replacement.version,
+                pruneCoveredLocalState: false,
                 snapshot: history.replacement.snapshot,
               },
               settleAcceptedPendingOnConflict: false,
@@ -335,6 +336,7 @@ test("startup record, history, and attachments share one database snapshot", asy
                 historyCheckpoint: {
                   coveredTailIds: [],
                   endVersionVector: history.replacement.version,
+                  pruneCoveredLocalState: false,
                   snapshot: history.replacement.snapshot,
                 },
                 settleAcceptedPendingOnConflict: false,
@@ -451,6 +453,7 @@ test("pull invalidation returns one identity-aligned record and history snapshot
           historyCheckpoint: {
             coveredTailIds: [],
             endVersionVector: history.replacement.version,
+            pruneCoveredLocalState: false,
             snapshot: history.replacement.snapshot,
           },
           settleAcceptedPendingOnConflict: false,

@@ -20,6 +20,7 @@ import { createStoredDocument } from "./storedDocument";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
@@ -31,6 +32,11 @@ function ordinaryRawHistoryUpdates<T extends { checkpointKind?: string }>(
 }
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
+  if (state.persistence.supportsAtomicRecoveryHistoryPruning !== true) {
+    throw new Error(
+      "Rotation raw-history recovery requires an adapter with atomic local-history pruning",
+    );
+  }
   const author = resolveDocumentCreateAuthor(state.runtime);
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   const documentId = state.record?.documentId;
@@ -46,6 +52,17 @@ function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
     );
   }
   return { author, documentId, encapsulationKeyPair };
+}
+
+function assertRotationRecoveryGeneration(input: {
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}): void {
+  if (!isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
+    throw new Error(
+      "Document changed during rotation recovery; retry key rotation",
+    );
+  }
 }
 
 function rotationIncomingUpdateIsolation(input: {
@@ -142,6 +159,8 @@ async function pullVerifiedRawHistoryForRotation(input: {
       );
     }
 
+    assertRotationRecoveryGeneration(input);
+
     importSyncedDocumentUpdates(
       input.rebuiltDocument,
       ordinaryRawHistoryUpdates(synced.decryptedUpdates),
@@ -200,8 +219,8 @@ async function recoverFullHistoryForRotation(
       state,
     });
 
+    assertRotationRecoveryGeneration({ generation, state });
     if (
-      state.doc !== currentDoc ||
       !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
     ) {
       throw new Error(
@@ -222,6 +241,7 @@ async function recoverFullHistoryForRotation(
     const installed = await installRebuiltDocument({
       consumedPullContinuation,
       currentRecord,
+      generation,
       rebuiltDoc,
       state,
       synced,

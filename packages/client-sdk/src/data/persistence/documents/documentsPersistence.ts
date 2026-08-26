@@ -277,6 +277,7 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
+  supportsAtomicRecoveryHistoryPruning: true,
   createDocumentWithHistoryCheckpoint:
     createStoredDocumentWithHistoryCheckpoint,
   commitDocumentMutation: (execSql, input, saveClientProjection) =>
