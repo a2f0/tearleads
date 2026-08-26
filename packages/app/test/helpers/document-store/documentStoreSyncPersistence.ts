@@ -9,6 +9,7 @@ import type {
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
 import {
+  canSaveMemoryDocument,
   enqueueMemoryPendingUpdate,
   memoryDocumentRecoveryGenerationMatches,
   memoryDocumentWriteFenceMatches,
@@ -243,7 +244,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!document) {
         return [];
       }
-
       const containerIds = new Set(input.containerIds);
       const documentIds = new Set(input.documentIds);
       const containerMatches =
@@ -253,7 +253,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!containerMatches && !documentMatches) {
         return [];
       }
-
       return [
         {
           id: document.id,
@@ -282,7 +281,8 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         : undefined;
     },
     async saveDocument(_execSql, nextDocument) {
-      document = nextDocument;
+      if (canSaveMemoryDocument(document, nextDocument))
+        document = nextDocument;
       return "2026-04-06T00:00:00.000Z";
     },
     async saveDocumentAndDeletePendingUpdates(
@@ -290,6 +290,9 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       nextDocument,
       pendingUpdateIds,
     ) {
+      if (!canSaveMemoryDocument(document, nextDocument)) {
+        return "2026-04-06T00:00:00.000Z";
+      }
       const acceptedPendingUpdateIds = new Set(pendingUpdateIds);
       document = nextDocument;
       pendingUpdates = pendingUpdates.filter(
@@ -361,7 +364,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         text: document?.text ?? "",
       };
       document = nextDocument;
-
       return {
         id: nextDocument.id,
         containerId: nextDocument.containerId,

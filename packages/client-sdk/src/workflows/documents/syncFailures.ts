@@ -356,6 +356,38 @@ export async function resolveSyncAttemptWriterProjection(input: {
   return writerProjection;
 }
 
+export async function refreshSyncAttemptWriterProjection(
+  input: Omit<
+    Parameters<typeof resolveSyncAttemptWriterProjection>[0],
+    "reusableWriterProjection"
+  > & { unavailableError?: unknown },
+): Promise<DocumentWriterProjectionResponse | null> {
+  const { onRemoteDocumentDeleted, unavailableError, ...resolutionInput } =
+    input;
+  if (input.apiClient.evictDocumentWriterProjection) {
+    input.apiClient.evictDocumentWriterProjection(input.documentId);
+  } else {
+    input.apiClient.clearWriterProjectionCaches?.();
+  }
+  let remoteDocumentDeleted = false;
+  const writerProjection = await resolveSyncAttemptWriterProjection({
+    ...resolutionInput,
+    onRemoteDocumentDeleted: async (deleted) => {
+      remoteDocumentDeleted = true;
+      await onRemoteDocumentDeleted?.(deleted);
+    },
+    reusableWriterProjection: null,
+  });
+  if (
+    !writerProjection &&
+    unavailableError !== undefined &&
+    !remoteDocumentDeleted
+  ) {
+    throw unavailableError;
+  }
+  return writerProjection;
+}
+
 export async function retrySyncPlanOrAbandon(input: {
   apiClient: DocumentSyncApi;
   buildWithProjection: (

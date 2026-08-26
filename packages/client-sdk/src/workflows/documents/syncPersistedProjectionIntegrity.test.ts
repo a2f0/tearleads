@@ -49,17 +49,21 @@ function readOnlySyncApi(input: {
   onProjectionEviction?: ((documentId: string) => void) | undefined;
   onProjectionFetch: () => void;
   onSync?: (() => void) | undefined;
+  projectionAfterEviction?: DocumentWriterProjectionResponse | null;
   zeroUpdateDocumentId?: string | undefined;
 }) {
+  let projectionEvicted = false;
   return {
     evictDocumentWriterProjection: (documentId: string) => {
+      projectionEvicted = true;
       input.onProjectionEviction?.(documentId);
     },
     getDocumentWriterProjection: async (documentId: string) => {
       input.onProjectionFetch();
-      return documentId === input.fixture.writerProjection.documentId
-        ? input.fixture.writerProjection
-        : null;
+      if (documentId !== input.fixture.writerProjection.documentId) return null;
+      return projectionEvicted && input.projectionAfterEviction !== undefined
+        ? input.projectionAfterEviction
+        : input.fixture.writerProjection;
     },
     syncDocument: async (
       documentId: string,
@@ -197,6 +201,45 @@ test.each([
     expect(projectionFetches).toBe(expectedProjectionFetches);
     expect(projectionEvictions).toBe(1);
     expect(synced?.writerProjection).toBe(fixture.writerProjection);
+  } finally {
+    close();
+  }
+});
+
+test("persisted raw history preserves availability when refresh returns null", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-raw-history-null-refresh",
+  );
+  const unavailableError = new DocumentRawHistoryUnavailableError(
+    1,
+    new Error("fresh projection could not be fetched"),
+  );
+  let projectionFetches = 0;
+
+  try {
+    await expect(
+      syncRemoteDocument({
+        apiClient: readOnlySyncApi({
+          fixture,
+          onProjectionFetch: () => (projectionFetches += 1),
+          projectionAfterEviction: null,
+        }),
+        author: fixture.author,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        historyMode: "raw",
+        localVersionVector: null,
+        persistedState: persistedStateFromProjection(fixture.writerProjection),
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        resolveWriterPublicKey: writerKeyResolver(fixture),
+        targetSecretKey: fixture.secretKey,
+        validateIncomingUpdates: () => {
+          throw unavailableError;
+        },
+      }),
+    ).rejects.toBe(unavailableError);
+    expect(projectionFetches).toBe(2);
   } finally {
     close();
   }

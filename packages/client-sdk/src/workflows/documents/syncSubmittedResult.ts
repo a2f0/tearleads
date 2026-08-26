@@ -11,7 +11,7 @@ import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerif
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
-import { resolveSyncAttemptWriterProjection } from "./syncFailures";
+import { refreshSyncAttemptWriterProjection } from "./syncFailures";
 import {
   hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
@@ -96,28 +96,16 @@ async function retryRawHistoryWithFreshProjection(
   input: SubmittedDocumentSyncResultInput,
   unavailableError: DocumentRawHistoryUnavailableError,
 ): Promise<SyncRemoteDocumentResult | null> {
-  if (input.sync.apiClient.evictDocumentWriterProjection) {
-    input.sync.apiClient.evictDocumentWriterProjection(input.sync.documentId);
-  } else {
-    input.sync.apiClient.clearWriterProjectionCaches?.();
-  }
-  let remoteDocumentDeleted = false;
-  const writerProjection = await resolveSyncAttemptWriterProjection({
+  const writerProjection = await refreshSyncAttemptWriterProjection({
     apiClient: input.sync.apiClient,
     documentId: input.sync.documentId,
-    onRemoteDocumentDeleted: async (deleted) => {
-      remoteDocumentDeleted = true;
-      await input.sync.onRemoteDocumentDeleted?.(deleted);
-    },
+    onRemoteDocumentDeleted: input.sync.onRemoteDocumentDeleted,
     onSyncAbandoned: input.sync.onSyncAbandoned,
     onSyncTrace: input.sync.onSyncTrace,
     onTerminalFailure: input.sync.onReadOnlyProjectionFailure,
-    reusableWriterProjection: null,
+    unavailableError,
   });
-  if (!writerProjection) {
-    if (remoteDocumentDeleted) return null;
-    throw unavailableError;
-  }
+  if (!writerProjection) return null;
   return submittedDocumentSyncResult({
     ...input,
     writerProjection,

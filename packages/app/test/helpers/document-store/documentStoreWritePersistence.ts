@@ -7,7 +7,10 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
-import { memoryDocumentRecoveryGenerationMatches } from "./documentStoreRecoveryGeneration";
+import {
+  canSaveMemoryDocument,
+  memoryDocumentRecoveryGenerationMatches,
+} from "./documentStoreRecoveryGeneration";
 import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 
 export interface StoredDocumentsState {
@@ -274,7 +277,9 @@ export function createDocumentWritePersistence(
       return state.document;
     },
     async saveDocument(_execSql, nextDocument) {
-      state.document = nextDocument;
+      if (canSaveMemoryDocument(state.document, nextDocument)) {
+        state.document = nextDocument;
+      }
       return "2026-04-06T00:00:00.000Z";
     },
     async saveDocumentAndDeletePendingUpdates(
@@ -282,6 +287,9 @@ export function createDocumentWritePersistence(
       nextDocument,
       pendingUpdateIds,
     ) {
+      if (!canSaveMemoryDocument(state.document, nextDocument)) {
+        return "2026-04-06T00:00:00.000Z";
+      }
       const acceptedIds = new Set(pendingUpdateIds);
       state.document = nextDocument;
       state.pendingUpdates = state.pendingUpdates.filter(

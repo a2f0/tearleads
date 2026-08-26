@@ -35,6 +35,13 @@ export function memoryDocumentRecoveryGenerationMatches(
   );
 }
 
+export function canSaveMemoryDocument(
+  current: DocumentRecord | null,
+  next: DocumentRecord,
+): boolean {
+  return (current?.recoveryGeneration ?? 0) <= (next.recoveryGeneration ?? 0);
+}
+
 export function memoryDocumentWriteFenceMatches(
   document: DocumentRecord | null,
   localId: string,

@@ -42,6 +42,7 @@ import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
 } from "./readOnlyProjectionFailure";
+import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
@@ -50,6 +51,7 @@ import {
 } from "./syncFailureClassification";
 import {
   assertRawContinuationCanRetry,
+  refreshSyncAttemptWriterProjection,
   resolveSyncAttemptWriterProjection,
 } from "./syncFailures";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
@@ -224,7 +226,10 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
   completion: ReadOnlyDocumentSyncCompletionInput;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<
-  SyncRemoteDocumentResult | null | typeof REFRESH_CACHED_PROJECTION
+  | DocumentRawHistoryUnavailableError
+  | SyncRemoteDocumentResult
+  | null
+  | typeof REFRESH_CACHED_PROJECTION
 > {
   try {
     return await completeReadOnlyRemoteDocumentSyncWithProjection({
@@ -265,6 +270,7 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     input.historyMode === "raw" || Boolean(reusableWriterProjection);
 
   let result:
+    | DocumentRawHistoryUnavailableError
     | SyncRemoteDocumentResult
     | null
     | typeof REFRESH_CACHED_PROJECTION = null;
@@ -284,23 +290,20 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   if (
     !retryAfterRollback &&
     result !== REFRESH_CACHED_PROJECTION &&
+    !(result instanceof DocumentRawHistoryUnavailableError) &&
     (result || !reusableWriterProjection)
   ) {
     return { kind: "completed", result };
   }
 
-  if (input.apiClient.evictDocumentWriterProjection) {
-    input.apiClient.evictDocumentWriterProjection(input.documentId);
-  } else {
-    input.apiClient.clearWriterProjectionCaches?.();
-  }
-  const freshWriterProjection = await resolveSyncAttemptWriterProjection({
+  const freshWriterProjection = await refreshSyncAttemptWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     onTerminalFailure: input.onReadOnlyProjectionFailure,
-    reusableWriterProjection: null,
+    unavailableError:
+      result instanceof DocumentRawHistoryUnavailableError ? result : undefined,
   });
   if (!freshWriterProjection) {
     return { kind: "completed", result: null };
@@ -313,7 +316,10 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       writerProjection: freshWriterProjection,
     },
   );
-  if (freshResult === REFRESH_CACHED_PROJECTION) {
+  if (
+    freshResult === REFRESH_CACHED_PROJECTION ||
+    freshResult instanceof DocumentRawHistoryUnavailableError
+  ) {
     throw new Error("Fresh document projection unexpectedly requested refresh");
   }
   return freshResult

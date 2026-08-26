@@ -12,7 +12,10 @@ import {
 } from "../../../../test/helpers/documentStoreFixtures";
 
 type MemoryPersistence = DocumentsPersistence & {
-  getState: () => { pendingUpdates: PendingUpdateRecord[] };
+  getState: () => {
+    document: DocumentRecord | null;
+    pendingUpdates: PendingUpdateRecord[];
+  };
 };
 type ExecSql = Parameters<DocumentsPersistence["saveDocument"]>[0];
 
@@ -46,6 +49,16 @@ async function expectRecoveryGenerationFence(
     createdAt: "2026-08-26T00:00:00.000Z",
     documentId: recoveredDocumentId,
     linkedContainerIds: [recoveredContainerId],
+  });
+  const staleRecord = {
+    ...recoveredRecord,
+    recoveryGeneration: 0,
+    text: "stale save",
+  };
+  await persistence.saveDocument(execSql, staleRecord);
+  expect(persistence.getState().document).toMatchObject({
+    recoveryGeneration: 1,
+    text: "recovered",
   });
 
   await expect(
@@ -85,6 +98,15 @@ async function expectRecoveryGenerationFence(
   const storedUpdate = persistence.getState().pendingUpdates[0];
   expect(storedUpdate).toBeDefined();
   if (!storedUpdate) return;
+
+  await persistence.saveDocumentAndDeletePendingUpdates(execSql, staleRecord, [
+    storedUpdate.id,
+  ]);
+  expect(persistence.getState().document).toMatchObject({
+    recoveryGeneration: 1,
+    text: "recovered",
+  });
+  expect(persistence.getState().pendingUpdates).toEqual([storedUpdate]);
 
   await persistence.settleAcceptedPendingUpdates(execSql, {
     expectedRecord: { ...recoveredRecord, recoveryGeneration: 0 },

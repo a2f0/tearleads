@@ -12,13 +12,16 @@ export function handleReadOnlyProjectionCompletionError(
     allowCachedProjectionRefresh: boolean;
     historyMode?: "raw" | undefined;
   },
-): null | typeof REFRESH_CACHED_PROJECTION {
+):
+  | DocumentRawHistoryUnavailableError
+  | null
+  | typeof REFRESH_CACHED_PROJECTION {
   if (isDocumentSyncUpdateIsolationError(error)) {
     throw error;
   }
   if (error instanceof DocumentRawHistoryUnavailableError) {
     if (input.allowCachedProjectionRefresh) {
-      return REFRESH_CACHED_PROJECTION;
+      return error;
     }
     throw error;
   }
