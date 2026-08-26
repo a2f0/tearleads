@@ -35,7 +35,7 @@ The built-in document content-key rotation preflight implements this contract.
 An interrupted page, a poison update, a changing document generation, or a
 superseding pane leaves the previous durable document intact. Durable pending
 ordinary rows are settled remotely before the baseline can be returned. Queued
-rotation checkpoints remain queued and excluded from reconstruction. If a
+rotation checkpoints remain excluded from reconstruction. If a
 checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
 so a preliminary raw reconstruction imports only queued ordinary local deltas
@@ -48,9 +48,11 @@ re-encrypted or published. Settlement is restricted to that exact proven row
 set; a sibling pane appending or replacing an ordinary row aborts rotation
 before the new row can be sent. After settling proven local rows, the client
 performs a definitive raw pull so remote work racing the submit is included. A
-successful guarded install atomically removes queued checkpoints whose declared
-frontier is covered by the verified rebuild, along with covered local-history
-tail rows. Final history and generation verification remain on the document
+successful guarded install atomically retires every queued checkpoint and its
+matching local-history tail, whether or not its declared frontier is covered,
+because checkpoints are never recovery sources. Other tail rows must be covered
+by the verified rebuild or the install aborts. Final history and generation
+verification remain on the document
 identity-write chain through that install, so a scheduled sync cannot advance
 live state in the check-to-persist interval. Coverage is selected only after
 the guarded install transaction acquires its write lock, preventing a
@@ -58,13 +60,15 @@ concurrent append from surviving as a stale or forged redirect after recovery.
 
 Custom `DocumentsPersistence` adapters must declare
 `supportsAtomicRecoveryHistoryPruning: true` and implement that guarantee in
-`commitDocumentMutation`: selecting covered pending checkpoints and history
-tail rows, replacing the checkpoint, pruning those rows, and committing the
-canonical document must be one guarded transaction. Rotation recovery refuses
-adapters that omit the capability instead of assuming compatible behavior.
-If the monotonic checkpoint gate or canonical-record comparison rejects the
-recovery candidate, the adapter rolls back the complete install, including
-checkpoint/tail pruning and pending-row settlement.
+`commitDocumentMutation`: rejecting ordinary pending rows, selecting every
+queued checkpoint and its matching tail plus other covered history rows,
+rejecting an unrelated unverified tail, replacing the checkpoint, pruning the
+selected rows, and committing the canonical document must be one guarded
+transaction. Rotation recovery refuses adapters that omit the capability
+instead of assuming compatible behavior. If the exact checkpoint-history gate
+or canonical-record comparison rejects the recovery candidate, the adapter
+rolls back the complete install, including checkpoint/tail pruning and
+pending-row settlement.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
@@ -100,9 +104,10 @@ malformed or missing historical bundles without durable mutation, unavailable
 historical epochs, interrupted multi-page recovery, pre-rotation settlement of
 pending local updates, forged-baseline-dependent edit isolation, rejection of
 checkpoint-only settlement gaps, mixed-page poison precedence, atomic
-checkpoint-gate rollback, unrelated unresolved-dependency isolation,
-cached-projection recovery, persisted-cursor conflicts, cross-client
-consecutive rotation, and the unchanged ordinary-sync request shape.
+checkpoint-gate rollback, racing-checkpoint quarantine across restart,
+unrelated unresolved-dependency isolation, cached-projection recovery,
+persisted-cursor conflicts, cross-client consecutive rotation, and the
+unchanged ordinary-sync request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
@@ -118,19 +123,19 @@ history for three updates, two epochs, and two pages.
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
-| `RejectUnprovenPendingBeforeInstall` | the guarded install transaction rejects ordinary rows appended after settlement and preserves their queue and history tail |
+| `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install rejects ordinary rows or unrelated unverified tails appended after settlement and preserves them for explicit recovery |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
-| `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
-| `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
+| `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |
+| `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require local settlement to start only after raw
 ordinary provenance verification and definitive raw collection to start only
 after settlement. Incomplete or failed recovery preserves the old durable
 history, successful recovery contains every retained ordinary update,
-successful recovery to retire covered queued checkpoints, scratch state never
-to trust a rotation checkpoint, covered local artifacts appended during
+successful recovery to retire every queued checkpoint artifact, scratch state
+never to trust a rotation checkpoint, checkpoint artifacts appended during
 collection to survive every failure or retire with the successful transaction,
 unverified local history never to publish, the
 scratch rebuild never to replace a superseding pane's winner, the captured

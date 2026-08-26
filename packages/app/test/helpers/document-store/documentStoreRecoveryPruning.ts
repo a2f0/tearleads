@@ -5,6 +5,7 @@ import { getImportBlobMetadata, satisfiesVersionVector } from "@symcrypt/loro";
 interface RecoveryPendingUpdate {
   id: string;
   sourceVersionVector?: string | null;
+  updateData: string;
 }
 
 interface RecoveryHistoryTailEntry {
@@ -28,30 +29,37 @@ function findCoveredMemoryRecoveryLocalState(input: {
   pendingUpdates: readonly RecoveryPendingUpdate[];
   tail: readonly RecoveryHistoryTailEntry[];
 }): { pendingUpdateIds: string[]; tailIds: string[] } {
+  if (
+    input.pendingUpdates.some(
+      (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
+    )
+  ) {
+    throw new Error(
+      "Document recovery found unproven pending updates before installation",
+    );
+  }
+  const checkpointUpdateData = new Set(
+    input.pendingUpdates.map((pendingUpdate) => pendingUpdate.updateData),
+  );
   return {
-    pendingUpdateIds: input.pendingUpdates.flatMap((pendingUpdate) =>
-      pendingUpdate.sourceVersionVector != null &&
-      satisfiesVersionVector(
-        input.documentVersion,
-        pendingUpdate.sourceVersionVector,
-      )
-        ? [pendingUpdate.id]
-        : [],
+    pendingUpdateIds: input.pendingUpdates.map(
+      (pendingUpdate) => pendingUpdate.id,
     ),
     tailIds: input.tail.flatMap((entry) => {
+      if (checkpointUpdateData.has(entry.updateData)) return [entry.id];
       try {
         const metadata = getImportBlobMetadata(base64ToBytes(entry.updateData));
-        return satisfiesVersionVector(
+        const covered = satisfiesVersionVector(
           input.documentVersion,
           metadata.partialEndVersionVector,
-        )
-          ? [entry.id]
-          : [];
+        );
+        if (covered) return [entry.id];
       } catch {
-        // Recovery replaces malformed local history with verified server
-        // history, matching the production SQLite adapter.
-        return [entry.id];
+        // Fall through: malformed history is not proven by the rebuild.
       }
+      throw new Error(
+        "Document recovery found unverified history tail before installation",
+      );
     }),
   };
 }
@@ -68,10 +76,11 @@ export function applyMemoryHistoryCheckpoint(input: {
         tail: input.history.tail,
       })
     : { pendingUpdateIds: [], tailIds: [] };
-  const coveredTailIds = new Set([
-    ...input.checkpoint.coveredTailIds,
-    ...coveredRecoveryState.tailIds,
-  ]);
+  const coveredTailIds = new Set(
+    input.checkpoint.pruneCoveredLocalState
+      ? coveredRecoveryState.tailIds
+      : input.checkpoint.coveredTailIds,
+  );
   input.history.checkpoint = {
     endVersionVector: input.checkpoint.endVersionVector,
     snapshot: input.checkpoint.snapshot,

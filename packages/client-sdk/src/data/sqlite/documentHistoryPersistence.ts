@@ -410,12 +410,17 @@ async function candidateContainsStoredCheckpointHistory(input: {
     createDocument("checkpoint-candidate-history-gate"),
     createDocument("checkpoint-stored-history-gate"),
   ]);
-  importSnapshot(candidateDocument, base64ToBytes(input.candidateSnapshot));
-  importSnapshot(storedDocument, base64ToBytes(input.storedSnapshot));
-  return (
-    exportFullHistoryIdentity(candidateDocument, input.storedEndVersion) ===
-    exportFullHistoryIdentity(storedDocument)
-  );
+  try {
+    importSnapshot(candidateDocument, base64ToBytes(input.candidateSnapshot));
+    importSnapshot(storedDocument, base64ToBytes(input.storedSnapshot));
+    return (
+      exportFullHistoryIdentity(candidateDocument, input.storedEndVersion) ===
+      exportFullHistoryIdentity(storedDocument)
+    );
+  } finally {
+    candidateDocument.free();
+    storedDocument.free();
+  }
 }
 
 class CheckpointGateRejected extends Error {

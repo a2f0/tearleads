@@ -139,6 +139,7 @@ async function appendMutationHistory(
       : {
           checkpointIds: [],
           hasOrdinaryPendingUpdates: false,
+          hasUnverifiedHistoryTail: false,
           tailIds: [],
         };
     if (
@@ -149,17 +150,22 @@ async function appendMutationHistory(
         "Document recovery found unproven pending updates before installation",
       );
     }
+    if (
+      input.historyCheckpoint.pruneCoveredLocalState &&
+      coveredLocalState.hasUnverifiedHistoryTail
+    ) {
+      throw new Error(
+        "Document recovery found unverified history tail before installation",
+      );
+    }
     const checkpointReplaced = await replaceDocumentHistoryCheckpoint(
       execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
       {
         ...input.historyCheckpoint,
-        coveredTailIds: [
-          ...new Set([
-            ...input.historyCheckpoint.coveredTailIds,
-            ...coveredLocalState.tailIds,
-          ]),
-        ],
+        coveredTailIds: input.historyCheckpoint.pruneCoveredLocalState
+          ? coveredLocalState.tailIds
+          : input.historyCheckpoint.coveredTailIds,
       },
     );
     if (input.historyCheckpoint.pruneCoveredLocalState && !checkpointReplaced) {
@@ -190,6 +196,7 @@ async function findCoveredRecoveryLocalState(
 ): Promise<{
   checkpointIds: string[];
   hasOrdinaryPendingUpdates: boolean;
+  hasUnverifiedHistoryTail: boolean;
   tailIds: string[];
 }> {
   const scope = and(
@@ -200,6 +207,7 @@ async function findCoveredRecoveryLocalState(
     .select({
       id: documentPendingUpdates.id,
       sourceVersionVector: documentPendingUpdates.sourceVersionVector,
+      updateData: documentPendingUpdates.updateData,
     })
     .from(documentPendingUpdates)
     .where(scope);
@@ -215,31 +223,37 @@ async function findCoveredRecoveryLocalState(
         eq(documentHistoryUpdates.localId, localId),
       ),
     );
+  const checkpointUpdateData = new Set(
+    pendingUpdates.flatMap((row) =>
+      row.sourceVersionVector === null ? [] : [row.updateData],
+    ),
+  );
+  let hasUnverifiedHistoryTail = false;
+  const tailIds = tail.flatMap((row) => {
+    if (row.id === null) return [];
+    if (checkpointUpdateData.has(row.updateData)) return [row.id];
+    try {
+      const metadata = getImportBlobMetadata(base64ToBytes(row.updateData));
+      const covered = satisfiesVersionVector(
+        documentVersion,
+        metadata.partialEndVersionVector,
+      );
+      if (covered) return [row.id];
+    } catch {
+      // Fall through: malformed history is not proven by the rebuild.
+    }
+    hasUnverifiedHistoryTail = true;
+    return [];
+  });
   return {
     checkpointIds: pendingUpdates.flatMap((row) =>
-      row.id !== null &&
-      row.sourceVersionVector !== null &&
-      satisfiesVersionVector(documentVersion, row.sourceVersionVector)
-        ? [row.id]
-        : [],
+      row.id !== null && row.sourceVersionVector !== null ? [row.id] : [],
     ),
     hasOrdinaryPendingUpdates: pendingUpdates.some(
       (row) => row.sourceVersionVector === null,
     ),
-    tailIds: tail.flatMap((row) => {
-      if (row.id === null) return [];
-      try {
-        const metadata = getImportBlobMetadata(base64ToBytes(row.updateData));
-        return satisfiesVersionVector(
-          documentVersion,
-          metadata.partialEndVersionVector,
-        )
-          ? [row.id]
-          : [];
-      } catch {
-        return [row.id];
-      }
-    }),
+    hasUnverifiedHistoryTail,
+    tailIds,
   };
 }
 

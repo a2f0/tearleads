@@ -11,9 +11,9 @@ EXTENDS Naturals
 (* truth. Durable history changes only after settlement succeeds, every page  *)
 (* validates, the captured runtime generation survives, no unverified local   *)
 (* gap remains, and no newer record/checkpoint install wins.                  *)
-(* queuedCheckpoints abstracts BOTH covered queued checkpoints and covered     *)
-(* local-history tail rows. Either can arrive while pages are collected; the  *)
-(* successful install selects and retires the then-current set atomically.    *)
+(* queuedCheckpoints abstracts queued checkpoint artifacts and their matching *)
+(* tail rows. They can arrive while pages are collected; successful install  *)
+(* selects and retires the then-current set atomically without replaying it.  *)
 (* An installed gap carried only by a checkpoint is rejected during the      *)
 (* preliminary provenance pass, before a dependent local edit can be sent.   *)
 (* installSuperseded abstracts record-CAS loss and exact checkpoint-history  *)
@@ -27,8 +27,8 @@ EXTENDS Naturals
 (* state into the next frozen-cursor request; it is abstracted here.          *)
 (* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
 (* after the preliminary provenance snapshot; settlement aborts atomically.  *)
-(* RejectUnprovenPendingBeforeInstall models one arriving after settlement;  *)
-(* the guarded install observes it and aborts atomically before publication. *)
+(* RejectUnprovenLocalArtifactBeforeInstall models an ordinary row or an     *)
+(* unrelated tail arriving after settlement; guarded install aborts.         *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -274,7 +274,7 @@ RejectSupersededInstall ==
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
-RejectUnprovenPendingBeforeInstall ==
+RejectUnprovenLocalArtifactBeforeInstall ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
@@ -287,7 +287,7 @@ RejectUnprovenPendingBeforeInstall ==
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
-AppendCoveredLocalArtifact ==
+AppendCheckpointArtifact ==
   /\ phase = "collecting"
   /\ \E id \in (UpdateIds \ ordinaryUpdates) :
        /\ id \notin queuedCheckpoints
@@ -334,8 +334,8 @@ Next ==
   \/ ChangeGeneration
   \/ RejectChangedGeneration
   \/ RejectSupersededInstall
-  \/ RejectUnprovenPendingBeforeInstall
-  \/ AppendCoveredLocalArtifact
+  \/ RejectUnprovenLocalArtifactBeforeInstall
+  \/ AppendCheckpointArtifact
   \/ PublishRecovery
   \/ RemainTerminal
 

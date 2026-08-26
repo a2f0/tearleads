@@ -138,8 +138,9 @@ export interface DocumentsPersistence {
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
    * covered local history, rejection of unproven ordinary pending rows, and
-   * pruning of covered rows share the guarded `commitDocumentMutation`
-   * transaction.
+   * quarantine of every queued checkpoint artifact share the guarded
+   * `commitDocumentMutation` transaction. An unrelated history tail not
+   * covered by the rebuild must abort that transaction.
    */
   readonly supportsAtomicRecoveryHistoryPruning: true;
   /**
