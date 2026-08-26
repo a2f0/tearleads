@@ -1,10 +1,10 @@
 import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
   defaultDocumentsPersistence,
   deletePersistedDocument,
+  type ExecSql,
   type PendingUpdateRecord,
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
