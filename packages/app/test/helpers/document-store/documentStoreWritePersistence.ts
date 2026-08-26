@@ -7,6 +7,7 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 
 export interface StoredDocumentsState {
   document: DocumentRecord | null;
@@ -205,14 +206,13 @@ export function createDocumentWritePersistence(
           checkpoint: null,
           tail: [],
         };
-        if (input.historyCheckpoint) {
-          const coveredIds = new Set(input.historyCheckpoint.coveredTailIds);
-          history.checkpoint = {
-            endVersionVector: input.historyCheckpoint.endVersionVector,
-            snapshot: input.historyCheckpoint.snapshot,
-          };
-          history.tail = history.tail.filter(({ id }) => !coveredIds.has(id));
-        }
+        const coveredRecoveryPendingUpdateIds = input.historyCheckpoint
+          ? applyMemoryHistoryCheckpoint({
+              checkpoint: input.historyCheckpoint,
+              history,
+              pendingUpdates: state.pendingUpdates,
+            })
+          : [];
         for (const updateData of input.historyUpdates ?? []) {
           history.tail.push({
             id: crypto.randomUUID(),
@@ -232,7 +232,10 @@ export function createDocumentWritePersistence(
           });
         }
         historyByLocalId.set(input.document.id, history);
-        const acceptedIds = new Set(input.acceptedPendingUpdateIds);
+        const acceptedIds = new Set([
+          ...input.acceptedPendingUpdateIds,
+          ...coveredRecoveryPendingUpdateIds,
+        ]);
         state.pendingUpdates = state.pendingUpdates.filter(
           ({ id }) => !acceptedIds.has(id),
         );

@@ -367,6 +367,7 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
 
   return {
     getState: () => state,
+    supportsAtomicRecoveryHistoryPruning: true,
     ...createDocumentReadPersistence(state),
     ...createMemoryPullContinuationPersistence(
       state,

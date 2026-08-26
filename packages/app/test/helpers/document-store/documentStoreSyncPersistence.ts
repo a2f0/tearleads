@@ -8,6 +8,7 @@ import type {
 } from "@symcrypt/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
 import { createMemoryDocumentCreationPersistence } from "./documentStoreSyncCreationPersistence";
@@ -85,6 +86,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
 
   return {
     ...creationPersistence,
+    supportsAtomicRecoveryHistoryPruning: true,
     async commitDocumentMutation(execSql, input, saveClientProjection) {
       if (input.stillCurrent && !input.stillCurrent()) {
         return { committed: false, currentRecord: document };
@@ -132,14 +134,13 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           ];
         }
         const history = historyFor(input.document.id);
-        if (input.historyCheckpoint) {
-          const coveredIds = new Set(input.historyCheckpoint.coveredTailIds);
-          history.checkpoint = {
-            endVersionVector: input.historyCheckpoint.endVersionVector,
-            snapshot: input.historyCheckpoint.snapshot,
-          };
-          history.tail = history.tail.filter(({ id }) => !coveredIds.has(id));
-        }
+        const coveredRecoveryPendingUpdateIds = input.historyCheckpoint
+          ? applyMemoryHistoryCheckpoint({
+              checkpoint: input.historyCheckpoint,
+              history,
+              pendingUpdates,
+            })
+          : [];
         for (const updateData of input.historyUpdates ?? []) {
           history.tail.push({
             id: crypto.randomUUID(),
@@ -158,7 +159,10 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
             updateData: input.pendingUpdate.updateData,
           });
         }
-        const acceptedIds = new Set(input.acceptedPendingUpdateIds);
+        const acceptedIds = new Set([
+          ...input.acceptedPendingUpdateIds,
+          ...coveredRecoveryPendingUpdateIds,
+        ]);
         pendingUpdates = pendingUpdates.filter(
           ({ id }) => !acceptedIds.has(id),
         );
