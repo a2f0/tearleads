@@ -27,9 +27,18 @@ test("a document created offline is fully durable from birth", async () => {
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     // Creation is the ONLY persist this document sees before the "restart".
-    await openStore(execSql, "born-offline", "created and closed");
+    await openStore(
+      execSql,
+      "born-offline",
+      sqlDocumentsPersistence,
+      "created and closed",
+    );
 
-    const reopened = await openStore(execSql, "born-offline");
+    const reopened = await openStore(
+      execSql,
+      "born-offline",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("created and closed");
     const pendingUpdates = await listPendingUpdates(reopened);
@@ -92,11 +101,19 @@ test("full history survives a restart via the checkpoint and tail", async () => 
   const { close, execSql } = await createTestExecSql("history-durability");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const first = await openStore(execSql, "history-doc");
+    const first = await openStore(
+      execSql,
+      "history-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(first, () => undefined, "first line");
     await setDocumentText(first, () => undefined, "first line and more");
 
-    const reopened = await openStore(execSql, "history-doc");
+    const reopened = await openStore(
+      execSql,
+      "history-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("first line and more");
     // The whole point: a restarted device can still export the full-history
@@ -114,7 +131,11 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   const { close, execSql } = await createTestExecSql("history-compaction");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "compaction-doc");
+    const state = await openStore(
+      execSql,
+      "compaction-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "seed");
 
     if (!state.doc) throw new Error("expected live doc");
@@ -194,7 +215,11 @@ test("restored remote tail rows advance the marker; local rows do not", async ()
       updates: [bytesToBase64(localDelta)],
     });
 
-    const reopened = await openStore(execSql, "origin-doc");
+    const reopened = await openStore(
+      execSql,
+      "origin-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc || reopened.pendingBaseVersion === null) {
       throw new Error("expected restored doc and marker");
     }
@@ -240,7 +265,11 @@ test("a tail-only scope (crash before the birth checkpoint) still restores", asy
       text: "only durable copy",
     });
 
-    const reopened = await openStore(execSql, "tail-only-doc");
+    const reopened = await openStore(
+      execSql,
+      "tail-only-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("only durable copy");
   } finally {
@@ -252,7 +281,11 @@ test("compaction preserves cross-pane tail rows its document does not cover", as
   const { close, execSql } = await createTestExecSql("history-cross-pane");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "cross-pane-doc");
+    const state = await openStore(
+      execSql,
+      "cross-pane-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "pane A edit");
 
     // A second pane's edit: real ops this pane's document has NOT merged.
@@ -297,7 +330,11 @@ test("a deferred write covered by the tail restores with full history", async ()
   const { close, execSql } = await createTestExecSql("history-deferred-tail");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "deferred-covered-doc");
+    const state = await openStore(
+      execSql,
+      "deferred-covered-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "enqueued edit");
     if (!state.doc) throw new Error("expected live doc");
 
@@ -314,7 +351,11 @@ test("a deferred write covered by the tail restores with full history", async ()
     });
     await persistDocument(state, state.doc);
 
-    const reopened = await openStore(execSql, "deferred-covered-doc");
+    const reopened = await openStore(
+      execSql,
+      "deferred-covered-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
     // Because the tail covers the deferred delta, the restore keeps full
@@ -387,7 +428,11 @@ test("deleting a document deletes its history checkpoint and tail", async () => 
   const { close, execSql } = await createTestExecSql("history-delete");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "deleted-doc");
+    const state = await openStore(
+      execSql,
+      "deleted-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "short lived");
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState?.(

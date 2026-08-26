@@ -356,6 +356,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         containerId: input.containerId,
         documentId: input.documentId,
         id: document?.id ?? input.documentId,
+        recoveryGeneration: document?.recoveryGeneration ?? 0,
         snapshotEndVersion: document?.snapshotEndVersion ?? "",
         text: document?.text ?? "",
       };

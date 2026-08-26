@@ -327,6 +327,7 @@ export function createDocumentWritePersistence(
         documentId: input.documentId,
         id: state.document?.id ?? input.documentId,
         lastCommitLsn: null,
+        recoveryGeneration: state.document?.recoveryGeneration ?? 0,
         snapshotEndVersion: state.document?.snapshotEndVersion ?? "",
         text: state.document?.text ?? "",
       };

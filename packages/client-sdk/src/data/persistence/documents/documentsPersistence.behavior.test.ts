@@ -8,6 +8,7 @@ const emptyDocumentState = {
   documentKekTargets: null,
   documentManifestBundle: null,
   effectiveAccessLevel: "read" as const,
+  recoveryGeneration: 0,
 };
 
 test("concurrent document saves are serialized on a shared SQLite connection", async () => {

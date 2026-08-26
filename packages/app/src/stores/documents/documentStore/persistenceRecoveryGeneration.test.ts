@@ -16,10 +16,12 @@ type MemoryPersistence = DocumentsPersistence & {
 };
 type ExecSql = Parameters<DocumentsPersistence["saveDocument"]>[0];
 
+const recoveredContainerId = "container-a";
+const recoveredDocumentId = "document-a";
 const recoveredRecord: DocumentRecord = {
   accessEpoch: 1,
-  containerId: "container-a",
-  documentId: "document-a",
+  containerId: recoveredContainerId,
+  documentId: recoveredDocumentId,
   id: "local-a",
   recoveryGeneration: 1,
   snapshotEndVersion: "",
@@ -38,6 +40,13 @@ async function expectRecoveryGenerationFence(
   execSql: ExecSql,
 ): Promise<void> {
   await persistence.saveDocument(execSql, recoveredRecord);
+  await persistence.upsertDiscoveredDocument(execSql, {
+    accessEpoch: recoveredRecord.accessEpoch + 1,
+    containerId: recoveredContainerId,
+    createdAt: "2026-08-26T00:00:00.000Z",
+    documentId: recoveredDocumentId,
+    linkedContainerIds: [recoveredContainerId],
+  });
 
   await expect(
     persistence.documentIdentityMatches(

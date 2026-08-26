@@ -1,6 +1,5 @@
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
-import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
@@ -36,12 +35,13 @@ function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
 export async function openHistoryTestStore(
   execSql: DocumentsRuntime["infra"]["execSql"],
   localId: string,
+  persistence: Parameters<typeof createDocumentStoreState>[2],
   initialText = "",
 ): Promise<DocumentStoreState> {
   const state = createDocumentStoreState(
     localId,
     offlineRuntime(execSql),
-    sqlDocumentsPersistence,
+    persistence,
     noopDocumentStorePersistenceEffects,
     null,
     initialText,

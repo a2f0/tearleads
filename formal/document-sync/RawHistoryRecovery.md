@@ -43,10 +43,16 @@ mask an invalid page; and a blocked writer cannot cross the recovery-generation
 fence.
 
 The registered pull-request configuration bounds three updates, two content-key
-epochs, and two pages. TLC explores 27,157,248 generated states, 16,047,488
-distinct states, and depth 14 without an invariant violation. Sets abstract
-operation-log identity and page membership; production tests remain responsible
-for cryptographic verification, canonical operation bytes, Loro import
-semantics, SQLite transactionality, pagination tokens, and projection-cache
-refetch behavior. This is exhaustive bounded model checking, not an unbounded
-proof.
+epochs, and two pages. Initial server history and unsent local pending history
+are disjoint; successful proven settlement promotes the local set into the
+definitive raw frontier, while the highest update ID can independently represent
+a remote update racing settlement. The maximal initial durable-history set is
+the representative for preservation checks, so any pre-completion clear or
+overwrite remains observable without multiplying equivalent initial subsets.
+
+TLC explores 12,922,760 generated states, 6,798,744 distinct states, and depth
+14 without an invariant violation. Sets abstract operation-log identity and page
+membership; production tests remain responsible for cryptographic verification,
+canonical operation bytes, Loro import semantics, SQLite transactionality,
+pagination tokens, and projection-cache refetch behavior. This is exhaustive
+bounded model checking, not an unbounded proof.

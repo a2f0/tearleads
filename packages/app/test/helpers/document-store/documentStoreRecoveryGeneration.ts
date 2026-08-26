@@ -5,7 +5,7 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 
-export interface MemoryHistoryState {
+interface MemoryHistoryState {
   checkpoint: { endVersionVector: string; snapshot: string } | null;
   tail: { id: string; origin: "local" | "remote"; updateData: string }[];
 }

@@ -154,12 +154,14 @@ async function appendMutationHistory(
       : {
           checkpointIds: [],
           hasOrdinaryPendingUpdates: false,
+          hasUnprunablePendingUpdates: false,
           hasUnverifiedHistoryTail: false,
           tailIds: [],
         };
     if (
       input.historyCheckpoint.pruneCoveredLocalState &&
-      coveredLocalState.hasOrdinaryPendingUpdates
+      (coveredLocalState.hasOrdinaryPendingUpdates ||
+        coveredLocalState.hasUnprunablePendingUpdates)
     ) {
       throw new Error(
         "Document recovery found unproven pending updates before installation",
@@ -211,6 +213,7 @@ async function findCoveredRecoveryLocalState(
 ): Promise<{
   checkpointIds: string[];
   hasOrdinaryPendingUpdates: boolean;
+  hasUnprunablePendingUpdates: boolean;
   hasUnverifiedHistoryTail: boolean;
   tailIds: string[];
 }> {
@@ -245,7 +248,9 @@ async function findCoveredRecoveryLocalState(
       );
     const checkpointUpdateData = new Set(
       pendingUpdates.flatMap((row) =>
-        row.sourceVersionVector === null ? [] : [row.updateData],
+        row.id === null || row.sourceVersionVector === null
+          ? []
+          : [row.updateData],
       ),
     );
     let hasUnverifiedHistoryTail = false;
@@ -278,6 +283,9 @@ async function findCoveredRecoveryLocalState(
       ),
       hasOrdinaryPendingUpdates: pendingUpdates.some(
         (row) => row.sourceVersionVector === null,
+      ),
+      hasUnprunablePendingUpdates: pendingUpdates.some(
+        (row) => row.id === null,
       ),
       hasUnverifiedHistoryTail,
       tailIds,

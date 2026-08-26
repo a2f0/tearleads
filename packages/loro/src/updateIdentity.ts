@@ -1,4 +1,9 @@
-import { idStrToId, type JsonSchema, type LoroDoc } from "loro-crdt";
+import {
+  idStrToId,
+  type JsonSchema,
+  type LoroDoc,
+  type PeerID,
+} from "loro-crdt";
 import {
   decodeVersionVector,
   encodeVersionVector,
@@ -32,6 +37,31 @@ function rangeDependencyFrontiers(
     }
   }
   return [...externalDependencies.values()];
+}
+
+function operationSpans(
+  startVersion: ReturnType<typeof decodeVersionVector>,
+  endVersion: ReturnType<typeof decodeVersionVector>,
+): { id: { counter: number; peer: PeerID }; len: number }[] | null {
+  for (const [peer, startCounter] of startVersion.toJSON()) {
+    if (startCounter > (endVersion.get(peer) ?? 0)) return null;
+  }
+  return [...endVersion.toJSON()].flatMap(([peer, endCounter]) => {
+    const startCounter = startVersion.get(peer) ?? 0;
+    return endCounter === startCounter
+      ? []
+      : [
+          {
+            id: { counter: startCounter, peer },
+            len: endCounter - startCounter,
+          },
+        ];
+  });
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false;
+  return left.every((value, index) => value === right[index]);
 }
 
 /**
@@ -69,6 +99,16 @@ export function updateMatchesDocumentHistory(
       metadata.partialStartVersionVector,
     );
     const endVersion = decodeVersionVector(metadata.partialEndVersionVector);
+    const spans = operationSpans(startVersion, endVersion);
+    if (!spans) return false;
+
+    // Loro emits a deterministic binary update for an exact operation range.
+    // Most durable tails use that current encoding, so prove them without
+    // expanding large text operations through JSON. Alternate encodings fall
+    // through to the canonical operation comparison below.
+    if (bytesEqual(update, doc.export({ mode: "updates-in-range", spans }))) {
+      return true;
+    }
     const expectedRange = doc.exportJsonUpdates(
       startVersion,
       endVersion,

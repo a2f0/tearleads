@@ -22,6 +22,7 @@ test("compaction preserves a racing same-frontier fork and malformed tail", asyn
     const state = await openHistoryTestStore(
       execSql,
       "same-frontier-compaction-doc",
+      sqlDocumentsPersistence,
     );
     const genuine = await createDocument("same-frontier-compaction-writer");
     genuine.getText("text").update("verified base");
