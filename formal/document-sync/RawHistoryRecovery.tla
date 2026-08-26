@@ -11,6 +11,8 @@ EXTENDS Naturals
 (* updateValid abstracts encoding-neutral operation identity, dependency-     *)
 (* closed partial ranges, encrypted record/header and bundle/header bindings, *)
 (* integrity-prioritized failure aggregation, and unresolved dependencies.    *)
+(* hasUnverifiedLocalGap also includes malformed or same-frontier forked tail *)
+(* rows, which exact-operation compaction must preserve for this gate.         *)
 (* blockedWriterFence is the durable recovery revision captured before a      *)
 (* writer waits. Publication advances it, forcing an older waiter to reject   *)
 (* without appending queue/history rows or saving its stale record.            *)

@@ -28,6 +28,7 @@ generation and reject its stale enqueue or save.
 | `PublishRecovery` | `installRebuiltDocument` plus the atomic checkpoint replacement in `commitStoredDocumentMutation` |
 | `ChangeGeneration` / `RejectChangedGeneration` | `captureDocumentStoreSyncGeneration` and `assertRotationRecoveryGeneration` checks around each awaited phase |
 | `RejectSupersededInstall` | record and checkpoint compare-and-set guards in document mutation persistence |
+| `hasUnverifiedLocalGap` / `RejectUnverifiedLocalGap` | exact `updateMatchesDocumentHistory` compaction coverage plus recovery's exact-history rejection; unmatched and malformed tail rows remain durable evidence |
 | `AppendCheckpointArtifact` | a checkpoint row racing collection; atomic install retires the selected artifact without importing it as history |
 | `BeginBlockedWriter` / `RejectBlockedWriterAfterRecovery` | the durable `recoveryGeneration` captured by enqueue/save preparation and rechecked by settlement and commit paths |
 

@@ -3,8 +3,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
-  getImportBlobMetadata,
-  satisfiesVersionVector,
+  updateMatchesDocumentHistory,
 } from "@symcrypt/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
@@ -336,7 +335,7 @@ async function maybeCompactDocumentHistory(
   }
   const endVersionVector = encodeVersionVector(currentDoc);
   await persistence.replaceHistoryCheckpoint(execSql, {
-    coveredTailIds: coveredHistoryTailIds(tailEntries, endVersionVector),
+    coveredTailIds: coveredHistoryTailIds(tailEntries, currentDoc),
     endVersionVector,
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
@@ -345,25 +344,25 @@ async function maybeCompactDocumentHistory(
 }
 
 /**
- * The tail rows provably covered by a document at `documentVersion`: rows
- * whose update span the version satisfies, plus rows whose payload cannot be
- * parsed at all (they could never replay and would only poison restores).
+ * Tail rows whose exact operations already belong to the checkpoint document.
+ * Version-vector dominance is insufficient: a same-frontier fork has the same
+ * declared range, and malformed rows must survive so recovery fails closed
+ * instead of compaction deleting the evidence before provenance validation.
  */
 function coveredHistoryTailIds(
   tailEntries: readonly { id: string; updateData: string }[],
-  documentVersion: string,
+  document: DocumentState,
 ): string[] {
   return tailEntries.flatMap((entry) => {
     try {
-      const metadata = getImportBlobMetadata(base64ToBytes(entry.updateData));
-      return satisfiesVersionVector(
-        documentVersion,
-        metadata.partialEndVersionVector,
+      return updateMatchesDocumentHistory(
+        document,
+        base64ToBytes(entry.updateData),
       )
         ? [entry.id]
         : [];
     } catch {
-      return [entry.id];
+      return [];
     }
   });
 }

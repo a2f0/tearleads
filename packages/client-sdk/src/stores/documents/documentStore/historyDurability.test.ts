@@ -12,66 +12,15 @@ import {
   satisfiesVersionVector,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/documentHistoryPersistence";
-import type { DocumentsRuntime } from "../types";
-import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
-import { ensureDocumentStoreReady } from "./initialization";
+import { openHistoryTestStore as openStore } from "./historyDurability.testFixtures";
 import { setDocumentText } from "./mutations";
 import {
   listPendingUpdates,
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { createDocumentStoreState, type DocumentStoreState } from "./state";
-
-// Offline runtime: history durability is a purely local property, so these
-// tests never touch the network (the store's sync preconditions all fail).
-function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
-  return {
-    apiClient: {} as DocumentsRuntime["apiClient"],
-    auth: { isAuthenticated: false, organizationId: null, userId: null },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: null as never,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: "container",
-      domainScope: createDomainScope(),
-      events: [],
-      online: false,
-      peerScope: null,
-    },
-    util: { log: () => undefined },
-  } as unknown as DocumentsRuntime;
-}
-
-async function openStore(
-  execSql: DocumentsRuntime["infra"]["execSql"],
-  localId: string,
-  initialText = "",
-): Promise<DocumentStoreState> {
-  const state = createDocumentStoreState(
-    localId,
-    offlineRuntime(execSql),
-    sqlDocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    null,
-    initialText,
-  );
-  expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-  return state;
-}
 
 test("a document created offline is fully durable from birth", async () => {
   const { close, execSql } = await createTestExecSql("history-birth");
@@ -168,18 +117,18 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
     const state = await openStore(execSql, "compaction-doc");
     await setDocumentText(state, () => undefined, "seed");
 
-    // Inflate the tail past the threshold; the rows only need to exist (a
-    // compaction clears them from the live doc's export without replaying
-    // them), so opaque filler is fine here.
+    if (!state.doc) throw new Error("expected live doc");
+    const coveredUpdate = bytesToBase64(exportAllUpdates(state.doc));
+    // Inflate the tail past the threshold with exact duplicate history. Every
+    // row is safe to retire into the checkpoint.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
       origin: "local",
       localId: "compaction-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
-        (_, index) => `filler-${index}`,
+        () => coveredUpdate,
       ),
     });
-    if (!state.doc) throw new Error("expected live doc");
     await persistDocument(state, state.doc);
 
     const tail = await sqlDocumentsPersistence.readHistoryTailSize?.(
@@ -315,16 +264,17 @@ test("compaction preserves cross-pane tail rows its document does not cover", as
       localId: "cross-pane-doc",
       updates: [bytesToBase64(exportAllUpdates(paneB))],
     });
-    // Push past the threshold with unparseable filler (deleted as poison).
+    if (!state.doc) throw new Error("expected live doc");
+    const paneAUpdate = bytesToBase64(exportAllUpdates(state.doc));
+    // Push past the threshold with exact duplicate pane-A history.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
       origin: "local",
       localId: "cross-pane-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
-        (_, index) => `filler-${index}`,
+        () => paneAUpdate,
       ),
     });
-    if (!state.doc) throw new Error("expected live doc");
     await persistDocument(state, state.doc);
 
     // The foreign row survives — deleting it would discard the only durable
