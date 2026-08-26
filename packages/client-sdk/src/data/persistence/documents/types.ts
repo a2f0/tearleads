@@ -142,7 +142,7 @@ export interface DocumentsPersistence {
    * `commitDocumentMutation` transaction. An unrelated history tail not
    * covered by the rebuild must abort that transaction.
    */
-  readonly supportsAtomicRecoveryHistoryPruning: true;
+  readonly supportsAtomicRecoveryHistoryPruning?: boolean | undefined;
   /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.

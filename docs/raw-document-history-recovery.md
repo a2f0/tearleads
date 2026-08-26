@@ -56,22 +56,26 @@ work racing the submit is included. A successful guarded install atomically
 retires every queued checkpoint and its
 matching local-history tail, whether or not its declared frontier is covered,
 because checkpoints are never recovery sources. Every other tail row must match
-the verified rebuild's exact operations for its declared range; version-vector
-coverage alone is insufficient and a same-frontier fork aborts the install.
+the verified rebuild's exact operations for its declared range. This canonical
+comparison is independent of Loro's update-versus-full-snapshot encoding, so a
+settled rotation baseline retained in the tail can be quarantined by a later
+recovery; version-vector coverage alone is insufficient and a same-frontier
+fork aborts the install.
 Final history and generation verification remain on the document identity-write
 chain through that install, so a scheduled sync cannot advance live state in
 the check-to-persist interval. Coverage is selected only after the guarded
 install transaction acquires its write lock, preventing a concurrent append
 from surviving as a stale or forged redirect after recovery.
 
-Custom `DocumentsPersistence` adapters must declare
-`supportsAtomicRecoveryHistoryPruning: true` and implement that guarantee in
+Custom `DocumentsPersistence` adapters opt in by declaring
+`supportsAtomicRecoveryHistoryPruning: true` and implementing that guarantee in
 `commitDocumentMutation`: rejecting ordinary pending rows, selecting every
 queued checkpoint and its matching tail plus other exact-history-matching rows,
 rejecting an unrelated or same-frontier forged tail, replacing the checkpoint,
 pruning the selected rows, and committing the canonical document must be one
 guarded transaction. Rotation recovery refuses adapters that omit the
-capability instead of assuming compatible behavior. If the exact
+capability or declare it `false` instead of assuming compatible behavior. If
+the exact
 checkpoint-history gate or canonical-record comparison rejects the recovery
 candidate, or if volatile runtime/trust ownership changes before the
 transaction commits, the adapter rolls back the complete install, including
@@ -124,7 +128,8 @@ historical epochs, interrupted multi-page recovery, pre-rotation settlement of
 pending local updates, forged-baseline-dependent edit isolation, rejection of
 checkpoint-only settlement gaps, mixed-page poison precedence, atomic
 checkpoint-gate rollback, racing-checkpoint quarantine across restart,
-same-frontier tail-fork rejection, binary/string history-identity separation,
+settled-baseline tail quarantine by a later recovery, same-frontier tail-fork
+rejection, encoding-neutral and binary/string history-identity separation,
 unavailable-record/header poison precedence, unrelated unresolved-dependency
 isolation, stale and same-frontier-forked in-memory checkpoint rejection,
 page-two generic validation failure without resubmission,

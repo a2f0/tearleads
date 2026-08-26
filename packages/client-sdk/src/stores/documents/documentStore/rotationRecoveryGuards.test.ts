@@ -107,7 +107,7 @@ test("rotation refuses a persistence adapter without atomic recovery pruning", a
     const legacyPersistence = {
       ...sqlDocumentsPersistence,
       supportsAtomicRecoveryHistoryPruning: undefined,
-    } as unknown as DocumentsPersistence;
+    } satisfies DocumentsPersistence;
     const state = createDocumentStoreState(
       localId,
       createRotationRecoveryRuntime({ execSql, fixture, syncCalls }),

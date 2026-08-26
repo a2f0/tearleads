@@ -1,16 +1,20 @@
 import type { LoroDoc } from "loro-crdt";
 import {
+  decodeVersionVector,
   encodeVersionVector,
+  exportFullHistoryIdentity,
   getImportBlobMetadata,
-  listVersionVectorSpans,
+  importSnapshot,
+  importUpdates,
   satisfiesVersionVector,
+  versionVectorsEqual,
 } from "./document";
 
 /**
- * Prove that an update blob contains the document's exact operations for the
- * version-vector range declared by the blob. Range export reproduces Loro's
- * canonical update encoding without letting an already-present operation with
- * the same peer/counter hide conflicting bytes during an import.
+ * Prove that an update or snapshot blob contains the document's exact
+ * operations for its declared version-vector range. Rebuild from the exact
+ * prefix and compare canonical operation identity so equivalent legacy/current
+ * encodings pass without letting same-peer/counter conflicts hide in an import.
  */
 export function updateMatchesDocumentHistory(
   doc: LoroDoc,
@@ -26,24 +30,42 @@ export function updateMatchesDocumentHistory(
     return false;
   }
 
-  const updateSpans = listVersionVectorSpans({
-    partialEndVersionVector: metadata.partialEndVersionVector,
-    partialStartVersionVector: metadata.partialStartVersionVector,
-  });
-  if (updateSpans.length === 0) return false;
+  if (
+    versionVectorsEqual(
+      metadata.partialStartVersionVector,
+      metadata.partialEndVersionVector,
+    )
+  ) {
+    return false;
+  }
+
+  let candidate: LoroDoc | null = null;
   try {
-    const expected = doc.export({
-      mode: "updates-in-range",
-      spans: updateSpans.map((span) => ({
-        id: { counter: span.startCounter, peer: span.peerId },
-        len: span.endCounter - span.startCounter,
-      })),
-    });
+    candidate = doc.forkAt(
+      doc.vvToFrontiers(
+        decodeVersionVector(metadata.partialStartVersionVector),
+      ),
+    );
+    if (
+      metadata.mode === "snapshot" ||
+      metadata.mode === "outdated-snapshot" ||
+      metadata.mode === "shallow-snapshot"
+    ) {
+      importSnapshot(candidate, update);
+    } else {
+      importUpdates(candidate, [update]);
+    }
     return (
-      expected.byteLength === update.byteLength &&
-      expected.every((byte, index) => byte === update[index])
+      versionVectorsEqual(
+        encodeVersionVector(candidate),
+        metadata.partialEndVersionVector,
+      ) &&
+      exportFullHistoryIdentity(candidate) ===
+        exportFullHistoryIdentity(doc, metadata.partialEndVersionVector)
     );
   } catch {
     return false;
+  } finally {
+    candidate?.free();
   }
 }

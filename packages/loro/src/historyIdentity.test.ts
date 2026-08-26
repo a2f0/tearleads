@@ -91,3 +91,18 @@ test("update identity matches only the document's exact operation range", async 
   expect(updateMatchesDocumentHistory(genuine, genuineUpdate)).toBe(true);
   expect(updateMatchesDocumentHistory(genuine, forgedUpdate)).toBe(false);
 });
+
+test("history artifact identity accepts snapshots without trusting their frontier", async () => {
+  const genuine = await createDocument("history-snapshot-artifact-identity");
+  genuine.getText("text").update("genuine snapshot history");
+  genuine.commit();
+  const genuineSnapshot = exportFullHistorySnapshot(genuine);
+  const forged = await createDocument("history-snapshot-artifact-identity");
+  forged.getText("text").update("forged! snapshot history");
+  forged.commit();
+  const forgedSnapshot = exportFullHistorySnapshot(forged);
+
+  expect(encodeVersionVector(forged)).toBe(encodeVersionVector(genuine));
+  expect(updateMatchesDocumentHistory(genuine, genuineSnapshot)).toBe(true);
+  expect(updateMatchesDocumentHistory(genuine, forgedSnapshot)).toBe(false);
+});
