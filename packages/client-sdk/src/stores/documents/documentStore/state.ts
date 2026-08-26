@@ -67,7 +67,6 @@ export interface SaveDocumentRecordOptions {
   attachmentRemoval?: AttachmentRemovalRows | undefined;
   attachmentStaging?: AttachmentStagingRows | undefined;
   clearSyncFailure?: boolean | undefined;
-  commitOnlyPendingUpdateIds?: readonly string[] | undefined;
   expectedSyncState?:
     | {
         pullContinuation: DocumentSyncPullContinuation | null;
@@ -78,6 +77,7 @@ export interface SaveDocumentRecordOptions {
     | {
         coveredTailIds: readonly string[];
         endVersionVector: string;
+        pruneCoveredLocalState?: boolean | undefined;
         snapshot: string;
       }
     | undefined;

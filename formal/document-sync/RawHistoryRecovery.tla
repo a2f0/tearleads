@@ -8,6 +8,9 @@ EXTENDS Naturals
 (* checkpoints are validated but the ordinary update stream is the source of  *)
 (* truth. Durable history changes only after settlement succeeds, every page  *)
 (* validates, no unverified local gap remains, and no newer install wins.     *)
+(* queuedCheckpoints abstracts BOTH covered queued checkpoints and covered     *)
+(* local-history tail rows. Either can arrive while pages are collected; the  *)
+(* successful install selects and retires the then-current set atomically.    *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -193,6 +196,18 @@ RejectSupersededInstall ==
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
+AppendCoveredLocalArtifact ==
+  /\ phase = "collecting"
+  /\ \E id \in (UpdateIds \ ordinaryUpdates) :
+       /\ id \notin queuedCheckpoints
+       /\ queuedCheckpoints' = queuedCheckpoints \cup {id}
+  /\ UNCHANGED << phase, nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  initialQueuedCheckpoints, hasUnverifiedLocalGap,
+                  installSuperseded, scratchHistory, initialDurableHistory,
+                  durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
 PublishRecovery ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
@@ -221,6 +236,7 @@ Next ==
   \/ RejectInvalidPage
   \/ RejectUnverifiedLocalGap
   \/ RejectSupersededInstall
+  \/ AppendCoveredLocalArtifact
   \/ PublishRecovery
   \/ RemainTerminal
 
@@ -229,12 +245,12 @@ Spec == Init /\ [][Next]_vars
 NoDurableMutationBeforeComplete ==
   phase = "complete" \/
     (~durablePublished /\ durableHistory = initialDurableHistory /\
-      queuedCheckpoints = initialQueuedCheckpoints)
+      initialQueuedCheckpoints \subseteq queuedCheckpoints)
 
 FailedRecoveryPreservesDurableHistory ==
   phase # "failed" \/
     (~durablePublished /\ durableHistory = initialDurableHistory /\
-      queuedCheckpoints = initialQueuedCheckpoints)
+      initialQueuedCheckpoints \subseteq queuedCheckpoints)
 
 CompleteRecoveryContainsAllOrdinaryHistory ==
   phase # "complete" \/ durableHistory = ordinaryUpdates

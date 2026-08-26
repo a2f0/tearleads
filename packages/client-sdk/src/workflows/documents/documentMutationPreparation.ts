@@ -24,6 +24,7 @@ export interface PrepareDocumentMutationInput {
     | {
         coveredTailIds: readonly string[];
         endVersionVector: string;
+        pruneCoveredLocalState?: boolean | undefined;
         snapshot: string;
       }
     | undefined;

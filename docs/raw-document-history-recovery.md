@@ -39,11 +39,14 @@ checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
 so the preflight fails without re-encrypting or publishing it. A successful
 guarded install atomically removes queued checkpoints whose declared frontier
-is covered by the verified rebuild, preventing a later ordinary sync from
-republishing a stale or forged redirect.
+is covered by the verified rebuild, along with covered local-history tail rows.
+Coverage is selected only after the guarded install transaction acquires its
+write lock, preventing a concurrent append from surviving as a stale or forged
+redirect after recovery.
 
 If a retained update references a present, verified content-key bundle whose
-key is no longer reachable, the public `DocumentRawHistoryUnavailableError`
+key is no longer reachable — including a predecessor epoch whose retained
+keyring is absent — the public `DocumentRawHistoryUnavailableError`
 reports the stable code
 `document_raw_history_epoch_unavailable` and numeric `contentKeyEpoch`. Callers
 do not need to parse an integrity-error message, and the failed recovery does
@@ -75,6 +78,7 @@ history for three updates, two epochs, and two pages.
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
 | `RejectSupersededInstall` | guarded install loses to a newer durable record and retains that winner |
+| `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
 | `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
@@ -82,7 +86,9 @@ The checked invariants require raw collection to start only after local
 ordinary settlement, incomplete or failed recovery to preserve the old durable
 history, successful recovery to contain every retained ordinary update,
 successful recovery to retire covered queued checkpoints, scratch state never
-to trust a rotation checkpoint, unverified local history never to publish, the
+to trust a rotation checkpoint, covered local artifacts appended during
+collection to survive every failure or retire with the successful transaction,
+unverified local history never to publish, the
 scratch rebuild never to replace a superseding pane's winner, the reported
 unavailable epoch to be the deterministic lowest missing epoch on the failing
 page, and invalid updates never to be mislabeled as availability failures.

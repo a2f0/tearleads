@@ -9,6 +9,7 @@ import {
   isolateDocumentSyncUpdateError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
+  ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
   DocumentContentKeyUnavailableError,
   DocumentHistoryUnavailableError,
@@ -28,6 +29,19 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
+type RawHistoryUnavailableCause =
+  | DocumentContentKeyUnavailableError
+  | DocumentHistoryUnavailableError;
+
+function isRawHistoryUnavailableCause(
+  error: unknown,
+): error is RawHistoryUnavailableCause {
+  return (
+    error instanceof DocumentContentKeyUnavailableError ||
+    (error instanceof DocumentHistoryUnavailableError &&
+      error.historyCause instanceof ContainerKekHistoryUnavailableError)
+  );
+}
 
 /** A raw recovery cannot reconstruct history without this retained epoch. */
 export class DocumentRawHistoryUnavailableError extends Error {
@@ -219,7 +233,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
     ...projectionVerificationOptions(input),
   });
   let unavailableRawHistory:
-    | { cause: DocumentContentKeyUnavailableError; contentKeyEpoch: number }
+    | { cause: RawHistoryUnavailableCause; contentKeyEpoch: number }
     | undefined;
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
@@ -246,10 +260,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
-      if (
-        input.historyMode === "raw" &&
-        error instanceof DocumentContentKeyUnavailableError
-      ) {
+      if (input.historyMode === "raw" && isRawHistoryUnavailableCause(error)) {
         unavailableRawHistory ??= { cause: error, contentKeyEpoch };
         continue;
       }

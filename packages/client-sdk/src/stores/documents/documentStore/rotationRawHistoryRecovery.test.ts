@@ -117,10 +117,36 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
         return request.historyMode === "raw" ? rawResponse : response;
       },
     });
+    let injectCheckpointBeforeInstall = true;
+    const racingPersistence = {
+      ...sqlDocumentsPersistence,
+      commitDocumentMutation: async (
+        ...args: Parameters<
+          typeof sqlDocumentsPersistence.commitDocumentMutation
+        >
+      ) => {
+        if (injectCheckpointBeforeInstall && args[1].historyCheckpoint) {
+          injectCheckpointBeforeInstall = false;
+          await sqlDocumentsPersistence.enqueuePendingUpdate(
+            args[0],
+            {
+              localId,
+              partialEndVersionVector: forged.vectors.partialEndVersionVector,
+              partialStartVersionVector:
+                forged.vectors.partialStartVersionVector,
+              sourceVersionVector: forged.vectors.partialEndVersionVector,
+              updateData: bytesToBase64(forged.snapshot),
+            },
+            { expectedDocumentId: fixture.writerProjection.documentId },
+          );
+        }
+        return sqlDocumentsPersistence.commitDocumentMutation(...args);
+      },
+    };
     const state = createDocumentStoreState(
       localId,
       runtime,
-      sqlDocumentsPersistence,
+      racingPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
@@ -139,6 +165,10 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
     expect(await listPendingUpdates(state)).toHaveLength(0);
+    expect(
+      (await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId))
+        ?.tailUpdates,
+    ).toEqual([]);
 
     state.remoteUpdatePending = true;
     state.syncLane = registerDocumentStoreSyncLane(state);

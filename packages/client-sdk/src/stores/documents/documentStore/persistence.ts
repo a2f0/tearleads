@@ -116,7 +116,6 @@ export async function saveDocumentRecord(
     attachmentRemoval: options.attachmentRemoval,
     attachmentStaging: options.attachmentStaging,
     clearSyncFailure: options.clearSyncFailure,
-    commitOnlyPendingUpdateIds: options.commitOnlyPendingUpdateIds,
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,
@@ -350,7 +349,7 @@ async function maybeCompactDocumentHistory(
  * whose update span the version satisfies, plus rows whose payload cannot be
  * parsed at all (they could never replay and would only poison restores).
  */
-export function coveredHistoryTailIds(
+function coveredHistoryTailIds(
   tailEntries: readonly { id: string; updateData: string }[],
   documentVersion: string,
 ): string[] {

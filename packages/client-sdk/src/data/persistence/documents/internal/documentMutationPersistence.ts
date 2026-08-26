@@ -1,4 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { base64ToBytes } from "@symcrypt/encoding";
+import { getImportBlobMetadata, satisfiesVersionVector } from "@symcrypt/loro";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/pullContinuation";
 import {
   appendDocumentHistoryUpdates,
@@ -6,6 +8,7 @@ import {
 } from "../../../sqlite/documentHistoryPersistence";
 import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPendingUpdatePersistence";
 import {
+  documentHistoryUpdates,
   documentPendingUpdates,
   documentSyncFailures,
 } from "../../../sqlite/schema";
@@ -116,8 +119,7 @@ async function settleMutationConflict(input: {
     await deleteAcceptedPendingUpdates(
       input.tx,
       input.mutation.document.id,
-      input.mutation.conflictSettledPendingUpdateIds ??
-        input.mutation.acceptedPendingUpdateIds,
+      input.mutation.acceptedPendingUpdateIds,
     );
   }
 }
@@ -125,12 +127,33 @@ async function settleMutationConflict(input: {
 async function appendMutationHistory(
   execSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0],
   input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
+  tx: ClientSQLiteTransactionScope,
 ): Promise<void> {
   if (input.historyCheckpoint) {
+    const coveredLocalState = input.historyCheckpoint.pruneCoveredLocalState
+      ? await findCoveredRecoveryLocalState(
+          tx,
+          input.document.id,
+          input.historyCheckpoint.endVersionVector,
+        )
+      : { checkpointIds: [], tailIds: [] };
     await replaceDocumentHistoryCheckpoint(
       execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
-      input.historyCheckpoint,
+      {
+        ...input.historyCheckpoint,
+        coveredTailIds: [
+          ...new Set([
+            ...input.historyCheckpoint.coveredTailIds,
+            ...coveredLocalState.tailIds,
+          ]),
+        ],
+      },
+    );
+    await deleteAcceptedPendingUpdates(
+      tx,
+      input.document.id,
+      coveredLocalState.checkpointIds,
     );
   }
   if (input.historyUpdates && input.historyUpdates.length > 0) {
@@ -141,6 +164,59 @@ async function appendMutationHistory(
       input.historyUpdateOrigin ?? "local",
     );
   }
+}
+
+async function findCoveredRecoveryLocalState(
+  tx: ClientSQLiteTransactionScope,
+  localId: string,
+  documentVersion: string,
+): Promise<{ checkpointIds: string[]; tailIds: string[] }> {
+  const scope = and(
+    eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
+    eq(documentPendingUpdates.localId, localId),
+  );
+  const pendingCheckpoints = await tx
+    .select({
+      id: documentPendingUpdates.id,
+      sourceVersionVector: documentPendingUpdates.sourceVersionVector,
+    })
+    .from(documentPendingUpdates)
+    .where(and(scope, isNotNull(documentPendingUpdates.sourceVersionVector)));
+  const tail = await tx
+    .select({
+      id: documentHistoryUpdates.id,
+      updateData: documentHistoryUpdates.updateData,
+    })
+    .from(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, DOCUMENTS_APP_KIND),
+        eq(documentHistoryUpdates.localId, localId),
+      ),
+    );
+  return {
+    checkpointIds: pendingCheckpoints.flatMap((row) =>
+      row.id !== null &&
+      row.sourceVersionVector !== null &&
+      satisfiesVersionVector(documentVersion, row.sourceVersionVector)
+        ? [row.id]
+        : [],
+    ),
+    tailIds: tail.flatMap((row) => {
+      if (row.id === null) return [];
+      try {
+        const metadata = getImportBlobMetadata(base64ToBytes(row.updateData));
+        return satisfiesVersionVector(
+          documentVersion,
+          metadata.partialEndVersionVector,
+        )
+          ? [row.id]
+          : [];
+      } catch {
+        return [row.id];
+      }
+    }),
+  };
 }
 
 export async function commitStoredDocumentMutation(
@@ -184,7 +260,7 @@ export async function commitStoredDocumentMutation(
             tx,
           });
         }
-        await appendMutationHistory(lockedExecSql, input);
+        await appendMutationHistory(lockedExecSql, input, tx);
         await insertPendingUpdate(tx, input.document.id, input.pendingUpdate);
         await deleteAcceptedPendingUpdates(
           tx,
