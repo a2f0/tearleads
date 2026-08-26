@@ -7,6 +7,7 @@ import {
   listOrganizationRosterEntries,
   toOrganizationDirectoryUser,
 } from "./roster";
+import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
 import { loadUsersById } from "./users";
 
 type OrganizationDirectoryUser = OrganizationDirectoryResponse["users"][number];
@@ -45,6 +46,13 @@ export async function loadOrganizationDirectoryInTransaction(input: {
 }): Promise<OrganizationDirectoryResponse> {
   const profileDocumentId = await loadOrganizationProfileDocumentId(input);
   const rosterEntries = await listOrganizationRosterEntries(input);
+  const validProfileDocumentIds = await listValidRosterProfileDocumentIds({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    profileDocumentIds: rosterEntries.flatMap((entry) =>
+      entry.profileDocumentId ? [entry.profileDocumentId] : [],
+    ),
+  });
   const usersById = await loadUsersById(
     input.executor,
     rosterEntries.map((entry) => entry.userId),
@@ -65,7 +73,11 @@ export async function loadOrganizationDirectoryInTransaction(input: {
 
         return [
           toOrganizationDirectoryUser({
-            rosterEntry,
+            rosterEntry:
+              rosterEntry.profileDocumentId &&
+              !validProfileDocumentIds.has(rosterEntry.profileDocumentId)
+                ? { ...rosterEntry, profileDocumentId: null }
+                : rosterEntry,
             sessionUserId: input.sessionUserId,
             user,
           }),

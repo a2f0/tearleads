@@ -16,6 +16,7 @@ import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
+import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
 import type { UserKeyRow } from "./users";
 
 type OrganizationRosterEntryRow = typeof organizationRosterEntries.$inferSelect;
@@ -349,49 +350,10 @@ export async function isOrganizationRosterProfileDocument(input: {
   readonly organizationId: string;
   readonly profileDocumentId: string;
 }): Promise<boolean> {
-  const rosterProfileSystemSlot =
-    await deriveOrganizationRosterProfileContainerSystemSlot({
-      organizationId: input.organizationId,
-    });
-  const links = await input.executor
-    .select({
-      organizationId: containers.organizationId,
-      systemSlot: containers.systemSlot,
-    })
-    .from(accessManifestHeads)
-    .innerJoin(
-      accessManifestDocumentLinkProjection,
-      and(
-        eq(
-          accessManifestDocumentLinkProjection.documentId,
-          accessManifestHeads.objectId,
-        ),
-        eq(
-          accessManifestDocumentLinkProjection.manifestHash,
-          accessManifestHeads.manifestHash,
-        ),
-      ),
-    )
-    .innerJoin(
-      containers,
-      eq(containers.id, accessManifestDocumentLinkProjection.containerId),
-    )
-    .leftJoin(
-      containerMetadataDocuments,
-      eq(containerMetadataDocuments.documentId, accessManifestHeads.objectId),
-    )
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, "document"),
-        eq(accessManifestHeads.objectId, input.profileDocumentId),
-        eq(accessManifestHeads.organizationId, input.organizationId),
-        isNull(containerMetadataDocuments.documentId),
-      ),
-    );
-
-  return (
-    links.length === 1 &&
-    links[0]?.organizationId === input.organizationId &&
-    links[0].systemSlot === rosterProfileSystemSlot
-  );
+  const validProfileDocumentIds = await listValidRosterProfileDocumentIds({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    profileDocumentIds: [input.profileDocumentId],
+  });
+  return validProfileDocumentIds.has(input.profileDocumentId);
 }

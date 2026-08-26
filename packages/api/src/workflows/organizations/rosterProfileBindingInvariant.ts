@@ -25,6 +25,23 @@ export async function assertRosterProfileDocumentUnbound(input: {
   }
 }
 
+export async function assertRosterProfileDocumentIdCanBeCreated(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+}): Promise<void> {
+  const [binding] = await input.executor
+    .select({ id: organizationRosterEntries.id })
+    .from(organizationRosterEntries)
+    .where(eq(organizationRosterEntries.profileDocumentId, input.documentId))
+    .limit(1);
+  if (binding) {
+    throw new DocumentMutationError(
+      "Bound roster profile document IDs cannot be recreated",
+      409,
+    );
+  }
+}
+
 export async function assertRosterProfileBindingPreserved(input: {
   readonly executor: DatabaseSession;
   readonly manifest: VerifiedDocumentLinkSetManifest;
