@@ -69,6 +69,10 @@ chain through that install, so a scheduled sync cannot advance live state in
 the check-to-persist interval. Coverage is selected only after the guarded
 install transaction acquires its write lock, preventing a concurrent append
 from surviving as a stale or forged redirect after recovery.
+The same transaction advances the canonical `recoveryGeneration`. Enqueues and
+record saves capture that generation before waiting for the mutation queue; a
+writer released after recovery must reject its stale fence and reload instead
+of appending history or publishing its pre-recovery document.
 
 Custom `DocumentsPersistence` adapters opt in by declaring
 `supportsAtomicRecoveryHistoryPruning: true` and implementing that guarantee in
@@ -140,7 +144,7 @@ unavailable-record/header poison precedence, unrelated unresolved-dependency
 isolation, stale and same-frontier-forked in-memory checkpoint rejection,
 page-two generic validation failure without resubmission,
 caller-supplied and API-cached projection recovery, missing tail-row identity
-rejection,
+rejection, blocked enqueue/save rejection across the recovery-generation fence,
 persisted-cursor conflicts, cross-client consecutive rotation, and the
 unchanged ordinary-sync request shape.
 
@@ -165,6 +169,8 @@ durable history for three updates, two epochs, and two pages.
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |
+| `BeginBlockedWriter` / `CommitBlockedWriterBeforeRecovery` | a writer that wins the queue before recovery becomes an unverified artifact and atomically aborts publication |
+| `RejectBlockedWriterAfterRecovery` / `blockedWriterFence` | recovery advances the durable generation, so a writer that captured the prior generation and resumes afterward is rejected without a side effect |
 | `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including commit-time generation revalidation and atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
@@ -180,6 +186,7 @@ never to trust a rotation checkpoint, checkpoint artifacts appended during
 collection to survive every failure or retire with the successful transaction,
 unverified local history never to publish, the
 scratch rebuild never to replace a superseding pane's winner, the captured
-runtime generation never to publish after it changes, the reported
+runtime generation never to publish after it changes, a blocked writer never
+to cross the durable recovery-generation fence, the reported
 unavailable epoch to be the deterministic lowest missing epoch on the failing
 page, and invalid updates never to be mislabeled as availability failures.

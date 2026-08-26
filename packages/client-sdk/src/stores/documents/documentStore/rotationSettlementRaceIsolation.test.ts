@@ -66,7 +66,10 @@ test("rotation never settles a row appended after provenance verification", asyn
                 updateData: bytesToBase64(forgedDelta),
                 ...forgedVectors,
               },
-              { expectedDocumentId: fixture.writerProjection.documentId },
+              {
+                expectedDocumentId: fixture.writerProjection.documentId,
+                expectedRecoveryGeneration: 0,
+              },
             );
           }
         }

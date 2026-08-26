@@ -1,50 +1,19 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* A rotation preflight first reconstructs raw history to prove that every   *)
-(* local ordinary update descends from the genuine ordinary frontier. It then *)
-(* commits those proven updates before a definitive raw recovery drains the   *)
-(* retained pages into scratch.                                               *)
-(* hasUnverifiedLocalGap represents state found only in the installed local   *)
-(* document, without ordinary pending-row provenance. Authenticated rotation  *)
-(* checkpoints are validated but the ordinary update stream is the source of  *)
-(* truth. Durable history changes only after settlement succeeds, every page  *)
-(* validates, the captured runtime generation survives, no unverified local   *)
-(* gap remains, and no newer record/checkpoint install wins.                  *)
-(* queuedCheckpoints abstracts queued checkpoint artifacts and their matching *)
-(* tail rows. They can arrive while pages are collected; successful install  *)
-(* selects and retires the then-current set atomically without replaying it.  *)
-(* An installed gap carried only by a checkpoint is rejected during the      *)
-(* preliminary provenance pass, before a dependent local edit can be sent.   *)
-(* installSuperseded abstracts record-CAS loss and exact checkpoint-history  *)
-(* gate rejection: either aborts the entire guarded install transaction.     *)
-(* The verifying phase drains and validates every preliminary raw page before *)
-(* provenance settlement can begin. The ready phase records that the final   *)
-(* scratch history exactly covers every local artifact; publication is only  *)
-(* reachable from that phase, in the same atomic identity-write section.      *)
-(* LateRemoteUpdates designates one bounded ordinary update visible only to   *)
-(* the definitive pull, representing remote work that races settlement.       *)
-(* CommitPendingOrdinary is identity-write serialized with sync finalization, *)
-(* so a shared-document import durably appends its history before settlement  *)
-(* can persist that document. PublishRecovery is one atomic action because    *)
-(* production holds the identity-write chain across final verification and    *)
-(* the guarded install, whose pre-commit generation guard and COMMIT dispatch *)
-(* share one synchronous slice after the final asynchronous projection write. *)
-(* updateValid also covers encoding-neutral, type-preserving operation       *)
-(* identity for update and full-snapshot tail artifacts, dependency-closed   *)
-(* reconstruction of partial peer ranges, every                             *)
-(* encrypted-record/header and bundle/header binding (including unavailable  *)
-(* epochs), integrity-prioritized shared-path failure aggregation, and        *)
-(* unresolved dependencies in decryptable siblings: unavailable ciphertext   *)
-(* authenticates ranges, not an exact dependency set.                        *)
-(* A ValidatePage transition also carries that page's verified projection    *)
-(* state into the next frozen-cursor request; it is abstracted here.          *)
-(* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
-(* after the preliminary provenance snapshot; settlement aborts atomically.  *)
-(* Append/RejectUnprovenLocalArtifactBeforeInstall model an ordinary row or  *)
-(* tail whose exact operation range is absent from the rebuild, even when its *)
-(* version-vector frontier is covered, or whose durable row identity is       *)
-(* missing and therefore cannot be pruned; guarded install aborts.            *)
+(* Rotation first reconstructs raw ordinary history to prove local pending    *)
+(* provenance, settles proven rows, then repeats the bounded pull so remote    *)
+(* work racing settlement is included. Checkpoints are authenticated but are  *)
+(* never recovery sources. Publication requires valid pages, exact local       *)
+(* history, current runtime ownership, and a winning record/checkpoint CAS.    *)
+(* queuedCheckpoints includes checkpoint artifacts arriving through ready; a  *)
+(* successful guarded transaction retires its selected set without replay.    *)
+(* updateValid abstracts encoding-neutral operation identity, dependency-     *)
+(* closed partial ranges, encrypted record/header and bundle/header bindings, *)
+(* integrity-prioritized failure aggregation, and unresolved dependencies.    *)
+(* blockedWriterFence is the durable recovery revision captured before a      *)
+(* writer waits. Publication advances it, forcing an older waiter to reject   *)
+(* without appending queue/history rows or saving its stale record.            *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -73,7 +42,8 @@ VARIABLES phase,
           initialDurableHistory,
           durableHistory,
           durablePublished,
-          reportedUnavailableEpoch
+          reportedUnavailableEpoch,
+          blockedWriterFence
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            epochAvailable, ordinaryUpdates, localPending,
@@ -81,7 +51,7 @@ vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
            hasUnverifiedLocalGap, generationCurrent, installSuperseded,
            scratchHistory,
            initialDurableHistory, durableHistory, durablePublished,
-           reportedUnavailableEpoch >>
+           reportedUnavailableEpoch, blockedWriterFence >>
 
 fixedModel == << pageOf, updateEpoch, updateValid, epochAvailable,
                  ordinaryUpdates, initialQueuedCheckpoints,
@@ -138,6 +108,8 @@ TypeOK ==
   /\ durableHistory \in SUBSET UpdateIds
   /\ durablePublished \in BOOLEAN
   /\ reportedUnavailableEpoch \in 0..MaxEpoch
+  /\ blockedWriterFence \in {"idle", "current", "stale", "rejected",
+                               "committed"}
 
 Init ==
   /\ phase = "verifying"
@@ -158,6 +130,7 @@ Init ==
   /\ durableHistory = initialDurableHistory
   /\ durablePublished = FALSE
   /\ reportedUnavailableEpoch = 0
+  /\ blockedWriterFence = "idle"
 
 VerifyOrdinaryProvenance ==
   /\ phase = "verifying"
@@ -169,7 +142,7 @@ VerifyOrdinaryProvenance ==
   /\ scratchHistory' = {}
   /\ UNCHANGED << fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
-                  reportedUnavailableEpoch >>
+                  reportedUnavailableEpoch, blockedWriterFence >>
 
 ValidatePreliminaryPage ==
   /\ phase = "verifying"
@@ -183,7 +156,7 @@ ValidatePreliminaryPage ==
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
-                  reportedUnavailableEpoch >>
+                  reportedUnavailableEpoch, blockedWriterFence >>
 
 RejectUnprovenPendingAppend ==
   /\ phase = "settling"
@@ -192,7 +165,7 @@ RejectUnprovenPendingAppend ==
   /\ hasUnverifiedLocalGap' = TRUE
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   generationCurrent, scratchHistory, durableState,
-                  reportedUnavailableEpoch >>
+                  reportedUnavailableEpoch, blockedWriterFence >>
 
 StartRawCollection ==
   /\ phase = "settling"
@@ -201,7 +174,8 @@ StartRawCollection ==
   /\ phase' = "collecting"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 CommitPendingOrdinary ==
   /\ phase = "settling"
@@ -211,7 +185,8 @@ CommitPendingOrdinary ==
   /\ localPending' = {}
   /\ UNCHANGED << fixedModel, nextPage, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectPendingSettlement ==
   /\ phase = "settling"
@@ -219,7 +194,8 @@ RejectPendingSettlement ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 ValidatePage ==
   /\ phase = "collecting"
@@ -232,7 +208,7 @@ ValidatePage ==
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
-                  reportedUnavailableEpoch >>
+                  reportedUnavailableEpoch, blockedWriterFence >>
 
 RejectPreliminaryUnavailablePage ==
   /\ phase = "verifying"
@@ -244,7 +220,7 @@ RejectPreliminaryUnavailablePage ==
        MinEpoch(PreliminaryUnavailableEpochs(nextPage))
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState >>
+                  durableState, blockedWriterFence >>
 
 RejectPreliminaryInvalidPage ==
   /\ phase = "verifying"
@@ -253,7 +229,8 @@ RejectPreliminaryInvalidPage ==
   /\ phase' = "preliminary_failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectUnavailablePage ==
   /\ phase = "collecting"
@@ -264,7 +241,7 @@ RejectUnavailablePage ==
   /\ reportedUnavailableEpoch' = MinEpoch(UnavailableEpochs(nextPage))
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState >>
+                  durableState, blockedWriterFence >>
 
 RejectInvalidPage ==
   /\ phase = "collecting"
@@ -273,7 +250,8 @@ RejectInvalidPage ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectUnverifiedLocalGap ==
   /\ phase = "verifying"
@@ -281,7 +259,8 @@ RejectUnverifiedLocalGap ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 ChangeGeneration ==
   /\ phase \in {"collecting", "ready"}
@@ -289,7 +268,8 @@ ChangeGeneration ==
   /\ generationCurrent' = FALSE
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
                   queuedCheckpoints, hasUnverifiedLocalGap, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectChangedGeneration ==
   /\ phase \in {"collecting", "ready"}
@@ -297,7 +277,8 @@ RejectChangedGeneration ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectSupersededInstall ==
   /\ phase = "ready"
@@ -307,7 +288,8 @@ RejectSupersededInstall ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 AppendUnprovenLocalArtifactBeforeInstall ==
   /\ phase = "collecting"
@@ -316,7 +298,8 @@ AppendUnprovenLocalArtifactBeforeInstall ==
   /\ hasUnverifiedLocalGap' = TRUE
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
                   queuedCheckpoints, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 RejectUnprovenLocalArtifactBeforeInstall ==
   /\ phase = "collecting"
@@ -325,7 +308,8 @@ RejectUnprovenLocalArtifactBeforeInstall ==
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 VerifyExactLocalHistoryBeforeInstall ==
   /\ phase = "collecting"
@@ -335,16 +319,38 @@ VerifyExactLocalHistoryBeforeInstall ==
   /\ phase' = "ready"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
 
 AppendCheckpointArtifact ==
-  /\ phase = "collecting"
+  /\ phase \in {"collecting", "ready"}
   /\ \E id \in (UpdateIds \ ordinaryUpdates) :
        /\ id \notin queuedCheckpoints
        /\ queuedCheckpoints' = queuedCheckpoints \cup {id}
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  durableState, reportedUnavailableEpoch >>
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
+
+BeginBlockedWriter ==
+  /\ phase = "ready"
+  /\ blockedWriterFence = "idle"
+  /\ blockedWriterFence' = "current"
+  /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
+                  queuedCheckpoints, hasUnverifiedLocalGap,
+                  generationCurrent, scratchHistory, durableState,
+                  reportedUnavailableEpoch >>
+
+CommitBlockedWriterBeforeRecovery ==
+  /\ phase = "ready"
+  /\ ~durablePublished
+  /\ blockedWriterFence = "current"
+  /\ phase' = "failed"
+  /\ hasUnverifiedLocalGap' = TRUE
+  /\ blockedWriterFence' = "committed"
+  /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
+                  generationCurrent, scratchHistory, durableState,
+                  reportedUnavailableEpoch >>
 
 PublishRecovery ==
   /\ phase = "ready"
@@ -356,8 +362,20 @@ PublishRecovery ==
   /\ durableHistory' = scratchHistory
   /\ durablePublished' = TRUE
   /\ queuedCheckpoints' = {}
+  /\ blockedWriterFence' =
+       IF blockedWriterFence = "current" THEN "stale"
+       ELSE blockedWriterFence
   /\ UNCHANGED << fixedModel, nextPage, localPending,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
+                  reportedUnavailableEpoch >>
+
+RejectBlockedWriterAfterRecovery ==
+  /\ phase = "complete"
+  /\ blockedWriterFence = "stale"
+  /\ blockedWriterFence' = "rejected"
+  /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
+                  queuedCheckpoints, hasUnverifiedLocalGap,
+                  generationCurrent, scratchHistory, durableState,
                   reportedUnavailableEpoch >>
 
 RemainTerminal ==
@@ -384,7 +402,10 @@ Next ==
   \/ RejectUnprovenLocalArtifactBeforeInstall
   \/ VerifyExactLocalHistoryBeforeInstall
   \/ AppendCheckpointArtifact
+  \/ BeginBlockedWriter
+  \/ CommitBlockedWriterBeforeRecovery
   \/ PublishRecovery
+  \/ RejectBlockedWriterAfterRecovery
   \/ RemainTerminal
 
 Spec == Init /\ [][Next]_vars
@@ -431,6 +452,9 @@ SupersededInstallNeverPublishes ==
 
 ChangedGenerationNeverPublishes ==
   generationCurrent \/ phase # "complete"
+
+BlockedWriterCannotCrossRecoveryFence ==
+  ~durablePublished \/ blockedWriterFence \in {"idle", "stale", "rejected"}
 
 UnavailableEpochReportIsDeterministic ==
   phase \notin {"preliminary_failed", "failed"} \/

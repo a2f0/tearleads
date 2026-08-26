@@ -2,11 +2,16 @@ import { expect, test } from "bun:test";
 import type { DocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { enqueuePendingDocumentUpdate } from "./pendingUpdatePersistence";
 
-test("a no-op update still revalidates its document identity", async () => {
-  const observed: Array<[string, string | null]> = [];
+test("a no-op update still revalidates its document write fence", async () => {
+  const observed: Array<[string, string | null, number | undefined]> = [];
   const documentIdentityMatches: DocumentsPersistence["documentIdentityMatches"] =
-    async (_execSql, localId, expectedDocumentId) => {
-      observed.push([localId, expectedDocumentId]);
+    async (
+      _execSql,
+      localId,
+      expectedDocumentId,
+      expectedRecoveryGeneration,
+    ) => {
+      observed.push([localId, expectedDocumentId, expectedRecoveryGeneration]);
       return false;
     };
   const persistence = {
@@ -20,10 +25,11 @@ test("a no-op update still revalidates its document identity", async () => {
     enqueuePendingDocumentUpdate({
       execSql: async () => [],
       expectedDocumentId: "document-before-relink",
+      expectedRecoveryGeneration: 4,
       localId: "local-1",
       persistence,
       update: new Uint8Array(),
     }),
   ).resolves.toBe(false);
-  expect(observed).toEqual([["local-1", "document-before-relink"]]);
+  expect(observed).toEqual([["local-1", "document-before-relink", 4]]);
 });

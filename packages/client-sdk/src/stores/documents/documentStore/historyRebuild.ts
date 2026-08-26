@@ -45,6 +45,7 @@ export async function installRebuiltDocument(input: {
         input.currentRecord.lastCommitLsn ??
         null,
       pullContinuation: readPullContinuation(input.synced.response),
+      recoveryGeneration: (input.currentRecord.recoveryGeneration ?? 0) + 1,
       // The guarded checkpoint below covers exactly this frontier.
       snapshotEndVersion: rebuiltEndVersion,
     },

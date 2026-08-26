@@ -72,3 +72,53 @@ test("a stale recovery pane cannot restore an intermediate document cursor", asy
     close();
   }
 });
+
+test("an ordinary save reloads after raw recovery advances its fence", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-save-fence",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const document = await createDocument("document-recovery-save-fence");
+    document.getText("text").update("stale pane");
+    const version = encodeVersionVector(document);
+    const staleRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      effectiveAccessLevel: "write" as const,
+      id: "local-1",
+      recoveryGeneration: 0,
+      snapshotEndVersion: version,
+      text: "before recovery",
+    };
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...staleRecord,
+      recoveryGeneration: 1,
+      text: "recovered winner",
+    });
+
+    const settled = await persistDocumentState({
+      currentDoc: document,
+      currentRecord: staleRecord,
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+      localId: staleRecord.id,
+      patch: { text: "stale pane" },
+      persistence: sqlDocumentsPersistence,
+    });
+
+    expect(settled).toMatchObject({
+      pullContinuationSuperseded: true,
+      record: { recoveryGeneration: 1, text: "recovered winner" },
+    });
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, staleRecord.id),
+    ).resolves.toMatchObject({
+      recoveryGeneration: 1,
+      text: "recovered winner",
+    });
+  } finally {
+    close();
+  }
+});

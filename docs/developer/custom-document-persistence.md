@@ -12,12 +12,13 @@ adopts that winner and its durable history.
 
 `enqueuePendingUpdate(...)` returns a boolean and atomically writes the outgoing
 queue entry with the matching local durable-history tail entry. When
-`expectedDocumentId` is present, the adapter compares it with the canonical row
-inside the same mutation. An absent or different identity returns `false` and
+the expected write context is present, the adapter compares both
+`expectedDocumentId` and `expectedRecoveryGeneration` with the canonical row
+inside the same mutation. An absent or different context returns `false` and
 writes neither row; this is a normal compare-and-set loss, not an exception.
-`documentIdentityMatches(...)` performs the same canonical identity check for a
-no-op update, where there is no queue row to insert but a relink still must be
-observed before the caller reports success.
+`documentIdentityMatches(...)` performs the same canonical write-context check
+for a no-op update, where there is no queue row to insert but a relink or raw
+history recovery still must be observed before the caller reports success.
 
 `commitDocumentMutation(...).attachmentStaging` compares the complete expected
 canonical document record and then writes pending attachment rows, local
@@ -25,6 +26,11 @@ attachment projections, the outgoing CRDT update, and its durable-history tail
 in one transaction. A mismatch changes no row. An insertion failure rolls the
 whole stage back; adapters must not emulate rollback with later compensating
 writes.
+
+An atomic raw-history recovery increments the canonical record's
+`recoveryGeneration`. Every enqueue and save compares the generation captured
+before it waited for the mutation queue; a stale writer returns a compare-and-set
+loss and reloads the recovered record rather than publishing old history.
 
 `commitDocumentMutation(...)` conditionally writes an already-prepared mutation
 only when the complete expected durable record still matches. Its history

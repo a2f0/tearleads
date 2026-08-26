@@ -39,6 +39,7 @@ function sameExpectedDocumentRecord(
 ): boolean {
   return (
     sameDocumentSecurityIdentity(current, expected) &&
+    (current.recoveryGeneration ?? 0) === (expected.recoveryGeneration ?? 0) &&
     sameNullableDocumentValue(current.lastCommitLsn, expected.lastCommitLsn) &&
     current.snapshotEndVersion === expected.snapshotEndVersion &&
     sameNullableDocumentValue(

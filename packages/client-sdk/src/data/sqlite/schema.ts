@@ -86,6 +86,9 @@ const accessLevelColumn = "effective_access_level";
  *   compare version coverage without loading content. Empty string when the
  *   document has never hydrated content, which readers treat as "no deferred
  *   tail claimable".
+ * - `recoveryGeneration`: Monotonic fence advanced by an atomic raw-history
+ *   recovery install. A writer that captured an older generation before it
+ *   waited for the mutation queue cannot publish after that install.
  * - `pullContinuation`: Versioned, serialized progress for the next bounded
  *   remote pull page. It advances only after the current page's content is
  *   durable and is cleared when the frozen snapshot drains.
@@ -111,6 +114,7 @@ export const documents = sqliteTable(
     documentKekTargets: text("document_kek_targets"),
     pendingBaseVersion: text("pending_base_version"),
     pullContinuation: text("pull_continuation"),
+    recoveryGeneration: integer("recovery_generation").notNull().default(0),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
     updatedAt: text("updated_at").notNull(),
   },
@@ -759,6 +763,10 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       {
         definition: '"pull_continuation" TEXT',
         name: "pull_continuation",
+      },
+      {
+        definition: '"recovery_generation" INTEGER NOT NULL DEFAULT 0',
+        name: "recovery_generation",
       },
     ],
   },

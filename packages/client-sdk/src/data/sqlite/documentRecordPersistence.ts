@@ -18,6 +18,7 @@ import type { ExecSql } from "./sqlSchema";
 export const documentRecordSelection = {
   id: documents.localId,
   documentId: documents.documentId,
+  recoveryGeneration: documents.recoveryGeneration,
   snapshotEndVersion: documents.snapshotEndVersion,
   accessEpoch: documents.accessEpoch,
   accessStateHash: documents.accessStateHash,
@@ -46,6 +47,12 @@ export function mapSelectedDocumentRecord(
     documentKekTargets: row.documentKekTargets,
     documentManifestBundle: row.documentManifestBundle,
   };
+
+  // Keep the initial generation shape-compatible with records created before
+  // the fence existed; every comparison normalizes absence to zero.
+  if (row.recoveryGeneration !== 0) {
+    record.recoveryGeneration = row.recoveryGeneration;
+  }
 
   if (row.accessStateHash !== null) {
     record.accessStateHash = row.accessStateHash;

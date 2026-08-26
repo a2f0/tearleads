@@ -276,3 +276,109 @@ test("recovery rejects a same-frontier forged history tail", async () => {
     close();
   }
 });
+
+test("recovery fences writers already waiting on the mutation queue", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-blocked-writer-fence",
+  );
+  let releaseRecovery = () => {};
+  const recoveryBlocked = new Promise<void>((resolve) => {
+    releaseRecovery = resolve;
+  });
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const document = await createDocument("recovery-fence-writer");
+    document.getText("text").update("recovered");
+    const snapshot = bytesToBase64(exportFullHistorySnapshot(document));
+    const version = encodeVersionVector(document);
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: "local-document",
+      snapshotEndVersion: version,
+      text: "recovered",
+    };
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: version, snapshot },
+      undefined,
+      async () => undefined,
+    );
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      initialRecord.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the stored document");
+    let signalRecoveryLock = () => {};
+    const recoveryLocked = new Promise<void>((resolve) => {
+      signalRecoveryLock = resolve;
+    });
+    const recovery = sqlDocumentsPersistence.commitDocumentMutation(
+      execSql,
+      {
+        acceptedPendingUpdateIds: [],
+        document: { ...expectedRecord, recoveryGeneration: 1 },
+        expectedRecord,
+        historyCheckpoint: {
+          coveredTailIds: [],
+          endVersionVector: version,
+          pruneCoveredLocalState: true,
+          snapshot,
+        },
+        settleAcceptedPendingOnConflict: false,
+      },
+      async () => {
+        signalRecoveryLock();
+        await recoveryBlocked;
+      },
+    );
+    await recoveryLocked;
+
+    const staleEnqueue = sqlDocumentsPersistence.enqueuePendingUpdate(
+      execSql,
+      {
+        localId: initialRecord.id,
+        partialEndVersionVector: "stale-end",
+        partialStartVersionVector: "stale-start",
+        updateData: btoa("stale-update"),
+      },
+      {
+        expectedDocumentId: initialRecord.documentId,
+        expectedRecoveryGeneration: 0,
+      },
+    );
+    const staleSave = sqlDocumentsPersistence.commitDocumentMutation(
+      execSql,
+      {
+        acceptedPendingUpdateIds: [],
+        document: { ...expectedRecord, text: "stale" },
+        expectedRecord,
+        settleAcceptedPendingOnConflict: false,
+      },
+      async () => undefined,
+    );
+    releaseRecovery();
+
+    await expect(recovery).resolves.toMatchObject({ committed: true });
+    await expect(staleEnqueue).resolves.toBe(false);
+    await expect(staleSave).resolves.toMatchObject({ committed: false });
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, initialRecord.id),
+    ).resolves.toMatchObject({ recoveryGeneration: 1, text: "recovered" });
+    await expect(
+      sqlDocumentsPersistence.listPendingUpdates(execSql, initialRecord.id),
+    ).resolves.toEqual([]);
+    await expect(
+      sqlDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        initialRecord.id,
+      ),
+    ).resolves.toEqual({ snapshot, tailUpdates: [] });
+    document.free();
+  } finally {
+    releaseRecovery();
+    close();
+  }
+});

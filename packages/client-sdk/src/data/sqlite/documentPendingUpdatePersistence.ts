@@ -100,7 +100,10 @@ export async function enqueueDocumentPendingUpdateWithHistory(
   execSql: ExecSql,
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
-  options?: { expectedDocumentId: string | null },
+  options?: {
+    expectedDocumentId: string | null;
+    expectedRecoveryGeneration?: number;
+  },
 ): Promise<string | null> {
   const createdAt = new Date().toISOString();
   return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
@@ -113,6 +116,14 @@ export async function enqueueDocumentPendingUpdateWithHistory(
             eq(documents.appKind, scope.appKind),
             eq(documents.localId, scope.localId),
             sql`${documents.documentId} IS ${options.expectedDocumentId}`,
+            ...(options.expectedRecoveryGeneration === undefined
+              ? []
+              : [
+                  eq(
+                    documents.recoveryGeneration,
+                    options.expectedRecoveryGeneration,
+                  ),
+                ]),
           ),
         )
         .limit(1);

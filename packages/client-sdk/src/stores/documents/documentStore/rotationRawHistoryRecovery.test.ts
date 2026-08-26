@@ -39,6 +39,7 @@ import {
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
 import { registerDocumentStoreSyncLane } from "./sync";
+import { captureDocumentStoreSyncLaneGeneration } from "./syncGeneration";
 
 async function createForgedRotationBaseline(
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
@@ -137,7 +138,10 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
               sourceVersionVector: forged.vectors.partialEndVersionVector,
               updateData: bytesToBase64(forged.snapshot),
             },
-            { expectedDocumentId: fixture.writerProjection.documentId },
+            {
+              expectedDocumentId: fixture.writerProjection.documentId,
+              expectedRecoveryGeneration: 0,
+            },
           );
         }
         return sqlDocumentsPersistence.commitDocumentMutation(...args);
@@ -160,7 +164,6 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     ).toBe(true);
 
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
-
     const recovered = await createDocument("forged-baseline-reader");
     importSnapshot(recovered, baseline);
     expect(getTextValue(recovered)).toBe("survives key rotation");
@@ -171,7 +174,14 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
     ).toEqual([]);
 
     state.remoteUpdatePending = true;
-    state.syncLane = registerDocumentStoreSyncLane(state);
+    let syncLaneGeneration: ReturnType<
+      typeof captureDocumentStoreSyncLaneGeneration
+    > | null = null;
+    state.syncLane = registerDocumentStoreSyncLane(
+      state,
+      () => syncLaneGeneration,
+    );
+    syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
     state.syncLane.requestSync();
     expect(
       await waitForDomainSyncCoordinatorToSettle(runtime.state.domainScope),

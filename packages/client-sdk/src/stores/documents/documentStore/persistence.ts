@@ -457,6 +457,7 @@ export async function enqueuePendingUpdate(
   expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<boolean> {
   const expectedDocumentId = state.record?.documentId;
+  const expectedRecoveryGeneration = state.record?.recoveryGeneration ?? 0;
   if (expectedDocumentId === undefined) {
     return false;
   }
@@ -468,6 +469,7 @@ export async function enqueuePendingUpdate(
       enqueued = await enqueuePendingDocumentUpdate({
         execSql,
         expectedDocumentId,
+        expectedRecoveryGeneration,
         localId: state.localId,
         persistence: state.persistence,
         ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),

@@ -81,6 +81,9 @@ function toDocumentRecordRow(input: {
     appKind: DOCUMENTS_APP_KIND,
     localId: document.id,
     documentId: document.documentId,
+    ...(document.recoveryGeneration === undefined
+      ? {}
+      : { recoveryGeneration: document.recoveryGeneration }),
     snapshotEndVersion: document.snapshotEndVersion,
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,

@@ -16,6 +16,7 @@ export async function listPendingDocumentUpdates(input: {
 export async function enqueuePendingDocumentUpdate(input: {
   execSql: ExecSql;
   expectedDocumentId?: string | null;
+  expectedRecoveryGeneration?: number;
   localId: string;
   persistence: DocumentsPersistence;
   sourceVersionVector?: string | null;
@@ -32,6 +33,7 @@ export async function enqueuePendingDocumentUpdate(input: {
           input.execSql,
           input.localId,
           input.expectedDocumentId,
+          input.expectedRecoveryGeneration,
         );
   }
 
@@ -43,6 +45,13 @@ export async function enqueuePendingDocumentUpdate(input: {
     },
     input.expectedDocumentId === undefined
       ? undefined
-      : { expectedDocumentId: input.expectedDocumentId },
+      : {
+          expectedDocumentId: input.expectedDocumentId,
+          ...(input.expectedRecoveryGeneration === undefined
+            ? {}
+            : {
+                expectedRecoveryGeneration: input.expectedRecoveryGeneration,
+              }),
+        },
   );
 }
