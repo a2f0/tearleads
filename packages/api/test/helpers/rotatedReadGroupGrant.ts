@@ -35,6 +35,7 @@ import {
   uniquePrincipalPolicies,
   userRecipientKeysFromKekTargets,
 } from "./keyingWriterProjectionKit";
+import { buildRootRevokeRequest } from "./keyingWriterProjectionRevoke";
 import { createGroupRequest } from "./organizationGroup";
 import { joinOrg } from "./organizationMembership";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
@@ -277,7 +278,10 @@ export async function grantRootThroughRotatedReadGroup(input: {
   actor: TestUser;
   reader: TestUser;
   root: DecryptableStoredRootFixture;
-}): Promise<string> {
+}): Promise<{
+  readonly groupId: string;
+  readonly root: DecryptableStoredRootFixture;
+}> {
   const organizationId = asVerifiedContainerManifest(input.root.bundle).state
     .organizationId;
   await joinOrg(organizationId, input.actor, input.reader);
@@ -369,12 +373,53 @@ export async function grantRootThroughRotatedReadGroup(input: {
       });
     }),
   )) as unknown as Record<string, unknown>[];
-  await submitSuccessor({
+  const rotatedMutation = await submitSuccessor({
     actor: input.actor,
     containerMutation: rekey.request,
     groupId,
     organizationId,
     successor: rotated,
   });
-  return groupId;
+  return {
+    groupId,
+    root: {
+      bundle: accessManifestFromContainerResponse(rotatedMutation),
+      kekState: kekStateFromContainerResponse(rotatedMutation),
+      plaintextKek: rekey.plaintextKek,
+      principalPolicies: rekey.container.principalPolicies ?? [],
+    },
+  };
+}
+
+export async function revokeRootRotatedReadGroup(input: {
+  readonly actor: TestUser;
+  readonly groupId: string;
+  readonly root: DecryptableStoredRootFixture;
+}): Promise<void> {
+  const current = await loadVerifiedPrincipalPolicy(db, "group", input.groupId);
+  const successor = await signGroupSuccessor({
+    actor: input.actor,
+    current,
+    grants: [],
+  });
+  const revoke = await buildRootRevokeRequest({
+    previous: input.root.bundle,
+    previousKekState: input.root.kekState,
+    revokedGrant: {
+      subjectId: input.groupId,
+      subjectType: "group",
+    },
+    signer: input.actor,
+  });
+  revoke.principalPolicies = (revoke.principalPolicies ?? []).filter(
+    (policy) => Reflect.get(policy, "principalId") !== input.groupId,
+  );
+  await submitSuccessor({
+    actor: input.actor,
+    containerMutation: revoke,
+    groupId: input.groupId,
+    organizationId: asVerifiedContainerManifest(input.root.bundle).state
+      .organizationId,
+    successor,
+  });
 }

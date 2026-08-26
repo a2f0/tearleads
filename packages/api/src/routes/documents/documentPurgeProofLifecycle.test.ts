@@ -21,7 +21,13 @@ import {
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
+import { deleteGroupRequest } from "../../../test/helpers/organizationGroup";
+import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  grantRootThroughRotatedReadGroup,
+  revokeRootRotatedReadGroup,
+} from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
 
 async function registerAndAuthenticate(user: TestUser): Promise<void> {
@@ -246,6 +252,51 @@ test("purge proof remains available to a later-revoked replica", async () => {
   const proofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,
     { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
+  );
+  expect(proofResponse.status).toBe(200);
+  expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
+});
+
+test("purge proof survives revocation and deletion of a referenced group", async () => {
+  const owner = createTestUser();
+  const reader = createTestUser();
+  await registerAndAuthenticate(owner);
+  await registerAndAuthenticate(reader);
+  const root = await recoverRegisteredRootKek({
+    owner,
+    root: await bootstrapRoot(owner),
+  });
+  const organizationId = asVerifiedContainerManifest(root.bundle).state
+    .organizationId;
+  const granted = await grantRootThroughRotatedReadGroup({
+    actor: owner,
+    reader,
+    root,
+  });
+  const created = await createDocument({ owner, root: granted.root });
+  const purgeResponse = await postDocumentPurge({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root: granted.root,
+  });
+  expect(purgeResponse.status).toBe(200);
+
+  await revokeRootRotatedReadGroup({
+    actor: owner,
+    groupId: granted.groupId,
+    root: granted.root,
+  });
+  const deleteResponse = await deleteGroupRequest({
+    actor: owner,
+    groupId: granted.groupId,
+    organizationId,
+  });
+  expect(deleteResponse.status).toBe(200);
+
+  const proofResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(proofResponse.status).toBe(200);
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);

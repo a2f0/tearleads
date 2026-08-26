@@ -3,11 +3,13 @@ import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-  principalContainerGrantProjection,
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import { isOrganizationReadModelResponse } from "@symcrypt/validators/response";
+import {
+  isOrganizationReadModelResponse,
+  isPrincipalPolicyBundleResponse,
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -111,25 +113,23 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
     createdState,
   );
-  await db.insert(principalContainerGrantProjection).values({
-    accessLevel: "read",
-    containerId: crypto.randomUUID(),
-    principalId: groupId,
-    principalType: "group",
-    stateHash: createdState.stateHash,
-  });
   const deleteResponse = await deleteGroupRequest({
     actor: owner,
     groupId,
     organizationId: organization.organizationId,
   });
   expect(deleteResponse.status).toBe(200);
+  expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
+    createdState,
+  );
+  const retainedPolicyResponse = await routeApp.request(
+    `/principals/group/${groupId}/policy`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(retainedPolicyResponse.status).toBe(200);
   expect(
-    await db
-      .select({ id: principalContainerGrantProjection.id })
-      .from(principalContainerGrantProjection)
-      .where(eq(principalContainerGrantProjection.principalId, groupId)),
-  ).toEqual([]);
+    isPrincipalPolicyBundleResponse(await retainedPolicyResponse.json()),
+  ).toBe(true);
   const before = await readSnapshot(owner, organization.organizationId);
 
   const replayResponse = await routeApp.request(
@@ -144,7 +144,9 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
     },
   );
   expect(replayResponse.status).toBe(409);
-  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
+  expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
+    createdState,
+  );
 
   const reuseResponse = await postGroup(
     owner,

@@ -5,13 +5,7 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
-  principalContainerGrantProjection,
-  principalEpochKeys,
-  principalMemberEnvelopes,
-  principalMembershipProjection,
   principalPolicyMutationAcknowledgements,
-  principalStatePayloads,
-  principalStates,
 } from "@symcrypt/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
@@ -131,54 +125,12 @@ export async function deleteOrganizationGroupRows(input: {
         eq(principalPolicyMutationAcknowledgements.principalId, input.groupId),
       ),
     );
-  await input.executor
-    .delete(principalContainerGrantProjection)
-    .where(
-      and(
-        eq(principalContainerGrantProjection.principalType, "group"),
-        eq(principalContainerGrantProjection.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalMemberEnvelopes)
-    .where(
-      and(
-        eq(principalMemberEnvelopes.principalType, "group"),
-        eq(principalMemberEnvelopes.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalMembershipProjection)
-    .where(
-      and(
-        eq(principalMembershipProjection.principalType, "group"),
-        eq(principalMembershipProjection.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalStatePayloads)
-    .where(
-      and(
-        eq(principalStatePayloads.principalType, "group"),
-        eq(principalStatePayloads.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalEpochKeys)
-    .where(
-      and(
-        eq(principalEpochKeys.principalType, "group"),
-        eq(principalEpochKeys.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, "group"),
-        eq(principalStates.principalId, input.groupId),
-      ),
-    );
+  // Signed policy history is immutable verification evidence. Retain the
+  // states, projections, grants, payloads, epoch keys, and member envelopes so
+  // terminal document proofs that referenced this group remain independently
+  // verifiable after the catalog row is removed. The durable tombstone above
+  // prevents policy replay or ID reuse, while current container references are
+  // already excluded by the deletion blocker.
   await input.executor
     .delete(groupsTable)
     .where(eq(groupsTable.id, input.groupId));

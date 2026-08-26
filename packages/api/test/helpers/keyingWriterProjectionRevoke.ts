@@ -1,6 +1,7 @@
 import type { TestUser } from "@symcrypt/bob-and-alice";
 import type {
   ContainerAccessEventBody,
+  ContainerGrantSubjectType,
   ContainerKeyWrap,
   VerifiedContainerKekState,
 } from "@symcrypt/crypto";
@@ -33,7 +34,11 @@ import {
 export async function buildRootRevokeRequest(input: {
   readonly previous: AccessManifestBundleWire;
   readonly previousKekState: VerifiedContainerKekState;
-  readonly revokedUser: TestUser;
+  readonly revokedGrant?: {
+    readonly subjectId: string;
+    readonly subjectType: ContainerGrantSubjectType;
+  };
+  readonly revokedUser?: TestUser;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const previous = asVerifiedContainerManifest(input.previous);
@@ -66,14 +71,21 @@ export async function buildRootRevokeRequest(input: {
     successorContainerKey: plaintextKek,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
+  const revokedGrant = input.revokedGrant ?? {
+    subjectId: input.revokedUser?.userId,
+    subjectType: "user" as const,
+  };
+  if (!revokedGrant.subjectId) {
+    throw new Error("buildRootRevokeRequest requires a revoked grant");
+  }
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
       await computeContainerKekPredecessorBridgeHash(predecessorBridge),
-    subjectType: "user",
-    subjectId: input.revokedUser.userId,
+    subjectType: revokedGrant.subjectType,
+    subjectId: revokedGrant.subjectId,
   };
   const event = await createSignedAccessEvent({
     body,
@@ -93,8 +105,13 @@ export async function buildRootRevokeRequest(input: {
       containerKeyEpochId,
       directGrants: previous.state.directGrants.filter(
         (grant) =>
-          grant.subjectType !== "user" ||
-          grant.subjectId !== input.revokedUser.userId,
+          grant.subjectType !== revokedGrant.subjectType ||
+          grant.subjectId !== revokedGrant.subjectId,
+      ),
+      referencedPrincipalHeads: previous.state.referencedPrincipalHeads.filter(
+        (head) =>
+          head.principalType !== revokedGrant.subjectType ||
+          head.principalId !== revokedGrant.subjectId,
       ),
     },
     event,
@@ -106,8 +123,8 @@ export async function buildRootRevokeRequest(input: {
   });
   const recipientTargets = input.previousKekState.recipientTargets.filter(
     (target) =>
-      target.recipientKind !== "user" ||
-      target.recipientId !== input.revokedUser.userId,
+      target.recipientKind !== revokedGrant.subjectType ||
+      target.recipientId !== revokedGrant.subjectId,
   );
   const wraps: ContainerKeyWrap[] = recipientTargets.map((recipientTarget) =>
     createContainerKeyWrapForRecipientTarget({
