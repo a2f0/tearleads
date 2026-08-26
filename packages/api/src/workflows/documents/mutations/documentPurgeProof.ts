@@ -11,7 +11,10 @@ import {
   verifyDocumentPurgeEvent,
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
-import type { DocumentPurgeProofResponse } from "@symcrypt/validators/response";
+import type {
+  AccessManifestBundleWireResponse,
+  DocumentPurgeProofResponse,
+} from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import { getStoredAccessEventByObjectType } from "../../../access/read/accessManifestStore";
 import {
@@ -30,8 +33,16 @@ import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "../storedDocumentManifestVerification";
-import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
+import {
+  loadAuthorizingContainerCheckpointMaterial,
+  loadDocumentPurgeProofMaterial,
+} from "../writerProjectionPurgeProof";
 import { DocumentMutationError } from "./errors";
+
+const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
+type ContainerProjectionContext = ReturnType<
+  typeof createContainerWriterProjectionContext
+>;
 
 async function verifyStoredPurgeEvent(input: {
   readonly documentId: string;
@@ -67,6 +78,108 @@ async function verifyStoredPurgeEvent(input: {
   return verified.value;
 }
 
+async function verifyStoredContainerPath(input: {
+  readonly bundles: readonly AccessManifestBundleWireResponse[];
+  readonly context: ContainerProjectionContext;
+}): Promise<VerifiedContainerAccessManifest[]> {
+  const verified: VerifiedContainerAccessManifest[] = [];
+  for (const bundle of input.bundles) {
+    verified.push(
+      await verifyStoredContainerManifest({
+        bundle,
+        context: input.context,
+        loadBundle: (manifestHash) =>
+          loadContainerManifestBundleByHash(input.context, manifestHash),
+      }),
+    );
+  }
+  return verified;
+}
+
+async function assertCheckpointHeadExtends(input: {
+  readonly authorizingManifest: VerifiedContainerAccessManifest;
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly context: ContainerProjectionContext;
+}): Promise<void> {
+  let current = await verifyStoredContainerManifest({
+    bundle: input.bundle,
+    context: input.context,
+    loadBundle: (manifestHash) =>
+      loadContainerManifestBundleByHash(input.context, manifestHash),
+  });
+  const visited = new Set<string>();
+  for (let depth = 0; depth < MAX_CONTAINER_HISTORY_DEPTH; depth += 1) {
+    if (
+      current.state.containerId !== input.authorizingManifest.state.containerId
+    ) {
+      throw new DocumentMutationError(
+        "Document purge authorization checkpoint belongs to another container",
+        409,
+      );
+    }
+    if (current.manifestHash === input.authorizingManifest.manifestHash) {
+      return;
+    }
+    if (
+      current.state.epoch <= input.authorizingManifest.state.epoch ||
+      !current.state.previousManifestHash ||
+      visited.has(current.manifestHash)
+    ) {
+      break;
+    }
+    visited.add(current.manifestHash);
+    current = await verifyStoredContainerManifest({
+      bundle: await loadContainerManifestBundleByHash(
+        input.context,
+        current.state.previousManifestHash,
+      ),
+      context: input.context,
+      loadBundle: (manifestHash) =>
+        loadContainerManifestBundleByHash(input.context, manifestHash),
+    });
+  }
+  throw new DocumentMutationError(
+    "Document purge authorization checkpoint does not extend the signed path",
+    409,
+  );
+}
+
+async function loadVerifiedCheckpointMaterial(input: {
+  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly context: ContainerProjectionContext;
+  readonly executor: DatabaseSession;
+}) {
+  const checkpointMaterial = await loadAuthorizingContainerCheckpointMaterial({
+    containerIds: input.authorizingContainerPath.map(
+      (manifest) => manifest.state.containerId,
+    ),
+    executor: input.executor,
+  });
+  if (
+    checkpointMaterial.heads.length !== input.authorizingContainerPath.length
+  ) {
+    throw new DocumentMutationError(
+      "Document purge authorization checkpoint count is inconsistent",
+      409,
+    );
+  }
+  for (const [index, bundle] of checkpointMaterial.heads.entries()) {
+    const authorizingManifest = input.authorizingContainerPath[index];
+    if (!authorizingManifest) {
+      throw new DocumentMutationError(
+        "Document purge authorization checkpoint count is inconsistent",
+        409,
+      );
+    }
+    await assertCheckpointHeadExtends({
+      authorizingManifest,
+      bundle,
+      context: input.context,
+    });
+  }
+  return checkpointMaterial;
+}
+
 async function verifyProofMaterial(input: {
   readonly documentId: string;
   readonly event: VerifiedAccessEvent;
@@ -90,22 +203,22 @@ async function verifyProofMaterial(input: {
   });
   const context = createContainerWriterProjectionContext(input.executor);
   let documentManifest: VerifiedDocumentLinkSetManifest;
-  const authorizingContainerPath: VerifiedContainerAccessManifest[] = [];
+  let authorizingContainerPath: VerifiedContainerAccessManifest[];
+  let historicalContainerPaths: VerifiedContainerAccessManifest[][];
   try {
     documentManifest = await verifyStoredDocumentManifest({
       bundle: material.documentManifest,
       containerContext: context,
     });
-    for (const bundle of material.authorizingContainerPath) {
-      authorizingContainerPath.push(
-        await verifyStoredContainerManifest({
-          bundle,
-          context,
-          loadBundle: (manifestHash) =>
-            loadContainerManifestBundleByHash(context, manifestHash),
-        }),
-      );
-    }
+    authorizingContainerPath = await verifyStoredContainerPath({
+      bundles: material.authorizingContainerPath,
+      context,
+    });
+    historicalContainerPaths = await Promise.all(
+      material.documentManifestContainerPaths.map((bundles) =>
+        verifyStoredContainerPath({ bundles, context }),
+      ),
+    );
   } catch (error) {
     if (
       error instanceof StoredDocumentManifestError ||
@@ -117,7 +230,7 @@ async function verifyProofMaterial(input: {
   }
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
-    [authorizingContainerPath],
+    [authorizingContainerPath, ...historicalContainerPaths],
   );
   const verified = await verifyDocumentPurgeEvent({
     authorizingContainerPath,
@@ -132,10 +245,26 @@ async function verifyProofMaterial(input: {
       keyingVerificationHttpStatus(verified.error),
     );
   }
+  const checkpointMaterial = await loadVerifiedCheckpointMaterial({
+    authorizingContainerPath,
+    context,
+    executor: input.executor,
+  });
+  const containerHistoryByHash = new Map(
+    [
+      ...material.documentContainerManifestHistory,
+      ...checkpointMaterial.history,
+    ].map((bundle) => [bundle.manifestHash, bundle]),
+  );
   return {
     authorizingContainerPath,
     body,
-    material,
+    historicalContainerPaths,
+    material: {
+      ...material,
+      authorizingContainerCheckpointHeads: checkpointMaterial.heads,
+      documentContainerManifestHistory: [...containerHistoryByHash.values()],
+    },
     principalPolicies,
   };
 }
@@ -159,23 +288,34 @@ export async function loadDocumentPurgeProof(input: {
     event: storedEvent,
     executor: input.executor,
   });
-  const { authorizingContainerPath, body, material, principalPolicies } =
-    await verifyProofMaterial({
-      documentId: input.documentId,
-      event,
-      executor: input.executor,
-    });
+  const {
+    authorizingContainerPath,
+    body,
+    historicalContainerPaths,
+    material,
+    principalPolicies,
+  } = await verifyProofMaterial({
+    documentId: input.documentId,
+    event,
+    executor: input.executor,
+  });
 
   // A purge proof is terminal history, not a claim about the container's
   // current state. A replica that had access when the purge was signed must
   // still be able to learn that it should delete its local copy after the user
   // is revoked or the container itself is deleted.
-  const historicalAccessLevel = resolveHistoricalContainerPathUserAccessLevel({
-    path: authorizingContainerPath,
-    principalPolicies,
-    userId: input.userId,
-  });
-  if (historicalAccessLevel === null) {
+  const hadHistoricalAccess = [
+    authorizingContainerPath,
+    ...historicalContainerPaths,
+  ].some(
+    (path) =>
+      resolveHistoricalContainerPathUserAccessLevel({
+        path,
+        principalPolicies,
+        userId: input.userId,
+      }) !== null,
+  );
+  if (!hadHistoricalAccess) {
     throw new DocumentMutationError("Forbidden", 403);
   }
 

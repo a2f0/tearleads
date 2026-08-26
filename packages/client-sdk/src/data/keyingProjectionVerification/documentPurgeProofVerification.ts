@@ -19,6 +19,7 @@ import {
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
 } from "./checkpointContext";
+import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import {
   collectPrincipalPoliciesForContainerPaths,
   verifiedContainerManifestsForBundles,
@@ -51,6 +52,7 @@ function collectContainerBundles(
 ): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   const paths = [
+    proof.authorizingContainerCheckpointHeads,
     proof.authorizingContainerPath,
     ...proof.documentManifestContainerPaths,
   ];
@@ -76,6 +78,97 @@ function collectContainerBundles(
   return bundlesByHash;
 }
 
+function assertCheckpointHeadExtendsSignedPath(input: {
+  readonly authorizingManifest: VerifiedContainerAccessManifest;
+  readonly checkpointHead: VerifiedContainerAccessManifest;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+}): void {
+  let current = input.checkpointHead;
+  const visited = new Set<string>();
+  while (current.manifestHash !== input.authorizingManifest.manifestHash) {
+    if (
+      current.state.containerId !==
+        input.authorizingManifest.state.containerId ||
+      current.state.epoch <= input.authorizingManifest.state.epoch ||
+      !current.state.previousManifestHash ||
+      visited.has(current.manifestHash)
+    ) {
+      throw new KeyingVerificationError(
+        "stale_predecessor",
+        "Document purge checkpoint head does not extend the signed authorization path",
+      );
+    }
+    visited.add(current.manifestHash);
+    const previous = input.verifiedByHash.get(
+      current.state.previousManifestHash,
+    );
+    if (!previous) {
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Document purge checkpoint ordering evidence is incomplete",
+      );
+    }
+    current = previous;
+  }
+}
+
+async function verifyPurgeCheckpointHeads(input: {
+  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+  readonly checkpointContext: ReturnType<
+    typeof createProjectionCheckpointContext
+  >;
+  readonly principalPolicyCache: PrincipalPolicyCache;
+  readonly proof: DocumentPurgeProofResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
+}): Promise<VerifiedContainerAccessManifest[]> {
+  if (
+    input.proof.authorizingContainerCheckpointHeads.length !==
+    input.authorizingContainerPath.length
+  ) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Document purge checkpoint heads do not match the signed authorization path",
+    );
+  }
+  const checkpointHeads: VerifiedContainerAccessManifest[] = [];
+  for (const [
+    index,
+    bundle,
+  ] of input.proof.authorizingContainerCheckpointHeads.entries()) {
+    const authorizingManifest = input.authorizingContainerPath[index];
+    if (!authorizingManifest) {
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Document purge checkpoint head has no signed authorization manifest",
+      );
+    }
+    const checkpointHead = await verifyContainerManifestBundle({
+      bundle,
+      bundlesByHash: input.bundlesByHash,
+      checkpointContext: input.checkpointContext,
+      enforceLocalCheckpoint: true,
+      label: `Document purge checkpoint head[${index}]`,
+      parentPath: input.authorizingContainerPath.slice(0, index),
+      principalPolicyCache: input.principalPolicyCache,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash: input.verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
+    assertCheckpointHeadExtendsSignedPath({
+      authorizingManifest,
+      checkpointHead,
+      verifiedByHash: input.verifiedByHash,
+    });
+    checkpointHeads.push(checkpointHead);
+  }
+  return checkpointHeads;
+}
+
 async function verifyPurgeContainerPaths(input: {
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
@@ -92,12 +185,9 @@ async function verifyPurgeContainerPaths(input: {
   const authorizingContainerPath = await verifyContainerManifestPath({
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    // Without a signed ordering link from a newer container head back to this
-    // purge, accepting an older authorization path would let a revoked writer
-    // sign a purge against retained history. Fail hard when a local head has
-    // already advanced; a future protocol can relax this only with ordering
-    // evidence that the purge preceded the advance.
-    enforceLocalCheckpoints: true,
+    // The purge event signs this exact historical path. Durable checkpoint
+    // comparison happens against the descendant heads verified below.
+    enforceLocalCheckpoints: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -120,6 +210,17 @@ async function verifyPurgeContainerPaths(input: {
     authorizingLeaf.manifestHash,
     authorizingContainerPath,
   );
+
+  const checkpointHeads = await verifyPurgeCheckpointHeads({
+    authorizingContainerPath,
+    bundlesByHash,
+    checkpointContext: input.checkpointContext,
+    principalPolicyCache: input.principalPolicyCache,
+    proof: input.proof,
+    resolveUserKey: input.resolveUserKey,
+    verifiedByHash,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
 
   for (const [
     index,
@@ -146,7 +247,7 @@ async function verifyPurgeContainerPaths(input: {
     manifests: verifiedByHash,
   });
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: [authorizingLeaf],
+    verifiedHeads: checkpointHeads,
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,

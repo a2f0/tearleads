@@ -58,6 +58,9 @@ export type DocumentLinkSetMutationResponse = z.infer<
 >;
 
 const documentPurgeProofShape = {
+  authorizingContainerCheckpointHeads: nonEmptyArraySchema(
+    AccessManifestBundleWireResponseSchema,
+  ),
   authorizingContainerPath: nonEmptyArraySchema(
     AccessManifestBundleWireResponseSchema,
   ),

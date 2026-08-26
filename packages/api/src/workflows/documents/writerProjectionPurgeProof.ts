@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import {
   type ContainerDependencyLoadState,
   DocumentWriterProjectionError,
@@ -16,6 +17,59 @@ interface DocumentPurgeProofMaterial {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
   readonly documentManifestHistory: AccessManifestBundleWireResponse[];
+}
+
+export async function loadAuthorizingContainerCheckpointMaterial(input: {
+  readonly containerIds: readonly string[];
+  readonly executor: DatabaseSession;
+}): Promise<{
+  readonly heads: AccessManifestBundleWireResponse[];
+  readonly history: AccessManifestBundleWireResponse[];
+}> {
+  const manifestCache = new Map<string, LoadedProjectionManifestBundle>();
+  const state: ContainerDependencyLoadState = {
+    containerHistoryByHash: new Map(),
+    containerPathsByLeafHash: new Map(),
+    executor: input.executor,
+    manifestCache,
+    walkedContainerPredecessors: new Set(),
+  };
+  const heads: AccessManifestBundleWireResponse[] = [];
+
+  for (const containerId of input.containerIds) {
+    const head = await getCurrentAccessManifestHead(
+      "container",
+      containerId,
+      input.executor,
+    );
+    if (!head) {
+      throw new DocumentWriterProjectionError(
+        "Document purge authorization checkpoint head is missing",
+        409,
+      );
+    }
+    await loadContainerDependencyPath({
+      leafManifestHash: head.manifestHash,
+      state,
+    });
+    const loaded = await loadProjectionManifestBundleByHash(
+      input.executor,
+      head.manifestHash,
+      manifestCache,
+    );
+    if (loaded.objectKind !== "container") {
+      throw new DocumentWriterProjectionError(
+        "Document purge authorization checkpoint has the wrong object kind",
+        409,
+      );
+    }
+    heads.push(loaded.bundle);
+  }
+
+  return {
+    heads,
+    history: [...state.containerHistoryByHash.values()],
+  };
 }
 
 export async function loadDocumentPurgeProofMaterial(input: {

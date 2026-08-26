@@ -10748,6 +10748,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        authorizingContainerCheckpointHeads: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         authorizingContainerPath: ({
                             event: {
                                 body: unknown;
@@ -11008,6 +11028,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        authorizingContainerCheckpointHeads: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         authorizingContainerPath: ({
                             event: {
                                 body: unknown;

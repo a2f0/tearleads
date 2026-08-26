@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
+import {
+  type AccessManifestBundleWireResponse,
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  type DocumentPurgeProofResponse,
+} from "@symcrypt/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,
@@ -69,7 +73,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   close();
 });
 
-test("a purge proof fails hard behind a newer container checkpoint", async () => {
+test("signed descendant evidence reconciles a newer container checkpoint", async () => {
   const {
     author,
     projection,
@@ -99,10 +103,46 @@ test("a purge proof fails hard behind a newer container checkpoint", async () =>
     subjectId: author.signerUserId,
     subjectType: "user",
   });
+  const proofWithOrderingEvidence = {
+    ...purgeProof,
+    authorizingContainerCheckpointHeads: [
+      newerContainerManifest as unknown as AccessManifestBundleWireResponse,
+    ],
+  };
   const deletedDocumentIds: string[] = [];
   const { close, execSql } = await createTestExecSql(
     "purge-proof-newer-container-checkpoint",
   );
+  const syncWithProof = (proof: DocumentPurgeProofResponse) =>
+    syncRemoteDocument({
+      apiClient: {
+        getDocumentPurgeProof: async () => proof,
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected getDocumentWriterProjectionResult");
+        },
+        getDocumentWriterProjectionResult: async () => ({
+          code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+          message: "Document not found",
+          ok: false,
+          report: () => undefined,
+          status: 404,
+        }),
+        syncDocument: async () => {
+          throw new Error("Unexpected syncDocument call");
+        },
+      },
+      author,
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      onRemoteDocumentDeleted: ({ documentId }) => {
+        deletedDocumentIds.push(documentId);
+      },
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
+      targetSecretKey: secretKey,
+    });
 
   try {
     await enforceAccessManifestCheckpoints({
@@ -112,39 +152,14 @@ test("a purge proof fails hard behind a newer container checkpoint", async () =>
       verifiedManifests: [newerContainerManifest],
     });
 
-    await expect(
-      syncRemoteDocument({
-        apiClient: {
-          getDocumentPurgeProof: async () => purgeProof,
-          getDocumentWriterProjection: async () => {
-            throw new Error("Expected getDocumentWriterProjectionResult");
-          },
-          getDocumentWriterProjectionResult: async () => ({
-            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-            message: "Document not found",
-            ok: false,
-            report: () => undefined,
-            status: 404,
-          }),
-          syncDocument: async () => {
-            throw new Error("Unexpected syncDocument call");
-          },
-        },
-        author,
-        documentId: writerProjection.documentId,
-        execSql,
-        localVersionVector: null,
-        onRemoteDocumentDeleted: ({ documentId }) => {
-          deletedDocumentIds.push(documentId);
-        },
-        pendingUpdates: [createPendingUpdateRecord()],
-        resolveProjectionUserKey,
-        resolveWriterPublicKey: async () => null,
-        targetSecretKey: secretKey,
-      }),
-    ).rejects.toMatchObject({ code: "rollback" });
-
+    await expect(syncWithProof(purgeProof)).rejects.toMatchObject({
+      code: "rollback",
+    });
     expect(deletedDocumentIds).toEqual([]);
+
+    await expect(syncWithProof(proofWithOrderingEvidence)).resolves.toBeNull();
+
+    expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
     await expect(
       loadAccessManifestCheckpoint(
         execSql,

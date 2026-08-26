@@ -333,6 +333,8 @@ async function purgeDocumentWithExecutor(input: {
     containerIds: [containerId],
     response: {
       ...proofMaterial,
+      authorizingContainerCheckpointHeads:
+        proofMaterial.authorizingContainerPath,
       documentId: input.documentId,
       purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),

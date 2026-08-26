@@ -353,13 +353,23 @@ test("purge proof remains available to a later-revoked replica", async () => {
     },
   );
   expect(revokeResponse.status).toBe(200);
+  const revoked = await revokeResponse.json();
+  if (!isContainerMutationResponse(revoked)) {
+    throw new Error("Expected revoked container response");
+  }
 
   const proofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,
     { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
   );
   expect(proofResponse.status).toBe(200);
-  expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
+  const proof = await proofResponse.json();
+  expect(isDocumentPurgeProofResponse(proof)).toBe(true);
+  if (isDocumentPurgeProofResponse(proof)) {
+    expect(proof.authorizingContainerCheckpointHeads.at(-1)?.manifestHash).toBe(
+      accessManifestFromContainerResponse(revoked).manifestHash,
+    );
+  }
 });
 
 test("purge proof preserves historical signer membership after group deletion", async () => {

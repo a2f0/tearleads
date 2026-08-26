@@ -9,7 +9,10 @@ import {
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@symcrypt/crypto";
-import type { DocumentLinkSetMutationRequest } from "@symcrypt/validators/request";
+import type {
+  AccessManifestBundleWire,
+  DocumentLinkSetMutationRequest,
+} from "@symcrypt/validators/request";
 import type {
   ContainerMutationResponse,
   DocumentCreateResponse,
@@ -25,6 +28,9 @@ import {
 } from "./keyingWriterProjectionKit";
 
 export async function buildDocumentLinkRequest(input: {
+  readonly authorizingContainerPath?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
   readonly child: ContainerMutationResponse;
   readonly createdDocument: DocumentCreateResponse;
   readonly owner: TestUser;
@@ -34,6 +40,9 @@ export async function buildDocumentLinkRequest(input: {
   const childKek = kekStateFromContainerResponse(input.child);
   const previousState = input.createdDocument.accessManifest.state;
   const documentId = input.createdDocument.id;
+  const authorizingContainerPath = input.authorizingContainerPath ?? [
+    input.root.bundle,
+  ];
   const body: DocumentLinkAccessEventBody = {
     eventType: "document.link",
     containerId: input.child.containerId,
@@ -42,8 +51,11 @@ export async function buildDocumentLinkRequest(input: {
   const event = await createSignedAccessEvent({
     body,
     dependencyManifestHashes: [
-      input.root.bundle.manifestHash,
-      childBundle.manifestHash,
+      ...new Set(
+        [authorizingContainerPath.at(-1), childBundle]
+          .filter((bundle): bundle is AccessManifestBundleWire => !!bundle)
+          .map((bundle) => bundle.manifestHash),
+      ),
     ],
     objectId: documentId,
     objectKind: "document",
@@ -64,8 +76,12 @@ export async function buildDocumentLinkRequest(input: {
     previousManifestHash: input.createdDocument.accessManifest.manifestHash,
     eventHash: event.eventHash,
     linkedContainerIds: [
-      input.root.kekState.containerId,
-      input.child.containerId,
+      ...new Set([
+        ...(Array.isArray(Reflect.get(previousState, "linkedContainerIds"))
+          ? (Reflect.get(previousState, "linkedContainerIds") as string[])
+          : []),
+        input.child.containerId,
+      ]),
     ],
   };
   const manifest = await deriveDocumentLinkSetManifest(state);
@@ -104,12 +120,10 @@ export async function buildDocumentLinkRequest(input: {
       },
     ],
     authorizingContainerPathRefs: [
-      [
-        {
-          containerId: input.root.kekState.containerId,
-          manifestHash: input.root.bundle.manifestHash,
-        },
-      ],
+      authorizingContainerPath.map((bundle) => ({
+        containerId: asVerifiedContainerManifest(bundle).state.containerId,
+        manifestHash: bundle.manifestHash,
+      })),
     ],
     contentKeyBundle: {
       contentKeyEpoch: input.createdDocument.contentKeyBundle.contentKeyEpoch,
@@ -134,22 +148,48 @@ export async function buildDocumentUnlinkRequest(input: {
   readonly child: ContainerMutationResponse;
   readonly linkedDocument: DocumentLinkSetMutationResponse;
   readonly owner: TestUser;
+  readonly remainingContainer?: StoredRootFixture | undefined;
+  readonly remainingContainerPath?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
   readonly rotationBaselineSourceVersionVector?: string;
   readonly root: StoredRootFixture;
+  readonly unlinkedContainer?: StoredRootFixture | undefined;
+  readonly unlinkedContainerPath?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
 }): Promise<DocumentLinkSetMutationRequest> {
   const childBundle = accessManifestFromContainerResponse(input.child);
+  const childKek = kekStateFromContainerResponse(input.child);
+  const childFixture: StoredRootFixture = {
+    bundle: childBundle,
+    kekState: childKek,
+    principalPolicies: input.root.principalPolicies,
+  };
+  const unlinkedContainer = input.unlinkedContainer ?? childFixture;
+  const unlinkedContainerPath = input.unlinkedContainerPath ?? [
+    input.root.bundle,
+    childBundle,
+  ];
+  const remainingContainer = input.remainingContainer ?? input.root;
+  const remainingContainerPath = input.remainingContainerPath ?? [
+    input.root.bundle,
+  ];
   const previousState = input.linkedDocument.accessManifest.state;
   const documentId = input.linkedDocument.id;
   const body: DocumentAccessEventBody = {
     eventType: "document.unlink",
-    containerId: input.child.containerId,
-    containerManifestHash: childBundle.manifestHash,
+    containerId: unlinkedContainer.kekState.containerId,
+    containerManifestHash: unlinkedContainer.bundle.manifestHash,
   };
   const event = await createSignedAccessEvent({
     body,
     dependencyManifestHashes: [
-      input.root.bundle.manifestHash,
-      childBundle.manifestHash,
+      ...new Set(
+        [unlinkedContainerPath.at(-1), remainingContainerPath.at(-1)]
+          .filter((bundle): bundle is AccessManifestBundleWire => !!bundle)
+          .map((bundle) => bundle.manifestHash),
+      ),
     ],
     objectId: documentId,
     objectKind: "document",
@@ -169,15 +209,15 @@ export async function buildDocumentUnlinkRequest(input: {
         : 3,
     previousManifestHash: input.linkedDocument.accessManifest.manifestHash,
     eventHash: event.eventHash,
-    linkedContainerIds: [input.root.kekState.containerId],
+    linkedContainerIds: [remainingContainer.kekState.containerId],
   };
   const manifest = await deriveDocumentLinkSetManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
   const remainingTarget = {
-    containerId: input.root.kekState.containerId,
-    containerManifestHash: input.root.bundle.manifestHash,
-    containerKeyEpochId: input.root.kekState.containerKeyEpochId,
-    containerKeyEpoch: input.root.kekState.containerKeyEpoch,
+    containerId: remainingContainer.kekState.containerId,
+    containerManifestHash: remainingContainer.bundle.manifestHash,
+    containerKeyEpochId: remainingContainer.kekState.containerKeyEpochId,
+    containerKeyEpoch: remainingContainer.kekState.containerKeyEpoch,
   };
   const targetHash = await computeDocumentContentKeyTargetHash([
     remainingTarget,
@@ -203,23 +243,15 @@ export async function buildDocumentUnlinkRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-      {
-        containerId: input.child.containerId,
-        manifestHash: childBundle.manifestHash,
-      },
-    ],
+    targetContainerPathRefs: unlinkedContainerPath.map((bundle) => ({
+      containerId: asVerifiedContainerManifest(bundle).state.containerId,
+      manifestHash: bundle.manifestHash,
+    })),
     authorizingContainerPathRefs: [
-      [
-        {
-          containerId: input.root.kekState.containerId,
-          manifestHash: input.root.bundle.manifestHash,
-        },
-      ],
+      remainingContainerPath.map((bundle) => ({
+        containerId: asVerifiedContainerManifest(bundle).state.containerId,
+        manifestHash: bundle.manifestHash,
+      })),
     ],
     contentKeyBundle: {
       contentKeyEpoch,
@@ -228,7 +260,7 @@ export async function buildDocumentUnlinkRequest(input: {
       targets: [
         {
           ...remainingTarget,
-          wrappedKey: `document-key:${documentId}:rotated-root`,
+          wrappedKey: `document-key:${documentId}:rotated-${remainingTarget.containerId}`,
           wrappingMetadata: { alg: "test-wrap" },
         },
       ],

@@ -436,6 +436,14 @@ attachments, and live-head pointer. It retains the signed document manifest
 chain and the exact signed authorization path plus its verification
 dependencies so another device can retrieve the proof from
 `GET /documents/:documentId/purge` after the live document is gone.
+Proof retrieval is available to a user who had access through any retained
+signed path in the document's manifest history, including a path that was
+unlinked before the purge. The proof also carries the current signed head for
+every container in the purge authorization path and the predecessor material
+connecting each head back to the signed purge path. An honest client reconciles
+those descendant heads with its durable container checkpoints, so ordinary
+container changes after the purge do not suppress terminal local deletion while
+an omitted or forked ordering chain still fails closed.
 
 The API also requires that the document is linked to exactly one container — a
 document still linked to more than one container must be unlinked down to a

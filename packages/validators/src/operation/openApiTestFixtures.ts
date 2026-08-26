@@ -174,6 +174,7 @@ export function createDocumentPurgeProofResponse() {
     manifestHash: "document-manifest-hash",
   };
   return {
+    authorizingContainerCheckpointHeads: [authorizingContainer],
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
     documentId: "document-1",
