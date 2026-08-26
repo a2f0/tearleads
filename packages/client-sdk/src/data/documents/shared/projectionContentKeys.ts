@@ -19,6 +19,7 @@ import {
   unwrapContainerKekPath,
   unwrapContainerKekPathWithHistoryFailures,
 } from "./containerKekPath";
+import { ContainerKekHistoryUnavailableError } from "./containerKekPathHistory";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
@@ -154,6 +155,16 @@ export class DocumentContentKeyUnavailableError extends Error {
   }
 }
 
+function preferredPredecessorFailure(
+  failures: readonly Error[],
+): Error | undefined {
+  return (
+    failures.find(
+      (failure) => !(failure instanceof ContainerKekHistoryUnavailableError),
+    ) ?? failures[0]
+  );
+}
+
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
@@ -237,16 +248,17 @@ export async function unwrapDocumentContentKeyFromBundle(
   > = new Map(),
 ): Promise<Uint8Array> {
   let contentKey: Uint8Array | null = null;
-  let predecessorFailure: unknown;
+  const predecessorFailures: Error[] = [];
 
   for (const envelope of bundle.targets) {
     const containerKek = containerKeksByEpochId.get(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
-      predecessorFailure ??=
+      const predecessorFailure =
         predecessorFailuresByEpochId.get(envelope.containerKeyEpochId) ??
         unattributedPredecessorFailuresByContainerId.get(envelope.containerId);
+      if (predecessorFailure) predecessorFailures.push(predecessorFailure);
       continue;
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
@@ -265,6 +277,7 @@ export async function unwrapDocumentContentKeyFromBundle(
   }
 
   if (!contentKey) {
+    const predecessorFailure = preferredPredecessorFailure(predecessorFailures);
     if (predecessorFailure !== undefined) {
       throw new DocumentHistoryUnavailableError(predecessorFailure);
     }

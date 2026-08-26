@@ -55,6 +55,9 @@ distinction before its update is authenticated, so it remains a poison
 incident instead of being reported as benign history unavailability. The raw
 consumer checks every referenced epoch before reporting unavailability so a
 malformed bundle in the same page always takes poison-isolation precedence.
+Within a multi-target bundle it likewise aggregates unreachable-target causes,
+so integrity failures outrank an absent predecessor keyring regardless of
+target order.
 
 ## Verification
 

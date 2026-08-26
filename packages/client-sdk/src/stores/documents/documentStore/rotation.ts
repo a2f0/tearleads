@@ -122,6 +122,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
       }),
       onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
       pendingUpdates: [],
+      persistedState: input.currentRecord,
       pullContinuation,
       resolveProjectionUserKey: input.state.resolveProjectionUserKey,
       resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
