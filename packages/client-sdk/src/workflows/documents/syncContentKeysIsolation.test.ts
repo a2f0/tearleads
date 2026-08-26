@@ -140,11 +140,19 @@ test("raw history reports the lowest unavailable epoch regardless of response or
     updates: [
       {
         ...epochTwoUpdate,
-        writeHeader: { ...epochTwoUpdate.writeHeader, contentKeyEpoch: 2 },
+        writeHeader: {
+          ...epochTwoUpdate.writeHeader,
+          contentKeyEpoch: 2,
+          targetHash: unavailableTargetHash,
+        },
       },
       {
         ...epochOneUpdate,
-        writeHeader: { ...epochOneUpdate.writeHeader, contentKeyEpoch: 1 },
+        writeHeader: {
+          ...epochOneUpdate.writeHeader,
+          contentKeyEpoch: 1,
+          targetHash: unavailableTargetHash,
+        },
       },
     ],
   };

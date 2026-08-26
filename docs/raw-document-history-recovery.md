@@ -89,8 +89,9 @@ retains precedence, including an unresolved dependency: the current wire
 contract authenticates operation ranges but not an exact dependency set, so
 the client cannot prove that an unavailable sibling carries that parent.
 Every historical bundle's target list is also recomputed and compared with its
-committed target hash before missing KEK material can be classified as benign
-unavailability.
+committed target hash, and that hash plus the link-set manifest must match every
+authenticated update header for the epoch before missing KEK material can be
+classified as benign unavailability.
 When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw

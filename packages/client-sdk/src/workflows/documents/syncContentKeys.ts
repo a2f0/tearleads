@@ -181,6 +181,28 @@ function syncResponseUpdatesByContentKeyEpoch(
   return updatesByEpoch;
 }
 
+function assertBundleMatchesUpdateHeaders(input: {
+  bundle: DocumentSyncResponse["contentKeyBundle"];
+  updates: readonly SyncResponseUpdate[];
+}): void {
+  for (const update of input.updates) {
+    const header = readWriteHeader(
+      update.writeHeader,
+      "Document sync response write header",
+    );
+    if (
+      header.objectId !== input.bundle.documentId ||
+      header.contentKeyEpoch !== input.bundle.contentKeyEpoch ||
+      header.accessManifestHash !== input.bundle.linkSetManifestHash ||
+      header.targetHash !== input.bundle.targetHash
+    ) {
+      throw new Error(
+        "Document sync response content-key bundle does not match its update headers",
+      );
+    }
+  }
+}
+
 /** @internal Keeps epoch-wide failures anonymous and integrity failures typed. */
 export function throwDocumentSyncContentKeyFailure(input: {
   cause: unknown;
@@ -280,6 +302,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
       });
     }
     try {
+      assertBundleMatchesUpdateHeaders({ bundle, updates: responseUpdates });
       contentKeysByEpoch.set(
         bundle.contentKeyEpoch,
         await unwrapDocumentContentKeyFromBundle(
