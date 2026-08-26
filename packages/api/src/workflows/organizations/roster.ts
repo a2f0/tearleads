@@ -3,6 +3,7 @@ import {
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  containerMetadataDocuments,
   containers,
   documents,
   organizationRosterEntries,
@@ -10,7 +11,7 @@ import {
 } from "@symcrypt/api-shared/schema";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
@@ -315,6 +316,10 @@ export async function isOrganizationRosterProfileDocumentForUser(input: {
       containers,
       eq(containers.id, accessManifestDocumentLinkProjection.containerId),
     )
+    .leftJoin(
+      containerMetadataDocuments,
+      eq(containerMetadataDocuments.documentId, accessManifestHeads.objectId),
+    )
     .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
     .innerJoin(
       users,
@@ -328,6 +333,7 @@ export async function isOrganizationRosterProfileDocumentForUser(input: {
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, input.profileDocumentId),
         eq(accessManifestHeads.organizationId, input.organizationId),
+        isNull(containerMetadataDocuments.documentId),
       ),
     );
 
@@ -370,11 +376,16 @@ export async function isOrganizationRosterProfileDocument(input: {
       containers,
       eq(containers.id, accessManifestDocumentLinkProjection.containerId),
     )
+    .leftJoin(
+      containerMetadataDocuments,
+      eq(containerMetadataDocuments.documentId, accessManifestHeads.objectId),
+    )
     .where(
       and(
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, input.profileDocumentId),
         eq(accessManifestHeads.organizationId, input.organizationId),
+        isNull(containerMetadataDocuments.documentId),
       ),
     );
 

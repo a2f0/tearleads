@@ -51,6 +51,24 @@ document identity. It must prefer a row with queued updates or a non-null
 on-demand hydration use this result as the canonical local owner, so selecting
 a newer shell ahead of an edited row can strand unsynced work.
 
+## On-demand document lifecycle
+
+The public `symcrypt.documents.findLocalIdByDocumentId(documentId)` performs
+that local lookup only when SQLite is ready; `null` means unavailable or
+unknown, and no network work starts. A host may generate a local id when no row
+exists, then call `documents.open({ localId, documentId }, {
+remoteSyncMode: "on-demand" })`. On-demand mode suppresses the initial remote
+pull only when creating the backing store; an already-registered store keeps
+its existing owners.
+
+`requestRemoteSyncAndWait(signal)` returns `true` only after its requested sync
+generation completes. Abort, coordinator invalidation, missing prerequisites,
+or an incomplete remote response returns `false`. Hosts should abort when the
+owning view unmounts. The final waiter cancels its cold probe only if no startup
+or fire-and-forget `requestRemoteSync()` owner shares the work, and an
+invalidated probe's late response is not persisted. Ordinary store activity can
+subsequently re-arm a cancelled on-demand store.
+
 `deleteDocumentSideRowsIfAbsent(...)` checks that the canonical row is absent,
 deletes its orphaned queue/history/attachment/projection rows, and invokes the
 host projection callback in one write transaction. A concurrent initializer
