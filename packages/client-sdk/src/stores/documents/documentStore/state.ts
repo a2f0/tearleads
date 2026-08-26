@@ -261,7 +261,7 @@ export function createDocumentStoreState(
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdateCompletedSignalSeq: 0,
-    remoteSyncBlocked: false,
+    remoteSyncBlocked: !scheduleStartupRemoteSync,
     scheduleStartupRemoteSync,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
@@ -335,7 +335,7 @@ function clearDocumentStoreState(
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
-  state.remoteSyncBlocked = false;
+  state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;
