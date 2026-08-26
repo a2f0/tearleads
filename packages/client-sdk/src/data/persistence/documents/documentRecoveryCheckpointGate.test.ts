@@ -277,3 +277,102 @@ test("recovery install rejects an ordinary row appended after settlement", async
     close();
   }
 });
+
+test("recovery install rolls back when its generation changes during projection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-generation-install-gate",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const recoveredDocument = await createDocument(
+      "generation-install-gate-writer",
+    );
+    recoveredDocument.getText("text").update("verified base");
+    recoveredDocument.commit();
+    const baseSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(recoveredDocument),
+    );
+    const baseVersion = encodeVersionVector(recoveredDocument);
+    recoveredDocument.getText("text").update("verified recovery");
+    recoveredDocument.commit();
+    const recoveredSnapshotBytes = exportFullHistorySnapshot(recoveredDocument);
+    const recoveredSnapshot = bytesToBase64(recoveredSnapshotBytes);
+    const recoveredVersion = encodeVersionVector(recoveredDocument);
+    const recoveredVectors = getUpdateVersionVectors(recoveredSnapshotBytes);
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: "local-document",
+      snapshotEndVersion: baseVersion,
+      text: "verified base",
+    };
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: baseVersion, snapshot: baseSnapshot },
+      undefined,
+      async () => undefined,
+    );
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: initialRecord.id,
+      partialEndVersionVector: recoveredVectors.partialEndVersionVector,
+      partialStartVersionVector: recoveredVectors.partialStartVersionVector,
+      sourceVersionVector: recoveredVersion,
+      updateData: recoveredSnapshot,
+    });
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      initialRecord.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the stored document");
+    let generationCurrent = true;
+
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            snapshotEndVersion: recoveredVersion,
+            text: "verified recovery",
+          },
+          expectedRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: recoveredVersion,
+            pruneCoveredLocalState: true,
+            snapshot: recoveredSnapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+          stillCurrent: () => generationCurrent,
+        },
+        async () => {
+          generationCurrent = false;
+        },
+      ),
+    ).resolves.toEqual({ committed: false, currentRecord: expectedRecord });
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toEqual({
+      snapshot: baseSnapshot,
+      tailUpdates: [{ origin: "local", updateData: recoveredSnapshot }],
+    });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, initialRecord.id),
+    ).toEqual(expectedRecord);
+    recoveredDocument.free();
+  } finally {
+    close();
+  }
+});

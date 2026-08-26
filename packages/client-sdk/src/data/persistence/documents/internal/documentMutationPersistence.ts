@@ -271,71 +271,118 @@ async function findCoveredRecoveryLocalState(
   }
 }
 
+type CommitDocumentMutationInput = Parameters<
+  DocumentsPersistence["commitDocumentMutation"]
+>[1];
+type SaveClientProjection = Parameters<
+  DocumentsPersistence["commitDocumentMutation"]
+>[2];
+
+class DocumentMutationGenerationSupersededError extends Error {}
+
+async function applyStoredDocumentMutation(input: {
+  lockedExecSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0];
+  mutation: CommitDocumentMutationInput;
+  saveClientProjection: SaveClientProjection;
+  tx: ClientSQLiteTransactionScope;
+  loadDocument: DocumentsPersistence["loadDocument"];
+}) {
+  const { lockedExecSql, mutation, tx } = input;
+  const currentRecord = await input.loadDocument(
+    lockedExecSql,
+    mutation.document.id,
+  );
+  if (mutation.stillCurrent && !mutation.stillCurrent()) {
+    return { committed: false as const, currentRecord };
+  }
+  if (
+    !currentRecord ||
+    !sameExpectedDocumentRecord(currentRecord, mutation.expectedRecord)
+  ) {
+    await settleMutationConflict({ currentRecord, mutation, tx });
+    return { committed: false as const, currentRecord };
+  }
+
+  if (mutation.attachmentRemoval) {
+    await applyStoredAttachmentRemoval({
+      localId: mutation.document.id,
+      removal: mutation.attachmentRemoval,
+      tx,
+    });
+  }
+  if (mutation.attachmentStaging) {
+    await upsertStoredAttachmentStagingRows({
+      createdAt: new Date().toISOString(),
+      localId: mutation.document.id,
+      staging: mutation.attachmentStaging,
+      tx,
+    });
+  }
+  await appendMutationHistory(lockedExecSql, mutation, tx);
+  await insertPendingUpdate(tx, mutation.document.id, mutation.pendingUpdate);
+  await deleteAcceptedPendingUpdates(
+    tx,
+    mutation.document.id,
+    mutation.acceptedPendingUpdateIds,
+  );
+  if (mutation.clearSyncFailure) {
+    await clearSyncFailure(tx, mutation.document.id);
+  }
+  const updatedAt = await resolveDocumentSaveTimestamp({
+    document: mutation.document,
+    options:
+      mutation.updatedAt === undefined
+        ? undefined
+        : { updatedAt: mutation.updatedAt },
+    tx,
+  });
+  await saveDocumentRows({ document: mutation.document, tx, updatedAt });
+  await input.saveClientProjection(lockedExecSql, updatedAt);
+  if (mutation.stillCurrent && !mutation.stillCurrent()) {
+    throw new DocumentMutationGenerationSupersededError();
+  }
+  return { committed: true as const, updatedAt };
+}
+
+async function runStoredDocumentMutationTransaction(input: {
+  lockedExecSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0];
+  mutation: CommitDocumentMutationInput;
+  saveClientProjection: SaveClientProjection;
+  loadDocument: DocumentsPersistence["loadDocument"];
+}) {
+  try {
+    return await getClientSQLitePersistenceRuntime(
+      input.lockedExecSql,
+    ).transaction((tx) => applyStoredDocumentMutation({ ...input, tx }), {
+      behavior: "immediate",
+    });
+  } catch (error) {
+    if (!(error instanceof DocumentMutationGenerationSupersededError)) {
+      throw error;
+    }
+    return {
+      committed: false as const,
+      currentRecord: await input.loadDocument(
+        input.lockedExecSql,
+        input.mutation.document.id,
+      ),
+    };
+  }
+}
+
 export async function commitStoredDocumentMutation(
   execSql: Parameters<DocumentsPersistence["commitDocumentMutation"]>[0],
-  input: Parameters<DocumentsPersistence["commitDocumentMutation"]>[1],
-  saveClientProjection: Parameters<
-    DocumentsPersistence["commitDocumentMutation"]
-  >[2],
+  input: CommitDocumentMutationInput,
+  saveClientProjection: SaveClientProjection,
   loadDocument: DocumentsPersistence["loadDocument"],
 ) {
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-      async (tx) => {
-        const currentRecord = await loadDocument(
-          lockedExecSql,
-          input.document.id,
-        );
-        if (input.stillCurrent && !input.stillCurrent()) {
-          return { committed: false as const, currentRecord };
-        }
-        if (
-          !currentRecord ||
-          !sameExpectedDocumentRecord(currentRecord, input.expectedRecord)
-        ) {
-          await settleMutationConflict({ currentRecord, mutation: input, tx });
-          return { committed: false as const, currentRecord };
-        }
-
-        if (input.attachmentRemoval) {
-          await applyStoredAttachmentRemoval({
-            localId: input.document.id,
-            removal: input.attachmentRemoval,
-            tx,
-          });
-        }
-        if (input.attachmentStaging) {
-          await upsertStoredAttachmentStagingRows({
-            createdAt: new Date().toISOString(),
-            localId: input.document.id,
-            staging: input.attachmentStaging,
-            tx,
-          });
-        }
-        await appendMutationHistory(lockedExecSql, input, tx);
-        await insertPendingUpdate(tx, input.document.id, input.pendingUpdate);
-        await deleteAcceptedPendingUpdates(
-          tx,
-          input.document.id,
-          input.acceptedPendingUpdateIds,
-        );
-        if (input.clearSyncFailure) {
-          await clearSyncFailure(tx, input.document.id);
-        }
-        const updatedAt = await resolveDocumentSaveTimestamp({
-          document: input.document,
-          options:
-            input.updatedAt === undefined
-              ? undefined
-              : { updatedAt: input.updatedAt },
-          tx,
-        });
-        await saveDocumentRows({ document: input.document, tx, updatedAt });
-        await saveClientProjection(lockedExecSql, updatedAt);
-        return { committed: true as const, updatedAt };
-      },
-      { behavior: "immediate" },
-    ),
+  return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+    runStoredDocumentMutationTransaction({
+      lockedExecSql,
+      loadDocument,
+      mutation: input,
+      saveClientProjection,
+    }),
   );
 }
 

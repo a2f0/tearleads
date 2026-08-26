@@ -1,5 +1,6 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@symcrypt/loro";
 import type { PendingUpdateRecord } from "../../../workflows/documents";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates, persistDocument } from "./persistence";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import type {
@@ -183,6 +184,32 @@ function settledOrdinaryCoverage(input: {
   });
 }
 
+async function persistStagedSettlementOnIdentityChain(input: {
+  currentDocument: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  pendingUpdates: PendingUpdateRecord[];
+  preparedRecord: NonNullable<DocumentStoreState["record"]>;
+  sentUpdateIds: string[];
+  state: DocumentStoreState;
+  syncAttempt: DocumentSyncAttempt;
+  verifiedBaseVersion: string;
+}): Promise<string> {
+  return chainIdentityWrite(input.state, async () => {
+    if (!isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
+      throw new Error(
+        "Document changed while local updates were settling for key rotation",
+      );
+    }
+    await persistStagedSettlement(input);
+    return settledOrdinaryCoverage({
+      currentDocument: input.currentDocument,
+      pendingUpdates: input.pendingUpdates,
+      settledUpdateIds: input.syncAttempt.synced.settledPendingUpdateIds,
+      verifiedBaseVersion: input.verifiedBaseVersion,
+    });
+  });
+}
+
 async function settleOrdinaryUpdatePass(input: {
   pendingUpdates: PendingUpdateRecord[];
   state: DocumentStoreState;
@@ -257,18 +284,14 @@ async function settleOrdinaryUpdatePass(input: {
         );
       }
 
-      await persistStagedSettlement({
+      return persistStagedSettlementOnIdentityChain({
         currentDocument: currentDoc,
         generation,
+        pendingUpdates: preparedPendingUpdates,
         preparedRecord: prepared.record,
         sentUpdateIds,
         state,
         syncAttempt,
-      });
-      return settledOrdinaryCoverage({
-        currentDocument: currentDoc,
-        pendingUpdates: preparedPendingUpdates,
-        settledUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
         verifiedBaseVersion: input.verifiedBaseVersion,
       });
     },

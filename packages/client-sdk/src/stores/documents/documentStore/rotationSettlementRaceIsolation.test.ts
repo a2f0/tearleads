@@ -13,6 +13,7 @@ import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
 } from "./documentStore.testFixtures";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";
 import { listPendingUpdates } from "./persistence";
@@ -107,6 +108,103 @@ test("rotation never settles a row appended after provenance verification", asyn
     expect(requests).toEqual([{ historyMode: "raw", outgoingCount: 0 }]);
     expect(await listPendingUpdates(state)).toHaveLength(2);
   } finally {
+    close();
+  }
+});
+
+test("rotation settlement waits for an in-flight sync identity write", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-settlement-identity-write-race",
+  );
+  let releaseCompetingWrite: () => void = () => {};
+  const competingWriteBlocked = new Promise<void>((resolve) => {
+    releaseCompetingWrite = resolve;
+  });
+  let reportCompetingWriteStarted: () => void = () => {};
+  const competingWriteStarted = new Promise<void>((resolve) => {
+    reportCompetingWriteStarted = resolve;
+  });
+  let reportSettlementPersistStarted: () => void = () => {};
+  const settlementPersistStarted = new Promise<void>((resolve) => {
+    reportSettlementPersistStarted = resolve;
+  });
+  let state: ReturnType<typeof createDocumentStoreState> | null = null;
+  const competingWriteRef: { current: Promise<void> | null } = {
+    current: null,
+  };
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-settlement-identity-write-race-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      requireRawHistory: false,
+      responseForRequest: async (request, response) => {
+        const currentState = state;
+        if (
+          request.outgoingUpdates.length > 0 &&
+          !competingWriteRef.current &&
+          currentState
+        ) {
+          // Hold the same critical section used by sync finalization's remote
+          // import + history persist. Settlement must queue behind the whole
+          // section, never snapshot its shared document halfway through.
+          competingWriteRef.current = chainIdentityWrite(
+            currentState,
+            async () => {
+              reportCompetingWriteStarted();
+              await competingWriteBlocked;
+            },
+          );
+          await competingWriteStarted;
+        }
+        return response;
+      },
+    });
+    const persistence: DocumentsPersistence = {
+      ...sqlDocumentsPersistence,
+      commitDocumentMutation: async (...args) => {
+        if (args[1].acceptedPendingUpdateIds.length > 0) {
+          reportSettlementPersistStarted();
+        }
+        return sqlDocumentsPersistence.commitDocumentMutation(...args);
+      },
+    };
+    state = createDocumentStoreState(
+      localId,
+      runtime,
+      persistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+    await setDocumentText(state, () => undefined, "local edit to settle");
+
+    const recovery = assertDocumentStoreCanRotateContentKey(state);
+    await competingWriteStarted;
+    const settlementRacedIdentityWrite = await Promise.race([
+      settlementPersistStarted.then(() => true),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 50)),
+    ]);
+    expect(settlementRacedIdentityWrite).toBe(false);
+
+    releaseCompetingWrite();
+    await competingWriteRef.current;
+    await expect(recovery).rejects.toThrow(
+      "Rotation raw-history recovery found unverified local history",
+    );
+    await settlementPersistStarted;
+  } finally {
+    releaseCompetingWrite();
+    await competingWriteRef.current?.catch(() => undefined);
     close();
   }
 });

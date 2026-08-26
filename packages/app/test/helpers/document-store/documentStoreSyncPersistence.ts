@@ -168,6 +168,14 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         );
         document = input.document;
         await saveClientProjection(execSql, updatedAt);
+        if (input.stillCurrent && !input.stillCurrent()) {
+          document = previousDocument;
+          pendingUpdates = previousPendingUpdates;
+          localAttachments = previousLocalAttachments;
+          pendingAttachments = previousPendingAttachments;
+          historyByLocalId.set(input.document.id, previousHistory);
+          return { committed: false, currentRecord: previousDocument };
+        }
         return { committed: true, updatedAt };
       } catch (error) {
         document = previousDocument;

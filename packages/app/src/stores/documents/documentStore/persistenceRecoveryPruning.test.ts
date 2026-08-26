@@ -283,4 +283,61 @@ for (const [name, createPersistence] of persistenceFactories) {
     forgedDocument.free();
     genuineDocument.free();
   });
+
+  test(`${name} rolls back recovery when its generation changes`, async () => {
+    const persistence = createPersistence();
+    const execSql: Parameters<DocumentsPersistence["saveDocument"]>[0] =
+      async () => [];
+    const localId = `recovery-generation-change-${name}`;
+    const document = await createDocument("memory-generation-change");
+    document.getText("text").update("verified base");
+    document.commit();
+    const snapshot = bytesToBase64(exportFullHistorySnapshot(document));
+    const version = encodeVersionVector(document);
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: localId,
+      snapshotEndVersion: version,
+      text: "verified base",
+    };
+    await persistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: version, snapshot },
+      undefined,
+      async () => undefined,
+    );
+    let generationCurrent = true;
+
+    await expect(
+      persistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: initialRecord,
+          expectedRecord: initialRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: version,
+            pruneCoveredLocalState: true,
+            snapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+          stillCurrent: () => generationCurrent,
+        },
+        async () => {
+          generationCurrent = false;
+        },
+      ),
+    ).resolves.toEqual({ committed: false, currentRecord: initialRecord });
+    expect(await persistence.loadHistoryRestoreState(execSql, localId)).toEqual(
+      { snapshot, tailUpdates: [] },
+    );
+    expect(await persistence.loadDocument(execSql, localId)).toEqual(
+      initialRecord,
+    );
+    document.free();
+  });
 }

@@ -242,6 +242,15 @@ export function createDocumentWritePersistence(
         state.document = input.document;
         const updatedAt = input.updatedAt ?? "2026-04-06T00:00:00.000Z";
         await saveClientProjection(execSql, updatedAt);
+        if (input.stillCurrent && !input.stillCurrent()) {
+          Object.assign(state, previousState);
+          if (previousHistory) {
+            historyByLocalId.set(input.document.id, previousHistory);
+          } else {
+            historyByLocalId.delete(input.document.id);
+          }
+          return { committed: false, currentRecord: previousState.document };
+        }
         return { committed: true, updatedAt };
       } catch (error) {
         Object.assign(state, previousState);

@@ -48,9 +48,12 @@ per-row range comparison proves that each queued binary delta contains the
 live document's exact operations, before a dependent local edit can be
 re-encrypted or published. Settlement is restricted to that exact proven row
 set; a sibling pane appending or replacing an ordinary row aborts rotation
-before the new row can be sent. After settling proven local rows, the client
-performs a definitive raw pull so remote work racing the submit is included. A
-successful guarded install atomically retires every queued checkpoint and its
+before the new row can be sent. Settlement persistence shares the document
+identity-write chain with sync finalization, so a concurrent remote import must
+append its history before settlement can persist the shared document. After
+settling proven local rows, the client performs a definitive raw pull so remote
+work racing the submit is included. A successful guarded install atomically
+retires every queued checkpoint and its
 matching local-history tail, whether or not its declared frontier is covered,
 because checkpoints are never recovery sources. Every other tail row must match
 the verified rebuild's exact operations for its declared range; version-vector
@@ -70,8 +73,9 @@ pruning the selected rows, and committing the canonical document must be one
 guarded transaction. Rotation recovery refuses adapters that omit the
 capability instead of assuming compatible behavior. If the exact
 checkpoint-history gate or canonical-record comparison rejects the recovery
-candidate, the adapter rolls back the complete install, including
-checkpoint/tail pruning and pending-row settlement.
+candidate, or if volatile runtime/trust ownership changes before the transaction
+commits, the adapter rolls back the complete install, including checkpoint/tail
+pruning, projection writes, and pending-row settlement.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
@@ -124,7 +128,7 @@ history for three updates, two epochs, and two pages.
 
 | Model action or state | Production implementation |
 | --- | --- |
-| `CommitPendingOrdinary` | bounded ordinary queue settlement before the raw pull that can publish |
+| `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement before the raw pull that can publish |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
@@ -134,7 +138,7 @@ history for three updates, two epochs, and two pages.
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |
-| `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including atomic quarantine of every queued checkpoint artifact |
+| `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including commit-time generation revalidation and atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require local settlement to start only after raw
