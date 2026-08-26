@@ -80,9 +80,17 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
   async hasDocument(execSql, localId) {
     return hasDocumentRow(execSql, localId);
   },
-  async documentIdentityMatches(execSql, localId, expectedDocumentId) {
+  async documentIdentityMatches(
+    execSql,
+    localId,
+    expectedDocumentId,
+    expectedRecoveryGeneration,
+  ) {
     const record = await loadDocumentRecord(execSql, getDocumentScope(localId));
-    return record?.documentId === expectedDocumentId;
+    return (
+      record?.documentId === expectedDocumentId &&
+      (record.recoveryGeneration ?? 0) === expectedRecoveryGeneration
+    );
   },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

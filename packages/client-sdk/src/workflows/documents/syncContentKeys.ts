@@ -4,12 +4,16 @@ import type {
 } from "@symcrypt/validators/response";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
+import { assertDocumentSyncUpdateEncryptedRecord } from "../../data/documents/shared/documentSyncUpdateDecryption";
 import {
+  isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
+  ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
+  DocumentContentKeyUnavailableError,
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
@@ -27,6 +31,97 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
+type RawHistoryUnavailableCause =
+  | DocumentContentKeyUnavailableError
+  | DocumentHistoryUnavailableError;
+
+function isRawHistoryUnavailableCause(
+  error: unknown,
+): error is RawHistoryUnavailableCause {
+  return (
+    error instanceof DocumentContentKeyUnavailableError ||
+    (error instanceof DocumentHistoryUnavailableError &&
+      error.historyCause instanceof ContainerKekHistoryUnavailableError)
+  );
+}
+
+type RawHistoryUnavailableValidator = (input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  updates: readonly SyncResponseUpdate[];
+}) => void | Promise<void>;
+
+/** A raw recovery cannot reconstruct history without this retained epoch. */
+export class DocumentRawHistoryUnavailableError extends Error {
+  readonly code = "document_raw_history_epoch_unavailable";
+
+  constructor(
+    readonly contentKeyEpoch: number,
+    cause: unknown,
+  ) {
+    super(
+      `Document raw-history recovery cannot decrypt content-key epoch ${contentKeyEpoch}`,
+      { cause },
+    );
+    this.name = "DocumentRawHistoryUnavailableError";
+  }
+}
+
+async function assertResponseEncryptedRecords(
+  updates: readonly SyncResponseUpdate[],
+): Promise<void> {
+  const inspections = await Promise.allSettled(
+    updates.map(assertDocumentSyncUpdateEncryptedRecord),
+  );
+  const failures = inspections.flatMap((inspection, index) =>
+    inspection.status === "rejected"
+      ? [{ index, reason: inspection.reason }]
+      : [],
+  );
+  const firstFailure = failures[0];
+  if (failures.length === 1 && firstFailure) {
+    throw firstFailure.reason;
+  }
+  if (failures.length > 1 && firstFailure) {
+    const stage =
+      isDocumentSyncUpdateIsolationError(firstFailure.reason) &&
+      failures.every(
+        ({ reason }) =>
+          isDocumentSyncUpdateIsolationError(reason) &&
+          reason.stage === firstFailure.reason.stage,
+      )
+        ? firstFailure.reason.stage
+        : "encrypted_record";
+    throw isolateDocumentSyncBatchError({
+      cause: new Error("Multiple document encrypted records are invalid"),
+      stage,
+      updateIds: failures.map(({ index }) => updates[index]?.id ?? "unknown"),
+    });
+  }
+}
+
+async function throwRawHistoryUnavailable(input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  response: DocumentSyncResponse;
+  unavailable: { cause: RawHistoryUnavailableCause; contentKeyEpoch: number };
+  validate?: RawHistoryUnavailableValidator | undefined;
+}): Promise<never> {
+  await assertResponseEncryptedRecords(input.response.updates);
+  await input.validate?.({
+    contentKeysByEpoch: input.contentKeysByEpoch,
+    updates: input.response.updates.filter((update) =>
+      input.contentKeysByEpoch.has(
+        readWriteHeader(
+          update.writeHeader,
+          "Document sync response write header",
+        ).contentKeyEpoch,
+      ),
+    ),
+  });
+  throw new DocumentRawHistoryUnavailableError(
+    input.unavailable.contentKeyEpoch,
+    input.unavailable.cause,
+  );
+}
 
 export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
@@ -122,6 +217,28 @@ function syncResponseUpdatesByContentKeyEpoch(
   return updatesByEpoch;
 }
 
+function assertBundleMatchesUpdateHeaders(input: {
+  bundle: DocumentSyncResponse["contentKeyBundle"];
+  updates: readonly SyncResponseUpdate[];
+}): void {
+  for (const update of input.updates) {
+    const header = readWriteHeader(
+      update.writeHeader,
+      "Document sync response write header",
+    );
+    if (
+      header.objectId !== input.bundle.documentId ||
+      header.contentKeyEpoch !== input.bundle.contentKeyEpoch ||
+      header.accessManifestHash !== input.bundle.linkSetManifestHash ||
+      header.targetHash !== input.bundle.targetHash
+    ) {
+      throw new Error(
+        "Document sync response content-key bundle does not match its update headers",
+      );
+    }
+  }
+}
+
 /** @internal Keeps epoch-wide failures anonymous and integrity failures typed. */
 export function throwDocumentSyncContentKeyFailure(input: {
   cause: unknown;
@@ -148,6 +265,9 @@ export async function unwrapDocumentSyncResponseContentKeys(
     currentContentKey: Uint8Array;
     currentContentKeyEpoch: number;
     execSql?: ExecSql | undefined;
+    historyMode?: "raw" | undefined;
+    /** @internal Validate every decryptable sibling before raw availability wins. */
+    onRawHistoryUnavailable?: RawHistoryUnavailableValidator | undefined;
     response: DocumentSyncResponse;
     targetSecretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;
@@ -168,6 +288,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
   const missingContentKeyEpochs = [...updatesByContentKeyEpoch.keys()].filter(
     (contentKeyEpoch) => !contentKeysByEpoch.has(contentKeyEpoch),
   );
+  missingContentKeyEpochs.sort((left, right) => left - right);
   if (missingContentKeyEpochs.length === 0) {
     return contentKeysByEpoch;
   }
@@ -183,21 +304,41 @@ export async function unwrapDocumentSyncResponseContentKeys(
       updates: missingUpdates,
     });
   }
+  const absentBundleEpoch = missingContentKeyEpochs.find(
+    (contentKeyEpoch) => !bundlesByEpoch.has(contentKeyEpoch),
+  );
+  if (absentBundleEpoch !== undefined) {
+    throwDocumentSyncContentKeyFailure({
+      cause: new Error("Document sync response content-key bundle missing"),
+      updates:
+        updatesByContentKeyEpoch.get(absentBundleEpoch) ?? missingUpdates,
+    });
+  }
   const collectedKeks = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
+  let unavailableRawHistory:
+    | { cause: RawHistoryUnavailableCause; contentKeyEpoch: number }
+    | undefined;
 
   for (const contentKeyEpoch of missingContentKeyEpochs) {
     const bundle = bundlesByEpoch.get(contentKeyEpoch);
     const responseUpdates =
       updatesByContentKeyEpoch.get(contentKeyEpoch) ?? missingUpdates;
+    if (!bundle) {
+      const error = new Error(
+        "Document sync response content-key bundle missing",
+      );
+      throwDocumentSyncContentKeyFailure({
+        cause: error,
+        updates: responseUpdates,
+      });
+    }
     try {
-      if (!bundle) {
-        throw new Error("Document sync response content-key bundle missing");
-      }
+      assertBundleMatchesUpdateHeaders({ bundle, updates: responseUpdates });
       contentKeysByEpoch.set(
         bundle.contentKeyEpoch,
         await unwrapDocumentContentKeyFromBundle(
@@ -208,11 +349,24 @@ export async function unwrapDocumentSyncResponseContentKeys(
         ),
       );
     } catch (error) {
+      if (input.historyMode === "raw" && isRawHistoryUnavailableCause(error)) {
+        unavailableRawHistory ??= { cause: error, contentKeyEpoch };
+        continue;
+      }
       throwDocumentSyncContentKeyFailure({
         cause: error,
         updates: responseUpdates,
       });
     }
+  }
+
+  if (unavailableRawHistory) {
+    await throwRawHistoryUnavailable({
+      contentKeysByEpoch,
+      response: input.response,
+      unavailable: unavailableRawHistory,
+      validate: input.onRawHistoryUnavailable,
+    });
   }
 
   return contentKeysByEpoch;

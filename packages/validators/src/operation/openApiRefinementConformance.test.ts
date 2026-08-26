@@ -97,6 +97,19 @@ const witnesses = {
     expectedMessage: "raw-history pulls must be read-only",
     kind: "request",
   },
+  [documentSyncRequestPullRefinements[2].id]: {
+    createInput: () => ({
+      ...createSyncRequest(),
+      authorizingContainerPathRefs: undefined,
+      containerRekeys: undefined,
+      contentKeyBundle: undefined,
+      historyMode: "raw",
+      localVersionVector: "non-null-frontier",
+      outgoingUpdates: [],
+    }),
+    expectedMessage: "raw-history pulls must start from a null version vector",
+    kind: "request",
+  },
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),

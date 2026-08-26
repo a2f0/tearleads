@@ -136,6 +136,15 @@ export interface DocumentSummaryList {
 
 export interface DocumentsPersistence {
   /**
+   * The adapter guarantees that recovery checkpoint replacement, selection of
+   * covered local history, rejection of unproven ordinary pending rows, and
+   * quarantine of every queued checkpoint artifact share the guarded
+   * `commitDocumentMutation` transaction, which also advances the canonical
+   * recovery generation. An unrelated history tail not covered by the rebuild
+   * must abort that transaction.
+   */
+  readonly supportsAtomicRecoveryHistoryPruning: boolean;
+  /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.
    */
@@ -179,6 +188,7 @@ export interface DocumentsPersistence {
         | {
             coveredTailIds: readonly string[];
             endVersionVector: string;
+            pruneCoveredLocalState: boolean;
             snapshot: string;
           }
         | undefined;
@@ -242,6 +252,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
     expectedDocumentId: string | null,
+    expectedRecoveryGeneration: number,
   ) => Promise<boolean>;
   loadDocument: (
     execSql: ExecSql,
@@ -399,14 +410,17 @@ export interface DocumentsPersistence {
   ) => Promise<LocalAttachmentRecord[]>;
   /**
    * Durably append the outgoing row and matching local-history tail entry.
-   * When `expectedDocumentId` is supplied, compare it with the canonical row
-   * inside that same mutation and return false on absence or mismatch. A false
-   * result is an ordinary identity race; adapters must not insert either row.
+   * When expectations are supplied, compare the document identity and recovery
+   * generation with the canonical row inside that same mutation and return
+   * false on absence or mismatch. Adapters must not insert either row.
    */
   enqueuePendingUpdate: (
     execSql: ExecSql,
     pendingUpdate: PendingUpdateInsert,
-    options?: { expectedDocumentId: string | null },
+    options?: {
+      expectedDocumentId: string | null;
+      expectedRecoveryGeneration: number;
+    },
   ) => Promise<boolean>;
   saveLocalAttachment: (
     execSql: ExecSql,

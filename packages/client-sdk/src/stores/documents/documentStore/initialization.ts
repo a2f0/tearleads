@@ -109,6 +109,7 @@ async function createInitialDocumentRecord(
       historyCheckpoint: {
         coveredTailIds: [],
         endVersionVector: encodeVersionVector(nextDoc),
+        pruneCoveredLocalState: false,
         snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
       },
       ...(initialUpdate ? { pendingUpdate: initialUpdate } : {}),

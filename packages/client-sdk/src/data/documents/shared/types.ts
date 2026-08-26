@@ -413,6 +413,7 @@ export interface BuildDocumentSyncPlanInput {
   documentId?: string | undefined;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   documentManifest: DocumentCreateResponse["accessManifest"];
+  historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;

@@ -12,75 +12,33 @@ import {
   satisfiesVersionVector,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../data/sqlite/documentHistoryPersistence";
-import type { DocumentsRuntime } from "../types";
-import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
-import { ensureDocumentStoreReady } from "./initialization";
+import { openHistoryTestStore as openStore } from "./historyDurability.testFixtures";
 import { setDocumentText } from "./mutations";
 import {
   listPendingUpdates,
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { createDocumentStoreState, type DocumentStoreState } from "./state";
-
-// Offline runtime: history durability is a purely local property, so these
-// tests never touch the network (the store's sync preconditions all fail).
-function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
-  return {
-    apiClient: {} as DocumentsRuntime["apiClient"],
-    auth: { isAuthenticated: false, organizationId: null, userId: null },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: null as never,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: "container",
-      domainScope: createDomainScope(),
-      events: [],
-      online: false,
-      peerScope: null,
-    },
-    util: { log: () => undefined },
-  } as unknown as DocumentsRuntime;
-}
-
-async function openStore(
-  execSql: DocumentsRuntime["infra"]["execSql"],
-  localId: string,
-  initialText = "",
-): Promise<DocumentStoreState> {
-  const state = createDocumentStoreState(
-    localId,
-    offlineRuntime(execSql),
-    sqlDocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    null,
-    initialText,
-  );
-  expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-  return state;
-}
 
 test("a document created offline is fully durable from birth", async () => {
   const { close, execSql } = await createTestExecSql("history-birth");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     // Creation is the ONLY persist this document sees before the "restart".
-    await openStore(execSql, "born-offline", "created and closed");
+    await openStore(
+      execSql,
+      "born-offline",
+      sqlDocumentsPersistence,
+      "created and closed",
+    );
 
-    const reopened = await openStore(execSql, "born-offline");
+    const reopened = await openStore(
+      execSql,
+      "born-offline",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("created and closed");
     const pendingUpdates = await listPendingUpdates(reopened);
@@ -143,11 +101,19 @@ test("full history survives a restart via the checkpoint and tail", async () => 
   const { close, execSql } = await createTestExecSql("history-durability");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const first = await openStore(execSql, "history-doc");
+    const first = await openStore(
+      execSql,
+      "history-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(first, () => undefined, "first line");
     await setDocumentText(first, () => undefined, "first line and more");
 
-    const reopened = await openStore(execSql, "history-doc");
+    const reopened = await openStore(
+      execSql,
+      "history-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("first line and more");
     // The whole point: a restarted device can still export the full-history
@@ -165,21 +131,25 @@ test("the tail compacts into a fresh checkpoint past the row threshold", async (
   const { close, execSql } = await createTestExecSql("history-compaction");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "compaction-doc");
+    const state = await openStore(
+      execSql,
+      "compaction-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "seed");
 
-    // Inflate the tail past the threshold; the rows only need to exist (a
-    // compaction clears them from the live doc's export without replaying
-    // them), so opaque filler is fine here.
+    if (!state.doc) throw new Error("expected live doc");
+    const coveredUpdate = bytesToBase64(exportAllUpdates(state.doc));
+    // Inflate the tail past the threshold with exact duplicate history. Every
+    // row is safe to retire into the checkpoint.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
       origin: "local",
       localId: "compaction-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
-        (_, index) => `filler-${index}`,
+        () => coveredUpdate,
       ),
     });
-    if (!state.doc) throw new Error("expected live doc");
     await persistDocument(state, state.doc);
 
     const tail = await sqlDocumentsPersistence.readHistoryTailSize?.(
@@ -245,7 +215,11 @@ test("restored remote tail rows advance the marker; local rows do not", async ()
       updates: [bytesToBase64(localDelta)],
     });
 
-    const reopened = await openStore(execSql, "origin-doc");
+    const reopened = await openStore(
+      execSql,
+      "origin-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc || reopened.pendingBaseVersion === null) {
       throw new Error("expected restored doc and marker");
     }
@@ -291,7 +265,11 @@ test("a tail-only scope (crash before the birth checkpoint) still restores", asy
       text: "only durable copy",
     });
 
-    const reopened = await openStore(execSql, "tail-only-doc");
+    const reopened = await openStore(
+      execSql,
+      "tail-only-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("only durable copy");
   } finally {
@@ -303,7 +281,11 @@ test("compaction preserves cross-pane tail rows its document does not cover", as
   const { close, execSql } = await createTestExecSql("history-cross-pane");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "cross-pane-doc");
+    const state = await openStore(
+      execSql,
+      "cross-pane-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "pane A edit");
 
     // A second pane's edit: real ops this pane's document has NOT merged.
@@ -315,16 +297,17 @@ test("compaction preserves cross-pane tail rows its document does not cover", as
       localId: "cross-pane-doc",
       updates: [bytesToBase64(exportAllUpdates(paneB))],
     });
-    // Push past the threshold with unparseable filler (deleted as poison).
+    if (!state.doc) throw new Error("expected live doc");
+    const paneAUpdate = bytesToBase64(exportAllUpdates(state.doc));
+    // Push past the threshold with exact duplicate pane-A history.
     await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
       origin: "local",
       localId: "cross-pane-doc",
       updates: Array.from(
         { length: DOCUMENT_HISTORY_COMPACTION_MAX_ROWS },
-        (_, index) => `filler-${index}`,
+        () => paneAUpdate,
       ),
     });
-    if (!state.doc) throw new Error("expected live doc");
     await persistDocument(state, state.doc);
 
     // The foreign row survives — deleting it would discard the only durable
@@ -347,7 +330,11 @@ test("a deferred write covered by the tail restores with full history", async ()
   const { close, execSql } = await createTestExecSql("history-deferred-tail");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "deferred-covered-doc");
+    const state = await openStore(
+      execSql,
+      "deferred-covered-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "enqueued edit");
     if (!state.doc) throw new Error("expected live doc");
 
@@ -364,7 +351,11 @@ test("a deferred write covered by the tail restores with full history", async ()
     });
     await persistDocument(state, state.doc);
 
-    const reopened = await openStore(execSql, "deferred-covered-doc");
+    const reopened = await openStore(
+      execSql,
+      "deferred-covered-doc",
+      sqlDocumentsPersistence,
+    );
     if (!reopened.doc) throw new Error("expected restored doc");
     expect(getTextValue(reopened.doc)).toBe("enqueued edit plus deferred");
     // Because the tail covers the deferred delta, the restore keeps full
@@ -437,7 +428,11 @@ test("deleting a document deletes its history checkpoint and tail", async () => 
   const { close, execSql } = await createTestExecSql("history-delete");
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    const state = await openStore(execSql, "deleted-doc");
+    const state = await openStore(
+      execSql,
+      "deleted-doc",
+      sqlDocumentsPersistence,
+    );
     await setDocumentText(state, () => undefined, "short lived");
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState?.(

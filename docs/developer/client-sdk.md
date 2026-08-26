@@ -110,23 +110,23 @@ accept a null container plus the active organization; use the indexed
 Document stores initialize automatically before mutating operations such as
 `setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,
 `replaceAttachment(...)`, and `relink(...)`. Use `ensureInitialized()` only for
-an explicit readiness probe before reading a ready snapshot.
+an explicit readiness probe before reading a ready snapshot. Use
+`symcrypt.runtime.input(containerId)` for host runtime input; SDK facades retain
+API access and incident reporting.
 
-For bounded UI hydration, resolve the stable identity locally with
-`symcrypt.documents.findLocalIdByDocumentId(documentId)`, then open it with
-`remoteSyncMode: "on-demand"` to suppress a new store's startup pull. Await
-`requestRemoteSyncAndWait(signal)`: it is `true` only for a completed pass and
-`false` after cancellation, invalidation, or unavailable prerequisites. Abort
-on unmount; cancellation releases only waiter-owned work, never a concurrent
-startup or independent request. See
-[custom persistence](./custom-document-persistence.md#on-demand-document-lifecycle)
-for identity precedence and lifecycle details.
+For bounded UI hydration, resolve `localId` with
+`symcrypt.documents.findLocalIdByDocumentId(documentId)`, open with
+`remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.
+It returns `false` unless a pass completes. Abort on unmount; cancellation
+releases only waiter-owned work. See the
+[on-demand lifecycle](./custom-document-persistence.md#on-demand-document-lifecycle).
 
 Loop `syncRemoteDocument(...)` while work remains; resume via
 `readPullContinuation(result.response)`. Validate imports with
 `validateDocumentSyncUpdateImports(...)` and a live Loro doc. Large/ambiguous
 pages use bounded batch scope (`updateId: null`) without a writer. Fail closed;
-preserve `KeyingVerificationError`.
+preserve `KeyingVerificationError`. In [raw mode](../raw-document-history-recovery.md),
+missing epochs throw `DocumentRawHistoryUnavailableError`.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

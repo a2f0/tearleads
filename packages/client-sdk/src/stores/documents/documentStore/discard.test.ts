@@ -86,6 +86,7 @@ async function saveSyncedDocumentRecord(
       commitLsnMode: "tracked",
       cursor: "page-2",
     },
+    recoveryGeneration: 1,
     snapshotEndVersion: "synced-end-version",
     text: "hello",
     title: "Stuck note",
@@ -140,13 +141,12 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
 
     // Clear the document-kind projection through the caller's registry.
     expect(projectionDeletes).toEqual([{ documentKind: "note", localId }]);
-
+    // The shell retains identity but clears local content for rehydration.
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
-    // Retain a discoverable identity/placement shell but clear local content
-    // and keys so re-initialization hydrates the server copy.
     expect(shell?.documentId).toBe("remote-doc");
     expect(shell?.containerId).toBe("folder-a");
     expect(shell?.title).toBe("Stuck note");
+    expect(shell?.recoveryGeneration).toBe(1);
     expect(shell?.snapshotEndVersion).toBe("");
     expect(shell?.pendingBaseVersion ?? null).toBeNull();
     expect(shell?.contentKeyBundle ?? null).toBeNull();

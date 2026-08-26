@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekMaterialId,
+  computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
   sealContainerKekKeyring,
@@ -18,11 +19,13 @@ import {
   tamperSealedKeyring,
 } from "../../../../test/helpers/keyringRotationFixtures";
 import {
+  ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
   DocumentHistoryUnavailableError,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyFromBundle,
 } from "./projection";
+import { targetEnvelopeReference } from "./readers";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
@@ -52,24 +55,25 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
     contentKey,
     rotated.fixture.rootContainerKek,
   );
+  const target = {
+    containerId: rotated.successor.containerId,
+    containerKeyEpoch: 1,
+    containerKeyEpochId: rotated.predecessorEpochId,
+    containerManifestHash: rotated.successor.accessManifestHash,
+    wrappedKey: bytesToBase64(wrapped.ciphertext),
+    wrappingMetadata: {
+      suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+      iv: bytesToBase64(wrapped.iv),
+    },
+  };
   const bundle = {
     contentKeyEpoch: 1,
     documentId: crypto.randomUUID(),
     linkSetManifestHash: await fixtureHash("history-link-set"),
-    targetHash: await fixtureHash("history-targets"),
-    targets: [
-      {
-        containerId: rotated.successor.containerId,
-        containerKeyEpoch: 1,
-        containerKeyEpochId: rotated.predecessorEpochId,
-        containerManifestHash: rotated.successor.accessManifestHash,
-        wrappedKey: bytesToBase64(wrapped.ciphertext),
-        wrappingMetadata: {
-          suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-          iv: bytesToBase64(wrapped.iv),
-        },
-      },
-    ],
+    targetHash: await computeDocumentContentKeyTargetHash([
+      targetEnvelopeReference(target),
+    ]),
+    targets: [target],
   } satisfies DocumentContentKeyBundleResponse;
 
   return { bundle, contentKey };
@@ -145,6 +149,44 @@ test("document projection shares keyring-recovered keys across authorizing paths
     collected.predecessorFailuresByEpochId,
   );
   expect(Array.from(unwrappedContentKey)).toEqual(Array.from(contentKey));
+});
+
+test("shared-path integrity failures outrank unavailable history in either order", async () => {
+  const rotated = await rotateRootKekKeyringFixture();
+  const unavailable = rootOnlyProjection(rotated, {
+    ...rotated.successor,
+    keyring: null,
+  });
+  const damaged = structuredClone(rootOnlyProjection(rotated));
+  const damagedKek = damaged.containerKeks[0];
+  if (!damagedKek?.keyring) throw new Error("Expected a damaged keyring");
+  damagedKek.keyring = tamperSealedKeyring(damagedKek.keyring);
+  const { bundle } = await wrapContentKeyToEpoch1(rotated);
+
+  for (const paths of [
+    [unavailable, damaged],
+    [damaged, unavailable],
+  ]) {
+    const collected = await collectContainerKeksForDocumentSync({
+      writerProjection: writerProjectionFor(paths),
+      secretKey: rotated.fixture.secretKey,
+      trustedLocalProjection: true,
+    });
+    const error = await unwrapDocumentContentKeyFromBundle(
+      bundle,
+      collected.keksByEpochId,
+      collected.predecessorFailuresByEpochId,
+      collected.unattributedPredecessorFailuresByContainerId,
+    ).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).toBeInstanceOf(DocumentHistoryUnavailableError);
+    expect(
+      (error as DocumentHistoryUnavailableError).historyCause,
+    ).not.toBeInstanceOf(ContainerKekHistoryUnavailableError);
+  }
 });
 
 test("unwrapContainerKekPath rejects missing or inconsistent keyrings", async () => {

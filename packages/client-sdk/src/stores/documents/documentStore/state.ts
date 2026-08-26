@@ -77,6 +77,7 @@ export interface SaveDocumentRecordOptions {
     | {
         coveredTailIds: readonly string[];
         endVersionVector: string;
+        pruneCoveredLocalState: boolean;
         snapshot: string;
       }
     | undefined;

@@ -199,6 +199,8 @@ function buildStoredDocumentRecord(input: {
       patch.pendingBaseVersion !== undefined
         ? patch.pendingBaseVersion
         : (currentRecord?.pendingBaseVersion ?? null),
+    recoveryGeneration:
+      patch.recoveryGeneration ?? currentRecord?.recoveryGeneration ?? 0,
     ...resolveStoredDocumentPullState({
       currentRecord,
       patch,

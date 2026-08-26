@@ -221,3 +221,23 @@ test("client SQLite persistence runtime supports immediate transactions", async 
 
   expect(statements).toEqual(["begin immediate", "select 1", "commit"]);
 });
+
+test("guarded transactions preserve immediate write locking", async () => {
+  const statements: string[] = [];
+  const runtime = createClientSQLitePersistenceRuntime({
+    exec: async ({ sql: statement }) => {
+      statements.push(statement);
+      return { rows: [] };
+    },
+  });
+
+  await runtime.guardedTransaction(
+    async (tx) => {
+      await tx.run(sql`select 1`);
+    },
+    () => true,
+    { behavior: "immediate" },
+  );
+
+  expect(statements).toEqual(["BEGIN IMMEDIATE", "select 1", "COMMIT"]);
+});

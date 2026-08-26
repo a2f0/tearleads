@@ -34,6 +34,8 @@ interface PreparedOutgoingCoverage {
  * advances, so a restart at every await remains lossless.
  */
 export async function prepareDocumentOutgoingCoverage(input: {
+  /** A separately verified frontier used only to prove outgoing coverage. */
+  readonly coverageBaseVersion?: string | undefined;
   readonly currentDoc: DocumentState;
   readonly generation: DocumentStoreSyncGeneration;
   readonly pendingUpdates: PendingUpdateRecord[];
@@ -42,7 +44,7 @@ export async function prepareDocumentOutgoingCoverage(input: {
   const { currentDoc, generation, state } = input;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
 
-  const baseVersion = state.pendingBaseVersion;
+  const baseVersion = input.coverageBaseVersion ?? state.pendingBaseVersion;
   if (baseVersion === null) {
     throw new Error("Document sync requires an initialized pending base");
   }

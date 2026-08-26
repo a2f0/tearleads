@@ -22,6 +22,7 @@ import {
   asWebCryptoBytes,
   readRecordPositiveInteger,
   readRecordString,
+  readWriteHeader,
 } from "./readers";
 import {
   type DecryptedDocumentSyncUpdate,
@@ -215,6 +216,40 @@ async function verifiedEncryptedSyncUpdate(input: {
       updateId: input.update.id,
     });
   }
+}
+
+/** Verifies the encrypted record's structure and every binding to its header. */
+export async function assertDocumentSyncUpdateEncryptedRecord(
+  update: SyncResponseUpdate,
+): Promise<void> {
+  let contentKeyEpoch: number;
+  let documentId: string;
+  let organizationId: string;
+  try {
+    const header = readWriteHeader(
+      update.writeHeader,
+      "Document sync response write header",
+    );
+    if (header.objectKind !== "document") {
+      throw new Error("Document sync response write header kind mismatch");
+    }
+    contentKeyEpoch = header.contentKeyEpoch;
+    documentId = header.objectId;
+    organizationId = header.organizationId;
+  } catch (error) {
+    throw isolateDocumentSyncUpdateError({
+      cause: error,
+      responseUpdate: update,
+      stage: "write_header",
+      updateId: update.id,
+    });
+  }
+  await verifiedEncryptedSyncUpdate({
+    contentKeyEpoch,
+    documentId,
+    organizationId,
+    update,
+  });
 }
 
 async function decryptPayload(input: {

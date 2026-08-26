@@ -1,4 +1,10 @@
-import { satisfiesVersionVector } from "@symcrypt/loro";
+import { base64ToBytes } from "@symcrypt/encoding";
+import {
+  createDocument,
+  exportFullHistoryIdentity,
+  importSnapshot,
+  satisfiesVersionVector,
+} from "@symcrypt/loro";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
@@ -231,7 +237,7 @@ export async function replaceDocumentHistoryCheckpoint(
      */
     stillCurrent?: () => boolean;
   },
-): Promise<void> {
+): Promise<boolean> {
   await ensureSqlTables(execSql, documentTables);
   // Sequential (non-transactional) so callers already inside a transaction
   // can nest this. Crash between the statements leaves the new checkpoint
@@ -240,9 +246,9 @@ export async function replaceDocumentHistoryCheckpoint(
   // on the stored revision, so the version gate cannot be bypassed by a
   // concurrent compactor between the read and the write: whoever loses the
   // CAS re-reads and re-evaluates the gate against the winner's checkpoint.
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
+  return getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
     if (input.stillCurrent?.() === false) {
-      return;
+      return false;
     }
     for (let attempt = 0; attempt < CHECKPOINT_CAS_ATTEMPTS; attempt += 1) {
       let replaced: boolean;
@@ -252,7 +258,7 @@ export async function replaceDocumentHistoryCheckpoint(
         if (error instanceof CheckpointGateRejected) {
           // A fresher checkpoint dominates this candidate: no write, and
           // the caller's covered rows must stay for the covering pane.
-          return;
+          return false;
         }
         throw error;
       }
@@ -279,7 +285,7 @@ export async function replaceDocumentHistoryCheckpoint(
             ),
           );
       }
-      return;
+      return true;
     }
     // Exhaustion must not read as durable success: creation and rebuild
     // callers persist record rows assuming the checkpoint landed.
@@ -318,6 +324,7 @@ async function tryReplaceCheckpointOnce(
     .select({
       endVersionVector: documentHistoryCheckpoints.endVersionVector,
       revision: documentHistoryCheckpoints.revision,
+      snapshot: documentHistoryCheckpoints.snapshot,
     })
     .from(documentHistoryCheckpoints)
     .where(
@@ -353,12 +360,26 @@ async function tryReplaceCheckpointOnce(
   // A stale compactor (a pane whose document has not merged another pane's
   // ops) must never replace a checkpoint it does not cover: the covered
   // pane may already have deleted its tail rows, so regressing the
-  // checkpoint would leave those ops with no durable copy at all.
-  if (
-    input.force !== true &&
-    !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
-  ) {
-    throw new CheckpointGateRejected();
+  // checkpoint would leave those ops with no durable copy at all. Vector
+  // dominance proves counter coverage; the retained-prefix identity also
+  // proves the candidate carries the exact stored operations at those
+  // counters rather than a same-frontier fork.
+  if (input.force !== true) {
+    if (
+      !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
+    ) {
+      throw new CheckpointGateRejected();
+    }
+    if (
+      input.snapshot !== stored.snapshot &&
+      !(await candidateContainsStoredCheckpointHistory({
+        candidateSnapshot: input.snapshot,
+        storedEndVersion: stored.endVersionVector,
+        storedSnapshot: stored.snapshot,
+      }))
+    ) {
+      throw new CheckpointGateRejected();
+    }
   }
 
   const replaced = await tx
@@ -378,6 +399,28 @@ async function tryReplaceCheckpointOnce(
     )
     .returning({ localId: documentHistoryCheckpoints.localId });
   return replaced.length > 0;
+}
+
+async function candidateContainsStoredCheckpointHistory(input: {
+  candidateSnapshot: string;
+  storedEndVersion: string;
+  storedSnapshot: string;
+}): Promise<boolean> {
+  const [candidateDocument, storedDocument] = await Promise.all([
+    createDocument("checkpoint-candidate-history-gate"),
+    createDocument("checkpoint-stored-history-gate"),
+  ]);
+  try {
+    importSnapshot(candidateDocument, base64ToBytes(input.candidateSnapshot));
+    importSnapshot(storedDocument, base64ToBytes(input.storedSnapshot));
+    return (
+      exportFullHistoryIdentity(candidateDocument, input.storedEndVersion) ===
+      exportFullHistoryIdentity(storedDocument)
+    );
+  } finally {
+    candidateDocument.free();
+    storedDocument.free();
+  }
 }
 
 class CheckpointGateRejected extends Error {

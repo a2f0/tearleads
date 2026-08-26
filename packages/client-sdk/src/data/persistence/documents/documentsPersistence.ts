@@ -14,7 +14,10 @@ import {
   documentProjection,
   documents,
 } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
@@ -82,6 +85,7 @@ async function upsertDiscoveredDocumentWithExec(
   execSql: ExecSql,
   input: DiscoveredDocumentInput,
   pendingCreates: ReadonlyMap<string, string>,
+  tx: ClientSQLiteTransactionScope,
 ): Promise<DocumentSummary> {
   const existingLocalId = await findLocalIdByDocumentId(
     execSql,
@@ -116,6 +120,7 @@ async function upsertDiscoveredDocumentWithExec(
     text: existingDocument?.text ?? "",
     title: existingDocument?.title ?? DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE,
     snapshotEndVersion: existingDocument?.snapshotEndVersion ?? "",
+    recoveryGeneration: existingDocument?.recoveryGeneration ?? 0,
     accessEpoch: nextAccessEpoch,
     accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
       accessEpoch: nextAccessEpoch,
@@ -136,11 +141,14 @@ async function upsertDiscoveredDocumentWithExec(
     existingDocument === null || existingDocument === undefined
       ? { updatedAt: input.createdAt }
       : undefined;
-  const updatedAt = await sqlDocumentsPersistence.saveDocument(
-    execSql,
-    nextDocument,
-    saveOptions,
-  );
+  const updatedAt = await resolveDocumentSaveTimestamp({
+    document: nextDocument,
+    options: saveOptions,
+    tx,
+  });
+  if (!(await saveDocumentRows({ document: nextDocument, tx, updatedAt }))) {
+    throw new Error("Document recovery generation changed during discovery");
+  }
 
   return toDocumentSummary(nextDocument, updatedAt);
 }
@@ -199,7 +207,7 @@ export async function upsertDiscoveredDocuments(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
     return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-      async () => {
+      async (tx) => {
         const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
         const nextSummaries: DocumentSummary[] = [];
 
@@ -209,6 +217,7 @@ export async function upsertDiscoveredDocuments(
               lockedExecSql,
               input,
               pendingCreates,
+              tx,
             ),
           );
         }
@@ -277,6 +286,7 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
+  supportsAtomicRecoveryHistoryPruning: true,
   createDocumentWithHistoryCheckpoint:
     createStoredDocumentWithHistoryCheckpoint,
   commitDocumentMutation: (execSql, input, saveClientProjection) =>
@@ -327,6 +337,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
 
           return updatedAt;
         },
+        { behavior: "immediate" },
       ),
     );
   },
@@ -346,6 +357,12 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
             options,
             tx,
           });
+          const saved = await saveDocumentRows({
+            document,
+            tx,
+            updatedAt,
+          });
+          if (!saved) return updatedAt;
           if (uniquePendingUpdateIds.length > 0) {
             await tx
               .delete(documentPendingUpdates)
@@ -358,14 +375,9 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
               )
               .run();
           }
-          await saveDocumentRows({
-            document,
-            tx,
-            updatedAt,
-          });
-
           return updatedAt;
         },
+        { behavior: "immediate" },
       ),
     );
   },

@@ -30,9 +30,11 @@ import {
 } from "./readers";
 
 export { unwrapContainerKekPath } from "./containerKekPath";
+export { ContainerKekHistoryUnavailableError } from "./containerKekPathHistory";
 export {
   buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
+  DocumentContentKeyUnavailableError,
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,

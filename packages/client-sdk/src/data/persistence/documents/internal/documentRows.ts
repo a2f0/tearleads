@@ -81,6 +81,7 @@ function toDocumentRecordRow(input: {
     appKind: DOCUMENTS_APP_KIND,
     localId: document.id,
     documentId: document.documentId,
+    recoveryGeneration: document.recoveryGeneration ?? 0,
     snapshotEndVersion: document.snapshotEndVersion,
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,
@@ -171,8 +172,18 @@ export async function saveDocumentRows(input: {
   document: StoredDocumentRecord;
   tx: ClientSQLiteTransactionScope;
   updatedAt: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const { document, tx, updatedAt } = input;
+  const existing = await loadDocumentRecordInTransaction({
+    localId: document.id,
+    tx,
+  });
+  if (
+    existing &&
+    (existing.recoveryGeneration ?? 0) > (document.recoveryGeneration ?? 0)
+  ) {
+    return false;
+  }
   const documentRow = toDocumentRecordRow({ document, updatedAt });
   await tx
     .insert(documents)
@@ -183,6 +194,7 @@ export async function saveDocumentRows(input: {
     })
     .run();
   await saveDocumentProjectionRows(input);
+  return true;
 }
 
 function didStoredDocumentContentChange(

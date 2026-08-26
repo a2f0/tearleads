@@ -1,4 +1,3 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -9,10 +8,9 @@ import {
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@symcrypt/validators/response";
-import {
-  type DocumentSyncUpdateIsolationError,
-  type IncomingDocumentSyncUpdateValidator,
-  isDocumentSyncUpdateIsolationError,
+import type {
+  DocumentSyncUpdateIsolationError,
+  IncomingDocumentSyncUpdateValidator,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isRetryableDocumentSyncConflict,
@@ -37,17 +35,25 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";
+import {
+  handleReadOnlyProjectionCompletionError,
+  REFRESH_CACHED_PROJECTION,
+} from "./readOnlyProjectionFailure";
+import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
   type RemoteDocumentDeletionHandler,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
-import { resolveSyncAttemptWriterProjection } from "./syncFailures";
+import {
+  assertRawContinuationCanRetry,
+  refreshSyncAttemptWriterProjection,
+  resolveSyncAttemptWriterProjection,
+} from "./syncFailures";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import type { RekeyPendingUpdate } from "./syncRecoveryRekey";
@@ -62,6 +68,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
   const materializedPlan = await buildMaterializedDocumentSyncPlan({
     author: input.author,
     execSql: input.execSql,
+    historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     pullCursor: input.pullContinuation?.cursor,
@@ -150,6 +157,7 @@ function parsePersistedDocumentSyncState(
 async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   author: DocumentCreateAuthor;
   documentId: string;
+  historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -170,6 +178,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentId: input.documentId,
     documentKekTargets: persisted.documentKekTargets,
     documentManifest: persisted.documentManifest,
+    historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
@@ -194,6 +203,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   author: DocumentCreateAuthor;
   documentId: string;
   execSql: ExecSql;
+  historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -215,30 +225,22 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
   allowCachedProjectionRefresh: boolean;
   completion: ReadOnlyDocumentSyncCompletionInput;
   writerProjection: DocumentWriterProjectionResponse;
-}): Promise<SyncRemoteDocumentResult | null> {
+}): Promise<
+  | DocumentRawHistoryUnavailableError
+  | SyncRemoteDocumentResult
+  | null
+  | typeof REFRESH_CACHED_PROJECTION
+> {
   try {
     return await completeReadOnlyRemoteDocumentSyncWithProjection({
       ...input.completion,
       writerProjection: input.writerProjection,
     });
   } catch (error) {
-    if (isDocumentSyncUpdateIsolationError(error)) {
-      throw error;
-    }
-    if (
-      input.allowCachedProjectionRefresh &&
-      error instanceof KeyingVerificationError &&
-      error.code === "invalid_shape"
-    ) {
-      return null;
-    }
-    // The document-store `document.sync` boundary owns durable reporting; this
-    // helper only decides whether an ordinary projection miss is retryable.
-    rethrowKeyingVerificationError(error);
-    if (projectionIntegrityErrorCode(error)) {
-      throw error;
-    }
-    return null;
+    return handleReadOnlyProjectionCompletionError(error, {
+      allowCachedProjectionRefresh: input.allowCachedProjectionRefresh,
+      historyMode: input.completion.historyMode,
+    });
   }
 }
 
@@ -264,12 +266,18 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   if (!writerProjection) {
     return { kind: "completed", result: null };
   }
+  const canRefreshProjection =
+    input.historyMode === "raw" || Boolean(reusableWriterProjection);
 
-  let result: SyncRemoteDocumentResult | null = null;
+  let result:
+    | DocumentRawHistoryUnavailableError
+    | SyncRemoteDocumentResult
+    | null
+    | typeof REFRESH_CACHED_PROJECTION = null;
   let retryAfterRollback = false;
   try {
     result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
-      allowCachedProjectionRefresh: Boolean(reusableWriterProjection),
+      allowCachedProjectionRefresh: canRefreshProjection,
       completion: input,
       writerProjection,
     });
@@ -279,22 +287,23 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     }
     retryAfterRollback = true;
   }
-  if (result || (!retryAfterRollback && !reusableWriterProjection)) {
+  if (
+    !retryAfterRollback &&
+    result !== REFRESH_CACHED_PROJECTION &&
+    !(result instanceof DocumentRawHistoryUnavailableError) &&
+    (result || !reusableWriterProjection)
+  ) {
     return { kind: "completed", result };
   }
 
-  if (input.apiClient.evictDocumentWriterProjection) {
-    input.apiClient.evictDocumentWriterProjection(input.documentId);
-  } else {
-    input.apiClient.clearWriterProjectionCaches?.();
-  }
-  const freshWriterProjection = await resolveSyncAttemptWriterProjection({
+  const freshWriterProjection = await refreshSyncAttemptWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     onTerminalFailure: input.onReadOnlyProjectionFailure,
-    reusableWriterProjection: null,
+    unavailableError:
+      result instanceof DocumentRawHistoryUnavailableError ? result : undefined,
   });
   if (!freshWriterProjection) {
     return { kind: "completed", result: null };
@@ -307,6 +316,12 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       writerProjection: freshWriterProjection,
     },
   );
+  if (
+    freshResult === REFRESH_CACHED_PROJECTION ||
+    freshResult instanceof DocumentRawHistoryUnavailableError
+  ) {
+    throw new Error("Fresh document projection unexpectedly requested refresh");
+  }
   return freshResult
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };
@@ -356,6 +371,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         documentId: input.documentId,
         status: submitted.status,
       });
+      assertRawContinuationCanRetry(input.historyMode, input.pullContinuation);
       return { kind: "not_completed" };
     }
 
@@ -400,7 +416,10 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         acceptedRecoveryBaseline: false,
       },
     };
-  } catch {
+  } catch (error) {
+    if (input.historyMode === "raw") {
+      throw error;
+    }
     return { kind: "not_completed" };
   }
 }
@@ -416,6 +435,8 @@ export interface SyncRemoteDocumentInput {
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   documentId: string;
   execSql: ExecSql;
+  /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
+  historyMode?: "raw" | undefined;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;

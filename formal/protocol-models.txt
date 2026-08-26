@@ -3,4 +3,5 @@ formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringR
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
+formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg

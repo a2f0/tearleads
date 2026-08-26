@@ -201,7 +201,10 @@ test("stale text, row, and attachment enqueues cannot cross a relink", async () 
           sourceVersionVector: null,
           updateData: btoa(`${kind}-update`),
         },
-        { expectedDocumentId: "old-document" },
+        {
+          expectedDocumentId: "old-document",
+          expectedRecoveryGeneration: 0,
+        },
       ),
     );
 

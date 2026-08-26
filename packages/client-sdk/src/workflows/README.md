@@ -17,6 +17,14 @@ coordination, but they must stay React-free and product-UI-free.
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
+The documents facade also admits explicit `historyMode: "raw"` reads through
+`syncRemoteDocument`. A raw consumer must start at a null version vector, send
+no writes, validate every bounded page in scratch state, and publish only after
+the complete retained frontier validates. The built-in rotation preflight is
+the reference consumer; ordinary sync must omit the mode. Raw consumers can
+handle `DocumentRawHistoryUnavailableError` by its stable code and numeric
+content-key epoch without parsing an integrity-error message.
+
 The `sync` facade exposes read-only coordinator snapshots through
 `getDomainSyncCoordinatorSnapshot(...)` and
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use

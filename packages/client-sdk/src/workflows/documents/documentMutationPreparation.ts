@@ -24,6 +24,7 @@ export interface PrepareDocumentMutationInput {
     | {
         coveredTailIds: readonly string[];
         endVersionVector: string;
+        pruneCoveredLocalState: boolean;
         snapshot: string;
       }
     | undefined;
@@ -179,6 +180,18 @@ function ordinarySaveWriteAccessWasRevoked(
   );
 }
 
+function recoveryGenerationWasSuperseded(
+  input: PrepareDocumentMutationInput,
+  durableRecord: StoredDocumentRecord | null,
+): boolean {
+  return (
+    input.currentRecord !== null &&
+    durableRecord !== null &&
+    (input.currentRecord.recoveryGeneration ?? 0) !==
+      (durableRecord.recoveryGeneration ?? 0)
+  );
+}
+
 function resolveSyncSettlementState(
   current: StoredDocumentRecord | null,
   expected: ExpectedDocumentSyncState | undefined,
@@ -202,7 +215,9 @@ function resolveSyncSettlementState(
     );
   const recoveryStateMatches =
     Boolean(current?.pullContinuationRecoveryRequired) ===
-    Boolean(expected.record.pullContinuationRecoveryRequired);
+      Boolean(expected.record.pullContinuationRecoveryRequired) &&
+    (current?.recoveryGeneration ?? 0) ===
+      (expected.record.recoveryGeneration ?? 0);
   return {
     pullContinuationSuperseded:
       !securityContextMatches ||
@@ -236,13 +251,19 @@ export async function prepareDocumentMutation(
     input,
     durableCurrentRecord,
   );
+  const recoveryWasSuperseded = recoveryGenerationWasSuperseded(
+    input,
+    durableCurrentRecord,
+  );
   const { pullContinuationSuperseded, securityContextMatches } =
     creationSuperseded || identityWasReplaced || writeAccessWasRevoked
       ? { pullContinuationSuperseded: true, securityContextMatches: false }
-      : resolveSyncSettlementState(
-          mutationCurrentRecord,
-          input.expectedSyncState,
-        );
+      : recoveryWasSuperseded
+        ? { pullContinuationSuperseded: true, securityContextMatches: true }
+        : resolveSyncSettlementState(
+            mutationCurrentRecord,
+            input.expectedSyncState,
+          );
   const ordinarySaveNeedsRebase = ordinarySaveNeedsHistoryRebase(
     input,
     durableCurrentRecord,

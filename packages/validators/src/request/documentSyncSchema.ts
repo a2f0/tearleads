@@ -264,6 +264,13 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
         path: ["historyMode"],
       });
     }
+    if (request.historyMode === "raw" && request.localVersionVector !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "raw-history pulls must start from a null version vector",
+        path: ["localVersionVector"],
+      });
+    }
     const requestMode = classifyDocumentSyncRequestMode({
       authorizingContainerPathRefsPresent:
         request.authorizingContainerPathRefs !== undefined,

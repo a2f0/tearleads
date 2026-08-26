@@ -53,7 +53,7 @@ function isolateContentKeyResponseFailure(
   });
 }
 
-export async function syncRemoteDocumentResultFromResponse(input: {
+type SyncRemoteDocumentResultInput = {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
@@ -66,7 +66,37 @@ export async function syncRemoteDocumentResultFromResponse(input: {
   targetSecretKey: Uint8Array;
   validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
   writerProjection: DocumentWriterProjectionResponse;
-}): Promise<SyncRemoteDocumentResult> {
+};
+
+/** @internal Exercises poison precedence for the decryptable subset of a raw page. */
+export async function validateDecryptableRawHistorySiblings(input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  documentId: string;
+  organizationId: string;
+  response: DocumentSyncResponse;
+  updates: readonly DocumentSyncResponse["updates"][number][];
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
+}): Promise<void> {
+  if (input.updates.length === 0) return;
+  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
+    contentKeysByEpoch: input.contentKeysByEpoch,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    updates: input.updates,
+  });
+  // The current wire contract authenticates each update's operation range but
+  // not its exact dependency set. An unresolved import therefore cannot prove
+  // that the missing parent belongs to an unavailable sibling; preserve the
+  // isolation failure instead of downgrading unrelated poison to availability.
+  await input.validateIncomingUpdates({
+    decryptedUpdates,
+    response: { ...input.response, updates: [...input.updates] },
+  });
+}
+
+async function resolveVerifiedResponseState(
+  input: SyncRemoteDocumentResultInput,
+) {
   const { plan } = input.materializedPlan;
   let persistedState: Awaited<
     ReturnType<typeof persistedDocumentSyncStateFromResponse>
@@ -80,17 +110,39 @@ export async function syncRemoteDocumentResultFromResponse(input: {
       },
     );
   } catch (error) {
+    // Missing or future bundles are response-integrity failures. They must be
+    // poison-isolated before key availability is considered, because the
+    // referenced update has not yet authenticated against a bundle.
     isolateContentKeyResponseFailure(error, input.response);
   }
   const contentKeysByEpoch = await unwrapDocumentSyncResponseContentKeys({
     currentContentKey: input.materializedPlan.contentKey,
     currentContentKeyEpoch: plan.contentKeyEpoch,
     execSql: input.execSql,
+    historyMode: plan.request.historyMode,
+    onRawHistoryUnavailable: async ({ contentKeysByEpoch, updates }) =>
+      validateDecryptableRawHistorySiblings({
+        contentKeysByEpoch,
+        documentId: plan.documentId,
+        organizationId: plan.organizationId,
+        response: input.response,
+        updates,
+        validateIncomingUpdates: input.validateIncomingUpdates,
+      }),
     response: input.response,
     targetSecretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });
+  return { contentKeysByEpoch, persistedState };
+}
+
+export async function syncRemoteDocumentResultFromResponse(
+  input: SyncRemoteDocumentResultInput,
+): Promise<SyncRemoteDocumentResult> {
+  const { plan } = input.materializedPlan;
+  const { contentKeysByEpoch, persistedState } =
+    await resolveVerifiedResponseState(input);
   const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
     contentKeysByEpoch,
     documentId: plan.documentId,

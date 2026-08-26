@@ -45,7 +45,7 @@ export function documentRevalidationFailureHandler(
 
 /**
  * Record a terminal submit failure on this document's write-queue row. Shared
- * by every store pass that can submit (create, sync, rotation preflight), so
+ * by every store pass that can submit queued writes (create and sync), so
  * re-key exhaustion and denial failures surface no matter which pass hits
  * them first.
  */

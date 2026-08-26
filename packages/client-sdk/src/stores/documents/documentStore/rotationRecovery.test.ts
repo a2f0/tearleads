@@ -9,6 +9,7 @@ import {
   importUpdates,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { DocumentsRuntime } from "../types";
@@ -34,9 +35,8 @@ import {
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
-import { hasRemoteDocumentUpdateEvent } from "./syncRemoteSignals";
 
-test("a full-history preflight settles pending writes before returning its baseline", async () => {
+test("rotation commits pending writes before consecutive raw recoveries", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-pending",
   );
@@ -52,9 +52,23 @@ test("a full-history preflight settles pending writes before returning its basel
     });
 
     const syncCalls = { count: 0 };
+    const committedUpdates: DocumentSyncResponse["updates"] = [];
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
+      requireRawHistory: false,
+      responseForRequest: (request, response) => {
+        const outgoingIds = new Set(
+          request.outgoingUpdates.map((update) => update.id),
+        );
+        committedUpdates.push(
+          ...response.updates.filter((update) => outgoingIds.has(update.id)),
+        );
+        return {
+          ...response,
+          updates: [...fixture.response.updates, ...committedUpdates],
+        };
+      },
       syncCalls,
     });
     const state = createDocumentStoreState(
@@ -77,17 +91,44 @@ test("a full-history preflight settles pending writes before returning its basel
 
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
-    expect(syncCalls.count).toBe(1);
-    expect(await listPendingUpdates(state)).toEqual([]);
+    // Preliminary raw proof, ordinary settlement, then definitive raw pull.
+    expect(syncCalls.count).toBe(3);
+    expect(await listPendingUpdates(state)).toHaveLength(0);
     const freshReader = await createDocument("pending-rotation-reader");
     importSnapshot(freshReader, baseline);
     expect(getTextValue(freshReader)).toBe("pending local edit");
+
+    // A different client can perform the next rotation from retained ordinary
+    // history alone. It does not need this client's queue or first baseline.
+    const nextLocalId = "rotation-recovery-next-client";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId: nextLocalId,
+    });
+    const nextState = createDocumentStoreState(
+      nextLocalId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(nextState, () => undefined)).toBe(
+      true,
+    );
+    const nextBaseline =
+      await assertDocumentStoreCanRotateContentKey(nextState);
+    expect(syncCalls.count).toBe(4);
+    const nextReader = await createDocument("next-rotation-reader");
+    importSnapshot(nextReader, nextBaseline);
+    expect(getTextValue(nextReader)).toBe("pending local edit");
   } finally {
     close();
   }
 });
 
-test("a fast regenerated-baseline echo stays local during rotation recovery", async () => {
+test("raw recovery rejects a checkpoint-only local history gap", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-fast-baseline-echo",
   );
@@ -102,9 +143,19 @@ test("a fast regenerated-baseline echo stays local during rotation recovery", as
       localId,
     });
 
+    const submittedIds: string[][] = [];
+    const historyModes: Array<"raw" | undefined> = [];
     const state = createDocumentStoreState(
       localId,
-      createRotationRecoveryRuntime({ execSql, fixture }),
+      createRotationRecoveryRuntime({
+        execSql,
+        fixture,
+        responseForRequest: (request, response) => {
+          submittedIds.push(request.outgoingUpdates.map((update) => update.id));
+          historyModes.push(request.historyMode);
+          return response;
+        },
+      }),
       sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
@@ -112,6 +163,9 @@ test("a fast regenerated-baseline echo stays local during rotation recovery", as
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
     if (!state.doc) throw new Error("Expected full-history document");
 
+    state.doc.getText("text").update("checkpoint-only local edit");
+    await persistDocument(state, state.doc);
+    advancePendingBaseVersion(state, state.doc);
     await enqueuePendingUpdate(
       state,
       exportFullHistorySnapshot(state.doc),
@@ -120,52 +174,19 @@ test("a fast regenerated-baseline echo stays local during rotation recovery", as
     const queuedCheckpoint = (await listPendingUpdates(state))[0];
     if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
 
-    const submittedIds: string[][] = [];
-    const fastEchoWasRemote: boolean[] = [];
-    const baseRuntime = state.runtime;
-    state.runtime = {
-      ...baseRuntime,
-      apiClient: {
-        ...baseRuntime.apiClient,
-        syncDocumentResult: async (documentId, request) => {
-          const updateIds = request.outgoingUpdates.map((update) => update.id);
-          submittedIds.push(updateIds);
-          fastEchoWasRemote.push(
-            hasRemoteDocumentUpdateEvent(state, [
-              {
-                documentId,
-                type: "document_update_created",
-                updateIds,
-              },
-            ]),
-          );
-          if (submittedIds.length === 1) {
-            return {
-              message: `POST /documents/${documentId}/sync: 409 Conflict: Document content-key rotation baseline does not cover the committed frontier`,
-              ok: false as const,
-              report: () => undefined,
-              status: 409,
-            };
-          }
-          return {
-            message: "Write access denied by the server (403)",
-            ok: false as const,
-            report: () => undefined,
-            status: 403,
-          };
-        },
-      } as DocumentsRuntime["apiClient"],
-    };
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "unverified local history",
+    );
 
-    await expect(
-      assertDocumentStoreCanRotateContentKey(state),
-    ).rejects.toThrow();
-
-    expect(submittedIds).toHaveLength(2);
-    expect(submittedIds[0]).toEqual([queuedCheckpoint.id]);
-    expect(submittedIds[1]).toHaveLength(1);
-    expect(submittedIds[1]?.[0]).not.toBe(queuedCheckpoint.id);
-    expect(fastEchoWasRemote).toEqual([false, false]);
+    expect(submittedIds).toHaveLength(1);
+    expect(submittedIds[0]).toEqual([]);
+    expect(historyModes).toEqual(["raw"]);
+    expect(
+      (await listPendingUpdates(state)).map((update) => update.id),
+    ).toEqual([queuedCheckpoint.id]);
+    expect(state.doc && getTextValue(state.doc)).toBe(
+      "checkpoint-only local edit",
+    );
   } finally {
     close();
   }
@@ -367,10 +388,8 @@ test("an edit after preflight remains replayable after the new key metadata is p
   }
 });
 
-// The rotation preflight's terminal-failure handler carries the store
-// generation: a teardown (row 21's discard) racing the recovery invalidates
-// it, so a denied submit records nothing instead of resurrecting a failure
-// row for a document whose rows were just deleted.
+// Raw recovery is read-only and must not create a queued-write failure row.
+// A teardown racing the request remains terminal for the captured generation.
 test("a torn-down store records no rotation preflight failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-torn-down",

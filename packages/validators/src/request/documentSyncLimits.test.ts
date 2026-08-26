@@ -174,6 +174,13 @@ test("document sync exposes raw history only for read-only pulls", () => {
 
   expect(isDocumentSyncRequest(readOnly)).toBe(true);
   expect(isDocumentSyncRequest({ ...readOnly, historyMode: "raw" })).toBe(true);
+  expect(
+    isDocumentSyncRequest({
+      ...readOnly,
+      historyMode: "raw",
+      localVersionVector: "non-null-frontier",
+    }),
+  ).toBe(false);
   expect(isDocumentSyncRequest({ ...readOnly, historyMode: "all" })).toBe(
     false,
   );

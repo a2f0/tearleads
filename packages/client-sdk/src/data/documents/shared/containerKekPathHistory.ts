@@ -19,6 +19,14 @@ import type { UnwrappedContainerKek } from "./types";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
+/** The projection proves a predecessor existed, but no retained keyring can recover it. */
+export class ContainerKekHistoryUnavailableError extends Error {
+  constructor(label: string) {
+    super(`${label} keyring is missing`);
+    this.name = "ContainerKekHistoryUnavailableError";
+  }
+}
+
 export function projectionKekLabel(index: number): string {
   return `Container writer projection KEK[${index}]`;
 }
@@ -251,7 +259,9 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
 
   if (kek.keyring === null) {
     if (kek.containerKeyEpoch !== 1) {
-      throw new Error(`${projectionKekLabel(input.index)} keyring is missing`);
+      throw new ContainerKekHistoryUnavailableError(
+        projectionKekLabel(input.index),
+      );
     }
     return;
   }

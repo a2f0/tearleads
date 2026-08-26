@@ -18,6 +18,7 @@ import type { ExecSql } from "./sqlSchema";
 export const documentRecordSelection = {
   id: documents.localId,
   documentId: documents.documentId,
+  recoveryGeneration: documents.recoveryGeneration,
   snapshotEndVersion: documents.snapshotEndVersion,
   accessEpoch: documents.accessEpoch,
   accessStateHash: documents.accessStateHash,
@@ -36,6 +37,7 @@ export function mapSelectedDocumentRecord(
   const record: DocumentRecord = {
     id: row.id,
     documentId: row.documentId,
+    recoveryGeneration: row.recoveryGeneration,
     snapshotEndVersion: row.snapshotEndVersion,
     accessEpoch: row.accessEpoch,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(

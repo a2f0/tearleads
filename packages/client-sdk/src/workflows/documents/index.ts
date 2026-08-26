@@ -103,6 +103,7 @@ export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
+export { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 export {
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,

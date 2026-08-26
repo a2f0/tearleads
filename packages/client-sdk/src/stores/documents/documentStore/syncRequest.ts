@@ -103,6 +103,7 @@ function createDocumentSyncAttempt(input: {
 }
 
 interface RequestRemoteDocumentSyncInput {
+  allowRecoveryBaseline?: boolean | undefined;
   currentDoc: DocumentState;
   currentRecord: DocumentRecord;
   encapsulationKeyPair: EncapsulationKeyPair;
@@ -128,8 +129,14 @@ function runRemoteDocumentSync(
   return syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
-    // Heal a stale content-key bundle from this full-history snapshot.
-    buildRotationSnapshot: async () => exportFullHistorySnapshot(currentDoc),
+    // Heal a stale content-key bundle from this full-history snapshot. Rotation
+    // settlement disables this: it may submit only the ordinary local stream.
+    ...(input.allowRecoveryBaseline === false
+      ? {}
+      : {
+          buildRotationSnapshot: async () =>
+            exportFullHistorySnapshot(currentDoc),
+        }),
     documentId,
     execSql: runtime.infra.execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,

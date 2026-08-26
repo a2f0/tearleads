@@ -1,0 +1,4 @@
+# #1923: raw recovery must reject bounded frontiers; remove after this contract lands on main.
+POST /auth/register: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/sync: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.
+POST /organizations: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.

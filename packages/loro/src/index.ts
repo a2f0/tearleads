@@ -7,6 +7,7 @@ export {
   encodeEncodedVersionVector,
   encodeVersionVector,
   exportAllUpdates,
+  exportFullHistoryIdentity,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   type FieldEditor,
@@ -30,3 +31,4 @@ export {
   versionVectorsEqual,
 } from "./document";
 export * from "./shared";
+export { updateMatchesDocumentHistory } from "./updateIdentity";
