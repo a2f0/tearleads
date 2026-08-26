@@ -231,7 +231,7 @@ export async function replaceDocumentHistoryCheckpoint(
      */
     stillCurrent?: () => boolean;
   },
-): Promise<void> {
+): Promise<boolean> {
   await ensureSqlTables(execSql, documentTables);
   // Sequential (non-transactional) so callers already inside a transaction
   // can nest this. Crash between the statements leaves the new checkpoint
@@ -240,9 +240,9 @@ export async function replaceDocumentHistoryCheckpoint(
   // on the stored revision, so the version gate cannot be bypassed by a
   // concurrent compactor between the read and the write: whoever loses the
   // CAS re-reads and re-evaluates the gate against the winner's checkpoint.
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
+  return getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
     if (input.stillCurrent?.() === false) {
-      return;
+      return false;
     }
     for (let attempt = 0; attempt < CHECKPOINT_CAS_ATTEMPTS; attempt += 1) {
       let replaced: boolean;
@@ -252,7 +252,7 @@ export async function replaceDocumentHistoryCheckpoint(
         if (error instanceof CheckpointGateRejected) {
           // A fresher checkpoint dominates this candidate: no write, and
           // the caller's covered rows must stay for the covering pane.
-          return;
+          return false;
         }
         throw error;
       }
@@ -279,7 +279,7 @@ export async function replaceDocumentHistoryCheckpoint(
             ),
           );
       }
-      return;
+      return true;
     }
     // Exhaustion must not read as durable success: creation and rebuild
     // callers persist record rows assuming the checkpoint landed.

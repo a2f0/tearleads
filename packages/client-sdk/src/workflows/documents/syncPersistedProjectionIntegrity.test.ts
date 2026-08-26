@@ -9,6 +9,7 @@ import {
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
@@ -122,6 +123,55 @@ test.each([
           throw new KeyingVerificationError(
             code,
             "cached projection is behind the local checkpoint",
+          );
+        }
+        return fixture.resolveProjectionUserKey(userId);
+      },
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+    });
+
+    expect(projectionFetches).toBe(1);
+    expect(projectionEvictions).toBe(1);
+    expect(synced?.writerProjection).toBe(fixture.writerProjection);
+  } finally {
+    close();
+  }
+});
+
+test("raw history refetches once before exposing cached key unavailability", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-raw-history-cached-unavailable",
+  );
+  let projectionFetches = 0;
+  let projectionEvictions = 0;
+  let injectUnavailable = true;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: readOnlySyncApi({
+        fixture,
+        onProjectionEviction: () => {
+          projectionEvictions += 1;
+        },
+        onProjectionFetch: () => {
+          projectionFetches += 1;
+        },
+      }),
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      persistedState: persistedStateFromProjection(fixture.writerProjection),
+      resolveProjectionUserKey: async (userId) => {
+        if (injectUnavailable) {
+          injectUnavailable = false;
+          throw new DocumentRawHistoryUnavailableError(
+            1,
+            new Error("cached projection omitted a predecessor key"),
           );
         }
         return fixture.resolveProjectionUserKey(userId);

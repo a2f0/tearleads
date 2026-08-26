@@ -8,10 +8,14 @@ EXTENDS Naturals
 (* checkpoints are validated but the ordinary update stream is the source of  *)
 (* truth. Durable history changes only after settlement succeeds, every page  *)
 (* validates, the captured runtime generation survives, no unverified local   *)
-(* gap remains, and no newer install wins.                                    *)
+(* gap remains, and no newer record/checkpoint install wins.                  *)
 (* queuedCheckpoints abstracts BOTH covered queued checkpoints and covered     *)
 (* local-history tail rows. Either can arrive while pages are collected; the  *)
 (* successful install selects and retires the then-current set atomically.    *)
+(* An installed gap carried only by a queued checkpoint is rejected during   *)
+(* settlement, before it can be relabeled and submitted as an ordinary row.  *)
+(* installSuperseded abstracts record-CAS loss and monotonic checkpoint-gate  *)
+(* rejection: either aborts the entire guarded install transaction.           *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -106,6 +110,7 @@ Init ==
 StartRawCollection ==
   /\ phase = "settling"
   /\ localPending = {}
+  /\ ~hasUnverifiedLocalGap
   /\ phase' = "collecting"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
@@ -118,6 +123,7 @@ StartRawCollection ==
 CommitPendingOrdinary ==
   /\ phase = "settling"
   /\ localPending # {}
+  /\ ~hasUnverifiedLocalGap
   /\ phase' = "collecting"
   /\ localPending' = {}
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
@@ -183,8 +189,7 @@ RejectInvalidPage ==
                   reportedUnavailableEpoch >>
 
 RejectUnverifiedLocalGap ==
-  /\ phase = "collecting"
-  /\ nextPage = MaxPage + 1
+  /\ phase = "settling"
   /\ hasUnverifiedLocalGap
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,

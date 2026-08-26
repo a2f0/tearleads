@@ -137,7 +137,7 @@ async function appendMutationHistory(
           input.historyCheckpoint.endVersionVector,
         )
       : { checkpointIds: [], tailIds: [] };
-    await replaceDocumentHistoryCheckpoint(
+    const checkpointReplaced = await replaceDocumentHistoryCheckpoint(
       execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
       {
@@ -150,6 +150,11 @@ async function appendMutationHistory(
         ],
       },
     );
+    if (input.historyCheckpoint.pruneCoveredLocalState && !checkpointReplaced) {
+      throw new Error(
+        "Document recovery checkpoint was superseded before installation",
+      );
+    }
     await deleteAcceptedPendingUpdates(
       tx,
       input.document.id,

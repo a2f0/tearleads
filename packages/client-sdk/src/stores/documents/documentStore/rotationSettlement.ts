@@ -19,6 +19,7 @@ import {
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
+import { extendDocumentVersionCoverage } from "./versionCoverage";
 
 function ordinaryPendingUpdates(
   pendingUpdates: PendingUpdateRecord[],
@@ -33,6 +34,30 @@ function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
     .map((pendingUpdate) => pendingUpdate.id)
     .sort()
     .join("\n");
+}
+
+function ordinaryPendingUpdatesWithProvenCoverage(input: {
+  currentDocument: DocumentState;
+  pendingUpdates: PendingUpdateRecord[];
+  state: DocumentStoreState;
+}): PendingUpdateRecord[] {
+  const pendingBaseVersion = input.state.pendingBaseVersion;
+  if (pendingBaseVersion === null) {
+    throw new Error("Document rotation requires an initialized pending base");
+  }
+  const ordinaryUpdates = ordinaryPendingUpdates(input.pendingUpdates);
+  const documentVersion = encodeVersionVector(input.currentDocument);
+  const ordinaryCoverage = extendDocumentVersionCoverage({
+    baseVersion: pendingBaseVersion,
+    documentVersion,
+    spans: ordinaryUpdates,
+  });
+  if (!satisfiesVersionVector(ordinaryCoverage, documentVersion)) {
+    throw new Error(
+      "Document rotation cannot settle uncovered local history because it may be checkpoint-derived",
+    );
+  }
+  return ordinaryUpdates;
 }
 
 async function invalidateExistingPullContinuation(
@@ -135,10 +160,15 @@ async function settleOrdinaryUpdatePass(input: {
       "Document changed while local updates were settling for key rotation",
     );
   }
+  const pendingUpdates = ordinaryPendingUpdatesWithProvenCoverage({
+    currentDocument: currentDoc,
+    pendingUpdates: input.pendingUpdates,
+    state,
+  });
   const prepared = await prepareDocumentOutgoingCoverage({
     currentDoc,
     generation,
-    pendingUpdates: input.pendingUpdates,
+    pendingUpdates,
     state,
   });
   if (!prepared || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -146,8 +176,10 @@ async function settleOrdinaryUpdatePass(input: {
       "Document changed while local updates were settling for key rotation",
     );
   }
-  const pendingUpdates = ordinaryPendingUpdates(prepared.pendingUpdates);
-  if (pendingUpdates.length === 0) return;
+  const preparedPendingUpdates = ordinaryPendingUpdates(
+    prepared.pendingUpdates,
+  );
+  if (preparedPendingUpdates.length === 0) return;
 
   const sentUpdateIds: string[] = [];
   await cleanupPreRegisteredUpdateIdsOnFailure(
@@ -166,8 +198,8 @@ async function settleOrdinaryUpdatePass(input: {
             sentUpdateIds,
             updateIds,
           ),
-        pendingUpdates,
-        queuedUpdateCount: pendingUpdates.length,
+        pendingUpdates: preparedPendingUpdates,
+        queuedUpdateCount: preparedPendingUpdates.length,
         state,
         unavailableWriterLogMessage:
           "Documents: rotation could not settle local updates because the writer context is unavailable.",
@@ -210,9 +242,8 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
     if (!currentDoc || pendingBaseVersion === null) {
       throw new Error("Document rotation requires an initialized pending base");
     }
-    const pendingUpdates = ordinaryPendingUpdates(
-      await listPendingUpdates(state),
-    );
+    const allPendingUpdates = await listPendingUpdates(state);
+    const pendingUpdates = ordinaryPendingUpdates(allPendingUpdates);
     if (
       pendingUpdates.length === 0 &&
       satisfiesVersionVector(
@@ -230,6 +261,9 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
       );
     }
     stalledQueueStates.add(queueState);
-    await settleOrdinaryUpdatePass({ pendingUpdates, state });
+    await settleOrdinaryUpdatePass({
+      pendingUpdates: allPendingUpdates,
+      state,
+    });
   }
 }

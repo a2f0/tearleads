@@ -37,9 +37,11 @@ ordinary rows are settled remotely before the baseline can be returned. Queued
 rotation checkpoints remain queued and excluded from reconstruction. If a
 checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
-so the preflight fails without re-encrypting or publishing it. A successful
-guarded install atomically removes queued checkpoints whose declared frontier
-is covered by the verified rebuild, along with covered local-history tail rows.
+so ordinary-span coverage is checked before settlement. Any uncovered local gap
+fails the preflight without relabeling, re-encrypting, or publishing it. A
+successful guarded install atomically removes queued checkpoints whose declared
+frontier is covered by the verified rebuild, along with covered local-history
+tail rows.
 Coverage is selected only after the guarded install transaction acquires its
 write lock, preventing a concurrent append from surviving as a stale or forged
 redirect after recovery.
@@ -50,6 +52,9 @@ Custom `DocumentsPersistence` adapters must declare
 tail rows, replacing the checkpoint, pruning those rows, and committing the
 canonical document must be one guarded transaction. Rotation recovery refuses
 adapters that omit the capability instead of assuming compatible behavior.
+If the monotonic checkpoint gate or canonical-record comparison rejects the
+recovery candidate, the adapter rolls back the complete install, including
+checkpoint/tail pruning and pending-row settlement.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
@@ -65,14 +70,21 @@ malformed bundle in the same page always takes poison-isolation precedence.
 Within a multi-target bundle it likewise aggregates unreachable-target causes,
 so integrity failures outrank an absent predecessor keyring regardless of
 target order.
+When this error is derived using a reusable cached writer projection, the
+client evicts and resolves that projection once before exposing the error; a
+fresh projection may restore access to retained predecessor keys. A raw
+pagination conflict never restarts or resubmits the frozen cursor, including
+when the first attempt was built from persisted projection state.
 
 ## Verification
 
 Store-level tests cover honest recovery, forged remote and queued baselines,
 malformed or missing historical bundles without durable mutation, unavailable
 historical epochs, interrupted multi-page recovery, pre-rotation settlement of
-pending local updates, cross-client consecutive rotation, and the unchanged
-ordinary-sync request shape.
+pending local updates, rejection of checkpoint-only settlement gaps, atomic
+checkpoint-gate rollback, cached-projection recovery, persisted-cursor
+conflicts, cross-client consecutive rotation, and the unchanged ordinary-sync
+request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
@@ -86,15 +98,16 @@ history for three updates, two epochs, and two pages.
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import in `pullVerifiedRawHistoryForRotation` |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
-| `RejectUnverifiedLocalGap` | fail-closed comparison of the rebuilt and installed version vectors |
+| `RejectUnverifiedLocalGap` | ordinary-span coverage rejects a checkpoint-only gap before settlement; the rebuilt/installed comparison remains a terminal defense |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
-| `RejectSupersededInstall` | a newer durable record supersedes the guarded install |
+| `RejectSupersededInstall` | a newer durable record or non-dominated history checkpoint rejects and rolls back the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
 | `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require raw collection to start only after local
-ordinary settlement, incomplete or failed recovery to preserve the old durable
+ordinary settlement and checkpoint-only gap rejection, incomplete or failed
+recovery to preserve the old durable
 history, successful recovery to contain every retained ordinary update,
 successful recovery to retire covered queued checkpoints, scratch state never
 to trust a rotation checkpoint, covered local artifacts appended during

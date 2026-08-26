@@ -120,6 +120,18 @@ test("raw history fails a stale cursor without restarting its frozen pull", asyn
         invalidationCount += 1;
       },
       pendingUpdates: [],
+      persistedState: {
+        contentKeyBundle: JSON.stringify(
+          fixture.writerProjection.contentKeyBundle,
+        ),
+        documentId: fixture.writerProjection.documentId,
+        documentKekTargets: JSON.stringify(
+          fixture.writerProjection.documentKekTargets,
+        ),
+        documentManifestBundle: JSON.stringify(
+          fixture.writerProjection.documentManifest,
+        ),
+      },
       pullContinuation,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       resolveWriterPublicKey: writerKeyResolver(fixture),
@@ -177,6 +189,18 @@ test("raw history fails a page-two state conflict without restarting", async () 
         invalidationCount += 1;
       },
       pendingUpdates: [],
+      persistedState: {
+        contentKeyBundle: JSON.stringify(
+          fixture.writerProjection.contentKeyBundle,
+        ),
+        documentId: fixture.writerProjection.documentId,
+        documentKekTargets: JSON.stringify(
+          fixture.writerProjection.documentKekTargets,
+        ),
+        documentManifestBundle: JSON.stringify(
+          fixture.writerProjection.documentManifest,
+        ),
+      },
       pullContinuation,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       resolveWriterPublicKey: writerKeyResolver(fixture),

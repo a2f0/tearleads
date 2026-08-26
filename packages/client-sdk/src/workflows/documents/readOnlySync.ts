@@ -48,7 +48,10 @@ import {
   type RemoteDocumentDeletionHandler,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
-import { resolveSyncAttemptWriterProjection } from "./syncFailures";
+import {
+  assertRawContinuationCanRetry,
+  resolveSyncAttemptWriterProjection,
+} from "./syncFailures";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import type { RekeyPendingUpdate } from "./syncRecoveryRekey";
@@ -227,10 +230,11 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
-    if (
-      isDocumentSyncUpdateIsolationError(error) ||
-      error instanceof DocumentRawHistoryUnavailableError
-    ) {
+    if (isDocumentSyncUpdateIsolationError(error)) {
+      throw error;
+    }
+    if (error instanceof DocumentRawHistoryUnavailableError) {
+      if (input.allowCachedProjectionRefresh) return null;
       throw error;
     }
     if (
@@ -364,6 +368,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         documentId: input.documentId,
         status: submitted.status,
       });
+      assertRawContinuationCanRetry(input.historyMode, input.pullContinuation);
       return { kind: "not_completed" };
     }
 
