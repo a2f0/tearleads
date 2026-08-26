@@ -243,14 +243,13 @@ test("reused-store profile updates repaint while group revisions do not reload",
     expect(harness.list).toHaveBeenCalledTimes(1);
 
     act(() => {
-      harness.emit({
-        ...profileSummary({
+      harness.emit(
+        profileSummary({
           profileDocumentId: FIRST_PROFILE_ID,
           title: "Updated Profile",
           userId: PROFILE_USER_ID,
         }),
-        id: "preexisting-local-id",
-      });
+      );
     });
     await waitFor(() =>
       expect(view.result.current(PROFILE_USER_ID)).toBe("Updated Profile"),

@@ -5,6 +5,8 @@ import {
   SymCrypt,
 } from "@symcrypt/client-sdk";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
+import { getLocalRosterProfileDisplayNames } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import {
   getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocument,
@@ -28,6 +30,7 @@ test("restart hydration adopts the canonical profile row and its pending edits",
   });
   const firstSdk = new SymCrypt({
     database: { execSql: database.execSql, id: "profile-restart-db" },
+    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   });
   let restartedSdk: SymCrypt | null = null;
 
@@ -65,6 +68,7 @@ test("restart hydration adopts the canonical profile row and its pending edits",
 
     restartedSdk = new SymCrypt({
       database: { execSql: database.execSql, id: "profile-restart-db" },
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     });
     expect(
       await restartedSdk.documents.findLocalIdByDocumentId(PROFILE_DOCUMENT_ID),
@@ -97,6 +101,25 @@ test("restart hydration adopts the canonical profile row and its pending edits",
         canonicalLocalId,
       ),
     ).not.toHaveLength(0);
+    const profileDocuments =
+      await defaultDocumentsPersistence.listDocumentSummaries(database.execSql);
+    expect(
+      profileDocuments.rows.map(({ id, title }) => ({ id, title })),
+    ).toContainEqual({ id: canonicalLocalId, title: "Grace Hopper" });
+    expect(
+      getLocalRosterProfileDisplayNames({
+        documents: profileDocuments,
+        profileBindingsByLocalId: new Map([
+          [
+            canonicalLocalId,
+            {
+              profileDocumentId: PROFILE_DOCUMENT_ID,
+              userId: PROFILE_USER_ID,
+            },
+          ],
+        ]),
+      }).get(PROFILE_USER_ID),
+    ).toBe("Grace Hopper");
   } finally {
     firstSdk.dispose();
     restartedSdk?.dispose();

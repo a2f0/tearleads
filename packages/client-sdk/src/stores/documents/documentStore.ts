@@ -182,6 +182,21 @@ function requestRemoteDocumentStoreSyncAndWait(
   let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null = null;
   let requestedSignalSequence = 0;
   let releaseWaiter: (() => boolean) | null = null;
+  const releaseRemoteSyncWaiter = (invalidate: boolean) => {
+    const releasedLastWaiter = releaseWaiter?.() ?? false;
+    if (
+      invalidate &&
+      releasedLastWaiter &&
+      requestGeneration !== null &&
+      isDocumentStoreRemoteSyncRequestGenerationCurrent(
+        state,
+        requestGeneration,
+      ) &&
+      !hasPendingIndependentDocumentStoreRemoteSync(state)
+    ) {
+      invalidateDocumentStoreRemoteSync(state);
+    }
+  };
   // A coordinator can be disposed and recreated while this same-scope store
   // remains registered. Refresh its handle before requesting work.
   refreshDocumentStoreSyncLane(state);
@@ -208,24 +223,18 @@ function requestRemoteDocumentStoreSyncAndWait(
         "waiter",
       );
     },
-    onInvalidated: () => {
-      const releasedLastWaiter = releaseWaiter?.() ?? false;
-      if (
-        releasedLastWaiter &&
-        requestGeneration !== null &&
-        isDocumentStoreRemoteSyncRequestGenerationCurrent(
-          state,
-          requestGeneration,
-        ) &&
-        !hasPendingIndependentDocumentStoreRemoteSync(state)
-      ) {
-        invalidateDocumentStoreRemoteSync(state);
-      }
-    },
+    onInvalidated: () => releaseRemoteSyncWaiter(true),
     signal,
-  }).finally(() => {
-    releaseWaiter?.();
-  });
+  }).then(
+    (completed) => {
+      releaseRemoteSyncWaiter(!completed);
+      return completed;
+    },
+    (error: unknown) => {
+      releaseRemoteSyncWaiter(true);
+      throw error;
+    },
+  );
 }
 
 async function assertBackingDocumentStoreCanRotate(

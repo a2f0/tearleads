@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   createProbeRuntime,
+  settleCoordinator,
   settleWithin,
 } from "../../../../test/helpers/remoteSyncWait";
 import { disposeDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
@@ -84,6 +85,52 @@ test("aborting a probe does not invalidate an edit awaiting persistence", async 
   } finally {
     releasePersist();
     releaseResponse();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
+test("failed on-demand waiters leave no remote signal after their retry cap", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("remote-sync-wait-failure-cap");
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      return null;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "failed-on-demand-profile",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+      "",
+      undefined,
+      "on-demand",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    await settleCoordinator(runtime.state.domainScope);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
+    }
+    const callsAtRetryCap = syncCalls;
+
+    store.updateRuntime({
+      ...runtime,
+      state: { ...runtime.state, online: false },
+    });
+    store.updateRuntime(runtime);
+    await settleCoordinator(runtime.state.domainScope);
+
+    expect(syncCalls).toBe(callsAtRetryCap);
+    expect(store.getSnapshot().text).toBe("");
+  } finally {
     disposeDomainSyncCoordinator(runtime.state.domainScope);
     database.close();
   }

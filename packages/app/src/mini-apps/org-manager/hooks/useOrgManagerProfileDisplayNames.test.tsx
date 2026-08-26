@@ -202,14 +202,13 @@ test("reused-store changes repaint and current bindings reject stale rows", asyn
   );
 
   act(() => {
-    harness.emit({
-      ...profileSummary({
+    harness.emit(
+      profileSummary({
         profileDocumentId: PROFILE_DOCUMENT_ID,
         title: "Updated Name",
         userId: USER_ID,
       }),
-      id: "preexisting-local-id",
-    });
+    );
   });
   await waitFor(() =>
     expect(view.result.current.profileDisplayNamesByUserId.get(USER_ID)).toBe(

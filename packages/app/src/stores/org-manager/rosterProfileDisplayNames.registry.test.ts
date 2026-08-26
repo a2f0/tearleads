@@ -146,6 +146,23 @@ test("one registered profile document resolves every current roster binding", as
         [SECOND_USER_ID, "Ada Lovelace"],
       ]),
     );
+    expect(
+      getLocalRosterProfileDisplayNames({
+        documents: {
+          rows: [
+            { ...hydratedProfile, title: "Untitled contact" },
+            {
+              ...hydratedProfile,
+              id: `${hydratedProfile.id}-stale-duplicate`,
+              title: "Stale duplicate",
+              updatedAt: "2099-01-01T00:00:00.000Z",
+            },
+          ],
+          totalCount: 2,
+        },
+        profileBindingsByLocalId: bindings,
+      }),
+    ).toEqual(new Map());
   } finally {
     close();
   }

@@ -64,6 +64,14 @@ interface RosterProfileTitleRow {
   readonly updatedAt: string;
 }
 
+type IndexedRosterProfileBinding = RosterProfileBinding & {
+  readonly localId: string;
+};
+type RosterProfileBindingsByDocumentId = ReadonlyMap<
+  string,
+  ReadonlyArray<IndexedRosterProfileBinding>
+>;
+
 function isNewerRosterProfileTitle(
   candidate: RosterProfileTitleRow,
   current: RosterProfileTitleRow | undefined,
@@ -75,39 +83,82 @@ function isNewerRosterProfileTitle(
   );
 }
 
+function indexRosterProfileBindings(
+  bindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>,
+): RosterProfileBindingsByDocumentId {
+  const result = new Map<string, IndexedRosterProfileBinding[]>();
+  for (const [localId, profile] of bindingsByLocalId) {
+    const bindings = result.get(profile.profileDocumentId) ?? [];
+    bindings.push({ ...profile, localId });
+    result.set(profile.profileDocumentId, bindings);
+  }
+  return result;
+}
+
+function findProfileDocumentIdsWithCanonicalRow(
+  documents: DocumentList["rows"],
+  bindingsByDocumentId: RosterProfileBindingsByDocumentId,
+): ReadonlySet<string> {
+  const result = new Set<string>();
+  for (const document of documents) {
+    if (!document.documentId) continue;
+    const bindings = bindingsByDocumentId.get(document.documentId);
+    if (bindings?.some((binding) => document.id === binding.localId)) {
+      result.add(document.documentId);
+    }
+  }
+  return result;
+}
+
+function addRosterProfileTitleCandidates(input: {
+  readonly bindingsByDocumentId: RosterProfileBindingsByDocumentId;
+  readonly canonicalProfileDocumentIds: ReadonlySet<string>;
+  readonly document: DocumentList["rows"][number];
+  readonly latestDocumentsByUserId: Map<string, RosterProfileTitleRow>;
+}): void {
+  const { document } = input;
+  const displayName = getUsableRosterProfileTitle(document.title);
+  if (!displayName || !document.documentId) return;
+  const bindings = input.bindingsByDocumentId.get(document.documentId);
+  if (!bindings) return;
+  if (
+    input.canonicalProfileDocumentIds.has(document.documentId) &&
+    !bindings.some((binding) => document.id === binding.localId)
+  ) {
+    return;
+  }
+  for (const { userId } of bindings) {
+    const current = input.latestDocumentsByUserId.get(userId);
+    if (
+      displayName !== userId &&
+      isNewerRosterProfileTitle(document, current)
+    ) {
+      input.latestDocumentsByUserId.set(userId, document);
+    }
+  }
+}
+
 export function getLocalRosterProfileDisplayNames(input: {
   readonly documents: DocumentList | null;
   readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
 }): ReadonlyMap<string, string> {
-  const userIdsByProfileDocumentId = new Map<string, Set<string>>();
-  for (const profile of input.profileBindingsByLocalId.values()) {
-    const userIds =
-      userIdsByProfileDocumentId.get(profile.profileDocumentId) ??
-      new Set<string>();
-    userIds.add(profile.userId);
-    userIdsByProfileDocumentId.set(profile.profileDocumentId, userIds);
-  }
+  const bindingsByProfileDocumentId = indexRosterProfileBindings(
+    input.profileBindingsByLocalId,
+  );
+  const documents = input.documents?.rows ?? [];
+  const profileDocumentIdsWithCanonicalRow =
+    findProfileDocumentIdsWithCanonicalRow(
+      documents,
+      bindingsByProfileDocumentId,
+    );
   const latestDocumentsByUserId = new Map<string, RosterProfileTitleRow>();
-  for (const document of input.documents?.rows ?? []) {
-    const displayName = getUsableRosterProfileTitle(document.title);
-    if (!displayName) {
-      continue;
-    }
-    const userIds = document.documentId
-      ? userIdsByProfileDocumentId.get(document.documentId)
-      : undefined;
-    if (!userIds) {
-      continue;
-    }
-    for (const userId of userIds) {
-      if (displayName === userId) {
-        continue;
-      }
-      const current = latestDocumentsByUserId.get(userId);
-      if (isNewerRosterProfileTitle(document, current)) {
-        latestDocumentsByUserId.set(userId, document);
-      }
-    }
+  for (const document of documents) {
+    addRosterProfileTitleCandidates({
+      bindingsByDocumentId: bindingsByProfileDocumentId,
+      canonicalProfileDocumentIds: profileDocumentIdsWithCanonicalRow,
+      document,
+      latestDocumentsByUserId,
+    });
   }
 
   const names = new Map<string, string>();
