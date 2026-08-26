@@ -47,7 +47,7 @@ interface VerifyDocumentPurgeProofInput {
     | undefined;
 }
 
-export interface VerifiedDocumentPurgeProofCommit {
+interface VerifiedDocumentPurgeProofCommit {
   readonly commitCheckpoints: (execSql?: ExecSql) => Promise<void>;
 }
 
