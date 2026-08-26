@@ -77,9 +77,10 @@ malformed bundle in the same page always takes poison-isolation precedence.
 Within a multi-target bundle it likewise aggregates unreachable-target causes,
 so integrity failures outrank an absent predecessor keyring regardless of
 target order. Before reporting an unavailable epoch, the client decrypts and
-import-validates every sibling whose content key is available; any resolvable
-poison retains precedence, while an unresolved dependency that may be carried
-by the unavailable sibling preserves the availability diagnosis.
+import-validates every sibling whose content key is available. Any poison
+retains precedence, including an unresolved dependency: the current wire
+contract authenticates operation ranges but not an exact dependency set, so
+the client cannot prove that an unavailable sibling carries that parent.
 When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw
@@ -93,9 +94,9 @@ malformed or missing historical bundles without durable mutation, unavailable
 historical epochs, interrupted multi-page recovery, pre-rotation settlement of
 pending local updates, forged-baseline-dependent edit isolation, rejection of
 checkpoint-only settlement gaps, mixed-page poison precedence, atomic
-checkpoint-gate rollback, cached-projection recovery, persisted-cursor
-conflicts, cross-client consecutive rotation, and the unchanged ordinary-sync
-request shape.
+checkpoint-gate rollback, unrelated unresolved-dependency isolation,
+cached-projection recovery, persisted-cursor conflicts, cross-client
+consecutive rotation, and the unchanged ordinary-sync request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)

@@ -1,5 +1,4 @@
 import { KeyingVerificationError } from "@symcrypt/crypto";
-import { LoroImportUnresolvedDependenciesError } from "@symcrypt/loro";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -7,7 +6,6 @@ import type {
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
 import {
   type IncomingDocumentSyncUpdateValidator,
-  isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
@@ -70,14 +68,6 @@ type SyncRemoteDocumentResultInput = {
   writerProjection: DocumentWriterProjectionResponse;
 };
 
-function isUnavailableSiblingDependencyGap(error: unknown): boolean {
-  return (
-    isDocumentSyncUpdateIsolationError(error) &&
-    error.stage === "loro_import" &&
-    error.cause instanceof LoroImportUnresolvedDependenciesError
-  );
-}
-
 /** @internal Exercises poison precedence for the decryptable subset of a raw page. */
 export async function validateDecryptableRawHistorySiblings(input: {
   contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
@@ -94,19 +84,14 @@ export async function validateDecryptableRawHistorySiblings(input: {
     organizationId: input.organizationId,
     updates: input.updates,
   });
-  try {
-    await input.validateIncomingUpdates({
-      decryptedUpdates,
-      response: { ...input.response, updates: [...input.updates] },
-    });
-  } catch (error) {
-    // An unavailable sibling may carry the missing parent of an otherwise
-    // honest delta. Availability remains the useful diagnosis for that exact
-    // case; every decrypt, integrity, metadata, and resolvable import failure
-    // has already been checked and must retain poison-isolation precedence.
-    if (isUnavailableSiblingDependencyGap(error)) return;
-    throw error;
-  }
+  // The current wire contract authenticates each update's operation range but
+  // not its exact dependency set. An unresolved import therefore cannot prove
+  // that the missing parent belongs to an unavailable sibling; preserve the
+  // isolation failure instead of downgrading unrelated poison to availability.
+  await input.validateIncomingUpdates({
+    decryptedUpdates,
+    response: { ...input.response, updates: [...input.updates] },
+  });
 }
 
 async function resolveVerifiedResponseState(

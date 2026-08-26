@@ -188,13 +188,19 @@ async function collectVerifiedRawHistoryForRotation(input: {
   generation: DocumentStoreSyncGeneration;
   state: DocumentStoreState;
 }) {
+  const consumedPullContinuation = input.state.pullContinuation;
   const rebuiltDocument = await createStoredDocument(input.state);
   try {
     const synced = await pullVerifiedRawHistoryForRotation({
       ...input,
       rebuiltDocument,
     });
-    return { rebuiltDocument, synced };
+    return {
+      consumedPullContinuation,
+      currentRecord: input.currentRecord,
+      rebuiltDocument,
+      synced,
+    };
   } catch (error) {
     rebuiltDocument.free();
     throw error;
@@ -313,8 +319,8 @@ async function recoverFullHistoryForRotation(
         rebuiltDocument: collection.rebuiltDocument,
       });
       return installRebuiltDocument({
-        consumedPullContinuation: state.pullContinuation,
-        currentRecord: currentRotationRecoveryRecord(state),
+        consumedPullContinuation: collection.consumedPullContinuation,
+        currentRecord: collection.currentRecord,
         generation,
         rebuiltDoc: collection.rebuiltDocument,
         state,

@@ -21,6 +21,8 @@ EXTENDS Naturals
 (* PublishRecovery is one atomic action because production holds the identity *)
 (* write chain across final history/generation verification and the guarded  *)
 (* install.                                                                  *)
+(* updateValid also covers unresolved dependencies in decryptable siblings:  *)
+(* unavailable ciphertext authenticates ranges, not an exact dependency set. *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 

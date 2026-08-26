@@ -115,3 +115,66 @@ test("rotation serializes its final verification and history install", async () 
     close();
   }
 });
+
+test("rotation keeps the definitive pull record as its install CAS baseline", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-install-metadata-cas",
+  );
+  let state: DocumentStoreState | null = null;
+  const advancedCommitLsn = "0/16B6C51";
+  let metadataAdvanced = false;
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-install-metadata-cas-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      responseForRequest: async (request, response) => {
+        const currentState = state;
+        if (
+          request.historyMode === "raw" &&
+          !metadataAdvanced &&
+          currentState?.record
+        ) {
+          metadataAdvanced = true;
+          const advancedRecord = {
+            ...currentState.record,
+            lastCommitLsn: advancedCommitLsn,
+          };
+          await sqlDocumentsPersistence.saveDocument(execSql, advancedRecord);
+          currentState.record = advancedRecord;
+        }
+        return response;
+      },
+    });
+    state = createDocumentStoreState(
+      localId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "superseded",
+    );
+
+    expect(metadataAdvanced).toBe(true);
+    expect(state.record?.lastCommitLsn).toBe(advancedCommitLsn);
+    expect(
+      (await sqlDocumentsPersistence.loadDocument(execSql, localId))
+        ?.lastCommitLsn,
+    ).toBe(advancedCommitLsn);
+  } finally {
+    close();
+  }
+});
