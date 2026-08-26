@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
-import { groups, organizationRosterEntries } from "@symcrypt/api-shared/schema";
+import {
+  groups,
+  organizationGroupTombstones,
+  organizationRosterEntries,
+} from "@symcrypt/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
 
@@ -34,6 +38,32 @@ test("verified container grants reject missing groups after locking references",
     ),
   ).rejects.toMatchObject({
     message: "Container manifest references a missing group",
+    status: 409,
+  });
+});
+
+test("verified container grants reject tombstoned groups even if a catalog row exists", async () => {
+  const groupId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  await db.insert(groups).values({
+    id: groupId,
+    name: "Deleted recipient",
+    organizationId,
+  });
+  await db.insert(organizationGroupTombstones).values({
+    groupId,
+    organizationId,
+  });
+
+  await expect(
+    db.transaction((executor) =>
+      assertVerifiedContainerGrantReferencesValid({
+        executor,
+        manifest: manifestWithGroupGrant({ groupId, organizationId }),
+      }),
+    ),
+  ).rejects.toMatchObject({
+    message: "Container manifest references a deleted group",
     status: 409,
   });
 });

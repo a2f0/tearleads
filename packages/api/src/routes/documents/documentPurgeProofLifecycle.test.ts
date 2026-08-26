@@ -257,11 +257,11 @@ test("purge proof remains available to a later-revoked replica", async () => {
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
 });
 
-test("purge proof survives revocation and deletion of a referenced group", async () => {
+test("purge proof preserves historical signer membership after group deletion", async () => {
   const owner = createTestUser();
-  const reader = createTestUser();
+  const writer = createTestUser();
   await registerAndAuthenticate(owner);
-  await registerAndAuthenticate(reader);
+  await registerAndAuthenticate(writer);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),
@@ -269,15 +269,16 @@ test("purge proof survives revocation and deletion of a referenced group", async
   const organizationId = asVerifiedContainerManifest(root.bundle).state
     .organizationId;
   const granted = await grantRootThroughRotatedReadGroup({
+    accessLevel: "write",
     actor: owner,
-    reader,
+    reader: writer,
     root,
   });
-  const created = await createDocument({ owner, root: granted.root });
+  const created = await createDocument({ owner: writer, root: granted.root });
   const purgeResponse = await postDocumentPurge({
     documentId: created.id,
     documentManifestHash: created.accessManifest.manifestHash,
-    owner,
+    owner: writer,
     root: granted.root,
   });
   expect(purgeResponse.status).toBe(200);
@@ -285,6 +286,7 @@ test("purge proof survives revocation and deletion of a referenced group", async
   await revokeRootRotatedReadGroup({
     actor: owner,
     groupId: granted.groupId,
+    removedMemberUserId: writer.userId,
     root: granted.root,
   });
   const deleteResponse = await deleteGroupRequest({
@@ -296,7 +298,7 @@ test("purge proof survives revocation and deletion of a referenced group", async
 
   const proofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,
-    { headers: { Authorization: `Bearer ${owner.token}` } },
+    { headers: { Authorization: `Bearer ${writer.token}` } },
   );
   expect(proofResponse.status).toBe(200);
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);

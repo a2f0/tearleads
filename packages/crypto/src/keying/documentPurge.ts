@@ -1,6 +1,7 @@
 import {
+  containerAccessLevelRank,
   requireContainerPathLast,
-  requireContainerPathUserAccess,
+  resolveHistoricalContainerPathUserAccessLevel,
 } from "./containerAccess";
 import {
   assertExactKeys,
@@ -161,13 +162,20 @@ function requirePurgeAuthorization(
       "document.purge authorization container belongs to the wrong organization",
     );
   }
-  requireContainerPathUserAccess({
-    label: "document.purge authorization",
-    minimumAccessLevel: "write",
+  const accessLevel = resolveHistoricalContainerPathUserAccessLevel({
     path: input.authorizingContainerPath,
     principalPolicies: input.principalPolicies ?? [],
     userId: input.event.event.signerUserId,
   });
+  if (
+    accessLevel === null ||
+    containerAccessLevelRank(accessLevel) < containerAccessLevelRank("write")
+  ) {
+    throwVerification(
+      "unauthorized",
+      "document.purge authorization signer lacks write access",
+    );
+  }
 }
 
 export async function verifyDocumentPurgeEvent(
