@@ -8,6 +8,12 @@ import type {
 } from "@symcrypt/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import {
+  enqueueMemoryPendingUpdate,
+  memoryDocumentRecoveryGenerationMatches,
+  memoryDocumentWriteFenceMatches,
+  memoryHistoryFor,
+} from "./documentStoreRecoveryGeneration";
 import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
@@ -28,15 +34,8 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
-  const historyFor = (localId: string): StoredHistoryState => {
-    let history = historyByLocalId.get(localId);
-    if (!history) {
-      history = { checkpoint: null, tail: [] };
-      historyByLocalId.set(localId, history);
-    }
-    return history;
-  };
-
+  const historyFor = (localId: string): StoredHistoryState =>
+    memoryHistoryFor(historyByLocalId, localId);
   const deleteSideRows = (localId: string) => {
     historyByLocalId.delete(localId);
     pendingUpdates = [];
@@ -83,7 +82,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       pendingUpdates = nextUpdates;
     },
   });
-
   return {
     ...creationPersistence,
     supportsAtomicRecoveryHistoryPruning: true,
@@ -189,7 +187,8 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async settleAcceptedPendingUpdates(_execSql, input) {
       if (
         document?.documentId === input.expectedRecord.documentId &&
-        document.accessEpoch === input.expectedRecord.accessEpoch
+        document.accessEpoch === input.expectedRecord.accessEpoch &&
+        memoryDocumentRecoveryGenerationMatches(document, input.expectedRecord)
       ) {
         const acceptedIds = new Set(input.pendingUpdateIds);
         pendingUpdates = pendingUpdates.filter(
@@ -208,9 +207,17 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async hasDocument(_execSql, localId) {
       return document?.id === localId;
     },
-    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
-      return (
-        document?.id === localId && document.documentId === expectedDocumentId
+    async documentIdentityMatches(
+      _execSql,
+      localId,
+      expectedDocumentId,
+      expectedRecoveryGeneration,
+    ) {
+      return memoryDocumentWriteFenceMatches(
+        document,
+        localId,
+        expectedDocumentId,
+        expectedRecoveryGeneration,
       );
     },
     getState() {
@@ -404,30 +411,20 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async listLocalAttachments() {
       return localAttachments;
     },
-    async enqueuePendingUpdate(_execSql, pendingUpdate: PendingUpdateInsert) {
-      pendingUpdates = [
-        ...pendingUpdates,
-        {
-          id: crypto.randomUUID(),
-          partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-          partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-          sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      // Mirror the SQL persistence: every enqueued update is dual-written to
-      // the durable-history tail in the same transaction, so a restore
-      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
-      const history = historyFor(pendingUpdate.localId);
-      history.tail = [
-        ...history.tail,
-        {
-          id: crypto.randomUUID(),
-          origin: "local",
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      return true;
+    async enqueuePendingUpdate(
+      _execSql,
+      pendingUpdate: PendingUpdateInsert,
+      options,
+    ) {
+      const result = enqueueMemoryPendingUpdate({
+        document,
+        historyByLocalId,
+        options,
+        pendingUpdate,
+        pendingUpdates,
+      });
+      pendingUpdates = result.pendingUpdates;
+      return result.enqueued;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

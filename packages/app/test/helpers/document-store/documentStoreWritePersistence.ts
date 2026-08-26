@@ -7,6 +7,7 @@ import type {
   PendingUpdateRecord,
 } from "@symcrypt/client-sdk";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import { memoryDocumentRecoveryGenerationMatches } from "./documentStoreRecoveryGeneration";
 import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 
 export interface StoredDocumentsState {
@@ -107,7 +108,8 @@ function sameSecurityIdentity(
     (current.documentKekTargets ?? null) ===
       (expected.documentKekTargets ?? null) &&
     (current.documentManifestBundle ?? null) ===
-      (expected.documentManifestBundle ?? null)
+      (expected.documentManifestBundle ?? null) &&
+    memoryDocumentRecoveryGenerationMatches(current, expected)
   );
 }
 

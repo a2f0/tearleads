@@ -16,6 +16,10 @@ type CanonicalHistoryValue =
   | readonly ["string", string]
   | readonly ["undefined"];
 
+function compareCanonicalIdentity(left: string, right: string): number {
+  return left < right ? -1 : Number(left > right);
+}
+
 function canonicalHistoryValue(value: unknown): CanonicalHistoryValue {
   if (value === null) return ["null"];
   if (value === undefined) return ["undefined"];
@@ -39,9 +43,7 @@ function canonicalHistoryValue(value: unknown): CanonicalHistoryValue {
     entries.sort((left, right) => {
       const leftIdentity = JSON.stringify(left);
       const rightIdentity = JSON.stringify(right);
-      return leftIdentity < rightIdentity
-        ? -1
-        : Number(leftIdentity > rightIdentity);
+      return compareCanonicalIdentity(leftIdentity, rightIdentity);
     });
     return ["map", entries];
   }
@@ -69,7 +71,9 @@ export function serializeCanonicalHistory(history: JsonSchema): string {
       change,
       identity: serializeCanonicalHistoryValue(change),
     }))
-    .sort((left, right) => left.identity.localeCompare(right.identity))
+    .sort((left, right) =>
+      compareCanonicalIdentity(left.identity, right.identity),
+    )
     .map(({ change }) => change);
   return serializeCanonicalHistoryValue({
     ...history,
