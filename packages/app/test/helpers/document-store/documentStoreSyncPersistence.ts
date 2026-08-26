@@ -15,17 +15,16 @@ import {
   memoryDocumentWriteFenceMatches,
   memoryHistoryFor,
 } from "./documentStoreRecoveryGeneration";
-import { applyMemoryHistoryCheckpoint } from "./documentStoreRecoveryPruning";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
 import { createMemoryDocumentCreationPersistence } from "./documentStoreSyncCreationPersistence";
 import { createMemoryDocumentDeletionPersistence } from "./documentStoreSyncDeletionPersistence";
 import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
 import {
-  applyMemoryAttachmentRemoval,
   type StoredHistoryState,
   toHistoryRestoreState,
 } from "./documentStoreSyncPersistenceState";
+import { commitMemoryDocumentMutation } from "./memoryDocumentMutation";
 
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
@@ -87,103 +86,24 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     ...creationPersistence,
     supportsAtomicRecoveryHistoryPruning: true,
     async commitDocumentMutation(execSql, input, saveClientProjection) {
-      if (input.stillCurrent && !input.stillCurrent()) {
-        return { committed: false, currentRecord: document };
-      }
-      if (JSON.stringify(document) !== JSON.stringify(input.expectedRecord)) {
-        return { committed: false, currentRecord: document };
-      }
-      const previousDocument = document;
-      const previousPendingUpdates = structuredClone(pendingUpdates);
-      const previousLocalAttachments = structuredClone(localAttachments);
-      const previousPendingAttachments = structuredClone(pendingAttachments);
-      const previousHistory = structuredClone(historyFor(input.document.id));
-      const updatedAt = input.updatedAt ?? "2026-04-06T00:00:00.000Z";
-      try {
-        if (input.attachmentRemoval) {
-          ({ localAttachments, pendingAttachments } =
-            applyMemoryAttachmentRemoval({
-              localAttachments,
-              pendingAttachments,
-              removal: input.attachmentRemoval,
-            }));
-        }
-        if (input.attachmentStaging) {
-          const pendingSlotIds = new Set(
-            input.attachmentStaging.pendingAttachments.map(
-              ({ slotId }) => slotId,
-            ),
-          );
-          const localSlotIds = new Set(
-            input.attachmentStaging.localAttachments.map(
-              ({ slotId }) => slotId,
-            ),
-          );
-          pendingAttachments = [
-            ...pendingAttachments.filter(
-              ({ slotId }) => !pendingSlotIds.has(slotId),
-            ),
-            ...input.attachmentStaging.pendingAttachments,
-          ];
-          localAttachments = [
-            ...localAttachments.filter(
-              ({ slotId }) => !localSlotIds.has(slotId),
-            ),
-            ...input.attachmentStaging.localAttachments,
-          ];
-        }
-        const history = historyFor(input.document.id);
-        const coveredRecoveryPendingUpdateIds = input.historyCheckpoint
-          ? await applyMemoryHistoryCheckpoint({
-              checkpoint: input.historyCheckpoint,
-              history,
-              pendingUpdates,
-            })
-          : [];
-        for (const updateData of input.historyUpdates ?? []) {
-          history.tail.push({
-            id: crypto.randomUUID(),
-            origin: input.historyUpdateOrigin ?? "local",
-            updateData,
-          });
-        }
-        if (input.pendingUpdate) {
-          pendingUpdates.push({
-            id: crypto.randomUUID(),
-            ...input.pendingUpdate,
-          });
-          history.tail.push({
-            id: crypto.randomUUID(),
-            origin: "local",
-            updateData: input.pendingUpdate.updateData,
-          });
-        }
-        const acceptedIds = new Set([
-          ...input.acceptedPendingUpdateIds,
-          ...coveredRecoveryPendingUpdateIds,
-        ]);
-        pendingUpdates = pendingUpdates.filter(
-          ({ id }) => !acceptedIds.has(id),
-        );
-        document = input.document;
-        await saveClientProjection(execSql, updatedAt);
-        if (input.stillCurrent && !input.stillCurrent()) {
-          document = previousDocument;
-          pendingUpdates = previousPendingUpdates;
-          localAttachments = previousLocalAttachments;
-          pendingAttachments = previousPendingAttachments;
-          historyByLocalId.set(input.document.id, previousHistory);
-          return { committed: false, currentRecord: previousDocument };
-        }
-        return { committed: true, updatedAt };
-      } catch (error) {
-        document = previousDocument;
-        pendingUpdates = previousPendingUpdates;
-        localAttachments = previousLocalAttachments;
-        pendingAttachments = previousPendingAttachments;
-        historyByLocalId.set(input.document.id, previousHistory);
-        throw error;
-      }
+      return commitMemoryDocumentMutation({
+        execSql,
+        getState: () => ({
+          document,
+          localAttachments,
+          pendingAttachments,
+          pendingUpdates,
+        }),
+        historyByLocalId,
+        mutation: input,
+        replaceState: (nextState) => {
+          document = nextState.document;
+          localAttachments = nextState.localAttachments;
+          pendingAttachments = nextState.pendingAttachments;
+          pendingUpdates = nextState.pendingUpdates;
+        },
+        saveClientProjection,
+      });
     },
     async settleAcceptedPendingUpdates(_execSql, input) {
       if (
@@ -376,7 +296,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!document || document.id !== input.localId) {
         return null;
       }
-
       document = {
         ...document,
         accessEpoch: Math.max(document.accessEpoch, input.accessEpoch),

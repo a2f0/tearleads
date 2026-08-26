@@ -22,6 +22,7 @@ generation and reject its stale enqueue or save.
 | `ValidatePreliminaryPage` / `VerifyOrdinaryProvenance` | the first `collectVerifiedRawHistoryForRotation` pass plus `importProvenOrdinaryPendingHistory` |
 | `CommitPendingOrdinary` / `RejectPendingSettlement` | `settleOrdinaryDocumentUpdatesBeforeRotation` and its proven-row coverage checks |
 | `ValidatePage` | the definitive `collectVerifiedRawHistoryForRotation` pass after settlement |
+| monotonic `nextPage` advance | response-level cursor-advance validation plus `seenPullCursors` cycle rejection in rotation recovery |
 | `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` propagation after integrity-prioritized raw-page validation |
 | `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | incoming update isolation and fail-closed raw response validation |
 | `VerifyExactLocalHistoryBeforeInstall` | `assertExactDocumentHistory` before the identity-chain install |
@@ -56,5 +57,5 @@ TLC explores 7,749,072 generated states, 4,408,696 distinct states, and depth
 14 without an invariant violation. Sets abstract operation-log identity and page
 membership; production tests remain responsible for cryptographic verification,
 canonical operation bytes, Loro import semantics, SQLite transactionality,
-pagination tokens, and projection-cache refetch behavior. This is exhaustive
-bounded model checking, not an unbounded proof.
+pagination-token parsing, and projection-cache refetch behavior. This is
+exhaustive bounded model checking, not an unbounded proof.

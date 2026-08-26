@@ -118,6 +118,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
   let pullContinuation: DocumentSyncPullContinuation | undefined;
+  const seenPullCursors = new Set<string>();
   let planningRecord = input.currentRecord;
   let writerProjection =
     input.state.writerProjection?.documentId === documentId
@@ -179,6 +180,12 @@ async function pullVerifiedRawHistoryForRotation(input: {
         "Rotation raw-history recovery ended before the retained history was complete",
       );
     }
+    if (seenPullCursors.has(nextContinuation.cursor)) {
+      throw new Error(
+        "Rotation raw-history recovery encountered a repeated pull cursor",
+      );
+    }
+    seenPullCursors.add(nextContinuation.cursor);
     pullContinuation = nextContinuation;
     planningRecord = { ...planningRecord, ...synced.persistedState };
     writerProjection = synced.writerProjection;

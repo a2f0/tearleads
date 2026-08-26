@@ -416,23 +416,26 @@ export async function settleStoredDocumentPendingUpdates(
   loadDocument: DocumentsPersistence["loadDocument"],
 ) {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(async (tx) => {
-      const currentRecord = await loadDocument(
-        lockedExecSql,
-        input.expectedRecord.id,
-      );
-      if (
-        currentRecord &&
-        sameDocumentSecurityIdentity(currentRecord, input.expectedRecord) &&
-        sameRecoveryGeneration(currentRecord, input.expectedRecord)
-      ) {
-        await deleteAcceptedPendingUpdates(
-          tx,
+    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        const currentRecord = await loadDocument(
+          lockedExecSql,
           input.expectedRecord.id,
-          input.pendingUpdateIds,
         );
-      }
-      return currentRecord;
-    }),
+        if (
+          currentRecord &&
+          sameDocumentSecurityIdentity(currentRecord, input.expectedRecord) &&
+          sameRecoveryGeneration(currentRecord, input.expectedRecord)
+        ) {
+          await deleteAcceptedPendingUpdates(
+            tx,
+            input.expectedRecord.id,
+            input.pendingUpdateIds,
+          );
+        }
+        return currentRecord;
+      },
+      { behavior: "immediate" },
+    ),
   );
 }

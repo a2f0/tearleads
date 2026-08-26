@@ -337,6 +337,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
 
           return updatedAt;
         },
+        { behavior: "immediate" },
       ),
     );
   },
@@ -376,6 +377,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
           }
           return updatedAt;
         },
+        { behavior: "immediate" },
       ),
     );
   },

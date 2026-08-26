@@ -106,35 +106,38 @@ export async function enqueueDocumentPendingUpdateWithHistory(
   },
 ): Promise<string | null> {
   const createdAt = new Date().toISOString();
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    if (options) {
-      const matchingDocuments = await tx
-        .select({ localId: documents.localId })
-        .from(documents)
-        .where(
-          and(
-            eq(documents.appKind, scope.appKind),
-            eq(documents.localId, scope.localId),
-            sql`${documents.documentId} IS ${options.expectedDocumentId}`,
-            eq(
-              documents.recoveryGeneration,
-              options.expectedRecoveryGeneration,
+  return getClientSQLitePersistenceRuntime(execSql).transaction(
+    async (tx) => {
+      if (options) {
+        const matchingDocuments = await tx
+          .select({ localId: documents.localId })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.appKind, scope.appKind),
+              eq(documents.localId, scope.localId),
+              sql`${documents.documentId} IS ${options.expectedDocumentId}`,
+              eq(
+                documents.recoveryGeneration,
+                options.expectedRecoveryGeneration,
+              ),
             ),
-          ),
-        )
-        .limit(1);
-      if (matchingDocuments.length === 0) {
-        return null;
+          )
+          .limit(1);
+        if (matchingDocuments.length === 0) {
+          return null;
+        }
       }
-    }
 
-    return insertDocumentPendingUpdateWithHistoryInTransaction({
-      createdAt,
-      pendingUpdate,
-      scope,
-      tx,
-    });
-  });
+      return insertDocumentPendingUpdateWithHistoryInTransaction({
+        createdAt,
+        pendingUpdate,
+        scope,
+        tx,
+      });
+    },
+    { behavior: "immediate" },
+  );
 }
 
 export async function insertDocumentPendingUpdateWithHistoryInTransaction(input: {

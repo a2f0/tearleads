@@ -74,27 +74,25 @@ export function updateMatchesDocumentHistory(
   doc: LoroDoc,
   update: Uint8Array,
 ): boolean {
-  const metadata = getImportBlobMetadata(update);
-  if (
-    !satisfiesVersionVector(
-      encodeVersionVector(doc),
-      metadata.partialEndVersionVector,
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    versionVectorsEqual(
-      metadata.partialStartVersionVector,
-      metadata.partialEndVersionVector,
-    )
-  ) {
-    return false;
-  }
-
   let candidate: LoroDoc | null = null;
   try {
+    const metadata = getImportBlobMetadata(update);
+    if (
+      !satisfiesVersionVector(
+        encodeVersionVector(doc),
+        metadata.partialEndVersionVector,
+      )
+    ) {
+      return false;
+    }
+    if (
+      versionVectorsEqual(
+        metadata.partialStartVersionVector,
+        metadata.partialEndVersionVector,
+      )
+    ) {
+      return false;
+    }
     const startVersion = decodeVersionVector(
       metadata.partialStartVersionVector,
     );

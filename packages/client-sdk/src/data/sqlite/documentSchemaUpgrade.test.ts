@@ -11,7 +11,8 @@ test("document schema adds durable pull progress and recovery fencing", async ()
   if (!documentsTable) throw new Error("Documents table schema is missing");
   const legacyCreateSql = documentsTable.createSql
     .replace('  "pull_continuation" TEXT,\n', "")
-    .replace('  "recovery_generation" INTEGER DEFAULT 0 NOT NULL,\n', "");
+    .replace('  "recovery_generation" INTEGER NOT NULL DEFAULT 0,\n', "");
+  expect(legacyCreateSql).not.toContain('"recovery_generation"');
 
   try {
     await execSql(legacyCreateSql);

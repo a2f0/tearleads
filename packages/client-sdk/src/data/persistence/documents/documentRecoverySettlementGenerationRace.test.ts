@@ -78,10 +78,39 @@ test("recovery generation fences stale conflict and response settlement", async 
       },
       async () => undefined,
     );
+    const staleEnqueue = sqlDocumentsPersistence.enqueuePendingUpdate(
+      second.runtime.execSql,
+      {
+        localId: base.id,
+        partialEndVersionVector: "stale-end",
+        partialStartVersionVector: "stale-start",
+        updateData: btoa("stale update"),
+      },
+      {
+        expectedDocumentId: base.documentId,
+        expectedRecoveryGeneration: 0,
+      },
+    );
+    const staleSave = sqlDocumentsPersistence.saveDocument(
+      second.runtime.execSql,
+      { ...expectedRecord, text: "stale save" },
+    );
+    const staleSaveAndDelete =
+      sqlDocumentsPersistence.saveDocumentAndDeletePendingUpdates(
+        second.runtime.execSql,
+        { ...expectedRecord, text: "stale settlement" },
+        [firstPending.id],
+      );
     releaseRecovery();
 
     await expect(recovery).resolves.toMatchObject({ committed: true });
     await expect(staleConflict).resolves.toMatchObject({ committed: false });
+    await expect(staleEnqueue).resolves.toBe(false);
+    await expect(staleSave).resolves.toEqual(expect.any(String));
+    await expect(staleSaveAndDelete).resolves.toEqual(expect.any(String));
+    await expect(
+      sqlDocumentsPersistence.loadDocument(first.runtime.execSql, base.id),
+    ).resolves.toMatchObject({ recoveryGeneration: 1, text: "base" });
     await expect(
       sqlDocumentsPersistence.listPendingUpdates(
         first.runtime.execSql,

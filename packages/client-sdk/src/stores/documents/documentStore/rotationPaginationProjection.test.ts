@@ -138,3 +138,54 @@ test("raw continuation pages use projection state verified by the prior page", a
     close();
   }
 });
+
+test("raw rotation recovery rejects a multi-page cursor cycle", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-pagination-cursor-cycle",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-pagination-cursor-cycle-local";
+    await persistFullHistoryDocument({
+      doc: fixture.remoteDocument,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localId,
+    });
+    const requestedCursors: Array<string | undefined> = [];
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      responseForRequest: (request, response) => {
+        requestedCursors.push(request.pullCursor);
+        const nextCursor =
+          request.pullCursor === undefined
+            ? "cycle-a"
+            : request.pullCursor === "cycle-a"
+              ? "cycle-b"
+              : "cycle-a";
+        return {
+          ...response,
+          pullPage: { hasMore: true, nextCursor },
+          updates: [],
+        };
+      },
+    });
+    const state = createDocumentStoreState(
+      localId,
+      runtime,
+      sqlDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+
+    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
+      "repeated pull cursor",
+    );
+    expect(requestedCursors).toEqual([undefined, "cycle-a", "cycle-b"]);
+  } finally {
+    close();
+  }
+});

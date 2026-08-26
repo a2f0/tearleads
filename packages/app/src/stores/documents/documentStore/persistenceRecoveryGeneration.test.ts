@@ -115,11 +115,79 @@ async function expectRecoveryGenerationFence(
   expect(persistence.getState().pendingUpdates).toEqual([storedUpdate]);
 }
 
+async function expectRecoveryCasPreservesConcurrentWrite(
+  persistence: MemoryPersistence,
+  execSql: ExecSql,
+  failProjectionSave = false,
+): Promise<void> {
+  const baseline = {
+    ...recoveredRecord,
+    recoveryGeneration: 0,
+    text: "baseline",
+  };
+  await persistence.saveDocument(execSql, baseline);
+  let releaseProjectionSave = () => {};
+  const projectionSaveBlocked = new Promise<void>((resolve) => {
+    releaseProjectionSave = resolve;
+  });
+  let signalProjectionSave = () => {};
+  const projectionSaveStarted = new Promise<void>((resolve) => {
+    signalProjectionSave = resolve;
+  });
+  const recovery = persistence.commitDocumentMutation(
+    execSql,
+    {
+      acceptedPendingUpdateIds: [],
+      document: recoveredRecord,
+      expectedRecord: baseline,
+      settleAcceptedPendingOnConflict: false,
+    },
+    async () => {
+      signalProjectionSave();
+      await projectionSaveBlocked;
+      if (failProjectionSave) throw new Error("projection save failed");
+    },
+  );
+  await projectionSaveStarted;
+
+  let staleSaveCompleted = false;
+  const staleSave = persistence
+    .saveDocument(execSql, {
+      ...baseline,
+      text: "concurrent stale save",
+    })
+    .then(() => {
+      staleSaveCompleted = true;
+    });
+  await staleSave;
+  expect(staleSaveCompleted).toBe(true);
+  releaseProjectionSave();
+
+  if (failProjectionSave) {
+    await expect(recovery).rejects.toThrow("projection save failed");
+  } else {
+    await expect(recovery).resolves.toMatchObject({ committed: false });
+  }
+  expect(persistence.getState().document).toMatchObject({
+    recoveryGeneration: 0,
+    text: "concurrent stale save",
+  });
+}
+
 test("sync persistence fences a writer blocked behind raw recovery", async () => {
   const runtime = createRuntime();
   await expectRecoveryGenerationFence(
     createDocumentsPersistence(),
     runtime.infra.execSql,
+  );
+  await expectRecoveryCasPreservesConcurrentWrite(
+    createDocumentsPersistence(),
+    runtime.infra.execSql,
+  );
+  await expectRecoveryCasPreservesConcurrentWrite(
+    createDocumentsPersistence(),
+    runtime.infra.execSql,
+    true,
   );
 });
 
@@ -128,5 +196,14 @@ test("document-store persistence fences a writer blocked behind raw recovery", a
   await expectRecoveryGenerationFence(
     createDocumentStorePersistence(),
     runtime.infra.execSql,
+  );
+  await expectRecoveryCasPreservesConcurrentWrite(
+    createDocumentStorePersistence(),
+    runtime.infra.execSql,
+  );
+  await expectRecoveryCasPreservesConcurrentWrite(
+    createDocumentStorePersistence(),
+    runtime.infra.execSql,
+    true,
   );
 });

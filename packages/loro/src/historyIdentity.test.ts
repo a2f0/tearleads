@@ -138,6 +138,16 @@ test("update identity matches only the document's exact operation range", async 
   expect(updateMatchesDocumentHistory(genuine, forgedUpdate)).toBe(false);
 });
 
+test("update identity rejects malformed bytes", async () => {
+  const document = await createDocument("malformed-history-update");
+  document.getText("text").update("retained history");
+  document.commit();
+
+  expect(
+    updateMatchesDocumentHistory(document, new Uint8Array([0xff, 0x00, 0xff])),
+  ).toBe(false);
+});
+
 test("update identity retains dependencies outside its declared peer range", async () => {
   const remote = await createDocument("history-update-dependency-remote");
   remote.getText("text").update("remote base");
