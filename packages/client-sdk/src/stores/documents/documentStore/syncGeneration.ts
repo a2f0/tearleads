@@ -231,7 +231,12 @@ export function registerDocumentStoreRemoteSyncWaiter(
     active = false;
     entry.count -= 1;
     if (entry.count === 0) {
-      const remaining = generations.filter((candidate) => candidate !== entry);
+      // Another generation can remove an entry and replace the WeakMap array
+      // before this release runs. Filter the live registry so a stale closure
+      // cannot overwrite waiters registered on that replacement array.
+      const remaining = (remoteSyncWaiterGenerations.get(state) ?? []).filter(
+        (candidate) => candidate !== entry,
+      );
       if (remaining.length === 0) {
         remoteSyncWaiterGenerations.delete(state);
       } else {

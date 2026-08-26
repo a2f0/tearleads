@@ -173,6 +173,53 @@ test("remote waiter ownership is isolated by request generation", () => {
   expect(releaseStale()).toBe(true);
 });
 
+test("interleaved stale releases preserve current-generation waiter counts", () => {
+  const state = {
+    localWriteGeneration: 0,
+    remoteSyncBlocked: false,
+    remoteUpdatePending: false,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: null,
+  } as unknown as DocumentStoreState;
+  const staleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseStale = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    staleGeneration,
+  );
+
+  invalidateDocumentStoreRemoteSync(state);
+  const middleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseMiddle = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    middleGeneration,
+  );
+  // This replaces the registry array while releaseMiddle still owns a closure
+  // over the prior array.
+  expect(releaseStale()).toBe(true);
+
+  invalidateDocumentStoreRemoteSync(state);
+  const currentGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseCurrentFirst = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+  expect(releaseMiddle()).toBe(true);
+  const releaseCurrentLast = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+
+  expect(releaseCurrentFirst()).toBe(false);
+  expect(releaseCurrentLast()).toBe(true);
+});
+
 test("coordinator disposal invalidates remote work but not local persistence", async () => {
   const currentDoc = await createDocument("local-generation-after-disposal");
   let disposed = false;

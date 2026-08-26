@@ -70,6 +70,46 @@ test("a graceful null remote probe reports incomplete", async () => {
   }
 });
 
+test("a failed continuation keeps a paginated remote probe incomplete", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("remote-sync-wait-pagination-null");
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        return {
+          ...fixture.response,
+          pullPage: { hasMore: true, nextCursor: "profile-page-2" },
+          updates: [],
+        };
+      }
+      return null;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "paginated-null-profile",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+      "",
+      undefined,
+      "on-demand",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+
+    expect(await settleWithin(store.requestRemoteSyncAndWait())).toBe(false);
+    expect(syncCalls).toBe(2);
+  } finally {
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
 test("aborting a waiter during initialization preserves startup reconciliation", async () => {
   const fixture = await createMaterializedSyncFixture();
   const database = await createTestExecSql("remote-sync-wait-initializing");
