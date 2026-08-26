@@ -222,6 +222,7 @@ test("upsertDiscoveredDocument preserves document state for the same remote docu
           commitLsnMode: "tracked",
           cursor: "stale-page-2",
         },
+        recoveryGeneration: 1,
       },
       {
         updatedAt: "2026-04-05T00:00:00.000Z",
@@ -257,6 +258,7 @@ test("upsertDiscoveredDocument preserves document state for the same remote docu
         commitLsnMode: "tracked",
         cursor: "stale-page-2",
       },
+      recoveryGeneration: 1,
     });
   } finally {
     close();

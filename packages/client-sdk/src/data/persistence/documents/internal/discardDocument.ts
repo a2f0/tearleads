@@ -53,6 +53,7 @@ function buildDiscardShellDocument(
     lastCommitLsn: null,
     pendingBaseVersion: null,
     pullContinuation: null,
+    recoveryGeneration: existingDocument.recoveryGeneration ?? 0,
     snapshotEndVersion: "",
     text: "",
     ...(existingDocument.documentKind === undefined
@@ -185,7 +186,9 @@ async function saveDiscardShell(input: {
     document: shellDocument,
     tx,
   });
-  await saveDocumentRows({ document: shellDocument, tx, updatedAt });
+  if (!(await saveDocumentRows({ document: shellDocument, tx, updatedAt }))) {
+    throw new Error("Document recovery generation changed during discard");
+  }
 }
 
 // Eligibility, teardown, client-projection clearing, and shell replacement

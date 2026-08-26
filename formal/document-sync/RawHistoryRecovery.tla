@@ -1,21 +1,15 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* Rotation first reconstructs raw ordinary history to prove local pending    *)
-(* provenance, settles proven rows, then repeats the bounded pull so remote    *)
-(* work racing settlement is included. Checkpoints are authenticated but are  *)
-(* never recovery sources. Publication requires valid pages, exact local       *)
-(* history, current runtime ownership, and a winning record/checkpoint CAS.    *)
-(* queuedCheckpoints includes checkpoint artifacts arriving through ready; a  *)
-(* successful guarded transaction retires its selected set without replay.    *)
-(* updateValid abstracts encoding-neutral operation identity, dependency-     *)
-(* closed partial ranges, encrypted record/header and bundle/header bindings, *)
-(* integrity-prioritized failure aggregation, and unresolved dependencies.    *)
-(* hasUnverifiedLocalGap also includes malformed or same-frontier forked tail *)
-(* rows, which exact-operation compaction must preserve for this gate.         *)
-(* blockedWriterFence is the recovery revision captured before a *)
-(* writer waits. Publication advances it, forcing an older waiter to reject   *)
-(* without appending queue/history rows or saving its stale record.            *)
+(* Recovery proves ordinary history, settles proven pending rows, then pulls  *)
+(* again to include races. Every served update is authenticated; checkpoints *)
+(* are excluded only from reconstruction. Publication requires exact history, *)
+(* current ownership, and winning record/checkpoint comparisons.              *)
+(* updateValid abstracts operation identity, dependency closure, encrypted    *)
+(* record/header bindings, isolation priority, and unresolved dependencies.   *)
+(* hasUnverifiedLocalGap includes malformed or forked uncompacted tail rows.  *)
+(* blockedWriterFence is captured before a writer waits; publication advances *)
+(* it so the older writer cannot append or save its stale record.             *)
 (* Production mapping and checked bounds: RawHistoryRecovery.md.              *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
@@ -70,10 +64,14 @@ PreliminaryOrdinaryUpdates == ordinaryUpdates \ LateRemoteUpdates
 (* Local pending operations are absent from the preliminary server history.  *)
 (* Successful settlement makes them part of the definitive raw pull.         *)
 DefinitiveOrdinaryUpdates == ordinaryUpdates \cup initialLocalPending
+RotationCheckpoints ==
+  UpdateIds \ (ordinaryUpdates \cup initialLocalPending)
 PreliminaryPageUpdates(page) ==
-  PageUpdates(page) \cap PreliminaryOrdinaryUpdates
+  PageUpdates(page) \cap
+    (PreliminaryOrdinaryUpdates \cup RotationCheckpoints)
 DefinitivePageUpdates(page) ==
-  PageUpdates(page) \cap DefinitiveOrdinaryUpdates
+  PageUpdates(page) \cap
+    (DefinitiveOrdinaryUpdates \cup RotationCheckpoints)
 LocalPendingProvenanceValid ==
   \A id \in initialLocalPending : updateValid[id]
 UnavailableEpochs(page) ==
@@ -165,7 +163,8 @@ ValidatePreliminaryPage ==
   /\ nextPage \in Pages
   /\ PreliminaryUnavailableEpochs(nextPage) = {}
   /\ ~PreliminaryPageHasInvalidUpdate(nextPage)
-  /\ scratchHistory' = scratchHistory \cup PreliminaryPageUpdates(nextPage)
+  /\ scratchHistory' = scratchHistory \cup
+       (PageUpdates(nextPage) \cap PreliminaryOrdinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
@@ -229,7 +228,8 @@ ValidatePage ==
   /\ nextPage \in Pages
   /\ UnavailableEpochs(nextPage) = {}
   /\ ~PageHasInvalidUpdate(nextPage)
-  /\ scratchHistory' = scratchHistory \cup DefinitivePageUpdates(nextPage)
+  /\ scratchHistory' = scratchHistory \cup
+       (PageUpdates(nextPage) \cap DefinitiveOrdinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,

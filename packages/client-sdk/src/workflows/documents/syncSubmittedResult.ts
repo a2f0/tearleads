@@ -12,7 +12,6 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import { resolveSyncAttemptWriterProjection } from "./syncFailures";
-import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import {
   hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
@@ -95,40 +94,32 @@ async function submittedDocumentSyncResult(
 
 async function retryRawHistoryWithFreshProjection(
   input: SubmittedDocumentSyncResultInput,
+  unavailableError: DocumentRawHistoryUnavailableError,
 ): Promise<SyncRemoteDocumentResult | null> {
   if (input.sync.apiClient.evictDocumentWriterProjection) {
     input.sync.apiClient.evictDocumentWriterProjection(input.sync.documentId);
   } else {
     input.sync.apiClient.clearWriterProjectionCaches?.();
   }
+  let remoteDocumentDeleted = false;
   const writerProjection = await resolveSyncAttemptWriterProjection({
     apiClient: input.sync.apiClient,
     documentId: input.sync.documentId,
-    onRemoteDocumentDeleted: input.sync.onRemoteDocumentDeleted,
+    onRemoteDocumentDeleted: async (deleted) => {
+      remoteDocumentDeleted = true;
+      await input.sync.onRemoteDocumentDeleted?.(deleted);
+    },
     onSyncAbandoned: input.sync.onSyncAbandoned,
     onSyncTrace: input.sync.onSyncTrace,
     onTerminalFailure: input.sync.onReadOnlyProjectionFailure,
     reusableWriterProjection: null,
   });
-  if (!writerProjection) return null;
-
-  const materializedPlan = await buildMaterializedDocumentSyncPlan({
-    author: input.sync.author,
-    execSql: input.sync.execSql,
-    historyMode: "raw",
-    localVersionVector: input.sync.localVersionVector,
-    minLsn: input.materializedPlan.plan.request.minLsn,
-    onSyncTrace: input.sync.onSyncTrace,
-    pendingUpdates: [],
-    pullCursor: input.materializedPlan.plan.request.pullCursor,
-    signedAt: input.sync.signedAt,
-    targetSecretKey: input.sync.targetSecretKey,
-    writerProjection,
-    ...projectionVerificationOptions(input.sync),
-  });
+  if (!writerProjection) {
+    if (remoteDocumentDeleted) return null;
+    throw unavailableError;
+  }
   return submittedDocumentSyncResult({
     ...input,
-    materializedPlan,
     writerProjection,
   });
 }
@@ -145,6 +136,6 @@ export async function resolveSubmittedDocumentSyncResult(
     ) {
       throw error;
     }
-    return retryRawHistoryWithFreshProjection(input);
+    return retryRawHistoryWithFreshProjection(input, error);
   }
 }

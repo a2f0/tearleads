@@ -142,7 +142,7 @@ async function expectDamagedPredecessorReadToFail(damagedKeyring: boolean) {
     writerProjection: {
       ...fixture.writerProjection,
       authorizingContainerPaths: [projection],
-      contentKeyBundleStale: true,
+      contentKeyBundleStale: true as const,
       documentKekTargets: {
         ...fixture.writerProjection.documentKekTargets,
         documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
@@ -223,7 +223,7 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     const writerProjectionWithUnavailableHistory = {
       ...fixture.writerProjection,
       authorizingContainerPaths: [projection],
-      contentKeyBundleStale: true,
+      contentKeyBundleStale: true as const,
       documentKekTargets: {
         ...fixture.writerProjection.documentKekTargets,
         documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
