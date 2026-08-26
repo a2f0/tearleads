@@ -155,6 +155,7 @@ export interface DocumentStoreState {
   remoteUpdateCompletedSignalSeq: number;
   /** A cancelled remote-only owner blocks late responses until fresh work. */
   remoteSyncBlocked: boolean;
+  scheduleStartupRemoteSync: boolean;
   remoteUpdatePending: boolean;
   /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
@@ -233,6 +234,7 @@ export function createDocumentStoreState(
   initialDocumentId: string | null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  scheduleStartupRemoteSync = true,
 ): DocumentStoreState {
   return {
     attachmentBlobIdBySlotId: {},
@@ -260,6 +262,7 @@ export function createDocumentStoreState(
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdateCompletedSignalSeq: 0,
     remoteSyncBlocked: false,
+    scheduleStartupRemoteSync,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
@@ -492,8 +495,5 @@ export function subscribeToDocumentStore(
   listener: () => void,
 ) {
   state.listeners.add(listener);
-
-  return () => {
-    state.listeners.delete(listener);
-  };
+  return () => void state.listeners.delete(listener);
 }

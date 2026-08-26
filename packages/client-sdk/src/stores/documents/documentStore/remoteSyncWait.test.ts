@@ -140,9 +140,11 @@ test("aborting a waiter during initialization preserves startup reconciliation",
   }
 });
 
-test("aborting an in-flight probe prevents its late response from persisting", async () => {
+test("aborting a cold on-demand probe prevents its late response from persisting", async () => {
   const fixture = await createRemoteHistoryFixture();
   const database = await createTestExecSql("remote-sync-wait-abort");
+  const localId = "aborted-profile";
+  const seedRuntime = createUnavailableRuntime(database.execSql);
   let releaseResponse: () => void = () => undefined;
   const responseGate = new Promise<void>((resolve) => {
     releaseResponse = resolve;
@@ -164,20 +166,25 @@ test("aborting an in-flight probe prevents its late response from persisting", a
   });
   try {
     await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const seedStore = createDocumentStore(
+      localId,
+      seedRuntime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await seedStore.ensureInitialized()).toBe(true);
+    disposeDomainSyncCoordinator(seedRuntime.state.domainScope);
+
     const store = createDocumentStore(
-      "aborted-profile",
+      localId,
       runtime,
       defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+      "",
+      undefined,
+      "on-demand",
     );
-    expect(await store.ensureInitialized()).toBe(true);
-    expect(
-      await store.relink({
-        accessEpoch: 1,
-        containerId: fixture.projection.containerId,
-        documentId: fixture.writerProjection.documentId,
-        localId: "aborted-profile",
-      }),
-    ).not.toBeNull();
+    store.updateRuntime(runtime);
     const abortController = new AbortController();
     const result = store.requestRemoteSyncAndWait(abortController.signal);
     await settleWithin(syncStarted);
@@ -189,13 +196,14 @@ test("aborting an in-flight probe prevents its late response from persisting", a
     await settleCoordinator(runtime.state.domainScope);
     const persisted = await defaultDocumentsPersistence.loadDocumentStoreState(
       database.execSql,
-      "aborted-profile",
+      localId,
     );
     expect(syncCalls).toBe(1);
     expect(persisted.document?.text).toBe("");
     expect(store.getSnapshot().text).toBe("");
   } finally {
     releaseResponse();
+    disposeDomainSyncCoordinator(seedRuntime.state.domainScope);
     disposeDomainSyncCoordinator(runtime.state.domainScope);
     database.close();
   }

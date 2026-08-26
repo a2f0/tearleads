@@ -5,7 +5,10 @@ import {
   SymCrypt,
 } from "@symcrypt/client-sdk";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import { hydrateExplorerAttributionProfileDocument } from "../hooks/explorerAttributionReadModel";
+import {
+  getExplorerAttributionProfileDocumentLocalId,
+  hydrateExplorerAttributionProfileDocument,
+} from "../hooks/explorerAttributionReadModel";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const PROFILE_USER_ID = "00000000-0000-4000-8000-000000000002";
@@ -16,6 +19,11 @@ test("restart hydration adopts the canonical profile row and its pending edits",
   const database = await createTestExecSql("attribution-profile-restart");
   const canonicalLocalId = getRosterProfileDocumentLocalId({
     organizationId: ORGANIZATION_ID,
+    userId: PROFILE_USER_ID,
+  });
+  const staleSyntheticLocalId = getExplorerAttributionProfileDocumentLocalId({
+    organizationId: ORGANIZATION_ID,
+    profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: PROFILE_USER_ID,
   });
   const firstSdk = new SymCrypt({
@@ -41,10 +49,26 @@ test("restart hydration adopts the canonical profile row and its pending edits",
       ),
     ).not.toHaveLength(0);
     firstSdk.dispose();
+    await defaultDocumentsPersistence.saveDocument(
+      database.execSql,
+      {
+        accessEpoch: 1,
+        containerId: PROFILE_CONTAINER_ID,
+        documentId: PROFILE_DOCUMENT_ID,
+        documentKind: "contact",
+        id: staleSyntheticLocalId,
+        snapshotEndVersion: "",
+        text: "Stale synthetic profile",
+      },
+      { updatedAt: "2099-01-01T00:00:00.000Z" },
+    );
 
     restartedSdk = new SymCrypt({
       database: { execSql: database.execSql, id: "profile-restart-db" },
     });
+    expect(
+      await restartedSdk.documents.findLocalIdByDocumentId(PROFILE_DOCUMENT_ID),
+    ).toBe(canonicalLocalId);
     await hydrateExplorerAttributionProfileDocument({
       containerId: PROFILE_CONTAINER_ID,
       documents: restartedSdk.documents,
@@ -67,11 +91,6 @@ test("restart hydration adopts the canonical profile row and its pending edits",
       firstName: "Grace",
       lastName: "Hopper",
     });
-    const persisted = await restartedSdk.documents.list({
-      documentKind: "contact",
-    });
-    expect(persisted?.rows).toHaveLength(1);
-    expect(persisted?.rows[0]?.id).toBe(canonicalLocalId);
     expect(
       await defaultDocumentsPersistence.listPendingUpdates(
         database.execSql,

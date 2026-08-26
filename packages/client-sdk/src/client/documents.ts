@@ -54,6 +54,7 @@ export interface OpenDocumentInput {
 }
 
 export interface OpenDocumentOptions {
+  readonly remoteSyncMode?: "on-demand" | "startup" | undefined;
   readonly workflowRuntime?: DocumentsRuntime | undefined;
 }
 
@@ -166,6 +167,7 @@ class DocumentsService implements Documents {
       documentId,
       initialText,
       initialDocumentKind,
+      options.remoteSyncMode ?? "startup",
     );
   }
 

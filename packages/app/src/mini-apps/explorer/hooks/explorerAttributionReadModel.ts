@@ -196,21 +196,32 @@ export async function hydrateExplorerAttributionProfileDocument(input: {
   readonly target: ExplorerAttributionProfileHydrationTarget;
 }): Promise<boolean> {
   const { target } = input;
+  if (input.signal?.aborted) {
+    return false;
+  }
   const persistedLocalId = await input.documents.findLocalIdByDocumentId(
     target.profileDocumentId,
   );
+  if (input.signal?.aborted) {
+    return false;
+  }
   return input.documents
-    .open({
-      containerId: input.containerId,
-      documentId: target.profileDocumentId,
-      localId:
-        persistedLocalId ??
-        getExplorerAttributionProfileDocumentLocalId({
-          organizationId: input.organizationId,
-          profileDocumentId: target.profileDocumentId,
-          userId: target.userId,
-        }),
-    })
+    .open(
+      {
+        containerId: input.containerId,
+        documentId: target.profileDocumentId,
+        localId:
+          persistedLocalId ??
+          getExplorerAttributionProfileDocumentLocalId({
+            organizationId: input.organizationId,
+            profileDocumentId: target.profileDocumentId,
+            userId: target.userId,
+          }),
+      },
+      {
+        remoteSyncMode: "on-demand",
+      },
+    )
     .requestRemoteSyncAndWait(input.signal);
 }
 

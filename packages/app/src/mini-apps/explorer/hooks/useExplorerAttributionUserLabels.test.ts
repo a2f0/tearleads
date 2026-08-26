@@ -308,18 +308,39 @@ test("cold and cached profiles open by retained identity and remote-probe", asyn
   await hydrateExplorerAttributionProfileDocument(input);
   await hydrateExplorerAttributionProfileDocument(input);
 
-  expect(open).toHaveBeenCalledWith({
-    containerId: "roster-profile-container-id",
-    documentId: "disabled-profile-id",
-    localId: getExplorerAttributionProfileDocumentLocalId({
-      organizationId: ORGANIZATION_ID,
-      profileDocumentId: "disabled-profile-id",
-      userId: "disabled-user-id",
-    }),
-  });
+  expect(open).toHaveBeenCalledWith(
+    {
+      containerId: "roster-profile-container-id",
+      documentId: "disabled-profile-id",
+      localId: getExplorerAttributionProfileDocumentLocalId({
+        organizationId: ORGANIZATION_ID,
+        profileDocumentId: "disabled-profile-id",
+        userId: "disabled-user-id",
+      }),
+    },
+    { remoteSyncMode: "on-demand" },
+  );
   expect(open).toHaveBeenCalledTimes(2);
   expect(findLocalIdByDocumentId).toHaveBeenCalledTimes(2);
   expect(requestRemoteSyncAndWait).toHaveBeenCalledTimes(2);
+
+  let releaseLookup: () => void = () => undefined;
+  const lookupGate = new Promise<void>((resolve) => {
+    releaseLookup = resolve;
+  });
+  findLocalIdByDocumentId.mockImplementation(async () => {
+    await lookupGate;
+    return null;
+  });
+  const abortController = new AbortController();
+  const cancelled = hydrateExplorerAttributionProfileDocument({
+    ...input,
+    signal: abortController.signal,
+  });
+  abortController.abort();
+  releaseLookup();
+  expect(await cancelled).toBe(false);
+  expect(open).toHaveBeenCalledTimes(2);
 });
 
 test("profile pointer replacements hydrate through distinct local identities", async () => {

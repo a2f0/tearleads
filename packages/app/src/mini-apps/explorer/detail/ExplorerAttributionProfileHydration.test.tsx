@@ -346,9 +346,11 @@ test("a shared profile retains its slot in a full hydration selection", async ()
     expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(32);
     expect(harness.symcrypt.open).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-0" }),
+      { remoteSyncMode: "on-demand" },
     );
     expect(harness.symcrypt.open).not.toHaveBeenCalledWith(
       expect.objectContaining({ documentId: "profile-32" }),
+      expect.anything(),
     );
   } finally {
     harness.restore();

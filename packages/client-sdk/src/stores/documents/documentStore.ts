@@ -269,6 +269,7 @@ function createBackingDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const state = createDocumentStoreState(
     localId,
@@ -281,6 +282,7 @@ function createBackingDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode === "startup",
   );
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
@@ -340,8 +342,7 @@ function createBackingDocumentStore(
       ),
     setText: (value: string) =>
       withLiveSyncLane(() => setDocumentText(state, scheduleSync, value)),
-    subscribe: (listener: () => void) =>
-      subscribeToDocumentStore(state, listener),
+    subscribe: (listener) => subscribeToDocumentStore(state, listener),
     updateRowFields: (id, patch) =>
       withLiveSyncLane(() =>
         updateRowInDocumentStore(state, scheduleSync, id, patch),
@@ -358,6 +359,7 @@ export function createDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStoreFacade {
   return createDocumentStoreFacade(
     createBackingDocumentStore(
@@ -367,6 +369,7 @@ export function createDocumentStore(
       initialDocumentId,
       initialText,
       initialDocumentKind,
+      remoteSyncMode,
     ),
   );
 }
@@ -378,6 +381,7 @@ export function getOrCreateDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
   const existingStore = registry.storesByKey.get(
@@ -400,6 +404,7 @@ export function getOrCreateDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode,
   );
   registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
@@ -412,6 +417,7 @@ export function openDocumentStore(
   initialDocumentId: string | null = null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStore {
   const store = getOrCreateDocumentStore(
     domainScope,
@@ -420,6 +426,7 @@ export function openDocumentStore(
     initialDocumentId,
     initialText,
     initialDocumentKind,
+    remoteSyncMode,
   );
   store.updateRuntime(runtime);
   return store;

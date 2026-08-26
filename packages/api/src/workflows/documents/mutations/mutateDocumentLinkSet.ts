@@ -34,6 +34,7 @@ import {
   verifyDocumentEvent,
   verifyDocumentLinkSetMutationAuthorizationFromRequest,
 } from "./shared/verification";
+import { ensureCurrentDocumentAccess } from "./syncAccess";
 import type { MutateDocumentLinkSetInput } from "./types";
 
 export interface DocumentLinkSetMutationWorkflowResult {
@@ -144,32 +145,22 @@ async function lockDocumentLinkSetMutationFrontier(input: {
   return locked;
 }
 
-async function resolveDocumentOrganization(input: {
+async function preauthorizeDocumentLinkSetMutation(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly userId: string;
 }): Promise<string> {
-  const { organizationId } = await resolveCurrentDocumentKekTargets(
+  const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.executor,
   );
-  return organizationId;
-}
-
-async function preauthorizeDocumentLinkSetMutation(input: {
-  readonly documentId: string;
-  readonly event: Awaited<ReturnType<typeof verifyDocumentEvent>>;
-  readonly executor: DatabaseTransaction;
-  readonly request: DocumentLinkSetMutationRequest;
-}): Promise<void> {
-  await verifyDocumentLinkSetMutationAuthorizationFromRequest({
-    event: input.event,
+  await ensureCurrentDocumentAccess({
+    currentTargets,
     executor: input.executor,
-    previousManifest: await loadCurrentDocumentManifest(
-      input.documentId,
-      input.executor,
-    ),
-    request: input.request,
+    minimumAccessLevel: "write",
+    userId: input.userId,
   });
+  return currentTargets.organizationId;
 }
 
 async function mutateDocumentLinkSetWithExecutor(input: {
@@ -198,13 +189,11 @@ async function mutateDocumentLinkSetWithExecutor(input: {
     // locks. Mutable authorization is repeated below after the merged lock
     // plan is held; this first pass prevents a caller who only knows a
     // document UUID from using this route to serialize another tenant.
-    await preauthorizeDocumentLinkSetMutation({
+    const organizationId = await preauthorizeDocumentLinkSetMutation({
       documentId: input.documentId,
-      event,
       executor: input.executor,
-      request: input.request,
+      userId: input.userId,
     });
-    const organizationId = await resolveDocumentOrganization(input);
     // Rekeys and the document organization share one group -> sorted-org lock
     // plan. Locking the document organization after independently sorted rekey
     // organizations permits opposing cross-organization requests to deadlock.

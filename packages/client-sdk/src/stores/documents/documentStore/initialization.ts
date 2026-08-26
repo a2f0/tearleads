@@ -298,7 +298,7 @@ async function initializeDocumentStore(
   state.initializePromise = null;
   setReadySnapshot(state, restored.doc, false);
 
-  if (restored.activeRecord.documentId) {
+  if (restored.activeRecord.documentId && state.scheduleStartupRemoteSync) {
     // Websocket invalidations are intentionally session-local. A process can
     // stop before receiving a peer device's update event, and no event survives
     // the restart to distinguish a clean local snapshot from a stale one. Probe
