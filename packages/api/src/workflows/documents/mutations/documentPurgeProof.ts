@@ -146,13 +146,21 @@ async function assertCheckpointHeadExtends(input: {
 
 async function loadVerifiedCheckpointMaterial(input: {
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly checkpointManifestHashes: readonly string[];
   readonly context: ContainerProjectionContext;
   readonly executor: DatabaseSession;
 }) {
+  if (
+    input.checkpointManifestHashes.length !==
+    input.authorizingContainerPath.length
+  ) {
+    throw new DocumentMutationError(
+      "Document purge authorization checkpoint count is inconsistent",
+      400,
+    );
+  }
   const checkpointMaterial = await loadAuthorizingContainerCheckpointMaterial({
-    containerIds: input.authorizingContainerPath.map(
-      (manifest) => manifest.state.containerId,
-    ),
+    checkpointManifestHashes: input.checkpointManifestHashes,
     executor: input.executor,
   });
   if (
@@ -181,6 +189,7 @@ async function loadVerifiedCheckpointMaterial(input: {
 }
 
 async function verifyProofMaterial(input: {
+  readonly checkpointManifestHashes?: readonly string[] | undefined;
   readonly documentId: string;
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseSession;
@@ -247,6 +256,9 @@ async function verifyProofMaterial(input: {
   }
   const checkpointMaterial = await loadVerifiedCheckpointMaterial({
     authorizingContainerPath,
+    checkpointManifestHashes:
+      input.checkpointManifestHashes ??
+      authorizingContainerPath.map((manifest) => manifest.manifestHash),
     context,
     executor: input.executor,
   });
@@ -270,6 +282,7 @@ async function verifyProofMaterial(input: {
 }
 
 export async function loadDocumentPurgeProof(input: {
+  readonly checkpointManifestHashes?: readonly string[] | undefined;
   readonly documentId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
@@ -295,6 +308,7 @@ export async function loadDocumentPurgeProof(input: {
     material,
     principalPolicies,
   } = await verifyProofMaterial({
+    checkpointManifestHashes: input.checkpointManifestHashes,
     documentId: input.documentId,
     event,
     executor: input.executor,

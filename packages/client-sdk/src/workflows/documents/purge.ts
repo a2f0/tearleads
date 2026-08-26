@@ -6,10 +6,11 @@ import {
   type UnsignedAccessEvent,
 } from "@symcrypt/crypto";
 import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
-import type {
-  DocumentPurgeProofResponse,
-  DocumentPurgeResponse,
-  DocumentWriterProjectionResponse,
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  type DocumentPurgeProofResponse,
+  type DocumentPurgeResponse,
+  type DocumentWriterProjectionResponse,
 } from "@symcrypt/validators/response";
 import {
   containerPathRefs,
@@ -18,6 +19,7 @@ import {
 import {
   assertDocumentManifestBundleConsistent,
   readManifestContainerId,
+  readRecordString,
 } from "../../data/documents/shared/readers";
 import type {
   DocumentCreateAuthor,
@@ -35,16 +37,116 @@ import {
   verifyDocumentPurgeProof,
   verifyDocumentWriterProjection,
 } from "../../data/keyingProjectionVerification";
+import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 interface DocumentPurgeApi {
-  getDocumentWriterProjection(
+  getDocumentPurgeProof(
     documentId: string,
-  ): Promise<DocumentWriterProjectionResponse | null>;
+    options?: { readonly checkpointManifestHashes?: readonly string[] },
+  ): Promise<DocumentPurgeProofResponse | null>;
+  getDocumentWriterProjectionResult: NonNullable<
+    DocumentSyncApi["getDocumentWriterProjectionResult"]
+  >;
   purgeDocument(
     documentId: string,
     request: DocumentPurgeRequest,
   ): Promise<DocumentPurgeResponse | null>;
+}
+
+const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
+
+async function loadLocalPurgeCheckpointManifestHashes(input: {
+  readonly execSql: ExecSql;
+  readonly proof: DocumentPurgeProofResponse;
+}): Promise<string[]> {
+  return Promise.all(
+    input.proof.authorizingContainerPath.map(async (bundle, index) => {
+      const state = readCanonicalRecord(
+        bundle.state,
+        `Document purge authorizing container path[${index}] state`,
+      );
+      const organizationId = readRecordString(
+        state,
+        "organizationId",
+        `Document purge authorizing container path[${index}] state`,
+      );
+      const containerId = readRecordString(
+        state,
+        "containerId",
+        `Document purge authorizing container path[${index}] state`,
+      );
+      const checkpoint = await loadAccessManifestCheckpoint(
+        input.execSql,
+        "container",
+        organizationId,
+        containerId,
+      );
+      return checkpoint?.manifestHash ?? bundle.manifestHash;
+    }),
+  );
+}
+
+async function loadCheckpointBoundedDocumentPurgeProof(input: {
+  readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
+  readonly documentId: string;
+  readonly execSql: ExecSql;
+}): Promise<DocumentPurgeProofResponse | null> {
+  if (!input.apiClient.getDocumentPurgeProof) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Remote document deletion is missing a purge-proof endpoint",
+    );
+  }
+  const initialProof = await input.apiClient.getDocumentPurgeProof(
+    input.documentId,
+  );
+  if (!initialProof) {
+    return null;
+  }
+  const checkpointManifestHashes = await loadLocalPurgeCheckpointManifestHashes(
+    {
+      execSql: input.execSql,
+      proof: initialProof,
+    },
+  );
+  const initialHeadsMatch = checkpointManifestHashes.every(
+    (manifestHash, index) =>
+      initialProof.authorizingContainerCheckpointHeads[index]?.manifestHash ===
+      manifestHash,
+  );
+  if (
+    initialHeadsMatch &&
+    initialProof.authorizingContainerCheckpointHeads.length ===
+      checkpointManifestHashes.length
+  ) {
+    return initialProof;
+  }
+  return input.apiClient.getDocumentPurgeProof(input.documentId, {
+    checkpointManifestHashes,
+  });
+}
+
+async function resolveDocumentPurgeWriterProjection(input: {
+  readonly apiClient: DocumentPurgeApi;
+  readonly documentId: string;
+}): Promise<
+  | DocumentWriterProjectionResponse
+  | typeof REMOTE_DOCUMENT_ALREADY_PURGED
+  | null
+> {
+  const result = await input.apiClient.getDocumentWriterProjectionResult(
+    input.documentId,
+    { reportErrors: false },
+  );
+  if (result.ok) {
+    return result.data;
+  }
+  if (result.status === 404 && result.code === DOCUMENT_NOT_FOUND_ERROR_CODE) {
+    return REMOTE_DOCUMENT_ALREADY_PURGED;
+  }
+  result.report();
+  return null;
 }
 
 export async function buildDocumentPurgeRequest(input: {
@@ -133,13 +235,11 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
     | undefined;
 }): (deleted: { readonly documentId: string }) => Promise<void> {
   return async ({ documentId }) => {
-    if (!input.apiClient.getDocumentPurgeProof) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        "Remote document deletion is missing a purge-proof endpoint",
-      );
-    }
-    const proof = await input.apiClient.getDocumentPurgeProof(documentId);
+    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+      apiClient: input.apiClient,
+      documentId,
+      execSql: input.execSql,
+    });
     if (!proof) {
       throw new KeyingVerificationError(
         "missing_dependency",
@@ -200,11 +300,40 @@ export async function purgeRemoteDocument(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<DocumentPurgeResponse | null> {
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
-  );
+  const writerProjection = await resolveDocumentPurgeWriterProjection({
+    apiClient: input.apiClient,
+    documentId: input.documentId,
+  });
   if (!writerProjection) {
     return null;
+  }
+  if (writerProjection === REMOTE_DOCUMENT_ALREADY_PURGED) {
+    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+      apiClient: input.apiClient,
+      documentId: input.documentId,
+      execSql: input.execSql,
+    });
+    if (!proof) {
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Purged remote document is missing its signed purge proof",
+      );
+    }
+    const verified = await verifyDocumentPurgeProof({
+      execSql: input.execSql,
+      expectedDocumentId: input.documentId,
+      proof,
+      resolveUserKey: input.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
+    if (input.onVerifiedPurge) {
+      await input.onVerifiedPurge({
+        commitPurgeProof: verified.commitCheckpoints,
+      });
+    } else {
+      await verified.commitCheckpoints(input.execSql);
+    }
+    return { ...proof, reclaimedBlobStorageKeys: [] };
   }
   await verifyDocumentWriterProjection({
     execSql: input.execSql,

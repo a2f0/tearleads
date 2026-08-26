@@ -24555,6 +24555,18 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "checkpointManifestHashes",
+            "required": false,
+            "schema": {
+              "maxLength": 6500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "responses": {

@@ -367,9 +367,37 @@ test("purge proof remains available to a later-revoked replica", async () => {
   expect(isDocumentPurgeProofResponse(proof)).toBe(true);
   if (isDocumentPurgeProofResponse(proof)) {
     expect(proof.authorizingContainerCheckpointHeads.at(-1)?.manifestHash).toBe(
-      accessManifestFromContainerResponse(revoked).manifestHash,
+      sharedChild.bundle.manifestHash,
     );
+    expect(
+      proof.documentContainerManifestHistory.some(
+        (bundle) =>
+          bundle.manifestHash ===
+          accessManifestFromContainerResponse(revoked).manifestHash,
+      ),
+    ).toBe(false);
   }
+
+  const knownRevocationHash =
+    accessManifestFromContainerResponse(revoked).manifestHash;
+  const boundedProofResponse = await routeApp.request(
+    `/documents/${created.id}/purge?checkpointManifestHashes=${root.bundle.manifestHash}%2C${knownRevocationHash}`,
+    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
+  );
+  expect(boundedProofResponse.status).toBe(200);
+  const boundedProof = await boundedProofResponse.json();
+  expect(isDocumentPurgeProofResponse(boundedProof)).toBe(true);
+  if (isDocumentPurgeProofResponse(boundedProof)) {
+    expect(
+      boundedProof.authorizingContainerCheckpointHeads.at(-1)?.manifestHash,
+    ).toBe(knownRevocationHash);
+  }
+
+  const incompleteBoundsResponse = await routeApp.request(
+    `/documents/${created.id}/purge?checkpointManifestHashes=${knownRevocationHash}`,
+    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
+  );
+  expect(incompleteBoundsResponse.status).toBe(400);
 });
 
 test("purge proof preserves historical signer membership after group deletion", async () => {

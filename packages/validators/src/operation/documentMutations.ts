@@ -3,6 +3,7 @@ import {
   documentLinkSetPathRefinement,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
+import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
@@ -32,6 +33,19 @@ export const DocumentMutationPathParamsSchema = DocumentSyncPathParamsSchema;
 
 export type DocumentMutationPathParams = z.infer<
   typeof DocumentMutationPathParamsSchema
+>;
+
+const checkpointManifestHashesQuerySchema = registerJsonSchemaFragment(
+  z.string().min(1).max(6_500),
+  { maxLength: 6_500, minLength: 1, type: "string" },
+);
+
+export const DocumentPurgeProofQuerySchema = z.strictObject({
+  checkpointManifestHashes: checkpointManifestHashesQuerySchema.optional(),
+});
+
+export type DocumentPurgeProofQuery = z.infer<
+  typeof DocumentPurgeProofQuerySchema
 >;
 
 const documentMutationFailureResponses = {
@@ -112,6 +126,7 @@ export const getDocumentPurgeProofOperation = defineJsonOperation({
   method: "GET",
   params: DocumentMutationPathParamsSchema,
   path: "/documents/{documentId}/purge",
+  query: DocumentPurgeProofQuerySchema,
   responses: { 200: DocumentPurgeProofResponseSchema },
 });
 

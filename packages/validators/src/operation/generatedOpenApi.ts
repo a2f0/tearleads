@@ -10732,7 +10732,9 @@ export interface operations {
     };
     "documents.purgeProof": {
         parameters: {
-            query?: never;
+            query?: {
+                checkpointManifestHashes?: string;
+            };
             header?: never;
             path: {
                 documentId: string;

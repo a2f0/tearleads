@@ -501,6 +501,7 @@ export interface DocumentSyncApi {
   evictDocumentWriterProjection?(documentId: string): void;
   getDocumentPurgeProof?(
     documentId: string,
+    options?: { readonly checkpointManifestHashes?: readonly string[] },
   ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjection(
     documentId: string,

@@ -34,7 +34,10 @@ test("remote document purge propagates identity failures without deleting local 
       runtime: {
         apiClient: {
           getCurrentPrincipalPolicy: async () => null,
-          getDocumentWriterProjection: async () => {
+          getDocumentPurgeProof: async () => {
+            throw new Error("Unexpected purge-proof fetch");
+          },
+          getDocumentWriterProjectionResult: async () => {
             throw integrityError;
           },
           purgeDocument: async () => {

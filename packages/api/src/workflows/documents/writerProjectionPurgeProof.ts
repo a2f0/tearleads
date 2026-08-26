@@ -1,6 +1,5 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
-import { getCurrentAccessManifestHead } from "../../access/read/accessManifestStore";
 import {
   type ContainerDependencyLoadState,
   DocumentWriterProjectionError,
@@ -20,7 +19,7 @@ interface DocumentPurgeProofMaterial {
 }
 
 export async function loadAuthorizingContainerCheckpointMaterial(input: {
-  readonly containerIds: readonly string[];
+  readonly checkpointManifestHashes: readonly string[];
   readonly executor: DatabaseSession;
 }): Promise<{
   readonly heads: AccessManifestBundleWireResponse[];
@@ -36,25 +35,14 @@ export async function loadAuthorizingContainerCheckpointMaterial(input: {
   };
   const heads: AccessManifestBundleWireResponse[] = [];
 
-  for (const containerId of input.containerIds) {
-    const head = await getCurrentAccessManifestHead(
-      "container",
-      containerId,
-      input.executor,
-    );
-    if (!head) {
-      throw new DocumentWriterProjectionError(
-        "Document purge authorization checkpoint head is missing",
-        409,
-      );
-    }
+  for (const manifestHash of input.checkpointManifestHashes) {
     await loadContainerDependencyPath({
-      leafManifestHash: head.manifestHash,
+      leafManifestHash: manifestHash,
       state,
     });
     const loaded = await loadProjectionManifestBundleByHash(
       input.executor,
-      head.manifestHash,
+      manifestHash,
       manifestCache,
     );
     if (loaded.objectKind !== "container") {

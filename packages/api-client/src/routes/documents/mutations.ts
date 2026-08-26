@@ -10,9 +10,14 @@ import {
   isPurgeDocumentOperationResponse,
   linkDocumentOperation,
   operationRequestPath,
+  operationRequestPathWithQuery,
   purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
+
+export interface DocumentPurgeProofOptions {
+  readonly checkpointManifestHashes?: readonly string[];
+}
 
 export const documentCreate = {
   isRequest: isCreateDocumentOperationRequest,
@@ -55,6 +60,12 @@ export const documentPurge = {
 export const documentPurgeProof = {
   isResponse: isGetDocumentPurgeProofOperationResponse,
   method: getDocumentPurgeProofOperation.method,
-  path: (documentId: string) =>
-    operationRequestPath(getDocumentPurgeProofOperation, { documentId }),
+  path: (documentId: string, options: DocumentPurgeProofOptions = {}) =>
+    operationRequestPathWithQuery(
+      getDocumentPurgeProofOperation,
+      { documentId },
+      {
+        checkpointManifestHashes: options.checkpointManifestHashes?.join(","),
+      },
+    ),
 } as const;

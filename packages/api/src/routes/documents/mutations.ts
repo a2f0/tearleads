@@ -44,6 +44,7 @@ import {
   requestBodyLimit,
 } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 
 interface DocumentMutationsRouteDeps {
   readonly publish: (event: Record<string, unknown>) => Promise<void>;
@@ -353,6 +354,7 @@ async function respondWithDocumentPurgeProof(
   c: DocumentRouteContext,
   input: {
     readonly documentId: string;
+    readonly checkpointManifestHashes?: readonly string[] | undefined;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
@@ -361,6 +363,7 @@ async function respondWithDocumentPurgeProof(
   try {
     return c.json<DocumentPurgeProofResponse>(
       await getDocumentPurgeProof(input.runtime, {
+        checkpointManifestHashes: input.checkpointManifestHashes,
         documentId: input.documentId,
         userId: session.userId,
       }),
@@ -394,8 +397,12 @@ function registerDocumentPurgeRoutes(
     operationRoutePath(getDocumentPurgeProofOperation),
     input.requireAuth,
     pathParamsValidator(getDocumentPurgeProofOperation.params),
+    queryParamsValidator(getDocumentPurgeProofOperation.query),
     (c) =>
       respondWithDocumentPurgeProof(c, {
+        checkpointManifestHashes: c.req
+          .valid("query")
+          .checkpointManifestHashes?.split(","),
         documentId: c.req.valid("param").documentId,
         runtime: input.runtime,
       }),

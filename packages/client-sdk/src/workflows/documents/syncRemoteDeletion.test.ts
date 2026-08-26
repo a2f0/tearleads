@@ -4,7 +4,6 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   type AccessManifestBundleWireResponse,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
-  type DocumentPurgeProofResponse,
 } from "@symcrypt/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
@@ -14,6 +13,7 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import type { DocumentSyncApi } from "../../data/documents/shared/types";
 import { verifyDocumentWriterProjection } from "../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../data/keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -117,10 +117,14 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
   const { close, execSql } = await createTestExecSql(
     "purge-proof-newer-container-checkpoint",
   );
-  const syncWithProof = (proof: DocumentPurgeProofResponse) =>
+  const syncWithProof = (
+    getDocumentPurgeProof: NonNullable<
+      DocumentSyncApi["getDocumentPurgeProof"]
+    >,
+  ) =>
     syncRemoteDocument({
       apiClient: {
-        getDocumentPurgeProof: async () => proof,
+        getDocumentPurgeProof,
         getDocumentWriterProjection: async () => {
           throw new Error("Expected getDocumentWriterProjectionResult");
         },
@@ -156,13 +160,26 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
       verifiedManifests: [newerContainerManifest],
     });
 
-    await expect(syncWithProof(purgeProof)).rejects.toMatchObject({
+    await expect(syncWithProof(async () => purgeProof)).rejects.toMatchObject({
       code: "rollback",
     });
     expect(deletedDocumentIds).toEqual([]);
 
-    await expect(syncWithProof(proofWithOrderingEvidence)).resolves.toBeNull();
+    let proofFetches = 0;
+    await expect(
+      syncWithProof(async (_documentId, options) => {
+        proofFetches += 1;
+        if (!options) {
+          return purgeProof;
+        }
+        expect(options.checkpointManifestHashes).toEqual([
+          newerContainerManifest.manifestHash,
+        ]);
+        return proofWithOrderingEvidence;
+      }),
+    ).resolves.toBeNull();
 
+    expect(proofFetches).toBe(2);
     expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
     await expect(
       loadAccessManifestCheckpoint(

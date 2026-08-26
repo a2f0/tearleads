@@ -68,6 +68,7 @@ export async function purgeDocument(
 export function getDocumentPurgeProof(
   runtime: ApiServiceRuntime,
   input: {
+    readonly checkpointManifestHashes?: readonly string[] | undefined;
     readonly documentId: string;
     readonly userId: string;
   },

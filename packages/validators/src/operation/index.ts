@@ -127,6 +127,8 @@ export {
   createDocumentOperation,
   type DocumentMutationPathParams,
   DocumentMutationPathParamsSchema,
+  type DocumentPurgeProofQuery,
+  DocumentPurgeProofQuerySchema,
   getDocumentPurgeProofOperation,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,

@@ -98,6 +98,7 @@ import {
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import {
+  type DocumentPurgeProofOptions,
   documentCreate,
   documentLink,
   documentPurge,
@@ -1610,9 +1611,12 @@ export class ApiClient {
     });
   }
 
-  getDocumentPurgeProof(documentId: string) {
+  getDocumentPurgeProof(
+    documentId: string,
+    options?: DocumentPurgeProofOptions,
+  ) {
     return this.request(
-      documentPurgeProof.path(documentId),
+      documentPurgeProof.path(documentId, options),
       documentPurgeProof.isResponse,
       documentPurgeProof.method,
     );
