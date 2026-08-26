@@ -19,7 +19,7 @@ interface DocumentPurgeProofMaterial {
 }
 
 export async function loadDocumentPurgeProofMaterial(input: {
-  readonly authorizingContainerManifestHash: string;
+  readonly authorizingContainerManifestHashes: readonly string[];
   readonly documentManifestHash: string;
   readonly executor: DatabaseSession;
 }): Promise<DocumentPurgeProofMaterial> {
@@ -53,19 +53,24 @@ export async function loadDocumentPurgeProofMaterial(input: {
     manifestCache,
     walkedContainerPredecessors: new Set(),
   };
-  await loadContainerDependencyPath({
-    leafManifestHash: input.authorizingContainerManifestHash,
-    state: authorizingState,
-  });
-  const authorizingContainerPath =
-    authorizingState.containerPathsByLeafHash.get(
-      input.authorizingContainerManifestHash,
+  const authorizingContainerPath: AccessManifestBundleWireResponse[] = [];
+  for (const manifestHash of input.authorizingContainerManifestHashes) {
+    await loadContainerDependencyPath({
+      leafManifestHash: manifestHash,
+      state: authorizingState,
+    });
+    const loaded = await loadProjectionManifestBundleByHash(
+      input.executor,
+      manifestHash,
+      manifestCache,
     );
-  if (!authorizingContainerPath) {
-    throw new DocumentWriterProjectionError(
-      "Document purge authorization path is missing",
-      409,
-    );
+    if (loaded.objectKind !== "container") {
+      throw new DocumentWriterProjectionError(
+        "Document purge authorization path has the wrong object kind",
+        409,
+      );
+    }
+    authorizingContainerPath.push(loaded.bundle);
   }
   const containerHistoryByHash = new Map(
     documentDependencies.documentContainerManifestHistory.map((bundle) => [

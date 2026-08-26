@@ -5,6 +5,7 @@ import {
 } from "./containerAccess";
 import {
   assertExactKeys,
+  readHashArray,
   readHashString,
   readString,
   runVerifier,
@@ -21,6 +22,7 @@ import type {
 
 export interface DocumentPurgeAccessEventBody {
   eventType: "document.purge";
+  authorizingContainerManifestHashes: string[];
   containerId: string;
   containerManifestHash: string;
   documentManifestHash: string;
@@ -40,6 +42,7 @@ export function normalizeDocumentPurgeAccessEventBody(
   const record = assertExactKeys(
     value,
     [
+      "authorizingContainerManifestHashes",
       "containerId",
       "containerManifestHash",
       "documentManifestHash",
@@ -47,6 +50,25 @@ export function normalizeDocumentPurgeAccessEventBody(
     ],
     "document.purge event body",
   );
+  const authorizingContainerManifestHashes = readHashArray(
+    record.authorizingContainerManifestHashes,
+    "document.purge event body.authorizingContainerManifestHashes",
+  );
+  if (authorizingContainerManifestHashes.length === 0) {
+    throwVerification(
+      "missing_dependency",
+      "document purge authorization path hashes are required",
+    );
+  }
+  if (
+    new Set(authorizingContainerManifestHashes).size !==
+    authorizingContainerManifestHashes.length
+  ) {
+    throwVerification(
+      "duplicate_entry",
+      "document purge authorization path hashes contain a duplicate",
+    );
+  }
   if (record.eventType !== "document.purge") {
     throwVerification(
       "invalid_domain",
@@ -54,6 +76,7 @@ export function normalizeDocumentPurgeAccessEventBody(
     );
   }
   return {
+    authorizingContainerManifestHashes,
     containerId: readString(record, "containerId", "document.purge event body"),
     containerManifestHash: readHashString(
       record,
@@ -126,12 +149,70 @@ function assertPurgeDependencies(
     );
   }
   if (
-    event.dependencyManifestHashes.length !== 1 ||
-    event.dependencyManifestHashes[0] !== body.containerManifestHash
+    body.authorizingContainerManifestHashes.at(-1) !==
+    body.containerManifestHash
   ) {
     throwVerification(
       "missing_dependency",
-      "document purge event must bind exactly its authorizing container head",
+      "document purge authorization path does not end at its container head",
+    );
+  }
+  const expectedDependencies = [
+    ...body.authorizingContainerManifestHashes,
+  ].sort();
+  if (
+    event.dependencyManifestHashes.length !== expectedDependencies.length ||
+    event.dependencyManifestHashes.some(
+      (hash, index) => hash !== expectedDependencies[index],
+    )
+  ) {
+    throwVerification(
+      "missing_dependency",
+      "document purge event must bind exactly its authorizing container path",
+    );
+  }
+}
+
+function assertPurgeAuthorizationPath(
+  input: VerifyDocumentPurgeEventInput,
+  body: DocumentPurgeAccessEventBody,
+): void {
+  for (const [index, manifest] of input.authorizingContainerPath.entries()) {
+    if (
+      body.authorizingContainerManifestHashes[index] !== manifest.manifestHash
+    ) {
+      throwVerification(
+        "missing_dependency",
+        "document purge authorization path does not match the signed path",
+      );
+    }
+    if (
+      manifest.state.organizationId !==
+      input.documentManifest.state.organizationId
+    ) {
+      throwVerification(
+        "object_mismatch",
+        "document purge authorization path crosses organizations",
+      );
+    }
+    const parent = input.authorizingContainerPath[index - 1];
+    if (
+      parent &&
+      manifest.state.parentContainerId !== parent.state.containerId
+    ) {
+      throwVerification(
+        "missing_dependency",
+        "document purge authorization path is not contiguous",
+      );
+    }
+  }
+  if (
+    body.authorizingContainerManifestHashes.length !==
+    input.authorizingContainerPath.length
+  ) {
+    throwVerification(
+      "missing_dependency",
+      "document purge authorization path does not match the signed path",
     );
   }
 }
@@ -144,6 +225,7 @@ function requirePurgeAuthorization(
     input.authorizingContainerPath,
     "document.purge authorization",
   );
+  assertPurgeAuthorizationPath(input, body);
   if (
     containerManifest.state.containerId !== body.containerId ||
     containerManifest.manifestHash !== body.containerManifestHash

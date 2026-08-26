@@ -287,16 +287,18 @@ async function purgeDocumentWithExecutor(input: {
     request: input.request,
     userId: input.userId,
   });
-  const authorizingContainerManifest =
-    verifiedPurge.authorizingContainerPath.at(-1);
-  if (!authorizingContainerManifest) {
+  const authorizingContainerManifestHashes =
+    verifiedPurge.authorizingContainerPath.map(
+      (manifest) => manifest.manifestHash,
+    );
+  if (authorizingContainerManifestHashes.length === 0) {
     throw new DocumentMutationError(
       "Document purge authorization path is missing",
       409,
     );
   }
   const proofMaterial = await loadDocumentPurgeProofMaterial({
-    authorizingContainerManifestHash: authorizingContainerManifest.manifestHash,
+    authorizingContainerManifestHashes,
     documentManifestHash: verifiedPurge.documentManifest.manifestHash,
     executor: input.executor,
   });

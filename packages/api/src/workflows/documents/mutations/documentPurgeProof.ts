@@ -84,7 +84,7 @@ async function verifyProofMaterial(input: {
     );
   }
   const material = await loadDocumentPurgeProofMaterial({
-    authorizingContainerManifestHash: body.containerManifestHash,
+    authorizingContainerManifestHashes: body.authorizingContainerManifestHashes,
     documentManifestHash,
     executor: input.executor,
   });

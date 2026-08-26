@@ -88,6 +88,111 @@ test("purge proof remains available after its container is deleted", async () =>
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
 });
 
+test("document purge rejects a disconnected signed authorization path", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const firstChild = await createChildContainer({
+    parent: root,
+    signer: owner,
+  });
+  const secondChild = await createChildContainer({
+    parent: root,
+    signer: owner,
+  });
+  const firstChildFixture = storedChildFixture({ child: firstChild, root });
+  const secondChildFixture = storedChildFixture({ child: secondChild, root });
+  const created = await createDocument({
+    containerPath: [root.bundle, secondChildFixture.bundle],
+    owner,
+    root: secondChildFixture,
+  });
+
+  const purgeResponse = await postDocumentPurge({
+    authorizingContainerPath: [
+      root.bundle,
+      firstChildFixture.bundle,
+      secondChildFixture.bundle,
+    ],
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root: secondChildFixture,
+  });
+  expect(purgeResponse.status).toBe(409);
+  await expect(purgeResponse.json()).resolves.toEqual({
+    error: "document purge authorization path is not contiguous",
+  });
+});
+
+test("purge proof retains the exact path that authorized inherited access", async () => {
+  const owner = createTestUser();
+  const writer = createTestUser();
+  await registerAndAuthenticate(owner);
+  await registerAndAuthenticate(writer);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const childFixture = storedChildFixture({ child, root });
+  const rootGrantRequest = await buildContainerGrantRequest({
+    accessLevel: "write",
+    parentKekState: null,
+    previous: root.bundle,
+    previousContainerPath: [root.bundle],
+    previousKekState: root.kekState,
+    recipient: writer,
+    signer: owner,
+  });
+  const shareResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(rootGrantRequest),
+    },
+  );
+  expect(shareResponse.status).toBe(200);
+  const shared = await shareResponse.json();
+  if (!isContainerMutationResponse(shared)) {
+    throw new Error("Expected shared root response");
+  }
+  const sharedRoot: StoredRootFixture = {
+    bundle: accessManifestFromContainerResponse(shared),
+    kekState: kekStateFromContainerResponse(shared),
+    principalPolicies: root.principalPolicies,
+  };
+  const authorizingContainerPath = [sharedRoot.bundle, childFixture.bundle];
+  const created = await createDocument({
+    containerPath: authorizingContainerPath,
+    owner,
+    root: childFixture,
+  });
+
+  const purgeResponse = await postDocumentPurge({
+    authorizingContainerPath,
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner: writer,
+    root: childFixture,
+  });
+  expect(purgeResponse.status, await purgeResponse.clone().text()).toBe(200);
+
+  const proofResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${writer.token}` } },
+  );
+  expect(proofResponse.status).toBe(200);
+  const proof = await proofResponse.json();
+  expect(isDocumentPurgeProofResponse(proof)).toBe(true);
+  if (isDocumentPurgeProofResponse(proof)) {
+    expect(
+      proof.authorizingContainerPath.map((bundle) => bundle.manifestHash),
+    ).toEqual(authorizingContainerPath.map((bundle) => bundle.manifestHash));
+  }
+});
+
 test("a purged document cannot be resurrected by replaying its create", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

@@ -28,7 +28,11 @@ export async function buildDocumentPurgeRequest(input: {
   ];
   const containerId = input.root.kekState.containerId;
   const containerManifestHash = input.root.bundle.manifestHash;
+  const authorizingContainerManifestHashes = authorizingContainerPath.map(
+    (bundle) => bundle.manifestHash,
+  );
   const body: DocumentPurgeAccessEventBody = {
+    authorizingContainerManifestHashes,
     containerId,
     containerManifestHash,
     documentManifestHash: input.documentManifestHash,
@@ -36,7 +40,7 @@ export async function buildDocumentPurgeRequest(input: {
   };
   const event = await createSignedAccessEvent({
     body: body as unknown as DocumentAccessEventBody,
-    dependencyManifestHashes: [containerManifestHash],
+    dependencyManifestHashes: authorizingContainerManifestHashes,
     objectId: input.documentId,
     objectKind: "document",
     organizationId: asVerifiedContainerManifest(input.root.bundle).state

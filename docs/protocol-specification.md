@@ -428,12 +428,14 @@ authenticated control-plane operation without a signed artifact.
 
 `POST /documents/:documentId/purge` accepts a signed `document.purge` event.
 The signature binds the current document manifest, the sole linked container,
-and that container's current manifest. The API independently verifies the
-event, exact heads, and signer write access, stores the terminal event, and then
-removes the document's mutable row, content keys, encrypted updates,
+and every manifest hash in the exact current container path that authorized the
+purge. The API independently verifies the event, exact heads, path contiguity,
+organization scope, and signer write access, stores the terminal event, and
+then removes the document's mutable row, content keys, encrypted updates,
 attachments, and live-head pointer. It retains the signed document manifest
-chain and its container dependencies so another device can retrieve the proof
-from `GET /documents/:documentId/purge` after the live document is gone.
+chain and the exact signed authorization path plus its verification
+dependencies so another device can retrieve the proof from
+`GET /documents/:documentId/purge` after the live document is gone.
 
 The API also requires that the document is linked to exactly one container — a
 document still linked to more than one container must be unlinked down to a

@@ -77,7 +77,11 @@ export async function buildDocumentPurgeRequest(input: {
   if (!authorizingProjection || !containerId || !containerManifestHash) {
     throw new Error("Document purge authorization path is unavailable");
   }
+  const authorizingContainerManifestHashes = authorizingProjection.path.map(
+    (bundle) => bundle.manifestHash,
+  );
   const body: DocumentPurgeAccessEventBody = {
+    authorizingContainerManifestHashes,
     containerId,
     containerManifestHash,
     documentManifestHash: input.writerProjection.documentManifest.manifestHash,
@@ -91,7 +95,7 @@ export async function buildDocumentPurgeRequest(input: {
     objectId: input.writerProjection.documentId,
     organizationId: identity.organizationId,
     previousManifestHash: input.writerProjection.documentManifest.manifestHash,
-    dependencyManifestHashes: [containerManifestHash],
+    dependencyManifestHashes: authorizingContainerManifestHashes,
     bodyHash: await computeAccessEventBodyHash(
       readCanonicalJson(body, "Document purge body"),
     ),
