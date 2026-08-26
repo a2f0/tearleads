@@ -352,7 +352,14 @@ test("local roster names require the current remote binding", () => {
   });
 
   expect([...profileBindingsByLocalId]).toEqual([
-    [localId, { profileDocumentId: PROFILE_DOCUMENT_ID, userId: USER_ID }],
+    [
+      localId,
+      {
+        canonicalLocalId: localId,
+        profileDocumentId: PROFILE_DOCUMENT_ID,
+        userId: USER_ID,
+      },
+    ],
   ]);
   expect(
     getLocalRosterProfileDisplayNames({

@@ -422,7 +422,8 @@ async function runScheduledSyncLoop(
   } finally {
     if (
       syncingGeneration &&
-      isDocumentStoreSyncGenerationCurrent(state, syncingGeneration)
+      isDocumentStoreSyncGenerationCurrent(state, syncingGeneration) &&
+      isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)
     ) {
       setDocumentSyncing(state, false);
     }

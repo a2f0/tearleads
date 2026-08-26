@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import {
   defaultDocumentsPersistence,
   getRosterProfileDocumentLocalId,
+  type OrganizationDirectoryAndGroups,
   SymCrypt,
 } from "@symcrypt/client-sdk";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { getLocalRosterProfileDisplayNames } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import {
+  getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocument,
 } from "../hooks/explorerAttributionReadModel";
@@ -16,6 +18,36 @@ const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const PROFILE_USER_ID = "00000000-0000-4000-8000-000000000002";
 const PROFILE_DOCUMENT_ID = "00000000-0000-4000-8000-000000000003";
 const PROFILE_CONTAINER_ID = "00000000-0000-4000-8000-000000000004";
+
+function attributionProjection(): OrganizationDirectoryAndGroups {
+  return {
+    directory: {
+      currentUser: { isOrgAdmin: true },
+      organizationId: ORGANIZATION_ID,
+      profileDocumentId: null,
+      users: [
+        {
+          createdAt: "2026-08-25T12:00:00.000Z",
+          disabledAt: "2026-08-25T13:00:00.000Z",
+          disabledByUserId: "admin-user-id",
+          encapsulationKeyFingerprint: "encapsulation-fingerprint",
+          encapsulationPublicKey: "encapsulation-public-key",
+          isSelf: false,
+          joinedAt: "2026-08-25T12:00:00.000Z",
+          profileDocumentId: PROFILE_DOCUMENT_ID,
+          signingKeyFingerprint: "signing-fingerprint",
+          signingPublicKey: "signing-public-key",
+          status: "disabled",
+          updatedAt: "2026-08-25T13:00:00.000Z",
+          userId: PROFILE_USER_ID,
+        },
+      ],
+    },
+    groups: [],
+    memberGroupId: "members-group-id",
+    readModelCursor: "cursor-1",
+  };
+}
 
 test("restart hydration adopts the canonical profile row and its pending edits", async () => {
   const database = await createTestExecSql("attribution-profile-restart");
@@ -109,15 +141,11 @@ test("restart hydration adopts the canonical profile row and its pending edits",
     expect(
       getLocalRosterProfileDisplayNames({
         documents: profileDocuments,
-        profileBindingsByLocalId: new Map([
-          [
-            canonicalLocalId,
-            {
-              profileDocumentId: PROFILE_DOCUMENT_ID,
-              userId: PROFILE_USER_ID,
-            },
-          ],
-        ]),
+        profileBindingsByLocalId:
+          getExplorerAttributionProfileBindingsByLocalId({
+            directoryAndGroups: attributionProjection(),
+            organizationId: ORGANIZATION_ID,
+          }),
       }).get(PROFILE_USER_ID),
     ).toBe("Grace Hopper");
   } finally {

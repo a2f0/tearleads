@@ -89,6 +89,78 @@ test("a disposed coordinator cannot land its pass after re-registration", async 
   }
 });
 
+test("a disposed pass cannot clear a replacement lane's syncing state", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql("disposed-pass-syncing-state");
+  let releaseDisposedPass: () => void = () => undefined;
+  const disposedPassGate = new Promise<void>((resolve) => {
+    releaseDisposedPass = resolve;
+  });
+  let releaseReplacementPass: () => void = () => undefined;
+  const replacementPassGate = new Promise<void>((resolve) => {
+    releaseReplacementPass = resolve;
+  });
+  let markDisposedPassStarted: () => void = () => undefined;
+  const disposedPassStarted = new Promise<void>((resolve) => {
+    markDisposedPassStarted = resolve;
+  });
+  let markReplacementPassStarted: () => void = () => undefined;
+  const replacementPassStarted = new Promise<void>((resolve) => {
+    markReplacementPassStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        markDisposedPassStarted();
+        await disposedPassGate;
+      } else if (syncCalls === 2) {
+        markReplacementPassStarted();
+        await replacementPassGate;
+      }
+      return null;
+    },
+  });
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      "disposed-pass-syncing-state",
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+
+    store.requestRemoteSync();
+    await settleWithin(disposedPassStarted, "disposed sync pass");
+    expect(store.getSnapshot().syncing).toBe(true);
+
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    store.requestRemoteSync();
+    await settleWithin(replacementPassStarted, "replacement sync pass");
+    expect(store.getSnapshot().syncing).toBe(true);
+
+    releaseDisposedPass();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.getSnapshot().syncing).toBe(true);
+
+    releaseReplacementPass();
+    await waitFor(
+      () => !store.getSnapshot().syncing,
+      "Replacement sync state did not settle",
+    );
+  } finally {
+    releaseDisposedPass();
+    releaseReplacementPass();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
 test("coordinator disposal does not cancel an in-flight local persist", async () => {
   const fixture = await createRemoteHistoryFixture();
   const database = await createTestExecSql(

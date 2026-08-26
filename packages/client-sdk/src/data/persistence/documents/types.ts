@@ -226,6 +226,10 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<string[]>;
+  /**
+   * Select one local row for a remote document identity. Prefer any row with
+   * pending edits, then break duplicates by updatedAt and localId descending.
+   */
   findLocalIdByDocumentId: (
     execSql: ExecSql,
     documentId: string,

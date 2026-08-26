@@ -267,6 +267,10 @@ export function getExplorerAttributionProfileBindingsByLocalId(input: {
     if (!user.profileDocumentId) {
       continue;
     }
+    const canonicalLocalId = getRosterProfileDocumentLocalId({
+      organizationId: input.organizationId,
+      userId: user.userId,
+    });
     bindings.set(
       getExplorerAttributionProfileDocumentLocalId({
         organizationId: input.organizationId,
@@ -274,6 +278,7 @@ export function getExplorerAttributionProfileBindingsByLocalId(input: {
         userId: user.userId,
       }),
       {
+        canonicalLocalId,
         profileDocumentId: user.profileDocumentId,
         userId: user.userId,
       },

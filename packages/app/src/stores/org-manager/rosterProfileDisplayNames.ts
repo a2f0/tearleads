@@ -5,6 +5,7 @@ import {
 } from "@symcrypt/client-sdk";
 
 export interface RosterProfileBinding {
+  readonly canonicalLocalId: string;
   readonly profileDocumentId: string;
   readonly userId: string;
 }
@@ -28,16 +29,20 @@ export function getRosterProfileBindingsByLocalId(input: {
   readonly users: ReadonlyArray<OrganizationDirectoryUser>;
 }): ReadonlyMap<string, RosterProfileBinding> {
   return new Map(
-    input.users.filter(hasRosterProfileDocument).map((user) => [
-      getRosterProfileDocumentLocalId({
+    input.users.filter(hasRosterProfileDocument).map((user) => {
+      const canonicalLocalId = getRosterProfileDocumentLocalId({
         organizationId: input.organizationId,
         userId: user.userId,
-      }),
-      {
-        profileDocumentId: user.profileDocumentId,
-        userId: user.userId,
-      },
-    ]),
+      });
+      return [
+        canonicalLocalId,
+        {
+          canonicalLocalId,
+          profileDocumentId: user.profileDocumentId,
+          userId: user.userId,
+        },
+      ];
+    }),
   );
 }
 
@@ -64,12 +69,9 @@ interface RosterProfileTitleRow {
   readonly updatedAt: string;
 }
 
-type IndexedRosterProfileBinding = RosterProfileBinding & {
-  readonly localId: string;
-};
 type RosterProfileBindingsByDocumentId = ReadonlyMap<
   string,
-  ReadonlyArray<IndexedRosterProfileBinding>
+  ReadonlyArray<RosterProfileBinding>
 >;
 
 function isNewerRosterProfileTitle(
@@ -86,10 +88,18 @@ function isNewerRosterProfileTitle(
 function indexRosterProfileBindings(
   bindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>,
 ): RosterProfileBindingsByDocumentId {
-  const result = new Map<string, IndexedRosterProfileBinding[]>();
-  for (const [localId, profile] of bindingsByLocalId) {
+  const result = new Map<string, RosterProfileBinding[]>();
+  for (const profile of bindingsByLocalId.values()) {
     const bindings = result.get(profile.profileDocumentId) ?? [];
-    bindings.push({ ...profile, localId });
+    if (
+      !bindings.some(
+        (binding) =>
+          binding.canonicalLocalId === profile.canonicalLocalId &&
+          binding.userId === profile.userId,
+      )
+    ) {
+      bindings.push(profile);
+    }
     result.set(profile.profileDocumentId, bindings);
   }
   return result;
@@ -103,7 +113,7 @@ function findProfileDocumentIdsWithCanonicalRow(
   for (const document of documents) {
     if (!document.documentId) continue;
     const bindings = bindingsByDocumentId.get(document.documentId);
-    if (bindings?.some((binding) => document.id === binding.localId)) {
+    if (bindings?.some((binding) => document.id === binding.canonicalLocalId)) {
       result.add(document.documentId);
     }
   }
@@ -123,7 +133,7 @@ function addRosterProfileTitleCandidates(input: {
   if (!bindings) return;
   if (
     input.canonicalProfileDocumentIds.has(document.documentId) &&
-    !bindings.some((binding) => document.id === binding.localId)
+    !bindings.some((binding) => document.id === binding.canonicalLocalId)
   ) {
     return;
   }

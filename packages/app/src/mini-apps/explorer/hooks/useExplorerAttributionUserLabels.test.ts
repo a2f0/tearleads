@@ -439,7 +439,7 @@ test("profile pointer replacements hydrate through distinct local identities", a
   ).toEqual(new Map([["disabled-user-id", "Current Name"]]));
 });
 
-test("the newest current profile copy supplies the attribution name", () => {
+test("the deterministic profile row outranks a newer Explorer hydration shell", () => {
   const user = rosterUser({
     profileDocumentId: "current-profile-id",
     status: "disabled",
@@ -484,5 +484,5 @@ test("the newest current profile copy supplies the attribution name", () => {
       },
       profileBindingsByLocalId: bindings,
     }),
-  ).toEqual(new Map([["disabled-user-id", "Current Name"]]));
+  ).toEqual(new Map([["disabled-user-id", "Older Name"]]));
 });
