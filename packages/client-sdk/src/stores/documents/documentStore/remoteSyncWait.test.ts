@@ -303,6 +303,72 @@ test("aborting one waiter preserves a concurrent remote probe", async () => {
   }
 });
 
+test("a stale waiter cannot mask cancellation of the current generation", async () => {
+  const fixture = await createRemoteHistoryFixture();
+  const database = await createTestExecSql(
+    "remote-sync-wait-stale-owner-cancellation",
+  );
+  let releaseResponse: () => void = () => undefined;
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  let markSyncStarted: () => void = () => undefined;
+  const syncStarted = new Promise<void>((resolve) => {
+    markSyncStarted = resolve;
+  });
+  let syncCalls = 0;
+  const runtime = createProbeRuntime({
+    execSql: database.execSql,
+    fixture,
+    syncDocument: async () => {
+      syncCalls += 1;
+      if (syncCalls === 1) {
+        markSyncStarted();
+        await responseGate;
+      }
+      return null;
+    },
+  });
+  const localId = "stale-owner-cancellation-profile";
+  try {
+    await defaultDocumentsPersistence.ensureSchema(database.execSql);
+    const store = createDocumentStore(
+      localId,
+      runtime,
+      defaultDocumentsPersistence,
+      fixture.writerProjection.documentId,
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+
+    const staleWaiter = store.requestRemoteSyncAndWait();
+    await settleWithin(syncStarted);
+    expect(
+      await store.relink({
+        accessEpoch: 2,
+        containerId: fixture.projection.containerId,
+        documentId: "relinked-profile-id",
+        localId,
+      }),
+    ).not.toBeNull();
+
+    const abortController = new AbortController();
+    const currentWaiter = store.requestRemoteSyncAndWait(
+      abortController.signal,
+    );
+    abortController.abort();
+    expect(await settleWithin(currentWaiter)).toBe(false);
+
+    releaseResponse();
+    expect(await settleWithin(staleWaiter)).toBe(false);
+    await settleCoordinator(runtime.state.domainScope);
+    expect(syncCalls).toBe(1);
+  } finally {
+    releaseResponse();
+    disposeDomainSyncCoordinator(runtime.state.domainScope);
+    database.close();
+  }
+});
+
 test("aborting the last waiter preserves a concurrent manual refresh", async () => {
   const fixture = await createRemoteHistoryFixture();
   const database = await createTestExecSql(

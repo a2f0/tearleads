@@ -380,12 +380,12 @@ export async function relinkDocumentStore(
     return null;
   }
   const currentDoc = state.doc;
-  const currentDocumentId = state.record?.documentId ?? null;
   // Read the record and persist on the identity-write chain so an in-flight
   // eager create cannot interleave: a create that captured a null identity
   // before its network round trip would otherwise write the derived documentId
   // over the one this relink assigns.
   const persisted = await chainIdentityWrite(state, async () => {
+    const currentDocumentId = state.record?.documentId ?? null;
     const currentAccessEpoch =
       state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
     const patch: Partial<DocumentRecord> = {
@@ -419,19 +419,20 @@ export async function relinkDocumentStore(
     if (state.doc !== currentDoc) {
       return null;
     }
-    return persistDocument(state, currentDoc, patch, {
+    const result = await persistDocument(state, currentDoc, patch, {
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     });
+    if (result && currentDocumentId !== input.documentId) {
+      state.writerProjection = null;
+      invalidateDocumentStoreRemoteSync(state);
+    }
+    return result;
   });
   // A refused persist means the durable row vanished mid-relink (resurrect
   // guard); there is no summary to report.
   if (!persisted) {
     return null;
-  }
-  if (currentDocumentId !== input.documentId) {
-    state.writerProjection = null;
-    invalidateDocumentStoreRemoteSync(state);
   }
   if (persisted.updatedAt === undefined) {
     return null;

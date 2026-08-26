@@ -3,7 +3,15 @@ import type { DocumentState, DocumentStoreState } from "./state";
 
 const remoteSyncGenerations = new WeakMap<DocumentStoreState, number>();
 const syncLaneGenerations = new WeakMap<DocumentStoreState, number>();
-const remoteSyncWaiterCounts = new WeakMap<DocumentStoreState, number>();
+interface RemoteSyncWaiterGeneration {
+  count: number;
+  readonly generation: DocumentStoreRemoteSyncRequestGeneration;
+}
+
+const remoteSyncWaiterGenerations = new WeakMap<
+  DocumentStoreState,
+  RemoteSyncWaiterGeneration[]
+>();
 const independentRemoteSyncSignals = new WeakMap<
   DocumentStoreState,
   {
@@ -202,23 +210,52 @@ export function hasPendingIndependentDocumentStoreRemoteSync(
  */
 export function registerDocumentStoreRemoteSyncWaiter(
   state: DocumentStoreState,
+  generation: DocumentStoreRemoteSyncRequestGeneration,
 ): () => boolean {
-  remoteSyncWaiterCounts.set(
-    state,
-    (remoteSyncWaiterCounts.get(state) ?? 0) + 1,
+  const generations = remoteSyncWaiterGenerations.get(state) ?? [];
+  let entry = generations.find((candidate) =>
+    documentStoreRemoteSyncRequestGenerationsMatch(
+      candidate.generation,
+      generation,
+    ),
   );
+  if (!entry) {
+    entry = { count: 0, generation };
+    generations.push(entry);
+    remoteSyncWaiterGenerations.set(state, generations);
+  }
+  entry.count += 1;
   let active = true;
   return () => {
     if (!active) return false;
     active = false;
-    const remaining = Math.max(0, (remoteSyncWaiterCounts.get(state) ?? 1) - 1);
-    if (remaining === 0) {
-      remoteSyncWaiterCounts.delete(state);
+    entry.count -= 1;
+    if (entry.count === 0) {
+      const remaining = generations.filter((candidate) => candidate !== entry);
+      if (remaining.length === 0) {
+        remoteSyncWaiterGenerations.delete(state);
+      } else {
+        remoteSyncWaiterGenerations.set(state, remaining);
+      }
       return true;
     }
-    remoteSyncWaiterCounts.set(state, remaining);
     return false;
   };
+}
+
+function documentStoreRemoteSyncRequestGenerationsMatch(
+  left: DocumentStoreRemoteSyncRequestGeneration,
+  right: DocumentStoreRemoteSyncRequestGeneration,
+): boolean {
+  return (
+    left.domainScope === right.domainScope &&
+    left.execSql === right.execSql &&
+    left.localWriteGeneration === right.localWriteGeneration &&
+    left.remoteSyncGeneration === right.remoteSyncGeneration &&
+    left.resolveProjectionUserKey === right.resolveProjectionUserKey &&
+    left.syncLaneGeneration === right.syncLaneGeneration &&
+    left.syncLaneIsDisposed === right.syncLaneIsDisposed
+  );
 }
 
 export function isDocumentStoreRemoteSyncBlocked(

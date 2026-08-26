@@ -201,11 +201,8 @@ async function requestExplorerAttributionProfileHydration(
     const failedTargets = await hydratePendingTargets(input, targets);
     if (failedTargets === null) {
       setTargetReservations(targets, input.requestedBindingKeys, false);
-    } else {
-      setTargetReservations(failedTargets, input.requestedBindingKeys, false);
     }
   } catch (error) {
-    setTargetReservations(targets, input.requestedBindingKeys, false);
     input.symcrypt.logError(
       "Failed to hydrate explorer attribution roster profiles",
       error,

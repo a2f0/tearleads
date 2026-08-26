@@ -181,7 +181,7 @@ function requestRemoteDocumentStoreSyncAndWait(
 ): Promise<boolean> {
   let requestGeneration: DocumentStoreRemoteSyncRequestGeneration | null = null;
   let requestedSignalSequence = 0;
-  const releaseWaiter = registerDocumentStoreRemoteSyncWaiter(state);
+  let releaseWaiter: (() => boolean) | null = null;
   // A coordinator can be disposed and recreated while this same-scope store
   // remains registered. Refresh its handle before requesting work.
   refreshDocumentStoreSyncLane(state);
@@ -198,6 +198,10 @@ function requestRemoteDocumentStoreSyncAndWait(
     request: () => {
       requestGeneration =
         captureDocumentStoreRemoteSyncRequestGeneration(state);
+      releaseWaiter = registerDocumentStoreRemoteSyncWaiter(
+        state,
+        requestGeneration,
+      );
       requestedSignalSequence = requestRemoteDocumentStoreSync(
         state,
         scheduleSync,
@@ -205,7 +209,7 @@ function requestRemoteDocumentStoreSyncAndWait(
       );
     },
     onInvalidated: () => {
-      const releasedLastWaiter = releaseWaiter();
+      const releasedLastWaiter = releaseWaiter?.() ?? false;
       if (
         releasedLastWaiter &&
         requestGeneration !== null &&
@@ -220,7 +224,7 @@ function requestRemoteDocumentStoreSyncAndWait(
     },
     signal,
   }).finally(() => {
-    releaseWaiter();
+    releaseWaiter?.();
   });
 }
 

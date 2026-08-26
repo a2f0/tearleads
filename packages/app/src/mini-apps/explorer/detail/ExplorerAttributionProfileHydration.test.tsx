@@ -413,7 +413,7 @@ test("unmount invalidates pending container resolution", async () => {
     harness.restore();
   }
 });
-test("profile sync retries transient failures within its attempt cap", async () => {
+test("profile sync exhausts each binding once per hydration scope", async () => {
   const attemptsByDocumentId = new Map<string, number>();
   const harness = installHarnesses(true, async (documentId) => {
     const attempts = (attemptsByDocumentId.get(documentId) ?? 0) + 1;
@@ -443,10 +443,10 @@ test("profile sync retries transient failures within its attempt cap", async () 
         documentId: "document-a",
       }),
     );
-    await waitFor(() => expect(attemptsByDocumentId.get("profile-1")).toBe(6));
-    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(8);
+    await act(async () => Promise.resolve());
+    expect(harness.symcrypt.requestRemoteSyncAndWait).toHaveBeenCalledTimes(5);
     expect(attemptsByDocumentId.get("profile-0")).toBe(2);
-    expect(attemptsByDocumentId.get("profile-1")).toBe(6);
+    expect(attemptsByDocumentId.get("profile-1")).toBe(3);
   } finally {
     harness.restore();
   }

@@ -14,6 +14,7 @@ import {
   invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncRequestGenerationCurrent,
   isDocumentStoreSyncGenerationCurrent,
+  registerDocumentStoreRemoteSyncWaiter,
 } from "./syncGeneration";
 
 test("sync generation invalidates on document, domain, database, or trust replacement", async () => {
@@ -134,6 +135,42 @@ test("remote probe cancellation preserves local and pending attachment work", as
   expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
     false,
   );
+});
+
+test("remote waiter ownership is isolated by request generation", () => {
+  const state = {
+    localWriteGeneration: 0,
+    remoteSyncBlocked: false,
+    remoteUpdatePending: false,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: null,
+  } as unknown as DocumentStoreState;
+  const staleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseStale = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    staleGeneration,
+  );
+
+  invalidateDocumentStoreRemoteSync(state);
+  const currentGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseCurrentFirst = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+  const releaseCurrentLast = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+
+  expect(releaseCurrentFirst()).toBe(false);
+  expect(releaseCurrentLast()).toBe(true);
+  expect(releaseStale()).toBe(true);
 });
 
 test("coordinator disposal invalidates remote work but not local persistence", async () => {
