@@ -140,7 +140,10 @@ test.each([
   }
 });
 
-test("raw history refetches once before exposing cached key unavailability", async () => {
+test.each([
+  ["caller-supplied", true, 1],
+  ["API-cached", false, 2],
+] as const)("raw history refetches once after %s key unavailability", async (_projectionSource, supplyWriterProjection, expectedProjectionFetches) => {
   const fixture = await createReadOnlyResponseFixture();
   const { close, execSql } = await createTestExecSql(
     "persisted-raw-history-cached-unavailable",
@@ -177,11 +180,13 @@ test("raw history refetches once before exposing cached key unavailability", asy
         return fixture.resolveProjectionUserKey(userId);
       },
       targetSecretKey: fixture.secretKey,
-      writerProjection: fixture.writerProjection,
+      ...(supplyWriterProjection
+        ? { writerProjection: fixture.writerProjection }
+        : {}),
       resolveWriterPublicKey: writerKeyResolver(fixture),
     });
 
-    expect(projectionFetches).toBe(1);
+    expect(projectionFetches).toBe(expectedProjectionFetches);
     expect(projectionEvictions).toBe(1);
     expect(synced?.writerProjection).toBe(fixture.writerProjection);
   } finally {

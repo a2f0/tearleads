@@ -138,6 +138,32 @@ test("update identity matches only the document's exact operation range", async 
   expect(updateMatchesDocumentHistory(genuine, forgedUpdate)).toBe(false);
 });
 
+test("update identity retains dependencies outside its declared peer range", async () => {
+  const remote = await createDocument("history-update-dependency-remote");
+  remote.getText("text").update("remote base");
+  remote.commit();
+  const local = await createDocument("history-update-dependency-local");
+  importSnapshot(local, exportFullHistorySnapshot(remote));
+  const baseVersion = encodeVersionVector(local);
+  local.getMap("fields").set("value", "genuine");
+  local.commit();
+  const forged = await createDocument("history-update-dependency-local");
+  importSnapshot(forged, exportFullHistorySnapshot(remote));
+  forged.getMap("fields").set("value", "forged!");
+  forged.commit();
+
+  expect(
+    updateMatchesDocumentHistory(local, exportUpdatesSince(local, baseVersion)),
+  ).toBe(true);
+  expect(encodeVersionVector(forged)).toBe(encodeVersionVector(local));
+  expect(
+    updateMatchesDocumentHistory(
+      local,
+      exportUpdatesSince(forged, baseVersion),
+    ),
+  ).toBe(false);
+});
+
 test("history artifact identity accepts snapshots without trusting their frontier", async () => {
   const genuine = await createDocument("history-snapshot-artifact-identity");
   genuine.getText("text").update("genuine snapshot history");

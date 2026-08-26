@@ -1,6 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
-import { serializeCanonicalHistoryValue } from "./historyCanonicalization";
+import { serializeCanonicalHistory } from "./historyCanonicalization";
 
 function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
@@ -94,22 +94,13 @@ export function exportFullHistoryIdentity(
   doc: LoroDoc,
   endVersion?: string,
 ): string {
-  const history = doc.exportJsonUpdates(
-    undefined,
-    endVersion === undefined ? undefined : decodeVersionVector(endVersion),
-    false,
+  return serializeCanonicalHistory(
+    doc.exportJsonUpdates(
+      undefined,
+      endVersion === undefined ? undefined : decodeVersionVector(endVersion),
+      false,
+    ),
   );
-  const canonicalChanges = history.changes
-    .map((change) => ({
-      change,
-      identity: serializeCanonicalHistoryValue(change),
-    }))
-    .sort((left, right) => left.identity.localeCompare(right.identity))
-    .map(({ change }) => change);
-  return serializeCanonicalHistoryValue({
-    ...history,
-    changes: canonicalChanges,
-  });
 }
 
 /**

@@ -239,7 +239,12 @@ async function findCoveredRecoveryLocalState(
     );
     let hasUnverifiedHistoryTail = false;
     const tailIds = tail.flatMap((row) => {
-      if (row.id === null) return [];
+      if (row.id === null) {
+        // An unverifiable row identity cannot participate in the guarded
+        // delete, so accepting it would leave a stale recovery redirect.
+        hasUnverifiedHistoryTail = true;
+        return [];
+      }
       if (checkpointUpdateData.has(row.updateData)) return [row.id];
       try {
         if (

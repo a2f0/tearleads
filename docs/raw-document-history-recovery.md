@@ -45,7 +45,10 @@ type-tags binary, string, and structural values so distinct operation payloads
 cannot collapse to the same serialized identity. It detects a forged
 checkpoint that reuses genuine version-vector identities, and
 per-row range comparison proves that each queued binary delta contains the
-live document's exact operations, before a dependent local edit can be
+live document's exact operations. The comparison reconstructs a partial peer
+range from its external dependency frontiers, so an honest local delta authored
+on a remotely restored baseline remains verifiable without widening the delta's
+declared range. This proof completes before a dependent local edit can be
 re-encrypted or published. Settlement is restricted to that exact proven row
 set; a sibling pane appending or replacing an ordinary row aborts rotation
 before the new row can be sent. Settlement persistence shares the document
@@ -71,9 +74,11 @@ Custom `DocumentsPersistence` adapters opt in by declaring
 `supportsAtomicRecoveryHistoryPruning: true` and implementing that guarantee in
 `commitDocumentMutation`: rejecting ordinary pending rows, selecting every
 queued checkpoint and its matching tail plus other exact-history-matching rows,
-rejecting an unrelated or same-frontier forged tail, replacing the checkpoint,
-pruning the selected rows, and committing the canonical document must be one
-guarded transaction. Rotation recovery refuses adapters that omit the
+rejecting an unrelated or same-frontier forged tail, and rejecting any selected
+tail that lacks a durable row identifier and therefore cannot be pruned.
+Replacing the checkpoint, pruning the selected rows, and committing the
+canonical document must be one guarded transaction. Rotation recovery refuses
+adapters that omit the
 capability or declare it `false` instead of assuming compatible behavior. If
 the exact
 checkpoint-history gate or canonical-record comparison rejects the recovery
@@ -112,9 +117,10 @@ authenticated header before any missing epoch can be classified as benign
 unavailability. Every historical bundle's target list is also recomputed and
 compared with its committed target hash, and that hash plus the link-set
 manifest must match every authenticated update header for the epoch.
-When this error is derived using a reusable cached writer projection, the
-client evicts and resolves that projection once before exposing the error; a
-fresh projection may restore access to retained predecessor keys. A raw
+When this error is derived using a cached writer projection, whether supplied
+by the caller or returned by the API client, the client evicts and resolves
+that projection once before exposing the error; a fresh projection may restore
+access to retained predecessor keys. A raw
 pagination conflict never restarts or resubmits the frozen cursor, including
 when the first attempt was built from persisted projection state. Any raw-page
 validation failure is terminal for that frozen cursor as well, including a
@@ -133,7 +139,8 @@ rejection, encoding-neutral and binary/string history-identity separation,
 unavailable-record/header poison precedence, unrelated unresolved-dependency
 isolation, stale and same-frontier-forked in-memory checkpoint rejection,
 page-two generic validation failure without resubmission,
-cached-projection recovery,
+caller-supplied and API-cached projection recovery, missing tail-row identity
+rejection,
 persisted-cursor conflicts, cross-client consecutive rotation, and the
 unchanged ordinary-sync request shape.
 

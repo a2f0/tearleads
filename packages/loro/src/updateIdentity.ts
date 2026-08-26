@@ -1,14 +1,38 @@
-import type { LoroDoc } from "loro-crdt";
+import { idStrToId, type JsonSchema, type LoroDoc } from "loro-crdt";
 import {
   decodeVersionVector,
   encodeVersionVector,
-  exportFullHistoryIdentity,
   getImportBlobMetadata,
   importSnapshot,
   importUpdates,
   satisfiesVersionVector,
   versionVectorsEqual,
 } from "./document";
+import { serializeCanonicalHistory } from "./historyCanonicalization";
+
+function rangeDependencyFrontiers(
+  history: JsonSchema,
+  startVersion: ReturnType<typeof decodeVersionVector>,
+  endVersion: ReturnType<typeof decodeVersionVector>,
+) {
+  const externalDependencies = new Map<string, ReturnType<typeof idStrToId>>();
+  for (const change of history.changes) {
+    for (const dependencyId of change.deps) {
+      const dependency = idStrToId(dependencyId);
+      const rangeEnd = endVersion.get(dependency.peer);
+      const rangeStart = startVersion.get(dependency.peer) ?? 0;
+      if (
+        rangeEnd !== undefined &&
+        dependency.counter >= rangeStart &&
+        dependency.counter < rangeEnd
+      ) {
+        continue;
+      }
+      externalDependencies.set(dependencyId, dependency);
+    }
+  }
+  return [...externalDependencies.values()];
+}
 
 /**
  * Prove that an update or snapshot blob contains the document's exact
@@ -41,10 +65,17 @@ export function updateMatchesDocumentHistory(
 
   let candidate: LoroDoc | null = null;
   try {
+    const startVersion = decodeVersionVector(
+      metadata.partialStartVersionVector,
+    );
+    const endVersion = decodeVersionVector(metadata.partialEndVersionVector);
+    const expectedRange = doc.exportJsonUpdates(
+      startVersion,
+      endVersion,
+      false,
+    );
     candidate = doc.forkAt(
-      doc.vvToFrontiers(
-        decodeVersionVector(metadata.partialStartVersionVector),
-      ),
+      rangeDependencyFrontiers(expectedRange, startVersion, endVersion),
     );
     if (
       metadata.mode === "snapshot" ||
@@ -56,12 +87,13 @@ export function updateMatchesDocumentHistory(
       importUpdates(candidate, [update]);
     }
     return (
-      versionVectorsEqual(
+      satisfiesVersionVector(
         encodeVersionVector(candidate),
         metadata.partialEndVersionVector,
       ) &&
-      exportFullHistoryIdentity(candidate) ===
-        exportFullHistoryIdentity(doc, metadata.partialEndVersionVector)
+      serializeCanonicalHistory(
+        candidate.exportJsonUpdates(startVersion, endVersion, false),
+      ) === serializeCanonicalHistory(expectedRange)
     );
   } catch {
     return false;

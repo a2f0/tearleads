@@ -1,4 +1,3 @@
-import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -9,10 +8,9 @@ import {
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@symcrypt/validators/response";
-import {
-  type DocumentSyncUpdateIsolationError,
-  type IncomingDocumentSyncUpdateValidator,
-  isDocumentSyncUpdateIsolationError,
+import type {
+  DocumentSyncUpdateIsolationError,
+  IncomingDocumentSyncUpdateValidator,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isRetryableDocumentSyncConflict,
@@ -37,11 +35,13 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { limitDocumentSyncRequestBytes } from "../../data/sync/documentSyncOutgoingBatch";
-import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
+import {
+  handleReadOnlyProjectionCompletionError,
+  REFRESH_CACHED_PROJECTION,
+} from "./readOnlyProjectionFailure";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
@@ -223,37 +223,19 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
   allowCachedProjectionRefresh: boolean;
   completion: ReadOnlyDocumentSyncCompletionInput;
   writerProjection: DocumentWriterProjectionResponse;
-}): Promise<SyncRemoteDocumentResult | null> {
+}): Promise<
+  SyncRemoteDocumentResult | null | typeof REFRESH_CACHED_PROJECTION
+> {
   try {
     return await completeReadOnlyRemoteDocumentSyncWithProjection({
       ...input.completion,
       writerProjection: input.writerProjection,
     });
   } catch (error) {
-    if (isDocumentSyncUpdateIsolationError(error)) {
-      throw error;
-    }
-    if (error instanceof DocumentRawHistoryUnavailableError) {
-      if (input.allowCachedProjectionRefresh) return null;
-      throw error;
-    }
-    if (
-      input.allowCachedProjectionRefresh &&
-      error instanceof KeyingVerificationError &&
-      error.code === "invalid_shape"
-    ) {
-      return null;
-    }
-    // The document-store `document.sync` boundary owns durable reporting; this
-    // helper only decides whether an ordinary projection miss is retryable.
-    rethrowKeyingVerificationError(error);
-    if (projectionIntegrityErrorCode(error)) {
-      throw error;
-    }
-    if (input.completion.historyMode === "raw") {
-      throw error;
-    }
-    return null;
+    return handleReadOnlyProjectionCompletionError(error, {
+      allowCachedProjectionRefresh: input.allowCachedProjectionRefresh,
+      historyMode: input.completion.historyMode,
+    });
   }
 }
 
@@ -279,12 +261,17 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
   if (!writerProjection) {
     return { kind: "completed", result: null };
   }
+  const canRefreshProjection =
+    input.historyMode === "raw" || Boolean(reusableWriterProjection);
 
-  let result: SyncRemoteDocumentResult | null = null;
+  let result:
+    | SyncRemoteDocumentResult
+    | null
+    | typeof REFRESH_CACHED_PROJECTION = null;
   let retryAfterRollback = false;
   try {
     result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
-      allowCachedProjectionRefresh: Boolean(reusableWriterProjection),
+      allowCachedProjectionRefresh: canRefreshProjection,
       completion: input,
       writerProjection,
     });
@@ -294,7 +281,11 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     }
     retryAfterRollback = true;
   }
-  if (result || (!retryAfterRollback && !reusableWriterProjection)) {
+  if (
+    !retryAfterRollback &&
+    result !== REFRESH_CACHED_PROJECTION &&
+    (result || !reusableWriterProjection)
+  ) {
     return { kind: "completed", result };
   }
 
@@ -322,6 +313,9 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
       writerProjection: freshWriterProjection,
     },
   );
+  if (freshResult === REFRESH_CACHED_PROJECTION) {
+    throw new Error("Fresh document projection unexpectedly requested refresh");
+  }
   return freshResult
     ? { kind: "completed", result: freshResult }
     : { kind: "not_completed" };

@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
+import type { JsonSchema } from "loro-crdt";
 
 type CanonicalHistoryValue =
   | readonly ["array", CanonicalHistoryValue[]]
@@ -58,6 +59,20 @@ function canonicalHistoryValue(value: unknown): CanonicalHistoryValue {
   throw new Error(`Unsupported Loro history value type: ${typeof value}`);
 }
 
-export function serializeCanonicalHistoryValue(value: unknown): string {
+function serializeCanonicalHistoryValue(value: unknown): string {
   return JSON.stringify(canonicalHistoryValue(value));
+}
+
+export function serializeCanonicalHistory(history: JsonSchema): string {
+  const canonicalChanges = history.changes
+    .map((change) => ({
+      change,
+      identity: serializeCanonicalHistoryValue(change),
+    }))
+    .sort((left, right) => left.identity.localeCompare(right.identity))
+    .map(({ change }) => change);
+  return serializeCanonicalHistoryValue({
+    ...history,
+    changes: canonicalChanges,
+  });
 }

@@ -31,7 +31,8 @@ EXTENDS Naturals
 (* the guarded install, whose pre-commit generation guard and COMMIT dispatch *)
 (* share one synchronous slice after the final asynchronous projection write. *)
 (* updateValid also covers encoding-neutral, type-preserving operation       *)
-(* identity for update and full-snapshot tail artifacts, every               *)
+(* identity for update and full-snapshot tail artifacts, dependency-closed   *)
+(* reconstruction of partial peer ranges, every                             *)
 (* encrypted-record/header and bundle/header binding (including unavailable  *)
 (* epochs), integrity-prioritized shared-path failure aggregation, and        *)
 (* unresolved dependencies in decryptable siblings: unavailable ciphertext   *)
@@ -42,7 +43,8 @@ EXTENDS Naturals
 (* after the preliminary provenance snapshot; settlement aborts atomically.  *)
 (* Append/RejectUnprovenLocalArtifactBeforeInstall model an ordinary row or  *)
 (* tail whose exact operation range is absent from the rebuild, even when its *)
-(* version-vector frontier is covered; guarded install aborts.                *)
+(* version-vector frontier is covered, or whose durable row identity is       *)
+(* missing and therefore cannot be pruned; guarded install aborts.            *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
