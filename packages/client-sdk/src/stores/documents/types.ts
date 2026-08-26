@@ -103,6 +103,10 @@ export interface DocumentStore {
   ) => Promise<void>;
   /** Pull remote document updates even when no websocket event marked it dirty. */
   requestRemoteSync: () => void;
+  /** Pull remote updates and report whether the requested sync pass completed. */
+  requestRemoteSyncAndWait: (
+    signal?: AbortSignal | undefined,
+  ) => Promise<boolean>;
   requestSync: () => void;
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   setStructuredFields: (

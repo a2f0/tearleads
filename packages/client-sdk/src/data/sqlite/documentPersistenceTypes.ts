@@ -5,6 +5,12 @@ export interface DocumentRecord {
   id: string;
   documentId: string | null;
   /**
+   * Durable fence advanced by an atomic raw-history recovery install. Writers
+   * capture this before waiting for the mutation queue and must refuse to
+   * publish when recovery advanced it first.
+   */
+  recoveryGeneration?: number;
+  /**
    * Encoded end version vector of the persisted content frontier. Content
    * itself lives in the durable history (checkpoint + tail); this column
    * exists so priming and coverage predicates can compare versions from a
@@ -53,6 +59,7 @@ export interface DocumentScope {
 export interface SelectedDocumentRecordRow {
   id: string;
   documentId: string | null;
+  recoveryGeneration: number;
   snapshotEndVersion: string;
   accessEpoch: number;
   accessStateHash: string | null;

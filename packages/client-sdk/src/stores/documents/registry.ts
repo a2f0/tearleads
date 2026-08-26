@@ -134,7 +134,9 @@ export function registerDocumentStoreIdentity(
 }
 
 export function requestDocumentStoreSync(state: {
-  syncLane: { requestSync: () => void } | null;
+  syncLane: {
+    requestSync: () => void;
+  } | null;
 }) {
   state.syncLane?.requestSync();
 }
@@ -249,6 +251,8 @@ export function createDocumentStoreFacade(
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.replaceAttachment(slotId, file),
     requestRemoteSync: () => targetStore.requestRemoteSync(),
+    requestRemoteSyncAndWait: (signal) =>
+      targetStore.requestRemoteSyncAndWait(signal),
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
     rebindTo: (store) => connectTarget(store),

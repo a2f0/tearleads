@@ -1,5 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import { decodeImportBlobMeta, LoroDoc, VersionVector } from "loro-crdt";
+import { serializeCanonicalHistory } from "./historyCanonicalization";
 
 function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
@@ -86,6 +87,20 @@ export async function createDocument(peerSeed: string | Uint8Array) {
 
 export function exportAllUpdates(doc: LoroDoc): Uint8Array {
   return doc.export({ mode: "update" });
+}
+
+/** Deterministic, peer-uncompressed identity for an operation-log prefix. */
+export function exportFullHistoryIdentity(
+  doc: LoroDoc,
+  endVersion?: string,
+): string {
+  return serializeCanonicalHistory(
+    doc.exportJsonUpdates(
+      undefined,
+      endVersion === undefined ? undefined : decodeVersionVector(endVersion),
+      false,
+    ),
+  );
 }
 
 /**

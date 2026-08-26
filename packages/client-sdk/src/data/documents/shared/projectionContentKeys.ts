@@ -1,4 +1,5 @@
 import {
+  computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decryptWithDek,
   encryptWithDek,
@@ -19,6 +20,7 @@ import {
   unwrapContainerKekPath,
   unwrapContainerKekPathWithHistoryFailures,
 } from "./containerKekPath";
+import { ContainerKekHistoryUnavailableError } from "./containerKekPathHistory";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
@@ -27,6 +29,8 @@ import {
   assertEqualBytes,
   describeDocumentTargetKek,
   normalizeDocumentKekTargetResponse,
+  sortDocumentTargets,
+  targetEnvelopeReference,
 } from "./readers";
 import type { ProjectionVerificationOptions } from "./types";
 import { projectionVerificationOptions } from "./types";
@@ -146,6 +150,36 @@ export class DocumentHistoryUnavailableError extends Error {
   }
 }
 
+/** No verified target or predecessor path can supply this content key. */
+export class DocumentContentKeyUnavailableError extends Error {
+  constructor() {
+    super("Document content key could not be unwrapped");
+    this.name = "DocumentContentKeyUnavailableError";
+  }
+}
+
+function preferredPredecessorFailure(
+  failures: readonly Error[],
+): Error | undefined {
+  return (
+    failures.find(
+      (failure) => !(failure instanceof ContainerKekHistoryUnavailableError),
+    ) ?? failures[0]
+  );
+}
+
+function recordPreferredPredecessorFailure(
+  failures: Map<string, Error>,
+  key: string,
+  failure: Error,
+): void {
+  const existing = failures.get(key);
+  const preferred = preferredPredecessorFailure(
+    existing ? [existing, failure] : [failure],
+  );
+  if (preferred) failures.set(key, preferred);
+}
+
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
@@ -183,17 +217,21 @@ export async function collectContainerKeksForDocumentSync(
       containerKeyEpochId,
       failure,
     ] of projectionKeks.predecessorFailuresByEpochId) {
-      if (!predecessorFailuresByEpochId.has(containerKeyEpochId)) {
-        predecessorFailuresByEpochId.set(containerKeyEpochId, failure);
-      }
+      recordPreferredPredecessorFailure(
+        predecessorFailuresByEpochId,
+        containerKeyEpochId,
+        failure,
+      );
     }
     for (const [
       containerId,
       failure,
     ] of projectionKeks.unattributedPredecessorFailuresByContainerId) {
-      if (!unattributedPredecessorFailuresByContainerId.has(containerId)) {
-        unattributedPredecessorFailuresByContainerId.set(containerId, failure);
-      }
+      recordPreferredPredecessorFailure(
+        unattributedPredecessorFailuresByContainerId,
+        containerId,
+        failure,
+      );
     }
     for (const [
       containerKeyEpochId,
@@ -228,17 +266,24 @@ export async function unwrapDocumentContentKeyFromBundle(
     Error
   > = new Map(),
 ): Promise<Uint8Array> {
+  const canonicalTargetHash = await computeDocumentContentKeyTargetHash(
+    sortDocumentTargets(bundle.targets.map(targetEnvelopeReference)),
+  );
+  if (canonicalTargetHash !== bundle.targetHash) {
+    throw new Error("Document content-key bundle target hash is not canonical");
+  }
   let contentKey: Uint8Array | null = null;
-  let predecessorFailure: unknown;
+  const predecessorFailures: Error[] = [];
 
   for (const envelope of bundle.targets) {
     const containerKek = containerKeksByEpochId.get(
       envelope.containerKeyEpochId,
     );
     if (!containerKek) {
-      predecessorFailure ??=
+      const predecessorFailure =
         predecessorFailuresByEpochId.get(envelope.containerKeyEpochId) ??
         unattributedPredecessorFailuresByContainerId.get(envelope.containerId);
+      if (predecessorFailure) predecessorFailures.push(predecessorFailure);
       continue;
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
@@ -257,10 +302,11 @@ export async function unwrapDocumentContentKeyFromBundle(
   }
 
   if (!contentKey) {
+    const predecessorFailure = preferredPredecessorFailure(predecessorFailures);
     if (predecessorFailure !== undefined) {
       throw new DocumentHistoryUnavailableError(predecessorFailure);
     }
-    throw new Error("Document content key could not be unwrapped");
+    throw new DocumentContentKeyUnavailableError();
   }
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");

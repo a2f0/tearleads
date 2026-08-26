@@ -9,6 +9,10 @@ import { createMockApiClient } from "@symcrypt/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createMemoryPullContinuationPersistence } from "./document-store/documentPullContinuationPersistence";
 import {
+  enqueueMemoryPendingUpdate,
+  memoryDocumentWriteFenceMatches,
+} from "./document-store/documentStoreRecoveryGeneration";
+import {
   createDocumentWritePersistence,
   documentSummaryFromRecord,
   type HistoryByLocalId,
@@ -33,6 +37,7 @@ function createDocumentReadPersistence(
   DocumentsPersistence,
   | "ensureSchema"
   | "findDocumentLocalIdsByContainerId"
+  | "findLocalIdByDocumentId"
   | "hasDocument"
   | "documentIdentityMatches"
   | "listDocumentSummaries"
@@ -48,13 +53,25 @@ function createDocumentReadPersistence(
         ? [state.document.id]
         : [];
     },
+    async findLocalIdByDocumentId(_execSql, documentId) {
+      return state.document?.documentId === documentId
+        ? state.document.id
+        : null;
+    },
     async hasDocument(_execSql, localId) {
       return state.document?.id === localId;
     },
-    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
-      return (
-        state.document?.id === localId &&
-        state.document.documentId === expectedDocumentId
+    async documentIdentityMatches(
+      _execSql,
+      localId,
+      expectedDocumentId,
+      expectedRecoveryGeneration,
+    ) {
+      return memoryDocumentWriteFenceMatches(
+        state.document,
+        localId,
+        expectedDocumentId,
+        expectedRecoveryGeneration,
       );
     },
     async listDocuments() {
@@ -126,34 +143,20 @@ function createPendingUpdatePersistence(
       );
       return nextId;
     },
-    async enqueuePendingUpdate(_execSql, pendingUpdate: PendingUpdateInsert) {
-      state.pendingUpdates = [
-        ...state.pendingUpdates,
-        {
-          id: crypto.randomUUID(),
-          partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-          partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-          sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      // Mirror the SQL persistence: every enqueued update is dual-written to
-      // the durable-history tail in the same transaction, so a restore
-      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
-      let history = historyByLocalId.get(pendingUpdate.localId);
-      if (!history) {
-        history = { checkpoint: null, tail: [] };
-        historyByLocalId.set(pendingUpdate.localId, history);
-      }
-      history.tail = [
-        ...history.tail,
-        {
-          id: crypto.randomUUID(),
-          origin: "local",
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      return true;
+    async enqueuePendingUpdate(
+      _execSql,
+      pendingUpdate: PendingUpdateInsert,
+      options,
+    ) {
+      const result = enqueueMemoryPendingUpdate({
+        document: state.document,
+        historyByLocalId,
+        options,
+        pendingUpdate,
+        pendingUpdates: state.pendingUpdates,
+      });
+      state.pendingUpdates = result.pendingUpdates;
+      return result.enqueued;
     },
     async deletePendingUpdate(_execSql, id) {
       state.pendingUpdates = state.pendingUpdates.filter(
@@ -361,6 +364,7 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
 
   return {
     getState: () => state,
+    supportsAtomicRecoveryHistoryPruning: true,
     ...createDocumentReadPersistence(state),
     ...createMemoryPullContinuationPersistence(
       state,

@@ -1,15 +1,22 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
+  accessManifestDocumentLinkProjection,
   accessManifestHeads,
+  containerMetadataDocuments,
+  containers,
+  documents,
   organizationRosterEntries,
+  users,
 } from "@symcrypt/api-shared/schema";
+import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import type { OrganizationDirectoryUserResponse } from "@symcrypt/validators/response";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
+import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
 import type { UserKeyRow } from "./users";
 
 type OrganizationRosterEntryRow = typeof organizationRosterEntries.$inferSelect;
@@ -275,4 +282,78 @@ export async function isOrganizationProfileDocument(input: {
     .limit(1);
 
   return Boolean(head);
+}
+
+export async function isOrganizationRosterProfileDocumentForUser(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly profileDocumentId: string;
+  readonly userId: string;
+}): Promise<boolean> {
+  const rosterProfileSystemSlot =
+    await deriveOrganizationRosterProfileContainerSystemSlot({
+      organizationId: input.organizationId,
+    });
+  const links = await input.executor
+    .select({
+      organizationId: containers.organizationId,
+      systemSlot: containers.systemSlot,
+    })
+    .from(accessManifestHeads)
+    .innerJoin(
+      accessManifestDocumentLinkProjection,
+      and(
+        eq(
+          accessManifestDocumentLinkProjection.documentId,
+          accessManifestHeads.objectId,
+        ),
+        eq(
+          accessManifestDocumentLinkProjection.manifestHash,
+          accessManifestHeads.manifestHash,
+        ),
+      ),
+    )
+    .innerJoin(
+      containers,
+      eq(containers.id, accessManifestDocumentLinkProjection.containerId),
+    )
+    .leftJoin(
+      containerMetadataDocuments,
+      eq(containerMetadataDocuments.documentId, accessManifestHeads.objectId),
+    )
+    .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
+    .innerJoin(
+      users,
+      and(
+        eq(users.id, input.userId),
+        eq(users.fingerprint, documents.createdByFingerprint),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, input.profileDocumentId),
+        eq(accessManifestHeads.organizationId, input.organizationId),
+        isNull(containerMetadataDocuments.documentId),
+      ),
+    );
+
+  return (
+    links.length === 1 &&
+    links[0]?.organizationId === input.organizationId &&
+    links[0].systemSlot === rosterProfileSystemSlot
+  );
+}
+
+export async function isOrganizationRosterProfileDocument(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly profileDocumentId: string;
+}): Promise<boolean> {
+  const validProfileDocumentIds = await listValidRosterProfileDocumentIds({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    profileDocumentIds: [input.profileDocumentId],
+  });
+  return validProfileDocumentIds.has(input.profileDocumentId);
 }

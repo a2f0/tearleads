@@ -100,34 +100,44 @@ export async function enqueueDocumentPendingUpdateWithHistory(
   execSql: ExecSql,
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
-  options?: { expectedDocumentId: string | null },
+  options?: {
+    expectedDocumentId: string | null;
+    expectedRecoveryGeneration: number;
+  },
 ): Promise<string | null> {
   const createdAt = new Date().toISOString();
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    if (options) {
-      const matchingDocuments = await tx
-        .select({ localId: documents.localId })
-        .from(documents)
-        .where(
-          and(
-            eq(documents.appKind, scope.appKind),
-            eq(documents.localId, scope.localId),
-            sql`${documents.documentId} IS ${options.expectedDocumentId}`,
-          ),
-        )
-        .limit(1);
-      if (matchingDocuments.length === 0) {
-        return null;
+  return getClientSQLitePersistenceRuntime(execSql).transaction(
+    async (tx) => {
+      if (options) {
+        const matchingDocuments = await tx
+          .select({ localId: documents.localId })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.appKind, scope.appKind),
+              eq(documents.localId, scope.localId),
+              sql`${documents.documentId} IS ${options.expectedDocumentId}`,
+              eq(
+                documents.recoveryGeneration,
+                options.expectedRecoveryGeneration,
+              ),
+            ),
+          )
+          .limit(1);
+        if (matchingDocuments.length === 0) {
+          return null;
+        }
       }
-    }
 
-    return insertDocumentPendingUpdateWithHistoryInTransaction({
-      createdAt,
-      pendingUpdate,
-      scope,
-      tx,
-    });
-  });
+      return insertDocumentPendingUpdateWithHistoryInTransaction({
+        createdAt,
+        pendingUpdate,
+        scope,
+        tx,
+      });
+    },
+    { behavior: "immediate" },
+  );
 }
 
 export async function insertDocumentPendingUpdateWithHistoryInTransaction(input: {

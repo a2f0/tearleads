@@ -62,10 +62,20 @@ export interface ClientSQLitePersistenceRuntime {
   guardedTransaction<T>(
     operation: (tx: ClientSQLiteTransactionScope) => Promise<T>,
     canCommit: () => boolean,
+    config?: ClientSQLiteTransactionConfig,
   ): Promise<{ committed: boolean; result: T | null }>;
 }
 
 const runtimeByExecSql = new WeakMap<ExecSql, ClientSQLitePersistenceRuntime>();
+
+function transactionBeginStatement(
+  config: ClientSQLiteTransactionConfig | undefined,
+): "BEGIN" | "BEGIN EXCLUSIVE" | "BEGIN IMMEDIATE" {
+  if (config?.behavior === "immediate") return "BEGIN IMMEDIATE";
+  if (config?.behavior === "exclusive") return "BEGIN EXCLUSIVE";
+  return "BEGIN";
+}
+
 // One transaction depth per underlying connection (canonical executor), so a
 // runtime.transaction call made while another transaction is already open on
 // the same connection degrades to a SAVEPOINT scope instead of issuing a
@@ -247,7 +257,7 @@ function createRuntimeForExecSql(
         }),
       );
     },
-    guardedTransaction(operation, canCommit) {
+    guardedTransaction(operation, canCommit, config) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
         withActiveExecSql(lockedExecSql, async () => {
           const canonical = resolveCanonicalExecSql(execSql);
@@ -259,7 +269,7 @@ function createRuntimeForExecSql(
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
           try {
-            await lockedExecSql("BEGIN");
+            await lockedExecSql(transactionBeginStatement(config));
             const result = await operation(db);
             if (!canCommit()) {
               await lockedExecSql("ROLLBACK");

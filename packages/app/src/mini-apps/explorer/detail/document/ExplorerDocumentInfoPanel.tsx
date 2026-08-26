@@ -15,6 +15,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/explorerAttributionReadModel";
 import { EXPLORER_LABELS } from "../../labels";
 import { canWriteDocumentSummary } from "../../model/containerRules";
 import { getDocumentLinkedContainerIds } from "../../model/targetOptions";
@@ -71,6 +72,7 @@ interface Props {
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   setSelectedId: (id: string | null) => void;
   showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
@@ -204,6 +206,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
+  requestAttributionProfileHydration: ExplorerAttributionProfileHydrationRequester;
   setSelectedId: (id: string | null) => void;
   showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
@@ -235,6 +238,9 @@ function ExplorerDocumentInfoTabPanel(params: {
               documentInfo={params.documentInfo}
               loadDocumentAttributionRanges={
                 params.loadDocumentAttributionRanges
+              }
+              requestAttributionProfileHydration={
+                params.requestAttributionProfileHydration
               }
             />
           ) : null}
@@ -356,6 +362,22 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     setActiveTab("general");
   }, [params.localId]);
 
+  useEffect(() => {
+    if (!documentInfo?.remoteInfo) {
+      return;
+    }
+    const contributorUserIds = documentInfo.remoteInfo.contributors.map(
+      (contributor) => contributor.writerUserId,
+    );
+    if (contributorUserIds.length === 0) {
+      return;
+    }
+    params.requestAttributionProfileHydration({
+      contributorUserIds,
+      documentId: documentInfo.local.documentId ?? params.localId,
+    });
+  }, [documentInfo, params.requestAttributionProfileHydration]);
+
   return {
     activeTab,
     activeContainerId,
@@ -420,6 +442,9 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           localId={params.localId}
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}
+          requestAttributionProfileHydration={
+            params.requestAttributionProfileHydration
+          }
           setSelectedId={params.setSelectedId}
           showDocumentEditRanges={params.showDocumentEditRanges}
           showLinkedDocumentActivationControls={

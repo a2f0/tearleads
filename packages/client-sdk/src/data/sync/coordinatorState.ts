@@ -31,6 +31,7 @@ export interface SyncLaneState {
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
+  runAbandoned: boolean;
   runCount: number;
   running: boolean;
 }
@@ -46,6 +47,13 @@ export interface DomainSyncCoordinatorState {
   pump: Promise<void> | null;
   snapshot: DomainSyncSnapshot;
 }
+
+export const INITIAL_SYNC_LANE_RUN_STATE = {
+  activeRunToken: null,
+  runAbandoned: false,
+  runCount: 0,
+  running: false,
+} as const;
 
 function describeSingleSyncLaneError(error: unknown): string {
   if (error instanceof Error) {

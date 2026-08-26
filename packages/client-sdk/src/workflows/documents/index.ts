@@ -103,6 +103,7 @@ export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
+export { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 export {
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
@@ -112,6 +113,7 @@ export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailureClearance"
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
+  requestDocumentSyncLaneAndWait,
 } from "./syncLane";
 export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
 export {

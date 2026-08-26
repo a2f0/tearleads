@@ -77,6 +77,7 @@ export interface SaveDocumentRecordOptions {
     | {
         coveredTailIds: readonly string[];
         endVersionVector: string;
+        pruneCoveredLocalState: boolean;
         snapshot: string;
       }
     | undefined;
@@ -151,16 +152,13 @@ export interface DocumentStoreState {
    */
   rekeyOnlyPassCount: number;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+  /** Latest remote-update sequence durably applied by a completed probe. */
+  remoteUpdateCompletedSignalSeq: number;
+  /** A cancelled remote-only owner blocks late responses until fresh work. */
+  remoteSyncBlocked: boolean;
+  scheduleStartupRemoteSync: boolean;
   remoteUpdatePending: boolean;
-  /**
-   * Monotonically incremented every time a remote update event sets
-   * `remoteUpdatePending`. A sync pass snapshots this when it consumes the
-   * signal so it can tell, after its async network/persist window, whether a
-   * NEW remote event arrived mid-pass. Without this a boolean alone cannot
-   * distinguish "the signal I consumed" from "a fresh signal that arrived
-   * during the await", and clearing it unconditionally drops the new event —
-   * stalling convergence until an unrelated trigger re-arms the lane.
-   */
+  /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
@@ -237,6 +235,7 @@ export function createDocumentStoreState(
   initialDocumentId: string | null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
+  scheduleStartupRemoteSync = true,
 ): DocumentStoreState {
   return {
     attachmentBlobIdBySlotId: {},
@@ -262,6 +261,9 @@ export function createDocumentStoreState(
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
+    remoteUpdateCompletedSignalSeq: 0,
+    remoteSyncBlocked: !scheduleStartupRemoteSync,
+    scheduleStartupRemoteSync,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
@@ -333,6 +335,8 @@ function clearDocumentStoreState(
   state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
+  state.remoteUpdateCompletedSignalSeq = 0;
+  state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;
@@ -492,8 +496,5 @@ export function subscribeToDocumentStore(
   listener: () => void,
 ) {
   state.listeners.add(listener);
-
-  return () => {
-    state.listeners.delete(listener);
-  };
+  return () => void state.listeners.delete(listener);
 }

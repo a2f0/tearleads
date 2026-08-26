@@ -1,6 +1,7 @@
 import type { SyncLanePhase } from "./syncTelemetry";
 
 export interface SyncLane {
+  isDisposed?: () => boolean;
   requestSync: () => void;
   requestSyncAfter: (delayMs: number) => void;
 }

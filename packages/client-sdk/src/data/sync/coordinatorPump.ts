@@ -150,6 +150,7 @@ function settleAbandonedSyncLaneRun(
     return;
   }
   lane.activeRunToken = null;
+  lane.runAbandoned = false;
   recordSyncLaneRunResult(lane, runResult);
   publishSyncCoordinatorSnapshot(coordinatorState);
   if (
@@ -182,6 +183,7 @@ async function runRequestedSyncLanes(
     lane.lastAction = "started";
     lane.lastActionAt = createSyncTimestamp();
     lane.lastStartedAt = lane.lastActionAt;
+    lane.runAbandoned = false;
     const runToken = {};
     lane.activeRunToken = runToken;
     publishSyncCoordinatorSnapshot(coordinatorState);
@@ -234,6 +236,7 @@ async function runRequestedSyncLanes(
       lane.activeRunToken = null;
       runResult = raceOutcome.result;
     } else {
+      lane.runAbandoned = true;
       runResult = {
         status: "failed",
         error: new Error(

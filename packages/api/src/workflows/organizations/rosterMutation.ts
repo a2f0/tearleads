@@ -8,7 +8,8 @@ import { OrganizationManagerError } from "./errors";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import {
-  isOrganizationProfileDocument,
+  isOrganizationRosterProfileDocument,
+  isOrganizationRosterProfileDocumentForUser,
   loadOrganizationRosterEntry,
   toOrganizationDirectoryUser,
 } from "./roster";
@@ -39,16 +40,23 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
       throw new OrganizationManagerError("Roster entry not found", 404);
     }
 
-    if (
-      input.profileDocumentId &&
-      !(await isOrganizationProfileDocument({
-        executor: tx,
-        organizationId,
-        profileDocumentId: input.profileDocumentId,
-      }))
-    ) {
+    const profileDocumentIsValid =
+      !input.profileDocumentId ||
+      (sessionUserId === userId
+        ? await isOrganizationRosterProfileDocumentForUser({
+            executor: tx,
+            organizationId,
+            profileDocumentId: input.profileDocumentId,
+            userId,
+          })
+        : await isOrganizationRosterProfileDocument({
+            executor: tx,
+            organizationId,
+            profileDocumentId: input.profileDocumentId,
+          }));
+    if (!profileDocumentIsValid) {
       throw new OrganizationManagerError(
-        "Profile document is not in this organization",
+        "Profile document is not in this organization's roster profile container",
         400,
       );
     }

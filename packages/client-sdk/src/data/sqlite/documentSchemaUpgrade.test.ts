@@ -3,16 +3,16 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import { documentTables } from "./schema";
 import { ensureSqlTables } from "./sqlTableSchema";
 
-test("document schema adds durable pull progress to an existing database", async () => {
+test("document schema adds durable pull progress and recovery fencing", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-pull-continuation-upgrade",
   );
   const documentsTable = documentTables[0];
   if (!documentsTable) throw new Error("Documents table schema is missing");
-  const legacyCreateSql = documentsTable.createSql.replace(
-    '  "pull_continuation" TEXT,\n',
-    "",
-  );
+  const legacyCreateSql = documentsTable.createSql
+    .replace('  "pull_continuation" TEXT,\n', "")
+    .replace('  "recovery_generation" INTEGER NOT NULL DEFAULT 0,\n', "");
+  expect(legacyCreateSql).not.toContain('"recovery_generation"');
 
   try {
     await execSql(legacyCreateSql);
@@ -27,9 +27,15 @@ test("document schema adds durable pull progress to an existing database", async
 
     expect(
       await execSql(
-        "SELECT local_id, pull_continuation FROM documents WHERE local_id = 'local-1'",
+        "SELECT local_id, pull_continuation, recovery_generation FROM documents WHERE local_id = 'local-1'",
       ),
-    ).toEqual([{ local_id: "local-1", pull_continuation: null }]);
+    ).toEqual([
+      {
+        local_id: "local-1",
+        pull_continuation: null,
+        recovery_generation: 0,
+      },
+    ]);
   } finally {
     close();
   }
@@ -67,6 +73,10 @@ test("additive schema ensure accepts a concurrent connection's DDL winner", asyn
   const secondConnection = createRacingExecutor();
   const racingTable = {
     ...documentsTable,
+    additiveColumns:
+      documentsTable.additiveColumns?.filter(
+        ({ name }) => name === "pull_continuation",
+      ) ?? [],
     createSql: legacyCreateSql,
     indexes: [],
     requiredColumns: [],

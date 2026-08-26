@@ -54,6 +54,7 @@ export interface OpenDocumentInput {
 }
 
 export interface OpenDocumentOptions {
+  readonly remoteSyncMode?: "on-demand" | "startup" | undefined;
   readonly workflowRuntime?: DocumentsRuntime | undefined;
 }
 
@@ -63,6 +64,7 @@ export interface DocumentSubscriptionOptions {
 
 export interface Documents {
   delete(localId: string): Promise<boolean>;
+  findLocalIdByDocumentId(documentId: string): Promise<string | null>;
   list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;
   open(
     input?: OpenDocumentInput | undefined,
@@ -112,6 +114,19 @@ class DocumentsService implements Documents {
     return true;
   }
 
+  async findLocalIdByDocumentId(documentId: string): Promise<string | null> {
+    const runtime = this.dependencies.runtime.workflowInput();
+    if (runtime.infra.dbStatus !== "ready") {
+      return null;
+    }
+
+    await this.ensureSchema(runtime.infra.execSql);
+    return defaultDocumentsPersistence.findLocalIdByDocumentId(
+      runtime.infra.execSql,
+      documentId,
+    );
+  }
+
   async list(input: ListDocumentsInput = {}): Promise<DocumentList | null> {
     const runtime = this.dependencies.runtime.workflowInput();
     if (runtime.infra.dbStatus !== "ready") {
@@ -152,6 +167,7 @@ class DocumentsService implements Documents {
       documentId,
       initialText,
       initialDocumentKind,
+      options.remoteSyncMode ?? "startup",
     );
   }
 

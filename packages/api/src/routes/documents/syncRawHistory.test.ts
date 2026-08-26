@@ -107,6 +107,13 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
   expect(isDocumentSyncResponse(normal)).toBe(true);
   expect(normal.updates.map(({ id }) => id)).toEqual([rotationBaselineId]);
 
+  const boundedRawResponse = await postSync(owner.token, created.id, {
+    ...readRequest,
+    historyMode: "raw",
+    localVersionVector: "non-null-frontier",
+  });
+  expect(boundedRawResponse.status).toBe(400);
+
   const rawResponse = await postSync(owner.token, created.id, {
     ...readRequest,
     historyMode: "raw",

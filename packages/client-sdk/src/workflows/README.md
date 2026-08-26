@@ -17,6 +17,14 @@ coordination, but they must stay React-free and product-UI-free.
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
+The documents facade also admits explicit `historyMode: "raw"` reads through
+`syncRemoteDocument`. A raw consumer must start at a null version vector, send
+no writes, validate every bounded page in scratch state, and publish only after
+the complete retained frontier validates. The built-in rotation preflight is
+the reference consumer; ordinary sync must omit the mode. Raw consumers can
+handle `DocumentRawHistoryUnavailableError` by its stable code and numeric
+content-key epoch without parsing an integrity-error message.
+
 The `sync` facade exposes read-only coordinator snapshots through
 `getDomainSyncCoordinatorSnapshot(...)` and
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
@@ -59,6 +67,10 @@ edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
 `loadDocumentStoreState(...)` must return the canonical record, history, and
 attachment rows from one database snapshot so startup cannot cross a relink.
+`findLocalIdByDocumentId(...)` must preserve a duplicate row carrying queued
+updates or a deferred-sync frontier behind its snapshot; otherwise it selects
+deterministically by descending update time and local id. This lets a restarted
+store adopt the same local owner without discarding unsynced work.
 `deleteDocumentSideRowsIfAbsent(...)` likewise owns one transaction spanning
 the canonical absence check and orphaned side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue

@@ -1,5 +1,7 @@
-import type { ContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import { formatContainerSystemSlot } from "../../data/containers/containerSystemSlotFormat";
+import {
+  type ContainerSystemSlot,
+  formatContainerSystemSlot,
+} from "@symcrypt/validators/containerSystemSlot";
 
 const CONTAINER_SYSTEM_SLOT_HMAC_ALGORITHM = {
   hash: "SHA-256",

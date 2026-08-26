@@ -34,6 +34,11 @@ export const documentSyncRequestPullRefinements = [
       'historyMode "raw" must not be combined with outgoing updates, container rekeys, a content-key bundle, or authorizing paths',
     id: "request.raw-history-read-only",
   },
+  {
+    description:
+      'historyMode "raw" requires localVersionVector to be null so the complete retained history is requested',
+    id: "request.raw-history-null-frontier",
+  },
 ] as const;
 
 export const documentSyncRequestRuntimeRefinements = [

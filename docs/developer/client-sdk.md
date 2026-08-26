@@ -16,10 +16,9 @@ import { SymCrypt } from "@symcrypt/client-sdk";
 const symcrypt = new SymCrypt();
 ```
 
-All constructor options are optional. The minimal instance uses same-origin API
-routes, memory blob storage, default logging, and an idle database. Publish an
-initialized SQLite runtime when persistence, sync, or identity generation is
-needed:
+The minimal instance uses same-origin API routes, memory blob storage, default
+logging, and an idle database. Configure SQLite before using persistence, sync,
+or identity generation:
 
 ```ts
 symcrypt.database.configure({
@@ -101,33 +100,33 @@ Client capabilities:
 | `symcrypt.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `symcrypt.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
-Prefer instance services to hand-built runtimes. The SDK aligns workflow cache
-scope with the active database and identity so document and container/document
-stores share a sync and subscription boundary. Product app code should use:
-`symcrypt.documents.open(...)`, `symcrypt.documents.list(...)`,
-`symcrypt.documents.subscribe(listener, { containerId })`,
-`symcrypt.deviceFirst.open().containerStore`, and
-`symcrypt.containerContents.documentQueries()`. For orphan recovery, queries
+Prefer instance services so document and container stores share the active
+database, identity, sync, and subscription scope. Product code should use the
+namespaces above; import internals only for SDK development or
+[custom persistence](./custom-document-persistence.md). Orphan-recovery queries
 accept a null container plus the active organization; use the indexed
-`hasOrphanedDocuments(...)` visibility probe. Import internals only for SDK
-development or [custom persistence](./custom-document-persistence.md).
+`hasOrphanedDocuments(...)` probe.
 
 Document stores initialize automatically before mutating operations such as
 `setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,
-`replaceAttachment(...)` — the one attachment-write API — and
-`relink(...)`. Call `ensureInitialized()` only when host code needs an explicit
-readiness probe without performing a mutation, for example before reading a
-ready snapshot or deciding whether to show an unavailable-storage state.
+`replaceAttachment(...)`, and `relink(...)`. Use `ensureInitialized()` only for
+an explicit readiness probe before reading a ready snapshot. Use
+`symcrypt.runtime.input(containerId)` for host runtime input; SDK facades retain
+API access and incident reporting.
 
-Host adapters needing the raw runtime use `symcrypt.runtime.input(containerId)`
-instead of reconstructing it. This input omits API access and incident
-reporting; SDK facades own both.
+For bounded UI hydration, resolve `localId` with
+`symcrypt.documents.findLocalIdByDocumentId(documentId)`, open with
+`remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.
+It returns `false` unless a pass completes. Abort on unmount; cancellation
+releases only waiter-owned work. See the
+[on-demand lifecycle](./custom-document-persistence.md#on-demand-document-lifecycle).
 
 Loop `syncRemoteDocument(...)` while work remains; resume via
 `readPullContinuation(result.response)`. Validate imports with
 `validateDocumentSyncUpdateImports(...)` and a live Loro doc. Large/ambiguous
 pages use bounded batch scope (`updateId: null`) without a writer. Fail closed;
-preserve `KeyingVerificationError`.
+preserve `KeyingVerificationError`. In [raw mode](../raw-document-history-recovery.md),
+missing epochs throw `DocumentRawHistoryUnavailableError`.
 
 `symcrypt.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or

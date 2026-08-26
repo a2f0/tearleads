@@ -8,7 +8,7 @@ import {
 } from "../../containers/writerProjection";
 import { DocumentMutationError } from "./errors";
 
-async function ensureDocumentAccess(input: {
+export async function ensureCurrentDocumentAccess(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
@@ -57,7 +57,7 @@ export async function ensureSyncDocumentAccess(input: {
     input.request.outgoingUpdates.length > 0
       ? ("write" as const)
       : ("read" as const);
-  await ensureDocumentAccess({
+  await ensureCurrentDocumentAccess({
     currentTargets: input.currentTargets,
     executor: input.executor,
     minimumAccessLevel,

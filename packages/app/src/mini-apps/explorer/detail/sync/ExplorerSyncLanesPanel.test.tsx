@@ -54,6 +54,7 @@ function createLaneSnapshot(
     registrationIndex: 0,
     requestCount: 0,
     requested: false,
+    runAbandoned: false,
     runCount: 0,
     running: false,
     status: "idle",
@@ -87,9 +88,7 @@ function renderSyncLanesPanel(input: {
   );
 }
 
-// The manual "Sync now" trigger now lives on the window toolbar, registered by
-// the container. This probe surfaces the registered title-bar actions as
-// buttons so tests can assert on the toolbar the same way the chrome does.
+// Surface the registered title-bar actions as buttons for toolbar assertions.
 function ToolbarProbe() {
   const actions = useWindowTitleBarActions();
 

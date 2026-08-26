@@ -3,31 +3,44 @@ import { db, getDefaultApiDatabaseKind } from "@symcrypt/api-shared/postgres";
 import {
   accessManifestHeads,
   documentUpdates,
+  organizationReadModelHeads,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
 import type { ContainerMutationRequest } from "@symcrypt/validators/request";
 import type { ContainerMutationResponse } from "@symcrypt/validators/response";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  isContainerWriterProjectionResponse,
+} from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
+import {
+  createOrganizationRequestBody,
+  submitCreateOrganization,
+} from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   accessManifestFromContainerResponse,
+  asVerifiedContainerManifest,
   bootstrapRoot,
   buildRootGrantRequest,
   createDocument,
   kekStateFromContainerResponse,
+  loadPrincipalPoliciesForContainerPath,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { buildRootRevokeRequest } from "../../../test/helpers/keyingWriterProjectionRevoke";
 import {
   holdAccessManifestHeadForUpdate,
+  holdPostgresLock,
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 
 const concurrencyTimeoutMs = 30_000;
 
@@ -73,6 +86,30 @@ async function expectUpdateAbsent(updateId: string): Promise<void> {
     .from(documentUpdates)
     .where(eq(documentUpdates.id, updateId));
   expect(rows).toHaveLength(0);
+}
+
+async function loadRootFixture(input: {
+  readonly ownerToken: string;
+  readonly rootContainerId: string;
+}): Promise<StoredRootFixture> {
+  const response = await routeApp.request(
+    `/containers/${input.rootContainerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${input.ownerToken}` } },
+  );
+  const value = await response.json();
+  if (!response.ok || !isContainerWriterProjectionResponse(value)) {
+    throw new Error("Expected a root container writer projection");
+  }
+  const bundle = value.path[0];
+  const kekState = value.containerKeks[0];
+  if (!bundle || !kekState || value.path.length !== 1) {
+    throw new Error("Expected a one-segment root projection");
+  }
+  return {
+    bundle,
+    kekState: kekState as unknown as StoredRootFixture["kekState"],
+    principalPolicies: await loadPrincipalPoliciesForContainerPath([bundle]),
+  };
 }
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
@@ -165,6 +202,117 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     expect(writeResponse?.status).toBe(403);
     expect(await writeResponse?.json()).toEqual({ error: "Forbidden" });
     await expectUpdateAbsent(updateId);
+  },
+  concurrencyTimeoutMs,
+);
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "opposing cross-organization rekey plus link plans cannot deadlock",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const firstRoot = await bootstrapRoot(owner);
+    const secondOrganization = await createOrganizationRequestBody(owner);
+    const createResponse = await submitCreateOrganization(
+      owner,
+      secondOrganization,
+    );
+    expect(createResponse.status).toBe(200);
+    await runStartOrganizationTrialWorkflow(
+      db,
+      secondOrganization.organizationId,
+      owner.userId,
+    );
+    const secondRoot = await loadRootFixture({
+      ownerToken: owner.token,
+      rootContainerId: secondOrganization.rootContainerId,
+    });
+    const [firstChild, secondChild] = await Promise.all([
+      createChildContainer({ parent: firstRoot, signer: owner }),
+      createChildContainer({ parent: secondRoot, signer: owner }),
+    ]);
+    const [firstDocument, secondDocument] = await Promise.all([
+      createDocument({ owner, root: firstRoot }),
+      createDocument({ owner, root: secondRoot }),
+    ]);
+    const [firstLink, secondLink, firstRekey, secondRekey] = await Promise.all([
+      buildDocumentLinkRequest({
+        child: firstChild,
+        createdDocument: firstDocument,
+        owner,
+        root: firstRoot,
+      }),
+      buildDocumentLinkRequest({
+        child: secondChild,
+        createdDocument: secondDocument,
+        owner,
+        root: secondRoot,
+      }),
+      buildRootContainerRekeyMutation({ previous: firstRoot, signer: owner }),
+      buildRootContainerRekeyMutation({ previous: secondRoot, signer: owner }),
+    ]);
+    firstLink.containerRekeys = [secondRekey.request];
+    secondLink.containerRekeys = [firstRekey.request];
+
+    const firstOrganizationId = asVerifiedContainerManifest(firstRoot.bundle)
+      .state.organizationId;
+    const lockedOrganizationId = [
+      firstOrganizationId,
+      secondOrganization.organizationId,
+    ].sort()[0];
+    if (!lockedOrganizationId) {
+      throw new Error("Expected an organization lock target");
+    }
+    const organizationLock = await holdPostgresLock(async (tx) => {
+      await tx
+        .select({ organizationId: organizationReadModelHeads.organizationId })
+        .from(organizationReadModelHeads)
+        .where(
+          eq(organizationReadModelHeads.organizationId, lockedOrganizationId),
+        )
+        .for("update");
+    });
+    const contenders: Promise<Response>[] = [];
+    let synchronizationError: unknown;
+    try {
+      contenders.push(
+        postDocumentMutation({
+          documentId: firstDocument.id,
+          operation: "link",
+          request: firstLink,
+          token: owner.token,
+        }),
+      );
+      await waitForPostgresLockWait({
+        blockerPid: organizationLock.backendPid,
+        queryFragment: "organization_read_model_heads",
+      });
+      contenders.push(
+        postDocumentMutation({
+          documentId: secondDocument.id,
+          operation: "link",
+          request: secondLink,
+          token: owner.token,
+        }),
+      );
+      await waitForPostgresLockWait({
+        blockerPid: organizationLock.backendPid,
+        minimumWaiters: 2,
+        queryFragment: "organization_read_model_heads",
+      });
+    } catch (error) {
+      synchronizationError = error;
+    } finally {
+      await organizationLock.release();
+    }
+    const responses = await Promise.all(contenders);
+    if (synchronizationError) {
+      throw synchronizationError;
+    }
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 409,
+    ]);
   },
   concurrencyTimeoutMs,
 );

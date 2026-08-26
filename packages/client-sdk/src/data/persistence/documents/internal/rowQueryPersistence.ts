@@ -1,6 +1,9 @@
 import { desc, eq, notInArray } from "drizzle-orm";
 import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
-import { loadDocumentRecord } from "../../../sqlite/documentPersistence";
+import {
+  findLocalIdByDocumentId,
+  loadDocumentRecord,
+} from "../../../sqlite/documentPersistence";
 import {
   documentProjection,
   documentProjectionText,
@@ -8,6 +11,7 @@ import {
 } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentsPersistence } from "../types";
+import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -23,6 +27,7 @@ type DocumentRowQueryPersistence = Pick<
   DocumentsPersistence,
   | "listDocuments"
   | "findDocumentLocalIdsByContainerId"
+  | "findLocalIdByDocumentId"
   | "hasDocument"
   | "documentIdentityMatches"
   | "loadDocument"
@@ -70,12 +75,22 @@ export const documentRowQueryPersistence: DocumentRowQueryPersistence = {
       .map((row) => row.localId)
       .filter((localId): localId is string => localId !== null);
   },
+  findLocalIdByDocumentId: (execSql, documentId) =>
+    findLocalIdByDocumentId(execSql, DOCUMENTS_APP_KIND, documentId),
   async hasDocument(execSql, localId) {
     return hasDocumentRow(execSql, localId);
   },
-  async documentIdentityMatches(execSql, localId, expectedDocumentId) {
+  async documentIdentityMatches(
+    execSql,
+    localId,
+    expectedDocumentId,
+    expectedRecoveryGeneration,
+  ) {
     const record = await loadDocumentRecord(execSql, getDocumentScope(localId));
-    return record?.documentId === expectedDocumentId;
+    return (
+      record?.documentId === expectedDocumentId &&
+      (record.recoveryGeneration ?? 0) === expectedRecoveryGeneration
+    );
   },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

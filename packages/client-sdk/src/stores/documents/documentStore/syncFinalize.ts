@@ -254,7 +254,13 @@ export async function finalizeDocumentSync(
     return state.record ?? nextRecord;
   }
 
-  clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
+  // A bounded pull request owns the whole page chain. Completing the signal on
+  // an intermediate page would let a failed/null continuation pass report the
+  // original request as successful even though the server frontier was never
+  // drained.
+  if (!synced.hasIncompletePull) {
+    clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
+  }
 
   if (shouldReArmDocumentSync(state, syncAttempt)) {
     requestDocumentStoreSync(state);

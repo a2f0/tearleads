@@ -4,6 +4,7 @@ import type {
 } from "./coordinatorState";
 import {
   describeSyncLaneError,
+  INITIAL_SYNC_LANE_RUN_STATE,
   noopLaneRun,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
@@ -67,7 +68,7 @@ export function beginUploadLane(
     lane.blobStorageKey = options.blobStorageKey ?? null;
   } else {
     lane = {
-      activeRunToken: null,
+      ...INITIAL_SYNC_LANE_RUN_STATE,
       blobStorageKey: options.blobStorageKey ?? null,
       config: { label: options.label, phase: "blob", run: noopLaneRun },
       errorCount: 0,
@@ -85,8 +86,6 @@ export function beginUploadLane(
       registrationIndex: coordinatorState.nextRegistrationIndex,
       requestCount: 0,
       requested: false,
-      runCount: 0,
-      running: false,
     };
     coordinatorState.nextRegistrationIndex += 1;
     coordinatorState.lanes.set(key, lane);

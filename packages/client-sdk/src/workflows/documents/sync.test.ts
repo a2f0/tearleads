@@ -242,6 +242,7 @@ test("buildDocumentSyncPlan omits write-only fields for read-only syncs", async 
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
   expect(plan.request.outgoingUpdates).toEqual([]);
+  expect(plan.request.historyMode).toBeUndefined();
   expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
   expect(plan.request.contentKeyBundle).toBeUndefined();
 });

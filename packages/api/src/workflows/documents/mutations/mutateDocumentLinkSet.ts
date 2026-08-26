@@ -9,6 +9,11 @@ import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
+import { appendOrganizationReadModelChangeInTransaction } from "../../organizations/readModelChanges";
+import {
+  assertRosterProfileBindingPreserved,
+  type RepairedRosterProfileBinding,
+} from "../../organizations/rosterProfileBindingInvariant";
 import {
   appendAtomicRotationBaseline,
   assertAtomicRotationBaselineCoversCommittedFrontier,
@@ -33,11 +38,21 @@ import {
   verifyDocumentEvent,
   verifyDocumentLinkSetMutationAuthorizationFromRequest,
 } from "./shared/verification";
+import { ensureCurrentDocumentAccess } from "./syncAccess";
 import type { MutateDocumentLinkSetInput } from "./types";
 
 export interface DocumentLinkSetMutationWorkflowResult {
   readonly insertedUpdateIds: readonly string[];
   readonly response: DocumentLinkSetMutationResponse;
+}
+
+interface MutateDocumentLinkSetWithExecutorInput {
+  readonly documentId: string;
+  readonly eventType: "document.link" | "document.unlink";
+  readonly executor: DatabaseTransaction;
+  readonly fingerprint: string;
+  readonly request: DocumentLinkSetMutationRequest;
+  readonly userId: string;
 }
 
 function requireMutationRotationBaseline(input: {
@@ -143,14 +158,73 @@ async function lockDocumentLinkSetMutationFrontier(input: {
   return locked;
 }
 
-async function mutateDocumentLinkSetWithExecutor(input: {
+async function preauthorizeDocumentLinkSetMutation(input: {
   readonly documentId: string;
-  readonly eventType: "document.link" | "document.unlink";
   readonly executor: DatabaseTransaction;
-  readonly fingerprint: string;
-  readonly request: DocumentLinkSetMutationRequest;
   readonly userId: string;
-}): Promise<DocumentLinkSetMutationWorkflowResult> {
+}): Promise<string> {
+  const currentTargets = await resolveCurrentDocumentKekTargets(
+    input.documentId,
+    input.executor,
+  );
+  await ensureCurrentDocumentAccess({
+    currentTargets,
+    executor: input.executor,
+    minimumAccessLevel: "write",
+    userId: input.userId,
+  });
+  return currentTargets.organizationId;
+}
+
+async function appendRepairedRosterProfileChanges(
+  executor: DatabaseTransaction,
+  bindings: readonly RepairedRosterProfileBinding[],
+): Promise<void> {
+  for (const binding of bindings) {
+    await appendOrganizationReadModelChangeInTransaction(executor, {
+      entityId: binding.userId,
+      lane: "directory",
+      operation: "upsert",
+      organizationId: binding.organizationId,
+    });
+  }
+}
+
+async function appendMutationRotationBaseline(
+  input: MutateDocumentLinkSetWithExecutorInput,
+  authorization: Awaited<
+    ReturnType<typeof verifyDocumentLinkSetMutationAuthorizationFromRequest>
+  >,
+  contentKeyBundle: Awaited<ReturnType<typeof advanceDocumentLinkSet>>,
+  rotationBaseline: NonNullable<
+    DocumentLinkSetMutationRequest["rotationBaseline"]
+  > | null,
+): Promise<readonly string[]> {
+  if (!rotationBaseline) {
+    return [];
+  }
+  return appendAtomicRotationBaseline({
+    baseline: rotationBaseline,
+    documentId: input.documentId,
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    manifest: authorization.manifest,
+    request: input.request,
+    userId: input.userId,
+    writeAuthorization: {
+      authorizingContainerPaths: authorization.authorizingContainerPaths,
+      documentKekTargets: verifiedDocumentKekTargetsFromResolved(
+        contentKeyBundle.currentTargets,
+      ),
+      documentManifest: authorization.manifest,
+      principalPolicies: authorization.principalPolicies,
+    },
+  });
+}
+
+async function mutateDocumentLinkSetWithExecutor(
+  input: MutateDocumentLinkSetWithExecutorInput,
+): Promise<DocumentLinkSetMutationWorkflowResult> {
   try {
     await assertDocumentCanRelink({
       documentId: input.documentId,
@@ -165,7 +239,20 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       fingerprint: input.fingerprint,
       userId: input.userId,
     });
+    // Reject unauthorized callers before acquiring organization-wide rekey
+    // locks. Mutable authorization is repeated below after the merged lock
+    // plan is held; this first pass prevents a caller who only knows a
+    // document UUID from using this route to serialize another tenant.
+    const organizationId = await preauthorizeDocumentLinkSetMutation({
+      documentId: input.documentId,
+      executor: input.executor,
+      userId: input.userId,
+    });
+    // Rekeys and the document organization share one group -> sorted-org lock
+    // plan. Locking the document organization after independently sorted rekey
+    // organizations permits opposing cross-organization requests to deadlock.
     await applyContainerRekeys({
+      additionalOrganizationIds: [organizationId],
       executor: input.executor,
       fingerprint: input.fingerprint,
       requests: input.request.containerRekeys,
@@ -184,6 +271,14 @@ async function mutateDocumentLinkSetWithExecutor(input: {
         request: input.request,
       });
     const { manifest } = authorization;
+    if (manifest.state.organizationId !== organizationId) {
+      throw new DocumentMutationError("Document organization mismatch", 409);
+    }
+    const repairedRosterProfileBindings =
+      await assertRosterProfileBindingPreserved({
+        executor: input.executor,
+        manifest,
+      });
     const rotationBaseline = requireMutationRotationBaseline(input);
     const contentKeyBundle = await advanceDocumentLinkSet({
       baseline: rotationBaseline ?? undefined,
@@ -195,26 +290,16 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       request: input.request,
     });
 
-    let insertedUpdateIds: readonly string[] = [];
-    if (rotationBaseline) {
-      insertedUpdateIds = await appendAtomicRotationBaseline({
-        baseline: rotationBaseline,
-        documentId: input.documentId,
-        executor: input.executor,
-        fingerprint: input.fingerprint,
-        manifest,
-        request: input.request,
-        userId: input.userId,
-        writeAuthorization: {
-          authorizingContainerPaths: authorization.authorizingContainerPaths,
-          documentKekTargets: verifiedDocumentKekTargetsFromResolved(
-            contentKeyBundle.currentTargets,
-          ),
-          documentManifest: manifest,
-          principalPolicies: authorization.principalPolicies,
-        },
-      });
-    }
+    const insertedUpdateIds = await appendMutationRotationBaseline(
+      input,
+      authorization,
+      contentKeyBundle,
+      rotationBaseline,
+    );
+    await appendRepairedRosterProfileChanges(
+      input.executor,
+      repairedRosterProfileBindings,
+    );
 
     return toDocumentLinkSetMutationResult({
       contentKeyBundle,

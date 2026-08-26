@@ -5,70 +5,10 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@symcrypt/loro";
-import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
-import { initTestSqliteDatabase } from "@symcrypt/test-utils";
-import {
-  type ClientSQLitePersistenceRuntime,
-  createClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
-import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
+import { openSharedDocumentPersistenceConnections } from "../../../../test/helpers/sharedDocumentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 import { loadStoredDocumentWithHistoryRestoreState } from "./internal/documentHistoryStatePersistence";
 import { loadStoredDocumentStoreState } from "./internal/documentStoreStatePersistence";
-
-async function openSharedConnections(key: string) {
-  const dbName = `/${crypto.randomUUID()}.db`;
-  const db = await initTestSqliteDatabase({
-    cipher: "chacha20",
-    dbName,
-    key,
-  });
-  let transactionOwner: symbol | null = null;
-  let transactionReleased: Promise<void> = Promise.resolve();
-  let releaseTransaction = () => {};
-  const createRuntime = (): ClientSQLitePersistenceRuntime => {
-    const owner = Symbol("pane-executor");
-    return createClientSQLitePersistenceRuntime({
-      exec: async (options) => {
-        const command = options.sql.trimStart().toUpperCase();
-        const beginsTransaction = command.startsWith("BEGIN");
-        const endsTransaction =
-          command.startsWith("COMMIT") || command.startsWith("ROLLBACK");
-        if (beginsTransaction) {
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-          if (transactionOwner === null) {
-            transactionOwner = owner;
-            transactionReleased = new Promise<void>((resolve) => {
-              releaseTransaction = resolve;
-            });
-          }
-        } else {
-          while (transactionOwner !== null && transactionOwner !== owner) {
-            await transactionReleased;
-          }
-        }
-        try {
-          return {
-            rows: execDatabaseStatement(db, options) as Array<
-              SqlRow | SqlArrayRow
-            >,
-          };
-        } finally {
-          if (endsTransaction && transactionOwner === owner) {
-            transactionOwner = null;
-            releaseTransaction();
-          }
-        }
-      },
-    });
-  };
-  const first = { runtime: createRuntime() };
-  await sqlDocumentsPersistence.ensureSchema(first.runtime.execSql);
-  const second = { runtime: createRuntime() };
-  return { close: () => db.close(), first, second };
-}
 
 async function createHistoryStates() {
   const document = await createDocument("document-concurrency-history");
@@ -89,7 +29,7 @@ async function createHistoryStates() {
 
 test("two pane document mutations settle as commit and CAS loss", async () => {
   const { close, first, second } =
-    await openSharedConnections("document-cas-race");
+    await openSharedDocumentPersistenceConnections("document-cas-race");
   const base = {
     accessEpoch: 1,
     containerId: "container",
@@ -133,9 +73,8 @@ test("two pane document mutations settle as commit and CAS loss", async () => {
 });
 
 test("two pane document creators return one winner and one null", async () => {
-  const { close, first, second } = await openSharedConnections(
-    "document-create-race",
-  );
+  const { close, first, second } =
+    await openSharedDocumentPersistenceConnections("document-create-race");
   const document = {
     accessEpoch: 1,
     containerId: "container",
@@ -166,7 +105,7 @@ test("two pane document creators return one winner and one null", async () => {
 
 test("record and history reads cannot tear across a replacement commit", async () => {
   const { close, first, second } =
-    await openSharedConnections("document-read-race");
+    await openSharedDocumentPersistenceConnections("document-read-race");
   const history = await createHistoryStates();
   const original = {
     accessEpoch: 1,
@@ -218,6 +157,7 @@ test("record and history reads cannot tear across a replacement commit", async (
               historyCheckpoint: {
                 coveredTailIds: [],
                 endVersionVector: history.replacement.version,
+                pruneCoveredLocalState: false,
                 snapshot: history.replacement.snapshot,
               },
               settleAcceptedPendingOnConflict: false,
@@ -253,9 +193,10 @@ test("record and history reads cannot tear across a replacement commit", async (
 });
 
 test("startup record, history, and attachments share one database snapshot", async () => {
-  const { close, first, second } = await openSharedConnections(
-    "document-startup-state-race",
-  );
+  const { close, first, second } =
+    await openSharedDocumentPersistenceConnections(
+      "document-startup-state-race",
+    );
   const history = await createHistoryStates();
   const original = {
     accessEpoch: 1,
@@ -335,6 +276,7 @@ test("startup record, history, and attachments share one database snapshot", asy
                 historyCheckpoint: {
                   coveredTailIds: [],
                   endVersionVector: history.replacement.version,
+                  pruneCoveredLocalState: false,
                   snapshot: history.replacement.snapshot,
                 },
                 settleAcceptedPendingOnConflict: false,
@@ -385,9 +327,10 @@ test("startup record, history, and attachments share one database snapshot", asy
 });
 
 test("pull invalidation returns one identity-aligned record and history snapshot", async () => {
-  const { close, first, second } = await openSharedConnections(
-    "document-invalidation-race",
-  );
+  const { close, first, second } =
+    await openSharedDocumentPersistenceConnections(
+      "document-invalidation-race",
+    );
   const history = await createHistoryStates();
   const continuation = {
     commitLsn: "0/2",
@@ -451,6 +394,7 @@ test("pull invalidation returns one identity-aligned record and history snapshot
           historyCheckpoint: {
             coveredTailIds: [],
             endVersionVector: history.replacement.version,
+            pruneCoveredLocalState: false,
             snapshot: history.replacement.snapshot,
           },
           settleAcceptedPendingOnConflict: false,

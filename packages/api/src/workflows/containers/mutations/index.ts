@@ -19,12 +19,17 @@ export type { MutateContainerInput };
 export { ContainerMutationError };
 
 export async function applyContainerRekeys(input: {
+  readonly additionalOrganizationIds?: readonly string[] | undefined;
   readonly executor: MutateContainerWithExecutorInput["executor"];
   readonly fingerprint: string;
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
   readonly userId: string;
 }): Promise<void> {
-  if (!input.requests || input.requests.length === 0) {
+  if (
+    (!input.requests || input.requests.length === 0) &&
+    (!input.additionalOrganizationIds ||
+      input.additionalOrganizationIds.length === 0)
+  ) {
     return;
   }
 
@@ -42,15 +47,16 @@ export async function applyContainerRekeys(input: {
   };
   await prelockContainerMutationBatch(
     context,
-    input.requests.map((request) => ({
+    (input.requests ?? []).map((request) => ({
       expectedEventType: "container.rekey",
       fingerprint: input.fingerprint,
       request,
       userId: input.userId,
     })),
+    input.additionalOrganizationIds,
   );
 
-  for (const request of input.requests) {
+  for (const request of input.requests ?? []) {
     const response = await rekeyContainer({
       context,
       executor: input.executor,

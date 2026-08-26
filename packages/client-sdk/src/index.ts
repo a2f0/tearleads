@@ -388,6 +388,7 @@ export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
   DOCUMENTS_APP_KIND,
+  DocumentRawHistoryUnavailableError,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   isDocumentSyncUpdateIsolationError,

@@ -1,8 +1,10 @@
 import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
+  encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@symcrypt/loro";
 import {
@@ -38,17 +40,24 @@ export async function createRemoteHistoryFixture(): Promise<
   remoteDocument.getText("text").update("survives key");
   remoteDocument.commit();
   const behindSnapshot = exportFullHistorySnapshot(remoteDocument);
+  const firstUpdate = exportAllUpdates(remoteDocument);
+  const firstEndVersion = encodeVersionVector(remoteDocument);
   remoteDocument.getText("text").update("survives key rotation");
   remoteDocument.commit();
-  const update = exportAllUpdates(remoteDocument);
-  const vectors = getUpdateVersionVectors(update);
+  const secondUpdate = exportUpdatesSince(remoteDocument, firstEndVersion);
   const remotePlan = await buildMaterializedDocumentSyncPlan({
     author: materialized.author,
     localVersionVector: null,
     pendingUpdates: [
       createPendingUpdateRecord({
-        updateData: bytesToBase64(update),
-        ...vectors,
+        id: "550e8400-e29b-41d4-a716-446655440441",
+        updateData: bytesToBase64(firstUpdate),
+        ...getUpdateVersionVectors(firstUpdate),
+      }),
+      createPendingUpdateRecord({
+        id: "550e8400-e29b-41d4-a716-446655440442",
+        updateData: bytesToBase64(secondUpdate),
+        ...getUpdateVersionVectors(secondUpdate),
       }),
     ],
     targetSecretKey: materialized.secretKey,

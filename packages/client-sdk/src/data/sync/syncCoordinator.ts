@@ -12,6 +12,7 @@ import type {
 } from "./coordinatorState";
 import {
   hasPendingLaneWork,
+  INITIAL_SYNC_LANE_RUN_STATE,
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
@@ -56,6 +57,7 @@ export interface DomainSyncCoordinator {
   // Request one registered pump lane without re-driving unrelated owners.
   requestLane: (key: string) => void;
   hasPendingWork: () => boolean;
+  isDisposed: () => boolean;
   subscribe: (listener: () => void) => () => void;
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
 }
@@ -67,6 +69,7 @@ function createSyncLaneHandle(
   lane: SyncLaneState,
 ): SyncLane {
   return {
+    isDisposed: () => coordinatorState.disposed,
     requestSync: () => requestLaneSync(coordinatorState, lane),
     requestSyncAfter: (delayMs) =>
       requestLaneSyncAfter(coordinatorState, lane, delayMs),
@@ -114,6 +117,9 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         hasPendingLaneWork(coordinatorState.lanes.values())
       );
     },
+    isDisposed() {
+      return coordinatorState.disposed;
+    },
     registerLane(key: string, config: SyncLaneConfig): SyncLane {
       const existingLane = coordinatorState.lanes.get(key);
       if (existingLane) {
@@ -126,7 +132,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 
       const registeredAt = createSyncTimestamp();
       const nextLane: SyncLaneState = {
-        activeRunToken: null,
+        ...INITIAL_SYNC_LANE_RUN_STATE,
         blobStorageKey: null,
         config,
         errorCount: 0,
@@ -144,8 +150,6 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requestCount: 0,
         requested: false,
-        runCount: 0,
-        running: false,
       };
       coordinatorState.nextRegistrationIndex += 1;
       coordinatorState.lanes.set(key, nextLane);

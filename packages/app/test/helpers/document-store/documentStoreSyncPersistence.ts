@@ -8,16 +8,23 @@ import type {
 } from "@symcrypt/client-sdk";
 import { invalidateMemoryDocumentPullContinuation } from "./documentPullContinuationPersistence";
 import { createMemoryAbsentDocumentCleanup } from "./documentStoreAbsentCleanup";
+import {
+  canSaveMemoryDocument,
+  enqueueMemoryPendingUpdate,
+  memoryDocumentRecoveryGenerationMatches,
+  memoryDocumentWriteFenceMatches,
+  memoryHistoryFor,
+} from "./documentStoreRecoveryGeneration";
 import { createMemoryDocumentStartupReads } from "./documentStoreStartupReads";
 import { buildMemoryDocumentSummaries } from "./documentStoreSummaries";
 import { createMemoryDocumentCreationPersistence } from "./documentStoreSyncCreationPersistence";
 import { createMemoryDocumentDeletionPersistence } from "./documentStoreSyncDeletionPersistence";
 import type { StoredDocumentsState } from "./documentStoreSyncFixtures";
 import {
-  applyMemoryAttachmentRemoval,
   type StoredHistoryState,
   toHistoryRestoreState,
 } from "./documentStoreSyncPersistenceState";
+import { commitMemoryDocumentMutation } from "./memoryDocumentMutation";
 
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
@@ -27,15 +34,8 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
   const historyByLocalId = new Map<string, StoredHistoryState>();
-  const historyFor = (localId: string): StoredHistoryState => {
-    let history = historyByLocalId.get(localId);
-    if (!history) {
-      history = { checkpoint: null, tail: [] };
-      historyByLocalId.set(localId, history);
-    }
-    return history;
-  };
-
+  const historyFor = (localId: string): StoredHistoryState =>
+    memoryHistoryFor(historyByLocalId, localId);
   const deleteSideRows = (localId: string) => {
     historyByLocalId.delete(localId);
     pendingUpdates = [];
@@ -82,102 +82,34 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       pendingUpdates = nextUpdates;
     },
   });
-
   return {
     ...creationPersistence,
+    supportsAtomicRecoveryHistoryPruning: true,
     async commitDocumentMutation(execSql, input, saveClientProjection) {
-      if (input.stillCurrent && !input.stillCurrent()) {
-        return { committed: false, currentRecord: document };
-      }
-      if (JSON.stringify(document) !== JSON.stringify(input.expectedRecord)) {
-        return { committed: false, currentRecord: document };
-      }
-      const previousDocument = document;
-      const previousPendingUpdates = structuredClone(pendingUpdates);
-      const previousLocalAttachments = structuredClone(localAttachments);
-      const previousPendingAttachments = structuredClone(pendingAttachments);
-      const previousHistory = structuredClone(historyFor(input.document.id));
-      const updatedAt = input.updatedAt ?? "2026-04-06T00:00:00.000Z";
-      try {
-        if (input.attachmentRemoval) {
-          ({ localAttachments, pendingAttachments } =
-            applyMemoryAttachmentRemoval({
-              localAttachments,
-              pendingAttachments,
-              removal: input.attachmentRemoval,
-            }));
-        }
-        if (input.attachmentStaging) {
-          const pendingSlotIds = new Set(
-            input.attachmentStaging.pendingAttachments.map(
-              ({ slotId }) => slotId,
-            ),
-          );
-          const localSlotIds = new Set(
-            input.attachmentStaging.localAttachments.map(
-              ({ slotId }) => slotId,
-            ),
-          );
-          pendingAttachments = [
-            ...pendingAttachments.filter(
-              ({ slotId }) => !pendingSlotIds.has(slotId),
-            ),
-            ...input.attachmentStaging.pendingAttachments,
-          ];
-          localAttachments = [
-            ...localAttachments.filter(
-              ({ slotId }) => !localSlotIds.has(slotId),
-            ),
-            ...input.attachmentStaging.localAttachments,
-          ];
-        }
-        const history = historyFor(input.document.id);
-        if (input.historyCheckpoint) {
-          const coveredIds = new Set(input.historyCheckpoint.coveredTailIds);
-          history.checkpoint = {
-            endVersionVector: input.historyCheckpoint.endVersionVector,
-            snapshot: input.historyCheckpoint.snapshot,
-          };
-          history.tail = history.tail.filter(({ id }) => !coveredIds.has(id));
-        }
-        for (const updateData of input.historyUpdates ?? []) {
-          history.tail.push({
-            id: crypto.randomUUID(),
-            origin: input.historyUpdateOrigin ?? "local",
-            updateData,
-          });
-        }
-        if (input.pendingUpdate) {
-          pendingUpdates.push({
-            id: crypto.randomUUID(),
-            ...input.pendingUpdate,
-          });
-          history.tail.push({
-            id: crypto.randomUUID(),
-            origin: "local",
-            updateData: input.pendingUpdate.updateData,
-          });
-        }
-        const acceptedIds = new Set(input.acceptedPendingUpdateIds);
-        pendingUpdates = pendingUpdates.filter(
-          ({ id }) => !acceptedIds.has(id),
-        );
-        document = input.document;
-        await saveClientProjection(execSql, updatedAt);
-        return { committed: true, updatedAt };
-      } catch (error) {
-        document = previousDocument;
-        pendingUpdates = previousPendingUpdates;
-        localAttachments = previousLocalAttachments;
-        pendingAttachments = previousPendingAttachments;
-        historyByLocalId.set(input.document.id, previousHistory);
-        throw error;
-      }
+      return commitMemoryDocumentMutation({
+        execSql,
+        getState: () => ({
+          document,
+          localAttachments,
+          pendingAttachments,
+          pendingUpdates,
+        }),
+        historyByLocalId,
+        mutation: input,
+        replaceState: (nextState) => {
+          document = nextState.document;
+          localAttachments = nextState.localAttachments;
+          pendingAttachments = nextState.pendingAttachments;
+          pendingUpdates = nextState.pendingUpdates;
+        },
+        saveClientProjection,
+      });
     },
     async settleAcceptedPendingUpdates(_execSql, input) {
       if (
         document?.documentId === input.expectedRecord.documentId &&
-        document.accessEpoch === input.expectedRecord.accessEpoch
+        document.accessEpoch === input.expectedRecord.accessEpoch &&
+        memoryDocumentRecoveryGenerationMatches(document, input.expectedRecord)
       ) {
         const acceptedIds = new Set(input.pendingUpdateIds);
         pendingUpdates = pendingUpdates.filter(
@@ -190,12 +122,23 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async findDocumentLocalIdsByContainerId(_execSql, containerId) {
       return document?.containerId === containerId ? [document.id] : [];
     },
+    async findLocalIdByDocumentId(_execSql, documentId) {
+      return document?.documentId === documentId ? document.id : null;
+    },
     async hasDocument(_execSql, localId) {
       return document?.id === localId;
     },
-    async documentIdentityMatches(_execSql, localId, expectedDocumentId) {
-      return (
-        document?.id === localId && document.documentId === expectedDocumentId
+    async documentIdentityMatches(
+      _execSql,
+      localId,
+      expectedDocumentId,
+      expectedRecoveryGeneration,
+    ) {
+      return memoryDocumentWriteFenceMatches(
+        document,
+        localId,
+        expectedDocumentId,
+        expectedRecoveryGeneration,
       );
     },
     getState() {
@@ -221,7 +164,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!document) {
         return [];
       }
-
       const containerIds = new Set(input.containerIds);
       const documentIds = new Set(input.documentIds);
       const containerMatches =
@@ -231,7 +173,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!containerMatches && !documentMatches) {
         return [];
       }
-
       return [
         {
           id: document.id,
@@ -260,7 +201,8 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         : undefined;
     },
     async saveDocument(_execSql, nextDocument) {
-      document = nextDocument;
+      if (canSaveMemoryDocument(document, nextDocument))
+        document = nextDocument;
       return "2026-04-06T00:00:00.000Z";
     },
     async saveDocumentAndDeletePendingUpdates(
@@ -268,6 +210,9 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       nextDocument,
       pendingUpdateIds,
     ) {
+      if (!canSaveMemoryDocument(document, nextDocument)) {
+        return "2026-04-06T00:00:00.000Z";
+      }
       const acceptedPendingUpdateIds = new Set(pendingUpdateIds);
       document = nextDocument;
       pendingUpdates = pendingUpdates.filter(
@@ -334,11 +279,11 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         containerId: input.containerId,
         documentId: input.documentId,
         id: document?.id ?? input.documentId,
+        recoveryGeneration: document?.recoveryGeneration ?? 0,
         snapshotEndVersion: document?.snapshotEndVersion ?? "",
         text: document?.text ?? "",
       };
       document = nextDocument;
-
       return {
         id: nextDocument.id,
         containerId: nextDocument.containerId,
@@ -351,7 +296,6 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       if (!document || document.id !== input.localId) {
         return null;
       }
-
       document = {
         ...document,
         accessEpoch: Math.max(document.accessEpoch, input.accessEpoch),
@@ -389,30 +333,20 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async listLocalAttachments() {
       return localAttachments;
     },
-    async enqueuePendingUpdate(_execSql, pendingUpdate: PendingUpdateInsert) {
-      pendingUpdates = [
-        ...pendingUpdates,
-        {
-          id: crypto.randomUUID(),
-          partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-          partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-          sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      // Mirror the SQL persistence: every enqueued update is dual-written to
-      // the durable-history tail in the same transaction, so a restore
-      // rebuilds queued-but-unsynced local edits from checkpoint + tail.
-      const history = historyFor(pendingUpdate.localId);
-      history.tail = [
-        ...history.tail,
-        {
-          id: crypto.randomUUID(),
-          origin: "local",
-          updateData: pendingUpdate.updateData,
-        },
-      ];
-      return true;
+    async enqueuePendingUpdate(
+      _execSql,
+      pendingUpdate: PendingUpdateInsert,
+      options,
+    ) {
+      const result = enqueueMemoryPendingUpdate({
+        document,
+        historyByLocalId,
+        options,
+        pendingUpdate,
+        pendingUpdates,
+      });
+      pendingUpdates = result.pendingUpdates;
+      return result.enqueued;
     },
     async deletePendingUpdate(_execSql, id: string) {
       pendingUpdates = pendingUpdates.filter(

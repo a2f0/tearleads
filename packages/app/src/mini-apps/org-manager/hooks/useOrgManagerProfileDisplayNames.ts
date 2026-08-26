@@ -15,6 +15,7 @@ import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
   getRosterProfileDocumentBindingKey,
+  getRosterProfileDocumentIds,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 
@@ -79,6 +80,9 @@ function startLocalProfileDisplayNameLoad(input: {
   if (profileBindingsByLocalId.size === 0) {
     return;
   }
+  const profileDocumentIds = getRosterProfileDocumentIds(
+    profileBindingsByLocalId,
+  );
   let cancelled = false;
   let loadSequence = 0;
   const reload = async () => {
@@ -104,7 +108,7 @@ function startLocalProfileDisplayNameLoad(input: {
     }
   };
   const unsubscribe = input.symcrypt.documents.subscribe((document) => {
-    if (profileBindingsByLocalId.has(document.id)) {
+    if (document.documentId && profileDocumentIds.has(document.documentId)) {
       void reload();
     }
   });
