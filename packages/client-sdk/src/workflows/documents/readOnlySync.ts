@@ -411,7 +411,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
       },
     };
   } catch (error) {
-    if (input.historyMode === "raw" && input.pullContinuation !== undefined) {
+    if (input.historyMode === "raw") {
       throw error;
     }
     return { kind: "not_completed" };

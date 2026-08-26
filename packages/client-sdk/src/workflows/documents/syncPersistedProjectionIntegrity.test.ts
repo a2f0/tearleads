@@ -48,6 +48,8 @@ function readOnlySyncApi(input: {
   fixture: Awaited<ReturnType<typeof createReadOnlyResponseFixture>>;
   onProjectionEviction?: ((documentId: string) => void) | undefined;
   onProjectionFetch: () => void;
+  onSync?: (() => void) | undefined;
+  zeroUpdateDocumentId?: string | undefined;
 }) {
   return {
     evictDocumentWriterProjection: (documentId: string) => {
@@ -63,6 +65,7 @@ function readOnlySyncApi(input: {
       documentId: string,
       request: { localVersionVector: string | null },
     ) => {
+      input.onSync?.();
       const plan = await buildDocumentSyncPlan({
         author: input.fixture.author,
         contentKeyBundle: input.fixture.writerProjection.contentKeyBundle,
@@ -73,16 +76,21 @@ function readOnlySyncApi(input: {
       });
       return createSyncResponse(
         { ...plan, documentId, request: request as typeof plan.request },
-        {
-          updates: [
-            {
-              ...input.fixture.update,
-              ...(input.corruptUpdate
-                ? { encryptedData: "invalid-if-decryption-is-reached" }
-                : {}),
+        input.zeroUpdateDocumentId
+          ? {
+              documentId: input.zeroUpdateDocumentId,
+              updates: [],
+            }
+          : {
+              updates: [
+                {
+                  ...input.fixture.update,
+                  ...(input.corruptUpdate
+                    ? { encryptedData: "invalid-if-decryption-is-reached" }
+                    : {}),
+                },
+              ],
             },
-          ],
-        },
       );
     },
   };
@@ -189,6 +197,45 @@ test.each([
     expect(projectionFetches).toBe(expectedProjectionFetches);
     expect(projectionEvictions).toBe(1);
     expect(synced?.writerProjection).toBe(fixture.writerProjection);
+  } finally {
+    close();
+  }
+});
+
+test("raw history rejects an invalid zero-update first page without resubmitting", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-raw-history-invalid-empty-first-page",
+  );
+  let submissions = 0;
+
+  try {
+    const sync = syncRemoteDocument({
+      apiClient: readOnlySyncApi({
+        fixture,
+        onProjectionFetch: () => undefined,
+        onSync: () => {
+          submissions += 1;
+        },
+        zeroUpdateDocumentId: "550e8400-e29b-41d4-a716-446655440999",
+      }),
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      persistedState: persistedStateFromProjection(fixture.writerProjection),
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      resolveWriterPublicKey: writerKeyResolver(fixture),
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+    });
+
+    await expect(sync).rejects.toMatchObject({
+      code: "invalid_shape",
+      message: "Document sync response document id mismatch",
+    });
+    expect(submissions).toBe(1);
   } finally {
     close();
   }
