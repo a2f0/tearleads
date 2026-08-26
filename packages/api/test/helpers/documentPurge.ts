@@ -3,7 +3,10 @@ import type {
   DocumentAccessEventBody,
   DocumentPurgeAccessEventBody,
 } from "@symcrypt/crypto";
-import type { DocumentPurgeRequest } from "@symcrypt/validators/request";
+import type {
+  AccessManifestBundleWire,
+  DocumentPurgeRequest,
+} from "@symcrypt/validators/request";
 import { routeApp } from "../../src/routeApp";
 import {
   asVerifiedContainerManifest,
@@ -12,11 +15,17 @@ import {
 } from "./keyingWriterProjectionKit";
 
 export async function buildDocumentPurgeRequest(input: {
+  readonly authorizingContainerPath?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
   readonly documentId: string;
   readonly documentManifestHash: string;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentPurgeRequest> {
+  const authorizingContainerPath = input.authorizingContainerPath ?? [
+    input.root.bundle,
+  ];
   const containerId = input.root.kekState.containerId;
   const containerManifestHash = input.root.bundle.manifestHash;
   const body: DocumentPurgeAccessEventBody = {
@@ -37,18 +46,19 @@ export async function buildDocumentPurgeRequest(input: {
   });
 
   return {
-    authorizingContainerPathRefs: [
-      {
-        containerId,
-        manifestHash: containerManifestHash,
-      },
-    ],
+    authorizingContainerPathRefs: authorizingContainerPath.map((bundle) => ({
+      containerId: asVerifiedContainerManifest(bundle).state.containerId,
+      manifestHash: bundle.manifestHash,
+    })),
     body: body as unknown as Record<string, unknown>,
     event: event.event as unknown as Record<string, unknown>,
   };
 }
 
 export async function postDocumentPurge(input: {
+  readonly authorizingContainerPath?:
+    | readonly AccessManifestBundleWire[]
+    | undefined;
   readonly documentId: string;
   readonly documentManifestHash: string;
   readonly owner: TestUser;

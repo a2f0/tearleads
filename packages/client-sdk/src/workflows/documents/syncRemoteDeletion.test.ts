@@ -1,12 +1,17 @@
 import { expect, test } from "bun:test";
+import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
+import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
+  fixtureHash,
 } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import { enforceAccessManifestCheckpoints } from "../../data/keyingProjectionVerification/accessManifestCheckpointEnforcement";
+import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -54,6 +59,97 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   expect(synced).toBeNull();
   expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
   expect(reportedErrors).toEqual([]);
+});
+
+test("a valid purge proof preserves a newer container checkpoint", async () => {
+  const {
+    author,
+    projection,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
+  const purgeContainerManifest = projection.path.at(-1);
+  if (!purgeContainerManifest) {
+    throw new Error("Expected purge container projection");
+  }
+  const newerContainerManifest = await createContainerRevokeManifestFixture({
+    author,
+    containerId: projection.containerId,
+    containerKeyEpochId: "container-key-epoch-after-purge",
+    eventId: "container-revoke-after-document-purge",
+    keyringHash: await fixtureHash("purge-newer-container-keyring"),
+    organizationId: projection.organizationId,
+    predecessorBridgeHash: await fixtureHash(
+      "purge-newer-container-predecessor-bridge",
+    ),
+    previousManifest:
+      purgeContainerManifest as unknown as VerifiedContainerAccessManifest,
+    signingPublicKey,
+    subjectId: author.signerUserId,
+    subjectType: "user",
+  });
+  const deletedDocumentIds: string[] = [];
+  const { close, execSql } = await createTestExecSql(
+    "purge-proof-newer-container-checkpoint",
+  );
+
+  try {
+    await enforceAccessManifestCheckpoints({
+      execSql,
+      policies: [],
+      verifiedHeads: [newerContainerManifest],
+      verifiedManifests: [newerContainerManifest],
+    });
+
+    const synced = await syncRemoteDocument({
+      apiClient: {
+        getDocumentPurgeProof: async () => purgeProof,
+        getDocumentWriterProjection: async () => {
+          throw new Error("Expected getDocumentWriterProjectionResult");
+        },
+        getDocumentWriterProjectionResult: async () => ({
+          code: DOCUMENT_NOT_FOUND_ERROR_CODE,
+          message: "Document not found",
+          ok: false,
+          report: () => undefined,
+          status: 404,
+        }),
+        syncDocument: async () => {
+          throw new Error("Unexpected syncDocument call");
+        },
+      },
+      author,
+      documentId: writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      onRemoteDocumentDeleted: ({ documentId }) => {
+        deletedDocumentIds.push(documentId);
+      },
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: async () => null,
+      targetSecretKey: secretKey,
+    });
+
+    expect(synced).toBeNull();
+    expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        projection.organizationId,
+        projection.containerId,
+      ),
+    ).resolves.toMatchObject({
+      epoch: newerContainerManifest.state.epoch,
+      manifestHash: newerContainerManifest.manifestHash,
+    });
+  } finally {
+    close();
+  }
 });
 
 test("syncRemoteDocument rejects a coded document 404 with an invalid purge proof", async () => {

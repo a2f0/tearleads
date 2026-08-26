@@ -92,7 +92,10 @@ async function verifyPurgeContainerPaths(input: {
   const authorizingContainerPath = await verifyContainerManifestPath({
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    enforceLocalCheckpoints: true,
+    // This was the authorizing head when the terminal purge event was signed,
+    // not a claim about the container's current head. A container can advance
+    // (including by revocation) before an offline replica receives the proof.
+    enforceLocalCheckpoints: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -141,7 +144,7 @@ async function verifyPurgeContainerPaths(input: {
     manifests: verifiedByHash,
   });
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: [authorizingLeaf],
+    verifiedHeads: [],
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,

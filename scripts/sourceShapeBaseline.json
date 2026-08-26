@@ -181,10 +181,6 @@
       "lines": 530,
       "bytes": 16424
     },
-    "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
-      "lines": 546,
-      "bytes": 18102
-    },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1142,
       "bytes": 39493

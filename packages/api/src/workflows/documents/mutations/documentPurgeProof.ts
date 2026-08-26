@@ -7,6 +7,7 @@ import type {
 } from "@symcrypt/crypto";
 import {
   normalizeDocumentPurgeAccessEventBody,
+  resolveContainerPathUserAccessLevel,
   verifyDocumentPurgeEvent,
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
@@ -20,7 +21,6 @@ import {
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
-  resolveContainerAccessProjection,
 } from "../../containers/writerProjection";
 import { loadContainerManifestBundleByHash } from "../../containers/writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../containers/writerProjection/storedManifestVerification";
@@ -132,7 +132,12 @@ async function verifyProofMaterial(input: {
       keyingVerificationHttpStatus(verified.error),
     );
   }
-  return { body, material };
+  return {
+    authorizingContainerPath,
+    body,
+    material,
+    principalPolicies,
+  };
 }
 
 export async function loadDocumentPurgeProof(input: {
@@ -154,24 +159,24 @@ export async function loadDocumentPurgeProof(input: {
     event: storedEvent,
     executor: input.executor,
   });
-  const { body, material } = await verifyProofMaterial({
-    documentId: input.documentId,
-    event,
-    executor: input.executor,
-  });
-
-  try {
-    await resolveContainerAccessProjection({
-      containerId: body.containerId,
+  const { authorizingContainerPath, body, material, principalPolicies } =
+    await verifyProofMaterial({
+      documentId: input.documentId,
+      event,
       executor: input.executor,
-      minimumAccessLevel: "read",
-      userId: input.userId,
     });
-  } catch (error) {
-    if (error instanceof ContainerWriterProjectionError) {
-      throw new DocumentMutationError(error.message, error.status);
-    }
-    throw error;
+
+  // A purge proof is terminal history, not a claim about the container's
+  // current state. A replica that had access when the purge was signed must
+  // still be able to learn that it should delete its local copy after the user
+  // is revoked or the container itself is deleted.
+  const historicalAccessLevel = resolveContainerPathUserAccessLevel({
+    path: authorizingContainerPath,
+    principalPolicies,
+    userId: input.userId,
+  });
+  if (historicalAccessLevel === null) {
+    throw new DocumentMutationError("Forbidden", 403);
   }
 
   const [tombstone] = await input.executor

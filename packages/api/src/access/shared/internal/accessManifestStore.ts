@@ -144,6 +144,8 @@ export async function storeVerifiedAccessEventInTransaction(
   tx: DatabaseTransaction,
 ): Promise<VerifiedAccessEvent> {
   await insertAccessEvent(verifiedEvent, tx);
+  const storedEvent = await loadAccessEventRow(verifiedEvent.eventHash, tx);
+  await regenerateAccessEventDependencyProjection(storedEvent, tx);
   return verifiedEvent;
 }
 
