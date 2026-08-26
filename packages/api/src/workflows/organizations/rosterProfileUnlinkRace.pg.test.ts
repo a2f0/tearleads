@@ -9,10 +9,7 @@ import { createTestUser } from "@symcrypt/bob-and-alice";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
-import {
-  buildDocumentLinkRequest,
-  buildDocumentUnlinkRequest,
-} from "../../../test/helpers/documentLinkMutation";
+import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   asVerifiedContainerManifest,
@@ -36,10 +33,6 @@ async function createRaceFixture() {
   const root = await bootstrapRoot(owner);
   const organizationId = asVerifiedContainerManifest(root.bundle).state
     .organizationId;
-  const rosterContainer = await createChildContainer({
-    parent: root,
-    signer: owner,
-  });
   await db
     .update(containers)
     .set({
@@ -47,35 +40,27 @@ async function createRaceFixture() {
         organizationId,
       }),
     })
-    .where(eq(containers.id, rosterContainer.containerId));
-  const profile = await createDocument({ owner, root });
-  const linked = await runDocumentLinkSetMutationWorkflow(db, {
-    documentId: profile.id,
-    eventType: "document.link",
-    fingerprint: owner.fingerprint,
-    request: await buildDocumentLinkRequest({
-      child: rosterContainer,
-      createdDocument: profile,
-      owner,
-      root,
-    }),
-    userId: owner.userId,
+    .where(eq(containers.id, root.kekState.containerId));
+  const secondContainer = await createChildContainer({
+    parent: root,
+    signer: owner,
   });
-  const unlinkRequest = await buildDocumentUnlinkRequest({
-    child: rosterContainer,
-    linkedDocument: linked.response,
+  const profile = await createDocument({ owner, root });
+  const linkRequest = await buildDocumentLinkRequest({
+    child: secondContainer,
+    createdDocument: profile,
     owner,
     root,
   });
-  return { organizationId, owner, profile, rosterContainer, unlinkRequest };
+  return { linkRequest, organizationId, owner, profile, secondContainer };
 }
 
-function runUnlink(fixture: Awaited<ReturnType<typeof createRaceFixture>>) {
+function runLink(fixture: Awaited<ReturnType<typeof createRaceFixture>>) {
   return runDocumentLinkSetMutationWorkflow(db, {
     documentId: fixture.profile.id,
-    eventType: "document.unlink",
+    eventType: "document.link",
     fingerprint: fixture.owner.fingerprint,
-    request: fixture.unlinkRequest,
+    request: fixture.linkRequest,
     userId: fixture.owner.userId,
   });
 }
@@ -103,7 +88,7 @@ async function loadRaceState(
 }
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
-  "a roster bind that owns the organization lock makes a racing unlink fail",
+  "a roster bind that owns the organization lock makes a racing link fail",
   async () => {
     const fixture = await createRaceFixture();
     const rosterEntryLock = await holdPostgresLock(async (tx) => {
@@ -130,14 +115,14 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       { profileDocumentId: fixture.profile.id },
     );
 
-    let unlink: ReturnType<typeof runUnlink> | undefined;
+    let link: ReturnType<typeof runLink> | undefined;
     let synchronizationError: unknown;
     try {
       await waitForPostgresLockWait({
         blockerPid: rosterEntryLock.backendPid,
         queryFragment: "organization_roster_entries",
       });
-      unlink = runUnlink(fixture);
+      link = runLink(fixture);
       await waitForPostgresLockWait({
         blockerPid: rosterEntryLock.backendPid,
         queryFragment: "organization_read_model_heads",
@@ -147,8 +132,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     } finally {
       await rosterEntryLock.release();
     }
-    const unlinkResult = await (
-      unlink ?? Promise.reject(synchronizationError)
+    const linkResult = await (
+      link ?? Promise.reject(synchronizationError)
     ).then(
       () => {
         return { kind: "fulfilled" as const };
@@ -161,19 +146,16 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     if (synchronizationError) {
       throw synchronizationError;
     }
-    expect(unlinkResult).toMatchObject({
+    expect(linkResult).toMatchObject({
       error: {
         message:
-          "Bound roster profile documents must remain in the roster profile container",
+          "Bound roster profile documents must remain exclusively in the roster profile container",
         status: 409,
       },
       kind: "rejected",
     });
     expect(await loadRaceState(fixture)).toEqual({
-      linkedContainerIds: [
-        fixture.owner.rootContainerId,
-        fixture.rosterContainer.containerId,
-      ].sort(),
+      linkedContainerIds: [fixture.owner.rootContainerId],
       profileDocumentId: fixture.profile.id,
     });
   },
@@ -181,7 +163,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
 );
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
-  "an unlink that owns the organization lock makes a racing roster bind fail",
+  "a link that owns the document lock makes a racing roster bind fail",
   async () => {
     const fixture = await createRaceFixture();
     const documentLock = await holdAccessManifestHeadForUpdate({
@@ -189,7 +171,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       objectKind: "document",
     });
 
-    const unlink = runUnlink(fixture);
+    const link = runLink(fixture);
 
     let bind:
       | ReturnType<typeof runUpdateOrganizationRosterEntryWorkflow>
@@ -226,17 +208,20 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         return { error, kind: "rejected" as const };
       },
     );
-    const unlinkResult = await unlink;
+    const linkResult = await link;
     if (synchronizationError) {
       throw synchronizationError;
     }
-    expect(unlinkResult.response.id).toBe(fixture.profile.id);
+    expect(linkResult.response.id).toBe(fixture.profile.id);
     expect(bindResult).toMatchObject({
       error: { status: 400 },
       kind: "rejected",
     });
     expect(await loadRaceState(fixture)).toEqual({
-      linkedContainerIds: [fixture.owner.rootContainerId],
+      linkedContainerIds: [
+        fixture.owner.rootContainerId,
+        fixture.secondContainer.containerId,
+      ].sort(),
       profileDocumentId: null,
     });
   },

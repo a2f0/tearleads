@@ -292,8 +292,11 @@ export async function isOrganizationRosterProfileDocumentForUser(input: {
     await deriveOrganizationRosterProfileContainerSystemSlot({
       organizationId: input.organizationId,
     });
-  const [link] = await input.executor
-    .select({ objectId: accessManifestHeads.objectId })
+  const links = await input.executor
+    .select({
+      organizationId: containers.organizationId,
+      systemSlot: containers.systemSlot,
+    })
     .from(accessManifestHeads)
     .innerJoin(
       accessManifestDocumentLinkProjection,
@@ -325,13 +328,14 @@ export async function isOrganizationRosterProfileDocumentForUser(input: {
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, input.profileDocumentId),
         eq(accessManifestHeads.organizationId, input.organizationId),
-        eq(containers.organizationId, input.organizationId),
-        eq(containers.systemSlot, rosterProfileSystemSlot),
       ),
-    )
-    .limit(1);
+    );
 
-  return Boolean(link);
+  return (
+    links.length === 1 &&
+    links[0]?.organizationId === input.organizationId &&
+    links[0].systemSlot === rosterProfileSystemSlot
+  );
 }
 
 export async function isOrganizationRosterProfileDocument(input: {
@@ -343,8 +347,11 @@ export async function isOrganizationRosterProfileDocument(input: {
     await deriveOrganizationRosterProfileContainerSystemSlot({
       organizationId: input.organizationId,
     });
-  const [link] = await input.executor
-    .select({ objectId: accessManifestHeads.objectId })
+  const links = await input.executor
+    .select({
+      organizationId: containers.organizationId,
+      systemSlot: containers.systemSlot,
+    })
     .from(accessManifestHeads)
     .innerJoin(
       accessManifestDocumentLinkProjection,
@@ -368,11 +375,12 @@ export async function isOrganizationRosterProfileDocument(input: {
         eq(accessManifestHeads.objectKind, "document"),
         eq(accessManifestHeads.objectId, input.profileDocumentId),
         eq(accessManifestHeads.organizationId, input.organizationId),
-        eq(containers.organizationId, input.organizationId),
-        eq(containers.systemSlot, rosterProfileSystemSlot),
       ),
-    )
-    .limit(1);
+    );
 
-  return Boolean(link);
+  return (
+    links.length === 1 &&
+    links[0]?.organizationId === input.organizationId &&
+    links[0].systemSlot === rosterProfileSystemSlot
+  );
 }

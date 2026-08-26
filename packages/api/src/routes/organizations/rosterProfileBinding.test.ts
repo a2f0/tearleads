@@ -8,15 +8,11 @@ import {
 } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
-import { isDocumentLinkSetMutationResponse } from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
-import {
-  buildDocumentLinkRequest,
-  buildDocumentUnlinkRequest,
-} from "../../../test/helpers/documentLinkMutation";
+import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -183,7 +179,7 @@ test("a bound roster profile document cannot be purged", async () => {
   expect(binding?.profileDocumentId).toBe(profile.id);
 });
 
-test("a bound roster profile document cannot leave its roster container", async () => {
+test("a multiply linked document cannot become a roster profile", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
   const root = await bootstrapRoot(actor);
@@ -218,11 +214,44 @@ test("a bound roster profile document cannot leave its roster container", async 
     },
   );
   expect(linkResponse.status).toBe(200);
-  const linkedDocument = await linkResponse.json();
-  invariant(
-    isDocumentLinkSetMutationResponse(linkedDocument),
-    "expected linked document",
+
+  const bindResponse = await routeApp.request(
+    `/organizations/${organizationId}/roster/${actor.userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: createdDocument.id }),
+    },
   );
+  expect(bindResponse.status).toBe(400);
+  const [binding] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, organizationId),
+        eq(organizationRosterEntries.userId, actor.userId),
+      ),
+    );
+  expect(binding?.profileDocumentId).toBeNull();
+});
+
+test("a bound roster profile cannot gain another container link", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const root = await bootstrapRoot(actor);
+  await db
+    .update(containers)
+    .set({
+      systemSlot: await deriveOrganizationRosterProfileContainerSystemSlot({
+        organizationId,
+      }),
+    })
+    .where(eq(containers.id, root.kekState.containerId));
+  const createdDocument = await createDocument({ owner: actor, root });
   const bindResponse = await routeApp.request(
     `/organizations/${organizationId}/roster/${actor.userId}`,
     {
@@ -236,36 +265,40 @@ test("a bound roster profile document cannot leave its roster container", async 
   );
   expect(bindResponse.status).toBe(200);
 
-  const unlinkRequest = await buildDocumentUnlinkRequest({
-    child: rosterContainer,
-    linkedDocument,
+  const secondContainer = await createChildContainer({
+    parent: root,
+    signer: actor,
+  });
+  const linkRequest = await buildDocumentLinkRequest({
+    child: secondContainer,
+    createdDocument,
     owner: actor,
     root,
   });
-  const unlinkResponse = await routeApp.request(
-    `/documents/${createdDocument.id}/unlink`,
+  const linkResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/link`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${actor.token}`,
       },
-      body: JSON.stringify(unlinkRequest),
+      body: JSON.stringify(linkRequest),
     },
   );
 
-  expect(unlinkResponse.status).toBe(409);
-  expect(await unlinkResponse.json()).toEqual({
+  expect(linkResponse.status).toBe(409);
+  expect(await linkResponse.json()).toEqual({
     error:
-      "Bound roster profile documents must remain in the roster profile container",
+      "Bound roster profile documents must remain exclusively in the roster profile container",
   });
   const links = await db
     .select({ containerId: documentContainerLinks.containerId })
     .from(documentContainerLinks)
     .where(eq(documentContainerLinks.documentId, createdDocument.id));
-  expect(links.map((link) => link.containerId).sort()).toEqual(
-    [root.kekState.containerId, rosterContainer.containerId].sort(),
-  );
+  expect(links.map((link) => link.containerId)).toEqual([
+    root.kekState.containerId,
+  ]);
 });
 
 test("admin bindings reject a document outside the roster container", async () => {

@@ -100,6 +100,13 @@ export async function findLocalIdByDocumentId(
     WHERE ${documentPendingUpdates.appKind} = ${documents.appKind}
       AND ${documentPendingUpdates.localId} = ${documents.localId}
   )`;
+  const hasPendingLocalWork = sql<number>`(
+    ${hasPendingUpdates}
+    OR (
+      ${documents.pendingBaseVersion} IS NOT NULL
+      AND ${documents.pendingBaseVersion} <> ${documents.snapshotEndVersion}
+    )
+  )`;
   const rows = await db
     .select({ localId: documents.localId })
     .from(documents)
@@ -107,9 +114,9 @@ export async function findLocalIdByDocumentId(
       and(eq(documents.appKind, appKind), eq(documents.documentId, documentId)),
     )
     // Duplicate remote identities can survive an interrupted local adoption.
-    // Preserve the row carrying unsynced edits, then make the fallback stable.
+    // Preserve queued or deferred edits, then make the fallback stable.
     .orderBy(
-      desc(hasPendingUpdates),
+      desc(hasPendingLocalWork),
       desc(documents.updatedAt),
       desc(documents.localId),
     )

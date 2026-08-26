@@ -59,10 +59,10 @@ edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
 `loadDocumentStoreState(...)` must return the canonical record, history, and
 attachment rows from one database snapshot so startup cannot cross a relink.
-`findLocalIdByDocumentId(...)` must preserve a duplicate row carrying pending
-edits; otherwise it selects deterministically by descending update time and
-local id. This lets a restarted store adopt the same local owner without
-discarding unsynced work.
+`findLocalIdByDocumentId(...)` must preserve a duplicate row carrying queued
+updates or a deferred-sync frontier behind its snapshot; otherwise it selects
+deterministically by descending update time and local id. This lets a restarted
+store adopt the same local owner without discarding unsynced work.
 `deleteDocumentSideRowsIfAbsent(...)` likewise owns one transaction spanning
 the canonical absence check and orphaned side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue

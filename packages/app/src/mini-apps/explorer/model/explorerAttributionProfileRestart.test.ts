@@ -73,16 +73,34 @@ test("restart hydration adopts the canonical profile row and its pending edits",
       initialDocumentKind: "contact",
       localId: canonicalLocalId,
     });
-    await editor.setStructuredFields("contact", {
-      firstName: "Grace",
-      lastName: "Hopper",
-    });
+    await editor.setStructuredFields(
+      "contact",
+      {
+        firstName: "Grace",
+        lastName: "Hopper",
+      },
+      { deferRemoteSync: true },
+    );
+    // Opening the remote identity seeds one initialization update. Remove that
+    // unrelated row so selection is forced to recognize the deferred frontier.
+    await defaultDocumentsPersistence.deletePendingUpdates(
+      database.execSql,
+      canonicalLocalId,
+    );
     expect(
       await defaultDocumentsPersistence.listPendingUpdates(
         database.execSql,
         canonicalLocalId,
       ),
-    ).not.toHaveLength(0);
+    ).toHaveLength(0);
+    const deferredProfile = await defaultDocumentsPersistence.loadDocument(
+      database.execSql,
+      canonicalLocalId,
+    );
+    expect(deferredProfile?.pendingBaseVersion).toBeDefined();
+    expect(deferredProfile?.pendingBaseVersion).not.toBe(
+      deferredProfile?.snapshotEndVersion,
+    );
     firstSdk.dispose();
     await defaultDocumentsPersistence.saveDocument(
       database.execSql,
@@ -132,7 +150,7 @@ test("restart hydration adopts the canonical profile row and its pending edits",
         database.execSql,
         canonicalLocalId,
       ),
-    ).not.toHaveLength(0);
+    ).toHaveLength(0);
     const profileDocuments =
       await defaultDocumentsPersistence.listDocumentSummaries(database.execSql);
     expect(

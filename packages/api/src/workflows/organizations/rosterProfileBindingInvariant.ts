@@ -59,9 +59,9 @@ export async function assertRosterProfileBindingPreserved(input: {
       ),
     )
     .limit(1);
-  if (!rosterContainer) {
+  if (!rosterContainer || linkedContainerIds.length !== 1) {
     throw new DocumentMutationError(
-      "Bound roster profile documents must remain in the roster profile container",
+      "Bound roster profile documents must remain exclusively in the roster profile container",
       409,
     );
   }

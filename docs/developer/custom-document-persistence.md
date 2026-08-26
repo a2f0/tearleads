@@ -45,7 +45,8 @@ snapshot. Startup installs that coherent state as a unit; adapters must not
 implement it as independent reads that can straddle a relink or key rotation.
 
 `findLocalIdByDocumentId(...)` resolves duplicate local rows for one remote
-document identity. It must prefer a row with pending edits, then use descending
+document identity. It must prefer a row with queued updates or a non-null
+`pendingBaseVersion` that differs from `snapshotEndVersion`, then use descending
 `updatedAt` and descending local id as deterministic tie-breakers. Restart and
 on-demand hydration use this result as the canonical local owner, so selecting
 a newer shell ahead of an edited row can strand unsynced work.
