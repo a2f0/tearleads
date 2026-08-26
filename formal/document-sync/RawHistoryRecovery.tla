@@ -23,6 +23,8 @@ EXTENDS Naturals
 (* install.                                                                  *)
 (* updateValid also covers unresolved dependencies in decryptable siblings:  *)
 (* unavailable ciphertext authenticates ranges, not an exact dependency set. *)
+(* A ValidatePage transition also carries that page's verified projection    *)
+(* state into the next frozen-cursor request; it is abstracted here.          *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 

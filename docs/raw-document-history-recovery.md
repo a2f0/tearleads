@@ -16,7 +16,8 @@ A raw consumer must:
 
 1. start with an empty scratch document;
 2. authenticate, decrypt, and poison-isolate every response update;
-3. retain the cursor only in memory and drain every bounded page;
+3. retain the cursor and each page's verified projection state only in memory,
+   then drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
 5. use a preliminary raw pull to prove each ordinary pending delta byte-for-byte
@@ -107,7 +108,7 @@ history for three updates, two epochs, and two pages.
 | Model action or state | Production implementation |
 | --- | --- |
 | `CommitPendingOrdinary` | bounded ordinary queue settlement before the raw pull that can publish |
-| `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import in `pullVerifiedRawHistoryForRotation` |
+| `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation` |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |

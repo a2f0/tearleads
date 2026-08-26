@@ -118,6 +118,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
   let pullContinuation: DocumentSyncPullContinuation | undefined;
+  let planningRecord = input.currentRecord;
   let writerProjection =
     input.state.writerProjection?.documentId === documentId
       ? input.state.writerProjection
@@ -144,7 +145,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
       }),
       onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
       pendingUpdates: [],
-      persistedState: input.currentRecord,
+      persistedState: planningRecord,
       pullContinuation,
       resolveProjectionUserKey: input.state.resolveProjectionUserKey,
       resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
@@ -179,6 +180,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
       );
     }
     pullContinuation = nextContinuation;
+    planningRecord = { ...planningRecord, ...synced.persistedState };
     writerProjection = synced.writerProjection;
   }
 }
