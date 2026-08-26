@@ -1,25 +1,27 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  accessSync,
+  constants,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import {
-  ensureChanges,
   MAX_BUFFER_BYTES,
   resolveReviewContext,
-  run,
   spawnExitCode,
 } from "../git/prContext";
+import { withPinnedReviewInput } from "./pinnedReviewInput";
 import {
   DEFAULT_CODEX_EFFORT,
   type ReviewEffort,
   resolveReviewEffort,
 } from "./reviewEffort";
-import {
-  buildReviewPrompt,
-  CODEX_ACCESS_NOTE,
-  readReviewInstructions,
-} from "./reviewPrompt";
+import { buildReviewPrompt, CODEX_ACCESS_NOTE } from "./reviewPrompt";
 import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
 
 /** How much transcript tail to relay when a codex attempt fails outright. */
@@ -30,11 +32,12 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * own prompt, so it carries no verdict line to gate on and interleaves its
  * findings with an investigative transcript. `exec` takes this repo's prompt —
  * the same verdict-gated one Claude reviews under — reading it from stdin
- * (`-`) to dodge argv limits. The sandbox is pinned read-only (the prompt is a
- * PR diff — attacker-influenceable text — and a review needs no writes), the
- * effort is pinned so the review never silently inherits
- * `~/.codex/config.toml`, and the final message is written alone to
- * `lastMessageFile`, so what gets relayed is the review, not the transcript.
+ * (`-`) to dodge argv limits. A custom permission profile denies the host
+ * filesystem by default and exposes only the immutable review snapshot plus
+ * Codex's minimal runtime paths. The effort is pinned so the review never
+ * silently inherits `~/.codex/config.toml`, and the final message is written
+ * alone to `lastMessageFile`, so what gets relayed is the review, not the
+ * transcript.
  *
  * `--ignore-user-config` keeps the session hermetic. The sandbox confines only
  * model-generated shell commands, so MCP servers configured in
@@ -46,31 +49,74 @@ const TRANSCRIPT_TAIL_CHARS = 2000;
  * and everything the review needs is pinned explicitly right here.
  * `--disable plugins/hooks/apps` closes the remaining gaps: plugin-provided
  * MCP servers, trusted hooks, and app connectors all live outside
- * `config.toml`, so ignoring the config alone would leave them active.
+ * `config.toml`, so ignoring the config alone would leave them active. Hosted
+ * web search is disabled separately because it is not governed by the sandbox
+ * network permission.
+ * Codex also runs ephemerally from a temporary non-repository cwd so
+ * branch-controlled AGENTS.md files are not injected into its prompt. Model
+ * commands inherit no host environment, and strict config validation makes an
+ * unsupported permission profile fail closed.
  */
 export function buildCodexReviewArgs(
   effort: ReviewEffort,
   lastMessageFile: string,
+  snapshotRoot: string,
+  codexRuntimeRoot: string,
 ): string[] {
+  const readableRoots = [...new Set([codexRuntimeRoot, snapshotRoot])];
+  const filesystemPermissions = [
+    '":root"="deny"',
+    '":minimal"="read"',
+    ...readableRoots.map((root) => `${JSON.stringify(root)}="read"`),
+  ];
   return [
     "exec",
     "--ignore-user-config",
+    "--ignore-rules",
+    "--strict-config",
+    "--ephemeral",
     "--disable",
     "plugins",
     "--disable",
     "hooks",
     "--disable",
     "apps",
-    "--sandbox",
-    "read-only",
+    "--skip-git-repo-check",
     "-c",
     `model_reasoning_effort="${effort}"`,
+    "-c",
+    'web_search="disabled"',
+    "-c",
+    'default_permissions="review-snapshot"',
+    "-c",
+    `permissions.review-snapshot.filesystem={${filesystemPermissions.join(",")}}`,
+    "-c",
+    "permissions.review-snapshot.network.enabled=false",
+    "-c",
+    'shell_environment_policy.inherit="none"',
     "--color",
     "never",
     "--output-last-message",
     lastMessageFile,
     "-",
   ];
+}
+
+function resolveCodexExecutable(env: ReviewerEnv): string {
+  const { PATH: pathValue } = env;
+  if (pathValue === undefined) {
+    return "codex";
+  }
+  for (const pathEntry of pathValue.split(path.delimiter)) {
+    const candidate = path.resolve(pathEntry || ".", "codex");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return realpathSync(candidate);
+    } catch {
+      // Continue through PATH exactly as the process launcher would.
+    }
+  }
+  return "codex";
 }
 
 /** Content of the last-message file, or "" when codex never wrote one. */
@@ -97,9 +143,12 @@ function readLastMessage(lastMessageFile: string): string {
 export function spawnCodexReview(
   prompt: string,
   effort: ReviewEffort,
+  snapshotRoot: string,
   env: ReviewerEnv = process.env,
 ): number {
   const outDir = mkdtempSync(path.join(tmpdir(), "agent-tool-codex-"));
+  const codexExecutable = resolveCodexExecutable(env);
+  const codexRuntimeRoot = path.dirname(codexExecutable);
   let attempt = 0;
   try {
     return relayReviewWithRetry("codex", () => {
@@ -108,13 +157,21 @@ export function spawnCodexReview(
       attempt += 1;
       const lastMessageFile = path.join(outDir, `review-${attempt}.md`);
       const result = spawnSync(
-        "codex",
-        buildCodexReviewArgs(effort, lastMessageFile),
+        codexExecutable,
+        buildCodexReviewArgs(
+          effort,
+          lastMessageFile,
+          snapshotRoot,
+          codexRuntimeRoot,
+        ),
         {
           stdio: ["pipe", "pipe", "pipe"],
           input: prompt,
           encoding: "utf8",
           maxBuffer: MAX_BUFFER_BYTES,
+          // Codex loads project AGENTS.md from its cwd. Keep cwd neutral and
+          // grant read-only access to the reviewed repository explicitly.
+          cwd: outDir,
           env,
         },
       );
@@ -144,15 +201,15 @@ export function solicitCodexReview(
 ): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CODEX_EFFORT);
   const context = resolveReviewContext();
-  ensureChanges(context.baseRef);
+  return withPinnedReviewInput(rootDir, context, (input) => {
+    const prompt = buildReviewPrompt({
+      context,
+      diff: input.diff,
+      reviewInstructions: input.reviewInstructions,
+      accessNote: CODEX_ACCESS_NOTE,
+      repositoryRoot: input.snapshotRoot,
+    });
 
-  const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);
-  const prompt = buildReviewPrompt({
-    context,
-    diff,
-    reviewInstructions: readReviewInstructions(rootDir),
-    accessNote: CODEX_ACCESS_NOTE,
+    return spawnCodexReview(prompt, effort, input.snapshotRoot);
   });
-
-  return spawnCodexReview(prompt, effort);
 }

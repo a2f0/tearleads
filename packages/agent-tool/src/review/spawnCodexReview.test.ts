@@ -29,6 +29,7 @@ const stubEnv: ReviewerEnv = { PATH: STUB_PATH };
 
 const countPath = path.join(stubDir, "count");
 const markerPath = path.join(stubDir, "flaked-once");
+const cwdPath = path.join(stubDir, "cwd");
 
 /**
  * Install a stub `codex` that writes `review` to whatever file follows
@@ -44,6 +45,7 @@ function stubCodex(
   writeFileSync(payloadPath, review);
   rmSync(countPath, { force: true });
   rmSync(markerPath, { force: true });
+  rmSync(cwdPath, { force: true });
   const writeReview = opts.flakyOnce
     ? [
         `if [ -f ${JSON.stringify(markerPath)} ]; then`,
@@ -57,6 +59,7 @@ function stubCodex(
   const script = [
     "#!/bin/sh",
     "cat > /dev/null", // drain the prompt on stdin, as the real CLI does
+    `pwd > ${JSON.stringify(cwdPath)}`,
     `printf 'x\\n' >> ${JSON.stringify(countPath)}`,
     'out=""',
     'prev=""',
@@ -91,7 +94,7 @@ describe("spawnCodexReview", () => {
   test("accepts a verdict-signed last message on the first attempt", () => {
     stubCodex("## Review\n\n- Minor: `a.ts:1` naming.\n\nVERDICT: MINOR\n");
 
-    expect(spawnCodexReview("prompt", "high", stubEnv)).toBe(0);
+    expect(spawnCodexReview("prompt", "high", stubDir, stubEnv)).toBe(0);
     expect(attempts()).toBe(1);
   });
 
@@ -107,7 +110,7 @@ describe("spawnCodexReview", () => {
       runnerPath,
       [
         `import { spawnCodexReview } from ${JSON.stringify(modulePath)};`,
-        `const code = spawnCodexReview("prompt", "high", { PATH: ${JSON.stringify(STUB_PATH)} });`,
+        `const code = spawnCodexReview("prompt", "high", ${JSON.stringify(stubDir)}, { PATH: ${JSON.stringify(STUB_PATH)} });`,
         `process.exit(code);`,
       ].join("\n"),
     );
@@ -117,24 +120,31 @@ describe("spawnCodexReview", () => {
     expect(relayed).toBe(review);
   });
 
+  test("runs outside the reviewed repository", () => {
+    stubCodex("## Review\n\nAll good.\n\nVERDICT: CLEAN\n");
+
+    expect(spawnCodexReview("prompt", "high", stubDir, stubEnv)).toBe(0);
+    expect(readFileSync(cwdPath, "utf8").trim()).not.toBe(stubDir);
+  });
+
   test("retries once, then rejects a last message with no verdict", () => {
     stubCodex("A rambling investigation that never concludes.\n");
 
-    expect(spawnCodexReview("prompt", "high", stubEnv)).toBe(1);
+    expect(spawnCodexReview("prompt", "high", stubDir, stubEnv)).toBe(1);
     expect(attempts()).toBe(MAX_REVIEW_ATTEMPTS);
   });
 
   test("recovers when the degenerate output does not repeat", () => {
     stubCodex("## Review\n\nFine.\n\nVERDICT: CLEAN\n", { flakyOnce: true });
 
-    expect(spawnCodexReview("prompt", "high", stubEnv)).toBe(0);
+    expect(spawnCodexReview("prompt", "high", stubDir, stubEnv)).toBe(0);
     expect(attempts()).toBe(2);
   });
 
   test("passes through a nonzero exit without retrying", () => {
     stubCodex("VERDICT: CLEAN\n", { exitCode: 2 });
 
-    expect(spawnCodexReview("prompt", "high", stubEnv)).toBe(2);
+    expect(spawnCodexReview("prompt", "high", stubDir, stubEnv)).toBe(2);
     expect(attempts()).toBe(1);
   });
 });

@@ -3,22 +3,39 @@ import { describe, expect, test } from "bun:test";
 import { buildCodexReviewArgs } from "./solicitCodexReview";
 
 describe("buildCodexReviewArgs", () => {
-  test("execs read-only with pinned effort, capturing the last message", () => {
-    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
+  test("execs ephemerally with pinned permissions and output", () => {
+    const args = buildCodexReviewArgs(
+      "high",
+      "/tmp/x/review-1.md",
+      "/repo/root",
+      "/opt/codex/bin",
+    );
 
     expect(args).toEqual([
       "exec",
       "--ignore-user-config",
+      "--ignore-rules",
+      "--strict-config",
+      "--ephemeral",
       "--disable",
       "plugins",
       "--disable",
       "hooks",
       "--disable",
       "apps",
-      "--sandbox",
-      "read-only",
+      "--skip-git-repo-check",
       "-c",
       'model_reasoning_effort="high"',
+      "-c",
+      'web_search="disabled"',
+      "-c",
+      'default_permissions="review-snapshot"',
+      "-c",
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/opt/codex/bin"="read","/repo/root"="read"}',
+      "-c",
+      "permissions.review-snapshot.network.enabled=false",
+      "-c",
+      'shell_environment_policy.inherit="none"',
       "--color",
       "never",
       "--output-last-message",
@@ -28,23 +45,51 @@ describe("buildCodexReviewArgs", () => {
   });
 
   test("withholds MCP tools: the sandbox does not confine them", () => {
-    // `--sandbox read-only` restricts shell commands only; user-configured MCP
+    // Legacy sandbox modes restrict shell commands only; user-configured MCP
     // servers would still load and could mutate external state on behalf of an
     // attacker-influenceable diff. `-c mcp_servers={}` cannot remove them —
     // table overrides merge — so the user config is ignored wholesale, and
     // plugins, hooks, and app connectors (all merged from outside config.toml)
     // are disabled by feature flag.
-    const args = buildCodexReviewArgs("high", "/tmp/x/review-1.md");
+    const args = buildCodexReviewArgs(
+      "high",
+      "/tmp/x/review-1.md",
+      "/repo/root",
+      "/opt/codex/bin",
+    );
 
     expect(args).toContain("--ignore-user-config");
     const disabled = args.filter(
       (_, i) => i > 0 && args[i - 1] === "--disable",
     );
     expect(disabled).toEqual(["plugins", "hooks", "apps"]);
+    expect(args).toContain('web_search="disabled"');
+  });
+
+  test("exposes only the snapshot and minimal runtime paths", () => {
+    const args = buildCodexReviewArgs(
+      "high",
+      "/tmp/x/review-1.md",
+      "/repo/root",
+      "/opt/codex/bin",
+    );
+
+    expect(args).toContain("--skip-git-repo-check");
+    expect(args).not.toContain("--sandbox");
+    expect(args).not.toContain("--add-dir");
+    expect(args).toContain(
+      'permissions.review-snapshot.filesystem={":root"="deny",":minimal"="read","/opt/codex/bin"="read","/repo/root"="read"}',
+    );
+    expect(args).toContain('shell_environment_policy.inherit="none"');
   });
 
   test("reads the prompt from stdin, never argv", () => {
-    const args = buildCodexReviewArgs("xhigh", "/tmp/x/review-1.md");
+    const args = buildCodexReviewArgs(
+      "xhigh",
+      "/tmp/x/review-1.md",
+      "/repo/root",
+      "/opt/codex/bin",
+    );
 
     // `-` must be the trailing positional: it is what makes codex read the
     // prompt (and its potentially argv-breaking diff) from stdin.

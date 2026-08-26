@@ -53,7 +53,7 @@ describe("review delivery", () => {
       runnerPath,
       [
         `import { spawnClaudeReview } from ${JSON.stringify(modulePath)};`,
-        `const code = spawnClaudeReview("prompt", "xhigh", { PATH: ${JSON.stringify(`${workDir}:/bin:/usr/bin`)} });`,
+        `const code = spawnClaudeReview("prompt", "xhigh", ${JSON.stringify(workDir)}, { PATH: ${JSON.stringify(`${workDir}:/bin:/usr/bin`)} });`,
         `process.exit(code);`,
       ].join("\n"),
     );

@@ -1,22 +1,18 @@
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 
 import {
-  ensureChanges,
   MAX_BUFFER_BYTES,
   resolveReviewContext,
-  run,
   spawnExitCode,
 } from "../git/prContext";
+import { withPinnedReviewInput } from "./pinnedReviewInput";
 import {
   DEFAULT_CLAUDE_EFFORT,
   type ReviewEffort,
   resolveReviewEffort,
 } from "./reviewEffort";
-import {
-  buildReviewPrompt,
-  CLAUDE_ACCESS_NOTE,
-  readReviewInstructions,
-} from "./reviewPrompt";
+import { buildReviewPrompt, CLAUDE_ACCESS_NOTE } from "./reviewPrompt";
 import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
 
 /**
@@ -30,15 +26,42 @@ import { type ReviewerEnv, relayReviewWithRetry } from "./runReview";
  * denies what would need approval, hands the denial back, and carries on). And
  * the session's context is a PR diff — attacker-influenceable text on a public
  * repo — which is not something to hand a shell.
+ *
+ * `--safe-mode` also disables project/user instructions, skills, plugins,
+ * hooks, and MCP servers so the branch cannot expand the reviewer's authority.
+ * Browser integration and session persistence are disabled explicitly too.
+ * `dontAsk` fails closed on unapproved access, while the absolute Read rule
+ * confines file inspection to the immutable snapshot.
  */
 const REVIEW_TOOLS = ["Read", "Grep", "Glob"] as const;
+
+function absoluteClaudeReadRule(snapshotRoot: string): string {
+  const normalized = path.resolve(snapshotRoot).replaceAll("\\", "/");
+  return `Read(//${normalized.replace(/^\/+/, "")}/**)`;
+}
 
 /**
  * Build the `claude` argv for a non-interactive review at the given effort
  * level. The prompt itself goes over stdin, not argv.
  */
-export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
-  return ["--effort", effort, "--print", "--tools", REVIEW_TOOLS.join(",")];
+export function buildClaudeReviewArgs(
+  effort: ReviewEffort,
+  snapshotRoot: string,
+): string[] {
+  return [
+    "--effort",
+    effort,
+    "--print",
+    "--safe-mode",
+    "--no-chrome",
+    "--no-session-persistence",
+    "--permission-mode",
+    "dontAsk",
+    "--tools",
+    REVIEW_TOOLS.join(","),
+    "--allowedTools",
+    absoluteClaudeReadRule(snapshotRoot),
+  ];
 }
 
 /**
@@ -52,21 +75,27 @@ export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
 export function spawnClaudeReview(
   prompt: string,
   effort: ReviewEffort,
+  snapshotRoot: string,
   env: ReviewerEnv = process.env,
 ): number {
   return relayReviewWithRetry("claude", () => {
     // Captured rather than inherited: a review has to be read to be judged, and
     // `claude` exits 0 whether it reviewed the diff or merely said it would.
     // `--print` emits the review in one final block, so nothing streams anyway.
-    const result = spawnSync("claude", buildClaudeReviewArgs(effort), {
-      stdio: ["pipe", "pipe", "inherit"],
-      input: prompt,
-      encoding: "utf8",
-      maxBuffer: MAX_BUFFER_BYTES,
-      // Passed explicitly so `claude` resolves against this PATH rather than the
-      // one the runtime snapshotted at startup.
-      env,
-    });
+    const result = spawnSync(
+      "claude",
+      buildClaudeReviewArgs(effort, snapshotRoot),
+      {
+        stdio: ["pipe", "pipe", "inherit"],
+        input: prompt,
+        encoding: "utf8",
+        maxBuffer: MAX_BUFFER_BYTES,
+        cwd: snapshotRoot,
+        // Passed explicitly so `claude` resolves against this PATH rather than
+        // the one the runtime snapshotted at startup.
+        env,
+      },
+    );
     return {
       exitCode: spawnExitCode("claude", result),
       review: result.stdout ?? "",
@@ -87,15 +116,15 @@ export function solicitClaudeCodeReview(
 ): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CLAUDE_EFFORT);
   const context = resolveReviewContext();
-  ensureChanges(context.baseRef);
+  return withPinnedReviewInput(rootDir, context, (input) => {
+    const prompt = buildReviewPrompt({
+      context,
+      diff: input.diff,
+      reviewInstructions: input.reviewInstructions,
+      accessNote: CLAUDE_ACCESS_NOTE,
+      repositoryRoot: input.snapshotRoot,
+    });
 
-  const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);
-  const prompt = buildReviewPrompt({
-    context,
-    diff,
-    reviewInstructions: readReviewInstructions(rootDir),
-    accessNote: CLAUDE_ACCESS_NOTE,
+    return spawnClaudeReview(prompt, effort, input.snapshotRoot);
   });
-
-  return spawnClaudeReview(prompt, effort);
 }
