@@ -118,8 +118,9 @@ history for three updates, two epochs, and two pages.
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
+| `RejectUnprovenPendingBeforeInstall` | the guarded install transaction rejects ordinary rows appended after settlement and preserves their queue and history tail |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
-| `RejectSupersededInstall` | a newer durable record or non-dominated history checkpoint rejects and rolls back the guarded install |
+| `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
 | `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |

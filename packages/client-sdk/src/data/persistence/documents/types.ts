@@ -137,8 +137,9 @@ export interface DocumentSummaryList {
 export interface DocumentsPersistence {
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
-   * covered local history, and pruning of those rows share the guarded
-   * `commitDocumentMutation` transaction.
+   * covered local history, rejection of unproven ordinary pending rows, and
+   * pruning of covered rows share the guarded `commitDocumentMutation`
+   * transaction.
    */
   readonly supportsAtomicRecoveryHistoryPruning: true;
   /**

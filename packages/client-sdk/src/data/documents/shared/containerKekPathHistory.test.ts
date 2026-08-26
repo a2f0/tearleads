@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekMaterialId,
+  computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
   sealContainerKekKeyring,
@@ -23,6 +24,7 @@ import {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyFromBundle,
 } from "./projection";
+import { targetEnvelopeReference } from "./readers";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
@@ -52,24 +54,25 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
     contentKey,
     rotated.fixture.rootContainerKek,
   );
+  const target = {
+    containerId: rotated.successor.containerId,
+    containerKeyEpoch: 1,
+    containerKeyEpochId: rotated.predecessorEpochId,
+    containerManifestHash: rotated.successor.accessManifestHash,
+    wrappedKey: bytesToBase64(wrapped.ciphertext),
+    wrappingMetadata: {
+      suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+      iv: bytesToBase64(wrapped.iv),
+    },
+  };
   const bundle = {
     contentKeyEpoch: 1,
     documentId: crypto.randomUUID(),
     linkSetManifestHash: await fixtureHash("history-link-set"),
-    targetHash: await fixtureHash("history-targets"),
-    targets: [
-      {
-        containerId: rotated.successor.containerId,
-        containerKeyEpoch: 1,
-        containerKeyEpochId: rotated.predecessorEpochId,
-        containerManifestHash: rotated.successor.accessManifestHash,
-        wrappedKey: bytesToBase64(wrapped.ciphertext),
-        wrappingMetadata: {
-          suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-          iv: bytesToBase64(wrapped.iv),
-        },
-      },
-    ],
+    targetHash: await computeDocumentContentKeyTargetHash([
+      targetEnvelopeReference(target),
+    ]),
+    targets: [target],
   } satisfies DocumentContentKeyBundleResponse;
 
   return { bundle, contentKey };

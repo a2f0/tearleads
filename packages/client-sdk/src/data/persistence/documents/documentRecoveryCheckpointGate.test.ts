@@ -4,7 +4,9 @@ import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
   getUpdateVersionVectors,
+  importSnapshot,
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
@@ -97,6 +99,179 @@ test("a rejected recovery checkpoint rolls back its whole document mutation", as
     ).toEqual({
       snapshot: storedSnapshot,
       tailUpdates: [{ origin: "local", updateData: candidateSnapshot }],
+    });
+  } finally {
+    close();
+  }
+});
+
+test("stale-pane compaction cannot replace recovered operation history", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-operation-identity-gate",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const baseDocument = await createDocument("checkpoint-base-writer");
+    baseDocument.getText("text").update("base");
+    const baseSnapshotBytes = exportFullHistorySnapshot(baseDocument);
+    const baseSnapshot = bytesToBase64(baseSnapshotBytes);
+    const baseVersion = encodeVersionVector(baseDocument);
+    const recoveredDocument = await createDocument("checkpoint-fork-writer");
+    const staleDocument = await createDocument("checkpoint-fork-writer");
+    importSnapshot(recoveredDocument, baseSnapshotBytes);
+    importSnapshot(staleDocument, baseSnapshotBytes);
+    recoveredDocument.getText("text").update("verified");
+    staleDocument.getText("text").update("tampered");
+    const recoveredSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(recoveredDocument),
+    );
+    const staleSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(staleDocument),
+    );
+    const recoveredVersion = encodeVersionVector(recoveredDocument);
+    const staleVersion = encodeVersionVector(staleDocument);
+    expect(staleVersion).toBe(recoveredVersion);
+
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: "local-document",
+      snapshotEndVersion: baseVersion,
+      text: "base",
+    };
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: baseVersion, snapshot: baseSnapshot },
+      undefined,
+      async () => undefined,
+    );
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      initialRecord.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the stored document");
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            snapshotEndVersion: recoveredVersion,
+            text: "verified",
+          },
+          expectedRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: recoveredVersion,
+            pruneCoveredLocalState: true,
+            snapshot: recoveredSnapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      ),
+    ).resolves.toMatchObject({ committed: true });
+
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint(execSql, {
+      coveredTailIds: [],
+      endVersionVector: staleVersion,
+      localId: initialRecord.id,
+      snapshot: staleSnapshot,
+    });
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toEqual({ snapshot: recoveredSnapshot, tailUpdates: [] });
+  } finally {
+    close();
+  }
+});
+
+test("recovery install rejects an ordinary row appended after settlement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-pending-install-gate",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const storedDocument = await createDocument("pending-gate-base-writer");
+    storedDocument.getText("text").update("base");
+    const storedSnapshotBytes = exportFullHistorySnapshot(storedDocument);
+    const storedSnapshot = bytesToBase64(storedSnapshotBytes);
+    const storedVersion = encodeVersionVector(storedDocument);
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: "local-document",
+      snapshotEndVersion: storedVersion,
+      text: "base",
+    };
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: storedVersion, snapshot: storedSnapshot },
+      undefined,
+      async () => undefined,
+    );
+    const siblingDocument = await createDocument("pending-gate-sibling-writer");
+    importSnapshot(siblingDocument, storedSnapshotBytes);
+    siblingDocument.getText("text").update("base plus sibling edit");
+    const siblingUpdateBytes = exportUpdatesSince(
+      siblingDocument,
+      storedVersion,
+    );
+    const siblingVectors = getUpdateVersionVectors(siblingUpdateBytes);
+    const siblingUpdate = bytesToBase64(siblingUpdateBytes);
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: initialRecord.id,
+      partialEndVersionVector: siblingVectors.partialEndVersionVector,
+      partialStartVersionVector: siblingVectors.partialStartVersionVector,
+      sourceVersionVector: null,
+      updateData: siblingUpdate,
+    });
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      initialRecord.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the stored document");
+
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: expectedRecord,
+          expectedRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: storedVersion,
+            pruneCoveredLocalState: true,
+            snapshot: storedSnapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      ),
+    ).rejects.toThrow("unproven pending updates");
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toEqual({
+      snapshot: storedSnapshot,
+      tailUpdates: [{ origin: "local", updateData: siblingUpdate }],
     });
   } finally {
     close();

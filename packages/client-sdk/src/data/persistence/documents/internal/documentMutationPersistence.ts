@@ -1,6 +1,6 @@
 import { base64ToBytes } from "@symcrypt/encoding";
 import { getImportBlobMetadata, satisfiesVersionVector } from "@symcrypt/loro";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/pullContinuation";
 import {
   appendDocumentHistoryUpdates,
@@ -136,7 +136,19 @@ async function appendMutationHistory(
           input.document.id,
           input.historyCheckpoint.endVersionVector,
         )
-      : { checkpointIds: [], tailIds: [] };
+      : {
+          checkpointIds: [],
+          hasOrdinaryPendingUpdates: false,
+          tailIds: [],
+        };
+    if (
+      input.historyCheckpoint.pruneCoveredLocalState &&
+      coveredLocalState.hasOrdinaryPendingUpdates
+    ) {
+      throw new Error(
+        "Document recovery found unproven pending updates before installation",
+      );
+    }
     const checkpointReplaced = await replaceDocumentHistoryCheckpoint(
       execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
@@ -175,18 +187,22 @@ async function findCoveredRecoveryLocalState(
   tx: ClientSQLiteTransactionScope,
   localId: string,
   documentVersion: string,
-): Promise<{ checkpointIds: string[]; tailIds: string[] }> {
+): Promise<{
+  checkpointIds: string[];
+  hasOrdinaryPendingUpdates: boolean;
+  tailIds: string[];
+}> {
   const scope = and(
     eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
     eq(documentPendingUpdates.localId, localId),
   );
-  const pendingCheckpoints = await tx
+  const pendingUpdates = await tx
     .select({
       id: documentPendingUpdates.id,
       sourceVersionVector: documentPendingUpdates.sourceVersionVector,
     })
     .from(documentPendingUpdates)
-    .where(and(scope, isNotNull(documentPendingUpdates.sourceVersionVector)));
+    .where(scope);
   const tail = await tx
     .select({
       id: documentHistoryUpdates.id,
@@ -200,12 +216,15 @@ async function findCoveredRecoveryLocalState(
       ),
     );
   return {
-    checkpointIds: pendingCheckpoints.flatMap((row) =>
+    checkpointIds: pendingUpdates.flatMap((row) =>
       row.id !== null &&
       row.sourceVersionVector !== null &&
       satisfiesVersionVector(documentVersion, row.sourceVersionVector)
         ? [row.id]
         : [],
+    ),
+    hasOrdinaryPendingUpdates: pendingUpdates.some(
+      (row) => row.sourceVersionVector === null,
     ),
     tailIds: tail.flatMap((row) => {
       if (row.id === null) return [];

@@ -16,8 +16,8 @@ EXTENDS Naturals
 (* successful install selects and retires the then-current set atomically.    *)
 (* An installed gap carried only by a checkpoint is rejected during the      *)
 (* preliminary provenance pass, before a dependent local edit can be sent.   *)
-(* installSuperseded abstracts record-CAS loss and monotonic checkpoint-gate  *)
-(* rejection: either aborts the entire guarded install transaction.           *)
+(* installSuperseded abstracts record-CAS loss and exact checkpoint-history  *)
+(* gate rejection: either aborts the entire guarded install transaction.     *)
 (* PublishRecovery is one atomic action because production holds the identity *)
 (* write chain across final history/generation verification and the guarded  *)
 (* install.                                                                  *)
@@ -27,6 +27,8 @@ EXTENDS Naturals
 (* state into the next frozen-cursor request; it is abstracted here.          *)
 (* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
 (* after the preliminary provenance snapshot; settlement aborts atomically.  *)
+(* RejectUnprovenPendingBeforeInstall models one arriving after settlement;  *)
+(* the guarded install observes it and aborts atomically before publication. *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -272,6 +274,19 @@ RejectSupersededInstall ==
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
+RejectUnprovenPendingBeforeInstall ==
+  /\ phase = "collecting"
+  /\ nextPage = MaxPage + 1
+  /\ ~hasUnverifiedLocalGap
+  /\ phase' = "failed"
+  /\ hasUnverifiedLocalGap' = TRUE
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  generationCurrent, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
 AppendCoveredLocalArtifact ==
   /\ phase = "collecting"
   /\ \E id \in (UpdateIds \ ordinaryUpdates) :
@@ -319,6 +334,7 @@ Next ==
   \/ ChangeGeneration
   \/ RejectChangedGeneration
   \/ RejectSupersededInstall
+  \/ RejectUnprovenPendingBeforeInstall
   \/ AppendCoveredLocalArtifact
   \/ PublishRecovery
   \/ RemainTerminal
