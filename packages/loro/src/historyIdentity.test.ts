@@ -7,6 +7,8 @@ import {
   exportFullHistorySnapshot,
   exportUpdatesSince,
   importSnapshot,
+  importUpdates,
+  versionVectorsEqual,
 } from "./document";
 import { updateMatchesDocumentHistory } from "./updateIdentity";
 
@@ -69,6 +71,50 @@ test("full-history identity can compare a retained prefix", async () => {
 
   expect(exportFullHistoryIdentity(ahead, sourceVersion)).toBe(
     exportFullHistoryIdentity(source),
+  );
+});
+
+test("full-history identity is stable across opposite multi-peer import order", async () => {
+  const alice = await createDocument("history-identity-concurrent-alice");
+  alice.getText("text").update("alice");
+  alice.commit();
+  const bob = await createDocument("history-identity-concurrent-bob");
+  bob.getText("text").update("bob");
+  bob.commit();
+  const aliceUpdate = exportUpdatesSince(alice);
+  const bobUpdate = exportUpdatesSince(bob);
+  const aliceFirst = await createDocument("history-identity-alice-first");
+  const bobFirst = await createDocument("history-identity-bob-first");
+  importUpdates(aliceFirst, [aliceUpdate, bobUpdate]);
+  importUpdates(bobFirst, [bobUpdate, aliceUpdate]);
+
+  expect(
+    versionVectorsEqual(
+      encodeVersionVector(aliceFirst),
+      encodeVersionVector(bobFirst),
+    ),
+  ).toBe(true);
+  expect(exportFullHistoryIdentity(aliceFirst)).toBe(
+    exportFullHistoryIdentity(bobFirst),
+  );
+});
+
+test("multi-peer prefix identity ignores later concurrent operations", async () => {
+  const alice = await createDocument("history-prefix-concurrent-alice");
+  alice.getText("text").update("alice");
+  alice.commit();
+  const bob = await createDocument("history-prefix-concurrent-bob");
+  bob.getText("text").update("bob");
+  bob.commit();
+  const merged = await createDocument("history-prefix-merged");
+  importUpdates(merged, [exportUpdatesSince(bob), exportUpdatesSince(alice)]);
+  const retainedVersion = encodeVersionVector(merged);
+  const retainedIdentity = exportFullHistoryIdentity(merged);
+  merged.getText("text").update("later concurrent edit");
+  merged.commit();
+
+  expect(exportFullHistoryIdentity(merged, retainedVersion)).toBe(
+    retainedIdentity,
   );
 });
 

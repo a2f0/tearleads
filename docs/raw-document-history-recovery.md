@@ -20,9 +20,9 @@ A raw consumer must:
    then drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
-5. use a preliminary raw pull to prove each ordinary pending delta byte-for-byte
-   against the live operation history, settle only those proven rows, and then
-   perform a definitive raw pull;
+5. use a preliminary raw pull to prove each ordinary pending delta
+   operation-for-operation against the live history, settle only those proven
+   rows, and then perform a definitive raw pull;
 6. publish the rebuilt document once through a guarded atomic install.
 
 Rotation checkpoints are still authenticated, decrypted, and scratch-imported
@@ -140,16 +140,17 @@ unchanged ordinary-sync request shape.
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
 explores arbitrary page assignment, ordinary/checkpoint classification,
-per-update validity, epoch availability, and arbitrary preexisting durable
-history for three updates, two epochs, and two pages.
+per-update validity, epoch availability, a bounded remote update arriving
+between the preliminary and definitive pulls, and arbitrary preexisting
+durable history for three updates, two epochs, and two pages.
 
 | Model action or state | Production implementation |
 | --- | --- |
 | `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement before the raw pull that can publish |
 | `ValidatePreliminaryPage` | the first complete raw pull validates every bounded page before ordinary provenance settlement can start |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
-| `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
-| `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
+| `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key on either pull |
+| `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | poison isolation on either pull, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
 | `AppendUnprovenLocalArtifactBeforeInstall` / `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install detects and rejects ordinary rows or tails whose exact operation range is absent from the rebuild, including same-frontier forks, and preserves them for explicit recovery |
