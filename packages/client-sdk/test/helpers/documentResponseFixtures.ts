@@ -2,9 +2,7 @@ import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventHash,
-  computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
-  computeDocumentContentRecordMetadataHash,
   generateKemSeedAndKeyPair,
   signWriteHeader,
   type WriteHeader,
@@ -31,6 +29,7 @@ import type {
 } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlanIdentity";
+import { createDocumentEncryptedUpdateFixture } from "./documentEncryptedUpdateFixture";
 import {
   createAuthor,
   createProjection,
@@ -439,7 +438,6 @@ export async function createSignedSyncResponseUpdate(input: {
   targetHash: string;
 }): Promise<DocumentSyncResponse["updates"][number]> {
   const id = input.id ?? "550e8400-e29b-41d4-a716-446655440555";
-  const encryptedData = "historical encrypted update";
   const partialStartVersionVector = "{}";
   const partialEndVersionVector = '{"actor":3}';
   const plaintextHash = await fixtureHash(`plaintext:${id}`);
@@ -453,19 +451,23 @@ export async function createSignedSyncResponseUpdate(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: id,
   };
+  const { encryptedData, metadataHash, nonceDomainHash } =
+    await createDocumentEncryptedUpdateFixture({
+      contentKeyEpoch,
+      documentId: input.plan.documentId,
+      id,
+      organizationId: input.plan.organizationId,
+      partialEndVersionVector,
+      partialStartVersionVector,
+      plaintextHash,
+    });
   const writeHeader = await signWriteHeader(
     {
       ...nonceDomain,
       accessManifestHash: input.accessManifestHash,
       targetHash: input.targetHash,
-      nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
-      metadataHash: await computeDocumentContentRecordMetadataHash({
-        documentId: input.plan.documentId,
-        partialEndVersionVector,
-        partialStartVersionVector,
-        plaintextHash,
-        updateId: id,
-      }),
+      nonceDomainHash,
+      metadataHash,
       ciphertextHash:
         await computeDocumentContentRecordCiphertextHash(encryptedData),
       writerUserId: input.author.signerUserId,

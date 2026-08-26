@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import type { DocumentsPersistence } from "@symcrypt/client-sdk";
-import { bytesToBase64 } from "@symcrypt/encoding";
+import { base64ToBytes, bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
   exportUpdatesSince,
   getUpdateVersionVectors,
+  importSnapshot,
 } from "@symcrypt/loro";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createDocumentStorePersistence } from "../../../../test/helpers/documentStoreFixtures";
@@ -202,5 +203,84 @@ for (const [name, createPersistence] of persistenceFactories) {
     expect(await persistence.loadHistoryRestoreState(execSql, localId)).toEqual(
       { snapshot: recoveredSnapshot, tailUpdates: [] },
     );
+  });
+
+  test(`${name} rejects a same-frontier forged history tail`, async () => {
+    const persistence = createPersistence();
+    const execSql: Parameters<DocumentsPersistence["saveDocument"]>[0] =
+      async () => [];
+    const localId = `recovery-same-frontier-tail-${name}`;
+    const genuineDocument = await createDocument("memory-tail-fork-writer");
+    genuineDocument.getText("text").update("verified base");
+    genuineDocument.commit();
+    const baseVersion = encodeVersionVector(genuineDocument);
+    const baseSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(genuineDocument),
+    );
+    const forgedDocument = await createDocument("memory-tail-fork-writer");
+    importSnapshot(forgedDocument, base64ToBytes(baseSnapshot));
+    genuineDocument.getText("text").update("genuine suffix");
+    genuineDocument.commit();
+    const recoveredVersion = encodeVersionVector(genuineDocument);
+    const recoveredSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(genuineDocument),
+    );
+    forgedDocument.getText("text").update("forged! suffix");
+    forgedDocument.commit();
+    expect(encodeVersionVector(forgedDocument)).toBe(recoveredVersion);
+    const forgedUpdate = bytesToBase64(
+      exportUpdatesSince(forgedDocument, baseVersion),
+    );
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: localId,
+      snapshotEndVersion: baseVersion,
+      text: "verified base",
+    };
+    await persistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: baseVersion, snapshot: baseSnapshot },
+      undefined,
+      async () => undefined,
+    );
+    await persistence.appendHistoryUpdates(execSql, {
+      localId,
+      origin: "remote",
+      updates: [forgedUpdate],
+    });
+
+    await expect(
+      persistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...initialRecord,
+            snapshotEndVersion: recoveredVersion,
+            text: "verified basegenuine suffix",
+          },
+          expectedRecord: initialRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: recoveredVersion,
+            pruneCoveredLocalState: true,
+            snapshot: recoveredSnapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      ),
+    ).rejects.toThrow("unverified history tail");
+    expect(await persistence.loadHistoryRestoreState(execSql, localId)).toEqual(
+      {
+        snapshot: baseSnapshot,
+        tailUpdates: [{ origin: "remote", updateData: forgedUpdate }],
+      },
+    );
+    forgedDocument.free();
+    genuineDocument.free();
   });
 }

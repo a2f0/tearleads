@@ -40,8 +40,10 @@ checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
 so a preliminary raw reconstruction imports only queued ordinary local deltas
 and must contain the exact live operation history before settlement (it may
-also contain concurrent remote work). Deterministic operation-log comparison
-detects a forged checkpoint that reuses genuine version-vector identities, and
+also contain concurrent remote work). The deterministic operation-log identity
+type-tags binary, string, and structural values so distinct operation payloads
+cannot collapse to the same serialized identity. It detects a forged
+checkpoint that reuses genuine version-vector identities, and
 per-row range comparison proves that each queued binary delta contains the
 live document's exact operations, before a dependent local edit can be
 re-encrypted or published. Settlement is restricted to that exact proven row
@@ -50,25 +52,26 @@ before the new row can be sent. After settling proven local rows, the client
 performs a definitive raw pull so remote work racing the submit is included. A
 successful guarded install atomically retires every queued checkpoint and its
 matching local-history tail, whether or not its declared frontier is covered,
-because checkpoints are never recovery sources. Other tail rows must be covered
-by the verified rebuild or the install aborts. Final history and generation
-verification remain on the document
-identity-write chain through that install, so a scheduled sync cannot advance
-live state in the check-to-persist interval. Coverage is selected only after
-the guarded install transaction acquires its write lock, preventing a
-concurrent append from surviving as a stale or forged redirect after recovery.
+because checkpoints are never recovery sources. Every other tail row must match
+the verified rebuild's exact operations for its declared range; version-vector
+coverage alone is insufficient and a same-frontier fork aborts the install.
+Final history and generation verification remain on the document identity-write
+chain through that install, so a scheduled sync cannot advance live state in
+the check-to-persist interval. Coverage is selected only after the guarded
+install transaction acquires its write lock, preventing a concurrent append
+from surviving as a stale or forged redirect after recovery.
 
 Custom `DocumentsPersistence` adapters must declare
 `supportsAtomicRecoveryHistoryPruning: true` and implement that guarantee in
 `commitDocumentMutation`: rejecting ordinary pending rows, selecting every
-queued checkpoint and its matching tail plus other covered history rows,
-rejecting an unrelated unverified tail, replacing the checkpoint, pruning the
-selected rows, and committing the canonical document must be one guarded
-transaction. Rotation recovery refuses adapters that omit the capability
-instead of assuming compatible behavior. If the exact checkpoint-history gate
-or canonical-record comparison rejects the recovery candidate, the adapter
-rolls back the complete install, including checkpoint/tail pruning and
-pending-row settlement.
+queued checkpoint and its matching tail plus other exact-history-matching rows,
+rejecting an unrelated or same-frontier forged tail, replacing the checkpoint,
+pruning the selected rows, and committing the canonical document must be one
+guarded transaction. Rotation recovery refuses adapters that omit the
+capability instead of assuming compatible behavior. If the exact
+checkpoint-history gate or canonical-record comparison rejects the recovery
+candidate, the adapter rolls back the complete install, including
+checkpoint/tail pruning and pending-row settlement.
 
 If a retained update references a present, verified content-key bundle whose
 key is no longer reachable — including a predecessor epoch whose retained
@@ -88,10 +91,11 @@ import-validates every sibling whose content key is available. Any poison
 retains precedence, including an unresolved dependency: the current wire
 contract authenticates operation ranges but not an exact dependency set, so
 the client cannot prove that an unavailable sibling carries that parent.
-Every historical bundle's target list is also recomputed and compared with its
-committed target hash, and that hash plus the link-set manifest must match every
-authenticated update header for the epoch before missing KEK material can be
-classified as benign unavailability.
+Every encrypted record is structurally parsed and checked against its
+authenticated header before any missing epoch can be classified as benign
+unavailability. Every historical bundle's target list is also recomputed and
+compared with its committed target hash, and that hash plus the link-set
+manifest must match every authenticated update header for the epoch.
 When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw
@@ -106,7 +110,9 @@ historical epochs, interrupted multi-page recovery, pre-rotation settlement of
 pending local updates, forged-baseline-dependent edit isolation, rejection of
 checkpoint-only settlement gaps, mixed-page poison precedence, atomic
 checkpoint-gate rollback, racing-checkpoint quarantine across restart,
-unrelated unresolved-dependency isolation, cached-projection recovery,
+same-frontier tail-fork rejection, binary/string history-identity separation,
+unavailable-record/header poison precedence, unrelated unresolved-dependency
+isolation, cached-projection recovery,
 persisted-cursor conflicts, cross-client consecutive rotation, and the
 unchanged ordinary-sync request shape.
 
@@ -124,7 +130,7 @@ history for three updates, two epochs, and two pages.
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
-| `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install rejects ordinary rows or unrelated unverified tails appended after settlement and preserves them for explicit recovery |
+| `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install rejects ordinary rows or tails whose exact operation range is absent from the rebuild, including same-frontier forks, and preserves them for explicit recovery |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |

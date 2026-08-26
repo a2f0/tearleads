@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@symcrypt/encoding";
 import {
   createDocument,
   encodeVersionVector,
@@ -38,6 +39,21 @@ test("full-history identity detects forged operations at the same frontier", asy
   expect(encodeVersionVector(forged)).toBe(encodeVersionVector(genuine));
   expect(exportFullHistoryIdentity(forged)).not.toBe(
     exportFullHistoryIdentity(genuine),
+  );
+});
+
+test("full-history identity distinguishes binary data from the same base64 string", async () => {
+  const binary = await createDocument("history-identity-binary-string");
+  const bytes = new TextEncoder().encode("same visible representation");
+  binary.getMap("fields").set("value", bytes);
+  binary.commit();
+  const text = await createDocument("history-identity-binary-string");
+  text.getMap("fields").set("value", bytesToBase64(bytes));
+  text.commit();
+
+  expect(encodeVersionVector(text)).toBe(encodeVersionVector(binary));
+  expect(exportFullHistoryIdentity(text)).not.toBe(
+    exportFullHistoryIdentity(binary),
   );
 });
 

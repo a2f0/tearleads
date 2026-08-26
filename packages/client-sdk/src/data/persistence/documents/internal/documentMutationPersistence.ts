@@ -1,5 +1,9 @@
 import { base64ToBytes } from "@symcrypt/encoding";
-import { getImportBlobMetadata, satisfiesVersionVector } from "@symcrypt/loro";
+import {
+  createDocument,
+  importSnapshot,
+  updateMatchesDocumentHistory,
+} from "@symcrypt/loro";
 import { and, eq, inArray } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/pullContinuation";
 import {
@@ -134,7 +138,7 @@ async function appendMutationHistory(
       ? await findCoveredRecoveryLocalState(
           tx,
           input.document.id,
-          input.historyCheckpoint.endVersionVector,
+          input.historyCheckpoint.snapshot,
         )
       : {
           checkpointIds: [],
@@ -192,69 +196,79 @@ async function appendMutationHistory(
 async function findCoveredRecoveryLocalState(
   tx: ClientSQLiteTransactionScope,
   localId: string,
-  documentVersion: string,
+  recoverySnapshot: string,
 ): Promise<{
   checkpointIds: string[];
   hasOrdinaryPendingUpdates: boolean;
   hasUnverifiedHistoryTail: boolean;
   tailIds: string[];
 }> {
-  const scope = and(
-    eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-    eq(documentPendingUpdates.localId, localId),
+  const recoveredDocument = await createDocument(
+    `recovery-tail-verification:${localId}`,
   );
-  const pendingUpdates = await tx
-    .select({
-      id: documentPendingUpdates.id,
-      sourceVersionVector: documentPendingUpdates.sourceVersionVector,
-      updateData: documentPendingUpdates.updateData,
-    })
-    .from(documentPendingUpdates)
-    .where(scope);
-  const tail = await tx
-    .select({
-      id: documentHistoryUpdates.id,
-      updateData: documentHistoryUpdates.updateData,
-    })
-    .from(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, DOCUMENTS_APP_KIND),
-        eq(documentHistoryUpdates.localId, localId),
+  try {
+    importSnapshot(recoveredDocument, base64ToBytes(recoverySnapshot));
+    const scope = and(
+      eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
+      eq(documentPendingUpdates.localId, localId),
+    );
+    const pendingUpdates = await tx
+      .select({
+        id: documentPendingUpdates.id,
+        sourceVersionVector: documentPendingUpdates.sourceVersionVector,
+        updateData: documentPendingUpdates.updateData,
+      })
+      .from(documentPendingUpdates)
+      .where(scope);
+    const tail = await tx
+      .select({
+        id: documentHistoryUpdates.id,
+        updateData: documentHistoryUpdates.updateData,
+      })
+      .from(documentHistoryUpdates)
+      .where(
+        and(
+          eq(documentHistoryUpdates.appKind, DOCUMENTS_APP_KIND),
+          eq(documentHistoryUpdates.localId, localId),
+        ),
+      );
+    const checkpointUpdateData = new Set(
+      pendingUpdates.flatMap((row) =>
+        row.sourceVersionVector === null ? [] : [row.updateData],
       ),
     );
-  const checkpointUpdateData = new Set(
-    pendingUpdates.flatMap((row) =>
-      row.sourceVersionVector === null ? [] : [row.updateData],
-    ),
-  );
-  let hasUnverifiedHistoryTail = false;
-  const tailIds = tail.flatMap((row) => {
-    if (row.id === null) return [];
-    if (checkpointUpdateData.has(row.updateData)) return [row.id];
-    try {
-      const metadata = getImportBlobMetadata(base64ToBytes(row.updateData));
-      const covered = satisfiesVersionVector(
-        documentVersion,
-        metadata.partialEndVersionVector,
-      );
-      if (covered) return [row.id];
-    } catch {
-      // Fall through: malformed history is not proven by the rebuild.
-    }
-    hasUnverifiedHistoryTail = true;
-    return [];
-  });
-  return {
-    checkpointIds: pendingUpdates.flatMap((row) =>
-      row.id !== null && row.sourceVersionVector !== null ? [row.id] : [],
-    ),
-    hasOrdinaryPendingUpdates: pendingUpdates.some(
-      (row) => row.sourceVersionVector === null,
-    ),
-    hasUnverifiedHistoryTail,
-    tailIds,
-  };
+    let hasUnverifiedHistoryTail = false;
+    const tailIds = tail.flatMap((row) => {
+      if (row.id === null) return [];
+      if (checkpointUpdateData.has(row.updateData)) return [row.id];
+      try {
+        if (
+          updateMatchesDocumentHistory(
+            recoveredDocument,
+            base64ToBytes(row.updateData),
+          )
+        ) {
+          return [row.id];
+        }
+      } catch {
+        // Fall through: malformed history is not proven by the rebuild.
+      }
+      hasUnverifiedHistoryTail = true;
+      return [];
+    });
+    return {
+      checkpointIds: pendingUpdates.flatMap((row) =>
+        row.id !== null && row.sourceVersionVector !== null ? [row.id] : [],
+      ),
+      hasOrdinaryPendingUpdates: pendingUpdates.some(
+        (row) => row.sourceVersionVector === null,
+      ),
+      hasUnverifiedHistoryTail,
+      tailIds,
+    };
+  } finally {
+    recoveredDocument.free();
+  }
 }
 
 export async function commitStoredDocumentMutation(

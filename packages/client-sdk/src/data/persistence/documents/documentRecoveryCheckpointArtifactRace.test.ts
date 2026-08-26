@@ -185,3 +185,94 @@ test("recovery aborts on an unrelated tail outside the verified rebuild", async 
     close();
   }
 });
+
+test("recovery rejects a same-frontier forged history tail", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-recovery-same-frontier-tail-race",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const genuineDocument = await createDocument("same-frontier-tail-writer");
+    genuineDocument.getText("text").update("verified base");
+    genuineDocument.commit();
+    const baseVersion = encodeVersionVector(genuineDocument);
+    const baseSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(genuineDocument),
+    );
+    const forgedDocument = await createDocument("same-frontier-tail-writer");
+    importSnapshot(forgedDocument, base64ToBytes(baseSnapshot));
+    genuineDocument.getText("text").update("genuine suffix");
+    genuineDocument.commit();
+    const recoveredVersion = encodeVersionVector(genuineDocument);
+    const recoveredSnapshot = bytesToBase64(
+      exportFullHistorySnapshot(genuineDocument),
+    );
+    forgedDocument.getText("text").update("forged! suffix");
+    forgedDocument.commit();
+    expect(encodeVersionVector(forgedDocument)).toBe(recoveredVersion);
+    const forgedUpdate = bytesToBase64(
+      exportUpdatesSince(forgedDocument, baseVersion),
+    );
+    const initialRecord = {
+      accessEpoch: 1,
+      containerId: "container-1",
+      documentId: "document-1",
+      id: "local-document",
+      snapshotEndVersion: baseVersion,
+      text: "verified base",
+    };
+    await sqlDocumentsPersistence.createDocumentWithHistoryCheckpoint(
+      execSql,
+      initialRecord,
+      { endVersionVector: baseVersion, snapshot: baseSnapshot },
+      undefined,
+      async () => undefined,
+    );
+    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
+      localId: initialRecord.id,
+      origin: "remote",
+      updates: [forgedUpdate],
+    });
+    const expectedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      initialRecord.id,
+    );
+    if (!expectedRecord) throw new Error("Expected the stored document");
+
+    await expect(
+      sqlDocumentsPersistence.commitDocumentMutation(
+        execSql,
+        {
+          acceptedPendingUpdateIds: [],
+          document: {
+            ...expectedRecord,
+            snapshotEndVersion: recoveredVersion,
+            text: "verified basegenuine suffix",
+          },
+          expectedRecord,
+          historyCheckpoint: {
+            coveredTailIds: [],
+            endVersionVector: recoveredVersion,
+            pruneCoveredLocalState: true,
+            snapshot: recoveredSnapshot,
+          },
+          settleAcceptedPendingOnConflict: false,
+        },
+        async () => undefined,
+      ),
+    ).rejects.toThrow("unverified history tail");
+    expect(
+      await sqlDocumentsPersistence.loadHistoryRestoreState(
+        execSql,
+        initialRecord.id,
+      ),
+    ).toEqual({
+      snapshot: baseSnapshot,
+      tailUpdates: [{ origin: "remote", updateData: forgedUpdate }],
+    });
+    forgedDocument.free();
+    genuineDocument.free();
+  } finally {
+    close();
+  }
+});

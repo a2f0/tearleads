@@ -1,6 +1,10 @@
 import type { DocumentsPersistence } from "@symcrypt/client-sdk";
 import { base64ToBytes } from "@symcrypt/encoding";
-import { getImportBlobMetadata, satisfiesVersionVector } from "@symcrypt/loro";
+import {
+  createDocument,
+  importSnapshot,
+  updateMatchesDocumentHistory,
+} from "@symcrypt/loro";
 
 interface RecoveryPendingUpdate {
   id: string;
@@ -24,11 +28,11 @@ type RecoveryHistoryCheckpoint = NonNullable<
   >[1]["historyCheckpoint"]
 >;
 
-function findCoveredMemoryRecoveryLocalState(input: {
-  documentVersion: string;
+async function findCoveredMemoryRecoveryLocalState(input: {
+  recoverySnapshot: string;
   pendingUpdates: readonly RecoveryPendingUpdate[];
   tail: readonly RecoveryHistoryTailEntry[];
-}): { pendingUpdateIds: string[]; tailIds: string[] } {
+}): Promise<{ pendingUpdateIds: string[]; tailIds: string[] }> {
   if (
     input.pendingUpdates.some(
       (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
@@ -41,37 +45,45 @@ function findCoveredMemoryRecoveryLocalState(input: {
   const checkpointUpdateData = new Set(
     input.pendingUpdates.map((pendingUpdate) => pendingUpdate.updateData),
   );
-  return {
-    pendingUpdateIds: input.pendingUpdates.map(
-      (pendingUpdate) => pendingUpdate.id,
-    ),
-    tailIds: input.tail.flatMap((entry) => {
-      if (checkpointUpdateData.has(entry.updateData)) return [entry.id];
-      try {
-        const metadata = getImportBlobMetadata(base64ToBytes(entry.updateData));
-        const covered = satisfiesVersionVector(
-          input.documentVersion,
-          metadata.partialEndVersionVector,
+  const recoveredDocument = await createDocument("memory-recovery-tail-gate");
+  try {
+    importSnapshot(recoveredDocument, base64ToBytes(input.recoverySnapshot));
+    return {
+      pendingUpdateIds: input.pendingUpdates.map(
+        (pendingUpdate) => pendingUpdate.id,
+      ),
+      tailIds: input.tail.flatMap((entry) => {
+        if (checkpointUpdateData.has(entry.updateData)) return [entry.id];
+        try {
+          if (
+            updateMatchesDocumentHistory(
+              recoveredDocument,
+              base64ToBytes(entry.updateData),
+            )
+          ) {
+            return [entry.id];
+          }
+        } catch {
+          // Fall through: malformed history is not proven by the rebuild.
+        }
+        throw new Error(
+          "Document recovery found unverified history tail before installation",
         );
-        if (covered) return [entry.id];
-      } catch {
-        // Fall through: malformed history is not proven by the rebuild.
-      }
-      throw new Error(
-        "Document recovery found unverified history tail before installation",
-      );
-    }),
-  };
+      }),
+    };
+  } finally {
+    recoveredDocument.free();
+  }
 }
 
-export function applyMemoryHistoryCheckpoint(input: {
+export async function applyMemoryHistoryCheckpoint(input: {
   checkpoint: RecoveryHistoryCheckpoint;
   history: MutableRecoveryHistory;
   pendingUpdates: readonly RecoveryPendingUpdate[];
-}): string[] {
+}): Promise<string[]> {
   const coveredRecoveryState = input.checkpoint.pruneCoveredLocalState
-    ? findCoveredMemoryRecoveryLocalState({
-        documentVersion: input.checkpoint.endVersionVector,
+    ? await findCoveredMemoryRecoveryLocalState({
+        recoverySnapshot: input.checkpoint.snapshot,
         pendingUpdates: input.pendingUpdates,
         tail: input.history.tail,
       })

@@ -4,7 +4,9 @@ import type {
 } from "@symcrypt/validators/response";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
+import { assertDocumentSyncUpdateEncryptedRecord } from "../../data/documents/shared/documentSyncUpdateDecryption";
 import {
+  isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
@@ -64,12 +66,46 @@ export class DocumentRawHistoryUnavailableError extends Error {
   }
 }
 
+async function assertResponseEncryptedRecords(
+  updates: readonly SyncResponseUpdate[],
+): Promise<void> {
+  const inspections = await Promise.allSettled(
+    updates.map(assertDocumentSyncUpdateEncryptedRecord),
+  );
+  const failures = inspections.flatMap((inspection, index) =>
+    inspection.status === "rejected"
+      ? [{ index, reason: inspection.reason }]
+      : [],
+  );
+  const firstFailure = failures[0];
+  if (failures.length === 1 && firstFailure) {
+    throw firstFailure.reason;
+  }
+  if (failures.length > 1 && firstFailure) {
+    const stage =
+      isDocumentSyncUpdateIsolationError(firstFailure.reason) &&
+      failures.every(
+        ({ reason }) =>
+          isDocumentSyncUpdateIsolationError(reason) &&
+          reason.stage === firstFailure.reason.stage,
+      )
+        ? firstFailure.reason.stage
+        : "encrypted_record";
+    throw isolateDocumentSyncBatchError({
+      cause: new Error("Multiple document encrypted records are invalid"),
+      stage,
+      updateIds: failures.map(({ index }) => updates[index]?.id ?? "unknown"),
+    });
+  }
+}
+
 async function throwRawHistoryUnavailable(input: {
   contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
   response: DocumentSyncResponse;
   unavailable: { cause: RawHistoryUnavailableCause; contentKeyEpoch: number };
   validate?: RawHistoryUnavailableValidator | undefined;
 }): Promise<never> {
+  await assertResponseEncryptedRecords(input.response.updates);
   await input.validate?.({
     contentKeysByEpoch: input.contentKeysByEpoch,
     updates: input.response.updates.filter((update) =>

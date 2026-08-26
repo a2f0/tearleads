@@ -207,7 +207,7 @@ export function createDocumentWritePersistence(
           tail: [],
         };
         const coveredRecoveryPendingUpdateIds = input.historyCheckpoint
-          ? applyMemoryHistoryCheckpoint({
+          ? await applyMemoryHistoryCheckpoint({
               checkpoint: input.historyCheckpoint,
               history,
               pendingUpdates: state.pendingUpdates,

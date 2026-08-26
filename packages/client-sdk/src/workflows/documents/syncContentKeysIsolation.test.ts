@@ -102,10 +102,6 @@ test("raw history reports the lowest unavailable epoch regardless of response or
     writerProjection: fixture.writerProjection,
   });
   const response = await createSyncResponse(materializedPlan.plan);
-  const [epochTwoUpdate, epochOneUpdate] = response.updates;
-  if (!epochTwoUpdate || !epochOneUpdate) {
-    throw new Error("Expected two response updates");
-  }
   const currentBundle = {
     ...response.contentKeyBundle,
     contentKeyEpoch: 3,
@@ -119,6 +115,22 @@ test("raw history reports the lowest unavailable epoch regardless of response or
   const unavailableTargetHash = await computeDocumentContentKeyTargetHash([
     targetEnvelopeReference(unavailableTarget),
   ]);
+  const epochTwoUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+    author: fixture.author,
+    contentKeyEpoch: 2,
+    id: "550e8400-e29b-41d4-a716-446655440451",
+    plan: materializedPlan.plan,
+    targetHash: unavailableTargetHash,
+  });
+  const epochOneUpdate = await createSignedSyncResponseUpdate({
+    accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
+    author: fixture.author,
+    contentKeyEpoch: 1,
+    id: "550e8400-e29b-41d4-a716-446655440452",
+    plan: materializedPlan.plan,
+    targetHash: unavailableTargetHash,
+  });
   const reversedEpochResponse = {
     ...response,
     contentKeyBundle: currentBundle,
@@ -137,24 +149,7 @@ test("raw history reports the lowest unavailable epoch regardless of response or
       },
       currentBundle,
     ],
-    updates: [
-      {
-        ...epochTwoUpdate,
-        writeHeader: {
-          ...epochTwoUpdate.writeHeader,
-          contentKeyEpoch: 2,
-          targetHash: unavailableTargetHash,
-        },
-      },
-      {
-        ...epochOneUpdate,
-        writeHeader: {
-          ...epochOneUpdate.writeHeader,
-          contentKeyEpoch: 1,
-          targetHash: unavailableTargetHash,
-        },
-      },
-    ],
+    updates: [epochTwoUpdate, epochOneUpdate],
   };
 
   const error = await unwrapDocumentSyncResponseContentKeys({

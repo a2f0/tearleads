@@ -21,15 +21,17 @@ EXTENDS Naturals
 (* PublishRecovery is one atomic action because production holds the identity *)
 (* write chain across final history/generation verification and the guarded  *)
 (* install.                                                                  *)
-(* updateValid also covers bundle/header target binding and unresolved       *)
-(* dependencies in decryptable siblings: unavailable ciphertext authenticates *)
-(* ranges, not an exact dependency set.                                      *)
+(* updateValid also covers type-preserving operation identity, every         *)
+(* encrypted-record/header and bundle/header binding (including unavailable  *)
+(* epochs), and unresolved dependencies in decryptable siblings: unavailable *)
+(* ciphertext authenticates ranges, not an exact dependency set.             *)
 (* A ValidatePage transition also carries that page's verified projection    *)
 (* state into the next frozen-cursor request; it is abstracted here.          *)
 (* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
 (* after the preliminary provenance snapshot; settlement aborts atomically.  *)
-(* RejectUnprovenLocalArtifactBeforeInstall models an ordinary row or an     *)
-(* unrelated tail arriving after settlement; guarded install aborts.         *)
+(* RejectUnprovenLocalArtifactBeforeInstall models an ordinary row or a tail *)
+(* whose exact operation range is absent from the rebuild, even when its     *)
+(* version-vector frontier is covered; guarded install aborts.               *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 

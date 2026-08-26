@@ -135,7 +135,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         }
         const history = historyFor(input.document.id);
         const coveredRecoveryPendingUpdateIds = input.historyCheckpoint
-          ? applyMemoryHistoryCheckpoint({
+          ? await applyMemoryHistoryCheckpoint({
               checkpoint: input.historyCheckpoint,
               history,
               pendingUpdates,
