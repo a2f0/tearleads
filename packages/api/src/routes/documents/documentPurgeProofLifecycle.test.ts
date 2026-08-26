@@ -15,6 +15,7 @@ import {
   accessManifestFromContainerResponse,
   bootstrapRoot,
   createDocument,
+  createDocumentRequest,
   kekStateFromContainerResponse,
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
@@ -77,6 +78,53 @@ test("purge proof remains available after its container is deleted", async () =>
   );
   expect(proofResponse.status).toBe(200);
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
+});
+
+test("a purged document cannot be resurrected by replaying its create", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const createRequest = await createDocumentRequest({ owner, root });
+  const createResponse = await routeApp.request("/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(createRequest),
+  });
+  expect(createResponse.status).toBe(200);
+  const created = await createResponse.json();
+  if (!("id" in created) || typeof created.id !== "string") {
+    throw new Error("Expected created document response");
+  }
+
+  const purgeResponse = await postDocumentPurge({
+    documentId: created.id,
+    documentManifestHash: createRequest.expectedManifestHash,
+    owner,
+    root,
+  });
+  expect(purgeResponse.status).toBe(200);
+
+  const replayResponse = await routeApp.request("/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(createRequest),
+  });
+  expect(replayResponse.status).toBe(409);
+  await expect(replayResponse.json()).resolves.toEqual({
+    error: "Document was permanently purged",
+  });
+
+  const writerProjectionResponse = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(writerProjectionResponse.status).toBe(404);
 });
 
 test("purge proof remains available to a later-revoked replica", async () => {
