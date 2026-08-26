@@ -33,13 +33,22 @@ import {
 } from "./documentRecordIdentity";
 import { resolveDocumentSaveTimestamp, saveDocumentRows } from "./documentRows";
 
+function sameRecoveryGeneration(
+  current: StoredDocumentRecord,
+  expected: StoredDocumentRecord,
+): boolean {
+  return (
+    (current.recoveryGeneration ?? 0) === (expected.recoveryGeneration ?? 0)
+  );
+}
+
 function sameExpectedDocumentRecord(
   current: StoredDocumentRecord,
   expected: StoredDocumentRecord,
 ): boolean {
   return (
     sameDocumentSecurityIdentity(current, expected) &&
-    (current.recoveryGeneration ?? 0) === (expected.recoveryGeneration ?? 0) &&
+    sameRecoveryGeneration(current, expected) &&
     sameNullableDocumentValue(current.lastCommitLsn, expected.lastCommitLsn) &&
     current.snapshotEndVersion === expected.snapshotEndVersion &&
     sameNullableDocumentValue(
@@ -119,7 +128,8 @@ async function settleMutationConflict(input: {
     sameDocumentSecurityIdentity(
       input.currentRecord,
       input.mutation.expectedRecord,
-    )
+    ) &&
+    sameRecoveryGeneration(input.currentRecord, input.mutation.expectedRecord)
   ) {
     await deleteAcceptedPendingUpdates(
       input.tx,
@@ -399,7 +409,8 @@ export async function settleStoredDocumentPendingUpdates(
       );
       if (
         currentRecord &&
-        sameDocumentSecurityIdentity(currentRecord, input.expectedRecord)
+        sameDocumentSecurityIdentity(currentRecord, input.expectedRecord) &&
+        sameRecoveryGeneration(currentRecord, input.expectedRecord)
       ) {
         await deleteAcceptedPendingUpdates(
           tx,

@@ -157,7 +157,7 @@ durable history for three updates, two epochs, and two pages.
 
 | Model action or state | Production implementation |
 | --- | --- |
-| `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement before the raw pull that can publish |
+| `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement only when every initial pending row belongs to the explicit `preliminaryProven` set |
 | `ValidatePreliminaryPage` | the first complete raw pull validates every bounded page before ordinary provenance settlement can start |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
 | `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key on either pull |
@@ -175,8 +175,9 @@ durable history for three updates, two epochs, and two pages.
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require every preliminary page to pass integrity and
-availability validation before local settlement, local settlement to start
-only after exact ordinary provenance verification, definitive raw collection
+availability validation before local settlement, every initially pending row
+to belong to the retained preliminary-proven set before settlement, and
+definitive raw collection
 to start only after settlement, and publication to start only from the
 exact-history-proven `ready` state. Incomplete or failed recovery preserves the
 old durable

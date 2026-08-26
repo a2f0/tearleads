@@ -32,6 +32,7 @@ VARIABLES phase,
           updateValid,
           epochAvailable,
           ordinaryUpdates,
+          initialLocalPending,
           localPending,
           queuedCheckpoints,
           initialQueuedCheckpoints,
@@ -39,6 +40,7 @@ VARIABLES phase,
           generationCurrent,
           installSuperseded,
           scratchHistory,
+          preliminaryProven,
           initialDurableHistory,
           durableHistory,
           durablePublished,
@@ -46,18 +48,19 @@ VARIABLES phase,
           blockedWriterFence
 
 vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
-           epochAvailable, ordinaryUpdates, localPending,
+           epochAvailable, ordinaryUpdates, initialLocalPending, localPending,
            queuedCheckpoints, initialQueuedCheckpoints,
            hasUnverifiedLocalGap, generationCurrent, installSuperseded,
-           scratchHistory,
+           scratchHistory, preliminaryProven,
            initialDurableHistory, durableHistory, durablePublished,
            reportedUnavailableEpoch, blockedWriterFence >>
 
 fixedModel == << pageOf, updateEpoch, updateValid, epochAvailable,
-                 ordinaryUpdates, initialQueuedCheckpoints,
+                 ordinaryUpdates, initialLocalPending, initialQueuedCheckpoints,
                  installSuperseded, initialDurableHistory >>
 
-durableState == << durableHistory, durablePublished >>
+(* Preliminary proof is retained with commit state after verification. *)
+durableState == << durableHistory, durablePublished, preliminaryProven >>
 
 PageUpdates(page) == {id \in UpdateIds : pageOf[id] = page}
 
@@ -97,13 +100,15 @@ TypeOK ==
   /\ updateValid \in [UpdateIds -> BOOLEAN]
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
-  /\ localPending \in SUBSET ordinaryUpdates
+  /\ initialLocalPending \in SUBSET ordinaryUpdates
+  /\ localPending \in SUBSET initialLocalPending
   /\ queuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ generationCurrent \in BOOLEAN
   /\ installSuperseded \in BOOLEAN
   /\ scratchHistory \subseteq ordinaryUpdates
+  /\ preliminaryProven \subseteq PreliminaryOrdinaryUpdates
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory \in SUBSET UpdateIds
   /\ durablePublished \in BOOLEAN
@@ -119,13 +124,15 @@ Init ==
   /\ updateValid \in [UpdateIds -> BOOLEAN]
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
-  /\ localPending \in SUBSET ordinaryUpdates
+  /\ initialLocalPending \in SUBSET ordinaryUpdates
+  /\ localPending = initialLocalPending
   /\ initialQueuedCheckpoints \in SUBSET (UpdateIds \ ordinaryUpdates)
   /\ queuedCheckpoints = initialQueuedCheckpoints
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ generationCurrent = TRUE
   /\ installSuperseded \in BOOLEAN
   /\ scratchHistory = {}
+  /\ preliminaryProven = {}
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory = initialDurableHistory
   /\ durablePublished = FALSE
@@ -139,9 +146,11 @@ VerifyOrdinaryProvenance ==
   /\ ~hasUnverifiedLocalGap
   /\ phase' = "settling"
   /\ nextPage' = 1
+  /\ preliminaryProven' = scratchHistory
   /\ scratchHistory' = {}
   /\ UNCHANGED << fixedModel, localPending, queuedCheckpoints,
-                  hasUnverifiedLocalGap, generationCurrent, durableState,
+                  hasUnverifiedLocalGap, generationCurrent,
+                  durableHistory, durablePublished,
                   reportedUnavailableEpoch, blockedWriterFence >>
 
 ValidatePreliminaryPage ==
@@ -180,6 +189,7 @@ StartRawCollection ==
 CommitPendingOrdinary ==
   /\ phase = "settling"
   /\ localPending # {}
+  /\ localPending \subseteq preliminaryProven
   /\ ~hasUnverifiedLocalGap
   /\ phase' = "collecting"
   /\ localPending' = {}
@@ -367,7 +377,7 @@ PublishRecovery ==
        ELSE blockedWriterFence
   /\ UNCHANGED << fixedModel, nextPage, localPending,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
-                  reportedUnavailableEpoch >>
+                  preliminaryProven, reportedUnavailableEpoch >>
 
 RejectBlockedWriterAfterRecovery ==
   /\ phase = "complete"
@@ -433,7 +443,8 @@ RawCollectionStartsAfterLocalSettlement ==
   phase \notin {"collecting", "ready", "complete"} \/ localPending = {}
 
 SettlementUsesVerifiedOrdinaryProvenance ==
-  phase # "settling" \/ ~hasUnverifiedLocalGap
+  phase \notin {"collecting", "ready", "complete"} \/
+    initialLocalPending \subseteq preliminaryProven
 
 PreliminaryValidationPrecedesSettlement ==
   phase \notin {"settling", "collecting", "ready", "complete"} \/
