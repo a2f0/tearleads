@@ -91,7 +91,8 @@ test("rotation commits pending writes before consecutive raw recoveries", async 
 
     const baseline = await assertDocumentStoreCanRotateContentKey(state);
 
-    expect(syncCalls.count).toBe(2);
+    // Preliminary raw proof, ordinary settlement, then definitive raw pull.
+    expect(syncCalls.count).toBe(3);
     expect(await listPendingUpdates(state)).toHaveLength(0);
     const freshReader = await createDocument("pending-rotation-reader");
     importSnapshot(freshReader, baseline);
@@ -118,7 +119,7 @@ test("rotation commits pending writes before consecutive raw recoveries", async 
     );
     const nextBaseline =
       await assertDocumentStoreCanRotateContentKey(nextState);
-    expect(syncCalls.count).toBe(3);
+    expect(syncCalls.count).toBe(4);
     const nextReader = await createDocument("next-rotation-reader");
     importSnapshot(nextReader, nextBaseline);
     expect(getTextValue(nextReader)).toBe("pending local edit");

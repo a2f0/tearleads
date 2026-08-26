@@ -1,4 +1,5 @@
 import { KeyingVerificationError } from "@symcrypt/crypto";
+import { LoroImportUnresolvedDependenciesError } from "@symcrypt/loro";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -6,6 +7,7 @@ import type {
 import { decryptDocumentSyncUpdatesByEpoch } from "../../data/documents/shared/crypto";
 import {
   type IncomingDocumentSyncUpdateValidator,
+  isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
@@ -68,6 +70,45 @@ type SyncRemoteDocumentResultInput = {
   writerProjection: DocumentWriterProjectionResponse;
 };
 
+function isUnavailableSiblingDependencyGap(error: unknown): boolean {
+  return (
+    isDocumentSyncUpdateIsolationError(error) &&
+    error.stage === "loro_import" &&
+    error.cause instanceof LoroImportUnresolvedDependenciesError
+  );
+}
+
+/** @internal Exercises poison precedence for the decryptable subset of a raw page. */
+export async function validateDecryptableRawHistorySiblings(input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  documentId: string;
+  organizationId: string;
+  response: DocumentSyncResponse;
+  updates: readonly DocumentSyncResponse["updates"][number][];
+  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
+}): Promise<void> {
+  if (input.updates.length === 0) return;
+  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
+    contentKeysByEpoch: input.contentKeysByEpoch,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+    updates: input.updates,
+  });
+  try {
+    await input.validateIncomingUpdates({
+      decryptedUpdates,
+      response: { ...input.response, updates: [...input.updates] },
+    });
+  } catch (error) {
+    // An unavailable sibling may carry the missing parent of an otherwise
+    // honest delta. Availability remains the useful diagnosis for that exact
+    // case; every decrypt, integrity, metadata, and resolvable import failure
+    // has already been checked and must retain poison-isolation precedence.
+    if (isUnavailableSiblingDependencyGap(error)) return;
+    throw error;
+  }
+}
+
 async function resolveVerifiedResponseState(
   input: SyncRemoteDocumentResultInput,
 ) {
@@ -94,6 +135,15 @@ async function resolveVerifiedResponseState(
     currentContentKeyEpoch: plan.contentKeyEpoch,
     execSql: input.execSql,
     historyMode: plan.request.historyMode,
+    onRawHistoryUnavailable: async ({ contentKeysByEpoch, updates }) =>
+      validateDecryptableRawHistorySiblings({
+        contentKeysByEpoch,
+        documentId: plan.documentId,
+        organizationId: plan.organizationId,
+        response: input.response,
+        updates,
+        validateIncomingUpdates: input.validateIncomingUpdates,
+      }),
     response: input.response,
     targetSecretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,

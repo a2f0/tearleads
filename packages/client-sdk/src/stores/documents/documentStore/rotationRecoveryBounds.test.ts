@@ -201,8 +201,8 @@ test("rotation invalidates a continuation and drains a bounded local queue", asy
 
     expect(await listPendingUpdates(state)).toHaveLength(0);
     expect(state.pullContinuation).toBeNull();
-    expect(outgoingCounts).toEqual([64, 1, 0]);
-    expect(historyModes).toEqual([undefined, undefined, "raw"]);
+    expect(outgoingCounts).toEqual([0, 64, 1, 0]);
+    expect(historyModes).toEqual(["raw", undefined, undefined, "raw"]);
     expect(requestedSyncCount).toBe(0);
     const recovered = await createDocument("bounded-tail-reader");
     importSnapshot(recovered, baseline);

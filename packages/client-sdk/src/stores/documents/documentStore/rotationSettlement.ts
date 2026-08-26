@@ -39,16 +39,12 @@ function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
 function ordinaryPendingUpdatesWithProvenCoverage(input: {
   currentDocument: DocumentState;
   pendingUpdates: PendingUpdateRecord[];
-  state: DocumentStoreState;
-}): PendingUpdateRecord[] {
-  const pendingBaseVersion = input.state.pendingBaseVersion;
-  if (pendingBaseVersion === null) {
-    throw new Error("Document rotation requires an initialized pending base");
-  }
+  verifiedBaseVersion: string;
+}): { coverage: string; pendingUpdates: PendingUpdateRecord[] } {
   const ordinaryUpdates = ordinaryPendingUpdates(input.pendingUpdates);
   const documentVersion = encodeVersionVector(input.currentDocument);
   const ordinaryCoverage = extendDocumentVersionCoverage({
-    baseVersion: pendingBaseVersion,
+    baseVersion: input.verifiedBaseVersion,
     documentVersion,
     spans: ordinaryUpdates,
   });
@@ -57,10 +53,10 @@ function ordinaryPendingUpdatesWithProvenCoverage(input: {
       "Document rotation cannot settle uncovered local history because it may be checkpoint-derived",
     );
   }
-  return ordinaryUpdates;
+  return { coverage: ordinaryCoverage, pendingUpdates: ordinaryUpdates };
 }
 
-async function invalidateExistingPullContinuation(
+export async function invalidatePullContinuationBeforeRotation(
   state: DocumentStoreState,
 ): Promise<void> {
   const continuation = state.pullContinuation;
@@ -141,10 +137,25 @@ async function persistStagedSettlement(input: {
   }
 }
 
+function settledOrdinaryCoverage(input: {
+  currentDocument: DocumentState;
+  pendingUpdates: PendingUpdateRecord[];
+  settledUpdateIds: readonly string[];
+  verifiedBaseVersion: string;
+}): string {
+  const settled = new Set(input.settledUpdateIds);
+  return extendDocumentVersionCoverage({
+    baseVersion: input.verifiedBaseVersion,
+    documentVersion: encodeVersionVector(input.currentDocument),
+    spans: input.pendingUpdates.filter((update) => settled.has(update.id)),
+  });
+}
+
 async function settleOrdinaryUpdatePass(input: {
   pendingUpdates: PendingUpdateRecord[];
   state: DocumentStoreState;
-}): Promise<void> {
+  verifiedBaseVersion: string;
+}): Promise<string> {
   const { state } = input;
   const currentDoc = state.doc;
   const currentRecord = state.record;
@@ -160,15 +171,16 @@ async function settleOrdinaryUpdatePass(input: {
       "Document changed while local updates were settling for key rotation",
     );
   }
-  const pendingUpdates = ordinaryPendingUpdatesWithProvenCoverage({
+  const proven = ordinaryPendingUpdatesWithProvenCoverage({
     currentDocument: currentDoc,
     pendingUpdates: input.pendingUpdates,
-    state,
+    verifiedBaseVersion: input.verifiedBaseVersion,
   });
   const prepared = await prepareDocumentOutgoingCoverage({
+    coverageBaseVersion: input.verifiedBaseVersion,
     currentDoc,
     generation,
-    pendingUpdates,
+    pendingUpdates: proven.pendingUpdates,
     state,
   });
   if (!prepared || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -179,10 +191,10 @@ async function settleOrdinaryUpdatePass(input: {
   const preparedPendingUpdates = ordinaryPendingUpdates(
     prepared.pendingUpdates,
   );
-  if (preparedPendingUpdates.length === 0) return;
+  if (preparedPendingUpdates.length === 0) return proven.coverage;
 
   const sentUpdateIds: string[] = [];
-  await cleanupPreRegisteredUpdateIdsOnFailure(
+  return cleanupPreRegisteredUpdateIdsOnFailure(
     state,
     sentUpdateIds,
     async () => {
@@ -221,6 +233,12 @@ async function settleOrdinaryUpdatePass(input: {
         state,
         syncAttempt,
       });
+      return settledOrdinaryCoverage({
+        currentDocument: currentDoc,
+        pendingUpdates: preparedPendingUpdates,
+        settledUpdateIds: syncAttempt.synced.settledPendingUpdateIds,
+        verifiedBaseVersion: input.verifiedBaseVersion,
+      });
     },
   );
 }
@@ -232,38 +250,36 @@ async function settleOrdinaryUpdatePass(input: {
  */
 export async function settleOrdinaryDocumentUpdatesBeforeRotation(
   state: DocumentStoreState,
+  verifiedBaseVersion: string,
 ): Promise<void> {
-  await invalidateExistingPullContinuation(state);
   const stalledQueueStates = new Set<string>();
+  let verifiedCoverage = verifiedBaseVersion;
 
   while (true) {
     const currentDoc = state.doc;
-    const pendingBaseVersion = state.pendingBaseVersion;
-    if (!currentDoc || pendingBaseVersion === null) {
-      throw new Error("Document rotation requires an initialized pending base");
+    if (!currentDoc) {
+      throw new Error("Document rotation requires an initialized document");
     }
     const allPendingUpdates = await listPendingUpdates(state);
     const pendingUpdates = ordinaryPendingUpdates(allPendingUpdates);
     if (
       pendingUpdates.length === 0 &&
-      satisfiesVersionVector(
-        pendingBaseVersion,
-        encodeVersionVector(currentDoc),
-      )
+      satisfiesVersionVector(verifiedCoverage, encodeVersionVector(currentDoc))
     ) {
       return;
     }
 
-    const queueState = `${pendingBaseVersion}\n${pendingUpdateSetKey(pendingUpdates)}`;
+    const queueState = `${verifiedCoverage}\n${pendingUpdateSetKey(pendingUpdates)}`;
     if (stalledQueueStates.has(queueState)) {
       throw new Error(
         "Document local updates could not be committed before key rotation",
       );
     }
     stalledQueueStates.add(queueState);
-    await settleOrdinaryUpdatePass({
+    verifiedCoverage = await settleOrdinaryUpdatePass({
       pendingUpdates: allPendingUpdates,
       state,
+      verifiedBaseVersion: verifiedCoverage,
     });
   }
 }

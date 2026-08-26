@@ -88,6 +88,29 @@ export function exportAllUpdates(doc: LoroDoc): Uint8Array {
   return doc.export({ mode: "update" });
 }
 
+/** Deterministic, peer-uncompressed identity for an operation-log prefix. */
+export function exportFullHistoryIdentity(
+  doc: LoroDoc,
+  endVersion?: string,
+): string {
+  return JSON.stringify(
+    doc.exportJsonUpdates(
+      undefined,
+      endVersion === undefined ? undefined : decodeVersionVector(endVersion),
+      false,
+    ),
+    (_key, value: unknown) => {
+      if (value instanceof Map) {
+        return [...value.entries()].sort(([left], [right]) =>
+          String(left).localeCompare(String(right)),
+        );
+      }
+      if (value instanceof Uint8Array) return bytesToBase64(value);
+      return value;
+    },
+  );
+}
+
 /**
  * Export a mergeable, full-history snapshot — the only snapshot form this
  * codebase produces. Every document is born with full durable history and

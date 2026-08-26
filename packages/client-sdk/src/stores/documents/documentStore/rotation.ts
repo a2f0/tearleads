@@ -1,8 +1,4 @@
-import {
-  encodeVersionVector,
-  satisfiesVersionVector,
-  versionVectorsEqual,
-} from "@symcrypt/loro";
+import { encodeVersionVector, versionVectorsEqual } from "@symcrypt/loro";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentSyncPullContinuation,
@@ -14,7 +10,15 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
-import { settleOrdinaryDocumentUpdatesBeforeRotation } from "./rotationSettlement";
+import { listPendingUpdates } from "./persistence";
+import {
+  assertExactDocumentHistory,
+  importProvenOrdinaryPendingHistory,
+} from "./rotationProvenance";
+import {
+  invalidatePullContinuationBeforeRotation,
+  settleOrdinaryDocumentUpdatesBeforeRotation,
+} from "./rotationSettlement";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { createStoredDocument } from "./storedDocument";
 import {
@@ -178,11 +182,57 @@ async function pullVerifiedRawHistoryForRotation(input: {
   }
 }
 
+async function collectVerifiedRawHistoryForRotation(input: {
+  currentRecord: NonNullable<DocumentStoreState["record"]>;
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}) {
+  const rebuiltDocument = await createStoredDocument(input.state);
+  try {
+    const synced = await pullVerifiedRawHistoryForRotation({
+      ...input,
+      rebuiltDocument,
+    });
+    return { rebuiltDocument, synced };
+  } catch (error) {
+    rebuiltDocument.free();
+    throw error;
+  }
+}
+
+function assertCapturedDocumentCurrent(input: {
+  capturedVersion: string;
+  currentDocument: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  state: DocumentStoreState;
+}): void {
+  assertRotationRecoveryGeneration(input);
+  if (
+    !versionVectorsEqual(
+      encodeVersionVector(input.currentDocument),
+      input.capturedVersion,
+    )
+  ) {
+    throw new Error(
+      "Document changed during rotation recovery; retry key rotation",
+    );
+  }
+}
+
+function currentRotationRecoveryRecord(
+  state: DocumentStoreState,
+): NonNullable<DocumentStoreState["record"]> {
+  if (state.record) return state.record;
+  throw new Error(
+    "Document changed during rotation recovery; retry key rotation",
+  );
+}
+
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
 ): Promise<Uint8Array> {
   assertRotationRecoveryPrerequisites(state);
-  await settleOrdinaryDocumentUpdatesBeforeRotation(state);
+  await invalidatePullContinuationBeforeRotation(state);
   const currentDoc = state.doc;
   const currentRecord = state.record;
   if (!currentDoc || !currentRecord) {
@@ -201,7 +251,6 @@ async function recoverFullHistoryForRotation(
   }
 
   const capturedVersion = encodeVersionVector(currentDoc);
-  const consumedPullContinuation = state.pullContinuation;
   let settlementRequiresRetry = false;
 
   // A raw recovery starts from an empty scratch document, bypasses untrusted
@@ -209,42 +258,61 @@ async function recoverFullHistoryForRotation(
   // publishes nothing until all response updates have validated. Checkpoints
   // are authenticated and decrypted but are not reconstruction inputs: the
   // original ordinary update stream is the source of truth in this mode.
-  const rebuiltDoc = await createStoredDocument(state);
+  let collection = await collectVerifiedRawHistoryForRotation({
+    currentRecord,
+    generation,
+    state,
+  });
 
   try {
-    const synced = await pullVerifiedRawHistoryForRotation({
-      currentRecord,
+    assertCapturedDocumentCurrent({
+      capturedVersion,
+      currentDocument: currentDoc,
       generation,
-      rebuiltDocument: rebuiltDoc,
       state,
     });
-
+    const pendingUpdates = await listPendingUpdates(state);
     assertRotationRecoveryGeneration({ generation, state });
-    if (
-      !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
-    ) {
-      throw new Error(
-        "Document changed during rotation recovery; retry key rotation",
+    const verifiedOrdinaryVersion = importProvenOrdinaryPendingHistory({
+      currentDocument: currentDoc,
+      pendingUpdates,
+      rebuiltDocument: collection.rebuiltDocument,
+    });
+    if (pendingUpdates.some((update) => update.sourceVersionVector == null)) {
+      // The first raw pass proves the exact ordinary frontier before any local
+      // row can be published. Pull raw history again after settlement so the
+      // installed snapshot also includes remote work that raced that submit.
+      await settleOrdinaryDocumentUpdatesBeforeRotation(
+        state,
+        verifiedOrdinaryVersion,
       );
+      assertCapturedDocumentCurrent({
+        capturedVersion,
+        currentDocument: currentDoc,
+        generation,
+        state,
+      });
+      const definitiveCollection = await collectVerifiedRawHistoryForRotation({
+        currentRecord: currentRotationRecoveryRecord(state),
+        generation,
+        state,
+      });
+      collection.rebuiltDocument.free();
+      collection = definitiveCollection;
     }
-    if (
-      !satisfiesVersionVector(encodeVersionVector(rebuiltDoc), capturedVersion)
-    ) {
-      // The missing ops have no remaining ordinary pending-row provenance.
-      // They may have arrived through a forged checkpoint, so never launder
-      // them into the ordinary stream or a new rotation baseline.
-      throw new Error(
-        "Rotation raw-history recovery found unverified local history; key rotation was not started",
-      );
-    }
+    assertRotationRecoveryGeneration({ generation, state });
+    assertExactDocumentHistory({
+      currentDocument: currentDoc,
+      rebuiltDocument: collection.rebuiltDocument,
+    });
 
     const installed = await installRebuiltDocument({
-      consumedPullContinuation,
-      currentRecord,
+      consumedPullContinuation: state.pullContinuation,
+      currentRecord: currentRotationRecoveryRecord(state),
       generation,
-      rebuiltDoc,
+      rebuiltDoc: collection.rebuiltDocument,
       state,
-      synced,
+      synced: collection.synced,
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
     if (settlementRequiresRetry) {
@@ -254,8 +322,8 @@ async function recoverFullHistoryForRotation(
     }
     return installed.fullHistorySnapshot;
   } finally {
-    if (state.doc !== rebuiltDoc) {
-      rebuiltDoc.free();
+    if (state.doc !== collection.rebuiltDocument) {
+      collection.rebuiltDocument.free();
     }
     if (settlementRequiresRetry) {
       requestDocumentStoreSync(state);

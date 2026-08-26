@@ -72,7 +72,7 @@ test("rotation refuses to relabel an uncovered checkpoint gap as ordinary", asyn
     state.record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
 
     await expect(
-      settleOrdinaryDocumentUpdatesBeforeRotation(state),
+      settleOrdinaryDocumentUpdatesBeforeRotation(state, emptyVersionVector()),
     ).rejects.toThrow("may be checkpoint-derived");
     expect(syncCalls).toBe(0);
     expect(await listPendingUpdates(state)).toHaveLength(1);

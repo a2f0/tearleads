@@ -19,9 +19,9 @@ A raw consumer must:
 3. retain the cursor only in memory and drain every bounded page;
 4. reconstruct from original ordinary updates, not `rotate_baseline`
    checkpoints;
-5. commit every proven ordinary pending delta before the raw pull and fail
-   closed if the installed document still contains operations absent from the
-   verified raw history;
+5. use a preliminary raw pull to prove each ordinary pending delta byte-for-byte
+   against the live operation history, settle only those proven rows, and then
+   perform a definitive raw pull;
 6. publish the rebuilt document once through a guarded atomic install.
 
 Rotation checkpoints are still authenticated, decrypted, and scratch-imported
@@ -37,11 +37,17 @@ ordinary rows are settled remotely before the baseline can be returned. Queued
 rotation checkpoints remain queued and excluded from reconstruction. If a
 checkpoint is the only durable carrier of an operation, the client cannot
 prove that operation originated locally rather than in a forged checkpoint,
-so ordinary-span coverage is checked before settlement. Any uncovered local gap
-fails the preflight without relabeling, re-encrypting, or publishing it. A
-successful guarded install atomically removes queued checkpoints whose declared
-frontier is covered by the verified rebuild, along with covered local-history
-tail rows.
+so a preliminary raw reconstruction imports only queued ordinary local deltas
+and must contain the exact live operation history before settlement (it may
+also contain concurrent remote work). Deterministic operation-log comparison
+detects a forged checkpoint that reuses genuine version-vector identities, and
+per-row range comparison proves that each queued binary delta contains the
+live document's exact operations, before a dependent local edit can be
+re-encrypted or published. After settling proven local rows, the client
+performs a definitive raw pull so remote work racing the submit is included. A
+successful guarded
+install atomically removes queued checkpoints whose declared frontier is
+covered by the verified rebuild, along with covered local-history tail rows.
 Coverage is selected only after the guarded install transaction acquires its
 write lock, preventing a concurrent append from surviving as a stale or forged
 redirect after recovery.
@@ -69,7 +75,10 @@ consumer checks every referenced epoch before reporting unavailability so a
 malformed bundle in the same page always takes poison-isolation precedence.
 Within a multi-target bundle it likewise aggregates unreachable-target causes,
 so integrity failures outrank an absent predecessor keyring regardless of
-target order.
+target order. Before reporting an unavailable epoch, the client decrypts and
+import-validates every sibling whose content key is available; any resolvable
+poison retains precedence, while an unresolved dependency that may be carried
+by the unavailable sibling preserves the availability diagnosis.
 When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw
@@ -81,7 +90,8 @@ when the first attempt was built from persisted projection state.
 Store-level tests cover honest recovery, forged remote and queued baselines,
 malformed or missing historical bundles without durable mutation, unavailable
 historical epochs, interrupted multi-page recovery, pre-rotation settlement of
-pending local updates, rejection of checkpoint-only settlement gaps, atomic
+pending local updates, forged-baseline-dependent edit isolation, rejection of
+checkpoint-only settlement gaps, mixed-page poison precedence, atomic
 checkpoint-gate rollback, cached-projection recovery, persisted-cursor
 conflicts, cross-client consecutive rotation, and the unchanged ordinary-sync
 request shape.
@@ -98,17 +108,17 @@ history for three updates, two epochs, and two pages.
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import in `pullVerifiedRawHistoryForRotation` |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
-| `RejectUnverifiedLocalGap` | ordinary-span coverage rejects a checkpoint-only gap before settlement; the rebuilt/installed comparison remains a terminal defense |
+| `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or non-dominated history checkpoint rejects and rolls back the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
 | `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
-The checked invariants require raw collection to start only after local
-ordinary settlement and checkpoint-only gap rejection, incomplete or failed
-recovery to preserve the old durable
-history, successful recovery to contain every retained ordinary update,
+The checked invariants require local settlement to start only after raw
+ordinary provenance verification and definitive raw collection to start only
+after settlement. Incomplete or failed recovery preserves the old durable
+history, successful recovery contains every retained ordinary update,
 successful recovery to retire covered queued checkpoints, scratch state never
 to trust a rotation checkpoint, covered local artifacts appended during
 collection to survive every failure or retire with the successful transaction,

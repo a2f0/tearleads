@@ -1,8 +1,10 @@
 --------------------- MODULE RawHistoryRecovery ---------------------
 EXTENDS Naturals
 
-(* A rotation preflight commits every proven local ordinary update before    *)
-(* the raw recovery that can publish drains retained pages into scratch.      *)
+(* A rotation preflight first reconstructs raw history to prove that every   *)
+(* local ordinary update descends from the genuine ordinary frontier. It then *)
+(* commits those proven updates before a definitive raw recovery drains the   *)
+(* retained pages into scratch.                                               *)
 (* hasUnverifiedLocalGap represents state found only in the installed local   *)
 (* document, without ordinary pending-row provenance. Authenticated rotation  *)
 (* checkpoints are validated but the ordinary update stream is the source of  *)
@@ -12,8 +14,8 @@ EXTENDS Naturals
 (* queuedCheckpoints abstracts BOTH covered queued checkpoints and covered     *)
 (* local-history tail rows. Either can arrive while pages are collected; the  *)
 (* successful install selects and retires the then-current set atomically.    *)
-(* An installed gap carried only by a queued checkpoint is rejected during   *)
-(* settlement, before it can be relabeled and submitted as an ordinary row.  *)
+(* An installed gap carried only by a checkpoint is rejected during the      *)
+(* preliminary provenance pass, before a dependent local edit can be sent.   *)
 (* installSuperseded abstracts record-CAS loss and monotonic checkpoint-gate  *)
 (* rejection: either aborts the entire guarded install transaction.           *)
 
@@ -68,7 +70,7 @@ MinEpoch(epochs) ==
   CHOOSE epoch \in epochs : \A other \in epochs : epoch <= other
 
 TypeOK ==
-  /\ phase \in {"settling", "collecting", "failed", "complete"}
+  /\ phase \in {"verifying", "settling", "collecting", "failed", "complete"}
   /\ nextPage \in 1..(MaxPage + 1)
   /\ pageOf \in [UpdateIds -> Pages]
   /\ updateEpoch \in [UpdateIds -> Epochs]
@@ -88,7 +90,7 @@ TypeOK ==
   /\ reportedUnavailableEpoch \in 0..MaxEpoch
 
 Init ==
-  /\ phase = "settling"
+  /\ phase = "verifying"
   /\ nextPage = 1
   /\ pageOf \in [UpdateIds -> Pages]
   /\ updateEpoch \in [UpdateIds -> Epochs]
@@ -106,6 +108,18 @@ Init ==
   /\ durableHistory = initialDurableHistory
   /\ durablePublished = FALSE
   /\ reportedUnavailableEpoch = 0
+
+VerifyOrdinaryProvenance ==
+  /\ phase = "verifying"
+  /\ ~hasUnverifiedLocalGap
+  /\ phase' = "settling"
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  hasUnverifiedLocalGap, generationCurrent,
+                  installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
 
 StartRawCollection ==
   /\ phase = "settling"
@@ -189,7 +203,7 @@ RejectInvalidPage ==
                   reportedUnavailableEpoch >>
 
 RejectUnverifiedLocalGap ==
-  /\ phase = "settling"
+  /\ phase = "verifying"
   /\ hasUnverifiedLocalGap
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
@@ -272,6 +286,7 @@ RemainTerminal ==
   /\ UNCHANGED vars
 
 Next ==
+  \/ VerifyOrdinaryProvenance
   \/ StartRawCollection
   \/ CommitPendingOrdinary
   \/ RejectPendingSettlement
@@ -309,6 +324,10 @@ ScratchNeverTrustsRotationCheckpoints ==
 
 RawCollectionStartsAfterLocalSettlement ==
   phase \notin {"collecting", "complete"} \/ localPending = {}
+
+SettlementUsesVerifiedOrdinaryProvenance ==
+  phase \notin {"settling", "collecting", "complete"} \/
+    ~hasUnverifiedLocalGap
 
 UnverifiedLocalHistoryNeverPublishes ==
   ~hasUnverifiedLocalGap \/ phase # "complete"

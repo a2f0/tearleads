@@ -263,7 +263,7 @@ test("raw recovery does not launder preinstalled unverified history", async () =
   }
 });
 
-test("settlement does not persist a returned baseline before raw recovery succeeds", async () => {
+test("local settlement waits for raw provenance verification", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-settlement-stages-baseline",
   );
@@ -314,7 +314,7 @@ test("settlement does not persist a returned baseline before raw recovery succee
       "Simulated raw recovery failure",
     );
 
-    expect(await listPendingUpdates(state)).toHaveLength(0);
+    expect(await listPendingUpdates(state)).toHaveLength(1);
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
     ).toEqual(historyBefore);

@@ -43,6 +43,11 @@ function isRawHistoryUnavailableCause(
   );
 }
 
+type RawHistoryUnavailableValidator = (input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  updates: readonly SyncResponseUpdate[];
+}) => void | Promise<void>;
+
 /** A raw recovery cannot reconstruct history without this retained epoch. */
 export class DocumentRawHistoryUnavailableError extends Error {
   readonly code = "document_raw_history_epoch_unavailable";
@@ -57,6 +62,29 @@ export class DocumentRawHistoryUnavailableError extends Error {
     );
     this.name = "DocumentRawHistoryUnavailableError";
   }
+}
+
+async function throwRawHistoryUnavailable(input: {
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
+  response: DocumentSyncResponse;
+  unavailable: { cause: RawHistoryUnavailableCause; contentKeyEpoch: number };
+  validate?: RawHistoryUnavailableValidator | undefined;
+}): Promise<never> {
+  await input.validate?.({
+    contentKeysByEpoch: input.contentKeysByEpoch,
+    updates: input.response.updates.filter((update) =>
+      input.contentKeysByEpoch.has(
+        readWriteHeader(
+          update.writeHeader,
+          "Document sync response write header",
+        ).contentKeyEpoch,
+      ),
+    ),
+  });
+  throw new DocumentRawHistoryUnavailableError(
+    input.unavailable.contentKeyEpoch,
+    input.unavailable.cause,
+  );
 }
 
 export async function prepareDocumentOutgoingUpdates(input: {
@@ -180,6 +208,8 @@ export async function unwrapDocumentSyncResponseContentKeys(
     currentContentKeyEpoch: number;
     execSql?: ExecSql | undefined;
     historyMode?: "raw" | undefined;
+    /** @internal Validate every decryptable sibling before raw availability wins. */
+    onRawHistoryUnavailable?: RawHistoryUnavailableValidator | undefined;
     response: DocumentSyncResponse;
     targetSecretKey: Uint8Array;
     writerProjection: DocumentWriterProjectionResponse;
@@ -272,10 +302,12 @@ export async function unwrapDocumentSyncResponseContentKeys(
   }
 
   if (unavailableRawHistory) {
-    throw new DocumentRawHistoryUnavailableError(
-      unavailableRawHistory.contentKeyEpoch,
-      unavailableRawHistory.cause,
-    );
+    await throwRawHistoryUnavailable({
+      contentKeysByEpoch,
+      response: input.response,
+      unavailable: unavailableRawHistory,
+      validate: input.onRawHistoryUnavailable,
+    });
   }
 
   return contentKeysByEpoch;
