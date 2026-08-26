@@ -76,6 +76,10 @@ checkpoint-history gate or canonical-record comparison rejects the recovery
 candidate, or if volatile runtime/trust ownership changes before the
 transaction commits, the adapter rolls back the complete install, including
 checkpoint/tail pruning, projection writes, and pending-row settlement. The
+checkpoint gate must reject a candidate that does not dominate the stored
+version vector or does not retain the stored checkpoint's exact operation-log
+prefix; the in-memory conformance adapters exercise the same stale and
+same-frontier-fork rejection as SQLite. The
 generation guard and SQLite `COMMIT` dispatch share one synchronous slice, so
 ownership cannot change between the final decision and commit dispatch.
 
@@ -108,7 +112,9 @@ When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw
 pagination conflict never restarts or resubmits the frozen cursor, including
-when the first attempt was built from persisted projection state.
+when the first attempt was built from persisted projection state. Any raw-page
+validation failure is terminal for that frozen cursor as well, including a
+plain importer error that does not carry a specialized isolation type.
 
 ## Verification
 
@@ -120,7 +126,9 @@ checkpoint-only settlement gaps, mixed-page poison precedence, atomic
 checkpoint-gate rollback, racing-checkpoint quarantine across restart,
 same-frontier tail-fork rejection, binary/string history-identity separation,
 unavailable-record/header poison precedence, unrelated unresolved-dependency
-isolation, cached-projection recovery,
+isolation, stale and same-frontier-forked in-memory checkpoint rejection,
+page-two generic validation failure without resubmission,
+cached-projection recovery,
 persisted-cursor conflicts, cross-client consecutive rotation, and the
 unchanged ordinary-sync request shape.
 
@@ -133,21 +141,26 @@ history for three updates, two epochs, and two pages.
 | Model action or state | Production implementation |
 | --- | --- |
 | `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement before the raw pull that can publish |
+| `ValidatePreliminaryPage` | the first complete raw pull validates every bounded page before ordinary provenance settlement can start |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
 | `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
-| `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install rejects ordinary rows or tails whose exact operation range is absent from the rebuild, including same-frontier forks, and preserves them for explicit recovery |
+| `AppendUnprovenLocalArtifactBeforeInstall` / `RejectUnprovenLocalArtifactBeforeInstall` | the guarded install detects and rejects ordinary rows or tails whose exact operation range is absent from the rebuild, including same-frontier forks, and preserves them for explicit recovery |
+| `VerifyExactLocalHistoryBeforeInstall` / `ready` | final exact-history provenance is an explicit publication prerequisite inside the identity-write section |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or checkpoint lacking the stored operation-log prefix rejects and rolls back the guarded install |
 | `AppendCheckpointArtifact` | a checkpoint arriving before the install transaction acquires its write lock is selected and retired without entering recovered history |
 | `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including commit-time generation revalidation and atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
-The checked invariants require local settlement to start only after raw
-ordinary provenance verification and definitive raw collection to start only
-after settlement. Incomplete or failed recovery preserves the old durable
+The checked invariants require every preliminary page to pass integrity and
+availability validation before local settlement, local settlement to start
+only after exact ordinary provenance verification, definitive raw collection
+to start only after settlement, and publication to start only from the
+exact-history-proven `ready` state. Incomplete or failed recovery preserves the
+old durable
 history, successful recovery contains every retained ordinary update,
 successful recovery to retire every queued checkpoint artifact, scratch state
 never to trust a rotation checkpoint, checkpoint artifacts appended during

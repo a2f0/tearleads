@@ -2,7 +2,9 @@ import type { DocumentsPersistence } from "@symcrypt/client-sdk";
 import { base64ToBytes } from "@symcrypt/encoding";
 import {
   createDocument,
+  exportFullHistoryIdentity,
   importSnapshot,
+  satisfiesVersionVector,
   updateMatchesDocumentHistory,
 } from "@symcrypt/loro";
 
@@ -76,6 +78,40 @@ async function findCoveredMemoryRecoveryLocalState(input: {
   }
 }
 
+async function recoveryCheckpointCanReplace(input: {
+  candidate: RecoveryHistoryCheckpoint;
+  stored: MutableRecoveryHistory["checkpoint"];
+}): Promise<boolean> {
+  if (!input.stored) return true;
+  if (
+    !satisfiesVersionVector(
+      input.candidate.endVersionVector,
+      input.stored.endVersionVector,
+    )
+  ) {
+    return false;
+  }
+  if (input.candidate.snapshot === input.stored.snapshot) return true;
+
+  const [candidateDocument, storedDocument] = await Promise.all([
+    createDocument("memory-checkpoint-candidate-history-gate"),
+    createDocument("memory-checkpoint-stored-history-gate"),
+  ]);
+  try {
+    importSnapshot(candidateDocument, base64ToBytes(input.candidate.snapshot));
+    importSnapshot(storedDocument, base64ToBytes(input.stored.snapshot));
+    return (
+      exportFullHistoryIdentity(
+        candidateDocument,
+        input.stored.endVersionVector,
+      ) === exportFullHistoryIdentity(storedDocument)
+    );
+  } finally {
+    candidateDocument.free();
+    storedDocument.free();
+  }
+}
+
 export async function applyMemoryHistoryCheckpoint(input: {
   checkpoint: RecoveryHistoryCheckpoint;
   history: MutableRecoveryHistory;
@@ -88,6 +124,19 @@ export async function applyMemoryHistoryCheckpoint(input: {
         tail: input.history.tail,
       })
     : { pendingUpdateIds: [], tailIds: [] };
+  if (
+    !(await recoveryCheckpointCanReplace({
+      candidate: input.checkpoint,
+      stored: input.history.checkpoint,
+    }))
+  ) {
+    if (input.checkpoint.pruneCoveredLocalState) {
+      throw new Error(
+        "Document recovery checkpoint was superseded before installation",
+      );
+    }
+    return [];
+  }
   const coveredTailIds = new Set(
     input.checkpoint.pruneCoveredLocalState
       ? coveredRecoveryState.tailIds

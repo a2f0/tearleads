@@ -250,6 +250,9 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
     if (projectionIntegrityErrorCode(error)) {
       throw error;
     }
+    if (input.completion.historyMode === "raw") {
+      throw error;
+    }
     return null;
   }
 }

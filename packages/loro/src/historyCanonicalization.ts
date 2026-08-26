@@ -51,12 +51,7 @@ function canonicalHistoryValue(value: unknown): CanonicalHistoryValue {
         .sort()
         .map(
           (key) =>
-            [
-              key,
-              canonicalHistoryValue(
-                Reflect.get(value as Record<string, unknown>, key),
-              ),
-            ] as const,
+            [key, canonicalHistoryValue(Reflect.get(value, key))] as const,
         ),
     ];
   }

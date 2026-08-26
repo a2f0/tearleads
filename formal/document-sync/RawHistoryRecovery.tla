@@ -18,6 +18,10 @@ EXTENDS Naturals
 (* preliminary provenance pass, before a dependent local edit can be sent.   *)
 (* installSuperseded abstracts record-CAS loss and exact checkpoint-history  *)
 (* gate rejection: either aborts the entire guarded install transaction.     *)
+(* The verifying phase drains and validates every preliminary raw page before *)
+(* provenance settlement can begin. The ready phase records that the final   *)
+(* scratch history exactly covers every local artifact; publication is only  *)
+(* reachable from that phase, in the same atomic identity-write section.      *)
 (* CommitPendingOrdinary is identity-write serialized with sync finalization, *)
 (* so a shared-document import durably appends its history before settlement  *)
 (* can persist that document. PublishRecovery is one atomic action because    *)
@@ -33,9 +37,9 @@ EXTENDS Naturals
 (* state into the next frozen-cursor request; it is abstracted here.          *)
 (* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
 (* after the preliminary provenance snapshot; settlement aborts atomically.  *)
-(* RejectUnprovenLocalArtifactBeforeInstall models an ordinary row or a tail *)
-(* whose exact operation range is absent from the rebuild, even when its     *)
-(* version-vector frontier is covered; guarded install aborts.               *)
+(* Append/RejectUnprovenLocalArtifactBeforeInstall model an ordinary row or  *)
+(* tail whose exact operation range is absent from the rebuild, even when its *)
+(* version-vector frontier is covered; guarded install aborts.                *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -88,7 +92,8 @@ MinEpoch(epochs) ==
   CHOOSE epoch \in epochs : \A other \in epochs : epoch <= other
 
 TypeOK ==
-  /\ phase \in {"verifying", "settling", "collecting", "failed", "complete"}
+  /\ phase \in {"verifying", "settling", "collecting", "ready",
+                  "failed", "complete"}
   /\ nextPage \in 1..(MaxPage + 1)
   /\ pageOf \in [UpdateIds -> Pages]
   /\ updateEpoch \in [UpdateIds -> Epochs]
@@ -129,15 +134,35 @@ Init ==
 
 VerifyOrdinaryProvenance ==
   /\ phase = "verifying"
+  /\ nextPage = MaxPage + 1
+  /\ scratchHistory = ordinaryUpdates
   /\ ~hasUnverifiedLocalGap
   /\ phase' = "settling"
-  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+  /\ nextPage' = 1
+  /\ scratchHistory' = {}
+  /\ UNCHANGED << pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent,
-                  installSuperseded, scratchHistory,
+                  installSuperseded,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
+
+ValidatePreliminaryPage ==
+  /\ phase = "verifying"
+  /\ generationCurrent
+  /\ nextPage \in Pages
+  /\ UnavailableEpochs(nextPage) = {}
+  /\ ~PageHasInvalidUpdate(nextPage)
+  /\ scratchHistory' =
+       scratchHistory \cup (PageUpdates(nextPage) \cap ordinaryUpdates)
+  /\ nextPage' = nextPage + 1
+  /\ UNCHANGED << phase, pageOf, updateEpoch, updateValid, epochAvailable,
+                  ordinaryUpdates, localPending, queuedCheckpoints,
+                  initialQueuedCheckpoints, hasUnverifiedLocalGap,
+                  generationCurrent, installSuperseded,
+                  initialDurableHistory, durableHistory,
+                  durablePublished, reportedUnavailableEpoch >>
 
 RejectUnprovenPendingAppend ==
   /\ phase = "settling"
@@ -206,7 +231,7 @@ ValidatePage ==
                   durablePublished, reportedUnavailableEpoch >>
 
 RejectUnavailablePage ==
-  /\ phase = "collecting"
+  /\ phase \in {"verifying", "collecting"}
   /\ nextPage \in Pages
   /\ ~PageHasInvalidUpdate(nextPage)
   /\ UnavailableEpochs(nextPage) # {}
@@ -220,7 +245,7 @@ RejectUnavailablePage ==
                   initialDurableHistory, durableHistory, durablePublished >>
 
 RejectInvalidPage ==
-  /\ phase = "collecting"
+  /\ phase \in {"verifying", "collecting"}
   /\ nextPage \in Pages
   /\ PageHasInvalidUpdate(nextPage)
   /\ phase' = "failed"
@@ -245,7 +270,7 @@ RejectUnverifiedLocalGap ==
                   reportedUnavailableEpoch >>
 
 ChangeGeneration ==
-  /\ phase = "collecting"
+  /\ phase \in {"collecting", "ready"}
   /\ generationCurrent
   /\ generationCurrent' = FALSE
   /\ UNCHANGED << phase, nextPage, pageOf, updateEpoch, updateValid,
@@ -256,7 +281,7 @@ ChangeGeneration ==
                   reportedUnavailableEpoch >>
 
 RejectChangedGeneration ==
-  /\ phase = "collecting"
+  /\ phase \in {"collecting", "ready"}
   /\ ~generationCurrent
   /\ phase' = "failed"
   /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
@@ -268,7 +293,7 @@ RejectChangedGeneration ==
                   reportedUnavailableEpoch >>
 
 RejectSupersededInstall ==
-  /\ phase = "collecting"
+  /\ phase = "ready"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
   /\ installSuperseded
@@ -281,16 +306,42 @@ RejectSupersededInstall ==
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
-RejectUnprovenLocalArtifactBeforeInstall ==
+AppendUnprovenLocalArtifactBeforeInstall ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
-  /\ phase' = "failed"
   /\ hasUnverifiedLocalGap' = TRUE
-  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+  /\ UNCHANGED << phase, nextPage, pageOf, updateEpoch, updateValid,
                   epochAvailable, ordinaryUpdates, localPending,
                   queuedCheckpoints, initialQueuedCheckpoints,
                   generationCurrent, installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
+RejectUnprovenLocalArtifactBeforeInstall ==
+  /\ phase = "collecting"
+  /\ nextPage = MaxPage + 1
+  /\ hasUnverifiedLocalGap
+  /\ phase' = "failed"
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  hasUnverifiedLocalGap, generationCurrent,
+                  installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
+VerifyExactLocalHistoryBeforeInstall ==
+  /\ phase = "collecting"
+  /\ nextPage = MaxPage + 1
+  /\ ~hasUnverifiedLocalGap
+  /\ scratchHistory = ordinaryUpdates
+  /\ phase' = "ready"
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  hasUnverifiedLocalGap, generationCurrent,
+                  installSuperseded, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -308,7 +359,7 @@ AppendCheckpointArtifact ==
                   reportedUnavailableEpoch >>
 
 PublishRecovery ==
-  /\ phase = "collecting"
+  /\ phase = "ready"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
   /\ generationCurrent
@@ -329,6 +380,7 @@ RemainTerminal ==
   /\ UNCHANGED vars
 
 Next ==
+  \/ ValidatePreliminaryPage
   \/ VerifyOrdinaryProvenance
   \/ RejectUnprovenPendingAppend
   \/ StartRawCollection
@@ -341,7 +393,9 @@ Next ==
   \/ ChangeGeneration
   \/ RejectChangedGeneration
   \/ RejectSupersededInstall
+  \/ AppendUnprovenLocalArtifactBeforeInstall
   \/ RejectUnprovenLocalArtifactBeforeInstall
+  \/ VerifyExactLocalHistoryBeforeInstall
   \/ AppendCheckpointArtifact
   \/ PublishRecovery
   \/ RemainTerminal
@@ -368,11 +422,19 @@ ScratchNeverTrustsRotationCheckpoints ==
   scratchHistory \subseteq ordinaryUpdates
 
 RawCollectionStartsAfterLocalSettlement ==
-  phase \notin {"collecting", "complete"} \/ localPending = {}
+  phase \notin {"collecting", "ready", "complete"} \/ localPending = {}
 
 SettlementUsesVerifiedOrdinaryProvenance ==
-  phase \notin {"settling", "collecting", "complete"} \/
-    ~hasUnverifiedLocalGap
+  phase # "settling" \/ ~hasUnverifiedLocalGap
+
+PreliminaryValidationPrecedesSettlement ==
+  phase \notin {"settling", "collecting", "ready", "complete"} \/
+    /\ \A page \in Pages : ~PageHasInvalidUpdate(page)
+    /\ \A page \in Pages : UnavailableEpochs(page) = {}
+
+PublicationRequiresExactHistoryProvenance ==
+  phase \notin {"ready", "complete"} \/
+    (~hasUnverifiedLocalGap /\ scratchHistory = ordinaryUpdates)
 
 UnverifiedLocalHistoryNeverPublishes ==
   ~hasUnverifiedLocalGap \/ phase # "complete"
