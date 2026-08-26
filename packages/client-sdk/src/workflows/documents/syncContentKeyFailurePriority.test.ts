@@ -1,17 +1,21 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import {
+  computeDocumentContentKeyTargetHash,
+  KeyingVerificationError,
+} from "@symcrypt/crypto";
 import type { DocumentContentKeyBundleResponse } from "@symcrypt/validators/response";
 import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
+import { targetEnvelopeReference } from "../../data/documents/shared/readers";
 
 const availabilityTarget = {
   containerId: "availability-container",
   containerKeyEpoch: 2,
   containerKeyEpochId: "availability-epoch",
-  containerManifestHash: "availability-manifest",
+  containerManifestHash: "a".repeat(64),
   wrappedKey: "unused",
   wrappingMetadata: {},
 };
@@ -19,17 +23,19 @@ const integrityTarget = {
   ...availabilityTarget,
   containerId: "integrity-container",
   containerKeyEpochId: "integrity-epoch",
-  containerManifestHash: "integrity-manifest",
+  containerManifestHash: "b".repeat(64),
 };
 
-function bundleWithTargets(
+async function bundleWithTargets(
   targets: DocumentContentKeyBundleResponse["targets"],
-): DocumentContentKeyBundleResponse {
+): Promise<DocumentContentKeyBundleResponse> {
   return {
     contentKeyEpoch: 1,
     documentId: "document-id",
     linkSetManifestHash: "link-set-manifest",
-    targetHash: "target-hash",
+    targetHash: await computeDocumentContentKeyTargetHash(
+      targets.map(targetEnvelopeReference),
+    ),
     targets,
   };
 }
@@ -46,7 +52,7 @@ test.each([
     "Verified predecessor history is corrupt",
   );
   const error = await unwrapDocumentContentKeyFromBundle(
-    bundleWithTargets([firstTarget, secondTarget]),
+    await bundleWithTargets([firstTarget, secondTarget]),
     new Map(),
     new Map([
       [availabilityTarget.containerKeyEpochId, unavailable],
