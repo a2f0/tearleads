@@ -10,6 +10,7 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { installRebuiltDocument } from "./historyRebuild";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { listPendingUpdates } from "./persistence";
 import {
   assertExactDocumentHistory,
@@ -300,19 +301,25 @@ async function recoverFullHistoryForRotation(
       collection.rebuiltDocument.free();
       collection = definitiveCollection;
     }
-    assertRotationRecoveryGeneration({ generation, state });
-    assertExactDocumentHistory({
-      currentDocument: currentDoc,
-      rebuiltDocument: collection.rebuiltDocument,
-    });
-
-    const installed = await installRebuiltDocument({
-      consumedPullContinuation: state.pullContinuation,
-      currentRecord: currentRotationRecoveryRecord(state),
-      generation,
-      rebuiltDoc: collection.rebuiltDocument,
-      state,
-      synced: collection.synced,
+    const installed = await chainIdentityWrite(state, async () => {
+      assertCapturedDocumentCurrent({
+        capturedVersion,
+        currentDocument: currentDoc,
+        generation,
+        state,
+      });
+      assertExactDocumentHistory({
+        currentDocument: currentDoc,
+        rebuiltDocument: collection.rebuiltDocument,
+      });
+      return installRebuiltDocument({
+        consumedPullContinuation: state.pullContinuation,
+        currentRecord: currentRotationRecoveryRecord(state),
+        generation,
+        rebuiltDoc: collection.rebuiltDocument,
+        state,
+        synced: collection.synced,
+      });
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
     if (settlementRequiresRetry) {

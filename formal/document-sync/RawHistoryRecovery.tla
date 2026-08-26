@@ -18,6 +18,9 @@ EXTENDS Naturals
 (* preliminary provenance pass, before a dependent local edit can be sent.   *)
 (* installSuperseded abstracts record-CAS loss and monotonic checkpoint-gate  *)
 (* rejection: either aborts the entire guarded install transaction.           *)
+(* PublishRecovery is one atomic action because production holds the identity *)
+(* write chain across final history/generation verification and the guarded  *)
+(* install.                                                                  *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 

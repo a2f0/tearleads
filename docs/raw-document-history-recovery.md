@@ -45,12 +45,13 @@ per-row range comparison proves that each queued binary delta contains the
 live document's exact operations, before a dependent local edit can be
 re-encrypted or published. After settling proven local rows, the client
 performs a definitive raw pull so remote work racing the submit is included. A
-successful guarded
-install atomically removes queued checkpoints whose declared frontier is
-covered by the verified rebuild, along with covered local-history tail rows.
-Coverage is selected only after the guarded install transaction acquires its
-write lock, preventing a concurrent append from surviving as a stale or forged
-redirect after recovery.
+successful guarded install atomically removes queued checkpoints whose declared
+frontier is covered by the verified rebuild, along with covered local-history
+tail rows. Final history and generation verification remain on the document
+identity-write chain through that install, so a scheduled sync cannot advance
+live state in the check-to-persist interval. Coverage is selected only after
+the guarded install transaction acquires its write lock, preventing a
+concurrent append from surviving as a stale or forged redirect after recovery.
 
 Custom `DocumentsPersistence` adapters must declare
 `supportsAtomicRecoveryHistoryPruning: true` and implement that guarantee in
@@ -112,7 +113,7 @@ history for three updates, two epochs, and two pages.
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or non-dominated history checkpoint rejects and rolls back the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |
-| `PublishRecovery` | guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
+| `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including atomic retirement of covered queued checkpoints |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
 
 The checked invariants require local settlement to start only after raw
