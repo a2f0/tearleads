@@ -33,6 +33,7 @@ function createDocumentReadPersistence(
   DocumentsPersistence,
   | "ensureSchema"
   | "findDocumentLocalIdsByContainerId"
+  | "findLocalIdByDocumentId"
   | "hasDocument"
   | "documentIdentityMatches"
   | "listDocumentSummaries"
@@ -47,6 +48,11 @@ function createDocumentReadPersistence(
       return state.document?.containerId === containerId
         ? [state.document.id]
         : [];
+    },
+    async findLocalIdByDocumentId(_execSql, documentId) {
+      return state.document?.documentId === documentId
+        ? state.document.id
+        : null;
     },
     async hasDocument(_execSql, localId) {
       return state.document?.id === localId;

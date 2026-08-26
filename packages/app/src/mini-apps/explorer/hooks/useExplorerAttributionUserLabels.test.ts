@@ -293,10 +293,11 @@ test("later contributors cannot exceed a document's cumulative hydration cap", (
 test("cold and cached profiles open by retained identity and remote-probe", async () => {
   const requestRemoteSyncAndWait = mock(async () => true);
   const open = mock(() => ({ requestRemoteSyncAndWait }));
+  const findLocalIdByDocumentId = mock(async () => null);
 
   const input = {
     containerId: "roster-profile-container-id",
-    documents: { open } as unknown as Documents,
+    documents: { findLocalIdByDocumentId, open } as unknown as Documents,
     organizationId: ORGANIZATION_ID,
     target: {
       bindingKey: "disabled-user-id\0disabled-profile-id",
@@ -317,6 +318,7 @@ test("cold and cached profiles open by retained identity and remote-probe", asyn
     }),
   });
   expect(open).toHaveBeenCalledTimes(2);
+  expect(findLocalIdByDocumentId).toHaveBeenCalledTimes(2);
   expect(requestRemoteSyncAndWait).toHaveBeenCalledTimes(2);
 });
 
@@ -345,7 +347,10 @@ test("profile pointer replacements hydrate through distinct local identities", a
       return store;
     },
   );
-  const documents = { open } as unknown as Documents;
+  const documents = {
+    findLocalIdByDocumentId: async () => null,
+    open,
+  } as unknown as Documents;
   const target = (profileDocumentId: string) => ({
     bindingKey: `disabled-user-id\0${profileDocumentId}`,
     profileDocumentId,

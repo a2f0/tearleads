@@ -83,6 +83,7 @@ function runtimeSnapshot(): RuntimeSnapshot {
 
 test("the contributor cap survives disablement and projection changes", async () => {
   const users = Array.from({ length: 33 }, (_, index) => rosterUser(index));
+  const findLocalIdByDocumentId = mock(async () => null);
   const open = mock((input: { documentId?: string | null }) => ({
     requestRemoteSyncAndWait: async () => Boolean(input.documentId),
   }));
@@ -92,7 +93,7 @@ test("the contributor cap survives disablement and projection changes", async ()
   ).mockImplementation(
     () =>
       ({
-        documents: { open },
+        documents: { findLocalIdByDocumentId, open },
         logError: () => undefined,
       }) as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>,
   );

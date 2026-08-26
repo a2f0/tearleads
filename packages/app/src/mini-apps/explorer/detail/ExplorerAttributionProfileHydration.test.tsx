@@ -91,15 +91,21 @@ function createSymCryptHarness(
   remoteSync: (documentId: string) => Promise<boolean> = async () => true,
 ) {
   const requestRemoteSyncAndWait = mock(remoteSync);
+  const findLocalIdByDocumentId = mock(async () => null);
   const open = mock((input: { documentId?: string | null }) => ({
     requestRemoteSyncAndWait: () =>
       requestRemoteSyncAndWait(input.documentId ?? ""),
   }));
   const symcrypt = {
-    documents: { open },
+    documents: { findLocalIdByDocumentId, open },
     logError: mock(() => undefined),
   } as unknown as ReturnType<typeof SymCryptProvider.useSymCrypt>;
-  return { open, requestRemoteSyncAndWait, symcrypt };
+  return {
+    findLocalIdByDocumentId,
+    open,
+    requestRemoteSyncAndWait,
+    symcrypt,
+  };
 }
 
 function createContainerStoreHarness(initiallyReady: boolean) {

@@ -226,6 +226,10 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<string[]>;
+  findLocalIdByDocumentId: (
+    execSql: ExecSql,
+    documentId: string,
+  ) => Promise<string | null>;
   /** Canonical-row probe; false authorizes destructive orphan teardown. */
   hasDocument: (execSql: ExecSql, localId: string) => Promise<boolean>;
   /** Observe whether the canonical row still names the expected remote stream. */

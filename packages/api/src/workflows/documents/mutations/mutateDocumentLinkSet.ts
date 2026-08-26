@@ -155,6 +155,23 @@ async function resolveDocumentOrganization(input: {
   return organizationId;
 }
 
+async function preauthorizeDocumentLinkSetMutation(input: {
+  readonly documentId: string;
+  readonly event: Awaited<ReturnType<typeof verifyDocumentEvent>>;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentLinkSetMutationRequest;
+}): Promise<void> {
+  await verifyDocumentLinkSetMutationAuthorizationFromRequest({
+    event: input.event,
+    executor: input.executor,
+    previousManifest: await loadCurrentDocumentManifest(
+      input.documentId,
+      input.executor,
+    ),
+    request: input.request,
+  });
+}
+
 async function mutateDocumentLinkSetWithExecutor(input: {
   readonly documentId: string;
   readonly eventType: "document.link" | "document.unlink";
@@ -176,6 +193,16 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       executor: input.executor,
       fingerprint: input.fingerprint,
       userId: input.userId,
+    });
+    // Reject unauthorized callers before acquiring organization-wide rekey
+    // locks. Mutable authorization is repeated below after the merged lock
+    // plan is held; this first pass prevents a caller who only knows a
+    // document UUID from using this route to serialize another tenant.
+    await preauthorizeDocumentLinkSetMutation({
+      documentId: input.documentId,
+      event,
+      executor: input.executor,
+      request: input.request,
     });
     const organizationId = await resolveDocumentOrganization(input);
     // Rekeys and the document organization share one group -> sorted-org lock

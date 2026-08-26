@@ -188,7 +188,7 @@ export function selectExplorerAttributionHydrationTargetsForDocument(input: {
 }
 
 /** Opens one requested encrypted profile document and probes remote state. */
-export function hydrateExplorerAttributionProfileDocument(input: {
+export async function hydrateExplorerAttributionProfileDocument(input: {
   readonly containerId: string;
   readonly documents: Documents;
   readonly organizationId: string;
@@ -196,15 +196,20 @@ export function hydrateExplorerAttributionProfileDocument(input: {
   readonly target: ExplorerAttributionProfileHydrationTarget;
 }): Promise<boolean> {
   const { target } = input;
+  const persistedLocalId = await input.documents.findLocalIdByDocumentId(
+    target.profileDocumentId,
+  );
   return input.documents
     .open({
       containerId: input.containerId,
       documentId: target.profileDocumentId,
-      localId: getExplorerAttributionProfileDocumentLocalId({
-        organizationId: input.organizationId,
-        profileDocumentId: target.profileDocumentId,
-        userId: target.userId,
-      }),
+      localId:
+        persistedLocalId ??
+        getExplorerAttributionProfileDocumentLocalId({
+          organizationId: input.organizationId,
+          profileDocumentId: target.profileDocumentId,
+          userId: target.userId,
+        }),
     })
     .requestRemoteSyncAndWait(input.signal);
 }

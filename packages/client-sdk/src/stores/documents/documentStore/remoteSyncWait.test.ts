@@ -1,73 +1,19 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@symcrypt/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import {
   createProbeRuntime,
+  createUnavailableRuntime,
+  settleCoordinator,
   settleWithin,
 } from "../../../../test/helpers/remoteSyncWait";
-import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import { disposeDomainSyncCoordinator } from "../../../data/sync/syncCoordinator";
 import {
-  disposeDomainSyncCoordinator,
-  getDomainSyncCoordinatorSnapshot,
-} from "../../../data/sync/syncCoordinator";
-import {
-  createDocumentsWorkflowRuntime,
   type DocumentsPersistence,
-  type DocumentsWorkflowRuntimeInput,
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
 import { createDocumentStore } from "../documentStore";
 import { createRemoteHistoryFixture } from "./documentStore.testFixtures";
-
-function createUnavailableRuntime(
-  execSql: DocumentsWorkflowRuntimeInput["infra"]["execSql"],
-) {
-  return createDocumentsWorkflowRuntime({
-    apiClient: createMockApiClient(),
-    auth: {
-      isAuthenticated: false,
-      organizationId: null,
-      userId: null,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    },
-    infra: {
-      blobStore: createMemoryBlobStore(),
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: "container-id",
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
-  });
-}
-
-async function settleCoordinator(
-  domainScope: ReturnType<typeof createDomainScope>,
-): Promise<void> {
-  for (let index = 0; index < 100; index += 1) {
-    const lanes = getDomainSyncCoordinatorSnapshot(domainScope).lanes;
-    if (lanes.every((lane) => !lane.running && !lane.requested)) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  throw new Error("Timed out waiting for the document sync lane to settle");
-}
 
 test("a probe skipped for unavailable prerequisites reports incomplete", async () => {
   const database = await createTestExecSql("remote-sync-wait-unavailable");
@@ -124,7 +70,7 @@ test("a graceful null remote probe reports incomplete", async () => {
   }
 });
 
-test("an abort during initialization stays blocked until a normal reopen", async () => {
+test("aborting a waiter during initialization preserves startup reconciliation", async () => {
   const fixture = await createMaterializedSyncFixture();
   const database = await createTestExecSql("remote-sync-wait-initializing");
   const localId = "initializing-profile";
@@ -185,11 +131,7 @@ test("an abort during initialization stays blocked until a normal reopen", async
 
     expect(await initialization).toBe(true);
     await settleCoordinator(runtime.state.domainScope);
-    expect(syncCalls).toBe(0);
-
-    store.requestSync();
-    await settleCoordinator(runtime.state.domainScope);
-    expect(syncCalls).toBe(1);
+    expect(syncCalls).toBeGreaterThan(0);
   } finally {
     releaseLoad();
     disposeDomainSyncCoordinator(seedRuntime.state.domainScope);
@@ -226,9 +168,16 @@ test("aborting an in-flight probe prevents its late response from persisting", a
       "aborted-profile",
       runtime,
       defaultDocumentsPersistence,
-      fixture.writerProjection.documentId,
     );
     expect(await store.ensureInitialized()).toBe(true);
+    expect(
+      await store.relink({
+        accessEpoch: 1,
+        containerId: fixture.projection.containerId,
+        documentId: fixture.writerProjection.documentId,
+        localId: "aborted-profile",
+      }),
+    ).not.toBeNull();
     const abortController = new AbortController();
     const result = store.requestRemoteSyncAndWait(abortController.signal);
     await settleWithin(syncStarted);

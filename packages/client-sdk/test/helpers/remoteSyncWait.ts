@@ -3,6 +3,7 @@ import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/domainScope";
+import { getDomainSyncCoordinatorSnapshot } from "../../src/data/sync/syncCoordinator";
 import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntimeInput,
@@ -12,6 +13,54 @@ import type { createMaterializedSyncFixture } from "./documentFixtures";
 type MaterializedSyncFixture = Awaited<
   ReturnType<typeof createMaterializedSyncFixture>
 >;
+
+export function createUnavailableRuntime(
+  execSql: DocumentsWorkflowRuntimeInput["infra"]["execSql"],
+) {
+  return createDocumentsWorkflowRuntime({
+    apiClient: createMockApiClient(),
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: createMemoryBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    resolveTrustedUserIdentity: async () => null,
+    state: {
+      containerId: "container-id",
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      log: () => undefined,
+      reportSecurityIncident: async () => undefined,
+    },
+  });
+}
+
+export async function settleCoordinator(
+  domainScope: ReturnType<typeof createDomainScope>,
+): Promise<void> {
+  for (let index = 0; index < 100; index += 1) {
+    const lanes = getDomainSyncCoordinatorSnapshot(domainScope).lanes;
+    if (lanes.every((lane) => !lane.running && !lane.requested)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Timed out waiting for the document sync lane to settle");
+}
 
 export async function settleWithin<T>(
   promise: Promise<T>,

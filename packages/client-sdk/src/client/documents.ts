@@ -63,6 +63,7 @@ export interface DocumentSubscriptionOptions {
 
 export interface Documents {
   delete(localId: string): Promise<boolean>;
+  findLocalIdByDocumentId(documentId: string): Promise<string | null>;
   list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;
   open(
     input?: OpenDocumentInput | undefined,
@@ -110,6 +111,19 @@ class DocumentsService implements Documents {
     void reclaimDocumentOrphanBlobs(runtime);
     emitPersistedDocumentDeletion(runtime.state.domainScope, localId);
     return true;
+  }
+
+  async findLocalIdByDocumentId(documentId: string): Promise<string | null> {
+    const runtime = this.dependencies.runtime.workflowInput();
+    if (runtime.infra.dbStatus !== "ready") {
+      return null;
+    }
+
+    await this.ensureSchema(runtime.infra.execSql);
+    return defaultDocumentsPersistence.findLocalIdByDocumentId(
+      runtime.infra.execSql,
+      documentId,
+    );
   }
 
   async list(input: ListDocumentsInput = {}): Promise<DocumentList | null> {
