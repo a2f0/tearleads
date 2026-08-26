@@ -358,7 +358,13 @@ async function applyStoredDocumentMutation(input: {
         : { updatedAt: mutation.updatedAt },
     tx,
   });
-  await saveDocumentRows({ document: mutation.document, tx, updatedAt });
+  if (
+    !(await saveDocumentRows({ document: mutation.document, tx, updatedAt }))
+  ) {
+    throw new Error(
+      "Document recovery generation changed before mutation save",
+    );
+  }
   await input.saveClientProjection(lockedExecSql, updatedAt);
   return { committed: true as const, updatedAt };
 }

@@ -13,7 +13,7 @@ EXTENDS Naturals
 (* integrity-prioritized failure aggregation, and unresolved dependencies.    *)
 (* hasUnverifiedLocalGap also includes malformed or same-frontier forked tail *)
 (* rows, which exact-operation compaction must preserve for this gate.         *)
-(* blockedWriterFence is the durable recovery revision captured before a      *)
+(* blockedWriterFence is the recovery revision captured before a *)
 (* writer waits. Publication advances it, forcing an older waiter to reject   *)
 (* without appending queue/history rows or saving its stale record.            *)
 (* Production mapping and checked bounds: RawHistoryRecovery.md.              *)
@@ -145,6 +145,7 @@ Init ==
 
 VerifyOrdinaryProvenance ==
   /\ phase = "verifying"
+  /\ generationCurrent
   /\ nextPage = MaxPage + 1
   /\ scratchHistory = PreliminaryOrdinaryUpdates
   /\ ~hasUnverifiedLocalGap
@@ -191,6 +192,7 @@ RejectInvalidLocalPendingProvenance ==
 
 StartRawCollection ==
   /\ phase = "settling"
+  /\ generationCurrent
   /\ localPending = {}
   /\ ~hasUnverifiedLocalGap
   /\ phase' = "collecting"
@@ -201,6 +203,7 @@ StartRawCollection ==
 
 CommitPendingOrdinary ==
   /\ phase = "settling"
+  /\ generationCurrent
   /\ localPending # {}
   /\ localPending \subseteq preliminaryProven
   /\ ~hasUnverifiedLocalGap
@@ -285,7 +288,7 @@ RejectUnverifiedLocalGap ==
                   blockedWriterFence >>
 
 ChangeGeneration ==
-  /\ phase \in {"collecting", "ready"}
+  /\ phase \in {"verifying", "settling", "collecting", "ready"}
   /\ generationCurrent
   /\ generationCurrent' = FALSE
   /\ UNCHANGED << phase, fixedModel, nextPage, localPending,
@@ -294,7 +297,7 @@ ChangeGeneration ==
                   blockedWriterFence >>
 
 RejectChangedGeneration ==
-  /\ phase \in {"collecting", "ready"}
+  /\ phase \in {"verifying", "settling", "collecting", "ready"}
   /\ ~generationCurrent
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
@@ -444,13 +447,10 @@ FailedRecoveryPreservesDurableHistory ==
 
 CompleteRecoveryContainsAllOrdinaryHistory ==
   phase # "complete" \/ durableHistory = DefinitiveOrdinaryUpdates
-
 CompleteRecoveryRetiresQueuedCheckpoints ==
   phase # "complete" \/ queuedCheckpoints = {}
-
 ScratchNeverTrustsRotationCheckpoints ==
   scratchHistory \subseteq DefinitiveOrdinaryUpdates
-
 RawCollectionStartsAfterLocalSettlement ==
   phase \notin {"collecting", "ready", "complete"} \/ localPending = {}
 

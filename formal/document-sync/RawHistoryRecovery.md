@@ -37,10 +37,11 @@ generation and reject its stale enqueue or save.
 The invariants require that failed recovery leaves durable history and queued
 artifacts intact; successful recovery publishes exactly all retained ordinary
 history and no checkpoint-derived operations; settlement occurs only after
-preliminary ordinary provenance is complete; stale generations and superseded
-installs never publish; availability reporting is deterministic and cannot
-mask an invalid page; and a blocked writer cannot cross the recovery-generation
-fence.
+preliminary ordinary provenance is complete; generation changes stop
+preliminary verification, pending settlement, and definitive collection;
+superseded installs never publish; availability reporting is deterministic and
+cannot mask an invalid page; and a blocked writer cannot cross the
+recovery-generation fence.
 
 The registered pull-request configuration bounds three updates, two content-key
 epochs, and two pages. Initial server history and unsent local pending history
@@ -50,7 +51,7 @@ a remote update racing settlement. The maximal initial durable-history set is
 the representative for preservation checks, so any pre-completion clear or
 overwrite remains observable without multiplying equivalent initial subsets.
 
-TLC explores 12,922,760 generated states, 6,798,744 distinct states, and depth
+TLC explores 18,365,128 generated states, 9,713,048 distinct states, and depth
 14 without an invariant violation. Sets abstract operation-log identity and page
 membership; production tests remain responsible for cryptographic verification,
 canonical operation bytes, Loro import semantics, SQLite transactionality,

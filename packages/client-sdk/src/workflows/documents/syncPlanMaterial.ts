@@ -19,6 +19,7 @@ import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRefs,
   buildRotatedDocumentContentKeyBundle,
+  ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
@@ -313,7 +314,12 @@ async function resolveSyncPlanContentMaterial(
       );
     } catch (error) {
       if (error instanceof DocumentHistoryUnavailableError) {
-        throw error;
+        if (
+          input.historyMode !== "raw" ||
+          !(error.historyCause instanceof ContainerKekHistoryUnavailableError)
+        ) {
+          throw error;
+        }
       }
       // A stale bundle can predate the requester's current authorizing links.
       // Keep the read-only pass alive; served updates that need this absent key

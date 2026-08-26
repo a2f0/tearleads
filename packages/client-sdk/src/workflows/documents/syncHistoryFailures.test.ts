@@ -188,25 +188,6 @@ test("authenticated raw history reports a retained epoch with no predecessor key
   );
   try {
     const fixture = await createMaterializedSyncFixture();
-    const currentContentKeyBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
-      contentKeyEpoch:
-        fixture.writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-    };
-    const verifiedCurrentProjection = {
-      ...fixture.writerProjection,
-      contentKeyBundle: currentContentKeyBundle,
-    };
-    const materializedPlan = await buildMaterializedDocumentSyncPlan({
-      author: fixture.author,
-      execSql,
-      historyMode: "raw",
-      localVersionVector: null,
-      pendingUpdates: [],
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      targetSecretKey: fixture.secretKey,
-      writerProjection: verifiedCurrentProjection,
-    });
     const previousKek = fixture.projection.containerKeks.at(-1);
     if (!previousKek) throw new Error("Expected a container KEK fixture");
     const rekeyed = await rekeyRemoteContainer({
@@ -233,6 +214,37 @@ test("authenticated raw history reports a retained epoch with no predecessor key
       ],
       path: [rekeyed.response.accessManifest],
     };
+    const currentTarget = {
+      containerId: rekeyed.response.containerKek.containerId,
+      containerKeyEpoch: rekeyed.response.containerKek.containerKeyEpoch,
+      containerKeyEpochId: rekeyed.response.containerKek.containerKeyEpochId,
+      containerManifestHash: rekeyed.response.accessManifest.manifestHash,
+    };
+    const writerProjectionWithUnavailableHistory = {
+      ...fixture.writerProjection,
+      authorizingContainerPaths: [projection],
+      contentKeyBundleStale: true,
+      documentKekTargets: {
+        ...fixture.writerProjection.documentKekTargets,
+        documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
+          currentTarget,
+        ]),
+        linkedContainerKeyEpochIds: [currentTarget.containerKeyEpochId],
+        linkedContainerManifestHashes: [currentTarget.containerManifestHash],
+        targets: [currentTarget],
+      },
+    };
+    const materializedPlan = await buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      execSql,
+      historyMode: "raw",
+      localVersionVector: null,
+      pendingUpdates: [],
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      targetSecretKey: fixture.secretKey,
+      writerProjection: writerProjectionWithUnavailableHistory,
+    });
+    expect(materializedPlan.contentKey).toHaveLength(0);
     const historicalUpdate = await createSignedSyncResponseUpdate({
       accessManifestHash: materializedPlan.plan.expectedLinkSetManifestHash,
       author: fixture.author,
@@ -243,16 +255,9 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     });
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [
-        fixture.writerProjection.contentKeyBundle,
-        currentContentKeyBundle,
-      ],
+      contentKeyBundles: [fixture.writerProjection.contentKeyBundle],
       updates: [historicalUpdate],
     });
-    const writerProjectionWithUnavailableHistory = {
-      ...verifiedCurrentProjection,
-      authorizingContainerPaths: [projection],
-    };
 
     const syncInput = {
       execSql,

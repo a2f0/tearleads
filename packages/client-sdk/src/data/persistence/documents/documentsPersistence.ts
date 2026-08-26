@@ -347,6 +347,12 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
             options,
             tx,
           });
+          const saved = await saveDocumentRows({
+            document,
+            tx,
+            updatedAt,
+          });
+          if (!saved) return updatedAt;
           if (uniquePendingUpdateIds.length > 0) {
             await tx
               .delete(documentPendingUpdates)
@@ -359,12 +365,6 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
               )
               .run();
           }
-          await saveDocumentRows({
-            document,
-            tx,
-            updatedAt,
-          });
-
           return updatedAt;
         },
       ),
