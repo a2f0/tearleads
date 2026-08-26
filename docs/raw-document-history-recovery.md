@@ -44,7 +44,9 @@ also contain concurrent remote work). Deterministic operation-log comparison
 detects a forged checkpoint that reuses genuine version-vector identities, and
 per-row range comparison proves that each queued binary delta contains the
 live document's exact operations, before a dependent local edit can be
-re-encrypted or published. After settling proven local rows, the client
+re-encrypted or published. Settlement is restricted to that exact proven row
+set; a sibling pane appending or replacing an ordinary row aborts rotation
+before the new row can be sent. After settling proven local rows, the client
 performs a definitive raw pull so remote work racing the submit is included. A
 successful guarded install atomically removes queued checkpoints whose declared
 frontier is covered by the verified rebuild, along with covered local-history
@@ -82,6 +84,9 @@ import-validates every sibling whose content key is available. Any poison
 retains precedence, including an unresolved dependency: the current wire
 contract authenticates operation ranges but not an exact dependency set, so
 the client cannot prove that an unavailable sibling carries that parent.
+Every historical bundle's target list is also recomputed and compared with its
+committed target hash before missing KEK material can be classified as benign
+unavailability.
 When this error is derived using a reusable cached writer projection, the
 client evicts and resolves that projection once before exposing the error; a
 fresh projection may restore access to retained predecessor keys. A raw
@@ -108,10 +113,11 @@ history for three updates, two epochs, and two pages.
 | Model action or state | Production implementation |
 | --- | --- |
 | `CommitPendingOrdinary` | bounded ordinary queue settlement before the raw pull that can publish |
-| `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation` |
+| `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
 | `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key |
 | `RejectInvalidPage` | poison isolation, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
+| `RejectUnprovenPendingAppend` | settlement compares every live ordinary row with the preliminary proven row identity and atomically aborts on sibling-pane additions or replacements |
 | `ChangeGeneration` / `RejectChangedGeneration` | a document, domain, database, or trust-resolver swap invalidates collection and install |
 | `RejectSupersededInstall` | a newer durable record or non-dominated history checkpoint rejects and rolls back the guarded install |
 | `AppendCoveredLocalArtifact` | a covered checkpoint or tail row arriving before the install transaction acquires its write lock |

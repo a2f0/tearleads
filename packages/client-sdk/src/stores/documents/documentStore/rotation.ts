@@ -294,6 +294,7 @@ async function recoverFullHistoryForRotation(
       await settleOrdinaryDocumentUpdatesBeforeRotation(
         state,
         verifiedOrdinaryVersion,
+        pendingUpdates,
       );
       assertCapturedDocumentCurrent({
         capturedVersion,

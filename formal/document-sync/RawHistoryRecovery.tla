@@ -25,6 +25,8 @@ EXTENDS Naturals
 (* unavailable ciphertext authenticates ranges, not an exact dependency set. *)
 (* A ValidatePage transition also carries that page's verified projection    *)
 (* state into the next frozen-cursor request; it is abstracted here.          *)
+(* RejectUnprovenPendingAppend models a sibling pane adding an ordinary row  *)
+(* after the preliminary provenance snapshot; settlement aborts atomically.  *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage
 
@@ -125,6 +127,18 @@ VerifyOrdinaryProvenance ==
                   queuedCheckpoints, initialQueuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent,
                   installSuperseded, scratchHistory,
+                  initialDurableHistory, durableHistory, durablePublished,
+                  reportedUnavailableEpoch >>
+
+RejectUnprovenPendingAppend ==
+  /\ phase = "settling"
+  /\ ~hasUnverifiedLocalGap
+  /\ phase' = "failed"
+  /\ hasUnverifiedLocalGap' = TRUE
+  /\ UNCHANGED << nextPage, pageOf, updateEpoch, updateValid,
+                  epochAvailable, ordinaryUpdates, localPending,
+                  queuedCheckpoints, initialQueuedCheckpoints,
+                  generationCurrent, installSuperseded, scratchHistory,
                   initialDurableHistory, durableHistory, durablePublished,
                   reportedUnavailableEpoch >>
 
@@ -294,6 +308,7 @@ RemainTerminal ==
 
 Next ==
   \/ VerifyOrdinaryProvenance
+  \/ RejectUnprovenPendingAppend
   \/ StartRawCollection
   \/ CommitPendingOrdinary
   \/ RejectPendingSettlement

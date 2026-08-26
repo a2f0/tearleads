@@ -1,4 +1,5 @@
 import {
+  computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decryptWithDek,
   encryptWithDek,
@@ -28,6 +29,8 @@ import {
   assertEqualBytes,
   describeDocumentTargetKek,
   normalizeDocumentKekTargetResponse,
+  sortDocumentTargets,
+  targetEnvelopeReference,
 } from "./readers";
 import type { ProjectionVerificationOptions } from "./types";
 import { projectionVerificationOptions } from "./types";
@@ -247,6 +250,12 @@ export async function unwrapDocumentContentKeyFromBundle(
     Error
   > = new Map(),
 ): Promise<Uint8Array> {
+  const canonicalTargetHash = await computeDocumentContentKeyTargetHash(
+    sortDocumentTargets(bundle.targets.map(targetEnvelopeReference)),
+  );
+  if (canonicalTargetHash !== bundle.targetHash) {
+    throw new Error("Document content-key bundle target hash is not canonical");
+  }
   let contentKey: Uint8Array | null = null;
   const predecessorFailures: Error[] = [];
 

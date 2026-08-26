@@ -413,7 +413,10 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         acceptedRecoveryBaseline: false,
       },
     };
-  } catch {
+  } catch (error) {
+    if (input.historyMode === "raw" && input.pullContinuation !== undefined) {
+      throw error;
+    }
     return { kind: "not_completed" };
   }
 }

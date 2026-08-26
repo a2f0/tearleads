@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@symcrypt/crypto";
+import {
+  computeDocumentContentKeyTargetHash,
+  KeyingVerificationError,
+} from "@symcrypt/crypto";
 import { bytesToBase64 } from "@symcrypt/encoding";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
@@ -12,6 +15,7 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import { DocumentHistoryUnavailableError } from "../../data/documents/shared/projection";
+import { targetEnvelopeReference } from "../../data/documents/shared/readers";
 import {
   DocumentRawHistoryUnavailableError,
   throwDocumentSyncContentKeyFailure,
@@ -112,6 +116,9 @@ test("raw history reports the lowest unavailable epoch regardless of response or
     ...target,
     containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440499",
   };
+  const unavailableTargetHash = await computeDocumentContentKeyTargetHash([
+    targetEnvelopeReference(unavailableTarget),
+  ]);
   const reversedEpochResponse = {
     ...response,
     contentKeyBundle: currentBundle,
@@ -119,11 +126,13 @@ test("raw history reports the lowest unavailable epoch regardless of response or
       {
         ...response.contentKeyBundle,
         contentKeyEpoch: 1,
+        targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
       },
       {
         ...response.contentKeyBundle,
         contentKeyEpoch: 2,
+        targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
       },
       currentBundle,
@@ -184,6 +193,13 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
     ...response.contentKeyBundle,
     contentKeyEpoch: 3,
   };
+  const unavailableTarget = {
+    ...target,
+    containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440498",
+  };
+  const unavailableTargetHash = await computeDocumentContentKeyTargetHash([
+    targetEnvelopeReference(unavailableTarget),
+  ]);
   const mixedResponse = {
     ...response,
     contentKeyBundle: currentBundle,
@@ -191,12 +207,8 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
       {
         ...response.contentKeyBundle,
         contentKeyEpoch: 1,
-        targets: [
-          {
-            ...target,
-            containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440498",
-          },
-        ],
+        targetHash: unavailableTargetHash,
+        targets: [unavailableTarget],
       },
       currentBundle,
     ],
@@ -324,15 +336,19 @@ test("a malformed later epoch outranks raw-history unavailability", async () => 
   if (!historicalTarget) {
     throw new Error("Expected a historical content-key target");
   }
+  const unavailableEpochOneTargets = [
+    {
+      ...historicalTarget,
+      containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440497",
+    },
+  ];
   const unavailableEpochOneBundle = {
     ...fixture.writerProjection.contentKeyBundle,
     contentKeyEpoch: 1,
-    targets: [
-      {
-        ...historicalTarget,
-        containerKeyEpochId: "550e8400-e29b-41d4-a716-446655440497",
-      },
-    ],
+    targetHash: await computeDocumentContentKeyTargetHash(
+      unavailableEpochOneTargets.map(targetEnvelopeReference),
+    ),
+    targets: unavailableEpochOneTargets,
   };
   const malformedEpochTwoBundle = {
     ...fixture.writerProjection.contentKeyBundle,

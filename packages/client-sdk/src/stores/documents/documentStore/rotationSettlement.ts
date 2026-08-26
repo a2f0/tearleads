@@ -22,7 +22,7 @@ import { requestRemoteDocumentSync } from "./syncRequest";
 import { extendDocumentVersionCoverage } from "./versionCoverage";
 
 function ordinaryPendingUpdates(
-  pendingUpdates: PendingUpdateRecord[],
+  pendingUpdates: readonly PendingUpdateRecord[],
 ): PendingUpdateRecord[] {
   return pendingUpdates.filter(
     (pendingUpdate) => pendingUpdate.sourceVersionVector == null,
@@ -34,6 +34,38 @@ function pendingUpdateSetKey(pendingUpdates: readonly PendingUpdateRecord[]) {
     .map((pendingUpdate) => pendingUpdate.id)
     .sort()
     .join("\n");
+}
+
+function pendingUpdateMatchesProvenRow(
+  pendingUpdate: PendingUpdateRecord,
+  provenUpdate: PendingUpdateRecord,
+): boolean {
+  return (
+    pendingUpdate.id === provenUpdate.id &&
+    pendingUpdate.updateData === provenUpdate.updateData &&
+    pendingUpdate.partialStartVersionVector ===
+      provenUpdate.partialStartVersionVector &&
+    pendingUpdate.partialEndVersionVector ===
+      provenUpdate.partialEndVersionVector &&
+    pendingUpdate.sourceVersionVector === provenUpdate.sourceVersionVector
+  );
+}
+
+function assertOrdinaryRowsWereProven(input: {
+  pendingUpdates: readonly PendingUpdateRecord[];
+  provenUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
+}): void {
+  for (const pendingUpdate of ordinaryPendingUpdates(input.pendingUpdates)) {
+    const provenUpdate = input.provenUpdatesById.get(pendingUpdate.id);
+    if (
+      !provenUpdate ||
+      !pendingUpdateMatchesProvenRow(pendingUpdate, provenUpdate)
+    ) {
+      throw new Error(
+        "Document local updates changed after rotation provenance verification",
+      );
+    }
+  }
 }
 
 function ordinaryPendingUpdatesWithProvenCoverage(input: {
@@ -251,9 +283,16 @@ async function settleOrdinaryUpdatePass(input: {
 export async function settleOrdinaryDocumentUpdatesBeforeRotation(
   state: DocumentStoreState,
   verifiedBaseVersion: string,
+  provenPendingUpdates: readonly PendingUpdateRecord[],
 ): Promise<void> {
   const stalledQueueStates = new Set<string>();
   let verifiedCoverage = verifiedBaseVersion;
+  const provenUpdatesById = new Map(
+    ordinaryPendingUpdates(provenPendingUpdates).map((update) => [
+      update.id,
+      update,
+    ]),
+  );
 
   while (true) {
     const currentDoc = state.doc;
@@ -261,6 +300,10 @@ export async function settleOrdinaryDocumentUpdatesBeforeRotation(
       throw new Error("Document rotation requires an initialized document");
     }
     const allPendingUpdates = await listPendingUpdates(state);
+    assertOrdinaryRowsWereProven({
+      pendingUpdates: allPendingUpdates,
+      provenUpdatesById,
+    });
     const pendingUpdates = ordinaryPendingUpdates(allPendingUpdates);
     if (
       pendingUpdates.length === 0 &&
