@@ -146,7 +146,6 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
 export function createDocumentPurgeResponse(): DocumentPurgeResponse {
   const authorizingContainer = createContainerMutationResponse().accessManifest;
   return {
-    authorizingContainerCheckpointChains: [[]],
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
     documentId: "document-1",

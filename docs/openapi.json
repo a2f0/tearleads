@@ -24559,18 +24559,6 @@
           {
             "explode": true,
             "in": "query",
-            "name": "checkpointManifestHashes",
-            "required": false,
-            "schema": {
-              "maxLength": 6500,
-              "minLength": 1,
-              "type": "string"
-            },
-            "style": "form"
-          },
-          {
-            "explode": true,
-            "in": "query",
             "name": "documentCheckpointManifestHash",
             "required": false,
             "schema": {
@@ -24588,32 +24576,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "authorizingContainerCheckpointChains": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "manifest": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "manifestHash": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "required": [
-                            "manifest",
-                            "manifestHash"
-                          ],
-                          "additionalProperties": {}
-                        }
-                      }
-                    },
                     "authorizingContainerPath": {
                       "minItems": 1,
                       "type": "array",
@@ -25333,7 +25295,6 @@
                     }
                   },
                   "required": [
-                    "authorizingContainerCheckpointChains",
                     "authorizingContainerPath",
                     "documentContainerManifestHistory",
                     "documentId",
@@ -25589,32 +25550,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "authorizingContainerCheckpointChains": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "manifest": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "manifestHash": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "required": [
-                            "manifest",
-                            "manifestHash"
-                          ],
-                          "additionalProperties": {}
-                        }
-                      }
-                    },
                     "authorizingContainerPath": {
                       "minItems": 1,
                       "type": "array",
@@ -26340,7 +26275,6 @@
                     }
                   },
                   "required": [
-                    "authorizingContainerCheckpointChains",
                     "authorizingContainerPath",
                     "documentContainerManifestHistory",
                     "documentId",

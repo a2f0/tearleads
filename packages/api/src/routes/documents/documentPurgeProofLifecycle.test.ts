@@ -88,7 +88,7 @@ test("purge proof remains available after its container is deleted", async () =>
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
 
   const invalidCheckpointResponse = await routeApp.request(
-    `/documents/${created.id}/purge?checkpointManifestHashes=${"a".repeat(64)}%2C${"b".repeat(64)}`,
+    `/documents/${created.id}/purge?documentCheckpointManifestHash=${"a".repeat(64)}`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(invalidCheckpointResponse.status).toBe(409);
@@ -396,11 +396,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
   expect(isDocumentPurgeProofResponse(proof)).toBe(true);
   if (isDocumentPurgeProofResponse(proof)) {
     expect(
-      proof.authorizingContainerCheckpointChains.every(
-        (chain) => chain.length === 0,
-      ),
-    ).toBe(true);
-    expect(
       proof.documentContainerManifestHistory.some(
         (bundle) =>
           bundle.manifestHash ===
@@ -408,51 +403,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
       ),
     ).toBe(false);
   }
-  const olderCheckpointProofResponse = await routeApp.request(
-    `/documents/${created.id}/purge?checkpointManifestHashes=${root.bundle.manifestHash}%2C${childFixture.bundle.manifestHash}`,
-    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
-  );
-  expect(olderCheckpointProofResponse.status).toBe(200);
-  const olderCheckpointProof = await olderCheckpointProofResponse.json();
-  expect(isDocumentPurgeProofResponse(olderCheckpointProof)).toBe(true);
-  if (isDocumentPurgeProofResponse(olderCheckpointProof)) {
-    expect(olderCheckpointProof.authorizingContainerCheckpointChains).toEqual([
-      [],
-      [],
-    ]);
-    expect(
-      olderCheckpointProof.documentContainerManifestHistory.map(
-        (bundle) => bundle.manifestHash,
-      ),
-    ).toContain(childFixture.bundle.manifestHash);
-  }
-  const knownRevocationHash =
-    accessManifestFromContainerResponse(revoked).manifestHash;
-  const boundedProofResponse = await routeApp.request(
-    `/documents/${created.id}/purge?checkpointManifestHashes=${root.bundle.manifestHash}%2C${knownRevocationHash}`,
-    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
-  );
-  expect(boundedProofResponse.status).toBe(200);
-  const boundedProof = await boundedProofResponse.json();
-  expect(isDocumentPurgeProofResponse(boundedProof)).toBe(true);
-  if (isDocumentPurgeProofResponse(boundedProof)) {
-    const checkpointChain =
-      boundedProof.authorizingContainerCheckpointChains.at(-1);
-    expect(checkpointChain?.at(-1)?.manifestHash).toBe(knownRevocationHash);
-    expect(
-      checkpointChain?.map((snapshot) => Object.keys(snapshot).sort()),
-    ).toEqual([["manifest", "manifestHash"]]);
-    if (isDocumentPurgeProofResponse(proof)) {
-      expect(boundedProof.principalPolicySnapshots).toEqual(
-        proof.principalPolicySnapshots,
-      );
-    }
-  }
-  const incompleteBoundsResponse = await routeApp.request(
-    `/documents/${created.id}/purge?checkpointManifestHashes=${knownRevocationHash}`,
-    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
-  );
-  expect(incompleteBoundsResponse.status).toBe(400);
 });
 
 test("purge proof preserves historical signer membership after group deletion", async () => {

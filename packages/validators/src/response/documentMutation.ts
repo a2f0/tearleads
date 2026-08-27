@@ -4,7 +4,6 @@ import {
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
-  plainObjectSchema,
 } from "../schema";
 import {
   AccessEventBundleWireResponseSchema,
@@ -59,15 +58,7 @@ export type DocumentLinkSetMutationResponse = z.infer<
   typeof DocumentLinkSetMutationResponseSchema
 >;
 
-const AccessManifestSnapshotResponseSchema = loosePlainObject({
-  manifest: plainObjectSchema,
-  manifestHash: nonEmptyStringSchema,
-});
-
 const documentPurgeProofShape = {
-  authorizingContainerCheckpointChains: nonEmptyArraySchema(
-    arraySchema(AccessManifestSnapshotResponseSchema),
-  ),
   authorizingContainerPath: nonEmptyArraySchema(
     AccessManifestBundleWireResponseSchema,
   ),

@@ -369,8 +369,6 @@ async function purgeDocumentWithExecutor(input: {
   return {
     containerIds: [containerId],
     response: {
-      authorizingContainerCheckpointChains:
-        proofMaterial.authorizingContainerPath.map(() => []),
       authorizingContainerPath: proofMaterial.authorizingContainerPath,
       documentContainerManifestHistory: [
         ...new Map(

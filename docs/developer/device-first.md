@@ -226,11 +226,11 @@ All three probes use normal document sync: verified Loro updates are projected
 before attachments and blob bytes hydrate. A coded `document_not_found` fetches
 a signed purge proof; the SDK verifies it before local destruction. Proofs
 default to purge-time heads. The SDK authenticates that baseline before reading
-local checkpoint identities; only then can it request bounded ordering evidence
-for container or document checkpoint hashes it already knows. Missing or
-invalid proofs fail hard, bare 404s remain non-destructive, and 403s keep normal
-parking behavior. The same coded-404 path completes a purge whose successful
-POST response was lost.
+local checkpoint identities and requests document predecessor evidence for a
+known document checkpoint. A later container checkpoint fails closed because
+its ordering relative to the purge is not signed. Missing or invalid proofs fail
+hard, bare 404s remain non-destructive, and 403s keep normal parking behavior.
+The same coded-404 path completes a purge whose successful POST response was lost.
 After the initial missing-listing convergence pass, ordinary documents that
 have never been opened remain lazy until a document window, explicit
 registered-store revalidation, or other owning workflow opens them.

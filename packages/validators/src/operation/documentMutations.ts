@@ -35,15 +35,13 @@ export type DocumentMutationPathParams = z.infer<
   typeof DocumentMutationPathParamsSchema
 >;
 
-const checkpointManifestHashesQuerySchema = registerJsonSchemaFragment(
+const checkpointManifestHashQuerySchema = registerJsonSchemaFragment(
   z.string().min(1).max(6_500),
   { maxLength: 6_500, minLength: 1, type: "string" },
 );
 
 export const DocumentPurgeProofQuerySchema = z.strictObject({
-  checkpointManifestHashes: checkpointManifestHashesQuerySchema.optional(),
-  documentCheckpointManifestHash:
-    checkpointManifestHashesQuerySchema.optional(),
+  documentCheckpointManifestHash: checkpointManifestHashQuerySchema.optional(),
 });
 
 export type DocumentPurgeProofQuery = z.infer<

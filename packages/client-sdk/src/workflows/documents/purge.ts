@@ -45,7 +45,6 @@ interface DocumentPurgeApi {
   getDocumentPurgeProof(
     documentId: string,
     options?: {
-      readonly checkpointManifestHashes?: readonly string[];
       readonly documentCheckpointManifestHash?: string;
     },
   ): Promise<DocumentPurgeProofResponse | null>;
@@ -60,36 +59,17 @@ interface DocumentPurgeApi {
 
 const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
 
-async function loadLocalPurgeCheckpointManifestHashes(input: {
-  readonly authorizingContainerCheckpoints: readonly AccessManifestCheckpoint[];
+async function loadLocalDocumentCheckpointManifestHash(input: {
   readonly documentCheckpoint: AccessManifestCheckpoint;
   readonly execSql: ExecSql;
-}): Promise<{
-  readonly checkpointManifestHashes: string[];
-  readonly documentCheckpointManifestHash: string;
-}> {
-  const checkpointManifestHashes = await Promise.all(
-    input.authorizingContainerCheckpoints.map(async (candidate) => {
-      const stored = await loadAccessManifestCheckpoint(
-        input.execSql,
-        "container",
-        candidate.organizationId,
-        candidate.objectId,
-      );
-      return stored?.manifestHash ?? candidate.manifestHash;
-    }),
-  );
+}): Promise<string> {
   const storedDocument = await loadAccessManifestCheckpoint(
     input.execSql,
     "document",
     input.documentCheckpoint.organizationId,
     input.documentCheckpoint.objectId,
   );
-  return {
-    checkpointManifestHashes,
-    documentCheckpointManifestHash:
-      storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash,
-  };
+  return storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash;
 }
 
 async function loadCheckpointBoundedDocumentPurgeProof(input: {
@@ -120,29 +100,18 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  const { checkpointManifestHashes, documentCheckpointManifestHash } =
-    await loadLocalPurgeCheckpointManifestHashes({
-      authorizingContainerCheckpoints: baseline.authorizingContainerCheckpoints,
+  const documentCheckpointManifestHash =
+    await loadLocalDocumentCheckpointManifestHash({
       documentCheckpoint: baseline.documentCheckpoint,
       execSql: input.execSql,
     });
-  const initialHeadsMatch = checkpointManifestHashes.every(
-    (manifestHash, index) =>
-      initialProof.authorizingContainerPath[index]?.manifestHash ===
-      manifestHash,
-  );
   if (
-    initialHeadsMatch &&
-    initialProof.authorizingContainerCheckpointChains.every(
-      (chain) => chain.length === 0,
-    ) &&
     documentCheckpointManifestHash ===
-      initialProof.documentManifest.manifestHash
+    initialProof.documentManifest.manifestHash
   ) {
     return initialProof;
   }
   return input.apiClient.getDocumentPurgeProof(input.documentId, {
-    checkpointManifestHashes,
     documentCheckpointManifestHash,
   });
 }

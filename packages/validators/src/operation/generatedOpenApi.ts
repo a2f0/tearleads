@@ -10733,7 +10733,6 @@ export interface operations {
     "documents.purgeProof": {
         parameters: {
             query?: {
-                checkpointManifestHashes?: string;
                 documentCheckpointManifestHash?: string;
             };
             header?: never;
@@ -10751,14 +10750,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        authorizingContainerCheckpointChains: ({
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[][];
                         authorizingContainerPath: ({
                             event: {
                                 body: unknown;
@@ -11131,14 +11122,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        authorizingContainerCheckpointChains: ({
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[][];
                         authorizingContainerPath: ({
                             event: {
                                 body: unknown;

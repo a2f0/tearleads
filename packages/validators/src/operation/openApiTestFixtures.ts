@@ -171,7 +171,6 @@ export function createDocumentPurgeProofResponse() {
   const authorizingContainer = createAccessManifestBundle();
   const documentManifestBundle = createAccessManifestBundle();
   return {
-    authorizingContainerCheckpointChains: [[]],
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
     documentId: "document-1",

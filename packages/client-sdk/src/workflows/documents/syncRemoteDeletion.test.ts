@@ -105,20 +105,6 @@ test("purge authorized before a pinned revocation fails closed", async () => {
   });
   // Model a revoked writer signing against the stale pre-revocation head.
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
-  const proofWithUnsignedOrderingClaim = {
-    ...purgeProof,
-    authorizingContainerCheckpointChains: [
-      [
-        {
-          manifest: newerContainerManifest.manifest as unknown as Record<
-            string,
-            unknown
-          >,
-          manifestHash: newerContainerManifest.manifestHash,
-        },
-      ],
-    ],
-  };
   const deletedDocumentIds: string[] = [];
   const { close, execSql } = await createTestExecSql(
     "purge-proof-newer-container-checkpoint",
@@ -166,29 +152,16 @@ test("purge authorized before a pinned revocation fails closed", async () => {
       verifiedManifests: [newerContainerManifest],
     });
 
-    await expect(syncWithProof(async () => purgeProof)).rejects.toMatchObject({
-      code: "rollback",
-    });
-    expect(deletedDocumentIds).toEqual([]);
-
     let proofFetches = 0;
     await expect(
       syncWithProof(async (_documentId, options) => {
         proofFetches += 1;
-        if (!options) {
-          return purgeProof;
-        }
-        expect(options.checkpointManifestHashes).toEqual([
-          newerContainerManifest.manifestHash,
-        ]);
-        expect(options.documentCheckpointManifestHash).toBe(
-          purgeProof.documentManifest.manifestHash,
-        );
-        return proofWithUnsignedOrderingClaim;
+        expect(options).toBeUndefined();
+        return purgeProof;
       }),
-    ).rejects.toMatchObject({ code: "stale_predecessor" });
+    ).rejects.toMatchObject({ code: "rollback" });
 
-    expect(proofFetches).toBe(2);
+    expect(proofFetches).toBe(1);
     expect(deletedDocumentIds).toEqual([]);
     await expect(
       loadAccessManifestCheckpoint(

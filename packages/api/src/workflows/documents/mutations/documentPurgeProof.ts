@@ -35,13 +35,9 @@ import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "../storedDocumentManifestVerification";
-import {
-  DocumentWriterProjectionError,
-  loadDocumentContainerDependencyMaterial,
-} from "../writerProjection";
+import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
 import {
   collectPurgeProofPrincipalReferences,
-  loadAuthorizingContainerCheckpointMaterial,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
 import {
@@ -50,17 +46,9 @@ import {
 } from "./documentPurgeProofHistory";
 import { DocumentMutationError } from "./errors";
 
-const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
 type ContainerProjectionContext = ReturnType<
   typeof createContainerWriterProjectionContext
 >;
-
-function accessManifestSnapshot(bundle: AccessManifestBundleWireResponse) {
-  return {
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-  };
-}
 
 async function verifyStoredPurgeEvent(input: {
   readonly documentId: string;
@@ -112,156 +100,6 @@ async function verifyStoredContainerPath(input: {
     );
   }
   return verified;
-}
-
-async function assertAuthorizingHeadExtendsCheckpoint(input: {
-  readonly authorizingManifest: VerifiedContainerAccessManifest;
-  readonly checkpointManifest: VerifiedContainerAccessManifest;
-  readonly context: ContainerProjectionContext;
-}): Promise<void> {
-  let current = input.authorizingManifest;
-  const visited = new Set<string>();
-  for (let depth = 0; depth < MAX_CONTAINER_HISTORY_DEPTH; depth += 1) {
-    if (current.manifestHash === input.checkpointManifest.manifestHash) return;
-    if (
-      current.state.epoch <= input.checkpointManifest.state.epoch ||
-      !current.state.previousManifestHash ||
-      visited.has(current.manifestHash)
-    ) {
-      break;
-    }
-    visited.add(current.manifestHash);
-    current = await verifyStoredContainerManifest({
-      bundle: await loadContainerManifestBundleByHash(
-        input.context,
-        current.state.previousManifestHash,
-      ),
-      context: input.context,
-      loadBundle: (manifestHash) =>
-        loadContainerManifestBundleByHash(input.context, manifestHash),
-    });
-  }
-  throw new DocumentMutationError(
-    "Document purge authorization path does not extend the checkpoint",
-    409,
-  );
-}
-
-async function assertCheckpointHeadExtends(input: {
-  readonly authorizingManifest: VerifiedContainerAccessManifest;
-  readonly bundle: AccessManifestBundleWireResponse;
-  readonly context: ContainerProjectionContext;
-}) {
-  let currentBundle = input.bundle;
-  let current = await verifyStoredContainerManifest({
-    bundle: currentBundle,
-    context: input.context,
-    loadBundle: (manifestHash) =>
-      loadContainerManifestBundleByHash(input.context, manifestHash),
-  });
-  const visited = new Set<string>();
-  const reverseChain: ReturnType<typeof accessManifestSnapshot>[] = [];
-  for (let depth = 0; depth < MAX_CONTAINER_HISTORY_DEPTH; depth += 1) {
-    if (
-      current.state.containerId !== input.authorizingManifest.state.containerId
-    ) {
-      throw new DocumentMutationError(
-        "Document purge authorization checkpoint belongs to another container",
-        409,
-      );
-    }
-    if (current.state.epoch < input.authorizingManifest.state.epoch) {
-      await assertAuthorizingHeadExtendsCheckpoint({
-        authorizingManifest: input.authorizingManifest,
-        checkpointManifest: current,
-        context: input.context,
-      });
-      return [];
-    }
-    if (current.manifestHash === input.authorizingManifest.manifestHash) {
-      return reverseChain.reverse();
-    }
-    if (
-      current.state.epoch <= input.authorizingManifest.state.epoch ||
-      !current.state.previousManifestHash ||
-      visited.has(current.manifestHash)
-    ) {
-      break;
-    }
-    reverseChain.push(accessManifestSnapshot(currentBundle));
-    visited.add(current.manifestHash);
-    currentBundle = await loadContainerManifestBundleByHash(
-      input.context,
-      current.state.previousManifestHash,
-    );
-    current = await verifyStoredContainerManifest({
-      bundle: currentBundle,
-      context: input.context,
-      loadBundle: (manifestHash) =>
-        loadContainerManifestBundleByHash(input.context, manifestHash),
-    });
-  }
-  throw new DocumentMutationError(
-    "Document purge authorization checkpoint does not extend the signed path",
-    409,
-  );
-}
-
-async function loadVerifiedCheckpointMaterial(input: {
-  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-  readonly checkpointManifestHashes: readonly string[];
-  readonly context: ContainerProjectionContext;
-  readonly executor: DatabaseSession;
-}) {
-  if (
-    input.checkpointManifestHashes.length !==
-    input.authorizingContainerPath.length
-  ) {
-    throw new DocumentMutationError(
-      "Document purge authorization checkpoint count is inconsistent",
-      400,
-    );
-  }
-  let checkpointMaterial: Awaited<
-    ReturnType<typeof loadAuthorizingContainerCheckpointMaterial>
-  >;
-  try {
-    checkpointMaterial = await loadAuthorizingContainerCheckpointMaterial({
-      checkpointManifestHashes: input.checkpointManifestHashes,
-      executor: input.executor,
-    });
-  } catch (error) {
-    if (error instanceof DocumentWriterProjectionError) {
-      throw new DocumentMutationError(error.message, 409);
-    }
-    throw error;
-  }
-  if (
-    checkpointMaterial.heads.length !== input.authorizingContainerPath.length
-  ) {
-    throw new DocumentMutationError(
-      "Document purge authorization checkpoint count is inconsistent",
-      409,
-    );
-  }
-  const chains: Awaited<ReturnType<typeof assertCheckpointHeadExtends>>[] = [];
-  for (const [index, bundle] of checkpointMaterial.heads.entries()) {
-    const authorizingManifest = input.authorizingContainerPath[index];
-    if (!authorizingManifest) {
-      throw new DocumentMutationError(
-        "Document purge authorization checkpoint count is inconsistent",
-        409,
-      );
-    }
-    chains.push(
-      await assertCheckpointHeadExtends({
-        authorizingManifest,
-        bundle,
-        context: input.context,
-      }),
-    );
-  }
-  return { ...checkpointMaterial, chains };
 }
 
 async function verifyRetainedPurgeManifests(input: {
@@ -389,7 +227,6 @@ async function loadPurgeTombstoneTime(input: {
 }
 
 export async function loadDocumentPurgeProof(input: {
-  readonly checkpointManifestHashes?: readonly string[] | undefined;
   readonly documentCheckpointManifestHash?: string | undefined;
   readonly documentId: string;
   readonly executor: DatabaseSession;
@@ -409,17 +246,12 @@ export async function loadDocumentPurgeProof(input: {
     event: storedEvent,
     executor: input.executor,
   });
-  const {
-    authorizingContainerPath,
-    body,
-    context,
-    material,
-    principalPolicies,
-  } = await verifyProofMaterial({
-    documentId: input.documentId,
-    event,
-    executor: input.executor,
-  });
+  const { authorizingContainerPath, body, material, principalPolicies } =
+    await verifyProofMaterial({
+      documentId: input.documentId,
+      event,
+      executor: input.executor,
+    });
 
   // A purge proof is terminal history, not a claim about the container's
   // current state. A replica that had access when the purge was signed must
@@ -435,14 +267,6 @@ export async function loadDocumentPurgeProof(input: {
     throw new DocumentMutationError("Forbidden", 403);
   }
 
-  const checkpointMaterial = await loadVerifiedCheckpointMaterial({
-    authorizingContainerPath,
-    checkpointManifestHashes:
-      input.checkpointManifestHashes ??
-      authorizingContainerPath.map((manifest) => manifest.manifestHash),
-    context,
-    executor: input.executor,
-  });
   const documentManifestPredecessorBundles = selectDocumentManifestPredecessors(
     {
       checkpointManifestHash: input.documentCheckpointManifestHash,
@@ -475,7 +299,6 @@ export async function loadDocumentPurgeProof(input: {
   });
 
   return {
-    authorizingContainerCheckpointChains: checkpointMaterial.chains,
     authorizingContainerPath: material.authorizingContainerPath,
     documentContainerManifestHistory: uniquePurgeProofBundles([
       ...material.authorizingContainerManifestHistory,

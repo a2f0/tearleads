@@ -2,10 +2,8 @@ import {
   type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
-  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
-  verifyAccessManifestLocalCheckpoint,
 } from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
@@ -25,7 +23,6 @@ import {
 } from "./containerProjectionVerification";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import { rethrowDatabaseUnavailableError } from "./error";
-import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
 import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
@@ -48,7 +45,6 @@ interface VerifyDocumentPurgeProofInput {
 }
 
 interface VerifiedDocumentPurgeProofCommit {
-  readonly authorizingContainerCheckpoints: readonly AccessManifestCheckpoint[];
   readonly commitCheckpoints: (execSql?: ExecSql) => Promise<void>;
   readonly documentCheckpoint: AccessManifestCheckpoint;
 }
@@ -89,96 +85,6 @@ function collectContainerBundles(
   return bundlesByHash;
 }
 
-async function verifyCheckpointChain(input: {
-  readonly authorizingManifest: VerifiedContainerAccessManifest;
-  readonly chain: DocumentPurgeProofResponse["authorizingContainerCheckpointChains"][number];
-  readonly checkpointContext: ReturnType<
-    typeof createProjectionCheckpointContext
-  >;
-  readonly enforceLocalCheckpoints: boolean;
-  readonly index: number;
-  readonly verifiedContainerManifests: ReadonlyMap<
-    string,
-    VerifiedContainerAccessManifest
-  >;
-}): Promise<VerifiedAccessManifestCheckpointEvidence> {
-  // A manifest chain proves ancestry, not when this separate purge signature
-  // was made. Accepting H1 -> H2 here would let a writer revoked at H2 sign a
-  // purge against stale H1 afterward. Until purge ordering is committed by a
-  // shared signed log, even a legitimate purge-before-H2 is deliberately an
-  // availability failure: the client must fail closed instead of guessing.
-  if (input.chain.length > 0) {
-    throw new KeyingVerificationError(
-      "stale_predecessor",
-      `Document purge authorization path[${input.index}] predates a later container checkpoint without signed purge ordering`,
-    );
-  }
-
-  if (input.enforceLocalCheckpoints) {
-    const checkpointVerification = await loadManifestCheckpointVerification({
-      current: input.authorizingManifest.manifest,
-      execSql: input.checkpointContext.execSql,
-      verifiedManifests: input.verifiedContainerManifests,
-    });
-    verifyAccessManifestLocalCheckpoint({
-      checkpointPredecessors: checkpointVerification.checkpointPredecessors,
-      current: {
-        ...input.authorizingManifest.checkpoint,
-        previousManifestHash:
-          input.authorizingManifest.manifest.previousManifestHash,
-      },
-      localCheckpoint: checkpointVerification.localCheckpoint,
-    });
-  }
-  return input.authorizingManifest;
-}
-
-async function verifyPurgeCheckpointHeads(input: {
-  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-  readonly checkpointContext: ReturnType<
-    typeof createProjectionCheckpointContext
-  >;
-  readonly enforceLocalCheckpoints: boolean;
-  readonly proof: DocumentPurgeProofResponse;
-  readonly verifiedContainerManifests: ReadonlyMap<
-    string,
-    VerifiedContainerAccessManifest
-  >;
-}): Promise<VerifiedAccessManifestCheckpointEvidence[]> {
-  if (
-    input.proof.authorizingContainerCheckpointChains.length !==
-    input.authorizingContainerPath.length
-  ) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Document purge checkpoint chains do not match the signed authorization path",
-    );
-  }
-  const checkpointHeads: VerifiedAccessManifestCheckpointEvidence[] = [];
-  for (const [
-    index,
-    chain,
-  ] of input.proof.authorizingContainerCheckpointChains.entries()) {
-    const authorizingManifest = input.authorizingContainerPath[index];
-    if (!authorizingManifest) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        "Document purge checkpoint chain has no signed authorization manifest",
-      );
-    }
-    const checkpointHead = await verifyCheckpointChain({
-      authorizingManifest,
-      chain,
-      checkpointContext: input.checkpointContext,
-      enforceLocalCheckpoints: input.enforceLocalCheckpoints,
-      index,
-      verifiedContainerManifests: input.verifiedContainerManifests,
-    });
-    checkpointHeads.push(checkpointHead);
-  }
-  return checkpointHeads;
-}
-
 async function verifyPurgeContainerPaths(input: {
   readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ReturnType<
@@ -198,9 +104,10 @@ async function verifyPurgeContainerPaths(input: {
     authorizationEvidence: input.authorizationEvidence,
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    // The purge event signs this exact historical path. Durable checkpoint
-    // comparison happens against the descendant heads verified below.
-    enforceLocalCheckpoints: false,
+    // This signed path is the purge's authorization boundary. A later local
+    // head makes the purge ambiguous because ancestry does not order the purge
+    // signature; fail closed instead of accepting server-supplied descendants.
+    enforceLocalCheckpoints: input.enforceLocalCheckpoints,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -243,16 +150,8 @@ async function verifyPurgeContainerPaths(input: {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
     }
   }
-  const checkpointHeads = await verifyPurgeCheckpointHeads({
-    authorizingContainerPath,
-    checkpointContext: input.checkpointContext,
-    enforceLocalCheckpoints: input.enforceLocalCheckpoints,
-    proof: input.proof,
-    verifiedContainerManifests: verifiedByHash,
-  });
-
   observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: checkpointHeads,
+    verifiedHeads: authorizingContainerPath,
     verifiedManifests: verifiedContainerManifestsForBundles(
       bundlesByHash,
       verifiedByHash,
@@ -331,9 +230,6 @@ async function verifyDocumentPurgeProofWithMode(
       purgeEventHash,
     };
     return {
-      authorizingContainerCheckpoints: authorizingContainerPath.map(
-        (manifest) => manifest.checkpoint,
-      ),
       commitCheckpoints: (execSql = input.execSql) =>
         commitProjectionCheckpoints(checkpointContext, {
           documentPurgeCheckpoint,
@@ -355,20 +251,8 @@ async function verifyDocumentPurgeProofWithMode(
 
 export async function verifyDocumentPurgeProofBaseline(
   input: VerifyDocumentPurgeProofInput,
-): Promise<
-  Pick<
-    VerifiedDocumentPurgeProofCommit,
-    "authorizingContainerCheckpoints" | "documentCheckpoint"
-  >
-> {
-  if (
-    input.proof.authorizingContainerCheckpointChains.length !==
-      input.proof.authorizingContainerPath.length ||
-    input.proof.authorizingContainerCheckpointChains.some(
-      (chain) => chain.length !== 0,
-    ) ||
-    input.proof.documentManifestPredecessors.length !== 0
-  ) {
+): Promise<Pick<VerifiedDocumentPurgeProofCommit, "documentCheckpoint">> {
+  if (input.proof.documentManifestPredecessors.length !== 0) {
     throw new KeyingVerificationError(
       "invalid_shape",
       "Initial document purge proof is not purge-time bounded",
@@ -376,7 +260,6 @@ export async function verifyDocumentPurgeProofBaseline(
   }
   const verified = await verifyDocumentPurgeProofWithMode(input, false);
   return {
-    authorizingContainerCheckpoints: verified.authorizingContainerCheckpoints,
     documentCheckpoint: verified.documentCheckpoint,
   };
 }

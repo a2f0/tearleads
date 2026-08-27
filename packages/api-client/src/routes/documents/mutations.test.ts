@@ -39,11 +39,10 @@ test("document mutation client metadata derives from shared operations", () => {
   );
   expect(
     documentPurgeProof.path("document/1", {
-      checkpointManifestHashes: ["head-1", "head-2"],
       documentCheckpointManifestHash: "document-head",
     }),
   ).toBe(
-    "/documents/document%2F1/purge?checkpointManifestHashes=head-1%2Chead-2&documentCheckpointManifestHash=document-head",
+    "/documents/document%2F1/purge?documentCheckpointManifestHash=document-head",
   );
   expect(documentPurgeProof.isResponse).toBeDefined();
 });

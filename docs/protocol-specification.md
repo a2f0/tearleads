@@ -450,16 +450,14 @@ terminal purge unverifiable.
 
 The initial proof is strictly purge-time-bounded. The SDK authenticates that
 proof before using its claimed object identities to read any local checkpoint.
-Only then may it send already-known container and document checkpoint hashes in
-a second request. That response contains the purge authorization path and only
-the hash-linked ordering evidence needed to connect the signed purge-time heads
-to those checkpoints. Container checkpoint chains contain only manifest hashes
-and the minimal manifests that commit their predecessor links; they omit access
-event bodies, derived state, key material, and any principal-policy snapshots
-referenced only after the purge. The response never returns unrelated
-historical document paths, states, or events. A later-revoked replica can
-therefore reconcile a checkpoint it already knows without using proof retrieval
-to discover newer activity. An omitted or forked ordering chain fails closed.
+Only then may it send an already-known document checkpoint hash to request the
+signed predecessor history leading to the purge-time document head. Container
+authorization is stricter: the signed purge-time path must itself satisfy every
+local container checkpoint. A later local container head makes the purge
+ambiguous and the client fails closed, because container ancestry alone cannot
+prove whether the separate purge signature preceded that later transition.
+The response never returns unrelated historical document paths, states, or
+events.
 The SDK commits the terminal purge checkpoint in the same local SQLite
 transaction that removes the matching document row and its side state. A stale
 local generation, identity replacement, failed cleanup, or interruption rolls

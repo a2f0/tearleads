@@ -198,7 +198,7 @@ export async function deleteStoredDocumentSideRowsIfAbsent(
         }
 
         await deleteStoredDocumentRows({
-          existingDocumentId: null,
+          existingDocumentId: expectedDocumentId,
           localId,
           lockedExecSql,
           tx,

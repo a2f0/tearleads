@@ -502,7 +502,6 @@ export interface DocumentSyncApi {
   getDocumentPurgeProof?(
     documentId: string,
     options?: {
-      readonly checkpointManifestHashes?: readonly string[];
       readonly documentCheckpointManifestHash?: string;
     },
   ): Promise<DocumentPurgeProofResponse | null>;
