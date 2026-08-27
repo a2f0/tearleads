@@ -71,7 +71,7 @@ export function stripeSubscriptionBody(
   return {
     id: subscriptionId,
     status: "active",
-    customer: "cus_1",
+    customer: { id: "cus_1", email: "buyer@example.com" },
     current_period_start: periodStart,
     current_period_end: periodEnd,
     metadata: { userId: "user-1", orgId: organizationId },

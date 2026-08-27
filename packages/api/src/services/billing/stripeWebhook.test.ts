@@ -56,7 +56,7 @@ test("a paid first invoice is associated with RevenueCat", async () => {
   // The customer must exist before v2 attributes accepts a write, and the
   // receipt (v1, Stripe app key) closes the association.
   expect(urls).toEqual([
-    "GET https://api.stripe.com/v1/subscriptions/sub_1",
+    "GET https://api.stripe.com/v1/subscriptions/sub_1?expand[]=customer&expand[]=default_payment_method",
     "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
     "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
     "POST https://api.revenuecat.com/v1/receipts",
@@ -70,6 +70,65 @@ test("a paid first invoice is associated with RevenueCat", async () => {
     desiredRenewalQuantity: 5,
     subscriptionId: "sub_1",
     subscriptionItemId: "si_1",
+  });
+});
+
+test("a new subscription promotes its card email to the Customer", async () => {
+  await createWebhookBillingOrganization();
+  const urls: string[] = [];
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(paidInvoiceEvent({ invoiceId: "in_email", subscription })),
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { body: { id: "cus_1" } }],
+          urls,
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          urls,
+        ),
+      },
+    },
+  );
+
+  expect(outcome.status).toBe("associated");
+  expect(urls[1]).toBe("POST https://api.stripe.com/v1/customers/cus_1");
+});
+
+test("a new subscription without a recovery email asks for redelivery", async () => {
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+  };
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(
+      paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
+    ),
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch([{ body: subscription }], []),
+      },
+    },
+  );
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Subscription carries no billing email",
   });
 });
 

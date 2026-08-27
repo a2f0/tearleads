@@ -12,6 +12,7 @@ import {
   StripeApiError,
   type StripeCheckoutIntent,
 } from "../../billing/stripeApi";
+import { ensureStripeCustomerEmail } from "../../billing/stripeCustomerEmail";
 import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import {
   extractPaidSubscriptionInvoice,
@@ -433,8 +434,7 @@ export async function processAuthenticatedStripeWebhook(
   if (!invoice) {
     return { status: "ignored", reason: "Not a paid subscription invoice" };
   }
-  // Ask for redelivery when the subscription cannot be looked up; a 2xx could
-  // permanently strand the purchase unassociated.
+  // Ask for redelivery when lookup fails; a 2xx could strand the purchase.
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return { status: "retry", reason: "Stripe API is not configured" };
   }
@@ -462,6 +462,12 @@ export async function processAuthenticatedStripeWebhook(
     !isUuidV4String(binding.organizationId)
   ) {
     return { status: "ignored", reason: "Subscription carries no org binding" };
+  }
+  if (
+    invoice.billingReason === "subscription_create" &&
+    !(await ensureStripeCustomerEmail(binding, deps.stripe ?? {}))
+  ) {
+    return { status: "retry", reason: "Subscription carries no billing email" };
   }
 
   return applyPaidSubscriptionInvoice({

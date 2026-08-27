@@ -44,6 +44,9 @@ export const ORG_MANAGER_LABELS = {
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingDowngradePlan: "Downgrade",
+  billingEmail: "Billing email",
+  billingEmailHint:
+    "Stripe uses this email to let you manage or cancel your subscription if you lose your SymCrypt keys.",
   billingHistoryActivityTab: "Activity",
   billingHistoryEmpty: "No billing events yet.",
   billingHistoryEventsTab: "Events",

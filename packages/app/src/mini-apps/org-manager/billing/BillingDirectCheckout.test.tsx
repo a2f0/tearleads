@@ -130,6 +130,34 @@ test("idle offers the priced subscription and hides the element host", () => {
   expect(host?.hasAttribute("hidden")).toBe(true);
 });
 
+test("inline checkout requires and forwards a recovery email", () => {
+  stubSymCrypt();
+  let receivedEmail: string | undefined;
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({
+        begin: (billingEmail) => {
+          receivedEmail = billingEmail;
+        },
+      })}
+      disabled={false}
+    />,
+  );
+  const subscribe = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.billingSubscribe,
+  });
+  expect(subscribe.hasAttribute("disabled")).toBe(true);
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.billingEmail), {
+    target: { value: " buyer@example.com " },
+  });
+  expect(subscribe.hasAttribute("disabled")).toBe(false);
+
+  fireEvent.click(subscribe);
+
+  expect(receivedEmail).toBe("buyer@example.com");
+  expect(view.getByText(ORG_MANAGER_LABELS.billingEmailHint)).toBeDefined();
+});
+
 test("idle checkout actions use the standard button styling", () => {
   stubSymCrypt();
   const view = render(

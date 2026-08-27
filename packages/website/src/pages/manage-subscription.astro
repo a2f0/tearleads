@@ -1,0 +1,40 @@
+---
+import { stripeCustomerPortalUrl } from "../config";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="Manage subscription | SymCrypt"
+  description="Manage or cancel a SymCrypt web subscription through Stripe."
+>
+  <main class="website-main">
+    <article class="section" aria-labelledby="page-title">
+      <h1 id="page-title">Manage a web subscription</h1>
+      <p class="section-lede">
+        Enter the billing email you used at checkout. Stripe will email you a
+        secure login link, even if you no longer have your SymCrypt keys.
+      </p>
+      <p>
+        You can cancel at the end of the current billing period. You can
+        subscribe again later with a new SymCrypt identity.
+      </p>
+      {
+        stripeCustomerPortalUrl ? (
+          <p>
+            <a
+              class="symcrypt-action-button"
+              href={stripeCustomerPortalUrl}
+              rel="noreferrer"
+            >
+              Open Stripe subscription management
+            </a>
+          </p>
+        ) : (
+          <p role="status">
+            Stripe email-based subscription management is not configured yet.
+          </p>
+        )
+      }
+    </article>
+  </main>
+</Layout>

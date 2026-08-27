@@ -20,6 +20,7 @@ function fakeStripe(options?: {
 }) {
   const destroyed: string[] = [];
   const confirmInputs: unknown[] = [];
+  const elementOptions: unknown[] = [];
   const element: FakeElement = {
     mount: () => undefined,
     destroy: () => destroyed.push("payment"),
@@ -29,7 +30,10 @@ function fakeStripe(options?: {
     elements: (opts: unknown) => {
       elementsOptions.push(opts);
       return {
-        create: () => element,
+        create: (_type: unknown, opts: unknown) => {
+          elementOptions.push(opts);
+          return element;
+        },
         getElement: () => element,
       };
     },
@@ -39,7 +43,7 @@ function fakeStripe(options?: {
       return { error: options?.confirmError };
     },
   };
-  return { confirmInputs, elementsOptions, stripe, destroyed };
+  return { confirmInputs, elementOptions, elementsOptions, stripe, destroyed };
 }
 
 const APPEARANCE = {
@@ -233,6 +237,35 @@ test("confirm omits the return url where there is no page to return to", async (
 
   const [input] = confirmInputs as [{ confirmParams?: unknown }];
   expect("confirmParams" in input).toBe(false);
+});
+
+test("billing email is collected outside the iframe and sent with payment", async () => {
+  const { confirmInputs, elementOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  const session = await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: APPEARANCE,
+    billingEmail: " buyer@example.com ",
+  });
+
+  await session.confirm();
+
+  expect(elementOptions).toEqual([
+    { fields: { billingDetails: { email: "never" } } },
+  ]);
+  const [input] = confirmInputs as [
+    {
+      confirmParams: {
+        payment_method_data: { billing_details: { email: string } };
+      };
+    },
+  ];
+  expect(input.confirmParams.payment_method_data.billing_details.email).toBe(
+    "buyer@example.com",
+  );
 });
 
 test("a charge that lands during an unmount is reported, not swallowed", async () => {

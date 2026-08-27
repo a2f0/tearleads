@@ -1,32 +1,37 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
-test("subscription binding reads the licensed sync item", async () => {
-  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
-    new Response(
-      JSON.stringify({
-        id: "sub_1",
-        status: "active",
-        customer: "cus_1",
-        current_period_start: 1_767_225_600,
-        current_period_end: 1_769_904_000,
-        metadata: { userId: "user-1", orgId: "org-1" },
-        items: {
-          data: [
-            {
-              id: "si_1",
-              quantity: 1,
-              price: {
-                id: "price_sync",
-                currency: "usd",
-                recurring: { interval: "month", interval_count: 3 },
-                unit_amount: 499,
+test("subscription binding reads the licensed sync item and recovery email", async () => {
+  const fetchImpl = mock(
+    async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          id: "sub_1",
+          status: "active",
+          customer: { id: "cus_1", email: "customer@example.com" },
+          default_payment_method: {
+            billing_details: { email: "card@example.com" },
+          },
+          current_period_start: 1_767_225_600,
+          current_period_end: 1_769_904_000,
+          metadata: { userId: "user-1", orgId: "org-1" },
+          items: {
+            data: [
+              {
+                id: "si_1",
+                quantity: 1,
+                price: {
+                  id: "price_sync",
+                  currency: "usd",
+                  recurring: { interval: "month", interval_count: 3 },
+                  unit_amount: 499,
+                },
               },
-            },
-          ],
-        },
-      }),
-    )) as unknown as typeof fetch;
+            ],
+          },
+        }),
+      ),
+  ) as unknown as typeof fetch;
 
   const binding = await getSubscriptionBinding("sub_1", {
     env: {
@@ -40,10 +45,12 @@ test("subscription binding reads the licensed sync item", async () => {
     billingPeriodEndsAt: new Date("2026-02-01T00:00:00.000Z"),
     billingPeriodStartsAt: new Date("2026-01-01T00:00:00.000Z"),
     currency: "usd",
+    customerEmail: "customer@example.com",
     customerId: "cus_1",
     interval: "month",
     intervalCount: 3,
     organizationId: "org-1",
+    paymentMethodBillingEmail: "card@example.com",
     priceId: "price_sync",
     seatQuantity: 1,
     status: "active",
@@ -51,6 +58,10 @@ test("subscription binding reads the licensed sync item", async () => {
     unitAmount: 499,
     userId: "user-1",
   });
+  expect(fetchImpl).toHaveBeenCalledWith(
+    "https://api.stripe.com/v1/subscriptions/sub_1?expand[]=customer&expand[]=default_payment_method",
+    expect.anything(),
+  );
 });
 
 test("subscription binding alerts on a legacy non-unit quantity", async () => {
