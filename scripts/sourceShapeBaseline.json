@@ -35,12 +35,12 @@
   },
   "fileSizes": {
     ".claude/skills/cross-agent-review/SKILL.md": {
-      "lines": 423,
-      "bytes": 22875
+      "lines": 422,
+      "bytes": 22805
     },
     ".claude/skills/ship-pr/SKILL.md": {
-      "lines": 494,
-      "bytes": 30095
+      "lines": 468,
+      "bytes": 28660
     },
     "dependency-cruiser.config.ts": {
       "lines": 658,

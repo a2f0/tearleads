@@ -188,8 +188,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    pushed head still matches what is reviewed — but **only when the merge
    actually moved `HEAD`**, so an already-current branch does not fire the
    (expensive) pre-push hook for nothing; **with no PR**, the merge stays local
-   and `open-pr` publishes it later; `ship-pr` may subsequently canonicalize the
-   open PR to its final one-commit squash with an exact lease:
+   and `open-pr` pushes it later, so the flow's single push is preserved:
 
    ```bash
    if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
