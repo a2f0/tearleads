@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   assertAtomicSquashCandidate,
   assertDefaultBaseRef,
+  assertSingleWriterRepository,
   assertSquashCommitMessage,
   atomicRuleCoverage,
   buildAtomicSquashPushArgs,
@@ -11,6 +12,8 @@ import {
 
 const target = {
   baseRefName: "main",
+  headRefName: "feature",
+  headRepository: "owner/repo",
   headOid: "def456",
 };
 
@@ -23,10 +26,17 @@ describe("buildAtomicSquashPushArgs", () => {
         "abc123",
       ),
     ).toEqual([
+      "-c",
+      "credential.helper=",
+      "-c",
+      "credential.helper=!gh auth git-credential",
       "push",
+      "--atomic",
       "--force-with-lease=refs/heads/main:abc123",
+      "--force-with-lease=refs/heads/feature:def456",
       "https://github.com/owner/repo",
       "def456:refs/heads/main",
+      ":refs/heads/feature",
     ]);
   });
 });
@@ -116,6 +126,27 @@ describe("assertDefaultBaseRef", () => {
   });
 });
 
+describe("assertSingleWriterRepository", () => {
+  test("accepts only a same-repository PR owned by the active sole writer", () => {
+    expect(() =>
+      assertSingleWriterRepository(
+        "owner/repo",
+        "owner",
+        ["owner"],
+        "owner/repo",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSingleWriterRepository(
+        "owner/repo",
+        "owner",
+        ["owner", "collaborator"],
+        "fork/repo",
+      ),
+    ).toThrow("sole authenticated writer");
+  });
+});
+
 describe("atomicRuleCoverage", () => {
   test("requires active non-bypassable strict checks and squash PRs", () => {
     const protectedRuleset = JSON.stringify({
@@ -185,7 +216,9 @@ describe("parsePullRequestMergeTarget", () => {
           pullRequest: {
             autoMergeRequest: null,
             baseRefName: "main",
+            headRefName: "feature",
             headRefOid: "abc123",
+            headRepository: { nameWithOwner: "owner/repo" },
             isInMergeQueue: false,
             state: "OPEN",
             ...overrides,
@@ -197,6 +230,8 @@ describe("parsePullRequestMergeTarget", () => {
   test("accepts an open synchronous merge target", () => {
     expect(parsePullRequestMergeTarget(response())).toEqual({
       baseRefName: "main",
+      headRefName: "feature",
+      headRepository: "owner/repo",
       headOid: "abc123",
     });
   });

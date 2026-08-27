@@ -49,6 +49,9 @@ it, and delete the merged feature branch.
 - An open, mergeable PR on the current branch.
 - Local HEAD and the pushed PR head are the same signed, reviewed, non-merge
   commit directly on the live default-branch tip.
+- A same-repository PR in a user-owned repository whose authenticated owner is
+  its only direct push-capable collaborator. Organization, fork, and multi-writer
+  repositories require a merge queue or another server-side coordinator.
 
 ## Setup
 
@@ -107,6 +110,7 @@ PR_HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwne
 [ "$PR_HEAD_BRANCH" = "$BRANCH" ] || { echo "Error: PR head branch is not $BRANCH" >&2; exit 1; }
 [ -n "$PR_HEAD_OID" ] || { echo "Error: could not resolve PR head OID" >&2; exit 1; }
 [ -n "$PR_HEAD_REPO" ] || { echo "Error: could not resolve PR head repository" >&2; exit 1; }
+[ "$PR_HEAD_REPO" = "$REPO" ] || { echo "Error: atomic squash requires a same-repository PR" >&2; exit 1; }
 
 BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
 BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
@@ -177,10 +181,12 @@ different merge workflow; this skill stops before changing either branch.
      is the validated live base and whose subject ends with the authoritative
      `(#<pr>)` reference.
    - Refuses a PR that already has a queued or automatic merge, then atomically
-     fast-forwards the explicitly named default-branch ref to that reviewed
-     squash commit with `--force-with-lease=<base-ref>:<base-oid>`. The active,
-     non-bypassable PR and strict-check rules are enforced by GitHub at receive
-     time; a retarget, head move, or base advance makes the push fail.
+     fast-forwards the explicitly named default-branch ref and deletes the PR
+     head in one atomic transaction, with exact leases on both refs. Git uses
+     the active `gh` HTTPS credential — the same identity whose non-bypassable
+     PR/check rules were verified. A head move or base advance makes the entire
+     transaction fail; the single-writer prerequisite excludes an independent
+     concurrent retarget actor.
    - Confirms the PR reached the `MERGED` state before cleanup.
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected
@@ -254,8 +260,8 @@ different merge workflow; this skill stops before changing either branch.
    - **Verify the merge commit is an ancestor of `HEAD`** before deleting
      anything. This is what makes the delete safe in practice: it proves the
      branch you just pulled genuinely contains the squashed work, catching a pull
-     from the wrong remote, a stale fork, or a base that never received the merge
-     — none of which the `MERGED` state alone can detect.
+     from the wrong remote, a stale checkout, or a base that never received the
+     merge — none of which the `MERGED` state alone can detect.
    - The remote delete is bound to the captured PR head OID twice: an explicit
      comparison catches an already-moved branch, and `--force-with-lease`
      atomically rejects a push racing the delete. The local branch must still

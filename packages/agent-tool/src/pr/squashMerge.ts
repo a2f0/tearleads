@@ -4,7 +4,6 @@ import {
   prState,
   resolveFreshBaseRef,
   resolvePr,
-  resolveRepositoryGitUrl,
   run,
   spawnExitCode,
 } from "../git/prContext";
@@ -30,7 +29,9 @@ const PULL_REQUEST_MERGE_TARGET_QUERY = `
       pullRequest(number: $number) {
         autoMergeRequest { enabledAt }
         baseRefName
+        headRefName
         headRefOid
+        headRepository { nameWithOwner }
         isInMergeQueue
         state
       }
@@ -40,6 +41,8 @@ const PULL_REQUEST_MERGE_TARGET_QUERY = `
 
 interface PullRequestMergeTarget {
   readonly baseRefName: string;
+  readonly headRefName: string;
+  readonly headRepository: string;
   readonly headOid: string;
 }
 
@@ -119,11 +122,18 @@ export function parsePullRequestMergeTarget(
   const repository = recordField(data, "repository");
   const pullRequest = recordField(repository, "pullRequest");
   const baseRefName = recordField(pullRequest, "baseRefName");
+  const headRefName = recordField(pullRequest, "headRefName");
+  const headRepository = recordField(
+    recordField(pullRequest, "headRepository"),
+    "nameWithOwner",
+  );
   const headOid = recordField(pullRequest, "headRefOid");
   const state = recordField(pullRequest, "state");
   if (
     state !== "OPEN" ||
     typeof baseRefName !== "string" ||
+    typeof headRefName !== "string" ||
+    typeof headRepository !== "string" ||
     typeof headOid !== "string"
   ) {
     throw new Error("Could not resolve an open pull request merge target.");
@@ -141,7 +151,7 @@ export function parsePullRequestMergeTarget(
       `Pull request base changed from '${expectedBaseRef}' to '${baseRefName}'; revalidate and re-review before merging.`,
     );
   }
-  return { baseRefName, headOid };
+  return { baseRefName, headRefName, headRepository, headOid };
 }
 
 function resolvePullRequestMergeTarget(
@@ -176,15 +186,22 @@ function resolvePullRequestMergeTarget(
  * base ref. The lease binds the update to the base snapshot that was reviewed.
  */
 export function buildAtomicSquashPushArgs(
-  repositoryUrl: string,
+  repositoryHttpsUrl: string,
   target: PullRequestMergeTarget,
   expectedBaseOid: string,
 ): string[] {
   return [
+    "-c",
+    "credential.helper=",
+    "-c",
+    "credential.helper=!gh auth git-credential",
     "push",
+    "--atomic",
     `--force-with-lease=refs/heads/${target.baseRefName}:${expectedBaseOid}`,
-    repositoryUrl,
+    `--force-with-lease=refs/heads/${target.headRefName}:${target.headOid}`,
+    repositoryHttpsUrl,
     `${target.headOid}:refs/heads/${target.baseRefName}`,
+    `:refs/heads/${target.headRefName}`,
   ];
 }
 
@@ -244,6 +261,60 @@ export function assertDefaultBaseRef(
   }
 }
 
+/** This local workflow coordinates exactly one authenticated repository writer. */
+export function assertSingleWriterRepository(
+  repo: string,
+  activeLogin: string,
+  writerLogins: string[],
+  headRepository: string,
+): void {
+  const [owner] = repo.split("/");
+  if (
+    owner !== activeLogin ||
+    headRepository !== repo ||
+    writerLogins.length !== 1 ||
+    writerLogins[0] !== activeLogin
+  ) {
+    throw new Error(
+      "Atomic squash requires a same-repository PR owned by the sole authenticated writer.",
+    );
+  }
+}
+
+function assertAtomicRepository(
+  repo: string,
+  baseRef: string,
+  headRepository: string,
+): void {
+  const defaultBranch = run("gh", [
+    "repo",
+    "view",
+    repo,
+    "--json",
+    "defaultBranchRef",
+    "--jq",
+    ".defaultBranchRef.name",
+  ]);
+  assertDefaultBaseRef(baseRef, defaultBranch);
+  const activeLogin = run("gh", ["api", "user", "--jq", ".login"]);
+  const writerLogins: unknown = JSON.parse(
+    run("gh", [
+      "api",
+      `repos/${repo}/collaborators?affiliation=direct&per_page=100`,
+      "--jq",
+      "[.[] | select(.permissions.push == true) | .login]",
+    ]),
+  );
+  if (
+    !Array.isArray(writerLogins) ||
+    !writerLogins.every((v) => typeof v === "string")
+  ) {
+    throw new Error("Could not resolve repository writers from GitHub.");
+  }
+  assertSingleWriterRepository(repo, activeLogin, writerLogins, headRepository);
+  assertAtomicBaseRules(repo, baseRef);
+}
+
 /**
  * Squash-merge the open PR for the current branch with a subject-only commit
  * message — no auto-generated body or extended message. The reviewed head must
@@ -278,17 +349,7 @@ export function squashMerge(
       `Base '${baseRef}' advanced from '${expectedBaseOid}' to '${liveBaseOid}'; update and re-review before merging.`,
     );
   }
-  const defaultBranch = run("gh", [
-    "repo",
-    "view",
-    pr.repo,
-    "--json",
-    "defaultBranchRef",
-    "--jq",
-    ".defaultBranchRef.name",
-  ]);
-  assertDefaultBaseRef(baseRef, defaultBranch);
-  assertAtomicBaseRules(pr.repo, baseRef);
+  assertAtomicRepository(pr.repo, baseRef, mergeTarget.headRepository);
   assertAtomicSquashCandidate(
     mergeTarget,
     reviewedHead,
@@ -306,7 +367,7 @@ export function squashMerge(
   const result = spawnSync(
     "git",
     buildAtomicSquashPushArgs(
-      resolveRepositoryGitUrl(pr.repo),
+      run("gh", ["repo", "view", pr.repo, "--json", "url", "--jq", ".url"]),
       mergeTarget,
       liveBaseOid,
     ),

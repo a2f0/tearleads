@@ -60,6 +60,9 @@ final checkout reset belongs to `reset`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The worktree contains only changes intended for this PR. A PR may already be
   open; this is how a prior gated run resumes after fixes.
+- The PR is same-repository and the active `gh` owner is the repository's only
+  direct push-capable collaborator; other repository shapes need a server-side
+  merge queue instead of this local atomic-squash flow.
 
 The flow may start on the default branch. In that case step 1 performs the same
 safe move `open-pr` documents — preserving the intended work, fast-forwarding the
@@ -234,7 +237,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    **Canonicalize the PR head before the final review.** The atomic squash step
    can update an immutable base ref only when the PR head is already the one
    signed squash commit that will become the base tip. Resolve the live base and
-   fork-aware head repository, preserve the reviewed tree, and replace the PR
+   same-repository head, preserve the reviewed tree, and replace the PR
    branch with that commit using an exact lease:
 
    ```bash
@@ -243,6 +246,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
    HEAD_REF=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName -R "$REPO")
    HEAD_REPO=$(gh pr view "$PR_NUMBER" --json headRepository -q .headRepository.nameWithOwner -R "$REPO")
+   [ "$HEAD_REPO" = "$REPO" ] || { echo "Error: atomic squash requires a same-repository PR" >&2; exit 1; }
    REMOTE_HEAD_OID=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")
    BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
    HEAD_REPO_HTTPS_URL=$(gh repo view "$HEAD_REPO" --json url -q .url)

@@ -117,10 +117,11 @@ The subject is validated against the repository's own commitlint setup (the same
 so conventional-commit syntax and the 50-char header limit are enforced
 identically. The pushed PR head must already be one reviewed, signed squash
 commit directly on the validated live base, with the final `(#<pr>)` subject.
-On success the tool atomically fast-forwards the explicitly named default branch
-to that commit with an exact base-OID lease. GitHub therefore rejects a
-retargeted PR, moved head, or concurrently advanced base instead of redirecting
-the merge. Backs the `squash-merge` skill.
+For a same-repository, single-writer user repository, the tool atomically
+fast-forwards the explicitly named default branch and deletes the PR head, with
+exact leases on both refs. It forces Git HTTPS authentication through the active
+`gh` credential whose non-bypassable rules it verified. A moved head or base
+therefore rejects the whole transaction. Backs the `squash-merge` skill.
 
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —
