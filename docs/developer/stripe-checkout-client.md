@@ -30,10 +30,10 @@ unmounts it.
 The surrounding SymCrypt form requires a billing email before inline checkout.
 Confirmation sends it as the PaymentMethod billing email while the embedded
 Payment Element hides its duplicate email field. On the first paid invoice, the
-server expands the saved payment method and copies that address onto the Stripe
-Customer before acknowledging the webhook. Hosted Checkout collects a missing
-Customer email itself. This address is billing recovery data; it is not part of
-the key-derived SymCrypt identity.
+server first applies the entitlement, then copies the saved payment-method
+address onto the Stripe Customer before acknowledging the webhook. Hosted
+Checkout collects a missing Customer email itself. This address is billing
+recovery data; it is not part of the key-derived SymCrypt identity.
 
 The payment fields remain Stripe-hosted for PCI SAQ A. The Appearance API is
 fed computed SymCrypt theme values by
@@ -64,6 +64,10 @@ its login link must be configured as
 `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL` when the website is built. After the paid
 period ends, the old organization loses sync; the buyer can subscribe again
 under a newly derived identity whenever they choose.
+
+Production and staging website deployments fail their build when the portal
+URL is missing or is not hosted at `https://billing.stripe.com`. Local builds
+may omit it and render the not-configured fallback.
 
 Stripe selects the most recently created active Customer when several Customer
 objects share an email. SymCrypt currently creates a Customer per buyer and

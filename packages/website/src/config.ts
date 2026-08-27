@@ -1,16 +1,25 @@
-export const isStaging = import.meta.env.PUBLIC_ENVIRONMENT === "staging";
+const publicEnvironment = import.meta.env.PUBLIC_ENVIRONMENT;
+export const isStaging = publicEnvironment === "staging";
 
 export const appUrl = isStaging
   ? "https://app-staging.symcrypt.com"
   : "https://app.symcrypt.com";
 
-function readStripeCustomerPortalUrl(): string | null {
-  const value = import.meta.env.PUBLIC_STRIPE_CUSTOMER_PORTAL_URL?.trim();
+export function resolveStripeCustomerPortalUrl(
+  rawValue: string | undefined,
+  required: boolean,
+): string | null {
+  const value = rawValue?.trim();
   if (!value) {
+    if (required) {
+      throw new Error(
+        "PUBLIC_STRIPE_CUSTOMER_PORTAL_URL is required for website deployments",
+      );
+    }
     return null;
   }
   const url = new URL(value);
-  if (url.protocol !== "https:" || url.hostname !== "billing.stripe.com") {
+  if (url.origin !== "https://billing.stripe.com") {
     throw new Error(
       "PUBLIC_STRIPE_CUSTOMER_PORTAL_URL must be a Stripe-hosted HTTPS URL",
     );
@@ -18,4 +27,9 @@ function readStripeCustomerPortalUrl(): string | null {
   return url.toString();
 }
 
-export const stripeCustomerPortalUrl = readStripeCustomerPortalUrl();
+const isDeployment =
+  publicEnvironment === "production" || publicEnvironment === "staging";
+export const stripeCustomerPortalUrl = resolveStripeCustomerPortalUrl(
+  import.meta.env.PUBLIC_STRIPE_CUSTOMER_PORTAL_URL,
+  isDeployment,
+);
