@@ -1,5 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 
+import { viewCurrentBranchPr } from "./currentBranchPr";
+
 export interface PrIdentity {
   readonly branch: string;
   readonly repo: string;
@@ -11,7 +13,7 @@ export interface PrContext extends PrIdentity {
   readonly baseRef: string;
 }
 
-interface PrView extends PrIdentity {
+export interface PrView extends PrIdentity {
   readonly baseRefName: string;
   readonly baseRefOid: string;
 }
@@ -85,54 +87,126 @@ function gitRefExists(ref: string): boolean {
   return result.status === 0;
 }
 
-/**
- * Resolve the PR base branch to a ref that exists locally. GitHub returns a
- * bare branch name (e.g. `main`), which `git diff` cannot resolve when the
- * branch only exists as a remote-tracking ref. Prefer a local ref, then the
- * remote-tracking ref, then the base commit SHA, fetching from origin if none
- * are present locally.
- */
-function resolveBaseRef(baseRefName: string, baseRefOid: string): string {
-  for (const candidate of [baseRefName, `origin/${baseRefName}`, baseRefOid]) {
-    if (gitRefExists(candidate)) {
-      return candidate;
-    }
-  }
+type RefExists = (ref: string) => boolean;
 
-  spawnSync("git", ["fetch", "--quiet", "origin", baseRefName], {
-    stdio: "ignore",
-  });
-  if (gitRefExists(`origin/${baseRefName}`)) {
-    return `origin/${baseRefName}`;
-  }
-  if (gitRefExists(baseRefOid)) {
-    return baseRefOid;
-  }
-
-  throw new Error(
-    `Could not resolve base ref '${baseRefName}' locally. Fetch it and retry.`,
-  );
+interface FreshBaseRefDependencies {
+  readonly fetch: (repositoryUrl: string, target: string) => string;
+  readonly refExists: RefExists;
+  readonly repositoryGitUrl: (repo: string) => string;
 }
 
-/**
- * Base ref for a review, resolved to the *current* remote base. A branch cut from
- * an older base than the local ref would otherwise diff in upstream commits it
- * never authored — so a review (or a repair round) could flag or touch code the
- * branch does not own. Fetch first and prefer the freshly-updated remote-tracking
- * ref, then the base OID GitHub reported, then whatever `resolveBaseRef` can find
- * when offline.
- */
-function resolveFreshBaseRef(baseRefName: string, baseRefOid: string): string {
-  spawnSync("git", ["fetch", "--quiet", "origin", baseRefName], {
+/** Resolve an optional exact review base supplied by the coordinating skill. */
+export function resolvePinnedReviewBase(
+  pinnedBaseOid: string | undefined,
+  refExists: RefExists = gitRefExists,
+): string | undefined {
+  const oid = pinnedBaseOid?.trim() ?? "";
+  if (oid.length === 0) {
+    return undefined;
+  }
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(oid)) {
+    throw new Error("AGENT_TOOL_REVIEW_BASE_OID must be a full Git OID.");
+  }
+  if (!refExists(oid)) {
+    throw new Error(
+      `Pinned review base '${oid}' is unavailable locally. Fetch it and retry.`,
+    );
+  }
+  return oid;
+}
+
+/** Select a repository fetch URL using the protocol configured for `gh`. */
+export function selectRepositoryGitUrl(
+  protocol: string,
+  httpsUrl: string,
+  sshUrl: string,
+): string {
+  if (protocol === "https" && httpsUrl.length > 0) {
+    return httpsUrl;
+  }
+  if (protocol === "ssh" && sshUrl.length > 0) {
+    return sshUrl;
+  }
+  throw new Error(`Unsupported or unavailable git protocol '${protocol}'.`);
+}
+
+function resolveRepositoryGitUrl(repo: string): string {
+  const repoRaw = run("gh", ["repo", "view", repo, "--json", "url,sshUrl"]);
+  const httpsUrl = stringField(repoRaw, "url");
+  const sshUrl = stringField(repoRaw, "sshUrl");
+  let host = "";
+  try {
+    host = new URL(httpsUrl).host;
+  } catch {
+    throw new Error(`Could not resolve the GitHub host for '${repo}'.`);
+  }
+  const protocol = run("gh", ["config", "get", "git_protocol", "--host", host]);
+  return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
+}
+
+function fetchBase(repositoryUrl: string, target: string): string {
+  const result = spawnSync("git", ["fetch", "--quiet", repositoryUrl, target], {
     stdio: "ignore",
   });
-  if (gitRefExists(`origin/${baseRefName}`)) {
-    return `origin/${baseRefName}`;
+  if (spawnExitCode("git fetch", result) !== 0) {
+    throw new Error(
+      `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+    );
   }
-  if (gitRefExists(baseRefOid)) {
+  return run("git", ["rev-parse", "FETCH_HEAD"]);
+}
+
+const freshBaseRefDependencies: FreshBaseRefDependencies = {
+  fetch: fetchBase,
+  refExists: gitRefExists,
+  repositoryGitUrl: resolveRepositoryGitUrl,
+};
+
+/**
+ * Base ref for a review, resolved to the exact base snapshot from the repository
+ * that owns the PR. A branch cut from an older base would otherwise diff in
+ * upstream commits it never authored — so a review (or repair round) could flag
+ * or touch code the branch does not own.
+ */
+export function resolveFreshBaseRef(
+  repo: string,
+  baseRefName: string,
+  baseRefOid: string,
+  dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
+): string {
+  if (dependencies.refExists(baseRefOid)) {
     return baseRefOid;
   }
-  return resolveBaseRef(baseRefName, baseRefOid);
+  const fetchTarget = baseRefOid || baseRefName;
+  const fetchedOid = dependencies.fetch(
+    dependencies.repositoryGitUrl(repo),
+    fetchTarget,
+  );
+  if (baseRefOid.length > 0 && fetchedOid !== baseRefOid) {
+    throw new Error(
+      `Fetched base '${fetchedOid}' does not match expected OID '${baseRefOid}'.`,
+    );
+  }
+  if (!dependencies.refExists(fetchedOid)) {
+    throw new Error(
+      `Fetched base '${fetchedOid}' from '${repo}' is unavailable locally.`,
+    );
+  }
+  return fetchedOid;
+}
+
+/** Prefer an already-fetched pinned base over any new repository lookup. */
+export function selectReviewBaseRef(
+  pinnedBaseRef: string | undefined,
+  repo: string,
+  baseRefName: string,
+  baseRefOid: string,
+  dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
+): string {
+  return (
+    pinnedBaseRef ??
+    resolveFreshBaseRef(repo, baseRefName, baseRefOid, dependencies)
+  );
 }
 
 /**
@@ -243,6 +317,16 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
   };
 }
 
+export interface ReviewContextDependencies {
+  readonly findOpenPrNumber: typeof findOpenPrNumber;
+  readonly pinnedBaseOid: string | undefined;
+  readonly resolvePinnedReviewBase: typeof resolvePinnedReviewBase;
+  readonly resolveRepoContext: typeof resolveRepoContext;
+  readonly selectReviewBaseRef: typeof selectReviewBaseRef;
+  readonly viewCurrentBranchPr: typeof viewCurrentBranchPr;
+  readonly viewPr: typeof viewPr;
+}
+
 /**
  * Resolve the open PR for the current branch from git + GitHub. Throws with an
  * actionable message when there is nothing reviewable (on main, no PR, gh not
@@ -250,6 +334,11 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
  */
 function fetchPrView(): PrView {
   const { branch, repo } = resolveRepoContext();
+
+  const currentBranchPr = viewCurrentBranchPr(branch);
+  if (currentBranchPr !== undefined) {
+    return currentBranchPr;
+  }
 
   const prNumber = findOpenPrNumber(branch, repo);
   if (prNumber.length === 0) {
@@ -290,10 +379,29 @@ export function resolvePr(): PrIdentity {
  * is fetched fresh, so a stale local ref never leaks upstream commits into the
  * diff. Throws on the default branch, via `resolveRepoContext`.
  */
-export function resolveReviewContext(): PrContext {
-  const { branch, repo, defaultBranch } = resolveRepoContext();
+export function resolveReviewContext(
+  dependencies?: ReviewContextDependencies,
+): PrContext {
+  const { AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid } = process.env;
+  const deps = dependencies ?? {
+    findOpenPrNumber,
+    pinnedBaseOid,
+    resolvePinnedReviewBase,
+    resolveRepoContext,
+    selectReviewBaseRef,
+    viewCurrentBranchPr,
+    viewPr,
+  };
+  const {
+    branch,
+    repo: checkoutRepo,
+    defaultBranch,
+  } = deps.resolveRepoContext();
+  const pinnedBaseRef = deps.resolvePinnedReviewBase(deps.pinnedBaseOid);
 
-  const prNumber = findOpenPrNumber(branch, repo);
+  const currentBranchPr = deps.viewCurrentBranchPr(branch);
+  const prNumber =
+    currentBranchPr?.prNumber ?? deps.findOpenPrNumber(branch, checkoutRepo);
   if (prNumber.length === 0) {
     if (defaultBranch.length === 0) {
       throw new Error(
@@ -305,22 +413,32 @@ export function resolveReviewContext(): PrContext {
     // into the diff.
     return {
       branch,
-      repo,
+      repo: checkoutRepo,
       prNumber: "",
       title: "",
-      baseRef: resolveFreshBaseRef(defaultBranch, ""),
+      baseRef: deps.selectReviewBaseRef(
+        pinnedBaseRef,
+        checkoutRepo,
+        defaultBranch,
+        "",
+      ),
     };
   }
 
-  const view = viewPr(branch, repo, prNumber);
+  const view = currentBranchPr ?? deps.viewPr(branch, checkoutRepo, prNumber);
   if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
   return {
     branch,
-    repo,
+    repo: view.repo,
     prNumber,
     title: view.title,
-    baseRef: resolveFreshBaseRef(view.baseRefName, view.baseRefOid),
+    baseRef: deps.selectReviewBaseRef(
+      pinnedBaseRef,
+      view.repo,
+      view.baseRefName,
+      view.baseRefOid,
+    ),
   };
 }

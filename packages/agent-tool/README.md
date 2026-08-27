@@ -29,6 +29,12 @@ Both actions:
    one is retried once (the observed failure mode is stochastic), then reported
    as a nonzero exit.
 
+The coordinating review skill pins its already-fetched base snapshot through
+`AGENT_TOOL_REVIEW_BASE_OID`. Direct callers may set the same variable to a full
+locally available Git OID; malformed or unavailable values fail before a
+reviewer is launched. This prevents a later fetch or a fork's `origin` from
+changing which base the review reads.
+
 The diff forces every path to text and disables text conversion and external
 diff drivers, so branch-controlled attributes cannot hide content or execute a
 driver. The snapshot is materialized directly from the raw blobs in the pinned

@@ -10,7 +10,7 @@ message — no auto-generated body, commit list, or extended message. The subjec
 is validated against the repository's own commitlint configuration before the
 merge runs, and the tool appends the PR reference `(#<pr>)` so the squash
 commit ends with it — the same reference GitHub adds for web/default merges but
-that `gh pr merge --subject` otherwise suppresses.
+that a custom merge headline otherwise suppresses.
 
 Once the PR is confirmed `MERGED`, return to the PR's base branch, fast-forward
 it, and delete the merged branch, so a shipped PR leaves no local leftovers.
@@ -21,9 +21,9 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
   title is used. Pass it as a single quoted argument, e.g.
   `"feat(app): add widget"`.
 - Second argument (optional): the expected PR head SHA. When given, the merge
-  adds `--match-head-commit <sha>` so GitHub **atomically refuses** the merge if
-  the PR head has moved off that commit. `ship-pr` uses this to guarantee only
-  the reviewed commit is merged.
+  mutation sends it as `expectedHeadOid`, so GitHub **atomically refuses** the
+  merge if the PR head has moved off that commit. `ship-pr` uses this to
+  guarantee only the reviewed commit is merged.
 - `--keep-branch` (optional flag, position-independent): skip the post-merge
   cleanup (step 4) and stay on the feature branch. Use when the branch is still
   needed locally (e.g. to build a follow-up PR on top of it).
@@ -39,7 +39,7 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and `jq` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - An open, mergeable PR on the current branch.
@@ -61,24 +61,69 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 # branch name may contain. Guard each: an unauthenticated gh leaves them empty,
 # and an empty REPO turns every later lookup into a confusing error.
 REPO_INFO=$(gh repo view --json nameWithOwner,defaultBranchRef -q '.nameWithOwner + " " + .defaultBranchRef.name') || { echo "Error: gh repo view failed (authenticated?)" >&2; exit 1; }
-REPO=${REPO_INFO%% *}
+CHECKOUT_REPO=${REPO_INFO%% *}
 DEFAULT_BRANCH=${REPO_INFO##* }
-[ -n "$REPO" ] || { echo "Error: could not resolve repository" >&2; exit 1; }
+[ -n "$CHECKOUT_REPO" ] || { echo "Error: could not resolve repository" >&2; exit 1; }
 [ -n "$DEFAULT_BRANCH" ] || { echo "Error: repository default branch is unavailable" >&2; exit 1; }
 [ "$BRANCH" != "$DEFAULT_BRANCH" ] || { echo "Error: on default branch $DEFAULT_BRANCH" >&2; exit 1; }
 
-PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO")
+if CURRENT_PR_JSON=$(gh pr view --json number,state,url 2>&1); then
+  case $(printf '%s' "$CURRENT_PR_JSON" | jq -r '.state') in
+    OPEN) ;;
+    CLOSED|MERGED) CURRENT_PR_JSON="" ;;
+    *) echo "Error: current branch PR has an invalid state" >&2; exit 1 ;;
+  esac
+else
+  case "$CURRENT_PR_JSON" in
+    no\ pull\ requests\ found\ for\ branch*) CURRENT_PR_JSON="" ;;
+    *) printf 'Error: could not resolve the current branch PR:\n%s\n' "$CURRENT_PR_JSON" >&2; exit 1 ;;
+  esac
+fi
+if [ -n "$CURRENT_PR_JSON" ]; then
+  PR_NUMBER=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.number')
+  REPO=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.url | split("/") | .[-4] + "/" + .[-3]')
+else
+  REPO="$CHECKOUT_REPO"
+  PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO")
+fi
+[ -n "$REPO" ] || { echo "Error: could not resolve PR repository" >&2; exit 1; }
 [ -n "$PR_NUMBER" ] || { echo "Error: no open PR for branch $BRANCH" >&2; exit 1; }
 
 # The branch to return to is the PR's base — NOT necessarily the default branch.
 BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
 [ -n "$BASE_BRANCH" ] || { echo "Error: could not resolve base branch for PR #$PR_NUMBER" >&2; exit 1; }
+
+PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,headRepository -R "$REPO")
+PR_HEAD_BRANCH=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
+PR_HEAD_OID=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefOid // ""')
+PR_HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
+[ "$PR_HEAD_BRANCH" = "$BRANCH" ] || { echo "Error: PR head branch is not $BRANCH" >&2; exit 1; }
+[ -n "$PR_HEAD_OID" ] || { echo "Error: could not resolve PR head OID" >&2; exit 1; }
+[ -n "$PR_HEAD_REPO" ] || { echo "Error: could not resolve PR head repository" >&2; exit 1; }
+
+BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
+BASE_REPO_HOST=${BASE_REPO_HOST%%/*}
+case $(gh config get git_protocol --host "$BASE_REPO_HOST") in
+  ssh) BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+  https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
+  *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
+esac
+
+HEAD_REPO_HTTPS_URL=$(gh repo view "$PR_HEAD_REPO" --json url -q .url)
+HEAD_REPO_HOST=${HEAD_REPO_HTTPS_URL#*://}
+HEAD_REPO_HOST=${HEAD_REPO_HOST%%/*}
+case $(gh config get git_protocol --host "$HEAD_REPO_HOST") in
+  ssh) HEAD_REPO_URL=$(gh repo view "$PR_HEAD_REPO" --json sshUrl -q .sshUrl) ;;
+  https) HEAD_REPO_URL="$HEAD_REPO_HTTPS_URL" ;;
+  *) echo "Error: unsupported git protocol for $HEAD_REPO_HOST" >&2; exit 1 ;;
+esac
 ```
 
-Pass `-R "$REPO"` to every `gh` call here, as the tool does internally. On a fork
-or multi-remote checkout, an unqualified `gh` can resolve to a different repo than
-the one the tool merges into — and in this skill those lookups gate a branch
-deletion.
+The initial current-branch discovery is intentionally unqualified so `gh` can
+follow a fork branch to its upstream PR. After deriving `REPO`, pass
+`-R "$REPO"` to every numbered-PR lookup, as the tool does internally. Those
+lookups gate a merge and branch deletion, so they must resolve to the PR owner.
 
 **Return to the PR's base branch, not the repository default.** They coincide for
 a PR opened by `open-pr` (which bases on the default), but a stacked PR or a
@@ -126,10 +171,12 @@ as-is.
    - Appends the PR reference so the subject ends with a space followed by
      `(#<pr>)`, replacing any existing trailing `(#<n>)` (idempotent on
      re-runs), and asserts the suffix is present before merging.
-   - Runs `gh pr merge --squash --subject <subject-with-#pr> --body ""` (adding
-     `--match-head-commit <sha>` when the head SHA argument is given), then
-     confirms the PR reached the `MERGED` state (a merge queue can otherwise exit
-     0 while only queuing the PR).
+   - Refuses a PR that already has a queued or automatic merge, then runs the
+     synchronous GraphQL `mergePullRequest` mutation with method `SQUASH`, the
+     subject, an empty body, and an `expectedHeadOid` (the supplied reviewed SHA,
+     or the current head for a standalone invocation). Unlike `gh pr merge`, the
+     direct mutation cannot silently queue or enable a later merge.
+   - Confirms the PR reached the `MERGED` state before cleanup.
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected
    subject that satisfies the rules (valid type, ≤50 chars), and re-run with the
@@ -146,9 +193,8 @@ as-is.
    [ "$PR_STATE" = "MERGED" ] || { echo "Error: PR #$PR_NUMBER is $PR_STATE, not MERGED; skipping cleanup" >&2; exit 1; }
    ```
 
-   If the PR is not `MERGED` (queued, blocked, or the head moved off
-   `--match-head-commit`), leave the branch and the checkout exactly as they are
-   and report that instead.
+   If the PR is not `MERGED` (blocked, or the head moved off `expectedHeadOid`),
+   leave the branch and the checkout exactly as they are and report that instead.
 
    **Refuse to switch away from a dirty worktree**, so unrelated in-progress work
    is never carried onto the base branch or stranded:
@@ -169,22 +215,28 @@ as-is.
    ```bash
    MERGED_BRANCH="$BRANCH"
    MERGE_COMMIT=$(gh pr view "$PR_NUMBER" --json mergeCommit -q .mergeCommit.oid -R "$REPO")
-   # Pull from the remote the base branch actually tracks; on a fork, `origin` is
-   # the fork and the merge landed upstream, so a hardcoded `origin` pulls a stale
-   # branch and reports success.
-   REMOTE=$(git config "branch.$BASE_BRANCH.remote" 2>/dev/null || echo origin)
+   # Pull from the repository that owns the PR base. The separately resolved
+   # head repository binds any remote deletion to the PR's actual source.
 
    git switch "$BASE_BRANCH" || { echo "Error: could not switch to $BASE_BRANCH" >&2; exit 1; }
-   git pull --ff-only "$REMOTE" "$BASE_BRANCH" || { echo "Error: $BASE_BRANCH could not fast-forward; skipping delete" >&2; exit 1; }
-   git fetch "$REMOTE" --prune || { echo "Error: prune failed; skipping delete" >&2; exit 1; }
+   git pull --ff-only "$BASE_REPO_URL" "$BASE_BRANCH" || { echo "Error: $BASE_BRANCH could not fast-forward; skipping delete" >&2; exit 1; }
 
    # The real gate on the delete: prove this branch now contains the squash commit.
    [ -n "$MERGE_COMMIT" ] || { echo "Error: could not resolve merge commit; skipping delete" >&2; exit 1; }
    git merge-base --is-ancestor "$MERGE_COMMIT" HEAD || { echo "Error: $BASE_BRANCH does not contain merge commit $MERGE_COMMIT; skipping delete" >&2; exit 1; }
+   [ "$(git rev-parse "$MERGED_BRANCH")" = "$PR_HEAD_OID" ] || { echo "Error: local $MERGED_BRANCH moved after merge; skipping delete" >&2; exit 1; }
 
-   if git ls-remote --exit-code --heads "$REMOTE" "$MERGED_BRANCH" >/dev/null 2>&1; then
-     git push "$REMOTE" --delete "$MERGED_BRANCH" || { echo "Error: could not delete remote $MERGED_BRANCH" >&2; exit 1; }
+   REMOTE_HEAD_OUTPUT=$(git ls-remote "$HEAD_REPO_URL" "refs/heads/$PR_HEAD_BRANCH") || { echo "Error: could not read remote $PR_HEAD_REPO:$PR_HEAD_BRANCH; skipping delete" >&2; exit 1; }
+   REMOTE_HEAD_OID=$(printf '%s\n' "$REMOTE_HEAD_OUTPUT" | awk 'NR == 1 { print $1 }')
+   if [ -n "$REMOTE_HEAD_OID" ]; then
+     [ "$REMOTE_HEAD_OID" = "$PR_HEAD_OID" ] || { echo "Error: remote $PR_HEAD_REPO:$PR_HEAD_BRANCH moved after merge; skipping delete" >&2; exit 1; }
+     git push --force-with-lease="refs/heads/$PR_HEAD_BRANCH:$PR_HEAD_OID" "$HEAD_REPO_URL" --delete "$PR_HEAD_BRANCH" || { echo "Error: could not safely delete remote $PR_HEAD_REPO:$PR_HEAD_BRANCH" >&2; exit 1; }
    fi
+   for REMOTE_NAME in $(git remote); do
+     REMOTE_URL=$(git remote get-url "$REMOTE_NAME") || { echo "Error: could not resolve remote $REMOTE_NAME" >&2; exit 1; }
+     REMOTE_REPO=$(gh repo view "$REMOTE_URL" --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+     [ "$REMOTE_REPO" != "$PR_HEAD_REPO" ] || git update-ref -d "refs/remotes/$REMOTE_NAME/$PR_HEAD_BRANCH" || { echo "Error: could not prune $REMOTE_NAME/$PR_HEAD_BRANCH" >&2; exit 1; }
+   done
    git branch -D "$MERGED_BRANCH" || { echo "Error: could not delete local $MERGED_BRANCH" >&2; exit 1; }
    ```
 
@@ -199,10 +251,12 @@ as-is.
      branch you just pulled genuinely contains the squashed work, catching a pull
      from the wrong remote, a stale fork, or a base that never received the merge
      — none of which the `MERGED` state alone can detect.
-   - **`--prune`** drops the remote-tracking ref for a branch GitHub already
-     deleted on merge. The `ls-remote` guard covers repos where that auto-delete
-     is off, and skips the push when the branch is already gone rather than
-     failing on it — so both settings work without asserting which is in force.
+   - The remote delete is bound to the captured PR head OID twice: an explicit
+     comparison catches an already-moved branch, and `--force-with-lease`
+     atomically rejects a push racing the delete. The local branch must still
+     point to that same OID before `-D` is allowed. After deletion, the exact
+     remote-tracking ref is removed from every named remote GitHub identifies as
+     the PR head repository, so standalone cleanup does not retain a stale ref.
    - **`-D`, not `-d`, is required here** — see the note below. The `MERGED` check
      plus the ancestry check above are what make the force safe.
 
@@ -221,9 +275,9 @@ as-is.
   commitlint header limit.
 - Validation runs before the merge, so an invalid subject never reaches GitHub.
 - Always single-quote the subject argument to avoid shell expansion.
-- A non-zero exit after `gh pr merge` means the PR did not actually merge (e.g.
-  it was queued or blocked); do not report success in that case, and do not clean
-  up the branch.
+- A non-zero exit from the direct merge mutation means the PR did not actually
+  merge; do not report success or clean up the branch. The tool refuses an
+  existing queued/automatic merge and never creates one as a fallback.
 - **A squash merge always requires `git branch -D`.** Squashing creates a *new*
   commit on the base branch, so the feature branch's tip is never an ancestor of
   it and `git branch -d` reports the branch as "not fully merged" and refuses.
