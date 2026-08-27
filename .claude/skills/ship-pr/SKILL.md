@@ -235,8 +235,19 @@ loop, subject-only squash, and `MERGED`-state verification.
    head moved, do **not** re-review. Verify and re-pin:
 
    ```bash
+   COAUTHOR_BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
+   COAUTHOR_BASE_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HTTPS_URL#*://}
+   COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HOST%%/*}
+   case $(gh config get git_protocol --host "$COAUTHOR_BASE_HOST") in
+     ssh) COAUTHOR_BASE_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) COAUTHOR_BASE_URL="$COAUTHOR_BASE_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $COAUTHOR_BASE_HOST" >&2; exit 1 ;;
+   esac
+   git fetch "$COAUTHOR_BASE_URL" "$COAUTHOR_BASE_OID" || { echo "Error: could not fetch PR base $COAUTHOR_BASE_OID" >&2; exit 1; }
+   test "$(git rev-parse FETCH_HEAD)" = "$COAUTHOR_BASE_OID"
    test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
-   test "$(git merge-base "$REVIEWED_SHA" "origin/$DEFAULT_BRANCH")" = "$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
+   test "$(git merge-base "$REVIEWED_SHA" "$COAUTHOR_BASE_OID")" = "$(git merge-base HEAD "$COAUTHOR_BASE_OID")"
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 

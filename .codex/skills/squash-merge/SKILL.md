@@ -93,10 +93,12 @@ fi
 BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
 [ -n "$BASE_BRANCH" ] || { echo "Error: could not resolve base branch for PR #$PR_NUMBER" >&2; exit 1; }
 
-PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRepository -R "$REPO")
+PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,headRepository -R "$REPO")
 PR_HEAD_BRANCH=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
+PR_HEAD_OID=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefOid // ""')
 PR_HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
 [ "$PR_HEAD_BRANCH" = "$BRANCH" ] || { echo "Error: PR head branch is not $BRANCH" >&2; exit 1; }
+[ -n "$PR_HEAD_OID" ] || { echo "Error: could not resolve PR head OID" >&2; exit 1; }
 [ -n "$PR_HEAD_REPO" ] || { echo "Error: could not resolve PR head repository" >&2; exit 1; }
 
 BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
@@ -221,9 +223,12 @@ as-is.
    # The real gate on the delete: prove this branch now contains the squash commit.
    [ -n "$MERGE_COMMIT" ] || { echo "Error: could not resolve merge commit; skipping delete" >&2; exit 1; }
    git merge-base --is-ancestor "$MERGE_COMMIT" HEAD || { echo "Error: $BASE_BRANCH does not contain merge commit $MERGE_COMMIT; skipping delete" >&2; exit 1; }
+   [ "$(git rev-parse "$MERGED_BRANCH")" = "$PR_HEAD_OID" ] || { echo "Error: local $MERGED_BRANCH moved after merge; skipping delete" >&2; exit 1; }
 
-   if git ls-remote --exit-code --heads "$HEAD_REPO_URL" "$PR_HEAD_BRANCH" >/dev/null 2>&1; then
-     git push "$HEAD_REPO_URL" --delete "$PR_HEAD_BRANCH" || { echo "Error: could not delete remote $PR_HEAD_REPO:$PR_HEAD_BRANCH" >&2; exit 1; }
+   REMOTE_HEAD_OID=$(git ls-remote "$HEAD_REPO_URL" "refs/heads/$PR_HEAD_BRANCH" | awk 'NR == 1 { print $1 }')
+   if [ -n "$REMOTE_HEAD_OID" ]; then
+     [ "$REMOTE_HEAD_OID" = "$PR_HEAD_OID" ] || { echo "Error: remote $PR_HEAD_REPO:$PR_HEAD_BRANCH moved after merge; skipping delete" >&2; exit 1; }
+     git push --force-with-lease="refs/heads/$PR_HEAD_BRANCH:$PR_HEAD_OID" "$HEAD_REPO_URL" --delete "$PR_HEAD_BRANCH" || { echo "Error: could not safely delete remote $PR_HEAD_REPO:$PR_HEAD_BRANCH" >&2; exit 1; }
    fi
    git branch -D "$MERGED_BRANCH" || { echo "Error: could not delete local $MERGED_BRANCH" >&2; exit 1; }
    ```
@@ -239,9 +244,10 @@ as-is.
      branch you just pulled genuinely contains the squashed work, catching a pull
      from the wrong remote, a stale fork, or a base that never received the merge
      — none of which the `MERGED` state alone can detect.
-   - The `ls-remote` guard checks the PR's resolved head repository, covering
-     repos where automatic branch deletion is off without risking a same-named
-     branch in the base repository.
+   - The remote delete is bound to the captured PR head OID twice: an explicit
+     comparison catches an already-moved branch, and `--force-with-lease`
+     atomically rejects a push racing the delete. The local branch must still
+     point to that same OID before `-D` is allowed.
    - **`-D`, not `-d`, is required here** — see the note below. The `MERGED` check
      plus the ancestry check above are what make the force safe.
 
