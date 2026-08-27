@@ -201,6 +201,71 @@ test("a permanent recovery email rejection cannot block entitlement", async () =
   }
 });
 
+test("a retryable email failure succeeds on webhook redelivery", async () => {
+  await createWebhookBillingOrganization();
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const delivery = signedDelivery(
+    paidInvoiceEvent({ invoiceId: "in_retry_email", subscription }),
+  );
+  await expect(
+    processStripeWebhook(getDefaultApiServiceRuntime(), delivery, {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { status: 429, body: {} }],
+          [],
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          [],
+        ),
+      },
+    }),
+  ).rejects.toMatchObject({ status: 429 });
+
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
+  expect(stripeSeats?.subscriptionId).toBe("sub_1");
+
+  const retryUrls: string[] = [];
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    delivery,
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { body: { id: "cus_1" } }],
+          retryUrls,
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          retryUrls,
+        ),
+      },
+    },
+  );
+
+  expect(outcome.status).toBe("associated");
+  expect(retryUrls.at(-1)).toBe(
+    "POST https://api.stripe.com/v1/customers/cus_1",
+  );
+});
+
 test("renewal invoices reset the Stripe paid-capacity baseline", async () => {
   await createWebhookBillingOrganization();
   const subscription = stripeSubscriptionBody(1, 1_785_715_200, 1_788_393_600);

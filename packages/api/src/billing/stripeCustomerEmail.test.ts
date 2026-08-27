@@ -1,5 +1,9 @@
 import { expect, mock, test } from "bun:test";
-import { ensureStripeCustomerEmail } from "./stripeCustomerEmail";
+import {
+  ensureStripeCustomerEmail,
+  promoteCustomerEmail,
+} from "./stripeCustomerEmail";
+import { StripeApiError } from "./stripeHttp";
 import type { StripeSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 function binding(
@@ -83,4 +87,41 @@ test("a subscription without any email reports no recovery path", async () => {
       env: { STRIPE_SECRET_KEY: "sk_test_123" },
     }),
   ).toBe(false);
+});
+
+for (const [label, status] of [
+  ["rate limit", 429],
+  ["server failure", 500],
+] as const) {
+  test(`a ${label} remains retryable`, async () => {
+    const fetchImpl = mock(() =>
+      Promise.resolve(new Response("{}", { status })),
+    );
+
+    await expect(
+      promoteCustomerEmail(
+        binding({ paymentMethodBillingEmail: "buyer@example.com" }),
+        "sub_1",
+        {
+          env: { STRIPE_SECRET_KEY: "sk_test_123" },
+          fetchImpl: fetchImpl as unknown as typeof fetch,
+        },
+      ),
+    ).rejects.toMatchObject({ status });
+  });
+}
+
+test("a transport failure remains retryable", async () => {
+  const fetchImpl = mock(() => Promise.reject(new Error("offline")));
+
+  await expect(
+    promoteCustomerEmail(
+      binding({ paymentMethodBillingEmail: "buyer@example.com" }),
+      "sub_1",
+      {
+        env: { STRIPE_SECRET_KEY: "sk_test_123" },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      },
+    ),
+  ).rejects.toBeInstanceOf(StripeApiError);
 });
