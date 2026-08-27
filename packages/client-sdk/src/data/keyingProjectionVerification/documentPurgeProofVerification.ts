@@ -390,6 +390,7 @@ async function verifyDocumentPurgeProofWithMode(
     const principalPolicyCache =
       input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
     const authorizationEvidence = await verifyPrincipalPolicySnapshots({
+      execSql: input.execSql,
       resolveUserKey: input.resolveUserKey,
       snapshots: input.proof.principalPolicySnapshots,
     });
@@ -404,6 +405,7 @@ async function verifyDocumentPurgeProofWithMode(
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       });
     const documentManifest = await verifyPurgeDocumentManifest({
+      authorizationEvidence,
       checkpointContext,
       containerPathByManifestHash,
       enforceLocalCheckpoints,

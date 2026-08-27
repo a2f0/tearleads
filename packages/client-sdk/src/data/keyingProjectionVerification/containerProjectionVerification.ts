@@ -413,7 +413,7 @@ export function addContainerWriterProjectionBundles(
   }
 }
 
-export async function collectPrincipalPoliciesForContainerPaths(input: {
+async function collectPrincipalPoliciesForContainerPaths(input: {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];

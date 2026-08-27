@@ -5,11 +5,16 @@ import type {
   VerifiedPrincipalPolicySnapshot,
 } from "@symcrypt/crypto";
 import {
+  KeyingVerificationError,
   principalPolicyMatchesReference,
   toFingerprint,
+  verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicySnapshot,
 } from "@symcrypt/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@symcrypt/validators/response";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import type { ProjectionUserKeyResolver } from "./types";
 
 function identityKey(input: {
@@ -172,7 +177,40 @@ async function verifySnapshotAuthorization(input: {
   return verified.value;
 }
 
+async function enforceSnapshotCheckpoint(input: {
+  readonly execSql: ExecSql;
+  readonly policy: VerifiedPrincipalPolicySnapshot;
+  readonly reference: ReferencedPrincipalHead;
+}): Promise<void> {
+  const checkpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    input.reference.principalType,
+    input.reference.principalId,
+  );
+  if (!checkpoint) return;
+  if (input.policy.version >= checkpoint.version) {
+    verifyPrincipalPolicyCheckpoint({
+      chain: input.policy.history,
+      currentState: input.policy.state,
+      localCheckpoint: checkpoint,
+    });
+    return;
+  }
+  const localDescendant = await loadPrincipalPolicyBundleForReference(
+    input.execSql,
+    input.reference,
+    checkpoint,
+  );
+  if (!localDescendant) {
+    throw new KeyingVerificationError(
+      "rollback",
+      "Principal policy snapshot cannot be connected to the newer local checkpoint",
+    );
+  }
+}
+
 export async function verifyPrincipalPolicySnapshots(input: {
+  readonly execSql: ExecSql;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly snapshots: readonly PrincipalPolicySnapshotResponse[];
 }): Promise<VerifiedPrincipalPolicySnapshot[]> {
@@ -224,6 +262,11 @@ export async function verifyPrincipalPolicySnapshots(input: {
         },
         signerPublicKeys: publicKeys,
         snapshot,
+      });
+      await enforceSnapshotCheckpoint({
+        execSql: input.execSql,
+        policy,
+        reference: snapshotReference(snapshot),
       });
       verifiedByPrincipal.set(key, policy);
       return policy;

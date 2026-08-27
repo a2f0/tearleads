@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { makeVerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
@@ -11,9 +12,14 @@ import type {
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { createLinkSetResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
+import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../workflows/documents/linkSet";
+import { createProjectionCheckpointContext } from "./checkpointContext";
+import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
+import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
+import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 
 function uniqueContainerPaths(
   paths: readonly (readonly DocumentWriterProjectionResponse["documentManifest"][])[],
@@ -110,6 +116,7 @@ async function createPurgeChainFixture() {
   const proof = await createDocumentPurgeProof(fixture.author, headProjection);
   return {
     ...fixture,
+    extraProjection,
     proof: {
       ...proof,
       documentManifestPredecessors: headProjection.documentManifestHistory,
@@ -137,6 +144,97 @@ test("document purge verifies every signed transition after its checkpoint", asy
     expect(verified.documentCheckpoint.manifestHash).toBe(
       fixture.proof.documentManifest.manifestHash,
     );
+  } finally {
+    close();
+  }
+});
+
+test("signed purge history uses retained group evidence after group deletion", async () => {
+  const fixture = await createPurgeChainFixture();
+  const policyFixture =
+    await createExternallyAuthorizedPrincipalPolicySnapshots();
+  const { close, execSql } = await createTestExecSql(
+    "document-purge-deleted-group-chain",
+  );
+  const resolveUserKey = async (userId: string) =>
+    (await fixture.resolveProjectionUserKey(userId)) ??
+    policyFixture.resolveUserKey(userId);
+  try {
+    await verifyDocumentWriterProjection({
+      execSql,
+      projection: fixture.writerProjection,
+      resolveUserKey,
+    });
+    const authorizationEvidence = await verifyPrincipalPolicySnapshots({
+      execSql,
+      resolveUserKey,
+      snapshots: [policyFixture.subject, policyFixture.admin],
+    });
+    const [originalPath, extraPath] = await Promise.all([
+      verifyContainerWriterProjection({
+        execSql,
+        projection: fixture.projection,
+        resolveUserKey,
+      }),
+      verifyContainerWriterProjection({
+        execSql,
+        projection: fixture.extraProjection,
+        resolveUserKey,
+      }),
+    ]);
+    const originalLeaf = originalPath.at(-1);
+    if (!originalLeaf) throw new Error("Expected original container leaf");
+    const extraLeaf = extraPath.at(-1);
+    if (!extraLeaf) throw new Error("Expected extra container leaf");
+    const groupState = policyFixture.subject.currentState;
+    if (groupState.principalType !== "group") {
+      throw new Error("Expected deleted group evidence");
+    }
+    const managedLeaf = makeVerifiedContainerAccessManifest({
+      ...originalLeaf,
+      state: {
+        ...originalLeaf.state,
+        directGrants: [
+          ...originalLeaf.state.directGrants,
+          {
+            accessLevel: "read",
+            subjectId: groupState.principalId,
+            subjectType: "group",
+          },
+        ],
+        referencedPrincipalHeads: [
+          {
+            keyEpoch: groupState.keyEpoch,
+            keyFingerprint: groupState.keyFingerprint,
+            principalId: groupState.principalId,
+            principalType: groupState.principalType,
+            stateHash: groupState.stateHash,
+            version: groupState.version,
+          },
+        ],
+      },
+    });
+    const containerPathByManifestHash = new Map([
+      [managedLeaf.manifestHash, [...originalPath.slice(0, -1), managedLeaf]],
+      [extraLeaf.manifestHash, extraPath],
+    ]);
+
+    await expect(
+      verifyPurgeDocumentManifest({
+        authorizationEvidence,
+        checkpointContext: createProjectionCheckpointContext({ execSql }),
+        containerPathByManifestHash,
+        enforceLocalCheckpoints: true,
+        principalPolicyCache: new Map(),
+        proof: fixture.proof,
+        resolveUserKey,
+        warmReferencedPrincipalPolicies: async () => {
+          throw new Error("Deleted group policy must not be fetched");
+        },
+      }),
+    ).resolves.toMatchObject({
+      manifestHash: fixture.proof.documentManifest.manifestHash,
+    });
   } finally {
     close();
   }

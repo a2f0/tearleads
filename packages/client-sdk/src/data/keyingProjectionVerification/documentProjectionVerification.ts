@@ -1,4 +1,5 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
@@ -25,11 +26,11 @@ import {
 } from "./checkpointContext";
 import {
   addContainerWriterProjectionBundles,
-  collectPrincipalPoliciesForContainerPaths,
   verifiedContainerManifestsForBundles,
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import { collectDocumentManifestPrincipalPolicies } from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowDatabaseUnavailableError } from "./error";
@@ -234,6 +235,9 @@ async function verifyProjectionContainerPaths(input: {
   return containerPathByManifestHash;
 }
 export async function verifyDocumentManifestBundle(input: {
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -291,7 +295,8 @@ export async function verifyDocumentManifestBundle(input: {
   const targetContainerPath = input.containerPathByManifestHash.get(
     body.containerManifestHash,
   );
-  const principalPolicies = await collectPrincipalPoliciesForContainerPaths({
+  const principalPolicies = await collectDocumentManifestPrincipalPolicies({
+    authorizationEvidence: input.authorizationEvidence,
     checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     paths: [...dependencyContainerPaths, targetContainerPath],

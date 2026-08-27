@@ -1,4 +1,5 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
@@ -73,6 +74,7 @@ async function verifyPinnedChainEndpoint(input: {
 }
 
 async function verifySignedPurgeDocumentManifestChain(input: {
+  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly containerPathByManifestHash: ReadonlyMap<
     string,
@@ -131,6 +133,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
       );
     }
     await verifyDocumentManifestBundle({
+      authorizationEvidence: input.authorizationEvidence,
       bundle,
       bundlesByHash,
       checkpointContext: input.checkpointContext,
@@ -146,6 +149,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
   }
 
   const head = await verifyDocumentManifestBundle({
+    authorizationEvidence: input.authorizationEvidence,
     bundle: input.proof.documentManifest,
     bundlesByHash,
     checkpointContext: input.checkpointContext,
@@ -166,6 +170,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
 }
 
 export async function verifyPurgeDocumentManifest(input: {
+  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly containerPathByManifestHash: ReadonlyMap<
     string,
@@ -181,6 +186,7 @@ export async function verifyPurgeDocumentManifest(input: {
 }): Promise<VerifiedDocumentLinkSetManifest | VerifiedDocumentLinkSetSnapshot> {
   if (input.proof.documentManifestPredecessors.length > 0) {
     return verifySignedPurgeDocumentManifestChain({
+      authorizationEvidence: input.authorizationEvidence,
       checkpointContext: input.checkpointContext,
       containerPathByManifestHash: input.containerPathByManifestHash,
       principalPolicyCache: input.principalPolicyCache,
