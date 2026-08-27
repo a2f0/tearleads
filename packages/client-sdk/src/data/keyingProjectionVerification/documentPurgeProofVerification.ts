@@ -102,6 +102,11 @@ async function verifyCheckpointChain(input: {
     VerifiedContainerAccessManifest
   >;
 }): Promise<VerifiedAccessManifestCheckpointEvidence> {
+  // A manifest chain proves ancestry, not when this separate purge signature
+  // was made. Accepting H1 -> H2 here would let a writer revoked at H2 sign a
+  // purge against stale H1 afterward. Until purge ordering is committed by a
+  // shared signed log, even a legitimate purge-before-H2 is deliberately an
+  // availability failure: the client must fail closed instead of guessing.
   if (input.chain.length > 0) {
     throw new KeyingVerificationError(
       "stale_predecessor",
