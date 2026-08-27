@@ -239,6 +239,7 @@ async function verifyProjectionContainerPaths(input: {
   return containerPathByManifestHash;
 }
 export async function verifyDocumentManifestBundle(input: {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly authorizationEvidence?:
     | readonly AnyVerifiedPrincipalPolicy[]
     | undefined;
@@ -317,6 +318,7 @@ export async function verifyDocumentManifestBundle(input: {
       })
     : null;
   const verified = await verifyDocumentLinkSetManifest({
+    authorizationMembership: input.authorizationMembership,
     authorizingContainerPaths: dependencyContainerPaths,
     event,
     expectedManifestHash: input.bundle.manifestHash,

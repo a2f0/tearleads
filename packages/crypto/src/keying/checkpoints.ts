@@ -1,4 +1,4 @@
-import type { VerifiedAccessManifestSnapshot } from "./accessManifestSnapshot";
+import type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
 import {
   assertExactKeys,
   normalizeAccessObjectKind,
@@ -15,19 +15,12 @@ import type {
   IdentityStateCheckpoint,
   IdentityStateHead,
   KeyingVerificationResult,
-  VerifiedAccessManifest,
-  VerifiedContainerAccessManifest,
-  VerifiedDocumentLinkSetStateEvidence,
   VerifiedIdentityState,
   VerifyIdentityStateCheckpointInput,
 } from "./types";
 import { makeVerifiedIdentityState } from "./types";
 
-export type VerifiedAccessManifestCheckpointEvidence =
-  | VerifiedAccessManifest
-  | VerifiedAccessManifestSnapshot
-  | VerifiedContainerAccessManifest
-  | VerifiedDocumentLinkSetStateEvidence;
+export type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
 
 export function normalizeIdentityStateHead(value: unknown): IdentityStateHead {
   const record = assertExactKeys(

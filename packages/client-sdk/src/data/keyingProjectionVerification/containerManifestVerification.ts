@@ -282,6 +282,7 @@ async function verifyPreviousContainerManifest(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly previousManifestHash: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -309,6 +310,7 @@ async function verifyPreviousContainerManifest(input: {
     parentPath,
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    requireAuthorizationEvidence: input.requireAuthorizationEvidence,
     verifiedByHash: input.verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });

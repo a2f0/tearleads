@@ -506,9 +506,7 @@ const verifiedIdentityStateBrand: unique symbol = Symbol(
 const verifiedPrincipalPolicyBrand: unique symbol = Symbol(
   "verifiedPrincipalPolicy",
 );
-const verifiedPrincipalPolicySnapshotBrand: unique symbol = Symbol(
-  "verifiedPrincipalPolicySnapshot",
-);
+const verifiedPrincipalPolicySnapshotBrand: unique symbol = Symbol();
 const verifiedAccessEventBrand: unique symbol = Symbol("verifiedAccessEvent");
 const verifiedAccessManifestBrand: unique symbol = Symbol(
   "verifiedAccessManifest",
@@ -519,9 +517,7 @@ const verifiedContainerAccessManifestBrand: unique symbol = Symbol(
 const verifiedDocumentLinkSetManifestBrand: unique symbol = Symbol(
   "verifiedDocumentLinkSetManifest",
 );
-const verifiedDocumentLinkSetStateEvidenceBrand: unique symbol = Symbol(
-  "verifiedDocumentLinkSetStateEvidence",
-);
+const verifiedDocumentLinkSetStateEvidenceBrand: unique symbol = Symbol();
 const verifiedDocumentKekTargetsBrand: unique symbol = Symbol(
   "verifiedDocumentKekTargets",
 );
@@ -963,6 +959,7 @@ export interface VerifyContainerParentEdgeInput {
 }
 
 export interface VerifyDocumentLinkSetManifestInput {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly manifest: AccessManifest;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;

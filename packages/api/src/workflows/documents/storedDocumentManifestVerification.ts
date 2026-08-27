@@ -159,6 +159,15 @@ async function verifyStoredEvent(input: {
   return result.value;
 }
 
+export function verifyStoredDocumentManifestTransition(
+  input: Parameters<typeof verifyDocumentLinkSetManifest>[0],
+) {
+  return verifyDocumentLinkSetManifest({
+    ...input,
+    authorizationMembership: "referenced",
+  });
+}
+
 async function loadStoredEventSigner(input: {
   readonly executor: DatabaseSession;
   readonly manifest: VerifiedDocumentLinkSetManifest;
@@ -302,7 +311,7 @@ async function verifyBundle(input: {
         containerPaths,
         input.containerContext.principalPolicyAuthorizationEvidence,
       );
-    const result = await verifyDocumentLinkSetManifest({
+    const result = await verifyStoredDocumentManifestTransition({
       authorizingContainerPaths: containerPaths,
       event,
       expectedManifestHash: input.bundle.manifestHash,

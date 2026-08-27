@@ -2,9 +2,13 @@ import {
   computeAccessManifestHash,
   normalizeAccessManifest,
 } from "./accessEvent";
+import type {
+  VerifiedAccessManifestCheckpointEvidence,
+  VerifiedAccessManifestSnapshot,
+} from "./accessManifestSnapshotTypes";
+import { makeVerifiedAccessManifestSnapshot } from "./accessManifestSnapshotTypes";
 import {
   accessManifestCheckpointFromManifest,
-  type VerifiedAccessManifestCheckpointEvidence,
   verifyAccessManifestLocalCheckpoint,
 } from "./checkpoints";
 import {
@@ -20,26 +24,19 @@ import type {
 } from "./types";
 import { makeVerifiedDocumentLinkSetSnapshot } from "./types";
 
-const verifiedAccessManifestSnapshotBrand: unique symbol = Symbol(
-  "verifiedAccessManifestSnapshot",
-);
-
-export interface VerifiedAccessManifestSnapshot {
-  readonly checkpoint: AccessManifestCheckpoint;
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-  readonly [verifiedAccessManifestSnapshotBrand]: true;
-}
+export type {
+  VerifiedAccessManifestCheckpointEvidence,
+  VerifiedAccessManifestSnapshot,
+} from "./accessManifestSnapshotTypes";
 
 function verifiedAccessManifestSnapshot(input: {
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
 }): VerifiedAccessManifestSnapshot {
-  return {
+  return makeVerifiedAccessManifestSnapshot({
     ...input,
     checkpoint: accessManifestCheckpointFromManifest(input),
-    [verifiedAccessManifestSnapshotBrand]: true,
-  };
+  });
 }
 
 export async function verifyAccessManifestSnapshot(input: {

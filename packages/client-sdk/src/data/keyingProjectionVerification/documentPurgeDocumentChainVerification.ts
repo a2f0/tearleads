@@ -177,6 +177,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
       );
     }
     await verifyDocumentManifestBundle({
+      authorizationMembership: "referenced",
       authorizationEvidence: input.authorizationEvidence,
       bundle,
       bundlesByHash,
@@ -194,6 +195,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
   }
 
   const head = await verifyDocumentManifestBundle({
+    authorizationMembership: "referenced",
     authorizationEvidence: input.authorizationEvidence,
     bundle: input.proof.documentManifest,
     bundlesByHash,

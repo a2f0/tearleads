@@ -7,10 +7,13 @@ import {
 import { computeKeyingDomainHash } from "./canonical";
 import {
   containerAccessLevelRank,
-  requireContainerPathLast,
-  requireContainerPathUserAccess,
   resolveContainerPathUserAccessLevel,
 } from "./containerAccess";
+import {
+  requireAnyDocumentLinkedContainerWriteAccess,
+  requireDocumentContainerPathWriteAccess,
+  requireEventDependency,
+} from "./documentAccessAuthorization";
 import {
   assertExactKeys,
   normalizeUniqueSortedStrings,
@@ -62,6 +65,8 @@ import {
   makeVerifiedContainerParentEdge,
   makeVerifiedDocumentLinkSetManifest,
 } from "./types";
+
+export { requireEventDependency } from "./documentAccessAuthorization";
 
 function normalizeDocumentLinkSetStructural(
   value: unknown,
@@ -465,7 +470,8 @@ function assertAttachmentDocumentAuthority(input: {
     );
   }
 
-  requireAnyLinkedContainerWriteAccess({
+  requireAnyDocumentLinkedContainerWriteAccess({
+    authorizationMembership: "current",
     event: input.event,
     label: input.body.eventType,
     linkedContainerIds: input.documentManifest.state.linkedContainerIds,
@@ -605,122 +611,6 @@ export async function verifyAttachmentDetachEvent({
   });
 }
 
-export function requireEventDependency(input: {
-  readonly event: VerifiedAccessEvent;
-  readonly manifestHash: string;
-  readonly label: string;
-}): void {
-  if (
-    !input.event.event.dependencyManifestHashes.includes(input.manifestHash)
-  ) {
-    throwVerification(
-      "missing_dependency",
-      `${input.label} manifest hash is not signed as an event dependency`,
-    );
-  }
-}
-
-function requireContainerPathCurrentManifest(input: {
-  readonly containerId: string;
-  readonly event: VerifiedAccessEvent;
-  readonly label: string;
-  readonly manifestHash: string;
-  readonly organizationId: string;
-  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-}): VerifiedContainerAccessManifest {
-  const manifest = requireContainerPathLast(input.path, input.label);
-
-  if (
-    manifest.state.containerId !== input.containerId ||
-    manifest.manifestHash !== input.manifestHash
-  ) {
-    throwVerification(
-      "missing_dependency",
-      `${input.label} path does not end at the signed container manifest`,
-    );
-  }
-
-  if (manifest.state.organizationId !== input.organizationId) {
-    throwVerification(
-      "object_mismatch",
-      `${input.label} container belongs to the wrong organization`,
-    );
-  }
-
-  requireEventDependency({
-    event: input.event,
-    manifestHash: input.manifestHash,
-    label: input.label,
-  });
-
-  return manifest;
-}
-
-function requireContainerPathCurrentWriteAccess(input: {
-  readonly containerId: string;
-  readonly event: VerifiedAccessEvent;
-  readonly label: string;
-  readonly manifestHash: string;
-  readonly organizationId: string;
-  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly Policy[];
-}): void {
-  requireContainerPathCurrentManifest(input);
-  requireContainerPathUserAccess({
-    label: input.label,
-    minimumAccessLevel: "write",
-    path: input.path,
-    principalPolicies: input.principalPolicies,
-    userId: input.event.event.signerUserId,
-  });
-}
-
-function requireAnyLinkedContainerWriteAccess(input: {
-  readonly event: VerifiedAccessEvent;
-  readonly label: string;
-  readonly linkedContainerIds: readonly string[];
-  readonly organizationId: string;
-  readonly paths:
-    | readonly (readonly VerifiedContainerAccessManifest[])[]
-    | undefined;
-  readonly principalPolicies: readonly Policy[];
-}): void {
-  const dependencyManifestHashes = new Set(
-    input.event.event.dependencyManifestHashes,
-  );
-  const linkedContainerIds = new Set(input.linkedContainerIds);
-
-  for (const path of input.paths ?? []) {
-    const manifest = path.at(-1);
-    if (
-      !manifest ||
-      !linkedContainerIds.has(manifest.state.containerId) ||
-      manifest.state.organizationId !== input.organizationId ||
-      !dependencyManifestHashes.has(manifest.manifestHash)
-    ) {
-      continue;
-    }
-
-    const accessLevel = resolveContainerPathUserAccessLevel({
-      path,
-      principalPolicies: input.principalPolicies,
-      userId: input.event.event.signerUserId,
-    });
-
-    if (
-      accessLevel !== null &&
-      containerAccessLevelRank(accessLevel) >= containerAccessLevelRank("write")
-    ) {
-      return;
-    }
-  }
-
-  throwVerification(
-    "unauthorized",
-    `${input.label} signer lacks write access through a signed linked container dependency`,
-  );
-}
-
 export function requireWriteAccessThroughCommittedDocumentTarget(input: {
   readonly documentKekTargets: VerifiedDocumentKekTargets;
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
@@ -820,6 +710,7 @@ export function requireWriteAccessThroughCommittedBlobTarget(input: {
   );
 }
 type DocumentLinkSetManifestDerivationInput = {
+  readonly authorizationMembership: "current" | "referenced";
   readonly body: DocumentAccessEventBody;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest: VerifiedDocumentLinkSetStateEvidence | null;
@@ -910,7 +801,8 @@ function deriveInitialDocumentLinkSetManifestState(
     );
   }
 
-  requireContainerPathCurrentWriteAccess({
+  requireDocumentContainerPathWriteAccess({
+    authorizationMembership: input.authorizationMembership,
     containerId: body.containerId,
     event: input.event,
     label: "document.link target",
@@ -943,7 +835,8 @@ function deriveDocumentLinkManifestState(
     );
   }
 
-  requireAnyLinkedContainerWriteAccess({
+  requireAnyDocumentLinkedContainerWriteAccess({
+    authorizationMembership: input.authorizationMembership,
     event: input.event,
     label: "document.link existing access",
     linkedContainerIds: previous.previousState.linkedContainerIds,
@@ -951,7 +844,8 @@ function deriveDocumentLinkManifestState(
     paths: input.authorizingContainerPaths,
     principalPolicies: input.principalPolicies,
   });
-  requireContainerPathCurrentWriteAccess({
+  requireDocumentContainerPathWriteAccess({
+    authorizationMembership: input.authorizationMembership,
     containerId: body.containerId,
     event: input.event,
     label: "document.link target",
@@ -994,7 +888,8 @@ function deriveDocumentUnlinkManifestState(
     );
   }
 
-  requireContainerPathCurrentWriteAccess({
+  requireDocumentContainerPathWriteAccess({
+    authorizationMembership: input.authorizationMembership,
     containerId: body.containerId,
     event: input.event,
     label: "document.unlink target",
@@ -1003,7 +898,8 @@ function deriveDocumentUnlinkManifestState(
     path: input.targetContainerPath,
     principalPolicies: input.principalPolicies,
   });
-  requireAnyLinkedContainerWriteAccess({
+  requireAnyDocumentLinkedContainerWriteAccess({
+    authorizationMembership: input.authorizationMembership,
     event: input.event,
     label: "document.unlink remaining access",
     linkedContainerIds: remainingLinkedContainerIds,
@@ -1037,6 +933,7 @@ function deriveDocumentLinkSetManifestStateFromEvent(
 }
 
 export async function verifyDocumentLinkSetManifest({
+  authorizationMembership = "current",
   authorizingContainerPaths,
   checkpointPredecessors,
   event,
@@ -1052,6 +949,7 @@ export async function verifyDocumentLinkSetManifest({
   return runVerifier(async () => {
     const body = normalizeDocumentAccessEventBody(event.body);
     const state = deriveDocumentLinkSetManifestStateFromEvent({
+      authorizationMembership,
       authorizingContainerPaths,
       body,
       event,
