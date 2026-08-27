@@ -1,4 +1,5 @@
 export * from "./accessEvent";
+export * from "./accessManifestSnapshot";
 export * from "./canonical";
 export * from "./checkpoints";
 export * from "./containerAccess";

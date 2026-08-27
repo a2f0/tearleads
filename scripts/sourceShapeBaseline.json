@@ -19,6 +19,7 @@
     "packages/crypto/src/keying.ts": ["./keying/index"],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
+      "./accessManifestSnapshot",
       "./canonical",
       "./checkpoints",
       "./containerAccess",
@@ -246,8 +247,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 565,
-      "bytes": 18529
+      "lines": 568,
+      "bytes": 18514
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
@@ -323,7 +324,7 @@
     },
     "packages/crypto/src/keying/documentAccess.ts": {
       "lines": 1151,
-      "bytes": 32354
+      "bytes": 32357
     },
     "packages/crypto/src/keying/principalPolicy.ts": {
       "lines": 719,

@@ -89,7 +89,7 @@ function normalizeDocumentLinkSetStructural(
   return { linkedContainerIds };
 }
 
-function normalizeDocumentLinkSetManifestState(
+export function normalizeDocumentLinkSetManifestState(
   value: unknown,
 ): DocumentLinkSetManifestState {
   const record = assertExactKeys(

@@ -1,6 +1,6 @@
 import {
-  type AnyVerifiedAccessManifest,
   KeyingVerificationError,
+  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
@@ -10,8 +10,8 @@ import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnfo
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
   readonly policies: VerifiedPrincipalPolicy[];
-  readonly verifiedHeads: AnyVerifiedAccessManifest[];
-  readonly verifiedManifests: AnyVerifiedAccessManifest[];
+  readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
+  readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
 
 export function createProjectionCheckpointContext(input: {
@@ -35,8 +35,8 @@ export function createProjectionCheckpointContext(input: {
 export function observeAccessManifestCheckpoints(
   context: ProjectionCheckpointContext,
   input: {
-    readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
-    readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
+    readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
+    readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
   },
 ): void {
   context.verifiedHeads.push(...input.verifiedHeads);

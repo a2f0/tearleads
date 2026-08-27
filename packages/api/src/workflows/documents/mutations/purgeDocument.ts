@@ -332,10 +332,18 @@ async function purgeDocumentWithExecutor(input: {
   return {
     containerIds: [containerId],
     response: {
-      ...proofMaterial,
       authorizingContainerCheckpointHeads:
         proofMaterial.authorizingContainerPath,
+      authorizingContainerPath: proofMaterial.authorizingContainerPath,
+      documentContainerManifestHistory:
+        proofMaterial.authorizingContainerManifestHistory,
       documentId: input.documentId,
+      documentManifest: {
+        manifest: proofMaterial.documentManifest.manifest,
+        manifestHash: proofMaterial.documentManifest.manifestHash,
+        state: proofMaterial.documentManifest.state,
+      },
+      documentManifestPredecessors: [],
       purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),
       reclaimedBlobStorageKeys: [],

@@ -1,3 +1,4 @@
+import type { VerifiedDocumentLinkSetSnapshot } from "./accessManifestSnapshot";
 import {
   containerAccessLevelRank,
   requireContainerPathLast,
@@ -30,7 +31,9 @@ export interface DocumentPurgeAccessEventBody {
 
 export interface VerifyDocumentPurgeEventInput {
   readonly event: VerifiedAccessEvent;
-  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly documentManifest:
+    | VerifiedDocumentLinkSetManifest
+    | VerifiedDocumentLinkSetSnapshot;
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly expectedDocumentId?: string;

@@ -12,6 +12,7 @@ import {
 
 interface DocumentPurgeProofMaterial {
   readonly authorizingContainerPath: AccessManifestBundleWireResponse[];
+  readonly authorizingContainerManifestHistory: AccessManifestBundleWireResponse[];
   readonly documentContainerManifestHistory: AccessManifestBundleWireResponse[];
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
@@ -128,6 +129,9 @@ export async function loadDocumentPurgeProofMaterial(input: {
   }
   return {
     authorizingContainerPath,
+    authorizingContainerManifestHistory: [
+      ...authorizingState.containerHistoryByHash.values(),
+    ],
     documentContainerManifestHistory: [...containerHistoryByHash.values()],
     documentManifest: documentManifest.bundle,
     documentManifestContainerPaths:

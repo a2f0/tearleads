@@ -44,7 +44,7 @@ function storedContainerFixture(input: {
   };
 }
 
-test("a formerly linked replica can retrieve a later purge proof", async () => {
+test("a formerly linked replica cannot retrieve an unrelated later purge proof", async () => {
   const owner = createTestUser();
   const formerReplica = createTestUser();
   await registerAndAuthenticate(owner);
@@ -167,17 +167,37 @@ test("a formerly linked replica can retrieve a later purge proof", async () => {
     `/documents/${created.id}/purge`,
     { headers: { Authorization: `Bearer ${formerReplica.token}` } },
   );
-  expect(proofResponse.status).toBe(200);
-  const proof = await proofResponse.json();
-  expect(isDocumentPurgeProofResponse(proof)).toBe(true);
-  if (isDocumentPurgeProofResponse(proof)) {
-    expect(
-      proof.documentManifestContainerPaths.some((path) =>
-        path.some(
-          (bundle) =>
-            bundle.manifestHash === sharedFirstChild.bundle.manifestHash,
-        ),
-      ),
-    ).toBe(true);
+  expect(proofResponse.status).toBe(403);
+
+  const ownerProofResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(ownerProofResponse.status).toBe(200);
+  const ownerProof = await ownerProofResponse.json();
+  expect(isDocumentPurgeProofResponse(ownerProof)).toBe(true);
+  expect(JSON.stringify(ownerProof)).not.toContain(
+    sharedFirstChild.bundle.manifestHash,
+  );
+  expect(ownerProof).not.toHaveProperty("documentManifestContainerPaths");
+  expect(ownerProof).not.toHaveProperty("documentManifestHistory");
+
+  const boundedProofResponse = await routeApp.request(
+    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.accessManifest.manifestHash}`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(boundedProofResponse.status).toBe(200);
+  const boundedProof = await boundedProofResponse.json();
+  if (!isDocumentPurgeProofResponse(boundedProof)) {
+    throw new Error("Expected checkpoint-bounded document purge proof");
+  }
+  expect(
+    boundedProof.documentManifestPredecessors.map(
+      (predecessor) => predecessor.manifestHash,
+    ),
+  ).toEqual([linked.accessManifest.manifestHash]);
+  for (const predecessor of boundedProof.documentManifestPredecessors) {
+    expect(predecessor).not.toHaveProperty("event");
+    expect(predecessor).not.toHaveProperty("state");
   }
 });

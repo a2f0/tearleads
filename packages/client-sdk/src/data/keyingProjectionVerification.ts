@@ -30,4 +30,7 @@ export {
   verifyDocumentWriterProjection,
   verifyDocumentWriterProjectionAuthorization,
 } from "./keyingProjectionVerification/documentProjectionVerification";
-export { verifyDocumentPurgeProof } from "./keyingProjectionVerification/documentPurgeProofVerification";
+export {
+  verifyDocumentPurgeProof,
+  verifyDocumentPurgeProofBaseline,
+} from "./keyingProjectionVerification/documentPurgeProofVerification";

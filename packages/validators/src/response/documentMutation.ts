@@ -4,6 +4,7 @@ import {
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
+  plainObjectSchema,
 } from "../schema";
 import {
   AccessEventBundleWireResponseSchema,
@@ -68,11 +69,17 @@ const documentPurgeProofShape = {
     AccessManifestBundleWireResponseSchema,
   ),
   documentId: nonEmptyStringSchema,
-  documentManifest: AccessManifestBundleWireResponseSchema,
-  documentManifestContainerPaths: arraySchema(
-    arraySchema(AccessManifestBundleWireResponseSchema),
+  documentManifest: loosePlainObject({
+    manifest: plainObjectSchema,
+    manifestHash: nonEmptyStringSchema,
+    state: plainObjectSchema,
+  }),
+  documentManifestPredecessors: arraySchema(
+    loosePlainObject({
+      manifest: plainObjectSchema,
+      manifestHash: nonEmptyStringSchema,
+    }),
   ),
-  documentManifestHistory: arraySchema(AccessManifestBundleWireResponseSchema),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,
 } as const;

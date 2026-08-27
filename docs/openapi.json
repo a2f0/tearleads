@@ -24567,6 +24567,18 @@
               "type": "string"
             },
             "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "documentCheckpointManifestHash",
+            "required": false,
+            "schema": {
+              "maxLength": 6500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -24735,27 +24747,6 @@
                     "documentManifest": {
                       "type": "object",
                       "properties": {
-                        "event": {
-                          "type": "object",
-                          "properties": {
-                            "body": {},
-                            "event": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "eventHash": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "required": [
-                            "body",
-                            "event",
-                            "eventHash"
-                          ],
-                          "additionalProperties": {}
-                        },
                         "manifest": {
                           "type": "object",
                           "properties": {},
@@ -24772,92 +24763,17 @@
                         }
                       },
                       "required": [
-                        "event",
                         "manifest",
                         "manifestHash",
                         "state"
                       ],
                       "additionalProperties": {}
                     },
-                    "documentManifestContainerPaths": {
-                      "type": "array",
-                      "items": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "event": {
-                              "type": "object",
-                              "properties": {
-                                "body": {},
-                                "event": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "eventHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                }
-                              },
-                              "required": [
-                                "body",
-                                "event",
-                                "eventHash"
-                              ],
-                              "additionalProperties": {}
-                            },
-                            "manifest": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "manifestHash": {
-                              "type": "string",
-                              "minLength": 1
-                            },
-                            "state": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            }
-                          },
-                          "required": [
-                            "event",
-                            "manifest",
-                            "manifestHash",
-                            "state"
-                          ],
-                          "additionalProperties": {}
-                        }
-                      }
-                    },
-                    "documentManifestHistory": {
+                    "documentManifestPredecessors": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
-                          },
                           "manifest": {
                             "type": "object",
                             "properties": {},
@@ -24866,18 +24782,11 @@
                           "manifestHash": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
                           }
                         },
                         "required": [
-                          "event",
                           "manifest",
-                          "manifestHash",
-                          "state"
+                          "manifestHash"
                         ],
                         "additionalProperties": {}
                       }
@@ -24914,8 +24823,7 @@
                     "documentContainerManifestHistory",
                     "documentId",
                     "documentManifest",
-                    "documentManifestContainerPaths",
-                    "documentManifestHistory",
+                    "documentManifestPredecessors",
                     "purgeEvent",
                     "purgedAt"
                   ],
@@ -25323,27 +25231,6 @@
                     "documentManifest": {
                       "type": "object",
                       "properties": {
-                        "event": {
-                          "type": "object",
-                          "properties": {
-                            "body": {},
-                            "event": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "eventHash": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "required": [
-                            "body",
-                            "event",
-                            "eventHash"
-                          ],
-                          "additionalProperties": {}
-                        },
                         "manifest": {
                           "type": "object",
                           "properties": {},
@@ -25360,92 +25247,17 @@
                         }
                       },
                       "required": [
-                        "event",
                         "manifest",
                         "manifestHash",
                         "state"
                       ],
                       "additionalProperties": {}
                     },
-                    "documentManifestContainerPaths": {
-                      "type": "array",
-                      "items": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "event": {
-                              "type": "object",
-                              "properties": {
-                                "body": {},
-                                "event": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "eventHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                }
-                              },
-                              "required": [
-                                "body",
-                                "event",
-                                "eventHash"
-                              ],
-                              "additionalProperties": {}
-                            },
-                            "manifest": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "manifestHash": {
-                              "type": "string",
-                              "minLength": 1
-                            },
-                            "state": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            }
-                          },
-                          "required": [
-                            "event",
-                            "manifest",
-                            "manifestHash",
-                            "state"
-                          ],
-                          "additionalProperties": {}
-                        }
-                      }
-                    },
-                    "documentManifestHistory": {
+                    "documentManifestPredecessors": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
-                          },
                           "manifest": {
                             "type": "object",
                             "properties": {},
@@ -25454,18 +25266,11 @@
                           "manifestHash": {
                             "type": "string",
                             "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
                           }
                         },
                         "required": [
-                          "event",
                           "manifest",
-                          "manifestHash",
-                          "state"
+                          "manifestHash"
                         ],
                         "additionalProperties": {}
                       }
@@ -25508,8 +25313,7 @@
                     "documentContainerManifestHistory",
                     "documentId",
                     "documentManifest",
-                    "documentManifestContainerPaths",
-                    "documentManifestHistory",
+                    "documentManifestPredecessors",
                     "purgeEvent",
                     "purgedAt",
                     "reclaimedBlobStorageKeys"

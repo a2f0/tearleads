@@ -25,10 +25,12 @@ export async function createDocumentPurgeProof(
     documentContainerManifestHistory:
       writerProjection.documentContainerManifestHistory,
     documentId: writerProjection.documentId,
-    documentManifest: writerProjection.documentManifest,
-    documentManifestContainerPaths:
-      writerProjection.documentManifestContainerPaths,
-    documentManifestHistory: writerProjection.documentManifestHistory,
+    documentManifest: {
+      manifest: writerProjection.documentManifest.manifest,
+      manifestHash: writerProjection.documentManifest.manifestHash,
+      state: writerProjection.documentManifest.state,
+    },
+    documentManifestPredecessors: [],
     purgeEvent: {
       body: request.body,
       event: request.event,

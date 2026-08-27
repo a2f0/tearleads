@@ -355,6 +355,7 @@ async function respondWithDocumentPurgeProof(
   input: {
     readonly documentId: string;
     readonly checkpointManifestHashes?: readonly string[] | undefined;
+    readonly documentCheckpointManifestHash?: string | undefined;
     readonly runtime: ApiServiceRuntime;
   },
 ) {
@@ -364,6 +365,7 @@ async function respondWithDocumentPurgeProof(
     return c.json<DocumentPurgeProofResponse>(
       await getDocumentPurgeProof(input.runtime, {
         checkpointManifestHashes: input.checkpointManifestHashes,
+        documentCheckpointManifestHash: input.documentCheckpointManifestHash,
         documentId: input.documentId,
         userId: session.userId,
       }),
@@ -403,6 +405,8 @@ function registerDocumentPurgeRoutes(
         checkpointManifestHashes: c.req
           .valid("query")
           .checkpointManifestHashes?.split(","),
+        documentCheckpointManifestHash:
+          c.req.valid("query").documentCheckpointManifestHash,
         documentId: c.req.valid("param").documentId,
         runtime: input.runtime,
       }),

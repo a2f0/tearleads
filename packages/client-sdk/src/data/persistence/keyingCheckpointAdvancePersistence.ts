@@ -1,7 +1,7 @@
 import {
   type AccessManifestCheckpoint,
-  type AnyVerifiedAccessManifest,
   KeyingVerificationError,
+  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
@@ -35,8 +35,8 @@ import {
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 export interface AccessManifestCheckpointAdvance {
-  readonly head: AnyVerifiedAccessManifest;
-  readonly predecessors: readonly AnyVerifiedAccessManifest[];
+  readonly head: VerifiedAccessManifestCheckpointEvidence;
+  readonly predecessors: readonly VerifiedAccessManifestCheckpointEvidence[];
 }
 
 interface VerifiedPrincipalPolicyBundleEntry {
@@ -45,7 +45,7 @@ interface VerifiedPrincipalPolicyBundleEntry {
 }
 
 interface PendingAccessCheckpoint {
-  readonly checkpoint: AnyVerifiedAccessManifest["checkpoint"];
+  readonly checkpoint: AccessManifestCheckpoint;
 }
 
 function validateAccessAdvance(

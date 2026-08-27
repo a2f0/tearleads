@@ -115,10 +115,11 @@ Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations
 uncommitted so the current generation can retry the retained proof.
-Proof fetching reveals only purge-time container heads by default; when a local
-checkpoint is newer, the SDK supplies its already-known hash and verifies the
-bounded signed predecessor chain returned by the API. A coded not-found while
-retrying a user-initiated purge follows this retained-proof path as well.
+Proof fetching reveals only purge-time heads by default. The SDK authenticates
+that baseline before reading local checkpoint identities; only then does it
+supply already-known container and document hashes and verify the bounded
+ordering evidence returned by the API. A coded not-found while retrying a
+user-initiated purge follows this retained-proof path as well.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

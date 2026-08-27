@@ -42,6 +42,8 @@ const checkpointManifestHashesQuerySchema = registerJsonSchemaFragment(
 
 export const DocumentPurgeProofQuerySchema = z.strictObject({
   checkpointManifestHashes: checkpointManifestHashesQuerySchema.optional(),
+  documentCheckpointManifestHash:
+    checkpointManifestHashesQuerySchema.optional(),
 });
 
 export type DocumentPurgeProofQuery = z.infer<

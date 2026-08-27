@@ -169,9 +169,11 @@ export function createDocumentPurgeResponse() {
 
 export function createDocumentPurgeProofResponse() {
   const authorizingContainer = createAccessManifestBundle();
+  const documentManifestBundle = createAccessManifestBundle();
   const documentManifest = {
-    ...createAccessManifestBundle(),
+    manifest: documentManifestBundle.manifest,
     manifestHash: "document-manifest-hash",
+    state: documentManifestBundle.state,
   };
   return {
     authorizingContainerCheckpointHeads: [authorizingContainer],
@@ -179,8 +181,7 @@ export function createDocumentPurgeProofResponse() {
     documentContainerManifestHistory: [],
     documentId: "document-1",
     documentManifest,
-    documentManifestContainerPaths: [[authorizingContainer]],
-    documentManifestHistory: [],
+    documentManifestPredecessors: [],
     purgeEvent: {
       body: { eventType: "document.purge" },
       event: { signature: "signed-purge-event" },

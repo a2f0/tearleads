@@ -175,6 +175,9 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
         expect(options.checkpointManifestHashes).toEqual([
           newerContainerManifest.manifestHash,
         ]);
+        expect(options.documentCheckpointManifestHash).toBe(
+          purgeProof.documentManifest.manifestHash,
+        );
         return proofWithOrderingEvidence;
       }),
     ).resolves.toBeNull();
@@ -197,7 +200,7 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
   }
 });
 
-test("syncRemoteDocument rejects a coded document 404 with an invalid purge proof", async () => {
+test("syncRemoteDocument authenticates an initial purge proof before disclosing checkpoints", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
   const deletedDocumentIds: string[] = [];
@@ -205,15 +208,32 @@ test("syncRemoteDocument rejects a coded document 404 with an invalid purge proo
     "invalid-purge-proof-sync",
   );
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
+  const substitutedContainerPath = purgeProof.authorizingContainerPath.map(
+    (bundle, index, path) =>
+      index === path.length - 1
+        ? {
+            ...bundle,
+            state: {
+              ...bundle.state,
+              containerId: "server-substituted-container",
+            },
+          }
+        : bundle,
+  );
+  const proofRequests: Array<unknown> = [];
 
   try {
     await expect(
       syncRemoteDocument({
         apiClient: {
-          getDocumentPurgeProof: async () => ({
-            ...purgeProof,
-            documentId: "server-substituted-document",
-          }),
+          getDocumentPurgeProof: async (_documentId, options) => {
+            proofRequests.push(options);
+            return {
+              ...purgeProof,
+              authorizingContainerCheckpointHeads: substitutedContainerPath,
+              authorizingContainerPath: substitutedContainerPath,
+            };
+          },
           getDocumentWriterProjection: async () => {
             throw new Error("Unexpected writer projection fetch");
           },
@@ -243,6 +263,7 @@ test("syncRemoteDocument rejects a coded document 404 with an invalid purge proo
       }),
     ).rejects.toMatchObject({ name: "KeyingVerificationError" });
     expect(deletedDocumentIds).toEqual([]);
+    expect(proofRequests).toEqual([undefined]);
   } finally {
     close();
   }

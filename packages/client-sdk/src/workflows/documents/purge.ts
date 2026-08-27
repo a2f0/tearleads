@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   computeAccessEventBodyHash,
   type DocumentPurgeAccessEventBody,
   KeyingVerificationError,
@@ -19,7 +20,6 @@ import {
 import {
   assertDocumentManifestBundleConsistent,
   readManifestContainerId,
-  readRecordString,
 } from "../../data/documents/shared/readers";
 import type {
   DocumentCreateAuthor,
@@ -35,6 +35,7 @@ import type {
 } from "../../data/keyingProjectionVerification";
 import {
   verifyDocumentPurgeProof,
+  verifyDocumentPurgeProofBaseline,
   verifyDocumentWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -43,7 +44,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 interface DocumentPurgeApi {
   getDocumentPurgeProof(
     documentId: string,
-    options?: { readonly checkpointManifestHashes?: readonly string[] },
+    options?: {
+      readonly checkpointManifestHashes?: readonly string[];
+      readonly documentCheckpointManifestHash?: string;
+    },
   ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjectionResult: NonNullable<
     DocumentSyncApi["getDocumentWriterProjectionResult"]
@@ -57,40 +61,45 @@ interface DocumentPurgeApi {
 const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
 
 async function loadLocalPurgeCheckpointManifestHashes(input: {
+  readonly authorizingContainerCheckpoints: readonly AccessManifestCheckpoint[];
+  readonly documentCheckpoint: AccessManifestCheckpoint;
   readonly execSql: ExecSql;
-  readonly proof: DocumentPurgeProofResponse;
-}): Promise<string[]> {
-  return Promise.all(
-    input.proof.authorizingContainerPath.map(async (bundle, index) => {
-      const state = readCanonicalRecord(
-        bundle.state,
-        `Document purge authorizing container path[${index}] state`,
-      );
-      const organizationId = readRecordString(
-        state,
-        "organizationId",
-        `Document purge authorizing container path[${index}] state`,
-      );
-      const containerId = readRecordString(
-        state,
-        "containerId",
-        `Document purge authorizing container path[${index}] state`,
-      );
-      const checkpoint = await loadAccessManifestCheckpoint(
+}): Promise<{
+  readonly checkpointManifestHashes: string[];
+  readonly documentCheckpointManifestHash: string;
+}> {
+  const checkpointManifestHashes = await Promise.all(
+    input.authorizingContainerCheckpoints.map(async (candidate) => {
+      const stored = await loadAccessManifestCheckpoint(
         input.execSql,
         "container",
-        organizationId,
-        containerId,
+        candidate.organizationId,
+        candidate.objectId,
       );
-      return checkpoint?.manifestHash ?? bundle.manifestHash;
+      return stored?.manifestHash ?? candidate.manifestHash;
     }),
   );
+  const storedDocument = await loadAccessManifestCheckpoint(
+    input.execSql,
+    "document",
+    input.documentCheckpoint.organizationId,
+    input.documentCheckpoint.objectId,
+  );
+  return {
+    checkpointManifestHashes,
+    documentCheckpointManifestHash:
+      storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash,
+  };
 }
 
 async function loadCheckpointBoundedDocumentPurgeProof(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly documentId: string;
   readonly execSql: ExecSql;
+  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<DocumentPurgeProofResponse | null> {
   if (!input.apiClient.getDocumentPurgeProof) {
     throw new KeyingVerificationError(
@@ -104,12 +113,19 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   if (!initialProof) {
     return null;
   }
-  const checkpointManifestHashes = await loadLocalPurgeCheckpointManifestHashes(
-    {
+  const baseline = await verifyDocumentPurgeProofBaseline({
+    execSql: input.execSql,
+    expectedDocumentId: input.documentId,
+    proof: initialProof,
+    resolveUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  const { checkpointManifestHashes, documentCheckpointManifestHash } =
+    await loadLocalPurgeCheckpointManifestHashes({
+      authorizingContainerCheckpoints: baseline.authorizingContainerCheckpoints,
+      documentCheckpoint: baseline.documentCheckpoint,
       execSql: input.execSql,
-      proof: initialProof,
-    },
-  );
+    });
   const initialHeadsMatch = checkpointManifestHashes.every(
     (manifestHash, index) =>
       initialProof.authorizingContainerCheckpointHeads[index]?.manifestHash ===
@@ -118,12 +134,15 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   if (
     initialHeadsMatch &&
     initialProof.authorizingContainerCheckpointHeads.length ===
-      checkpointManifestHashes.length
+      checkpointManifestHashes.length &&
+    documentCheckpointManifestHash ===
+      initialProof.documentManifest.manifestHash
   ) {
     return initialProof;
   }
   return input.apiClient.getDocumentPurgeProof(input.documentId, {
     checkpointManifestHashes,
+    documentCheckpointManifestHash,
   });
 }
 
@@ -239,6 +258,8 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       apiClient: input.apiClient,
       documentId,
       execSql: input.execSql,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new KeyingVerificationError(
@@ -312,6 +333,8 @@ export async function purgeRemoteDocument(input: {
       apiClient: input.apiClient,
       documentId: input.documentId,
       execSql: input.execSql,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new KeyingVerificationError(

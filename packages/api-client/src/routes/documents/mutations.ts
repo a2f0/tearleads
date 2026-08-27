@@ -17,6 +17,7 @@ import {
 
 export interface DocumentPurgeProofOptions {
   readonly checkpointManifestHashes?: readonly string[];
+  readonly documentCheckpointManifestHash?: string;
 }
 
 export const documentCreate = {
@@ -66,6 +67,7 @@ export const documentPurgeProof = {
       { documentId },
       {
         checkpointManifestHashes: options.checkpointManifestHashes?.join(","),
+        documentCheckpointManifestHash: options.documentCheckpointManifestHash,
       },
     ),
 } as const;
