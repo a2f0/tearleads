@@ -169,6 +169,12 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
   );
   expect(proofResponse.status).toBe(403);
 
+  const boundedForbiddenResponse = await routeApp.request(
+    `/documents/${created.id}/purge?checkpointManifestHashes=${"a".repeat(64)}%2C${"b".repeat(64)}&documentCheckpointManifestHash=${"c".repeat(64)}`,
+    { headers: { Authorization: `Bearer ${formerReplica.token}` } },
+  );
+  expect(boundedForbiddenResponse.status).toBe(403);
+
   const ownerProofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,
     { headers: { Authorization: `Bearer ${owner.token}` } },

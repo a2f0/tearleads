@@ -343,8 +343,6 @@ function responsePurgePrincipalReferences(input: {
 }
 
 async function verifyProofMaterial(input: {
-  readonly checkpointManifestHashes?: readonly string[] | undefined;
-  readonly documentCheckpointManifestHash?: string | undefined;
   readonly documentId: string;
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseSession;
@@ -390,35 +388,11 @@ async function verifyProofMaterial(input: {
       keyingVerificationHttpStatus(verified.error),
     );
   }
-  const checkpointMaterial = await loadVerifiedCheckpointMaterial({
-    authorizingContainerPath,
-    checkpointManifestHashes:
-      input.checkpointManifestHashes ??
-      authorizingContainerPath.map((manifest) => manifest.manifestHash),
-    context,
-    executor: input.executor,
-  });
-  const responseEvidence =
-    await loadVerifiedPrincipalPolicySnapshotsForReferences(
-      input.executor,
-      responsePurgePrincipalReferences({ material }),
-    );
   return {
     authorizingContainerPath,
     body,
-    material: {
-      authorizingContainerCheckpointChains: checkpointMaterial.chains,
-      authorizingContainerPath: material.authorizingContainerPath,
-      documentContainerManifestHistory:
-        material.authorizingContainerManifestHistory,
-      documentManifest: documentManifestSnapshot(material.documentManifest),
-      documentManifestPredecessors: documentManifestPredecessors({
-        checkpointManifestHash: input.documentCheckpointManifestHash,
-        head: material.documentManifest,
-        history: material.documentManifestHistory,
-      }),
-      principalPolicySnapshots: responseEvidence.snapshots,
-    },
+    context,
+    material,
     principalPolicies,
   };
 }
@@ -444,14 +418,17 @@ export async function loadDocumentPurgeProof(input: {
     event: storedEvent,
     executor: input.executor,
   });
-  const { authorizingContainerPath, body, material, principalPolicies } =
-    await verifyProofMaterial({
-      checkpointManifestHashes: input.checkpointManifestHashes,
-      documentCheckpointManifestHash: input.documentCheckpointManifestHash,
-      documentId: input.documentId,
-      event,
-      executor: input.executor,
-    });
+  const {
+    authorizingContainerPath,
+    body,
+    context,
+    material,
+    principalPolicies,
+  } = await verifyProofMaterial({
+    documentId: input.documentId,
+    event,
+    executor: input.executor,
+  });
 
   // A purge proof is terminal history, not a claim about the container's
   // current state. A replica that had access when the purge was signed must
@@ -466,6 +443,20 @@ export async function loadDocumentPurgeProof(input: {
   if (!hadPurgePathAccess) {
     throw new DocumentMutationError("Forbidden", 403);
   }
+
+  const checkpointMaterial = await loadVerifiedCheckpointMaterial({
+    authorizingContainerPath,
+    checkpointManifestHashes:
+      input.checkpointManifestHashes ??
+      authorizingContainerPath.map((manifest) => manifest.manifestHash),
+    context,
+    executor: input.executor,
+  });
+  const responseEvidence =
+    await loadVerifiedPrincipalPolicySnapshotsForReferences(
+      input.executor,
+      responsePurgePrincipalReferences({ material }),
+    );
 
   const [tombstone] = await input.executor
     .select({ purgedAt: containerDocumentSyncTombstones.updatedAt })
@@ -482,8 +473,18 @@ export async function loadDocumentPurgeProof(input: {
   }
 
   return {
-    ...material,
+    authorizingContainerCheckpointChains: checkpointMaterial.chains,
+    authorizingContainerPath: material.authorizingContainerPath,
+    documentContainerManifestHistory:
+      material.authorizingContainerManifestHistory,
     documentId: input.documentId,
+    documentManifest: documentManifestSnapshot(material.documentManifest),
+    documentManifestPredecessors: documentManifestPredecessors({
+      checkpointManifestHash: input.documentCheckpointManifestHash,
+      head: material.documentManifest,
+      history: material.documentManifestHistory,
+    }),
+    principalPolicySnapshots: responseEvidence.snapshots,
     purgeEvent: projectionVerifiedAccessEventRecord(event),
     purgedAt: tombstone.purgedAt.toISOString(),
   };

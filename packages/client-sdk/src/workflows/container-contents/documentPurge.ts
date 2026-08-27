@@ -72,8 +72,16 @@ export async function purgeRemoteContainerDocument(input: {
           noteId,
         );
         if (!expectedRecord) {
-          await commitPurgeProof(runtime.infra.execSql);
-          deleted = true;
+          deleted = await persistence.deleteDocumentSideRowsIfAbsent(
+            runtime.infra.execSql,
+            noteId,
+            commitPurgeProof,
+          );
+          if (!deleted) {
+            throw new Error(
+              "Local document state changed while its remote purge was committing",
+            );
+          }
           return;
         }
         if (expectedRecord.documentId !== documentId) {
