@@ -116,6 +116,12 @@ Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations
 uncommitted so the current generation can retry the retained proof.
+The public entry point is
+`symcrypt.containerContents.documentLinks().purgeDocument({ note })`. A remote
+document must have exactly one remaining container link; recursive container
+purge unlinks any additional in-subtree links before calling it. `null` means
+the purge was refused or could not be verified, and callers must retain the
+local document.
 Proof fetching reveals only purge-time heads by default. The SDK authenticates
 that baseline, including its redacted signed principal-policy snapshots, before
 reading local checkpoint identities. It may then supply an already-known

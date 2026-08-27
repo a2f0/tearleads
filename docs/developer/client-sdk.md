@@ -198,8 +198,9 @@ durable `containerStore`, the synchronously readable `view`, and the background
 converge through durable sync lanes without blocking on the network. The view's
 `ready` reflects **local** hydration only (never auth/network), while the
 reconciler owns remote discovery and prioritizes the active container.
-Security-sensitive sharing, remote deletion, and purge operations retain their
-explicit online/remote-authority requirements. See
+Permanently destroy with
+`symcrypt.containerContents.documentLinks().purgeDocument({ note })`; remote
+purge requires one link and verifies its signed proof. See
 [device-first.md](./device-first.md).
 
 ## Constructor Options
