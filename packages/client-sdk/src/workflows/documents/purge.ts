@@ -241,14 +241,10 @@ export async function buildDocumentPurgeRequest(input: {
 export function createVerifiedRemoteDocumentDeletionHandler(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly execSql: ExecSql;
-  readonly onVerifiedDeletion?:
-    | ((input: {
-        readonly commitPurgeProof: (
-          transactionExecSql: ExecSql,
-        ) => Promise<void>;
-        readonly documentId: string;
-      }) => Promise<void> | void)
-    | undefined;
+  readonly onVerifiedDeletion: (input: {
+    readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
+    readonly documentId: string;
+  }) => Promise<void> | void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -275,14 +271,10 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    if (input.onVerifiedDeletion) {
-      await input.onVerifiedDeletion({
-        commitPurgeProof: verified.commitCheckpoints,
-        documentId,
-      });
-      return;
-    }
-    await verified.commitCheckpoints(input.execSql);
+    await input.onVerifiedDeletion({
+      commitPurgeProof: verified.commitCheckpoints,
+      documentId,
+    });
   };
 }
 

@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
@@ -413,7 +414,18 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: createVerifiedRemoteDocumentDeletionHandler({
         apiClient: input.apiClient,
         execSql: input.execSql,
-        onVerifiedDeletion: input.onRemoteDocumentDeleted,
+        onVerifiedDeletion: ({ commitPurgeProof, documentId }) => {
+          if (!input.onRemoteDocumentDeleted) {
+            throw new KeyingVerificationError(
+              "missing_dependency",
+              "Remote document deletion requires atomic local teardown",
+            );
+          }
+          return input.onRemoteDocumentDeleted({
+            commitPurgeProof,
+            documentId,
+          });
+        },
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
