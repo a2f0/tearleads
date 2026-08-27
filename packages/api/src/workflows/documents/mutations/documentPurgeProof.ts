@@ -1,4 +1,7 @@
-import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import {
+  type DatabaseSession,
+  gatherWithExecutor,
+} from "@symcrypt/api-shared/postgres";
 import { containerDocumentSyncTombstones } from "@symcrypt/api-shared/schema";
 import type {
   VerifiedAccessEvent,
@@ -301,10 +304,11 @@ async function verifyRetainedPurgeManifests(input: {
       bundle: input.material.documentManifest,
       containerContext: input.context,
     });
-    await Promise.all(
-      input.material.documentManifestContainerPaths.map((bundles) =>
+    await gatherWithExecutor(
+      input.context.executor,
+      input.material.documentManifestContainerPaths,
+      (bundles) =>
         verifyStoredContainerPath({ bundles, context: input.context }),
-      ),
     );
     return { authorizingContainerPath, documentManifest };
   } catch (error) {

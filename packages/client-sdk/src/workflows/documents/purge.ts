@@ -302,13 +302,9 @@ export async function purgeRemoteDocument(input: {
   readonly author: DocumentCreateAuthor;
   readonly documentId: string;
   readonly execSql: ExecSql;
-  readonly onVerifiedPurge?:
-    | ((input: {
-        readonly commitPurgeProof: (
-          transactionExecSql: ExecSql,
-        ) => Promise<void>;
-      }) => Promise<void> | void)
-    | undefined;
+  readonly onVerifiedPurge: (input: {
+    readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
+  }) => Promise<void> | void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -342,13 +338,9 @@ export async function purgeRemoteDocument(input: {
       resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    if (input.onVerifiedPurge) {
-      await input.onVerifiedPurge({
-        commitPurgeProof: verified.commitCheckpoints,
-      });
-    } else {
-      await verified.commitCheckpoints(input.execSql);
-    }
+    await input.onVerifiedPurge({
+      commitPurgeProof: verified.commitCheckpoints,
+    });
     return { ...proof, reclaimedBlobStorageKeys: [] };
   }
   await verifyDocumentWriterProjection({
@@ -375,12 +367,8 @@ export async function purgeRemoteDocument(input: {
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  if (input.onVerifiedPurge) {
-    await input.onVerifiedPurge({
-      commitPurgeProof: verified.commitCheckpoints,
-    });
-  } else {
-    await verified.commitCheckpoints(input.execSql);
-  }
+  await input.onVerifiedPurge({
+    commitPurgeProof: verified.commitCheckpoints,
+  });
   return response;
 }
