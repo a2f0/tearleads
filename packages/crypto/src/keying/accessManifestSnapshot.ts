@@ -24,8 +24,10 @@ const verifiedAccessManifestSnapshotBrand: unique symbol = Symbol(
   "verifiedAccessManifestSnapshot",
 );
 
-export interface VerifiedAccessManifestSnapshot
-  extends VerifiedAccessManifestCheckpointEvidence {
+export interface VerifiedAccessManifestSnapshot {
+  readonly checkpoint: AccessManifestCheckpoint;
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
   readonly [verifiedAccessManifestSnapshotBrand]: true;
 }
 

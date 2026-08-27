@@ -3,11 +3,9 @@ import {
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
-  type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
-  verifyAccessManifestSnapshot,
 } from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
@@ -32,7 +30,6 @@ import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
 } from "./principalPolicySnapshotVerification";
-import { readAccessManifest } from "./readers";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -92,84 +89,6 @@ function collectContainerBundles(
   return bundlesByHash;
 }
 
-function assertCheckpointSnapshotExtends(input: {
-  readonly authorizingManifest: VerifiedContainerAccessManifest;
-  readonly current: VerifiedAccessManifestCheckpointEvidence;
-  readonly next: VerifiedAccessManifestSnapshot;
-}): void {
-  if (
-    input.next.checkpoint.objectKind !== "container" ||
-    input.next.checkpoint.objectId !==
-      input.authorizingManifest.state.containerId ||
-    input.next.checkpoint.organizationId !==
-      input.authorizingManifest.state.organizationId
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Document purge checkpoint chain targets another container",
-    );
-  }
-  if (
-    input.next.checkpoint.epoch !== input.current.checkpoint.epoch + 1 ||
-    input.next.manifest.previousManifestHash !== input.current.manifestHash
-  ) {
-    throw new KeyingVerificationError(
-      "stale_predecessor",
-      "Document purge checkpoint chain does not extend the signed authorization path",
-    );
-  }
-}
-
-function checkpointEndpointErrorCode(input: {
-  readonly current: VerifiedAccessManifestCheckpointEvidence;
-  readonly localCheckpoint: AccessManifestCheckpoint | null;
-}): "equivocation" | "rollback" | "stale_predecessor" {
-  if (!input.localCheckpoint) return "stale_predecessor";
-  if (input.current.checkpoint.epoch < input.localCheckpoint.epoch) {
-    return "rollback";
-  }
-  return input.current.checkpoint.epoch === input.localCheckpoint.epoch
-    ? "equivocation"
-    : "stale_predecessor";
-}
-
-async function enforceCheckpointChainEndpoint(input: {
-  readonly chainLength: number;
-  readonly checkpointContext: ReturnType<
-    typeof createProjectionCheckpointContext
-  >;
-  readonly current: VerifiedAccessManifestCheckpointEvidence;
-  readonly verifiedByHash: ReadonlyMap<
-    string,
-    VerifiedAccessManifestCheckpointEvidence
-  >;
-}): Promise<void> {
-  const checkpointVerification = await loadManifestCheckpointVerification({
-    current: input.current.manifest,
-    execSql: input.checkpointContext.execSql,
-    verifiedManifests: input.verifiedByHash,
-  });
-  verifyAccessManifestLocalCheckpoint({
-    checkpointPredecessors: checkpointVerification.checkpointPredecessors,
-    current: {
-      ...input.current.checkpoint,
-      previousManifestHash: input.current.manifest.previousManifestHash,
-    },
-    localCheckpoint: checkpointVerification.localCheckpoint,
-  });
-  if (input.chainLength === 0) return;
-  const { localCheckpoint } = checkpointVerification;
-  const endpointMatches =
-    localCheckpoint?.manifestHash === input.current.manifestHash &&
-    localCheckpoint.epoch === input.current.checkpoint.epoch;
-  if (!endpointMatches) {
-    throw new KeyingVerificationError(
-      checkpointEndpointErrorCode({ current: input.current, localCheckpoint }),
-      "Document purge checkpoint chain does not end at the local checkpoint",
-    );
-  }
-}
-
 async function verifyCheckpointChain(input: {
   readonly authorizingManifest: VerifiedContainerAccessManifest;
   readonly chain: DocumentPurgeProofResponse["authorizingContainerCheckpointChains"][number];
@@ -183,42 +102,30 @@ async function verifyCheckpointChain(input: {
     VerifiedContainerAccessManifest
   >;
 }): Promise<VerifiedAccessManifestCheckpointEvidence> {
-  let current: VerifiedAccessManifestCheckpointEvidence =
-    input.authorizingManifest;
-  const verifiedByHash = new Map<
-    string,
-    VerifiedAccessManifestCheckpointEvidence
-  >(input.verifiedContainerManifests);
-  for (const [chainIndex, snapshot] of input.chain.entries()) {
-    const verified = await verifyAccessManifestSnapshot({
-      expectedManifestHash: snapshot.manifestHash,
-      manifest: readAccessManifest(
-        snapshot.manifest,
-        `Document purge checkpoint chain[${input.index}][${chainIndex}]`,
-      ),
-    });
-    if (!verified.ok) {
-      throw verified.error;
-    }
-    const next = verified.value;
-    assertCheckpointSnapshotExtends({
-      authorizingManifest: input.authorizingManifest,
-      current,
-      next,
-    });
-    verifiedByHash.set(next.manifestHash, next);
-    current = next;
+  if (input.chain.length > 0) {
+    throw new KeyingVerificationError(
+      "stale_predecessor",
+      `Document purge authorization path[${input.index}] predates a later container checkpoint without signed purge ordering`,
+    );
   }
 
   if (input.enforceLocalCheckpoints) {
-    await enforceCheckpointChainEndpoint({
-      chainLength: input.chain.length,
-      checkpointContext: input.checkpointContext,
-      current,
-      verifiedByHash,
+    const checkpointVerification = await loadManifestCheckpointVerification({
+      current: input.authorizingManifest.manifest,
+      execSql: input.checkpointContext.execSql,
+      verifiedManifests: input.verifiedContainerManifests,
+    });
+    verifyAccessManifestLocalCheckpoint({
+      checkpointPredecessors: checkpointVerification.checkpointPredecessors,
+      current: {
+        ...input.authorizingManifest.checkpoint,
+        previousManifestHash:
+          input.authorizingManifest.manifest.previousManifestHash,
+      },
+      localCheckpoint: checkpointVerification.localCheckpoint,
     });
   }
-  return current;
+  return input.authorizingManifest;
 }
 
 async function verifyPurgeCheckpointHeads(input: {

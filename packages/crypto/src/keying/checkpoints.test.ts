@@ -1,7 +1,25 @@
 import { expect, test } from "bun:test";
-import type { IdentityStateHead } from "./index";
+import type {
+  AccessManifest,
+  AccessManifestCheckpoint,
+  IdentityStateHead,
+  VerifiedAccessManifestCheckpointEvidence,
+} from "./index";
 import { verifyIdentityStateCheckpoint } from "./index";
 import { expectVerificationError, fixtureHash } from "./testFixtures";
+
+type RawAccessManifestCheckpointEvidence = {
+  readonly checkpoint: AccessManifestCheckpoint;
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+};
+const rawCheckpointEvidenceIsVerified: RawAccessManifestCheckpointEvidence extends VerifiedAccessManifestCheckpointEvidence
+  ? true
+  : false = false;
+
+test("access manifest checkpoint evidence requires a verification brand", () => {
+  expect(rawCheckpointEvidenceIsVerified).toBe(false);
+});
 
 test("verifyIdentityStateCheckpoint rejects rollback and equivocation against local checkpoints", async () => {
   const first: IdentityStateHead = {

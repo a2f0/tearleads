@@ -1,3 +1,4 @@
+import type { VerifiedAccessManifestSnapshot } from "./accessManifestSnapshot";
 import {
   assertExactKeys,
   normalizeAccessObjectKind,
@@ -14,16 +15,19 @@ import type {
   IdentityStateCheckpoint,
   IdentityStateHead,
   KeyingVerificationResult,
+  VerifiedAccessManifest,
+  VerifiedContainerAccessManifest,
+  VerifiedDocumentLinkSetStateEvidence,
   VerifiedIdentityState,
   VerifyIdentityStateCheckpointInput,
 } from "./types";
 import { makeVerifiedIdentityState } from "./types";
 
-export interface VerifiedAccessManifestCheckpointEvidence {
-  readonly checkpoint: AccessManifestCheckpoint;
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-}
+export type VerifiedAccessManifestCheckpointEvidence =
+  | VerifiedAccessManifest
+  | VerifiedAccessManifestSnapshot
+  | VerifiedContainerAccessManifest
+  | VerifiedDocumentLinkSetStateEvidence;
 
 export function normalizeIdentityStateHead(value: unknown): IdentityStateHead {
   const record = assertExactKeys(

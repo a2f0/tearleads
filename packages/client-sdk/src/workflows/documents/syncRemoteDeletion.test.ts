@@ -74,7 +74,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   close();
 });
 
-test("signed descendant evidence reconciles a newer container checkpoint", async () => {
+test("purge authorized before a pinned revocation fails closed", async () => {
   const {
     author,
     projection,
@@ -83,7 +83,6 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
     signingPublicKey,
     writerProjection,
   } = await createMaterializedSyncFixture();
-  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
   const purgeContainerManifest = projection.path.at(-1);
   if (!purgeContainerManifest) {
     throw new Error("Expected purge container projection");
@@ -104,7 +103,9 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
     subjectId: author.signerUserId,
     subjectType: "user",
   });
-  const proofWithOrderingEvidence = {
+  // Model a revoked writer signing against the stale pre-revocation head.
+  const purgeProof = await createDocumentPurgeProof(author, writerProjection);
+  const proofWithUnsignedOrderingClaim = {
     ...purgeProof,
     authorizingContainerCheckpointChains: [
       [
@@ -183,12 +184,12 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
         expect(options.documentCheckpointManifestHash).toBe(
           purgeProof.documentManifest.manifestHash,
         );
-        return proofWithOrderingEvidence;
+        return proofWithUnsignedOrderingClaim;
       }),
-    ).resolves.toBeNull();
+    ).rejects.toMatchObject({ code: "stale_predecessor" });
 
     expect(proofFetches).toBe(2);
-    expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
+    expect(deletedDocumentIds).toEqual([]);
     await expect(
       loadAccessManifestCheckpoint(
         execSql,
