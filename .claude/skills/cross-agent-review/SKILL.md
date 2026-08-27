@@ -49,7 +49,7 @@ commit, repair rounds produce new commits to read.
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), `jq`, and POSIX `awk` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
 - For Claude Code reviews: `claude` CLI authenticated.
@@ -59,6 +59,9 @@ commit, repair rounds produce new commits to read.
   the repository's default branch and repairs stay local until the PR is opened.
 - Unless `--repair-rounds 0` is given: the worktree contains only changes
   intended for this branch, since repair rounds stage and commit from it.
+- A coordinating workflow may set both `AGENT_TOOL_REVIEW_BASE_REF` and
+  `AGENT_TOOL_REVIEW_BASE_OID` to pin the branch name and exact base commit for
+  the whole review. A mismatch fails before syncing or launching a reviewer.
 
 ## Setup
 
@@ -67,11 +70,30 @@ Resolve the branch, repo, PR, and tool path:
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+CHECKOUT_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
+if CURRENT_PR_JSON=$(gh pr view --json number,state,url 2>&1); then
+  case $(printf '%s' "$CURRENT_PR_JSON" | jq -r '.state') in
+    OPEN) ;;
+    CLOSED|MERGED) CURRENT_PR_JSON="" ;;
+    *) echo "Error: current branch PR has an invalid state" >&2; exit 1 ;;
+  esac
+else
+  case "$CURRENT_PR_JSON" in
+    no\ pull\ requests\ found\ for\ branch*) CURRENT_PR_JSON="" ;;
+    *) printf 'Error: could not resolve the current branch PR:\n%s\n' "$CURRENT_PR_JSON" >&2; exit 1 ;;
+  esac
+fi
+if [ -n "$CURRENT_PR_JSON" ]; then
+  PR_NUMBER=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.number')
+  REPO=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.url | split("/") | .[-4] + "/" + .[-3]')
+else
+  REPO="$CHECKOUT_REPO"
+  PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
+fi
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
+[ -n "$REPO" ] || { echo "Error: repository is unavailable" >&2; exit 1; }
 ```
 
 If `$BRANCH` equals `$DEFAULT_BRANCH` (or a conventional `main`/`master`), report
@@ -99,15 +121,44 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
    contract is to change nothing; take the snapshot as-is in that mode.
 
-   Resolve the base ref and fetch it:
+   Resolve the base ref and its exact OID from the repository that owns the PR,
+   then fetch that snapshot. Do not assume `origin` is the base repository: in
+   a fork checkout it is commonly the contributor's fork.
 
    ```bash
+   BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
+   BASE_REPO_HOST=${BASE_REPO_HOST%%/*}
+   case $(gh config get git_protocol --host "$BASE_REPO_HOST") in
+     ssh) BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
+   esac
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     [ -z "$AGENT_TOOL_REVIEW_BASE_REF" ] || [ "$BASE_REF" = "$AGENT_TOOL_REVIEW_BASE_REF" ] || { echo "Error: PR base changed from pinned branch $AGENT_TOOL_REVIEW_BASE_REF to $BASE_REF" >&2; exit 1; }
+     PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRepository -R "$REPO")
+     HEAD_REF=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
+     HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
+     [ "$HEAD_REF" = "$BRANCH" ] && [ -n "$HEAD_REPO" ] || { echo "Error: could not resolve the PR head repository and branch" >&2; exit 1; }
+     HEAD_REPO_HTTPS_URL=$(gh repo view "$HEAD_REPO" --json url -q .url)
+     HEAD_REPO_HOST=${HEAD_REPO_HTTPS_URL#*://}
+     HEAD_REPO_HOST=${HEAD_REPO_HOST%%/*}
+     case $(gh config get git_protocol --host "$HEAD_REPO_HOST") in
+       ssh) HEAD_REPO_URL=$(gh repo view "$HEAD_REPO" --json sshUrl -q .sshUrl) ;;
+       https) HEAD_REPO_URL="$HEAD_REPO_HTTPS_URL" ;;
+       *) echo "Error: unsupported git protocol for $HEAD_REPO_HOST" >&2; exit 1 ;;
+     esac
    else
      BASE_REF="$DEFAULT_BRANCH"
+     [ -z "$AGENT_TOOL_REVIEW_BASE_REF" ] || [ "$BASE_REF" = "$AGENT_TOOL_REVIEW_BASE_REF" ] || { echo "Error: default branch changed from pinned branch $AGENT_TOOL_REVIEW_BASE_REF to $BASE_REF" >&2; exit 1; }
    fi
-   git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+   LIVE_BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$BASE_REPO_URL" ] && [ -n "$LIVE_BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   [ -z "$AGENT_TOOL_REVIEW_BASE_OID" ] || [ "$LIVE_BASE_OID" = "$AGENT_TOOL_REVIEW_BASE_OID" ] || { echo "Error: $BASE_REF advanced from pinned commit $AGENT_TOOL_REVIEW_BASE_OID to $LIVE_BASE_OID" >&2; exit 1; }
+   BASE_OID=${AGENT_TOOL_REVIEW_BASE_OID:-$LIVE_BASE_OID}
+   git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
+   git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }
    ```
 
    **When a PR is open**, confirm the local head is already the pushed head
@@ -116,16 +167,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    masking the very mismatch that check exists to catch:
 
    ```bash
-   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
+   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
    ```
 
-   Then **merge** the fetched base in — merge `FETCH_HEAD`, which the fetch always
-   sets, rather than `origin/$BASE_REF`, which a narrow or single-branch clone may
-   not update:
+   Then **merge** the exact fetched OID rather than shared `FETCH_HEAD` or
+   `origin/$BASE_REF`; either can be changed independently of this review:
 
    ```bash
    PRE_SYNC_HEAD=$(git rev-parse HEAD)
-   git merge --no-edit FETCH_HEAD || {
+   git merge --no-edit "$BASE_OID" || {
      git merge --abort
      echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
      exit 1
@@ -148,7 +198,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    ```bash
    if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
-     git push origin "$BRANCH"
+     git push "$HEAD_REPO_URL" "HEAD:refs/heads/$HEAD_REF"
    fi
    ```
 
@@ -174,15 +224,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **For Codex review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
-   bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
    **For Claude Code review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
-   bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **Fallback behavior (required):**
@@ -193,7 +243,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      self-review:
 
      ```bash
-     bun "$AGENT_TOOL" solicitClaudeCodeReview
+     AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview
      ```
 
    - If the Claude Code review also fails (or was selected first and fails due
@@ -225,7 +275,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    ```bash
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either changed, something landed underneath the review. Discard the stale
@@ -240,18 +290,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
    review file-by-file:
 
-   a. Resolve and **fetch** the base ref, then diff against the fetched SHA so the
-      file list is the branch's own work even when the local base ref is stale —
-      the PR's base with a PR, the default branch without one:
+   a. Use the exact base snapshot resolved and fetched in step 2, so the file
+      list is the branch's own work even when a local remote-tracking ref is
+      stale — the PR's base with a PR, the default branch without one:
 
       ```bash
-      if [ -n "$PR_NUMBER" ]; then
-        BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
-      else
-        BASE_REF="$DEFAULT_BRANCH"
-      fi
-      git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
-      BASE=$(git rev-parse FETCH_HEAD)
+      BASE="$BASE_OID"
+      git cat-file -e "$BASE^{commit}" || { echo "Error: fetched base $BASE is unavailable" >&2; exit 1; }
       git diff --name-only "$BASE"...HEAD
       ```
 
@@ -356,13 +401,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the base branch and HEAD — the PR's base
   when a PR is open, the repository's default branch when there is none yet.
-- **Each round merges the current base into the branch first**, so a branch cut
-  from an older base is reviewed as it will actually merge — a signature change
-  or a moved dependency that landed on the base surfaces during the review and
-  the pre-push checks, not after the merge. The merge (never a rebase, so no
-  force push) is local when there is no PR and pushed when there is; a conflict
-  aborts and stops for the user. `--repair-rounds 0` skips it, keeping
-  report-only inert.
+- **Each round merges the current base snapshot into the branch first**, so a
+  branch cut from an older base is reviewed as it will actually merge — a
+  signature change or a moved dependency that landed on the base surfaces
+  during the review and the pre-push checks, not after the merge. The merge
+  (never a rebase, so no force push) is local when there is no PR and pushed
+  when there is. The snapshot is fetched by OID from the repository that owns
+  the PR, using `gh`'s configured Git protocol rather than assuming `origin` is
+  that repository; a conflict aborts and stops for the user.
+  `--repair-rounds 0` skips it, keeping report-only inert.
 - Both reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and

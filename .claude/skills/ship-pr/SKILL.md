@@ -55,7 +55,7 @@ actually contains the merge commit; the final checkout reset belongs to `reset`.
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and `jq` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The worktree contains only changes intended for this PR. A PR may already be
@@ -72,6 +72,8 @@ the single push. Each wrapped skill re-checks its own preconditions.
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+CHECKOUT_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO="$CHECKOUT_REPO"
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
@@ -90,9 +92,27 @@ loop, subject-only squash, and `MERGED`-state verification.
    case, nothing is pushed and no PR exists — so the review reads local commits
    and the branch is pushed exactly once, when the PR is opened.
 
-   First look up whether an open PR already exists for the branch
-   (`gh pr list --head "$BRANCH" --state open`); one may remain from a prior gated
-   run. Then take the matching case:
+   First look up whether an open PR already exists for the branch. Prefer
+   `gh pr view --json number,state,url` without `-R`, which follows the current
+   branch to an upstream PR from a fork; derive `REPO` from that PR URL. Fall
+   back to `gh pr list --head "$BRANCH" --state open -R "$CHECKOUT_REPO"` only
+   when the current branch has no PR. One may remain from a prior gated run.
+   Then take the matching case:
+
+   ```bash
+   if CURRENT_PR_JSON=$(gh pr view --json number,state,url 2>&1); then
+     case $(printf '%s' "$CURRENT_PR_JSON" | jq -r '.state') in
+       OPEN) ;;
+       CLOSED|MERGED) CURRENT_PR_JSON="" ;;
+       *) echo "Error: current branch PR has an invalid state" >&2; exit 1 ;;
+     esac
+   else
+     case "$CURRENT_PR_JSON" in
+       no\ pull\ requests\ found\ for\ branch*) CURRENT_PR_JSON="" ;;
+       *) printf 'Error: could not resolve the current branch PR:\n%s\n' "$CURRENT_PR_JSON" >&2; exit 1 ;;
+     esac
+   fi
+   ```
 
    - **A PR is already open for the branch** (a prior gated run resuming after
      fixes): do not prepare a new branch or open another PR. Confirm it targets
@@ -125,8 +145,33 @@ loop, subject-only squash, and `MERGED`-state verification.
    empty it reviews the local commits against the default branch; with the
    resumed PR open it reviews the pushed head.
 
-2. **Review and repair** — invoke `cross-agent-review`, forwarding the
-   review-agent argument, and `--passes <n>` / `--repair-rounds <n>` when given.
+   Capture the branch identity that this review is about. A later target change
+   requires a new review; never adopt a newly observed PR base as though the
+   existing review covered it:
+
+   ```bash
+   if [ -n "$PR_NUMBER" ]; then
+     REVIEW_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   else
+     REVIEW_BASE_REF="$DEFAULT_BRANCH"
+   fi
+   [ -n "$REVIEW_BASE_REF" ] || { echo "Error: review base branch is unavailable" >&2; exit 1; }
+   REVIEW_BASE_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   REVIEW_BASE_HOST=${REVIEW_BASE_HTTPS_URL#*://}
+   REVIEW_BASE_HOST=${REVIEW_BASE_HOST%%/*}
+   case $(gh config get git_protocol --host "$REVIEW_BASE_HOST") in
+     ssh) REVIEW_BASE_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) REVIEW_BASE_URL="$REVIEW_BASE_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $REVIEW_BASE_HOST" >&2; exit 1 ;;
+   esac
+   REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$REVIEW_BASE_OID" ] || { echo "Error: review base commit is unavailable" >&2; exit 1; }
+   ```
+
+2. **Review and repair** — invoke `cross-agent-review` with
+   `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
+   `AGENT_TOOL_REVIEW_BASE_OID="$REVIEW_BASE_OID"`, forwarding the review-agent
+   argument and `--passes <n>` / `--repair-rounds <n>` when given.
 
    That skill owns the review, the severity gate, and the bounded repair loop:
    for each candidate head it first brings the branch up to date with its base
@@ -148,12 +193,25 @@ loop, subject-only squash, and `MERGED`-state verification.
    ```bash
    REVIEWED_SHA=<final reviewed SHA reported by cross-agent-review>
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either differs, a commit landed after the loop finished. Discard the
    result, reconcile safely, and re-run `cross-agent-review` on the new head.
    Never carry a stale SHA into the later steps.
+
+   For an existing PR, also re-read its base after the review and require it to
+   match `REVIEW_BASE_REF`. A mismatch means the review may have used another
+   target: discard the result, capture the new base, and re-run step 2.
+
+   ```bash
+   if [ -n "$PR_NUMBER" ]; then
+     CURRENT_REVIEW_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     [ "$CURRENT_REVIEW_BASE_REF" = "$REVIEW_BASE_REF" ] || { echo "Error: PR base changed during review; re-review required" >&2; exit 1; }
+   fi
+   CURRENT_REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ "$CURRENT_REVIEW_BASE_OID" = "$REVIEW_BASE_OID" ] || { echo "Error: base advanced during review; update and re-review required" >&2; exit 1; }
+   ```
 
    **Merge gate** — decide on the reported verdict:
    - **Clean, or non-blocking nits only** — carry that exact `REVIEWED_SHA`
@@ -165,7 +223,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    - **Review could not run** (every agent and fallback failed) — **stop** rather
      than merge unreviewed, unless `--merge-anyway` was given. In that override
      the reported SHA is the **unreviewed candidate** head; the head checks above
-     and the `--match-head-commit` bind still apply to it, so the merge is still
+     and the GraphQL `expectedHeadOid` bind still apply to it, so the merge is still
      pinned to a known commit — it simply is not a reviewed one. Say so.
 
    When `--merge-anyway` is set and the gate would otherwise stop, surface the
@@ -184,17 +242,27 @@ loop, subject-only squash, and `MERGED`-state verification.
      pushes the branch
      **once** — the only push of the flow, and the one that goes through the
      pre-push hook — and opens the PR. Capture its number and URL, and set
-     `PR_NUMBER`. Stop if creation fails.
+     `PR_NUMBER`. Derive `REPO` from the returned PR URL before any base or rules
+     lookup. Stop if creation fails.
    - **A PR is already open** (the resume path from step 1): it is already pushed
      with the reviewed repairs; do **not** call `open-pr`. Reuse its number, URL,
      and title.
+
+   On either path, bind later lookups to the repository that owns the PR:
+
+   ```bash
+   REPO=$(printf '%s' "$PR_URL" | jq -Rr 'split("/") | .[-4] + "/" + .[-3]')
+   [ -n "$REPO" ] || { echo "Error: could not resolve the PR base repository" >&2; exit 1; }
+   PR_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   [ "$PR_BASE_REF" = "$REVIEW_BASE_REF" ] || { echo "Error: PR base changed from reviewed branch $REVIEW_BASE_REF to $PR_BASE_REF; re-review required" >&2; exit 1; }
+   ```
 
    Then confirm the pushed PR head is exactly the reviewed head, so step 4 binds
    the merge to a commit a review actually read:
 
    ```bash
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either differs — `open-pr` committed a stray change, or the head moved —
@@ -207,8 +275,21 @@ loop, subject-only squash, and `MERGED`-state verification.
    head moved, do **not** re-review. Verify and re-pin:
 
    ```bash
+   COAUTHOR_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   COAUTHOR_BASE_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HTTPS_URL#*://}
+   COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HOST%%/*}
+   case $(gh config get git_protocol --host "$COAUTHOR_BASE_HOST") in
+     ssh) COAUTHOR_BASE_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) COAUTHOR_BASE_URL="$COAUTHOR_BASE_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $COAUTHOR_BASE_HOST" >&2; exit 1 ;;
+   esac
+   COAUTHOR_BASE_OID=$(git ls-remote "$COAUTHOR_BASE_URL" "refs/heads/$COAUTHOR_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$COAUTHOR_BASE_OID" ] || { echo "Error: could not resolve live PR base $COAUTHOR_BASE_REF" >&2; exit 1; }
+   git fetch "$COAUTHOR_BASE_URL" "$COAUTHOR_BASE_OID" || { echo "Error: could not fetch PR base $COAUTHOR_BASE_OID" >&2; exit 1; }
+   git cat-file -e "$COAUTHOR_BASE_OID^{commit}"
    test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
-   test "$(git merge-base "$REVIEWED_SHA" "origin/$DEFAULT_BRANCH")" = "$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
+   test "$(git merge-base "$REVIEWED_SHA" "$COAUTHOR_BASE_OID")" = "$(git merge-base HEAD "$COAUTHOR_BASE_OID")"
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 
@@ -216,12 +297,95 @@ loop, subject-only squash, and `MERGED`-state verification.
    no review read even with equal trees. The message diff must remove only
    `Co-authored-by` lines; anything else keeps the rule above.
 
+   **Refresh the base immediately before merging.** The base may advance while
+   the review or the pre-push hook is running. A head that was current when it
+   was reviewed can therefore become `BEHIND` before step 4. Set
+   `BASE_REFRESH_ROUND=0` and allow at most two base-refresh rounds for the whole
+   ship run.
+
+   This retry is safe only when GitHub atomically requires the head to contain
+   the latest base before merging **and the authenticated actor cannot bypass
+   that requirement**. Resolve the effective repository rules for the PR base,
+   then require an active strict-status ruleset whose detail reports
+   `current_user_can_bypass: never`. If the rules or ruleset detail cannot be
+   read, stop with the PR open rather than relying on a racy client-side check:
+
+   ```bash
+   BASE_REF="$REVIEW_BASE_REF"
+   while :; do
+     CURRENT_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     [ "$CURRENT_BASE_REF" = "$BASE_REF" ] || { echo "Error: PR base changed from reviewed branch $BASE_REF to $CURRENT_BASE_REF; re-review required" >&2; exit 1; }
+     BASE_REF_PATH=$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')
+     STRICT_RULESET_IDS=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and ((.parameters.required_status_checks // []) | length > 0)) | .ruleset_id] | unique | .[]') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
+     [ -n "$STRICT_RULESET_IDS" ] || { echo "Error: $REPO:$BASE_REF has no strict status-check ruleset" >&2; exit 1; }
+     NON_BYPASS_STRICT=false
+     for RULESET_ID in $STRICT_RULESET_IDS; do
+       RULESET_ENFORCES=$(gh api "repos/$REPO/rulesets/$RULESET_ID" --jq '(.enforcement == "active") and (.current_user_can_bypass == "never") and ([.rules[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and ((.parameters.required_status_checks // []) | length > 0))] | length > 0)') || { echo "Error: could not verify ruleset $RULESET_ID" >&2; exit 1; }
+       [ "$RULESET_ENFORCES" != "true" ] || NON_BYPASS_STRICT=true
+     done
+     [ "$NON_BYPASS_STRICT" = "true" ] || { echo "Error: the authenticated actor can bypass strict base freshness for $REPO:$BASE_REF" >&2; exit 1; }
+     gh pr checks "$PR_NUMBER" --required --watch --fail-fast -R "$REPO" || { echo "Error: required checks did not pass for PR #$PR_NUMBER" >&2; exit 1; }
+     CURRENT_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     [ "$CURRENT_BASE_REF" = "$BASE_REF" ] || { echo "Error: PR base changed from reviewed branch $BASE_REF to $CURRENT_BASE_REF; re-review required" >&2; exit 1; }
+     break
+   done
+   ```
+
+   Waiting for required checks readies the synchronous merge mutation; that
+   mutation never falls back to a latent automatic merge. A non-bypassable
+   server-side rule then closes the fetch-to-merge race: if the base advances
+   after the check below, GitHub rejects the stale merge and the retry path can
+   refresh and re-review it. Before every merge attempt, resolve and fetch the
+   exact current base OID from the repository that owns the PR rather than
+   assuming the local `origin` is that repository:
+
+   ```bash
+   BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
+   BASE_REPO_HOST=${BASE_REPO_HOST%%/*}
+   case $(gh config get git_protocol --host "$BASE_REPO_HOST") in
+     ssh) BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
+   esac
+   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
+   git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }
+   [ "$BASE_OID" = "$REVIEW_BASE_OID" ] &&
+     git merge-base --is-ancestor "$BASE_OID" "$REVIEWED_SHA"
+   ```
+
+   Only exact OID equality proves this is the base the review used; ancestry is
+   also checked to prove the reviewed head contains it. A different OID requires
+   another review whether the base advanced or was force-rewound. When either
+   check fails, do not merge the base here and do not push an unreviewed commit.
+   If `--repair-rounds 0` was given, stop with the PR open: report-only review
+   intentionally skips base synchronization, so it cannot produce a current
+   reviewed head. Otherwise, increment
+   `BASE_REFRESH_ROUND`, set `REVIEW_BASE_OID="$BASE_OID"`, and invoke
+   `cross-agent-review` again with
+   `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
+   `AGENT_TOOL_REVIEW_BASE_OID="$REVIEW_BASE_OID"`, plus the same agent, pass,
+   and repair-round arguments. With the PR now open, that skill owns merging
+   this freshly pinned base, pushing the updated head without force, and
+   reviewing the integrated result. Apply the same verdict gate as step 2,
+   replace `REVIEWED_SHA` with the SHA it reports, verify it against local
+   `HEAD` and the PR head, then repeat this freshness check. Stop with the PR
+   open if a third refresh would be required.
+
+   A base refresh is not a repair round: it responds to external base movement,
+   while repair rounds address reviewer findings. It still requires a complete
+   re-review because merging the base changes the candidate head and can change
+   the PR diff.
+
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
-   argument** so the merge runs with `--match-head-commit` and GitHub
-   **atomically** refuses to merge anything but the reviewed commit. This closes
-   the window between the gate decision and the merge — the guard is enforced by
-   GitHub at merge time, not by a racy preflight check.
+   argument** and `BASE_REF` as its **third (expected-base) argument**. The tool
+   re-queries the PR immediately before its direct mutation and refuses an
+   observed retarget; `expectedHeadOid` makes GitHub **atomically** refuse to
+   merge anything but the reviewed commit. The strict status rule separately
+   prevents a stale head from merging after the target branch advances.
 
    That skill also owns the post-merge cleanup: once GitHub confirms `MERGED`, it
    returns to the PR's base branch, fast-forwards it, verifies it contains the
@@ -241,17 +405,28 @@ loop, subject-only squash, and `MERGED`-state verification.
    same arguments this flow forwards:
 
    ```text
-   squash-merge '' "$REVIEWED_SHA"            # subject defaults to the PR title
-   squash-merge '' "$REVIEWED_SHA" --keep-branch   # only when the caller gave it
+   squash-merge '' "$REVIEWED_SHA" "$BASE_REF"
+   squash-merge '' "$REVIEWED_SHA" "$BASE_REF" --keep-branch
    ```
+
+   The first form defaults the subject to the PR title; use the second only when
+   the caller gave `--keep-branch`.
 
    The empty subject falls back to the PR title captured when the PR was opened
    or resumed (step 3, or step 1 on the resume path), to which the tool appends
    the `(#<pr>)` reference; it validates the subject with commitlint and
-   confirms the PR reached `MERGED` before returning. A non-zero result means
-   the PR did not actually merge (queued, blocked, or the head moved off
-   `REVIEWED_SHA`) — do not report success in that case; re-review the new head
-   instead.
+   refuses PRs that already have a queued or automatic merge, and confirms the
+   PR reached `MERGED` before returning. A non-zero result means the PR did not
+   actually merge (blocked, or the head moved off `REVIEWED_SHA`) — do not
+   report success in that case. The direct mutation never leaves a latent merge
+   queued for a later, unreviewed base.
+
+   The only retryable merge failure is an open PR whose merge state is
+   `BEHIND`: the base advanced after the final freshness fetch. Return to step
+   3's base-refresh gate, which synchronizes and re-reviews before producing a
+   new `REVIEWED_SHA`, subject to its two-round bound. For any other non-zero
+   result, stop with the PR and checkout intact. Never retry the merge with the
+   stale SHA, bypass the review, or run cleanup after a failed merge.
 
 5. **Reset the checkout** — invoke the `reset` skill with no arguments, but only
    when the merge landed and `--keep-branch` was **not** given. It puts the
@@ -295,6 +470,18 @@ loop, subject-only squash, and `MERGED`-state verification.
   already-open PR and pushes repairs, and now the base merge, to it, as before.)
 - **The review gates the merge** — this flow never silently merges over a verdict
   that reports unresolved blocking findings, and never merges an unreviewed head.
+- **The base-current gate closes the long-check race** — after the PR is pushed,
+  the flow resolves and fetches the exact base snapshot from the PR repository
+  immediately before merging. If the base advanced during review or pre-push
+  checks, `cross-agent-review` integrates it, pushes, and reviews the new head
+  before the SHA-bound merge is retried. GitHub's effective rules must enforce
+  strict base freshness, which atomically rejects any later race. Two refresh
+  rounds bound externally induced retries; exhaustion leaves the PR open.
+- **Base-ref validation is fail-fast, not an atomic API precondition.** GitHub's
+  synchronous merge API exposes `expectedHeadOid` but no corresponding expected
+  base-ref input. This flow preserves the base identity used for review and
+  checks it repeatedly, including immediately before the merge request, but the
+  authenticated actor must not retarget the PR concurrently with that request.
 - **Repair belongs to `cross-agent-review`** — including the severity vocabulary
   (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review
   of every changed head. This skill only reads the verdict it reports and
@@ -303,7 +490,7 @@ loop, subject-only squash, and `MERGED`-state verification.
 - **The merged head is the reviewed head** — `cross-agent-review` reports a SHA
   it actually reviewed; this skill re-verifies it against the local head (and
   against the pushed head once the PR is open) and passes it to `squash-merge`,
-  which binds the merge with `--match-head-commit`. GitHub then rejects the
+  which binds the merge with GraphQL `expectedHeadOid`. GitHub then rejects the
   merge outright if any commit landed after the review, so an unreviewed commit
   can never be merged. (A message-only co-author strip keeps it: step 3 checks
   tree and merge-base identity, then re-pins `REVIEWED_SHA`.) The lone exception

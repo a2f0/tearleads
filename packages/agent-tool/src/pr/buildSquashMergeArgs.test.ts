@@ -1,39 +1,81 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildSquashMergeArgs } from "./squashMerge";
+import {
+  buildSquashMergeArgs,
+  parsePullRequestMergeTarget,
+} from "./squashMerge";
 
-const pr = { prNumber: "1537", repo: "a2f0/symcrypt" };
+const target = {
+  baseRefName: "main",
+  headOid: "def456",
+  id: "PR_node_id",
+};
 
 describe("buildSquashMergeArgs", () => {
   test("builds a subject-only squash with an empty body", () => {
-    expect(buildSquashMergeArgs(pr, "feat(app): add widget (#1537)")).toEqual([
-      "pr",
-      "merge",
-      "1537",
-      "--squash",
-      "--subject",
-      "feat(app): add widget (#1537)",
-      "--body",
-      "",
-      "-R",
-      "a2f0/symcrypt",
-    ]);
+    const args = buildSquashMergeArgs(target, "feat(app): add widget (#1537)");
+    expect(args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
+    expect(args).toContain("pullRequestId=PR_node_id");
+    expect(args).toContain("commitHeadline=feat(app): add widget (#1537)");
+    expect(args).toContain("commitBody=");
+    expect(args).toContain("expectedHeadOid=def456");
+    expect(args).toContain("mergeMethod=SQUASH");
   });
 
-  test("omits --match-head-commit when no head SHA is given", () => {
-    const args = buildSquashMergeArgs(pr, "feat: x (#1537)");
-    expect(args).not.toContain("--match-head-commit");
+  test("binds the mutation to an explicitly reviewed head SHA", () => {
+    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "abc123");
+    expect(args).toContain("expectedHeadOid=abc123");
   });
 
-  test("binds the merge to the head SHA when provided", () => {
-    const args = buildSquashMergeArgs(pr, "feat: x (#1537)", "abc123");
-    const flagIndex = args.indexOf("--match-head-commit");
-    expect(flagIndex).toBeGreaterThan(-1);
-    expect(args[flagIndex + 1]).toBe("abc123");
+  test("uses the current head SHA when no reviewed SHA is provided", () => {
+    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "");
+    expect(args).toContain("expectedHeadOid=def456");
+  });
+});
+
+describe("parsePullRequestMergeTarget", () => {
+  const response = (overrides: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      data: {
+        repository: {
+          pullRequest: {
+            autoMergeRequest: null,
+            baseRefName: "main",
+            headRefOid: "abc123",
+            id: "PR_node_id",
+            isInMergeQueue: false,
+            state: "OPEN",
+            ...overrides,
+          },
+        },
+      },
+    });
+
+  test("accepts an open synchronous merge target", () => {
+    expect(parsePullRequestMergeTarget(response())).toEqual({
+      baseRefName: "main",
+      headOid: "abc123",
+      id: "PR_node_id",
+    });
   });
 
-  test("treats an empty head SHA as absent", () => {
-    const args = buildSquashMergeArgs(pr, "feat: x (#1537)", "");
-    expect(args).not.toContain("--match-head-commit");
+  test("rejects a queued merge", () => {
+    expect(() =>
+      parsePullRequestMergeTarget(response({ isInMergeQueue: true })),
+    ).toThrow("queued or automatic merge");
+  });
+
+  test("rejects an automatic merge", () => {
+    expect(() =>
+      parsePullRequestMergeTarget(
+        response({ autoMergeRequest: { enabledAt: "2026-08-27T00:00:00Z" } }),
+      ),
+    ).toThrow("queued or automatic merge");
+  });
+
+  test("rejects a PR retargeted after merge validation", () => {
+    expect(() => parsePullRequestMergeTarget(response(), "release")).toThrow(
+      "base changed from 'release' to 'main'",
+    );
   });
 });

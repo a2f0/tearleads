@@ -29,6 +29,16 @@ Both actions:
    one is retried once (the observed failure mode is stochastic), then reported
    as a nonzero exit.
 
+The coordinating review skill pins its already-fetched base snapshot through
+`AGENT_TOOL_REVIEW_BASE_OID`. Direct callers may set the same variable to a full
+locally available Git OID; malformed or unavailable values fail before a
+reviewer is launched. This prevents a later fetch or a fork's `origin` from
+changing which base the review reads.
+
+Without a pinned OID, the tool fetches the live base branch from the repository
+that owns the PR. It does not treat the PR's reported base OID as the branch tip:
+for a behind PR, that value can remain the older snapshot the PR is based on.
+
 The diff forces every path to text and disables text conversion and external
 diff drivers, so branch-controlled attributes cannot hide content or execute a
 driver. The snapshot is materialized directly from the raw blobs in the pinned
@@ -98,13 +108,19 @@ auto-generated body or extended message.
 bun packages/agent-tool/src/index.ts squashMerge "feat(app): add widget"
 # Or omit to default to the PR title:
 bun packages/agent-tool/src/index.ts squashMerge
+# Or bind a ship-pr merge to its reviewed head and validated base branch:
+bun packages/agent-tool/src/index.ts squashMerge "feat(app): add widget" "$REVIEWED_SHA" "$BASE_REF"
 ```
 
 The subject is validated against the repository's own commitlint setup (the same
 `@commitlint/cli` binary and `commitlint.config.mts` the commit-msg hook uses),
 so conventional-commit syntax and the 50-char header limit are enforced
-identically. On success it runs `gh pr merge --squash --subject <subject>
---body ""`. Backs the `squash-merge` skill.
+identically. On success it submits a synchronous subject-only GraphQL squash
+mutation. An optional reviewed head SHA is enforced by GitHub's
+`expectedHeadOid`; when an expected base ref is supplied, the tool re-queries
+the PR immediately before the mutation and refuses an observed retarget. GitHub
+does not expose an atomic expected-base input, so callers must not concurrently
+retarget the PR during that final request. Backs the `squash-merge` skill.
 
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —

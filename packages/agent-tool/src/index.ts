@@ -16,11 +16,12 @@
  *   effort levels: low | medium | high | xhigh | max
  *   openPr [title]              Open a PR for the current branch with a
  *                               commitlint-valid title (body from stdin)
- *   squashMerge [subject] [sha] Squash-merge the current PR with a subject-only
+ *   squashMerge [subject] [sha] [base-ref]
+ *                               Squash-merge the current PR with a subject-only
  *                               commit (defaults to the PR title), appending the
  *                               `(#<pr>)` reference to the subject. Optional
- *                               [sha] binds the merge to that head commit via
- *                               `--match-head-commit`.
+ *                               [sha] binds the merge to the reviewed head;
+ *                               [base-ref] rejects a retargeted PR before it.
  */
 import { execFileSync } from "node:child_process";
 
@@ -51,7 +52,12 @@ function main(): number {
     case "openPr":
       return openPr(rootDir, process.argv[3]);
     case "squashMerge":
-      return squashMerge(rootDir, process.argv[3], process.argv[4]);
+      return squashMerge(
+        rootDir,
+        process.argv[3],
+        process.argv[4],
+        process.argv[5],
+      );
     default:
       process.stderr.write(`Unknown action: ${action ?? "(none)"}\n${USAGE}`);
       return 1;

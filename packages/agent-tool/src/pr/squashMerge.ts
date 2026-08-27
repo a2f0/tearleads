@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { prState, resolvePr, spawnExitCode } from "../git/prContext";
+import { prState, resolvePr, run, spawnExitCode } from "../git/prContext";
 import { appendPrNumberSuffix, stripPrNumberSuffix } from "./prNumberSuffix";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
@@ -17,35 +17,143 @@ export function resolveSubject(
   return singleLineSubject(subjectArg, prTitle, "squash subject");
 }
 
+const PULL_REQUEST_MERGE_TARGET_QUERY = `
+  query($owner: String!, $name: String!, $number: Int!) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        autoMergeRequest { enabledAt }
+        baseRefName
+        headRefOid
+        id
+        isInMergeQueue
+        state
+      }
+    }
+  }
+`;
+
+const MERGE_PULL_REQUEST_MUTATION = `
+  mutation(
+    $pullRequestId: ID!
+    $commitHeadline: String!
+    $commitBody: String!
+    $expectedHeadOid: GitObjectID!
+    $mergeMethod: PullRequestMergeMethod!
+  ) {
+    mergePullRequest(input: {
+      pullRequestId: $pullRequestId
+      commitHeadline: $commitHeadline
+      commitBody: $commitBody
+      expectedHeadOid: $expectedHeadOid
+      mergeMethod: $mergeMethod
+    }) {
+      pullRequest { state }
+    }
+  }
+`;
+
+interface PullRequestMergeTarget {
+  readonly baseRefName: string;
+  readonly headOid: string;
+  readonly id: string;
+}
+
+function recordField(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null
+    ? Reflect.get(value, key)
+    : undefined;
+}
+
+/** Parse the current target and reject unsafe asynchronous merge state. */
+export function parsePullRequestMergeTarget(
+  source: string,
+  expectedBaseRef?: string,
+): PullRequestMergeTarget {
+  const parsed: unknown = JSON.parse(source);
+  const data = recordField(parsed, "data");
+  const repository = recordField(data, "repository");
+  const pullRequest = recordField(repository, "pullRequest");
+  const baseRefName = recordField(pullRequest, "baseRefName");
+  const id = recordField(pullRequest, "id");
+  const headOid = recordField(pullRequest, "headRefOid");
+  const state = recordField(pullRequest, "state");
+  if (
+    state !== "OPEN" ||
+    typeof baseRefName !== "string" ||
+    typeof id !== "string" ||
+    typeof headOid !== "string"
+  ) {
+    throw new Error("Could not resolve an open pull request merge target.");
+  }
+  if (
+    recordField(pullRequest, "isInMergeQueue") === true ||
+    recordField(pullRequest, "autoMergeRequest") !== null
+  ) {
+    throw new Error(
+      "Pull request already has a queued or automatic merge; cancel it before running squashMerge.",
+    );
+  }
+  if (expectedBaseRef !== undefined && baseRefName !== expectedBaseRef) {
+    throw new Error(
+      `Pull request base changed from '${expectedBaseRef}' to '${baseRefName}'; revalidate and re-review before merging.`,
+    );
+  }
+  return { baseRefName, headOid, id };
+}
+
+function resolvePullRequestMergeTarget(
+  pr: {
+    prNumber: string;
+    repo: string;
+  },
+  expectedBaseRef?: string,
+): PullRequestMergeTarget {
+  const repoParts = pr.repo.split("/");
+  if (repoParts.length !== 2 || repoParts.some((part) => part.length === 0)) {
+    throw new Error(`Invalid repository slug '${pr.repo}'.`);
+  }
+  const [owner, name] = repoParts;
+  const source = run("gh", [
+    "api",
+    "graphql",
+    "-f",
+    `query=${PULL_REQUEST_MERGE_TARGET_QUERY}`,
+    "-F",
+    `owner=${owner}`,
+    "-F",
+    `name=${name}`,
+    "-F",
+    `number=${pr.prNumber}`,
+  ]);
+  return parsePullRequestMergeTarget(source, expectedBaseRef);
+}
+
 /**
- * Build the `gh pr merge` argv for a subject-only squash. When
- * `expectedHeadSha` is provided, `--match-head-commit` makes GitHub reject the
- * merge unless the PR head is exactly that commit — closing the window where a
- * commit pushed after a review could be merged unreviewed (used by `ship-pr`).
+ * Build a direct GraphQL merge mutation for a subject-only squash. Unlike
+ * `gh pr merge`, this cannot silently enable auto-merge or enqueue the PR.
  */
 export function buildSquashMergeArgs(
-  pr: { prNumber: string; repo: string },
+  target: PullRequestMergeTarget,
   finalSubject: string,
   expectedHeadSha?: string,
 ): string[] {
-  const args = [
-    "pr",
-    "merge",
-    pr.prNumber,
-    "--squash",
-    "--subject",
-    finalSubject,
+  return [
+    "api",
+    "graphql",
+    "-f",
+    `query=${MERGE_PULL_REQUEST_MUTATION}`,
+    "-f",
+    `pullRequestId=${target.id}`,
+    "-f",
+    `commitHeadline=${finalSubject}`,
     // Empty body keeps the squash commit to the subject line only.
-    "--body",
-    "",
-    "-R",
-    pr.repo,
+    "-f",
+    "commitBody=",
+    "-f",
+    `expectedHeadOid=${expectedHeadSha || target.headOid}`,
+    "-f",
+    "mergeMethod=SQUASH",
   ];
-  if (expectedHeadSha !== undefined && expectedHeadSha.length > 0) {
-    // GitHub atomically refuses the merge if the PR head has moved off this SHA.
-    args.push("--match-head-commit", expectedHeadSha);
-  }
-  return args;
 }
 
 /**
@@ -53,12 +161,15 @@ export function buildSquashMergeArgs(
  * message — no auto-generated body or extended message. The subject defaults to
  * the PR title when one is not supplied, and is validated against the repo's
  * commitlint rules before the merge runs. When `expectedHeadSha` is supplied the
- * merge is bound to that commit via `--match-head-commit`.
+ * merge is bound to that commit through GraphQL's `expectedHeadOid` input. An
+ * expected base ref is checked immediately before the mutation, but GitHub has
+ * no corresponding atomic merge precondition for the target branch.
  */
 export function squashMerge(
   rootDir: string,
   subjectArg: string | undefined,
   expectedHeadSha?: string,
+  expectedBaseRef?: string,
 ): number {
   const pr = resolvePr();
   const subject = resolveSubject(subjectArg, pr.title);
@@ -67,28 +178,28 @@ export function squashMerge(
   // native squash appends `(#<n>)` server-side, past the commit-msg hook, so the
   // repo's existing history carries suffixes over the 50-char header limit. Keep
   // the suffix "free" here too by validating the base, then append it ourselves —
-  // `gh pr merge --subject` otherwise drops GitHub's automatic reference.
+  // a custom GraphQL commit headline otherwise drops GitHub's automatic reference.
   const baseSubject = stripPrNumberSuffix(subject);
   validateCommitSubject(rootDir, baseSubject);
   const finalSubject = appendPrNumberSuffix(baseSubject, pr.prNumber);
+  const mergeTarget = resolvePullRequestMergeTarget(pr, expectedBaseRef);
 
   const result = spawnSync(
     "gh",
-    buildSquashMergeArgs(pr, finalSubject, expectedHeadSha),
+    buildSquashMergeArgs(mergeTarget, finalSubject, expectedHeadSha),
     { stdio: "inherit" },
   );
-  const exitCode = spawnExitCode("gh pr merge", result);
+  const exitCode = spawnExitCode("GitHub mergePullRequest mutation", result);
   if (exitCode !== 0) {
     return exitCode;
   }
 
-  // `gh pr merge` can exit 0 after only queuing the PR (merge queue / auto-merge),
-  // where the queue also picks the method. Confirm the squash actually landed.
+  // Confirm that GitHub committed the direct mutation before cleanup can run.
   const state = prState(pr.prNumber, pr.repo);
   if (state !== "MERGED") {
     process.stderr.write(
       `PR #${pr.prNumber} is not merged (state: ${state || "unknown"}). ` +
-        "It may be queued or blocked; the subject-only squash is not guaranteed.\n",
+        "The synchronous subject-only squash did not land.\n",
     );
     return 1;
   }
