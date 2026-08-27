@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { repoFromPrUrl, viewCurrentBranchPr } from "./currentBranchPr";
 import {
+  assertPinnedReviewBaseRef,
   buildBaseFetchArgs,
   type PrView,
   type ReviewContextDependencies,
@@ -29,6 +30,14 @@ test("base fetch uses a dedicated destination ref", () => {
     "https://github.com/owner/repo",
     "+refs/heads/main:refs/codex/review-base/unique",
   ]);
+});
+
+test("pinned review base rejects a retargeted PR", () => {
+  expect(() => assertPinnedReviewBaseRef("main", "release")).toThrow(
+    "changed from pinned branch 'main' to 'release'",
+  );
+  expect(() => assertPinnedReviewBaseRef("main", "main")).not.toThrow();
+  expect(() => assertPinnedReviewBaseRef(undefined, "release")).not.toThrow();
 });
 
 describe("resolvePinnedReviewBase", () => {
@@ -190,6 +199,7 @@ describe("review base integration", () => {
   ): ReviewContextDependencies {
     return {
       findOpenPrNumber: () => fallbackPrNumber,
+      pinnedBaseRefName: undefined,
       pinnedBaseOid: undefined,
       resolvePinnedReviewBase: () => undefined,
       resolveRepoContext: () => ({
@@ -269,5 +279,20 @@ describe("review base integration", () => {
         }),
       ),
     ).toThrow("Could not fetch live base");
+  });
+
+  test("rejects a PR retargeted after the coordinator pins its base", () => {
+    const upstreamPr: PrView = {
+      branch: "feature",
+      repo: "upstream/repo",
+      prNumber: "42",
+      title: "Fork PR",
+      baseRefName: "release",
+    };
+    const deps = dependencies(upstreamPr, "", () => SHA1_OID);
+
+    expect(() =>
+      resolveReviewContext({ ...deps, pinnedBaseRefName: "main" }),
+    ).toThrow("changed from pinned branch 'main' to 'release'");
   });
 });

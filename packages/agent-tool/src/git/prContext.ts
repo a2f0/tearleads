@@ -328,12 +328,26 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
 
 export interface ReviewContextDependencies {
   readonly findOpenPrNumber: typeof findOpenPrNumber;
+  readonly pinnedBaseRefName: string | undefined;
   readonly pinnedBaseOid: string | undefined;
   readonly resolvePinnedReviewBase: typeof resolvePinnedReviewBase;
   readonly resolveRepoContext: typeof resolveRepoContext;
   readonly selectReviewBaseRef: typeof selectReviewBaseRef;
   readonly viewCurrentBranchPr: typeof viewCurrentBranchPr;
   readonly viewPr: typeof viewPr;
+}
+
+/** Require a coordinator's named review target to match current GitHub state. */
+export function assertPinnedReviewBaseRef(
+  pinnedBaseRefName: string | undefined,
+  actualBaseRefName: string,
+): void {
+  const expected = pinnedBaseRefName?.trim() ?? "";
+  if (expected.length > 0 && expected !== actualBaseRefName) {
+    throw new Error(
+      `Review base changed from pinned branch '${expected}' to '${actualBaseRefName}'.`,
+    );
+  }
 }
 
 /**
@@ -391,9 +405,13 @@ export function resolvePr(): PrIdentity {
 export function resolveReviewContext(
   dependencies?: ReviewContextDependencies,
 ): PrContext {
-  const { AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid } = process.env;
+  const {
+    AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid,
+    AGENT_TOOL_REVIEW_BASE_REF: pinnedBaseRefName,
+  } = process.env;
   const deps = dependencies ?? {
     findOpenPrNumber,
+    pinnedBaseRefName,
     pinnedBaseOid,
     resolvePinnedReviewBase,
     resolveRepoContext,
@@ -417,6 +435,7 @@ export function resolveReviewContext(
         "Could not determine the repository default branch to review against.",
       );
     }
+    assertPinnedReviewBaseRef(deps.pinnedBaseRefName, defaultBranch);
     // No PR yet: review the local branch against the *current* remote default,
     // fetched fresh so a stale local ref cannot pull unrelated upstream commits
     // into the diff.
@@ -437,6 +456,7 @@ export function resolveReviewContext(
   if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
+  assertPinnedReviewBaseRef(deps.pinnedBaseRefName, view.baseRefName);
   return {
     branch,
     repo: view.repo,

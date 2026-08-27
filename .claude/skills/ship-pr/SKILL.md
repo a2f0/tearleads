@@ -352,14 +352,17 @@ loop, subject-only squash, and `MERGED`-state verification.
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
    git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }
-   git merge-base --is-ancestor "$BASE_OID" "$REVIEWED_SHA"
+   [ "$BASE_OID" = "$REVIEW_BASE_OID" ] &&
+     git merge-base --is-ancestor "$BASE_OID" "$REVIEWED_SHA"
    ```
 
-   When the ancestor check succeeds, the reviewed head contains the fetched
-   base and step 4 may proceed. When it fails, do not merge the base here and do
-   not push an unreviewed commit. If `--repair-rounds 0` was given, stop with
-   the PR open: report-only review intentionally skips base synchronization, so
-   it cannot produce a current reviewed head. Otherwise, increment
+   Only exact OID equality proves this is the base the review used; ancestry is
+   also checked to prove the reviewed head contains it. A different OID requires
+   another review whether the base advanced or was force-rewound. When either
+   check fails, do not merge the base here and do not push an unreviewed commit.
+   If `--repair-rounds 0` was given, stop with the PR open: report-only review
+   intentionally skips base synchronization, so it cannot produce a current
+   reviewed head. Otherwise, increment
    `BASE_REFRESH_ROUND`, set `REVIEW_BASE_OID="$BASE_OID"`, and invoke
    `cross-agent-review` again with
    `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
