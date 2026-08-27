@@ -109,17 +109,18 @@ bun packages/agent-tool/src/index.ts squashMerge "feat(app): add widget"
 # Or omit to default to the PR title:
 bun packages/agent-tool/src/index.ts squashMerge
 # Or bind a ship-pr merge to its reviewed head and validated base branch:
-bun packages/agent-tool/src/index.ts squashMerge "feat(app): add widget" "$REVIEWED_SHA" "$BASE_REF"
+bun packages/agent-tool/src/index.ts squashMerge "feat(app): add widget" "$REVIEWED_SHA" "$BASE_REF" "$BASE_OID"
 ```
 
 The subject is validated against the repository's own commitlint setup (the same
 `@commitlint/cli` binary and `commitlint.config.mts` the commit-msg hook uses),
 so conventional-commit syntax and the 50-char header limit are enforced
-identically. On success it submits a synchronous subject-only GraphQL squash
-mutation. An optional reviewed head SHA is enforced by GitHub's
-`expectedHeadOid`; when an expected base ref is supplied, the tool re-queries
-the PR immediately before the mutation and refuses a retargeted PR. Backs the
-`squash-merge` skill.
+identically. The pushed PR head must already be one reviewed, signed squash
+commit directly on the validated live base, with the final `(#<pr>)` subject.
+On success the tool atomically fast-forwards the explicitly named default branch
+to that commit with an exact base-OID lease. GitHub therefore rejects a
+retargeted PR, moved head, or concurrently advanced base instead of redirecting
+the merge. Backs the `squash-merge` skill.
 
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —
@@ -130,11 +131,11 @@ tool directly merges without any of that cleanup.
 
 The `ship-pr` skill commits the work on a feature branch, hands it to
 `cross-agent-review` — which reviews the local commits (or the pushed head when
-a PR is already open), repairs blocking findings in up to two rounds by default,
-and re-reviews every head it changes — then opens or resumes the PR with a
-single push and squash-merges only the reviewed commit that review reports back.
-Opening the PR after the review is what keeps the branch to a single push
-through the pre-push hook. It finishes by handing off to `reset`, which returns
+a PR is already open), repairs blocking findings, and re-reviews every head it
+changes — then opens or resumes the PR. It canonicalizes the PR head to one
+signed squash commit with an exact force-with-lease, reviews that final commit,
+and atomically advances the validated base ref to it. It finishes by handing off
+to `reset`, which returns
 the checkout to the default branch and reinstalls the repo's git hooks, so a
 merged change under `scripts/git/hooks/` takes effect instead of sitting
 uninstalled. It adds no new CLI action; it orchestrates the `open-pr`,

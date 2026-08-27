@@ -1,6 +1,13 @@
 import { spawnSync } from "node:child_process";
 
-import { prState, resolvePr, run, spawnExitCode } from "../git/prContext";
+import {
+  prState,
+  resolveFreshBaseRef,
+  resolvePr,
+  resolveRepositoryGitUrl,
+  run,
+  spawnExitCode,
+} from "../git/prContext";
 import { appendPrNumberSuffix, stripPrNumberSuffix } from "./prNumberSuffix";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
@@ -24,7 +31,6 @@ const PULL_REQUEST_MERGE_TARGET_QUERY = `
         autoMergeRequest { enabledAt }
         baseRefName
         headRefOid
-        id
         isInMergeQueue
         state
       }
@@ -32,36 +38,75 @@ const PULL_REQUEST_MERGE_TARGET_QUERY = `
   }
 `;
 
-const MERGE_PULL_REQUEST_MUTATION = `
-  mutation(
-    $pullRequestId: ID!
-    $commitHeadline: String!
-    $commitBody: String!
-    $expectedHeadOid: GitObjectID!
-    $mergeMethod: PullRequestMergeMethod!
-  ) {
-    mergePullRequest(input: {
-      pullRequestId: $pullRequestId
-      commitHeadline: $commitHeadline
-      commitBody: $commitBody
-      expectedHeadOid: $expectedHeadOid
-      mergeMethod: $mergeMethod
-    }) {
-      pullRequest { state }
-    }
-  }
-`;
-
 interface PullRequestMergeTarget {
   readonly baseRefName: string;
   readonly headOid: string;
-  readonly id: string;
+}
+
+interface AtomicRuleCoverage {
+  readonly squashPullRequest: boolean;
+  readonly strictChecks: boolean;
 }
 
 function recordField(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null
     ? Reflect.get(value, key)
     : undefined;
+}
+
+/** Find the non-bypassable server rules the atomic base update relies on. */
+export function atomicRuleCoverage(sources: string[]): AtomicRuleCoverage {
+  let squashPullRequest = false;
+  let strictChecks = false;
+  for (const source of sources) {
+    const ruleset: unknown = JSON.parse(source);
+    if (
+      recordField(ruleset, "enforcement") !== "active" ||
+      recordField(ruleset, "current_user_can_bypass") !== "never"
+    ) {
+      continue;
+    }
+    const rules = recordField(ruleset, "rules");
+    if (!Array.isArray(rules)) {
+      continue;
+    }
+    for (const rule of rules) {
+      const parameters = recordField(rule, "parameters");
+      if (recordField(rule, "type") === "required_status_checks") {
+        const checks = recordField(parameters, "required_status_checks");
+        strictChecks ||=
+          recordField(parameters, "strict_required_status_checks_policy") ===
+            true &&
+          Array.isArray(checks) &&
+          checks.length > 0;
+      }
+      if (recordField(rule, "type") === "pull_request") {
+        const methods = recordField(parameters, "allowed_merge_methods");
+        squashPullRequest ||=
+          Array.isArray(methods) && methods.includes("squash");
+      }
+    }
+  }
+  return { squashPullRequest, strictChecks };
+}
+
+function assertAtomicBaseRules(repo: string, baseRef: string): void {
+  const rulesetIds = run("gh", [
+    "api",
+    `repos/${repo}/rules/branches/${encodeURIComponent(baseRef)}`,
+    "--jq",
+    "[.[].ruleset_id] | unique | .[]",
+  ])
+    .split(/\s+/u)
+    .filter(Boolean);
+  const coverage = atomicRuleCoverage(
+    rulesetIds.map((id) => run("gh", ["api", `repos/${repo}/rulesets/${id}`])),
+  );
+  if (!coverage.strictChecks || !coverage.squashPullRequest) {
+    throw new Error(
+      `Base '${baseRef}' needs non-bypassable strict checks and a squash pull-request rule.`,
+    );
+  }
 }
 
 /** Parse and reject PRs already configured to merge asynchronously. */
@@ -74,13 +119,11 @@ export function parsePullRequestMergeTarget(
   const repository = recordField(data, "repository");
   const pullRequest = recordField(repository, "pullRequest");
   const baseRefName = recordField(pullRequest, "baseRefName");
-  const id = recordField(pullRequest, "id");
   const headOid = recordField(pullRequest, "headRefOid");
   const state = recordField(pullRequest, "state");
   if (
     state !== "OPEN" ||
     typeof baseRefName !== "string" ||
-    typeof id !== "string" ||
     typeof headOid !== "string"
   ) {
     throw new Error("Could not resolve an open pull request merge target.");
@@ -98,7 +141,7 @@ export function parsePullRequestMergeTarget(
       `Pull request base changed from '${expectedBaseRef}' to '${baseRefName}'; revalidate and re-review before merging.`,
     );
   }
-  return { baseRefName, headOid, id };
+  return { baseRefName, headOid };
 }
 
 function resolvePullRequestMergeTarget(
@@ -129,45 +172,79 @@ function resolvePullRequestMergeTarget(
 }
 
 /**
- * Build a direct GraphQL merge mutation for a subject-only squash. Unlike
- * `gh pr merge`, this cannot silently enable auto-merge or enqueue the PR.
+ * Build an atomic fast-forward of the reviewed squash commit onto the explicit
+ * base ref. The lease binds the update to the base snapshot that was reviewed.
  */
-export function buildSquashMergeArgs(
+export function buildAtomicSquashPushArgs(
+  repositoryUrl: string,
   target: PullRequestMergeTarget,
-  finalSubject: string,
-  expectedHeadSha?: string,
+  expectedBaseOid: string,
 ): string[] {
   return [
-    "api",
-    "graphql",
-    "-f",
-    `query=${MERGE_PULL_REQUEST_MUTATION}`,
-    "-f",
-    `pullRequestId=${target.id}`,
-    "-f",
-    `commitHeadline=${finalSubject}`,
-    // Empty body keeps the squash commit to the subject line only.
-    "-f",
-    "commitBody=",
-    "-f",
-    `expectedHeadOid=${expectedHeadSha || target.headOid}`,
-    "-f",
-    "mergeMethod=SQUASH",
+    "push",
+    `--force-with-lease=refs/heads/${target.baseRefName}:${expectedBaseOid}`,
+    repositoryUrl,
+    `${target.headOid}:refs/heads/${target.baseRefName}`,
   ];
+}
+
+/** Require a single reviewed squash commit directly on the validated base. */
+export function assertAtomicSquashCandidate(
+  target: PullRequestMergeTarget,
+  expectedHeadSha: string,
+  expectedBaseRef: string,
+  expectedBaseOid: string,
+  localHead: string,
+  parentLine: string,
+): void {
+  if (target.headOid !== expectedHeadSha || localHead !== expectedHeadSha) {
+    throw new Error("Local, reviewed, and pull request heads must match.");
+  }
+  if (target.baseRefName !== expectedBaseRef) {
+    throw new Error(
+      `Pull request base changed from '${expectedBaseRef}' to '${target.baseRefName}'; revalidate and re-review before merging.`,
+    );
+  }
+  const parents = parentLine.trim().split(/\s+/u);
+  if (parents.length !== 2 || parents[0] !== expectedHeadSha) {
+    throw new Error("Reviewed head must be one non-merge squash commit.");
+  }
+  if (parents[1] !== expectedBaseOid) {
+    throw new Error(
+      "Reviewed squash commit is not based on the validated base.",
+    );
+  }
+}
+
+/** Keep the base commit message subject-only and tied to this PR. */
+export function assertSquashCommitMessage(
+  committedSubject: string,
+  committedBody: string,
+  expectedSubject: string,
+): void {
+  if (committedSubject !== expectedSubject) {
+    throw new Error(
+      `Reviewed squash subject '${committedSubject}' does not match '${expectedSubject}'.`,
+    );
+  }
+  if (committedBody.trim().length > 0) {
+    throw new Error("Reviewed squash commit must not have a message body.");
+  }
 }
 
 /**
  * Squash-merge the open PR for the current branch with a subject-only commit
- * message — no auto-generated body or extended message. The subject defaults to
- * the PR title when one is not supplied, and is validated against the repo's
- * commitlint rules before the merge runs. When `expectedHeadSha` is supplied the
- * merge is bound to that commit through GraphQL's `expectedHeadOid` input.
+ * message — no auto-generated body or extended message. The reviewed head must
+ * already be that single squash commit directly on the validated base. The
+ * merge atomically pushes it to the explicitly named base with a lease, so a
+ * base advance, head change, or PR retarget cannot redirect stale work.
  */
 export function squashMerge(
   rootDir: string,
   subjectArg: string | undefined,
   expectedHeadSha?: string,
   expectedBaseRef?: string,
+  expectedBaseOid?: string,
 ): number {
   const pr = resolvePr();
   const subject = resolveSubject(subjectArg, pr.title);
@@ -175,29 +252,70 @@ export function squashMerge(
   // Validate the human-authored subject without the PR-number suffix: GitHub's
   // native squash appends `(#<n>)` server-side, past the commit-msg hook, so the
   // repo's existing history carries suffixes over the 50-char header limit. Keep
-  // the suffix "free" here too by validating the base, then append it ourselves —
-  // a custom GraphQL commit headline otherwise drops GitHub's automatic reference.
+  // the suffix "free" here too by validating the base, then require the prepared
+  // squash commit to contain the authoritative PR reference.
   const baseSubject = stripPrNumberSuffix(subject);
   validateCommitSubject(rootDir, baseSubject);
   const finalSubject = appendPrNumberSuffix(baseSubject, pr.prNumber);
   const mergeTarget = resolvePullRequestMergeTarget(pr, expectedBaseRef);
+  const reviewedHead = expectedHeadSha ?? mergeTarget.headOid;
+  const baseRef = expectedBaseRef ?? mergeTarget.baseRefName;
+  const liveBaseOid = resolveFreshBaseRef(pr.repo, baseRef);
+  if (expectedBaseOid !== undefined && liveBaseOid !== expectedBaseOid) {
+    throw new Error(
+      `Base '${baseRef}' advanced from '${expectedBaseOid}' to '${liveBaseOid}'; update and re-review before merging.`,
+    );
+  }
+  const defaultBranch = run("gh", [
+    "repo",
+    "view",
+    pr.repo,
+    "--json",
+    "defaultBranchRef",
+    "--jq",
+    ".defaultBranchRef.name",
+  ]);
+  if (baseRef !== defaultBranch) {
+    throw new Error(
+      `Atomic squash merge requires the repository default branch '${defaultBranch}', not '${baseRef}'.`,
+    );
+  }
+  assertAtomicBaseRules(pr.repo, baseRef);
+  assertAtomicSquashCandidate(
+    mergeTarget,
+    reviewedHead,
+    baseRef,
+    liveBaseOid,
+    run("git", ["rev-parse", "HEAD"]),
+    run("git", ["rev-list", "--parents", "-n", "1", reviewedHead]),
+  );
+  assertSquashCommitMessage(
+    run("git", ["log", "-1", "--format=%s", reviewedHead]),
+    run("git", ["log", "-1", "--format=%b", reviewedHead]),
+    finalSubject,
+  );
 
   const result = spawnSync(
-    "gh",
-    buildSquashMergeArgs(mergeTarget, finalSubject, expectedHeadSha),
+    "git",
+    buildAtomicSquashPushArgs(
+      resolveRepositoryGitUrl(pr.repo),
+      mergeTarget,
+      liveBaseOid,
+    ),
     { stdio: "inherit" },
   );
-  const exitCode = spawnExitCode("GitHub mergePullRequest mutation", result);
+  const exitCode = spawnExitCode("atomic squash push", result);
   if (exitCode !== 0) {
     return exitCode;
   }
 
-  // Confirm that GitHub committed the direct mutation before cleanup can run.
+  // Confirm GitHub recognized the protected fast-forward as this PR's merge
+  // before cleanup can run.
   const state = prState(pr.prNumber, pr.repo);
   if (state !== "MERGED") {
     process.stderr.write(
       `PR #${pr.prNumber} is not merged (state: ${state || "unknown"}). ` +
-        "The synchronous subject-only squash did not land.\n",
+        "The atomic subject-only squash was not recognized as merged.\n",
     );
     return 1;
   }

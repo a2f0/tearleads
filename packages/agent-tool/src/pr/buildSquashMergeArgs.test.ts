@@ -1,35 +1,169 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  buildSquashMergeArgs,
+  assertAtomicSquashCandidate,
+  assertSquashCommitMessage,
+  atomicRuleCoverage,
+  buildAtomicSquashPushArgs,
   parsePullRequestMergeTarget,
 } from "./squashMerge";
 
 const target = {
   baseRefName: "main",
   headOid: "def456",
-  id: "PR_node_id",
 };
 
-describe("buildSquashMergeArgs", () => {
-  test("builds a subject-only squash with an empty body", () => {
-    const args = buildSquashMergeArgs(target, "feat(app): add widget (#1537)");
-    expect(args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
-    expect(args).toContain("pullRequestId=PR_node_id");
-    expect(args).toContain("commitHeadline=feat(app): add widget (#1537)");
-    expect(args).toContain("commitBody=");
-    expect(args).toContain("expectedHeadOid=def456");
-    expect(args).toContain("mergeMethod=SQUASH");
+describe("buildAtomicSquashPushArgs", () => {
+  test("binds an explicit base ref to its reviewed head and base OID", () => {
+    expect(
+      buildAtomicSquashPushArgs(
+        "https://github.com/owner/repo",
+        target,
+        "abc123",
+      ),
+    ).toEqual([
+      "push",
+      "--force-with-lease=refs/heads/main:abc123",
+      "https://github.com/owner/repo",
+      "def456:refs/heads/main",
+    ]);
+  });
+});
+
+describe("assertAtomicSquashCandidate", () => {
+  test("accepts one reviewed squash commit directly on the base", () => {
+    expect(() =>
+      assertAtomicSquashCandidate(
+        target,
+        "def456",
+        "main",
+        "abc123",
+        "def456",
+        "def456 abc123",
+      ),
+    ).not.toThrow();
   });
 
-  test("binds the mutation to an explicitly reviewed head SHA", () => {
-    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "abc123");
-    expect(args).toContain("expectedHeadOid=abc123");
+  test("rejects a moved head, retarget, merge commit, or stale parent", () => {
+    expect(() =>
+      assertAtomicSquashCandidate(
+        target,
+        "moved",
+        "main",
+        "abc123",
+        "def456",
+        "def456 abc123",
+      ),
+    ).toThrow("heads must match");
+    expect(() =>
+      assertAtomicSquashCandidate(
+        target,
+        "def456",
+        "release",
+        "abc123",
+        "def456",
+        "def456 abc123",
+      ),
+    ).toThrow("base changed");
+    expect(() =>
+      assertAtomicSquashCandidate(
+        target,
+        "def456",
+        "main",
+        "abc123",
+        "def456",
+        "def456 abc123 parent2",
+      ),
+    ).toThrow("one non-merge squash commit");
+    expect(() =>
+      assertAtomicSquashCandidate(
+        target,
+        "def456",
+        "main",
+        "abc123",
+        "def456",
+        "def456 stale",
+      ),
+    ).toThrow("not based on the validated base");
+  });
+});
+
+describe("assertSquashCommitMessage", () => {
+  test("accepts only the exact subject with an empty body", () => {
+    expect(() =>
+      assertSquashCommitMessage(
+        "fix(app): resolve issue (#42)",
+        "",
+        "fix(app): resolve issue (#42)",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSquashCommitMessage("fix(app): other (#42)", "", "expected"),
+    ).toThrow("does not match");
+    expect(() =>
+      assertSquashCommitMessage("expected", "details", "expected"),
+    ).toThrow("must not have a message body");
+  });
+});
+
+describe("atomicRuleCoverage", () => {
+  test("requires active non-bypassable strict checks and squash PRs", () => {
+    const protectedRuleset = JSON.stringify({
+      current_user_can_bypass: "never",
+      enforcement: "active",
+      rules: [
+        {
+          parameters: {
+            required_status_checks: [{ context: "ci" }],
+            strict_required_status_checks_policy: true,
+          },
+          type: "required_status_checks",
+        },
+        {
+          parameters: { allowed_merge_methods: ["squash"] },
+          type: "pull_request",
+        },
+      ],
+    });
+    expect(atomicRuleCoverage([protectedRuleset])).toEqual({
+      squashPullRequest: true,
+      strictChecks: true,
+    });
   });
 
-  test("uses the current head SHA when no reviewed SHA is provided", () => {
-    const args = buildSquashMergeArgs(target, "feat: x (#1537)", "");
-    expect(args).toContain("expectedHeadOid=def456");
+  test("ignores bypassable, inactive, loose, and empty rules", () => {
+    const ineffective = (overrides: Record<string, unknown>) =>
+      JSON.stringify({
+        current_user_can_bypass: "always",
+        enforcement: "disabled",
+        rules: [],
+        ...overrides,
+      });
+    expect(
+      atomicRuleCoverage([
+        ineffective({
+          current_user_can_bypass: "never",
+          rules: [
+            {
+              parameters: {
+                required_status_checks: [],
+                strict_required_status_checks_policy: true,
+              },
+              type: "required_status_checks",
+            },
+          ],
+        }),
+        ineffective({
+          enforcement: "active",
+          rules: [
+            {
+              parameters: { allowed_merge_methods: ["squash"] },
+              type: "pull_request",
+            },
+          ],
+        }),
+      ]),
+    ).toEqual({ squashPullRequest: false, strictChecks: false });
   });
 });
 
@@ -42,7 +176,6 @@ describe("parsePullRequestMergeTarget", () => {
             autoMergeRequest: null,
             baseRefName: "main",
             headRefOid: "abc123",
-            id: "PR_node_id",
             isInMergeQueue: false,
             state: "OPEN",
             ...overrides,
@@ -55,7 +188,6 @@ describe("parsePullRequestMergeTarget", () => {
     expect(parsePullRequestMergeTarget(response())).toEqual({
       baseRefName: "main",
       headOid: "abc123",
-      id: "PR_node_id",
     });
   });
 

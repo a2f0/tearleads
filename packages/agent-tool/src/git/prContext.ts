@@ -129,7 +129,7 @@ export function selectRepositoryGitUrl(
   throw new Error(`Unsupported or unavailable git protocol '${protocol}'.`);
 }
 
-function resolveRepositoryGitUrl(repo: string): string {
+export function resolveRepositoryGitUrl(repo: string): string {
   const repoRaw = run("gh", ["repo", "view", repo, "--json", "url,sshUrl"]);
   const httpsUrl = stringField(repoRaw, "url");
   const sshUrl = stringField(repoRaw, "sshUrl");
