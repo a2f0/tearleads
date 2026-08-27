@@ -251,24 +251,30 @@ loop, subject-only squash, and `MERGED`-state verification.
    ship run.
 
    This retry is safe only when GitHub atomically requires the head to contain
-   the latest base before merging. Resolve the effective repository rules for
-   the PR base and require strict status checks; if the rules cannot be read or
-   no strict rule applies, stop with the PR open rather than relying on a racy
-   client-side check:
+   the latest base before merging **and the authenticated actor cannot bypass
+   that requirement**. Resolve the effective repository rules for the PR base,
+   then require an active strict-status ruleset whose detail reports
+   `current_user_can_bypass: never`. If the rules or ruleset detail cannot be
+   read, stop with the PR open rather than relying on a racy client-side check:
 
    ```bash
    BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
    BASE_REF_PATH=$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')
-   RULESET_STRICT=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0' 2>/dev/null) || RULESET_STRICT=false
-   CLASSIC_STRICT=$(gh api "repos/$REPO/branches/$BASE_REF_PATH/protection/required_status_checks" --jq '.strict == true' 2>/dev/null) || CLASSIC_STRICT=false
-   [ "$RULESET_STRICT" = "true" ] || [ "$CLASSIC_STRICT" = "true" ] || { echo "Error: $REPO:$BASE_REF does not require branches to be up to date before merge" >&2; exit 1; }
+   STRICT_RULESET_IDS=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true) | .ruleset_id] | unique | .[]') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
+   [ -n "$STRICT_RULESET_IDS" ] || { echo "Error: $REPO:$BASE_REF has no strict status-check ruleset" >&2; exit 1; }
+   NON_BYPASS_STRICT=false
+   for RULESET_ID in $STRICT_RULESET_IDS; do
+     RULESET_ENFORCES=$(gh api "repos/$REPO/rulesets/$RULESET_ID" --jq '(.enforcement == "active") and (.current_user_can_bypass == "never") and ([.rules[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0)') || { echo "Error: could not verify ruleset $RULESET_ID" >&2; exit 1; }
+     [ "$RULESET_ENFORCES" != "true" ] || NON_BYPASS_STRICT=true
+   done
+   [ "$NON_BYPASS_STRICT" = "true" ] || { echo "Error: the authenticated actor can bypass strict base freshness for $REPO:$BASE_REF" >&2; exit 1; }
    ```
 
-   That server-side rule closes the fetch-to-merge race: if the base advances
-   after the check below, GitHub rejects the stale merge and the retry path can
-   refresh and re-review it. Before every merge attempt, resolve and fetch the
-   exact current base OID from the repository that owns the PR rather than
-   assuming the local `origin` is that repository:
+   A non-bypassable server-side rule closes the fetch-to-merge race: if the base
+   advances after the check below, GitHub rejects the stale merge and the retry
+   path can refresh and re-review it. Before every merge attempt, resolve and
+   fetch the exact current base OID from the repository that owns the PR rather
+   than assuming the local `origin` is that repository:
 
    ```bash
    BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
