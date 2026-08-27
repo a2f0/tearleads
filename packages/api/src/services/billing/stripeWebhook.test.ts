@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
@@ -56,7 +56,7 @@ test("a paid first invoice is associated with RevenueCat", async () => {
   // The customer must exist before v2 attributes accepts a write, and the
   // receipt (v1, Stripe app key) closes the association.
   expect(urls).toEqual([
-    "GET https://api.stripe.com/v1/subscriptions/sub_1",
+    "GET https://api.stripe.com/v1/subscriptions/sub_1?expand[]=customer&expand[]=default_payment_method",
     "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
     "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
     "POST https://api.revenuecat.com/v1/receipts",
@@ -71,6 +71,199 @@ test("a paid first invoice is associated with RevenueCat", async () => {
     subscriptionId: "sub_1",
     subscriptionItemId: "si_1",
   });
+});
+
+test("a new subscription promotes its card email to the Customer", async () => {
+  await createWebhookBillingOrganization();
+  const urls: string[] = [];
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(paidInvoiceEvent({ invoiceId: "in_email", subscription })),
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { body: { id: "cus_1" } }],
+          urls,
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          urls,
+        ),
+      },
+    },
+  );
+
+  expect(outcome.status).toBe("associated");
+  expect(urls).toEqual([
+    "GET https://api.stripe.com/v1/subscriptions/sub_1?expand[]=customer&expand[]=default_payment_method",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
+    "POST https://api.revenuecat.com/v1/receipts",
+    "POST https://api.stripe.com/v1/customers/cus_1",
+  ]);
+});
+
+test("a new subscription without a recovery email is fulfilled and alerted", async () => {
+  await createWebhookBillingOrganization();
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+  };
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await processStripeWebhook(
+      getDefaultApiServiceRuntime(),
+      signedDelivery(
+        paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
+      ),
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch([{ body: subscription }], []),
+        },
+        revenueCat: {
+          env: REVENUECAT_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: {} }, { body: {} }, { body: {} }],
+            [],
+          ),
+        },
+      },
+    );
+
+    expect(outcome.status).toBe("associated");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "No Stripe billing recovery email",
+      "sub_1",
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
+test("a permanent recovery email rejection cannot block entitlement", async () => {
+  await createWebhookBillingOrganization();
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await processStripeWebhook(
+      getDefaultApiServiceRuntime(),
+      signedDelivery(
+        paidInvoiceEvent({ invoiceId: "in_rejected_email", subscription }),
+      ),
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: subscription }, { status: 400, body: {} }],
+            [],
+          ),
+        },
+        revenueCat: {
+          env: REVENUECAT_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: {} }, { body: {} }, { body: {} }],
+            [],
+          ),
+        },
+      },
+    );
+
+    expect(outcome.status).toBe("associated");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Stripe billing recovery email update rejected",
+      { status: 400, subscriptionId: "sub_1" },
+    );
+    const [stripeSeats] = await db
+      .select()
+      .from(organizationBillingStripeSeats)
+      .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
+    expect(stripeSeats?.subscriptionId).toBe("sub_1");
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
+test("a retryable email failure succeeds on webhook redelivery", async () => {
+  await createWebhookBillingOrganization();
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const delivery = signedDelivery(
+    paidInvoiceEvent({ invoiceId: "in_retry_email", subscription }),
+  );
+  await expect(
+    processStripeWebhook(getDefaultApiServiceRuntime(), delivery, {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { status: 429, body: {} }],
+          [],
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          [],
+        ),
+      },
+    }),
+  ).rejects.toMatchObject({ status: 429 });
+
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
+  expect(stripeSeats?.subscriptionId).toBe("sub_1");
+
+  const retryUrls: string[] = [];
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    delivery,
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: subscription }, { body: { id: "cus_1" } }],
+          retryUrls,
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: {} }, { body: {} }, { body: {} }],
+          retryUrls,
+        ),
+      },
+    },
+  );
+
+  expect(outcome.status).toBe("associated");
+  expect(retryUrls.at(-1)).toBe(
+    "POST https://api.stripe.com/v1/customers/cus_1",
+  );
 });
 
 test("renewal invoices reset the Stripe paid-capacity baseline", async () => {
@@ -172,6 +365,13 @@ test("a delayed predecessor cannot replace or associate after its successor", as
     subscriptionItemIdC,
     organizationId,
   );
+  const staleSubscriptionA = {
+    ...subscriptionA,
+    customer: { id: "cus_1", email: "newer@example.com" },
+    default_payment_method: {
+      billing_details: { email: "old@example.com" },
+    },
+  };
   expect(
     await deliver(
       "subscription_create",
@@ -213,11 +413,14 @@ test("a delayed predecessor cannot replace or associate after its successor", as
   const revenueCatCallsBeforeStale = urls.filter((url) =>
     url.includes("api.revenuecat.com"),
   ).length;
+  const customerUpdatesBeforeStale = urls.filter((url) =>
+    url.includes("/v1/customers/"),
+  ).length;
 
   const staleInitial = await deliver(
     "subscription_create",
     `in_${organizationId}_a_stale_create`,
-    subscriptionA,
+    staleSubscriptionA,
   );
   const staleRenewal = await deliver(
     "subscription_cycle",
@@ -245,5 +448,8 @@ test("a delayed predecessor cannot replace or associate after its successor", as
   expect(revenueCatCallsBeforeStale).toBe(6);
   expect(urls.filter((url) => url.includes("api.revenuecat.com"))).toHaveLength(
     revenueCatCallsBeforeStale,
+  );
+  expect(urls.filter((url) => url.includes("/v1/customers/"))).toHaveLength(
+    customerUpdatesBeforeStale,
   );
 });

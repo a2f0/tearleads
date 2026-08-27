@@ -17,7 +17,7 @@ load_secrets_env prod
 validate_aws_env
 
 echo "Building website..."
-(cd "$WEBSITE_DIR" && bun run build)
+(cd "$WEBSITE_DIR" && PUBLIC_ENVIRONMENT=production bun run build)
 
 if [ -z "${SSH_TARGET:-}" ]; then
   STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"

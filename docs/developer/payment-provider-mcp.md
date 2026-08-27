@@ -20,6 +20,9 @@ catalog work unless real subscribers exist when the change is made.
 - Cancellation is routed to the store of record. Either client can open the
   provider management surface, and either client can call the SymCrypt Stripe
   cancellation endpoint. Provider webhooks keep server access in sync.
+- A Stripe Customer must carry the checkout billing email. The public no-code
+  Stripe portal uses that address for authentication when the buyer has lost
+  the key-derived SymCrypt identity.
 
 | Tier | USD/month | Capacity | Product stem | RevenueCat package | Apple level |
 | --- | ---: | ---: | --- | --- | ---: |
@@ -181,6 +184,16 @@ Stripe needs one `Sync` Product and three monthly recurring Prices. All checkout
 items use quantity `1`; the Prices carry tier/capacity metadata. Register the
 staging and production `/billing/stripe/webhook` endpoints for `invoice.paid`,
 using a different signing secret for each endpoint.
+
+For both Stripe modes, configure the default Customer Portal to cancel at the
+end of the billing period, then **Activate link** under **Ways to get started**.
+Put the generated `https://billing.stripe.com/...` link in the matching
+deployment environment as `PUBLIC_STRIPE_CUSTOMER_PORTAL_URL`; the public
+website exposes it at `/manage-subscription`. Activation of the shareable link
+is a Stripe Dashboard owner action and is not available through the connected
+Stripe API tool. Audit `login_page.enabled`, the cancellation mode, and the
+website environment before handoff. Stripe chooses the most recently created
+active Customer when an email matches more than one Customer object.
 
 RevenueCat needs:
 

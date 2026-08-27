@@ -10,7 +10,8 @@
     "dev": "astro dev",
     "prebuild": "sh scripts/buildWebImages.sh && bun scripts/buildScreenshots.ts",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "test": "bun test src"
   },
   "dependencies": {
     "@astrojs/react": "5.0.6",

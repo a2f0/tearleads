@@ -14,10 +14,12 @@ export interface StripeSubscriptionBinding {
   readonly billingPeriodEndsAt: Date | null;
   readonly billingPeriodStartsAt: Date | null;
   readonly currency: string | null;
+  readonly customerEmail: string | null;
   readonly customerId: string | null;
   readonly interval: string | null;
   readonly intervalCount: number | null;
   readonly organizationId: string | null;
+  readonly paymentMethodBillingEmail: string | null;
   readonly priceId: string | null;
   readonly seatQuantity: number | null;
   readonly status: string | null;
@@ -53,7 +55,7 @@ export async function getSubscriptionBinding(
     fetchImpl,
     secretKey,
     method: "GET",
-    path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}?expand[]=customer&expand[]=default_payment_method`,
     operation: "subscription lookup",
   });
   if (typeof body !== "object" || body === null) {
@@ -61,6 +63,7 @@ export async function getSubscriptionBinding(
   }
   const metadata = prop(body, "metadata");
   const customer = prop(body, "customer");
+  const paymentMethod = prop(body, "default_payment_method");
   const configuredPriceIds = Object.values(syncPriceIds).filter(
     (value): value is string => Boolean(value),
   );
@@ -98,12 +101,16 @@ export async function getSubscriptionBinding(
       prop(body, "current_period_start"),
     ),
     currency: readString(prop(price, "currency")),
+    customerEmail: readString(prop(customer, "email")),
     customerId: readString(customer) ?? readString(prop(customer, "id")),
     interval: readString(prop(prop(price, "recurring"), "interval")),
     intervalCount: readPositiveInteger(
       prop(prop(price, "recurring"), "interval_count"),
     ),
     organizationId: readString(prop(metadata, "orgId")),
+    paymentMethodBillingEmail: readString(
+      prop(prop(paymentMethod, "billing_details"), "email"),
+    ),
     priceId,
     seatQuantity: tier?.seatLimit ?? null,
     status: readString(prop(body, "status")),

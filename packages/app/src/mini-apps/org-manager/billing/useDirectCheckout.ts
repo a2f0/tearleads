@@ -43,7 +43,7 @@ export interface DirectCheckoutState {
   readonly error: string | null;
   /** Attach to the element the payment form mounts into. */
   readonly hostRef: React.RefObject<HTMLDivElement | null>;
-  readonly begin: () => void;
+  readonly begin: (billingEmail?: string) => void;
   readonly confirm: () => void;
   readonly cancel: () => void;
 }
@@ -173,70 +173,75 @@ interface BeginCheckoutDeps {
 function useBeginCheckout(
   refs: CheckoutRefs,
   deps: BeginCheckoutDeps,
-): () => void {
-  return useCallback(() => {
-    if (!deps.available || !deps.canSubscribe || !deps.enabled) {
-      return;
-    }
-    // Re-entrancy guard: a second begin would bump the token and overwrite
-    // sessionRef, stranding the previous element's iframe. The UI prevents
-    // this today; the hook must not depend on that. Both refs are needed —
-    // `sessionRef` covers a mounted element, `startingRef` the window before
-    // it mounts, where state has not re-rendered yet.
-    if (refs.sessionRef.current || refs.startingRef.current) {
-      return;
-    }
-    refs.startingRef.current = true;
-    refs.setPhase({ kind: "starting" });
-    refs.setError(null);
-    refs.startTokenRef.current += 1;
-    const token = refs.startTokenRef.current;
-    void (async () => {
-      try {
-        const intent = await deps.symcrypt.organizations.createStripeCheckout();
-        // Every continuation re-checks the token: teardown (cancel, org
-        // switch, disable, unmount) bumps it, and a losing attempt must
-        // neither write state onto the panel it no longer owns nor cancel the
-        // attempt that replaced it.
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        const host = refs.hostRef.current;
-        if (!intent || !host) {
+): (billingEmail?: string) => void {
+  return useCallback(
+    (billingEmail?: string) => {
+      if (!deps.available || !deps.canSubscribe || !deps.enabled) {
+        return;
+      }
+      // Re-entrancy guard: a second begin would bump the token and overwrite
+      // sessionRef, stranding the previous element's iframe. The UI prevents
+      // this today; the hook must not depend on that. Both refs are needed —
+      // `sessionRef` covers a mounted element, `startingRef` the window before
+      // it mounts, where state has not re-rendered yet.
+      if (refs.sessionRef.current || refs.startingRef.current) {
+        return;
+      }
+      refs.startingRef.current = true;
+      refs.setPhase({ kind: "starting" });
+      refs.setError(null);
+      refs.startTokenRef.current += 1;
+      const token = refs.startTokenRef.current;
+      void (async () => {
+        try {
+          const intent =
+            await deps.symcrypt.organizations.createStripeCheckout();
+          // Every continuation re-checks the token: teardown (cancel, org
+          // switch, disable, unmount) bumps it, and a losing attempt must
+          // neither write state onto the panel it no longer owns nor cancel the
+          // attempt that replaced it.
+          if (refs.startTokenRef.current !== token) {
+            return;
+          }
+          const host = refs.hostRef.current;
+          if (!intent || !host) {
+            refs.startingRef.current = false;
+            refs.setPhase({ kind: "idle" });
+            refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+            return;
+          }
+          const session = await deps.capability.mount({
+            host,
+            clientSecret: intent.clientSecret,
+            appearance: readCheckoutAppearance(host),
+            ...(billingEmail ? { billingEmail: billingEmail.trim() } : {}),
+          });
+          // The panel may have unmounted (or the flow been cancelled) while the
+          // provider script loaded; keeping this session would strand its
+          // iframe with nothing able to destroy it.
+          if (refs.startTokenRef.current !== token) {
+            session.unmount();
+            return;
+          }
           refs.startingRef.current = false;
+          refs.sessionRef.current = session;
+          refs.setPhase({ kind: "collecting" });
+        } catch (mountError) {
+          console.error("Failed to start the direct checkout:", mountError);
+          // Same guard: calling the shared teardown here would bump the token
+          // and cancel a newer attempt started after this one failed.
+          if (refs.startTokenRef.current !== token) {
+            return;
+          }
+          refs.startingRef.current = false;
+          refs.sessionRef.current = null;
           refs.setPhase({ kind: "idle" });
           refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-          return;
         }
-        const session = await deps.capability.mount({
-          host,
-          clientSecret: intent.clientSecret,
-          appearance: readCheckoutAppearance(host),
-        });
-        // The panel may have unmounted (or the flow been cancelled) while the
-        // provider script loaded; keeping this session would strand its
-        // iframe with nothing able to destroy it.
-        if (refs.startTokenRef.current !== token) {
-          session.unmount();
-          return;
-        }
-        refs.startingRef.current = false;
-        refs.sessionRef.current = session;
-        refs.setPhase({ kind: "collecting" });
-      } catch (mountError) {
-        console.error("Failed to start the direct checkout:", mountError);
-        // Same guard: calling the shared teardown here would bump the token
-        // and cancel a newer attempt started after this one failed.
-        if (refs.startTokenRef.current !== token) {
-          return;
-        }
-        refs.startingRef.current = false;
-        refs.sessionRef.current = null;
-        refs.setPhase({ kind: "idle" });
-        refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-      }
-    })();
-  }, [deps, refs]);
+      })();
+    },
+    [deps, refs],
+  );
 }
 
 /**

@@ -31,6 +31,7 @@ const OPTION = {
   interval: "month",
   intervalCount: 1,
 };
+type MountInput = Parameters<DirectCheckoutCapability["mount"]>[0];
 
 function stubSymCrypt(overrides?: {
   createStripeCheckout?: () => Promise<unknown>;
@@ -55,13 +56,13 @@ function stubSymCrypt(overrides?: {
 
 function capabilityWith(session: Partial<DirectCheckoutSession>): {
   capability: DirectCheckoutCapability;
-  mounted: HTMLElement[];
+  mounted: MountInput[];
 } {
-  const mounted: HTMLElement[] = [];
+  const mounted: MountInput[] = [];
   const capability: DirectCheckoutCapability = {
     isAvailable: true,
-    mount: mock((input: { host: HTMLElement }) => {
-      mounted.push(input.host);
+    mount: mock((input: MountInput) => {
+      mounted.push(input);
       return Promise.resolve({
         confirm:
           session.confirm ?? (() => Promise.resolve({ kind: "succeeded" })),
@@ -97,7 +98,6 @@ function renderFlow(
       }),
     { wrapper },
   );
-  // Give the hook a real host node, as the panel does via its ref.
   const host = document.createElement("div");
   document.body.appendChild(host);
   rendered.result.current.hostRef.current = host;
@@ -114,19 +114,19 @@ test("loads the purchasable option when the platform supports checkout", async (
   expect(result.current.phase.kind).toBe("idle");
 });
 
-test("begin mounts the element into the panel's host and collects input", async () => {
+test("begin trims the email and mounts into the panel's host", async () => {
   stubSymCrypt();
   const { capability, mounted } = capabilityWith({});
   const { result, host } = renderFlow(capability);
   await waitFor(() => expect(result.current.option).toEqual(OPTION));
 
   await act(async () => {
-    result.current.begin();
+    result.current.begin(" buyer@example.com ");
   });
 
   await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
-  // Mounted into OUR node — that is what makes the surrounding form styleable.
-  expect(mounted).toEqual([host]);
+  expect(mounted[0]?.host).toBe(host);
+  expect(mounted[0]?.billingEmail).toBe("buyer@example.com");
 });
 
 test("a declined card keeps the element mounted so it can be corrected", async () => {

@@ -95,7 +95,7 @@ test("an incomplete non-seat invoice is acknowledged without provider retries", 
       reason: "Paid invoice audit details unavailable",
     });
     expect(urls).toEqual([
-      `GET https://api.stripe.com/v1/subscriptions/${subscriptionId}`,
+      `GET https://api.stripe.com/v1/subscriptions/${subscriptionId}?expand[]=customer&expand[]=default_payment_method`,
     ]);
     expect(warningSpy).toHaveBeenCalledWith(
       "Paid invoice audit details are unavailable",
@@ -153,7 +153,7 @@ test("a truncated non-seat invoice records its exact total without pagination", 
     reason: "Paid invoice requires no seat-period reconciliation",
   });
   expect(urls).toEqual([
-    `GET https://api.stripe.com/v1/subscriptions/${subscriptionId}`,
+    `GET https://api.stripe.com/v1/subscriptions/${subscriptionId}?expand[]=customer&expand[]=default_payment_method`,
   ]);
   const [row] = await db
     .select()
@@ -193,7 +193,7 @@ test("a recoverable non-seat invoice is completed from the pinned lookup", async
     reason: "Paid invoice requires no seat-period reconciliation",
   });
   expect(urls).toEqual([
-    `GET https://api.stripe.com/v1/subscriptions/${fixture.subscriptionId}`,
+    `GET https://api.stripe.com/v1/subscriptions/${fixture.subscriptionId}?expand[]=customer&expand[]=default_payment_method`,
     `GET https://api.stripe.com/v1/invoices/${fixture.invoiceId}`,
   ]);
   const [row] = await db

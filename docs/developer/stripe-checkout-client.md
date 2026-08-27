@@ -27,6 +27,14 @@ entitlement arrives asynchronously through Stripe, RevenueCat, and the
 SymCrypt webhook. A decline leaves the element mounted for correction; cancel
 unmounts it.
 
+The surrounding SymCrypt form requires a billing email before inline checkout.
+Confirmation sends it as the PaymentMethod billing email while the embedded
+Payment Element hides its duplicate email field. On the first paid invoice, the
+server first applies the entitlement, then copies the saved payment-method
+address onto the Stripe Customer before acknowledging the webhook. Hosted
+Checkout collects a missing Customer email itself. This address is billing
+recovery data; it is not part of the key-derived SymCrypt identity.
+
 The payment fields remain Stripe-hosted for PCI SAQ A. The Appearance API is
 fed computed SymCrypt theme values by
 [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts).
@@ -47,6 +55,27 @@ Stripe cancellation is inline. `POST
 continues through the paid period, and RevenueCat later sends the entitlement
 loss. The management endpoint exposes direct cancellation on every app surface,
 so a web purchase can also be cancelled from a native shell.
+
+Lost-key cancellation uses Stripe's shareable no-code portal login from the
+public website's **Manage subscription** footer link. Stripe emails a secure
+login link to the Customer address, so this path does not require SymCrypt
+authentication. The Stripe portal must allow cancellation at period end and
+its login link must be configured as
+`PUBLIC_STRIPE_CUSTOMER_PORTAL_URL` when the website is built. After the paid
+period ends, the old organization loses sync; the buyer can subscribe again
+under a newly derived identity whenever they choose.
+
+Production and staging website deployments fail their build when the portal
+URL is missing or is not hosted at `https://billing.stripe.com`. Local builds
+may omit it and render the not-configured fallback.
+
+Stripe selects the most recently created active Customer when several Customer
+objects share an email. SymCrypt currently creates a Customer per buyer and
+organization to keep authenticated portal sessions organization-scoped. A
+buyer with several simultaneous web subscriptions might therefore need to
+cancel them from newest to oldest as each ceases to be active, or contact
+support for the older Customer; do not describe the no-code link as a
+multi-organization subscription chooser.
 
 Cancellation and the optional portal resolve the live `sub_…` by exact `orgId`
 metadata instead of trusting `organization_billing.provider_subscription_id`.

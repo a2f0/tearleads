@@ -67,6 +67,8 @@ export interface DirectCheckoutCapability {
     readonly host: HTMLElement;
     readonly clientSecret: string;
     readonly appearance: DirectCheckoutAppearance;
+    /** Customer recovery address used by the payment provider's portal. */
+    readonly billingEmail?: string;
   }): Promise<DirectCheckoutSession>;
 }
 

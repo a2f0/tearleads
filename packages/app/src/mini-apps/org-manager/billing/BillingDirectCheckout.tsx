@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppField,
+  MiniAppInput,
   MiniAppSection,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
@@ -111,6 +113,7 @@ export function BillingDirectCheckout({
   /** Another billing action is in flight; do not start a competing one. */
   readonly disabled: boolean;
 }) {
+  const [billingEmail, setBillingEmail] = useState("");
   const { option, phase } = checkout;
   if (!checkout.available) {
     return null;
@@ -126,16 +129,34 @@ export function BillingDirectCheckout({
   const confirming = phase.kind === "confirming";
   const starting = phase.kind === "starting";
   const idle = phase.kind === "idle";
+  const normalizedBillingEmail = billingEmail.trim();
+  const validBillingEmail =
+    normalizedBillingEmail.length <= 254 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(normalizedBillingEmail);
 
   return (
     <MiniAppSection>
       {idle ? (
         <>
+          <MiniAppField>
+            <span>{ORG_MANAGER_LABELS.billingEmail}</span>
+            <MiniAppInput
+              autoComplete="email"
+              maxLength={254}
+              onChange={(event) => setBillingEmail(event.currentTarget.value)}
+              required
+              type="email"
+              value={billingEmail}
+            />
+          </MiniAppField>
+          <MiniAppStatus className="org-manager-hint">
+            {ORG_MANAGER_LABELS.billingEmailHint}
+          </MiniAppStatus>
           <BillingPurchaseOption
             actionLabel={ORG_MANAGER_LABELS.billingSubscribe}
-            disabled={disabled}
+            disabled={disabled || !validBillingEmail}
             name={option.productName}
-            onSelect={checkout.begin}
+            onSelect={() => checkout.begin(normalizedBillingEmail)}
             priceLabel={formatPrice(
               option.unitAmount,
               option.currency,

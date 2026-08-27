@@ -13,13 +13,14 @@ const FOOTER_ITEMS: readonly {
   readonly href: string;
   readonly label: string;
 }[] = [
+  { href: "/manage-subscription", label: "Manage subscription" },
   { href: "/privacy-policy", label: "Privacy Policy" },
   { href: "/terms-of-service", label: "Terms of Service" },
 ];
 
 function FooterLinks() {
   return (
-    <nav aria-label="Legal" className="site-footer-links">
+    <nav aria-label="Footer" className="site-footer-links">
       {FOOTER_ITEMS.map((item) => (
         <a className="site-footer-link" href={item.href} key={item.href}>
           {item.label}
