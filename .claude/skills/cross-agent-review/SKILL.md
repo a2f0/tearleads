@@ -224,15 +224,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **For Codex review:**
 
    ```bash
-   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
-   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
    **For Claude Code review:**
 
    ```bash
-   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
-   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **Fallback behavior (required):**
@@ -243,7 +243,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      self-review:
 
      ```bash
-     AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview
+     AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview
      ```
 
    - If the Claude Code review also fails (or was selected first and fails due
