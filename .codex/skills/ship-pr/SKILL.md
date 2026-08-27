@@ -230,13 +230,16 @@ loop, subject-only squash, and `MERGED`-state verification.
 
    When the ancestor check succeeds, the reviewed head contains the fetched
    base and step 4 may proceed. When it fails, do not merge the base here and do
-   not push an unreviewed commit. Instead, increment `BASE_REFRESH_ROUND` and
-   invoke `cross-agent-review` again with the same agent, pass, and repair-round
-   arguments. With the PR now open, that skill owns merging the latest base,
-   pushing the updated head without force, and reviewing the integrated result.
-   Apply the same verdict gate as step 2, replace `REVIEWED_SHA` with the SHA it
-   reports, verify it against local `HEAD` and the PR head, then repeat this
-   freshness check. Stop with the PR open if a third refresh would be required.
+   not push an unreviewed commit. If `--repair-rounds 0` was given, stop with
+   the PR open: report-only review intentionally skips base synchronization, so
+   it cannot produce a current reviewed head. Otherwise, increment
+   `BASE_REFRESH_ROUND` and invoke `cross-agent-review` again with the same
+   agent, pass, and repair-round arguments. With the PR now open, that skill
+   owns merging the latest base, pushing the updated head without force, and
+   reviewing the integrated result. Apply the same verdict gate as step 2,
+   replace `REVIEWED_SHA` with the SHA it reports, verify it against local
+   `HEAD` and the PR head, then repeat this freshness check. Stop with the PR
+   open if a third refresh would be required.
 
    A base refresh is not a repair round: it responds to external base movement,
    while repair rounds address reviewer findings. It still requires a complete
