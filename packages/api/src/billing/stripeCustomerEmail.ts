@@ -1,4 +1,9 @@
-import { resolveDeps, type StripeApiDeps, stripeRequest } from "./stripeHttp";
+import {
+  resolveDeps,
+  type StripeApiDeps,
+  StripeApiError,
+  stripeRequest,
+} from "./stripeHttp";
 import type { StripeSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 /**
@@ -34,4 +39,35 @@ export async function ensureStripeCustomerEmail(
     form: new URLSearchParams({ email: paymentMethodEmail }),
   });
   return true;
+}
+
+/**
+ * Best-effort recovery setup after a subscription has been accepted locally.
+ * Transient provider failures propagate for webhook redelivery; a permanent
+ * client error is alerted but cannot undo or indefinitely block entitlement.
+ */
+export async function promoteCustomerEmail(
+  binding: StripeSubscriptionBinding,
+  subscriptionId: string,
+  deps: StripeApiDeps = {},
+): Promise<void> {
+  try {
+    if (!(await ensureStripeCustomerEmail(binding, deps))) {
+      console.error("No Stripe billing recovery email", subscriptionId);
+    }
+  } catch (error) {
+    if (
+      error instanceof StripeApiError &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      ![408, 409, 429].includes(error.status)
+    ) {
+      console.error("Stripe billing recovery email update rejected", {
+        status: error.status,
+        subscriptionId,
+      });
+      return;
+    }
+    throw error;
+  }
 }

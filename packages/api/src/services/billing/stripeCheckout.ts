@@ -12,7 +12,7 @@ import {
   StripeApiError,
   type StripeCheckoutIntent,
 } from "../../billing/stripeApi";
-import { ensureStripeCustomerEmail } from "../../billing/stripeCustomerEmail";
+import { promoteCustomerEmail } from "../../billing/stripeCustomerEmail";
 import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import {
   extractPaidSubscriptionInvoice,
@@ -463,20 +463,20 @@ export async function processAuthenticatedStripeWebhook(
   ) {
     return { status: "ignored", reason: "Subscription carries no org binding" };
   }
-  if (
-    invoice.billingReason === "subscription_create" &&
-    !(await ensureStripeCustomerEmail(binding, deps.stripe ?? {}))
-  ) {
-    console.error("No Stripe billing recovery email", invoice.subscriptionId);
-  }
-
-  return applyPaidSubscriptionInvoice({
+  const outcome = await applyPaidSubscriptionInvoice({
     binding,
     deps,
     invoice,
     organizationId: binding.organizationId,
     runtime,
   });
+  if (
+    invoice.billingReason === "subscription_create" &&
+    outcome.status === "associated"
+  ) {
+    await promoteCustomerEmail(binding, invoice.subscriptionId, deps.stripe);
+  }
+  return outcome;
 }
 
 /** Compatibility facade that authenticates, parses, and fulfills a delivery. */

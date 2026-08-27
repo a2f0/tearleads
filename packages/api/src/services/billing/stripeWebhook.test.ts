@@ -105,7 +105,13 @@ test("a new subscription promotes its card email to the Customer", async () => {
   );
 
   expect(outcome.status).toBe("associated");
-  expect(urls[1]).toBe("POST https://api.stripe.com/v1/customers/cus_1");
+  expect(urls).toEqual([
+    "GET https://api.stripe.com/v1/subscriptions/sub_1?expand[]=customer&expand[]=default_payment_method",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
+    "POST https://api.revenuecat.com/v1/receipts",
+    "POST https://api.stripe.com/v1/customers/cus_1",
+  ]);
 });
 
 test("a new subscription without a recovery email is fulfilled and alerted", async () => {
@@ -141,6 +147,55 @@ test("a new subscription without a recovery email is fulfilled and alerted", asy
       "No Stripe billing recovery email",
       "sub_1",
     );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
+test("a permanent recovery email rejection cannot block entitlement", async () => {
+  await createWebhookBillingOrganization();
+  const subscription = {
+    ...stripeSubscriptionBody(),
+    customer: { id: "cus_1", email: "" },
+    default_payment_method: {
+      billing_details: { email: "buyer@example.com" },
+    },
+  };
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await processStripeWebhook(
+      getDefaultApiServiceRuntime(),
+      signedDelivery(
+        paidInvoiceEvent({ invoiceId: "in_rejected_email", subscription }),
+      ),
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: subscription }, { status: 400, body: {} }],
+            [],
+          ),
+        },
+        revenueCat: {
+          env: REVENUECAT_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: {} }, { body: {} }, { body: {} }],
+            [],
+          ),
+        },
+      },
+    );
+
+    expect(outcome.status).toBe("associated");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Stripe billing recovery email update rejected",
+      { status: 400, subscriptionId: "sub_1" },
+    );
+    const [stripeSeats] = await db
+      .select()
+      .from(organizationBillingStripeSeats)
+      .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
+    expect(stripeSeats?.subscriptionId).toBe("sub_1");
   } finally {
     errorSpy.mockRestore();
   }
@@ -245,6 +300,13 @@ test("a delayed predecessor cannot replace or associate after its successor", as
     subscriptionItemIdC,
     organizationId,
   );
+  const staleSubscriptionA = {
+    ...subscriptionA,
+    customer: { id: "cus_1", email: "newer@example.com" },
+    default_payment_method: {
+      billing_details: { email: "old@example.com" },
+    },
+  };
   expect(
     await deliver(
       "subscription_create",
@@ -286,11 +348,14 @@ test("a delayed predecessor cannot replace or associate after its successor", as
   const revenueCatCallsBeforeStale = urls.filter((url) =>
     url.includes("api.revenuecat.com"),
   ).length;
+  const customerUpdatesBeforeStale = urls.filter((url) =>
+    url.includes("/v1/customers/"),
+  ).length;
 
   const staleInitial = await deliver(
     "subscription_create",
     `in_${organizationId}_a_stale_create`,
-    subscriptionA,
+    staleSubscriptionA,
   );
   const staleRenewal = await deliver(
     "subscription_cycle",
@@ -318,5 +383,8 @@ test("a delayed predecessor cannot replace or associate after its successor", as
   expect(revenueCatCallsBeforeStale).toBe(6);
   expect(urls.filter((url) => url.includes("api.revenuecat.com"))).toHaveLength(
     revenueCatCallsBeforeStale,
+  );
+  expect(urls.filter((url) => url.includes("/v1/customers/"))).toHaveLength(
+    customerUpdatesBeforeStale,
   );
 });
