@@ -1,3 +1,4 @@
+import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
@@ -273,6 +274,7 @@ function resolveSubtreeDocumentOperations(
           document.documentId &&
             (await purgeRemoteContainerDocument({
               documentId: document.documentId,
+              documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
               noteId: document.id,
               resolveProjectionUserKey: input.resolveProjectionUserKey,
               runtime: input.runtime,

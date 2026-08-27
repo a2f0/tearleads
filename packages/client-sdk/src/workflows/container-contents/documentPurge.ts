@@ -1,5 +1,5 @@
 import type { DocumentPurgeResponse } from "@symcrypt/validators/response";
-import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
+import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
@@ -46,6 +46,7 @@ interface ContainerDocumentPurgeRuntime
 
 interface PurgeRemoteContainerDocumentInput {
   documentId: string;
+  documentKind: StoredDocumentKind;
   noteId: string;
   persistence?: DocumentsPersistence | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -57,6 +58,7 @@ async function deleteAbsentDocumentState(input: {
     transactionExecSql: ContainerDocumentPurgeRuntime["infra"]["execSql"],
   ) => Promise<void>;
   readonly documentId: string;
+  readonly documentKind: StoredDocumentKind;
   readonly noteId: string;
   readonly persistence: DocumentsPersistence;
   readonly runtime: ContainerDocumentPurgeRuntime;
@@ -68,7 +70,7 @@ async function deleteAbsentDocumentState(input: {
     async (transactionExecSql) => {
       await input.runtime.infra.documentProjectors.deleteStoredDocumentClientProjection(
         {
-          documentKind: DEFAULT_DOCUMENT_KIND,
+          documentKind: input.documentKind,
           execSql: transactionExecSql,
           localId: input.noteId,
         },
@@ -83,6 +85,7 @@ async function commitVerifiedDocumentPurge(input: {
     transactionExecSql: ContainerDocumentPurgeRuntime["infra"]["execSql"],
   ) => Promise<void>;
   readonly documentId: string;
+  readonly documentKind: StoredDocumentKind;
   readonly noteId: string;
   readonly persistence: DocumentsPersistence;
   readonly runtime: ContainerDocumentPurgeRuntime;
@@ -142,6 +145,7 @@ export async function purgeRemoteContainerDocument(
         deleted = await commitVerifiedDocumentPurge({
           commitPurgeProof,
           documentId,
+          documentKind: input.documentKind,
           noteId,
           persistence,
           runtime,

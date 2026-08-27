@@ -28,6 +28,7 @@ test("remote document purge propagates identity failures without deleting local 
   await expect(
     purgeRemoteContainerDocument({
       documentId: "document",
+      documentKind: "note",
       noteId: "note",
       persistence,
       resolveProjectionUserKey: async () => null,

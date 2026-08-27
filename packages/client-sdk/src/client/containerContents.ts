@@ -1,3 +1,4 @@
+import { DEFAULT_DOCUMENT_KIND } from "../data/documents/documentConstants";
 import type { DocumentSummary } from "../data/documents/documentSummary";
 import {
   type ContainerContentsStore,
@@ -207,6 +208,7 @@ function purgeDocumentFromLinks(input: {
   }
   return purgeRemoteContainerDocument({
     documentId: note.documentId,
+    documentKind: note.documentKind ?? DEFAULT_DOCUMENT_KIND,
     noteId: note.id,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,

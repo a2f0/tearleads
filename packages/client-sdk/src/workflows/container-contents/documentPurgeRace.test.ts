@@ -38,6 +38,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
     await expect(
       purgeRemoteContainerDocument({
         documentId: writerProjection.documentId,
+        documentKind: "note",
         noteId: "local-document",
         persistence,
         resolveProjectionUserKey,
@@ -110,7 +111,7 @@ test("purge retry refuses a document recreated before the absence transaction", 
   }
 });
 
-test("purge retry deletes an absent document projection with its proof", async () => {
+test("purge retry deletes an absent custom document projection with its proof", async () => {
   const fixture = await createMaterializedSyncFixture();
   const proof = await createDocumentPurgeProof(
     fixture.author,
@@ -129,7 +130,7 @@ test("purge retry deletes an absent document projection with its proof", async (
         save: () => undefined,
         tables: [],
       },
-      kind: "note",
+      kind: "contact",
     },
   ]);
   const persistence = {
@@ -152,6 +153,7 @@ test("purge retry deletes an absent document projection with its proof", async (
     await expect(
       purgeRemoteContainerDocument({
         documentId: fixture.writerProjection.documentId,
+        documentKind: "contact",
         noteId: "local-document",
         persistence,
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
