@@ -1,7 +1,7 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
-  type VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
@@ -9,7 +9,7 @@ import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnfo
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
-  readonly policies: VerifiedPrincipalPolicy[];
+  readonly policies: AnyVerifiedPrincipalPolicy[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
@@ -45,7 +45,7 @@ export function observeAccessManifestCheckpoints(
 
 export function observePrincipalPolicy(
   context: ProjectionCheckpointContext,
-  policy: VerifiedPrincipalPolicy,
+  policy: AnyVerifiedPrincipalPolicy,
 ): void {
   context.policies.push(policy);
 }

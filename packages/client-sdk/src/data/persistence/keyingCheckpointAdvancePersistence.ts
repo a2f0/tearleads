@@ -1,5 +1,6 @@
 import {
   type AccessManifestCheckpoint,
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
@@ -156,9 +157,9 @@ async function validateAccessAdvances(
 
 async function validatePolicyAdvances(
   tx: ClientSQLiteTransactionScope,
-  policies: readonly VerifiedPrincipalPolicy[],
-): Promise<Map<string, VerifiedPrincipalPolicy>> {
-  const policiesByPrincipal = new Map<string, VerifiedPrincipalPolicy[]>();
+  policies: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<Map<string, AnyVerifiedPrincipalPolicy>> {
+  const policiesByPrincipal = new Map<string, AnyVerifiedPrincipalPolicy[]>();
   for (const policy of policies) {
     const key = principalPolicyKey(policy);
     const candidates = policiesByPrincipal.get(key) ?? [];
@@ -166,7 +167,7 @@ async function validatePolicyAdvances(
     policiesByPrincipal.set(key, candidates);
   }
 
-  const pending = new Map<string, VerifiedPrincipalPolicy>();
+  const pending = new Map<string, AnyVerifiedPrincipalPolicy>();
   for (const key of [...policiesByPrincipal.keys()].sort()) {
     const candidates = policiesByPrincipal.get(key) ?? [];
     const maxVersion = Math.max(...candidates.map((policy) => policy.version));
@@ -228,7 +229,7 @@ async function writeAccessCheckpoints(
 
 async function writePolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
-  pending: ReadonlyMap<string, VerifiedPrincipalPolicy>,
+  pending: ReadonlyMap<string, AnyVerifiedPrincipalPolicy>,
   updatedAt: string,
 ): Promise<void> {
   for (const policy of pending.values()) {
@@ -250,7 +251,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly access: readonly AccessManifestCheckpointAdvance[];
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
-  readonly policies: readonly VerifiedPrincipalPolicy[];
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
 }): Promise<void> {
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();

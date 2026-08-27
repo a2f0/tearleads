@@ -19,6 +19,7 @@ import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
+  observePrincipalPolicy,
 } from "./checkpointContext";
 import {
   verifiedContainerManifestsForBundles,
@@ -403,10 +404,13 @@ async function verifyDocumentPurgeProofWithMode(
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       });
     if (enforceLocalCheckpoints) {
-      await enforcePrincipalPolicySnapshotCheckpoints({
+      const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
         execSql: input.execSql,
         policies: principalPolicies,
       });
+      for (const policy of policiesToPin) {
+        observePrincipalPolicy(checkpointContext, policy);
+      }
     }
     const documentPurgeCheckpoint = {
       documentId: input.expectedDocumentId,

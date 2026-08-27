@@ -1,7 +1,7 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
-  type VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import {
@@ -65,7 +65,7 @@ function accessManifestCheckpointAdvances(input: {
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
-  readonly policies: readonly VerifiedPrincipalPolicy[];
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {

@@ -181,20 +181,20 @@ async function enforceSnapshotCheckpoint(input: {
   readonly execSql: ExecSql;
   readonly policy: VerifiedPrincipalPolicySnapshot;
   readonly reference: ReferencedPrincipalHead;
-}): Promise<void> {
+}): Promise<boolean> {
   const checkpoint = await loadPrincipalPolicyCheckpoint(
     input.execSql,
     input.reference.principalType,
     input.reference.principalId,
   );
-  if (!checkpoint) return;
+  if (!checkpoint) return true;
   if (input.policy.version >= checkpoint.version) {
     verifyPrincipalPolicyCheckpoint({
       chain: input.policy.history,
       currentState: input.policy.state,
       localCheckpoint: checkpoint,
     });
-    return;
+    return true;
   }
   const localDescendant = await loadPrincipalPolicyBundleForReference(
     input.execSql,
@@ -207,6 +207,7 @@ async function enforceSnapshotCheckpoint(input: {
       "Principal policy snapshot cannot be connected to the newer local checkpoint",
     );
   }
+  return false;
 }
 
 export async function verifyPrincipalPolicySnapshots(input: {
@@ -278,9 +279,10 @@ export async function verifyPrincipalPolicySnapshots(input: {
 export async function enforcePrincipalPolicySnapshotCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly policies: readonly VerifiedPrincipalPolicySnapshot[];
-}): Promise<void> {
+}): Promise<VerifiedPrincipalPolicySnapshot[]> {
+  const policiesToPin: VerifiedPrincipalPolicySnapshot[] = [];
   for (const policy of input.policies) {
-    await enforceSnapshotCheckpoint({
+    const shouldPin = await enforceSnapshotCheckpoint({
       execSql: input.execSql,
       policy,
       reference: {
@@ -292,5 +294,7 @@ export async function enforcePrincipalPolicySnapshotCheckpoints(input: {
         keyFingerprint: policy.state.keyFingerprint,
       },
     });
+    if (shouldPin) policiesToPin.push(policy);
   }
+  return policiesToPin;
 }
