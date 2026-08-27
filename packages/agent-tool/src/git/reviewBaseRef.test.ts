@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { repoFromPrUrl, viewCurrentBranchPr } from "./currentBranchPr";
 import {
+  buildBaseFetchArgs,
   type PrView,
   type ReviewContextDependencies,
   resolveFreshBaseRef,
@@ -13,6 +14,22 @@ import {
 
 const SHA1_OID = "a".repeat(40);
 const SHA256_OID = "b".repeat(64);
+
+test("base fetch uses a dedicated destination ref", () => {
+  expect(
+    buildBaseFetchArgs(
+      "https://github.com/owner/repo",
+      "refs/heads/main",
+      "refs/codex/review-base/unique",
+    ),
+  ).toEqual([
+    "fetch",
+    "--quiet",
+    "--no-tags",
+    "https://github.com/owner/repo",
+    "+refs/heads/main:refs/codex/review-base/unique",
+  ]);
+});
 
 describe("resolvePinnedReviewBase", () => {
   test("leaves ordinary review resolution unchanged when unset", () => {

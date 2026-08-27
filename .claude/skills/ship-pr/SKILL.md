@@ -156,10 +156,22 @@ loop, subject-only squash, and `MERGED`-state verification.
      REVIEW_BASE_REF="$DEFAULT_BRANCH"
    fi
    [ -n "$REVIEW_BASE_REF" ] || { echo "Error: review base branch is unavailable" >&2; exit 1; }
+   REVIEW_BASE_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   REVIEW_BASE_HOST=${REVIEW_BASE_HTTPS_URL#*://}
+   REVIEW_BASE_HOST=${REVIEW_BASE_HOST%%/*}
+   case $(gh config get git_protocol --host "$REVIEW_BASE_HOST") in
+     ssh) REVIEW_BASE_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) REVIEW_BASE_URL="$REVIEW_BASE_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $REVIEW_BASE_HOST" >&2; exit 1 ;;
+   esac
+   REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$REVIEW_BASE_OID" ] || { echo "Error: review base commit is unavailable" >&2; exit 1; }
    ```
 
-2. **Review and repair** — invoke `cross-agent-review`, forwarding the
-   review-agent argument, and `--passes <n>` / `--repair-rounds <n>` when given.
+2. **Review and repair** — invoke `cross-agent-review` with
+   `AGENT_TOOL_REVIEW_BASE_REF="$REVIEW_BASE_REF"` and
+   `AGENT_TOOL_REVIEW_BASE_OID="$REVIEW_BASE_OID"`, forwarding the review-agent
+   argument and `--passes <n>` / `--repair-rounds <n>` when given.
 
    That skill owns the review, the severity gate, and the bounded repair loop:
    for each candidate head it first brings the branch up to date with its base
@@ -197,6 +209,8 @@ loop, subject-only squash, and `MERGED`-state verification.
      CURRENT_REVIEW_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
      [ "$CURRENT_REVIEW_BASE_REF" = "$REVIEW_BASE_REF" ] || { echo "Error: PR base changed during review; re-review required" >&2; exit 1; }
    fi
+   CURRENT_REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ "$CURRENT_REVIEW_BASE_OID" = "$REVIEW_BASE_OID" ] || { echo "Error: base advanced during review; update and re-review required" >&2; exit 1; }
    ```
 
    **Merge gate** — decide on the reported verdict:
@@ -273,7 +287,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    COAUTHOR_BASE_OID=$(git ls-remote "$COAUTHOR_BASE_URL" "refs/heads/$COAUTHOR_BASE_REF" | awk 'NR == 1 { print $1 }')
    [ -n "$COAUTHOR_BASE_OID" ] || { echo "Error: could not resolve live PR base $COAUTHOR_BASE_REF" >&2; exit 1; }
    git fetch "$COAUTHOR_BASE_URL" "$COAUTHOR_BASE_OID" || { echo "Error: could not fetch PR base $COAUTHOR_BASE_OID" >&2; exit 1; }
-   test "$(git rev-parse FETCH_HEAD)" = "$COAUTHOR_BASE_OID"
+   git cat-file -e "$COAUTHOR_BASE_OID^{commit}"
    test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
    test "$(git merge-base "$REVIEWED_SHA" "$COAUTHOR_BASE_OID")" = "$(git merge-base HEAD "$COAUTHOR_BASE_OID")"
    REVIEWED_SHA=$(git rev-parse HEAD)
@@ -337,7 +351,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
-   test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }
+   git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }
    git merge-base --is-ancestor "$BASE_OID" "$REVIEWED_SHA"
    ```
 

@@ -59,6 +59,9 @@ commit, repair rounds produce new commits to read.
   the repository's default branch and repairs stay local until the PR is opened.
 - Unless `--repair-rounds 0` is given: the worktree contains only changes
   intended for this branch, since repair rounds stage and commit from it.
+- A coordinating workflow may set both `AGENT_TOOL_REVIEW_BASE_REF` and
+  `AGENT_TOOL_REVIEW_BASE_OID` to pin the branch name and exact base commit for
+  the whole review. A mismatch fails before syncing or launching a reviewer.
 
 ## Setup
 
@@ -133,6 +136,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    esac
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     [ -z "$AGENT_TOOL_REVIEW_BASE_REF" ] || [ "$BASE_REF" = "$AGENT_TOOL_REVIEW_BASE_REF" ] || { echo "Error: PR base changed from pinned branch $AGENT_TOOL_REVIEW_BASE_REF to $BASE_REF" >&2; exit 1; }
      PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRepository -R "$REPO")
      HEAD_REF=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
      HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
@@ -147,11 +151,14 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      esac
    else
      BASE_REF="$DEFAULT_BRANCH"
+     [ -z "$AGENT_TOOL_REVIEW_BASE_REF" ] || [ "$BASE_REF" = "$AGENT_TOOL_REVIEW_BASE_REF" ] || { echo "Error: default branch changed from pinned branch $AGENT_TOOL_REVIEW_BASE_REF to $BASE_REF" >&2; exit 1; }
    fi
-   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
-   [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   LIVE_BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$BASE_REPO_URL" ] && [ -n "$LIVE_BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   [ -z "$AGENT_TOOL_REVIEW_BASE_OID" ] || [ "$LIVE_BASE_OID" = "$AGENT_TOOL_REVIEW_BASE_OID" ] || { echo "Error: $BASE_REF advanced from pinned commit $AGENT_TOOL_REVIEW_BASE_OID to $LIVE_BASE_OID" >&2; exit 1; }
+   BASE_OID=${AGENT_TOOL_REVIEW_BASE_OID:-$LIVE_BASE_OID}
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
-   test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }
+   git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }
    ```
 
    **When a PR is open**, confirm the local head is already the pushed head
@@ -163,13 +170,12 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
    ```
 
-   Then **merge** the fetched base in — merge `FETCH_HEAD`, which the fetch always
-   sets, rather than `origin/$BASE_REF`, which a narrow or single-branch clone may
-   not update:
+   Then **merge** the exact fetched OID rather than shared `FETCH_HEAD` or
+   `origin/$BASE_REF`; either can be changed independently of this review:
 
    ```bash
    PRE_SYNC_HEAD=$(git rev-parse HEAD)
-   git merge --no-edit FETCH_HEAD || {
+   git merge --no-edit "$BASE_OID" || {
      git merge --abort
      echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
      exit 1

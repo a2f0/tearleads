@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 import { viewCurrentBranchPr } from "./currentBranchPr";
 
@@ -143,16 +144,40 @@ function resolveRepositoryGitUrl(repo: string): string {
   return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
 }
 
+/** Build a fetch that records the requested branch in a caller-owned ref. */
+export function buildBaseFetchArgs(
+  repositoryUrl: string,
+  target: string,
+  temporaryRef: string,
+): string[] {
+  return [
+    "fetch",
+    "--quiet",
+    "--no-tags",
+    repositoryUrl,
+    `+${target}:${temporaryRef}`,
+  ];
+}
+
 function fetchBase(repositoryUrl: string, target: string): string {
-  const result = spawnSync("git", ["fetch", "--quiet", repositoryUrl, target], {
-    stdio: "ignore",
-  });
-  if (spawnExitCode("git fetch", result) !== 0) {
-    throw new Error(
-      `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+  const temporaryRef = `refs/codex/review-base/${process.pid}-${randomUUID()}`;
+  try {
+    const result = spawnSync(
+      "git",
+      buildBaseFetchArgs(repositoryUrl, target, temporaryRef),
+      { stdio: "ignore" },
     );
+    if (spawnExitCode("git fetch", result) !== 0) {
+      throw new Error(
+        `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+      );
+    }
+    return run("git", ["rev-parse", `${temporaryRef}^{commit}`]);
+  } finally {
+    spawnSync("git", ["update-ref", "-d", temporaryRef], {
+      stdio: "ignore",
+    });
   }
-  return run("git", ["rev-parse", "FETCH_HEAD"]);
 }
 
 const freshBaseRefDependencies: FreshBaseRefDependencies = {
