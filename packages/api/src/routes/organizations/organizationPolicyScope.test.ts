@@ -3,13 +3,13 @@ import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
+  principalEpochKeys,
+  principalMemberEnvelopes,
+  principalStatePayloads,
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
-import {
-  isOrganizationReadModelResponse,
-  isPrincipalPolicyBundleResponse,
-} from "@symcrypt/validators/response";
+import { isOrganizationReadModelResponse } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -122,14 +122,28 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
     createdState,
   );
+  const [epochKeys, envelopes, payloads] = await Promise.all([
+    db
+      .select()
+      .from(principalEpochKeys)
+      .where(eq(principalEpochKeys.principalId, groupId)),
+    db
+      .select()
+      .from(principalMemberEnvelopes)
+      .where(eq(principalMemberEnvelopes.principalId, groupId)),
+    db
+      .select()
+      .from(principalStatePayloads)
+      .where(eq(principalStatePayloads.principalId, groupId)),
+  ]);
+  expect(epochKeys).toEqual([]);
+  expect(envelopes).toEqual([]);
+  expect(payloads).toEqual([]);
   const retainedPolicyResponse = await routeApp.request(
     `/principals/group/${groupId}/policy`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
-  expect(retainedPolicyResponse.status).toBe(200);
-  expect(
-    isPrincipalPolicyBundleResponse(await retainedPolicyResponse.json()),
-  ).toBe(true);
+  expect(retainedPolicyResponse.status).toBe(404);
   const before = await readSnapshot(owner, organization.organizationId);
 
   const replayResponse = await routeApp.request(

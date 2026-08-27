@@ -12,7 +12,7 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
 import {
-  loadPrincipalPoliciesForReferences,
+  loadPrincipalAuthorizationPoliciesForReferences,
   PrincipalPolicyProjectionError,
 } from "../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -227,14 +227,16 @@ async function verifyBundle(
     ): Promise<VerifiedContainerAccessManifest> =>
       verifyBundle(input, await input.loadBundle(manifestHash), visiting);
     const artifacts = await loadStoredManifestArtifacts({ parsed, verifyHash });
-    const principalPolicies = await loadPrincipalPoliciesForReferences(
-      input.context.executor,
-      collectPrincipalReferences(parsed, [
-        artifacts.previousPath,
-        artifacts.parentPath,
-        artifacts.destinationParentPath,
-      ]),
-    );
+    const principalPolicies =
+      await loadPrincipalAuthorizationPoliciesForReferences(
+        input.context.executor,
+        collectPrincipalReferences(parsed, [
+          artifacts.previousPath,
+          artifacts.parentPath,
+          artifacts.destinationParentPath,
+        ]),
+        input.context.principalPolicyAuthorizationEvidence,
+      );
     const verification = await verifyContainerAccessManifest({
       event: signedEvent,
       expectedManifestHash: bundle.manifestHash,

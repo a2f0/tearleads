@@ -1,11 +1,11 @@
 import type {
+  AnyVerifiedPrincipalPolicy,
   NormalizedPrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
 } from "./types";
 
 export function principalPolicyEntryForReference(input: {
-  readonly policy: VerifiedPrincipalPolicy;
+  readonly policy: AnyVerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
 }): NormalizedPrincipalPolicyStateChainEntry | undefined {
   const currentMatches =

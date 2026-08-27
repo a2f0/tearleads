@@ -335,6 +335,8 @@ export {
   PrincipalPolicyErrorResponseSchema,
   type PrincipalPolicyMutationResponse,
   PrincipalPolicyMutationResponseSchema,
+  type PrincipalPolicySnapshotResponse,
+  PrincipalPolicySnapshotResponseSchema,
   type PrincipalPolicyStaleErrorResponse,
   PrincipalPolicyStaleErrorResponseSchema,
   type PrincipalPolicyStateChainEntryResponse,

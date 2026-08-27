@@ -1,4 +1,5 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -176,6 +177,9 @@ async function verifyContainerKekProjection(input: {
 }
 
 export async function verifyContainerManifestPath(input: {
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly enforceLocalCheckpoints: boolean;
@@ -192,6 +196,7 @@ export async function verifyContainerManifestPath(input: {
   for (const [index, bundle] of input.path.entries()) {
     verifiedPath.push(
       await verifyContainerManifestBundle({
+        authorizationEvidence: input.authorizationEvidence,
         bundle,
         bundlesByHash: input.bundlesByHash,
         checkpointContext: input.checkpointContext,

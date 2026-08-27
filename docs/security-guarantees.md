@@ -288,11 +288,13 @@ material cases are:
   retained container grant is rematerialized against the current head. A fresh
   recovery-key login can therefore recover the still-granted container without
   a repair action by another user. **Recoverable.**
-- **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
-  payloads, epoch keys, and member envelopes. The key material is gone from the
-  server, so a later recovery cannot reconstruct it. **Permanently unrecoverable
-  from server state**, by design. This is not a client-side erasure guarantee: a
-  client that cached the group key while authorized still holds that material.
+- **Group deleted.** `deleteOrganizationGroupRows` purges the group's encrypted
+  payloads, epoch keys, and member envelopes. It retains only signed public
+  state and committed membership/grant projections so terminal purge proofs
+  remain verifiable. The key material is gone from the server, so a later
+  recovery cannot reconstruct it. **Permanently unrecoverable from server
+  state**, by design. This is not a client-side erasure guarantee: a client that
+  cached the group key while authorized still holds that material.
 - **Anchor caps.** The per-epoch envelope cap and the principal-scope cap rank
   candidates by identity, not by whether the client can resolve them. A
   requester with a very wide principal set can be served envelopes they cannot

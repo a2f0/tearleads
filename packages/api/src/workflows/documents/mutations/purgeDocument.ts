@@ -22,7 +22,11 @@ import {
 } from "../../containers/writerProjection";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
-import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
+import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
+import {
+  collectPurgeProofPrincipalReferences,
+  loadDocumentPurgeProofMaterial,
+} from "../writerProjectionPurgeProof";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
 import { verifyDocumentPurgeRequest } from "./shared/purgeVerification";
@@ -302,6 +306,15 @@ async function purgeDocumentWithExecutor(input: {
     documentManifestHash: verifiedPurge.documentManifest.manifestHash,
     executor: input.executor,
   });
+  const principalPolicySnapshots = (
+    await loadVerifiedPrincipalPolicySnapshotsForReferences(
+      input.executor,
+      collectPurgeProofPrincipalReferences([
+        ...proofMaterial.authorizingContainerPath,
+        ...proofMaterial.authorizingContainerManifestHistory,
+      ]),
+    )
+  ).snapshots;
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,
@@ -346,6 +359,7 @@ async function purgeDocumentWithExecutor(input: {
       documentManifestPredecessors: [],
       purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),
+      principalPolicySnapshots,
       reclaimedBlobStorageKeys: [],
     },
   };

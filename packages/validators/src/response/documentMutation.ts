@@ -19,6 +19,7 @@ import {
   type DocumentSyncResponse,
   DocumentSyncResponseSchema,
 } from "./documentSyncSchema";
+import { PrincipalPolicySnapshotResponseSchema } from "./principal";
 
 export {
   type DocumentContentKeyBundleResponse,
@@ -82,6 +83,7 @@ const documentPurgeProofShape = {
   ),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,
+  principalPolicySnapshots: arraySchema(PrincipalPolicySnapshotResponseSchema),
 } as const;
 
 export const DocumentPurgeProofResponseSchema = loosePlainObject(

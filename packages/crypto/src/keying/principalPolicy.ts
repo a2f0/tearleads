@@ -32,12 +32,18 @@ import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
   PrincipalPolicySignerPublicKey,
+  PrincipalPolicySnapshot,
   PrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
+  VerifiedPrincipalPolicySnapshot,
   VerifyPrincipalPolicyBundleInput,
+  VerifyPrincipalPolicySnapshotInput,
 } from "./types";
-import { makeVerifiedPrincipalPolicy } from "./types";
+import {
+  makeVerifiedPrincipalPolicy,
+  makeVerifiedPrincipalPolicySnapshot,
+} from "./types";
 
 function projectionIncludesAdminUser(
   projection: readonly PrincipalProjectionMember[],
@@ -445,7 +451,7 @@ async function verifyPrincipalPolicyChainEntrySignature(input: {
 }
 
 async function verifyPrincipalPolicyChain(input: {
-  readonly bundle: PrincipalPolicyBundle;
+  readonly bundle: PrincipalPolicySnapshot;
   readonly externalAuthority: VerifyPrincipalPolicyBundleInput["externalAuthority"];
   readonly localCheckpoint: PrincipalPolicyCheckpoint | null | undefined;
   readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
@@ -519,6 +525,41 @@ async function verifyPrincipalPolicyChain(input: {
   return normalizedChain;
 }
 
+async function verifyPrincipalPolicyAuthorizationEvidence(input: {
+  readonly bundle: PrincipalPolicySnapshot;
+  readonly externalAuthority: VerifyPrincipalPolicyBundleInput["externalAuthority"];
+  readonly expectedReference: ReferencedPrincipalHead | undefined;
+  readonly localCheckpoint: PrincipalPolicyCheckpoint | null | undefined;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+}): Promise<{
+  readonly currentEntry: NormalizedPrincipalPolicyStateChainEntry;
+  readonly normalizedChain: NormalizedPrincipalPolicyStateChainEntry[];
+}> {
+  const signerPublicKeyByUserAndFingerprint =
+    await buildPrincipalPolicySignerKeyMap(input.signerPublicKeys);
+  const normalizedChain = await verifyPrincipalPolicyChain({
+    bundle: input.bundle,
+    externalAuthority: input.externalAuthority,
+    localCheckpoint: input.localCheckpoint,
+    signerPublicKeyByUserAndFingerprint,
+  });
+  const currentEntry = normalizedChain.at(-1);
+  if (!currentEntry) {
+    throwVerification("missing_dependency", "principal policy chain is empty");
+  }
+  verifyPrincipalPolicyReference({
+    chain: normalizedChain,
+    currentState: currentEntry.state,
+    expectedReference: input.expectedReference,
+  });
+  verifyPrincipalPolicyCheckpoint({
+    chain: normalizedChain,
+    currentState: currentEntry.state,
+    localCheckpoint: input.localCheckpoint,
+  });
+  return { currentEntry, normalizedChain };
+}
+
 export async function verifyPrincipalPolicyBundle({
   bundle,
   externalAuthority,
@@ -529,37 +570,56 @@ export async function verifyPrincipalPolicyBundle({
   KeyingVerificationResult<VerifiedPrincipalPolicy>
 > {
   return runVerifier(async () => {
-    const signerPublicKeyByUserAndFingerprint =
-      await buildPrincipalPolicySignerKeyMap(signerPublicKeys);
-    const normalizedChain = await verifyPrincipalPolicyChain({
-      bundle,
-      externalAuthority,
-      localCheckpoint,
-      signerPublicKeyByUserAndFingerprint,
-    });
-    const currentEntry = normalizedChain.at(-1);
-
-    if (!currentEntry) {
-      throwVerification(
-        "missing_dependency",
-        "principal policy chain is empty",
-      );
-    }
+    const { currentEntry, normalizedChain } =
+      await verifyPrincipalPolicyAuthorizationEvidence({
+        bundle,
+        externalAuthority,
+        expectedReference,
+        localCheckpoint,
+        signerPublicKeys,
+      });
 
     await verifyPrincipalPolicyPayload({ bundle });
     await verifyPrincipalPolicyMemberEnvelopes({ bundle });
-    verifyPrincipalPolicyReference({
-      chain: normalizedChain,
-      currentState: currentEntry.state,
-      expectedReference,
-    });
-    verifyPrincipalPolicyCheckpoint({
-      chain: normalizedChain,
-      currentState: currentEntry.state,
-      localCheckpoint,
-    });
 
     return makeVerifiedPrincipalPolicy({
+      principalType: currentEntry.state.principalType,
+      principalId: currentEntry.state.principalId,
+      version: currentEntry.state.version,
+      keyEpoch: currentEntry.state.keyEpoch,
+      stateHash: currentEntry.state.stateHash,
+      state: currentEntry.state,
+      projection: currentEntry.projection,
+      grants: currentEntry.grants,
+      history: normalizedChain,
+      checkpoint: {
+        principalType: currentEntry.state.principalType,
+        principalId: currentEntry.state.principalId,
+        version: currentEntry.state.version,
+        stateHash: currentEntry.state.stateHash,
+      },
+    });
+  });
+}
+
+export async function verifyPrincipalPolicySnapshot({
+  snapshot,
+  externalAuthority,
+  expectedReference,
+  signerPublicKeys,
+}: VerifyPrincipalPolicySnapshotInput): Promise<
+  KeyingVerificationResult<VerifiedPrincipalPolicySnapshot>
+> {
+  return runVerifier(async () => {
+    const { currentEntry, normalizedChain } =
+      await verifyPrincipalPolicyAuthorizationEvidence({
+        bundle: snapshot,
+        externalAuthority,
+        expectedReference,
+        localCheckpoint: null,
+        signerPublicKeys,
+      });
+    return makeVerifiedPrincipalPolicySnapshot({
       principalType: currentEntry.state.principalType,
       principalId: currentEntry.state.principalId,
       version: currentEntry.state.version,

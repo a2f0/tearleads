@@ -63,16 +63,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 54771,
-      "bytes": 2269184
+      "lines": 55451,
+      "bytes": 2302975
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 548,
-      "bytes": 28972
+      "lines": 550,
+      "bytes": 29101
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 566,
@@ -339,16 +339,16 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1105,
-      "bytes": 34036
+      "lines": 1144,
+      "bytes": 35605
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 21103,
-      "bytes": 870718
+      "lines": 21246,
+      "bytes": 879175
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

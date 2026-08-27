@@ -26,6 +26,7 @@ import {
   throwVerification,
 } from "./shared";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ContainerAccessEventBody,
   ContainerAccessKeyState,
   ContainerAccessLevel,
@@ -46,7 +47,6 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
   VerifyContainerAccessManifestInput,
 } from "./types";
 import { makeVerifiedContainerAccessManifest } from "./types";
@@ -720,7 +720,7 @@ function requirePathLastMatchesManifest(input: {
 }
 
 export function principalPolicyMatchesReference(input: {
-  readonly policy: VerifiedPrincipalPolicy;
+  readonly policy: AnyVerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
 }): boolean {
   return principalPolicyEntryForReference(input) !== undefined;
@@ -729,7 +729,7 @@ export function principalPolicyMatchesReference(input: {
 function grantAccessLevelForUser(input: {
   readonly grant: ContainerDirectGrant;
   readonly membershipAt: "current" | "referenced";
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly state: Pick<
     ContainerAccessManifestState,
     "referencedPrincipalHeads"
@@ -774,7 +774,7 @@ function grantAccessLevelForUser(input: {
 function resolveContainerPathUserAccessLevelAt(input: {
   readonly membershipAt: "current" | "referenced";
   readonly path: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly userId: string;
 }): ContainerAccessLevel | null {
   let accessLevel: ContainerAccessLevel | null = null;
@@ -826,7 +826,7 @@ export function requireContainerPathUserAccess(input: {
   readonly label: string;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly userId: string;
 }): void {
   const path = input.path;
@@ -883,7 +883,7 @@ function requireRootCreateSignerAdmin(input: {
   readonly parentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
 }): void {
   if (input.parentContainerPath && input.parentContainerPath.length > 0) {
     throwVerification(
@@ -936,7 +936,7 @@ type ContainerAccessManifestDerivationInput = {
   readonly destinationParentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
 };
 
 type ContainerAccessManifestTransitionBase = Omit<

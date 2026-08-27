@@ -86,6 +86,12 @@ test("purge proof remains available after its container is deleted", async () =>
   );
   expect(proofResponse.status).toBe(200);
   expect(isDocumentPurgeProofResponse(await proofResponse.json())).toBe(true);
+
+  const invalidCheckpointResponse = await routeApp.request(
+    `/documents/${created.id}/purge?checkpointManifestHashes=${"a".repeat(64)}%2C${"b".repeat(64)}`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(invalidCheckpointResponse.status).toBe(409);
 });
 
 test("document purge rejects a disconnected signed authorization path", async () => {
@@ -122,6 +128,31 @@ test("document purge rejects a disconnected signed authorization path", async ()
   expect(purgeResponse.status).toBe(409);
   await expect(purgeResponse.json()).resolves.toEqual({
     error: "document purge authorization path is not contiguous",
+  });
+});
+
+test("document purge rejects a signed authorization path with omitted ancestors", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const childFixture = storedChildFixture({ child, root });
+  const created = await createDocument({
+    containerPath: [root.bundle, childFixture.bundle],
+    owner,
+    root: childFixture,
+  });
+
+  const purgeResponse = await postDocumentPurge({
+    authorizingContainerPath: [childFixture.bundle],
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root: childFixture,
+  });
+  expect(purgeResponse.status).toBe(409);
+  await expect(purgeResponse.json()).resolves.toEqual({
+    error: "document purge authorization path must start at a root container",
   });
 });
 

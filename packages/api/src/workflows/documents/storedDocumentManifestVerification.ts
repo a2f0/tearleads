@@ -27,7 +27,7 @@ import {
   ContainerWriterProjectionError,
 } from "../containers/writerProjection/types";
 import {
-  loadPrincipalPoliciesForContainerPaths,
+  loadPrincipalAuthorizationPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
 } from "../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../signerPublicKey";
@@ -296,10 +296,12 @@ async function verifyBundle(input: {
     if (!targetContainerPath) {
       throw integrityError("signed target container path is missing");
     }
-    const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-      input.containerContext.executor,
-      containerPaths,
-    );
+    const principalPolicies =
+      await loadPrincipalAuthorizationPoliciesForContainerPaths(
+        input.containerContext.executor,
+        containerPaths,
+        input.containerContext.principalPolicyAuthorizationEvidence,
+      );
     const result = await verifyDocumentLinkSetManifest({
       authorizingContainerPaths: containerPaths,
       event,

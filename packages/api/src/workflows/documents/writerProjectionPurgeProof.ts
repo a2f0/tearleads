@@ -1,5 +1,7 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { ReferencedPrincipalHead } from "@symcrypt/crypto";
 import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
 import {
   type ContainerDependencyLoadState,
   DocumentWriterProjectionError,
@@ -17,6 +19,33 @@ interface DocumentPurgeProofMaterial {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
   readonly documentManifestHistory: AccessManifestBundleWireResponse[];
+}
+
+export function collectPurgeProofPrincipalReferences(
+  bundles: readonly AccessManifestBundleWireResponse[],
+): ReferencedPrincipalHead[] {
+  const references = new Map<string, ReferencedPrincipalHead>();
+  for (const [index, bundle] of bundles.entries()) {
+    const manifest = readProjectionAccessManifest(
+      bundle.manifest,
+      `Document purge proof manifest[${index}]`,
+      (message) => new DocumentWriterProjectionError(message, 409),
+    );
+    for (const reference of manifest.referencedPrincipalHeads) {
+      references.set(
+        [
+          reference.principalType,
+          reference.principalId,
+          reference.version,
+          reference.keyEpoch,
+          reference.stateHash,
+          reference.keyFingerprint,
+        ].join(":"),
+        reference,
+      );
+    }
+  }
+  return [...references.values()];
 }
 
 export async function loadAuthorizingContainerCheckpointMaterial(input: {

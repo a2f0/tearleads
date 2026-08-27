@@ -1,5 +1,7 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "@symcrypt/crypto";
@@ -22,7 +24,42 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 
+async function collectManifestAuthorizationPolicies(input: {
+  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly organizationId: string;
+  readonly principalPolicyCache: PrincipalPolicyCache;
+  readonly referencedPrincipalHeads: Parameters<
+    typeof principalPolicyMatchesReference
+  >[0]["reference"][];
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
+}) {
+  const missingPrincipalHeads = input.referencedPrincipalHeads.filter(
+    (reference) =>
+      !input.authorizationEvidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
+  );
+  return [
+    ...input.authorizationEvidence,
+    ...(await collectReferencedPrincipalPolicies({
+      checkpointContext: input.checkpointContext,
+      organizationId: input.organizationId,
+      principalPolicyCache: input.principalPolicyCache,
+      references: missingPrincipalHeads,
+      resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    })),
+  ];
+}
+
 export async function verifyContainerManifestBundle(input: {
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
@@ -75,11 +112,13 @@ export async function verifyContainerManifestBundle(input: {
     ...(previousManifest?.state.referencedPrincipalHeads ?? []),
     ...manifest.referencedPrincipalHeads,
   ];
-  const principalPolicies = await collectReferencedPrincipalPolicies({
+  const authorizationEvidence = input.authorizationEvidence ?? [];
+  const principalPolicies = await collectManifestAuthorizationPolicies({
+    authorizationEvidence,
     checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     principalPolicyCache: input.principalPolicyCache,
-    references: referencedPrincipalHeads,
+    referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -161,6 +200,9 @@ function readContainerManifestParentReference(
 }
 
 async function resolveContainerManifestVerificationParentPath(input: {
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
@@ -217,6 +259,9 @@ async function resolveContainerManifestVerificationParentPath(input: {
 }
 
 async function verifyPreviousContainerManifest(input: {
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly label: string;
@@ -241,6 +286,7 @@ async function verifyPreviousContainerManifest(input: {
   });
 
   return verifyContainerManifestBundle({
+    authorizationEvidence: input.authorizationEvidence,
     bundle: previousBundle,
     bundlesByHash: input.bundlesByHash,
     checkpointContext: input.checkpointContext,

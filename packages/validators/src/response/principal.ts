@@ -115,6 +115,17 @@ export type PrincipalPolicyStateChainEntryResponse = z.infer<
   typeof PrincipalPolicyStateChainEntryResponseSchema
 >;
 
+export const PrincipalPolicySnapshotResponseSchema = loosePlainObject({
+  currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
+  currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
+  currentState: PrincipalStateResponseSchema,
+  previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
+});
+
+export type PrincipalPolicySnapshotResponse = z.infer<
+  typeof PrincipalPolicySnapshotResponseSchema
+>;
+
 const principalPolicyBundleResponseShape = {
   currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponseSchema,

@@ -13,12 +13,12 @@ import {
   throwVerification,
 } from "./shared";
 import type {
+  AnyVerifiedPrincipalPolicy,
   KeyingCanonicalJson,
   KeyingVerificationResult,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
 } from "./types";
 
 export interface DocumentPurgeAccessEventBody {
@@ -35,7 +35,7 @@ export interface VerifyDocumentPurgeEventInput {
     | VerifiedDocumentLinkSetManifest
     | VerifiedDocumentLinkSetSnapshot;
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly expectedDocumentId?: string;
 }
 
@@ -180,6 +180,17 @@ function assertPurgeAuthorizationPath(
   input: VerifyDocumentPurgeEventInput,
   body: DocumentPurgeAccessEventBody,
 ): void {
+  const root = input.authorizingContainerPath[0];
+  if (
+    !root ||
+    root.state.parentContainerId !== null ||
+    root.state.parentManifestHash !== null
+  ) {
+    throwVerification(
+      "missing_dependency",
+      "document purge authorization path must start at a root container",
+    );
+  }
   for (const [index, manifest] of input.authorizingContainerPath.entries()) {
     if (
       body.authorizingContainerManifestHashes[index] !== manifest.manifestHash

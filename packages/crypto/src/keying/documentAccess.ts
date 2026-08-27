@@ -39,6 +39,7 @@ import type {
   KeyingCanonicalJson,
   KeyingCanonicalPayload,
   KeyingVerificationResult,
+  AnyVerifiedPrincipalPolicy as Policy,
   VerifiedAccessEvent,
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
@@ -47,7 +48,6 @@ import type {
   VerifiedContainerParentEdge,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
   VerifyAccessEventInput,
   VerifyAttachmentBindingEventInput,
   VerifyAttachmentDetachEventInput,
@@ -442,7 +442,7 @@ function assertAttachmentDocumentAuthority(input: {
   readonly body: AttachmentAccessEventBody;
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly event: VerifiedAccessEvent;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
 }): void {
   if (
     input.body.documentId !== input.documentManifest.state.documentId ||
@@ -662,7 +662,7 @@ function requireContainerPathCurrentWriteAccess(input: {
   readonly manifestHash: string;
   readonly organizationId: string;
   readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
 }): void {
   requireContainerPathCurrentManifest(input);
   requireContainerPathUserAccess({
@@ -682,7 +682,7 @@ function requireAnyLinkedContainerWriteAccess(input: {
   readonly paths:
     | readonly (readonly VerifiedContainerAccessManifest[])[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
 }): void {
   const dependencyManifestHashes = new Set(
     input.event.event.dependencyManifestHashes,
@@ -725,7 +725,7 @@ export function requireWriteAccessThroughCommittedDocumentTarget(input: {
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly label: string;
   readonly paths: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
   readonly userId: string;
 }): void {
   const targetHashByContainerId = new Map(
@@ -776,7 +776,7 @@ export function requireWriteAccessThroughCommittedBlobTarget(input: {
   readonly header: WriteHeader;
   readonly label: string;
   readonly paths: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
 }): void {
   const targetManifestHashesByContainerId = new Map<string, Set<string>>();
 
@@ -829,7 +829,7 @@ type DocumentLinkSetManifestDerivationInput = {
   readonly authorizingContainerPaths:
     | readonly (readonly VerifiedContainerAccessManifest[])[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly Policy[];
 };
 
 interface PreviousDocumentLinkSetTransition {

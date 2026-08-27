@@ -506,6 +506,9 @@ const verifiedIdentityStateBrand: unique symbol = Symbol(
 const verifiedPrincipalPolicyBrand: unique symbol = Symbol(
   "verifiedPrincipalPolicy",
 );
+const verifiedPrincipalPolicySnapshotBrand: unique symbol = Symbol(
+  "verifiedPrincipalPolicySnapshot",
+);
 const verifiedAccessEventBrand: unique symbol = Symbol("verifiedAccessEvent");
 const verifiedAccessManifestBrand: unique symbol = Symbol(
   "verifiedAccessManifest",
@@ -564,6 +567,24 @@ export interface VerifiedPrincipalPolicy {
   readonly checkpoint: PrincipalPolicyCheckpoint;
   readonly [verifiedPrincipalPolicyBrand]: true;
 }
+
+export interface VerifiedPrincipalPolicySnapshot {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly version: number;
+  readonly keyEpoch: number;
+  readonly stateHash: string;
+  readonly state: PrincipalPolicySignedState;
+  readonly projection: PrincipalProjectionMember[];
+  readonly grants: PrincipalContainerGrant[];
+  readonly history: readonly NormalizedPrincipalPolicyStateChainEntry[];
+  readonly checkpoint: PrincipalPolicyCheckpoint;
+  readonly [verifiedPrincipalPolicySnapshotBrand]: true;
+}
+
+export type AnyVerifiedPrincipalPolicy =
+  | VerifiedPrincipalPolicy
+  | VerifiedPrincipalPolicySnapshot;
 
 export interface VerifiedAccessEvent {
   readonly event: AccessEvent;
@@ -708,6 +729,18 @@ export function makeVerifiedPrincipalPolicy(
   return {
     ...value,
     [verifiedPrincipalPolicyBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedPrincipalPolicySnapshot(
+  value: Omit<
+    VerifiedPrincipalPolicySnapshot,
+    typeof verifiedPrincipalPolicySnapshotBrand
+  >,
+): VerifiedPrincipalPolicySnapshot {
+  return {
+    ...value,
+    [verifiedPrincipalPolicySnapshotBrand]: verifiedBrandValue,
   };
 }
 
@@ -907,7 +940,7 @@ export interface VerifyContainerAccessManifestInput {
   readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
 }
 
 export interface VerifyContainerParentEdgeInput {
@@ -926,7 +959,7 @@ export interface VerifyDocumentLinkSetManifestInput {
     | undefined;
   readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
 }
 
 export interface DeriveContainerKekRecipientTargetsInput {
@@ -1076,6 +1109,13 @@ export interface PrincipalPolicyBundle {
   readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
 }
 
+export interface PrincipalPolicySnapshot {
+  readonly currentState: PrincipalPolicySignedState;
+  readonly currentProjection: readonly PrincipalProjectionMember[];
+  readonly currentGrants: readonly PrincipalContainerGrant[];
+  readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
+}
+
 export interface PrincipalPolicySignerPublicKey {
   readonly userId: string;
   readonly signingKeyFingerprint: string;
@@ -1087,6 +1127,13 @@ export interface VerifyPrincipalPolicyBundleInput {
   readonly externalAuthority?: PrincipalPolicyExternalAuthority;
   readonly expectedReference?: ReferencedPrincipalHead;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+}
+
+export interface VerifyPrincipalPolicySnapshotInput {
+  readonly snapshot: PrincipalPolicySnapshot;
+  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
+  readonly expectedReference?: ReferencedPrincipalHead;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }
 

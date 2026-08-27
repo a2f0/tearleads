@@ -26,13 +26,15 @@ import {
 } from "../../containers/writerProjection";
 import { loadContainerManifestBundleByHash } from "../../containers/writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../containers/writerProjection/storedManifestVerification";
-import { loadPrincipalPoliciesForContainerPaths } from "../../principals/principalPolicyProjection";
+import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "../storedDocumentManifestVerification";
+import { DocumentWriterProjectionError } from "../writerProjection";
 import {
+  collectPurgeProofPrincipalReferences,
   loadAuthorizingContainerCheckpointMaterial,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
@@ -192,10 +194,20 @@ async function loadVerifiedCheckpointMaterial(input: {
       400,
     );
   }
-  const checkpointMaterial = await loadAuthorizingContainerCheckpointMaterial({
-    checkpointManifestHashes: input.checkpointManifestHashes,
-    executor: input.executor,
-  });
+  let checkpointMaterial: Awaited<
+    ReturnType<typeof loadAuthorizingContainerCheckpointMaterial>
+  >;
+  try {
+    checkpointMaterial = await loadAuthorizingContainerCheckpointMaterial({
+      checkpointManifestHashes: input.checkpointManifestHashes,
+      executor: input.executor,
+    });
+  } catch (error) {
+    if (error instanceof DocumentWriterProjectionError) {
+      throw new DocumentMutationError(error.message, 409);
+    }
+    throw error;
+  }
   if (
     checkpointMaterial.heads.length !== input.authorizingContainerPath.length
   ) {
@@ -226,21 +238,20 @@ async function verifyRetainedPurgeManifests(input: {
   readonly material: Awaited<ReturnType<typeof loadDocumentPurgeProofMaterial>>;
 }) {
   try {
-    return {
-      authorizingContainerPath: await verifyStoredContainerPath({
-        bundles: input.material.authorizingContainerPath,
-        context: input.context,
-      }),
-      documentManifest: await verifyStoredDocumentManifest({
-        bundle: input.material.documentManifest,
-        containerContext: input.context,
-      }),
-      historicalContainerPaths: await Promise.all(
-        input.material.documentManifestContainerPaths.map((bundles) =>
-          verifyStoredContainerPath({ bundles, context: input.context }),
-        ),
+    const authorizingContainerPath = await verifyStoredContainerPath({
+      bundles: input.material.authorizingContainerPath,
+      context: input.context,
+    });
+    const documentManifest = await verifyStoredDocumentManifest({
+      bundle: input.material.documentManifest,
+      containerContext: input.context,
+    });
+    await Promise.all(
+      input.material.documentManifestContainerPaths.map((bundles) =>
+        verifyStoredContainerPath({ bundles, context: input.context }),
       ),
-    };
+    );
+    return { authorizingContainerPath, documentManifest };
   } catch (error) {
     if (
       error instanceof StoredDocumentManifestError ||
@@ -250,6 +261,31 @@ async function verifyRetainedPurgeManifests(input: {
     }
     throw error;
   }
+}
+
+function internalPurgePrincipalReferences(
+  material: Awaited<ReturnType<typeof loadDocumentPurgeProofMaterial>>,
+) {
+  return collectPurgeProofPrincipalReferences([
+    ...material.authorizingContainerPath,
+    ...material.authorizingContainerManifestHistory,
+    ...material.documentContainerManifestHistory,
+    ...material.documentManifestContainerPaths.flat(),
+  ]);
+}
+
+function responsePurgePrincipalReferences(input: {
+  readonly checkpointMaterial: Awaited<
+    ReturnType<typeof loadAuthorizingContainerCheckpointMaterial>
+  >;
+  readonly material: Awaited<ReturnType<typeof loadDocumentPurgeProofMaterial>>;
+}) {
+  return collectPurgeProofPrincipalReferences([
+    ...input.material.authorizingContainerPath,
+    ...input.material.authorizingContainerManifestHistory,
+    ...input.checkpointMaterial.heads,
+    ...input.checkpointMaterial.history,
+  ]);
 }
 
 async function verifyProofMaterial(input: {
@@ -275,16 +311,18 @@ async function verifyProofMaterial(input: {
     documentManifestHash,
     executor: input.executor,
   });
-  const context = createContainerWriterProjectionContext(input.executor);
-  const {
-    authorizingContainerPath,
-    documentManifest,
-    historicalContainerPaths,
-  } = await verifyRetainedPurgeManifests({ context, material });
-  const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
+  const internalEvidence =
+    await loadVerifiedPrincipalPolicySnapshotsForReferences(
+      input.executor,
+      internalPurgePrincipalReferences(material),
+    );
+  const context = createContainerWriterProjectionContext(
     input.executor,
-    [authorizingContainerPath, ...historicalContainerPaths],
+    internalEvidence.policies,
   );
+  const { authorizingContainerPath, documentManifest } =
+    await verifyRetainedPurgeManifests({ context, material });
+  const principalPolicies = internalEvidence.policies;
   const verified = await verifyDocumentPurgeEvent({
     authorizingContainerPath,
     documentManifest,
@@ -312,6 +350,11 @@ async function verifyProofMaterial(input: {
       ...checkpointMaterial.history,
     ].map((bundle) => [bundle.manifestHash, bundle]),
   );
+  const responseEvidence =
+    await loadVerifiedPrincipalPolicySnapshotsForReferences(
+      input.executor,
+      responsePurgePrincipalReferences({ checkpointMaterial, material }),
+    );
   return {
     authorizingContainerPath,
     body,
@@ -325,6 +368,7 @@ async function verifyProofMaterial(input: {
         head: material.documentManifest,
         history: material.documentManifestHistory,
       }),
+      principalPolicySnapshots: responseEvidence.snapshots,
     },
     principalPolicies,
   };

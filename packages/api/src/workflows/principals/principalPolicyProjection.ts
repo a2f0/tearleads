@@ -1,10 +1,12 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
+import { principalPolicyMatchesReference } from "@symcrypt/crypto";
 import {
   getCurrentPrincipalStates,
   type PrincipalStateReference,
@@ -91,7 +93,36 @@ export async function loadPrincipalPoliciesForContainerPaths(
   );
 }
 
-export async function loadPrincipalPoliciesForReferences(
+export async function loadPrincipalAuthorizationPoliciesForReferences(
+  executor: DatabaseSession,
+  references: readonly ReferencedPrincipalHead[],
+  evidence: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<AnyVerifiedPrincipalPolicy[]> {
+  const missing = references.filter(
+    (reference) =>
+      !evidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
+  );
+  return [
+    ...evidence,
+    ...(await loadPrincipalPoliciesForReferences(executor, missing)),
+  ];
+}
+
+export async function loadPrincipalAuthorizationPoliciesForContainerPaths(
+  executor: DatabaseSession,
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+  evidence: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<AnyVerifiedPrincipalPolicy[]> {
+  return loadPrincipalAuthorizationPoliciesForReferences(
+    executor,
+    collectReferencedPrincipalHeads(paths),
+    evidence,
+  );
+}
+
+async function loadPrincipalPoliciesForReferences(
   executor: DatabaseSession,
   references: readonly ReferencedPrincipalHead[],
 ): Promise<VerifiedPrincipalPolicy[]> {

@@ -428,9 +428,10 @@ authenticated control-plane operation without a signed artifact.
 
 `POST /documents/:documentId/purge` accepts a signed `document.purge` event.
 The signature binds the current document manifest, the sole linked container,
-and every manifest hash in the exact current container path that authorized the
-purge. The API independently verifies the event, exact heads, path contiguity,
-organization scope, and signer write access, stores the terminal event, and
+and every manifest hash in the exact current root-to-leaf container path that
+authorized the purge. The API independently verifies the event, exact heads,
+root completeness, path contiguity, organization scope, and signer write access,
+stores the terminal event, and
 then removes the document's mutable row, content keys, encrypted updates,
 attachments, and live-head pointer. It retains the signed document manifest
 chain and the exact signed authorization path plus its verification
@@ -438,6 +439,14 @@ dependencies so a device authorized through that purge-time path can retrieve
 the proof from `GET /documents/:documentId/purge` after the live document is
 gone. A user whose only access came through a path unlinked before the purge
 cannot retrieve it.
+
+The proof carries redacted principal-policy snapshots for every group head its
+container evidence references. Each snapshot retains the signed public state
+chain and committed membership/grant projections, but no encrypted payload,
+epoch-key row, or member envelope. Clients verify those signatures and
+commitments before using historical group membership. Group deletion can
+therefore erase recoverable server-side key material without making an earlier
+terminal purge unverifiable.
 
 The initial proof is strictly purge-time-bounded. The SDK authenticates that
 proof before using its claimed object identities to read any local checkpoint.
