@@ -59,9 +59,14 @@ export type DocumentLinkSetMutationResponse = z.infer<
   typeof DocumentLinkSetMutationResponseSchema
 >;
 
+const AccessManifestSnapshotResponseSchema = loosePlainObject({
+  manifest: plainObjectSchema,
+  manifestHash: nonEmptyStringSchema,
+});
+
 const documentPurgeProofShape = {
-  authorizingContainerCheckpointHeads: nonEmptyArraySchema(
-    AccessManifestBundleWireResponseSchema,
+  authorizingContainerCheckpointChains: nonEmptyArraySchema(
+    arraySchema(AccessManifestSnapshotResponseSchema),
   ),
   authorizingContainerPath: nonEmptyArraySchema(
     AccessManifestBundleWireResponseSchema,
@@ -76,10 +81,7 @@ const documentPurgeProofShape = {
     state: plainObjectSchema,
   }),
   documentManifestPredecessors: arraySchema(
-    loosePlainObject({
-      manifest: plainObjectSchema,
-      manifestHash: nonEmptyStringSchema,
-    }),
+    AccessManifestSnapshotResponseSchema,
   ),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,

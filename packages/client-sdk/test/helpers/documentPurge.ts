@@ -20,7 +20,7 @@ export async function createDocumentPurgeProof(
   if (!authorizingPath) throw new Error("Expected authorizing path");
 
   return {
-    authorizingContainerCheckpointHeads: authorizingPath,
+    authorizingContainerCheckpointChains: authorizingPath.map(() => []),
     authorizingContainerPath: authorizingPath,
     documentContainerManifestHistory:
       writerProjection.documentContainerManifestHistory,

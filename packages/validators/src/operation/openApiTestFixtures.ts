@@ -176,7 +176,7 @@ export function createDocumentPurgeProofResponse() {
     state: documentManifestBundle.state,
   };
   return {
-    authorizingContainerCheckpointHeads: [authorizingContainer],
+    authorizingContainerCheckpointChains: [[]],
     authorizingContainerPath: [authorizingContainer],
     documentContainerManifestHistory: [],
     documentId: "document-1",

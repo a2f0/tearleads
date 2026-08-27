@@ -3,6 +3,7 @@ import {
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   principalPolicyMatchesReference,
+  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetSnapshot,
@@ -25,7 +26,6 @@ import {
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
 } from "./checkpointContext";
-import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import {
   verifiedContainerManifestsForBundles,
   verifyContainerManifestPath,
@@ -61,18 +61,12 @@ function collectContainerBundles(
   proof: DocumentPurgeProofResponse,
 ): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
-  const paths = [
-    proof.authorizingContainerCheckpointHeads,
-    proof.authorizingContainerPath,
-  ];
-  for (const [pathIndex, path] of paths.entries()) {
-    for (const [index, bundle] of path.entries()) {
-      addBundleByHash(
-        bundlesByHash,
-        bundle,
-        `Document purge container path[${pathIndex}][${index}]`,
-      );
-    }
+  for (const [index, bundle] of proof.authorizingContainerPath.entries()) {
+    addBundleByHash(
+      bundlesByHash,
+      bundle,
+      `Document purge authorizing container path[${index}]`,
+    );
   }
   for (const [
     index,
@@ -87,94 +81,151 @@ function collectContainerBundles(
   return bundlesByHash;
 }
 
-function assertCheckpointHeadExtendsSignedPath(input: {
+function assertCheckpointSnapshotExtends(input: {
   readonly authorizingManifest: VerifiedContainerAccessManifest;
-  readonly checkpointHead: VerifiedContainerAccessManifest;
-  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
+  readonly current: VerifiedAccessManifestCheckpointEvidence;
+  readonly next: VerifiedAccessManifestSnapshot;
 }): void {
-  let current = input.checkpointHead;
-  const visited = new Set<string>();
-  while (current.manifestHash !== input.authorizingManifest.manifestHash) {
-    if (
-      current.state.containerId !==
-        input.authorizingManifest.state.containerId ||
-      current.state.epoch <= input.authorizingManifest.state.epoch ||
-      !current.state.previousManifestHash ||
-      visited.has(current.manifestHash)
-    ) {
-      throw new KeyingVerificationError(
-        "stale_predecessor",
-        "Document purge checkpoint head does not extend the signed authorization path",
-      );
-    }
-    visited.add(current.manifestHash);
-    const previous = input.verifiedByHash.get(
-      current.state.previousManifestHash,
+  if (
+    input.next.checkpoint.objectKind !== "container" ||
+    input.next.checkpoint.objectId !==
+      input.authorizingManifest.state.containerId ||
+    input.next.checkpoint.organizationId !==
+      input.authorizingManifest.state.organizationId
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document purge checkpoint chain targets another container",
     );
-    if (!previous) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        "Document purge checkpoint ordering evidence is incomplete",
-      );
-    }
-    current = previous;
+  }
+  if (
+    input.next.checkpoint.epoch !== input.current.checkpoint.epoch + 1 ||
+    input.next.manifest.previousManifestHash !== input.current.manifestHash
+  ) {
+    throw new KeyingVerificationError(
+      "stale_predecessor",
+      "Document purge checkpoint chain does not extend the signed authorization path",
+    );
   }
 }
 
-async function verifyPurgeCheckpointHeads(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
-  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-  readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
+function checkpointEndpointErrorCode(input: {
+  readonly current: VerifiedAccessManifestCheckpointEvidence;
+  readonly localCheckpoint: AccessManifestCheckpoint | null;
+}): "equivocation" | "rollback" | "stale_predecessor" {
+  if (!input.localCheckpoint) return "stale_predecessor";
+  if (input.current.checkpoint.epoch < input.localCheckpoint.epoch) {
+    return "rollback";
+  }
+  return input.current.checkpoint.epoch === input.localCheckpoint.epoch
+    ? "equivocation"
+    : "stale_predecessor";
+}
+
+async function enforceCheckpointChainEndpoint(input: {
+  readonly chainLength: number;
+  readonly checkpointContext: ReturnType<
+    typeof createProjectionCheckpointContext
+  >;
+  readonly current: VerifiedAccessManifestCheckpointEvidence;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedAccessManifestSnapshot>;
+}): Promise<void> {
+  const { localCheckpoint } = await loadManifestCheckpointVerification({
+    current: input.current.manifest,
+    execSql: input.checkpointContext.execSql,
+    verifiedManifests: input.verifiedByHash,
+  });
+  const endpointMatches = localCheckpoint
+    ? localCheckpoint.manifestHash === input.current.manifestHash &&
+      localCheckpoint.epoch === input.current.checkpoint.epoch
+    : input.chainLength === 0;
+  if (!endpointMatches) {
+    throw new KeyingVerificationError(
+      checkpointEndpointErrorCode({ current: input.current, localCheckpoint }),
+      "Document purge checkpoint chain does not end at the local checkpoint",
+    );
+  }
+}
+
+async function verifyCheckpointChain(input: {
+  readonly authorizingManifest: VerifiedContainerAccessManifest;
+  readonly chain: DocumentPurgeProofResponse["authorizingContainerCheckpointChains"][number];
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
   >;
   readonly enforceLocalCheckpoints: boolean;
-  readonly principalPolicyCache: PrincipalPolicyCache;
+  readonly index: number;
+}): Promise<VerifiedAccessManifestCheckpointEvidence> {
+  let current: VerifiedAccessManifestCheckpointEvidence =
+    input.authorizingManifest;
+  const verifiedByHash = new Map<string, VerifiedAccessManifestSnapshot>();
+  for (const [chainIndex, snapshot] of input.chain.entries()) {
+    const verified = await verifyAccessManifestSnapshot({
+      expectedManifestHash: snapshot.manifestHash,
+      manifest: readAccessManifest(
+        snapshot.manifest,
+        `Document purge checkpoint chain[${input.index}][${chainIndex}]`,
+      ),
+    });
+    if (!verified.ok) {
+      throw verified.error;
+    }
+    const next = verified.value;
+    assertCheckpointSnapshotExtends({
+      authorizingManifest: input.authorizingManifest,
+      current,
+      next,
+    });
+    verifiedByHash.set(next.manifestHash, next);
+    current = next;
+  }
+
+  if (input.enforceLocalCheckpoints) {
+    await enforceCheckpointChainEndpoint({
+      chainLength: input.chain.length,
+      checkpointContext: input.checkpointContext,
+      current,
+      verifiedByHash,
+    });
+  }
+  return current;
+}
+
+async function verifyPurgeCheckpointHeads(input: {
+  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
+  readonly checkpointContext: ReturnType<
+    typeof createProjectionCheckpointContext
+  >;
+  readonly enforceLocalCheckpoints: boolean;
   readonly proof: DocumentPurgeProofResponse;
-  readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}): Promise<VerifiedContainerAccessManifest[]> {
+}): Promise<VerifiedAccessManifestCheckpointEvidence[]> {
   if (
-    input.proof.authorizingContainerCheckpointHeads.length !==
+    input.proof.authorizingContainerCheckpointChains.length !==
     input.authorizingContainerPath.length
   ) {
     throw new KeyingVerificationError(
       "missing_dependency",
-      "Document purge checkpoint heads do not match the signed authorization path",
+      "Document purge checkpoint chains do not match the signed authorization path",
     );
   }
-  const checkpointHeads: VerifiedContainerAccessManifest[] = [];
+  const checkpointHeads: VerifiedAccessManifestCheckpointEvidence[] = [];
   for (const [
     index,
-    bundle,
-  ] of input.proof.authorizingContainerCheckpointHeads.entries()) {
+    chain,
+  ] of input.proof.authorizingContainerCheckpointChains.entries()) {
     const authorizingManifest = input.authorizingContainerPath[index];
     if (!authorizingManifest) {
       throw new KeyingVerificationError(
         "missing_dependency",
-        "Document purge checkpoint head has no signed authorization manifest",
+        "Document purge checkpoint chain has no signed authorization manifest",
       );
     }
-    const checkpointHead = await verifyContainerManifestBundle({
-      authorizationEvidence: input.authorizationEvidence,
-      bundle,
-      bundlesByHash: input.bundlesByHash,
-      checkpointContext: input.checkpointContext,
-      enforceLocalCheckpoint: input.enforceLocalCheckpoints,
-      label: `Document purge checkpoint head[${index}]`,
-      parentPath: input.authorizingContainerPath.slice(0, index),
-      principalPolicyCache: input.principalPolicyCache,
-      resolveUserKey: input.resolveUserKey,
-      verifiedByHash: input.verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-    assertCheckpointHeadExtendsSignedPath({
+    const checkpointHead = await verifyCheckpointChain({
       authorizingManifest,
-      checkpointHead,
-      verifiedByHash: input.verifiedByHash,
+      chain,
+      checkpointContext: input.checkpointContext,
+      enforceLocalCheckpoints: input.enforceLocalCheckpoints,
+      index,
     });
     checkpointHeads.push(checkpointHead);
   }
@@ -218,16 +269,10 @@ async function verifyPurgeContainerPaths(input: {
     );
   }
   const checkpointHeads = await verifyPurgeCheckpointHeads({
-    authorizationEvidence: input.authorizationEvidence,
     authorizingContainerPath,
-    bundlesByHash,
     checkpointContext: input.checkpointContext,
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
-    principalPolicyCache: input.principalPolicyCache,
     proof: input.proof,
-    resolveUserKey: input.resolveUserKey,
-    verifiedByHash,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   observeAccessManifestCheckpoints(input.checkpointContext, {
@@ -397,12 +442,10 @@ export async function verifyDocumentPurgeProofBaseline(
   >
 > {
   if (
-    input.proof.authorizingContainerCheckpointHeads.length !==
+    input.proof.authorizingContainerCheckpointChains.length !==
       input.proof.authorizingContainerPath.length ||
-    input.proof.authorizingContainerCheckpointHeads.some(
-      (head, index) =>
-        head.manifestHash !==
-        input.proof.authorizingContainerPath[index]?.manifestHash,
+    input.proof.authorizingContainerCheckpointChains.some(
+      (chain) => chain.length !== 0,
     ) ||
     input.proof.documentManifestPredecessors.length !== 0
   ) {

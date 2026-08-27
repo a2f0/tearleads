@@ -53,6 +53,13 @@ function documentManifestSnapshot(bundle: AccessManifestBundleWireResponse) {
   };
 }
 
+function accessManifestSnapshot(bundle: AccessManifestBundleWireResponse) {
+  return {
+    manifest: bundle.manifest,
+    manifestHash: bundle.manifestHash,
+  };
+}
+
 function documentManifestPredecessors(input: {
   readonly checkpointManifestHash?: string | undefined;
   readonly head: AccessManifestBundleWireResponse;
@@ -135,14 +142,16 @@ async function assertCheckpointHeadExtends(input: {
   readonly authorizingManifest: VerifiedContainerAccessManifest;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly context: ContainerProjectionContext;
-}): Promise<void> {
+}) {
+  let currentBundle = input.bundle;
   let current = await verifyStoredContainerManifest({
-    bundle: input.bundle,
+    bundle: currentBundle,
     context: input.context,
     loadBundle: (manifestHash) =>
       loadContainerManifestBundleByHash(input.context, manifestHash),
   });
   const visited = new Set<string>();
+  const reverseChain: ReturnType<typeof accessManifestSnapshot>[] = [];
   for (let depth = 0; depth < MAX_CONTAINER_HISTORY_DEPTH; depth += 1) {
     if (
       current.state.containerId !== input.authorizingManifest.state.containerId
@@ -153,7 +162,7 @@ async function assertCheckpointHeadExtends(input: {
       );
     }
     if (current.manifestHash === input.authorizingManifest.manifestHash) {
-      return;
+      return reverseChain.reverse();
     }
     if (
       current.state.epoch <= input.authorizingManifest.state.epoch ||
@@ -162,12 +171,14 @@ async function assertCheckpointHeadExtends(input: {
     ) {
       break;
     }
+    reverseChain.push(accessManifestSnapshot(currentBundle));
     visited.add(current.manifestHash);
+    currentBundle = await loadContainerManifestBundleByHash(
+      input.context,
+      current.state.previousManifestHash,
+    );
     current = await verifyStoredContainerManifest({
-      bundle: await loadContainerManifestBundleByHash(
-        input.context,
-        current.state.previousManifestHash,
-      ),
+      bundle: currentBundle,
       context: input.context,
       loadBundle: (manifestHash) =>
         loadContainerManifestBundleByHash(input.context, manifestHash),
@@ -216,6 +227,7 @@ async function loadVerifiedCheckpointMaterial(input: {
       409,
     );
   }
+  const chains: Awaited<ReturnType<typeof assertCheckpointHeadExtends>>[] = [];
   for (const [index, bundle] of checkpointMaterial.heads.entries()) {
     const authorizingManifest = input.authorizingContainerPath[index];
     if (!authorizingManifest) {
@@ -224,13 +236,15 @@ async function loadVerifiedCheckpointMaterial(input: {
         409,
       );
     }
-    await assertCheckpointHeadExtends({
-      authorizingManifest,
-      bundle,
-      context: input.context,
-    });
+    chains.push(
+      await assertCheckpointHeadExtends({
+        authorizingManifest,
+        bundle,
+        context: input.context,
+      }),
+    );
   }
-  return checkpointMaterial;
+  return { ...checkpointMaterial, chains };
 }
 
 async function verifyRetainedPurgeManifests(input: {
@@ -275,16 +289,11 @@ function internalPurgePrincipalReferences(
 }
 
 function responsePurgePrincipalReferences(input: {
-  readonly checkpointMaterial: Awaited<
-    ReturnType<typeof loadAuthorizingContainerCheckpointMaterial>
-  >;
   readonly material: Awaited<ReturnType<typeof loadDocumentPurgeProofMaterial>>;
 }) {
   return collectPurgeProofPrincipalReferences([
     ...input.material.authorizingContainerPath,
     ...input.material.authorizingContainerManifestHistory,
-    ...input.checkpointMaterial.heads,
-    ...input.checkpointMaterial.history,
   ]);
 }
 
@@ -344,24 +353,19 @@ async function verifyProofMaterial(input: {
     context,
     executor: input.executor,
   });
-  const containerHistoryByHash = new Map(
-    [
-      ...material.authorizingContainerManifestHistory,
-      ...checkpointMaterial.history,
-    ].map((bundle) => [bundle.manifestHash, bundle]),
-  );
   const responseEvidence =
     await loadVerifiedPrincipalPolicySnapshotsForReferences(
       input.executor,
-      responsePurgePrincipalReferences({ checkpointMaterial, material }),
+      responsePurgePrincipalReferences({ material }),
     );
   return {
     authorizingContainerPath,
     body,
     material: {
-      authorizingContainerCheckpointHeads: checkpointMaterial.heads,
+      authorizingContainerCheckpointChains: checkpointMaterial.chains,
       authorizingContainerPath: material.authorizingContainerPath,
-      documentContainerManifestHistory: [...containerHistoryByHash.values()],
+      documentContainerManifestHistory:
+        material.authorizingContainerManifestHistory,
       documentManifest: documentManifestSnapshot(material.documentManifest),
       documentManifestPredecessors: documentManifestPredecessors({
         checkpointManifestHash: input.documentCheckpointManifestHash,

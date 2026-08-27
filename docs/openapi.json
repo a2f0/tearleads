@@ -24588,55 +24588,30 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "authorizingContainerCheckpointHeads": {
+                    "authorizingContainerCheckpointChains": {
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "manifest": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
                             },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
+                            "manifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
                           },
-                          "manifest": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "manifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "event",
-                          "manifest",
-                          "manifestHash",
-                          "state"
-                        ],
-                        "additionalProperties": {}
+                          "required": [
+                            "manifest",
+                            "manifestHash"
+                          ],
+                          "additionalProperties": {}
+                        }
                       }
                     },
                     "authorizingContainerPath": {
@@ -25255,7 +25230,7 @@
                     }
                   },
                   "required": [
-                    "authorizingContainerCheckpointHeads",
+                    "authorizingContainerCheckpointChains",
                     "authorizingContainerPath",
                     "documentContainerManifestHistory",
                     "documentId",
@@ -25510,55 +25485,30 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "authorizingContainerCheckpointHeads": {
+                    "authorizingContainerCheckpointChains": {
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "manifest": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
                             },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
+                            "manifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
                           },
-                          "manifest": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "manifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "event",
-                          "manifest",
-                          "manifestHash",
-                          "state"
-                        ],
-                        "additionalProperties": {}
+                          "required": [
+                            "manifest",
+                            "manifestHash"
+                          ],
+                          "additionalProperties": {}
+                        }
                       }
                     },
                     "authorizingContainerPath": {
@@ -26183,7 +26133,7 @@
                     }
                   },
                   "required": [
-                    "authorizingContainerCheckpointHeads",
+                    "authorizingContainerCheckpointChains",
                     "authorizingContainerPath",
                     "documentContainerManifestHistory",
                     "documentId",

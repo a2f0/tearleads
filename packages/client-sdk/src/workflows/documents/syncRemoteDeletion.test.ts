@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import {
-  type AccessManifestBundleWireResponse,
-  DOCUMENT_NOT_FOUND_ERROR_CODE,
-} from "@symcrypt/validators/response";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@symcrypt/validators/response";
 import { createContainerRevokeManifestFixture } from "../../../test/helpers/containerFixtures";
 import {
   createMaterializedSyncFixture,
@@ -109,8 +106,16 @@ test("signed descendant evidence reconciles a newer container checkpoint", async
   });
   const proofWithOrderingEvidence = {
     ...purgeProof,
-    authorizingContainerCheckpointHeads: [
-      newerContainerManifest as unknown as AccessManifestBundleWireResponse,
+    authorizingContainerCheckpointChains: [
+      [
+        {
+          manifest: newerContainerManifest.manifest as unknown as Record<
+            string,
+            unknown
+          >,
+          manifestHash: newerContainerManifest.manifestHash,
+        },
+      ],
     ],
   };
   const deletedDocumentIds: string[] = [];
@@ -230,7 +235,6 @@ test("syncRemoteDocument authenticates an initial purge proof before disclosing 
             proofRequests.push(options);
             return {
               ...purgeProof,
-              authorizingContainerCheckpointHeads: substitutedContainerPath,
               authorizingContainerPath: substitutedContainerPath,
             };
           },

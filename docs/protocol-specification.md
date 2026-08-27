@@ -453,16 +453,20 @@ proof before using its claimed object identities to read any local checkpoint.
 Only then may it send already-known container and document checkpoint hashes in
 a second request. That response contains the purge authorization path and only
 the hash-linked ordering evidence needed to connect the signed purge-time heads
-to those checkpoints; it never returns unrelated historical document paths,
-states, or events. A later-revoked replica can therefore reconcile a checkpoint
-it already knows without using proof retrieval to discover newer activity. An
-omitted or forked ordering chain fails closed. The SDK commits the terminal
-purge checkpoint in the same local SQLite transaction that removes the matching
-document row and its side state. A stale local generation, identity replacement,
-failed cleanup, or interruption rolls back both the checkpoint and deletion so
-the verified proof can be retried safely. If the purge committed but its POST
-response was lost, a coded not-found on retry switches to the retained proof
-instead of submitting the purge twice.
+to those checkpoints. Container checkpoint chains contain only manifest hashes
+and the minimal manifests that commit their predecessor links; they omit access
+event bodies, derived state, key material, and any principal-policy snapshots
+referenced only after the purge. The response never returns unrelated
+historical document paths, states, or events. A later-revoked replica can
+therefore reconcile a checkpoint it already knows without using proof retrieval
+to discover newer activity. An omitted or forked ordering chain fails closed.
+The SDK commits the terminal purge checkpoint in the same local SQLite
+transaction that removes the matching document row and its side state. A stale
+local generation, identity replacement, failed cleanup, or interruption rolls
+back both the checkpoint and deletion so the verified proof can be retried
+safely. If the purge committed but its POST response was lost, a coded
+not-found on retry switches to the retained proof instead of submitting the
+purge twice.
 
 The API also requires that the document is linked to exactly one container — a
 document still linked to more than one container must be unlinked down to a

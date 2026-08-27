@@ -128,13 +128,14 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     });
   const initialHeadsMatch = checkpointManifestHashes.every(
     (manifestHash, index) =>
-      initialProof.authorizingContainerCheckpointHeads[index]?.manifestHash ===
+      initialProof.authorizingContainerPath[index]?.manifestHash ===
       manifestHash,
   );
   if (
     initialHeadsMatch &&
-    initialProof.authorizingContainerCheckpointHeads.length ===
-      checkpointManifestHashes.length &&
+    initialProof.authorizingContainerCheckpointChains.every(
+      (chain) => chain.length === 0,
+    ) &&
     documentCheckpointManifestHash ===
       initialProof.documentManifest.manifestHash
   ) {

@@ -397,9 +397,11 @@ test("purge proof remains available to a later-revoked replica", async () => {
   const proof = await proofResponse.json();
   expect(isDocumentPurgeProofResponse(proof)).toBe(true);
   if (isDocumentPurgeProofResponse(proof)) {
-    expect(proof.authorizingContainerCheckpointHeads.at(-1)?.manifestHash).toBe(
-      sharedChild.bundle.manifestHash,
-    );
+    expect(
+      proof.authorizingContainerCheckpointChains.every(
+        (chain) => chain.length === 0,
+      ),
+    ).toBe(true);
     expect(
       proof.documentContainerManifestHistory.some(
         (bundle) =>
@@ -419,9 +421,17 @@ test("purge proof remains available to a later-revoked replica", async () => {
   const boundedProof = await boundedProofResponse.json();
   expect(isDocumentPurgeProofResponse(boundedProof)).toBe(true);
   if (isDocumentPurgeProofResponse(boundedProof)) {
+    const checkpointChain =
+      boundedProof.authorizingContainerCheckpointChains.at(-1);
+    expect(checkpointChain?.at(-1)?.manifestHash).toBe(knownRevocationHash);
     expect(
-      boundedProof.authorizingContainerCheckpointHeads.at(-1)?.manifestHash,
-    ).toBe(knownRevocationHash);
+      checkpointChain?.map((snapshot) => Object.keys(snapshot).sort()),
+    ).toEqual([["manifest", "manifestHash"]]);
+    if (isDocumentPurgeProofResponse(proof)) {
+      expect(boundedProof.principalPolicySnapshots).toEqual(
+        proof.principalPolicySnapshots,
+      );
+    }
   }
 
   const incompleteBoundsResponse = await routeApp.request(
