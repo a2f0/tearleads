@@ -10,6 +10,7 @@ import { storeDocumentContentKeyBundleInTransaction } from "../../../access/writ
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
+import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   assertCreateCanAdvanceDocumentHead,
@@ -97,6 +98,13 @@ export async function createDocumentWithExecutor(input: {
       );
     }
 
+    // This lock remains addressable after purge deletes the document and head.
+    // Take it before both terminal-state checks so create cannot observe a
+    // half-completed purge and then resurrect its retained initial manifest.
+    await lockDocumentLifecycleInTransaction(
+      input.executor,
+      manifest.state.documentId,
+    );
     await assertRosterProfileDocumentIdCanBeCreated({
       documentId: manifest.state.documentId,
       executor: input.executor,

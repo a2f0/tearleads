@@ -28,6 +28,7 @@ import {
   collectPurgeProofPrincipalReferences,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
+import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
 import { verifyDocumentPurgeRequest } from "./shared/purgeVerification";
@@ -273,6 +274,9 @@ async function resolveLockedPurgeAuthorization(input: {
   if (!organizationHeadLocked) {
     throw new Error("Organization read-model cursor head is missing");
   }
+  // A manifest-head row disappears during purge, so it cannot serialize a
+  // later replayed create on its own. This stable lock is shared with create.
+  await lockDocumentLifecycleInTransaction(input.executor, input.documentId);
   await lockAccessManifestHeadsForUpdate(
     "document",
     [input.documentId],
