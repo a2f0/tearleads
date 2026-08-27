@@ -24,18 +24,23 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
   mutation sends it as `expectedHeadOid`, so GitHub **atomically refuses** the
   merge if the PR head has moved off that commit. `ship-pr` uses this to
   guarantee only the reviewed commit is merged.
+- Third argument (optional): the expected PR base ref. When given, the tool
+  re-queries the PR immediately before the mutation and refuses an observed
+  retarget. GitHub exposes no atomic expected-base input, so this is a fail-fast
+  validation rather than the same guarantee provided for the head SHA.
 - `--keep-branch` (optional flag, position-independent): skip the post-merge
   cleanup (step 4) and stay on the feature branch. Use when the branch is still
   needed locally (e.g. to build a follow-up PR on top of it).
 
   **This flag is consumed by this skill and must never reach the tool.** The
-  tool takes only the two positionals above — `squashMerge <subject> <sha>` —
+  tool takes only the three positionals above —
+  `squashMerge <subject> <sha> <base-ref>` —
   and how a forwarded `--keep-branch` fails depends on where it lands: first, it
   is read as the *subject* and rejected by commitlint; after the positionals
   (the position `ship-pr` forwards), it is **silently ignored**. The silent case
   is the dangerous one — the merge succeeds, the caller believes cleanup was
   skipped, and it ran anyway. Strip the flag from the arguments, let it gate
-  step 4, and call the tool with the subject and SHA only.
+  step 4, and call the tool with the subject, SHA, and expected base only.
 
 ## Prerequisites
 
@@ -179,7 +184,9 @@ as-is.
      or the current head for a standalone invocation). Unlike `gh pr merge`, the
      direct mutation cannot silently queue or enable a later merge. When the
      optional expected base ref is supplied, the same query revalidates the PR's
-     target immediately before the mutation and refuses a mismatch.
+     target immediately before the mutation and refuses a mismatch. This check
+     is not atomic with the mutation because GitHub exposes no expected-base
+     input; callers must not retarget the PR concurrently.
    - Confirms the PR reached the `MERGED` state before cleanup.
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected

@@ -118,8 +118,9 @@ so conventional-commit syntax and the 50-char header limit are enforced
 identically. On success it submits a synchronous subject-only GraphQL squash
 mutation. An optional reviewed head SHA is enforced by GitHub's
 `expectedHeadOid`; when an expected base ref is supplied, the tool re-queries
-the PR immediately before the mutation and refuses a retargeted PR. Backs the
-`squash-merge` skill.
+the PR immediately before the mutation and refuses an observed retarget. GitHub
+does not expose an atomic expected-base input, so callers must not concurrently
+retarget the PR during that final request. Backs the `squash-merge` skill.
 
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —

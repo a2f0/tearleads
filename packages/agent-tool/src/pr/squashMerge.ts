@@ -64,7 +64,7 @@ function recordField(value: unknown, key: string): unknown {
     : undefined;
 }
 
-/** Parse and reject PRs already configured to merge asynchronously. */
+/** Parse the current target and reject unsafe asynchronous merge state. */
 export function parsePullRequestMergeTarget(
   source: string,
   expectedBaseRef?: string,
@@ -161,7 +161,9 @@ export function buildSquashMergeArgs(
  * message — no auto-generated body or extended message. The subject defaults to
  * the PR title when one is not supplied, and is validated against the repo's
  * commitlint rules before the merge runs. When `expectedHeadSha` is supplied the
- * merge is bound to that commit through GraphQL's `expectedHeadOid` input.
+ * merge is bound to that commit through GraphQL's `expectedHeadOid` input. An
+ * expected base ref is checked immediately before the mutation, but GitHub has
+ * no corresponding atomic merge precondition for the target branch.
  */
 export function squashMerge(
   rootDir: string,
