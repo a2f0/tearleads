@@ -185,7 +185,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    - **Review could not run** (every agent and fallback failed) — **stop** rather
      than merge unreviewed, unless `--merge-anyway` was given. In that override
      the reported SHA is the **unreviewed candidate** head; the head checks above
-     and the `--match-head-commit` bind still apply to it, so the merge is still
+     and the GraphQL `expectedHeadOid` bind still apply to it, so the merge is still
      pinned to a known commit — it simply is not a reviewed one. Say so.
 
    When `--merge-anyway` is set and the gate would otherwise stop, surface the
@@ -279,13 +279,16 @@ loop, subject-only squash, and `MERGED`-state verification.
      [ "$RULESET_ENFORCES" != "true" ] || NON_BYPASS_STRICT=true
    done
    [ "$NON_BYPASS_STRICT" = "true" ] || { echo "Error: the authenticated actor can bypass strict base freshness for $REPO:$BASE_REF" >&2; exit 1; }
+   gh pr checks "$PR_NUMBER" --required --watch --fail-fast -R "$REPO" || { echo "Error: required checks did not pass for PR #$PR_NUMBER" >&2; exit 1; }
    ```
 
-   A non-bypassable server-side rule closes the fetch-to-merge race: if the base
-   advances after the check below, GitHub rejects the stale merge and the retry
-   path can refresh and re-review it. Before every merge attempt, resolve and
-   fetch the exact current base OID from the repository that owns the PR rather
-   than assuming the local `origin` is that repository:
+   Waiting for required checks readies the synchronous merge mutation; that
+   mutation never falls back to a latent automatic merge. A non-bypassable
+   server-side rule then closes the fetch-to-merge race: if the base advances
+   after the check below, GitHub rejects the stale merge and the retry path can
+   refresh and re-review it. Before every merge attempt, resolve and fetch the
+   exact current base OID from the repository that owns the PR rather than
+   assuming the local `origin` is that repository:
 
    ```bash
    BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
@@ -323,7 +326,7 @@ loop, subject-only squash, and `MERGED`-state verification.
 
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
-   argument** so the merge runs with `--match-head-commit` and GitHub
+   argument** so the direct merge mutation uses `expectedHeadOid` and GitHub
    **atomically** refuses to merge anything but the reviewed commit. This closes
    the window between the gate decision and the merge — the guard is enforced by
    GitHub at merge time, not by a racy preflight check.
@@ -353,9 +356,11 @@ loop, subject-only squash, and `MERGED`-state verification.
    The empty subject falls back to the PR title captured when the PR was opened
    or resumed (step 3, or step 1 on the resume path), to which the tool appends
    the `(#<pr>)` reference; it validates the subject with commitlint and
-   confirms the PR reached `MERGED` before returning. A non-zero result means
-   the PR did not actually merge (queued, blocked, or the head moved off
-   `REVIEWED_SHA`) — do not report success in that case.
+   refuses PRs that already have a queued or automatic merge, and confirms the
+   PR reached `MERGED` before returning. A non-zero result means the PR did not
+   actually merge (blocked, or the head moved off `REVIEWED_SHA`) — do not
+   report success in that case. The direct mutation never leaves a latent merge
+   queued for a later, unreviewed base.
 
    The only retryable merge failure is an open PR whose merge state is
    `BEHIND`: the base advanced after the final freshness fetch. Return to step
@@ -421,7 +426,7 @@ loop, subject-only squash, and `MERGED`-state verification.
 - **The merged head is the reviewed head** — `cross-agent-review` reports a SHA
   it actually reviewed; this skill re-verifies it against the local head (and
   against the pushed head once the PR is open) and passes it to `squash-merge`,
-  which binds the merge with `--match-head-commit`. GitHub then rejects the
+  which binds the merge with GraphQL `expectedHeadOid`. GitHub then rejects the
   merge outright if any commit landed after the review, so an unreviewed commit
   can never be merged. (A message-only co-author strip keeps it: step 3 checks
   tree and merge-base identity, then re-pins `REVIEWED_SHA`.) The lone exception

@@ -10,7 +10,7 @@ message — no auto-generated body, commit list, or extended message. The subjec
 is validated against the repository's own commitlint configuration before the
 merge runs, and the tool appends the PR reference `(#<pr>)` so the squash
 commit ends with it — the same reference GitHub adds for web/default merges but
-that `gh pr merge --subject` otherwise suppresses.
+that a custom merge headline otherwise suppresses.
 
 Once the PR is confirmed `MERGED`, return to the PR's base branch, fast-forward
 it, and delete the merged branch, so a shipped PR leaves no local leftovers.
@@ -21,9 +21,9 @@ it, and delete the merged branch, so a shipped PR leaves no local leftovers.
   title is used. Pass it as a single quoted argument, e.g.
   `"feat(app): add widget"`.
 - Second argument (optional): the expected PR head SHA. When given, the merge
-  adds `--match-head-commit <sha>` so GitHub **atomically refuses** the merge if
-  the PR head has moved off that commit. `ship-pr` uses this to guarantee only
-  the reviewed commit is merged.
+  mutation sends it as `expectedHeadOid`, so GitHub **atomically refuses** the
+  merge if the PR head has moved off that commit. `ship-pr` uses this to
+  guarantee only the reviewed commit is merged.
 - `--keep-branch` (optional flag, position-independent): skip the post-merge
   cleanup (step 4) and stay on the feature branch. Use when the branch is still
   needed locally (e.g. to build a follow-up PR on top of it).
@@ -171,10 +171,12 @@ as-is.
    - Appends the PR reference so the subject ends with a space followed by
      `(#<pr>)`, replacing any existing trailing `(#<n>)` (idempotent on
      re-runs), and asserts the suffix is present before merging.
-   - Runs `gh pr merge --squash --subject <subject-with-#pr> --body ""` (adding
-     `--match-head-commit <sha>` when the head SHA argument is given), then
-     confirms the PR reached the `MERGED` state (a merge queue can otherwise exit
-     0 while only queuing the PR).
+   - Refuses a PR that already has a queued or automatic merge, then runs the
+     synchronous GraphQL `mergePullRequest` mutation with method `SQUASH`, the
+     subject, an empty body, and an `expectedHeadOid` (the supplied reviewed SHA,
+     or the current head for a standalone invocation). Unlike `gh pr merge`, the
+     direct mutation cannot silently queue or enable a later merge.
+   - Confirms the PR reached the `MERGED` state before cleanup.
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected
    subject that satisfies the rules (valid type, ≤50 chars), and re-run with the
@@ -191,9 +193,8 @@ as-is.
    [ "$PR_STATE" = "MERGED" ] || { echo "Error: PR #$PR_NUMBER is $PR_STATE, not MERGED; skipping cleanup" >&2; exit 1; }
    ```
 
-   If the PR is not `MERGED` (queued, blocked, or the head moved off
-   `--match-head-commit`), leave the branch and the checkout exactly as they are
-   and report that instead.
+   If the PR is not `MERGED` (blocked, or the head moved off `expectedHeadOid`),
+   leave the branch and the checkout exactly as they are and report that instead.
 
    **Refuse to switch away from a dirty worktree**, so unrelated in-progress work
    is never carried onto the base branch or stranded:
@@ -231,6 +232,11 @@ as-is.
      [ "$REMOTE_HEAD_OID" = "$PR_HEAD_OID" ] || { echo "Error: remote $PR_HEAD_REPO:$PR_HEAD_BRANCH moved after merge; skipping delete" >&2; exit 1; }
      git push --force-with-lease="refs/heads/$PR_HEAD_BRANCH:$PR_HEAD_OID" "$HEAD_REPO_URL" --delete "$PR_HEAD_BRANCH" || { echo "Error: could not safely delete remote $PR_HEAD_REPO:$PR_HEAD_BRANCH" >&2; exit 1; }
    fi
+   for REMOTE_NAME in $(git remote); do
+     REMOTE_URL=$(git remote get-url "$REMOTE_NAME") || { echo "Error: could not resolve remote $REMOTE_NAME" >&2; exit 1; }
+     REMOTE_REPO=$(gh repo view "$REMOTE_URL" --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+     [ "$REMOTE_REPO" != "$PR_HEAD_REPO" ] || git update-ref -d "refs/remotes/$REMOTE_NAME/$PR_HEAD_BRANCH" || { echo "Error: could not prune $REMOTE_NAME/$PR_HEAD_BRANCH" >&2; exit 1; }
+   done
    git branch -D "$MERGED_BRANCH" || { echo "Error: could not delete local $MERGED_BRANCH" >&2; exit 1; }
    ```
 
@@ -248,7 +254,9 @@ as-is.
    - The remote delete is bound to the captured PR head OID twice: an explicit
      comparison catches an already-moved branch, and `--force-with-lease`
      atomically rejects a push racing the delete. The local branch must still
-     point to that same OID before `-D` is allowed.
+     point to that same OID before `-D` is allowed. After deletion, the exact
+     remote-tracking ref is removed from every named remote GitHub identifies as
+     the PR head repository, so standalone cleanup does not retain a stale ref.
    - **`-D`, not `-d`, is required here** — see the note below. The `MERGED` check
      plus the ancestry check above are what make the force safe.
 
@@ -267,9 +275,9 @@ as-is.
   commitlint header limit.
 - Validation runs before the merge, so an invalid subject never reaches GitHub.
 - Always single-quote the subject argument to avoid shell expansion.
-- A non-zero exit after `gh pr merge` means the PR did not actually merge (e.g.
-  it was queued or blocked); do not report success in that case, and do not clean
-  up the branch.
+- A non-zero exit from the direct merge mutation means the PR did not actually
+  merge; do not report success or clean up the branch. The tool refuses an
+  existing queued/automatic merge and never creates one as a fallback.
 - **A squash merge always requires `git branch -D`.** Squashing creates a *new*
   commit on the base branch, so the feature branch's tip is never an ancestor of
   it and `git branch -d` reports the branch as "not fully merged" and refuses.
