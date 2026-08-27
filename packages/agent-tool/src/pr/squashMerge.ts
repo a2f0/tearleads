@@ -22,6 +22,7 @@ const PULL_REQUEST_MERGE_TARGET_QUERY = `
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
         autoMergeRequest { enabledAt }
+        baseRefName
         headRefOid
         id
         isInMergeQueue
@@ -52,6 +53,7 @@ const MERGE_PULL_REQUEST_MUTATION = `
 `;
 
 interface PullRequestMergeTarget {
+  readonly baseRefName: string;
   readonly headOid: string;
   readonly id: string;
 }
@@ -65,16 +67,19 @@ function recordField(value: unknown, key: string): unknown {
 /** Parse and reject PRs already configured to merge asynchronously. */
 export function parsePullRequestMergeTarget(
   source: string,
+  expectedBaseRef?: string,
 ): PullRequestMergeTarget {
   const parsed: unknown = JSON.parse(source);
   const data = recordField(parsed, "data");
   const repository = recordField(data, "repository");
   const pullRequest = recordField(repository, "pullRequest");
+  const baseRefName = recordField(pullRequest, "baseRefName");
   const id = recordField(pullRequest, "id");
   const headOid = recordField(pullRequest, "headRefOid");
   const state = recordField(pullRequest, "state");
   if (
     state !== "OPEN" ||
+    typeof baseRefName !== "string" ||
     typeof id !== "string" ||
     typeof headOid !== "string"
   ) {
@@ -88,13 +93,21 @@ export function parsePullRequestMergeTarget(
       "Pull request already has a queued or automatic merge; cancel it before running squashMerge.",
     );
   }
-  return { headOid, id };
+  if (expectedBaseRef !== undefined && baseRefName !== expectedBaseRef) {
+    throw new Error(
+      `Pull request base changed from '${expectedBaseRef}' to '${baseRefName}'; revalidate and re-review before merging.`,
+    );
+  }
+  return { baseRefName, headOid, id };
 }
 
-function resolvePullRequestMergeTarget(pr: {
-  prNumber: string;
-  repo: string;
-}): PullRequestMergeTarget {
+function resolvePullRequestMergeTarget(
+  pr: {
+    prNumber: string;
+    repo: string;
+  },
+  expectedBaseRef?: string,
+): PullRequestMergeTarget {
   const repoParts = pr.repo.split("/");
   if (repoParts.length !== 2 || repoParts.some((part) => part.length === 0)) {
     throw new Error(`Invalid repository slug '${pr.repo}'.`);
@@ -112,7 +125,7 @@ function resolvePullRequestMergeTarget(pr: {
     "-F",
     `number=${pr.prNumber}`,
   ]);
-  return parsePullRequestMergeTarget(source);
+  return parsePullRequestMergeTarget(source, expectedBaseRef);
 }
 
 /**
@@ -154,6 +167,7 @@ export function squashMerge(
   rootDir: string,
   subjectArg: string | undefined,
   expectedHeadSha?: string,
+  expectedBaseRef?: string,
 ): number {
   const pr = resolvePr();
   const subject = resolveSubject(subjectArg, pr.title);
@@ -166,7 +180,7 @@ export function squashMerge(
   const baseSubject = stripPrNumberSuffix(subject);
   validateCommitSubject(rootDir, baseSubject);
   const finalSubject = appendPrNumberSuffix(baseSubject, pr.prNumber);
-  const mergeTarget = resolvePullRequestMergeTarget(pr);
+  const mergeTarget = resolvePullRequestMergeTarget(pr, expectedBaseRef);
 
   const result = spawnSync(
     "gh",

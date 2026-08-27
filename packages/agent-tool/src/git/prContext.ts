@@ -174,7 +174,7 @@ export function resolveFreshBaseRef(
 ): string {
   const fetchedOid = dependencies.fetch(
     dependencies.repositoryGitUrl(repo),
-    baseRefName,
+    `refs/heads/${baseRefName}`,
   );
   if (!dependencies.refExists(fetchedOid)) {
     throw new Error(

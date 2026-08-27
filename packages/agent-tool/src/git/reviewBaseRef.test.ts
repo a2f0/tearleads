@@ -144,22 +144,26 @@ describe("review base integration", () => {
     });
 
     expect(resolved).toBe(SHA1_OID);
-    expect(calls).toEqual([["https://github.com/upstream/repo", "main"]]);
+    expect(calls).toEqual([
+      ["https://github.com/upstream/repo", "refs/heads/main"],
+    ]);
   });
 
-  test("fetches the default branch without PR metadata", () => {
+  test("selects the branch when a same-named tag could exist", () => {
     const calls: string[][] = [];
     const resolved = resolveFreshBaseRef("owner/repo", "main", {
       fetch: (url, target) => {
         calls.push([url, target]);
-        return SHA256_OID;
+        return target === "refs/heads/main" ? SHA256_OID : SHA1_OID;
       },
       refExists: (ref) => ref === SHA256_OID,
       repositoryGitUrl: (repo) => `https://github.com/${repo}`,
     });
 
     expect(resolved).toBe(SHA256_OID);
-    expect(calls).toEqual([["https://github.com/owner/repo", "main"]]);
+    expect(calls).toEqual([
+      ["https://github.com/owner/repo", "refs/heads/main"],
+    ]);
   });
 
   function dependencies(

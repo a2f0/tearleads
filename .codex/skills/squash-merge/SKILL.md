@@ -149,6 +149,8 @@ as-is.
    bun "$AGENT_TOOL" squashMerge
    # or, bind the merge to a specific reviewed head commit:
    bun "$AGENT_TOOL" squashMerge 'feat(app): add widget' "$REVIEWED_SHA"
+   # or, also refuse a PR retargeted after the caller validated its base:
+   bun "$AGENT_TOOL" squashMerge 'feat(app): add widget' "$REVIEWED_SHA" "$BASE_REF"
    ```
 
    **Quote the subject in single quotes** so the shell does not expand
@@ -175,7 +177,9 @@ as-is.
      synchronous GraphQL `mergePullRequest` mutation with method `SQUASH`, the
      subject, an empty body, and an `expectedHeadOid` (the supplied reviewed SHA,
      or the current head for a standalone invocation). Unlike `gh pr merge`, the
-     direct mutation cannot silently queue or enable a later merge.
+     direct mutation cannot silently queue or enable a later merge. When the
+     optional expected base ref is supplied, the same query revalidates the PR's
+     target immediately before the mutation and refuses a mismatch.
    - Confirms the PR reached the `MERGED` state before cleanup.
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected

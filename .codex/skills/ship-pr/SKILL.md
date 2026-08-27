@@ -333,10 +333,11 @@ loop, subject-only squash, and `MERGED`-state verification.
 
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
-   argument** so the direct merge mutation uses `expectedHeadOid` and GitHub
-   **atomically** refuses to merge anything but the reviewed commit. This closes
-   the window between the gate decision and the merge — the guard is enforced by
-   GitHub at merge time, not by a racy preflight check.
+   argument** and `BASE_REF` as its **third (expected-base) argument**. The tool
+   re-queries the PR immediately before its direct mutation and refuses a
+   retargeted PR; `expectedHeadOid` makes GitHub **atomically** refuse to merge
+   anything but the reviewed commit. Together these bind the merge boundary to
+   the validated target and reviewed head.
 
    That skill also owns the post-merge cleanup: once GitHub confirms `MERGED`, it
    returns to the PR's base branch, fast-forwards it, verifies it contains the
