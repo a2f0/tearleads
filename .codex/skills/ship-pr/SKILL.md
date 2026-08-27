@@ -55,7 +55,7 @@ actually contains the merge commit; the final checkout reset belongs to `reset`.
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and `jq` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The worktree contains only changes intended for this PR. A PR may already be
@@ -72,6 +72,7 @@ the single push. Each wrapped skill re-checks its own preconditions.
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
@@ -220,12 +221,34 @@ loop, subject-only squash, and `MERGED`-state verification.
    the review or the pre-push hook is running. A head that was current when it
    was reviewed can therefore become `BEHIND` before step 4. Set
    `BASE_REFRESH_ROUND=0` and allow at most two base-refresh rounds for the whole
-   ship run. Before every merge attempt:
+   ship run.
+
+   This retry is safe only when GitHub atomically requires the head to contain
+   the latest base before merging. Resolve the effective repository rules for
+   the PR base and require strict status checks; if the rules cannot be read or
+   no strict rule applies, stop with the PR open rather than relying on a racy
+   client-side check:
 
    ```bash
-   BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName)
-   git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
-   git merge-base --is-ancestor FETCH_HEAD "$REVIEWED_SHA"
+   BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   BASE_REF_PATH=$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')
+   STRICT_BASE_POLICY=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
+   [ "$STRICT_BASE_POLICY" = "true" ] || { echo "Error: $REPO:$BASE_REF does not require branches to be up to date before merge" >&2; exit 1; }
+   ```
+
+   That server-side rule closes the fetch-to-merge race: if the base advances
+   after the check below, GitHub rejects the stale merge and the retry path can
+   refresh and re-review it. Before every merge attempt, resolve and fetch the
+   exact current base OID from the repository that owns the PR rather than
+   assuming the local `origin` is that repository:
+
+   ```bash
+   BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl)
+   BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
+   [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
+   test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }
+   git merge-base --is-ancestor "$BASE_OID" "$REVIEWED_SHA"
    ```
 
    When the ancestor check succeeds, the reviewed head contains the fetched
@@ -332,9 +355,11 @@ loop, subject-only squash, and `MERGED`-state verification.
 - **The review gates the merge** — this flow never silently merges over a verdict
   that reports unresolved blocking findings, and never merges an unreviewed head.
 - **The base-current gate closes the long-check race** — after the PR is pushed,
-  the flow fetches its base immediately before merging. If the base advanced
-  during review or pre-push checks, `cross-agent-review` integrates it, pushes,
-  and reviews the new head before the SHA-bound merge is retried. Two refresh
+  the flow resolves and fetches the exact base snapshot from the PR repository
+  immediately before merging. If the base advanced during review or pre-push
+  checks, `cross-agent-review` integrates it, pushes, and reviews the new head
+  before the SHA-bound merge is retried. GitHub's effective rules must enforce
+  strict base freshness, which atomically rejects any later race. Two refresh
   rounds bound externally induced retries; exhaustion leaves the PR open.
 - **Repair belongs to `cross-agent-review`** — including the severity vocabulary
   (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review

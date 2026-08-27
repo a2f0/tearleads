@@ -49,7 +49,7 @@ commit, repair rounds produce new commits to read.
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
@@ -99,15 +99,22 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
    contract is to change nothing; take the snapshot as-is in that mode.
 
-   Resolve the base ref and fetch it:
+   Resolve the base ref and its exact OID from the repository that owns the PR,
+   then fetch that snapshot. Do not assume `origin` is the base repository: in
+   a fork checkout it is commonly the contributor's fork.
 
    ```bash
+   BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl)
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+     BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
    else
      BASE_REF="$DEFAULT_BRANCH"
+     BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
    fi
-   git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+   [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
+   git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
+   test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }
    ```
 
    **When a PR is open**, confirm the local head is already the pushed head
@@ -239,18 +246,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
    review file-by-file:
 
-   a. Resolve and **fetch** the base ref, then diff against the fetched SHA so the
-      file list is the branch's own work even when the local base ref is stale —
-      the PR's base with a PR, the default branch without one:
+   a. Use the exact base snapshot resolved and fetched in step 2, so the file
+      list is the branch's own work even when a local remote-tracking ref is
+      stale — the PR's base with a PR, the default branch without one:
 
       ```bash
-      if [ -n "$PR_NUMBER" ]; then
-        BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
-      else
-        BASE_REF="$DEFAULT_BRANCH"
-      fi
-      git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
-      BASE=$(git rev-parse FETCH_HEAD)
+      BASE="$BASE_OID"
+      git cat-file -e "$BASE^{commit}" || { echo "Error: fetched base $BASE is unavailable" >&2; exit 1; }
       git diff --name-only "$BASE"...HEAD
       ```
 
@@ -355,13 +357,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the base branch and HEAD — the PR's base
   when a PR is open, the repository's default branch when there is none yet.
-- **Each round merges the current base into the branch first**, so a branch cut
-  from an older base is reviewed as it will actually merge — a signature change
-  or a moved dependency that landed on the base surfaces during the review and
-  the pre-push checks, not after the merge. The merge (never a rebase, so no
-  force push) is local when there is no PR and pushed when there is; a conflict
-  aborts and stops for the user. `--repair-rounds 0` skips it, keeping
-  report-only inert.
+- **Each round merges the current base snapshot into the branch first**, so a
+  branch cut from an older base is reviewed as it will actually merge — a
+  signature change or a moved dependency that landed on the base surfaces
+  during the review and the pre-push checks, not after the merge. The merge
+  (never a rebase, so no force push) is local when there is no PR and pushed
+  when there is. The snapshot
+  is fetched by OID from the repository that owns the PR, rather than assuming
+  `origin` is that repository; a conflict aborts and stops for the user.
+  `--repair-rounds 0` skips it, keeping report-only inert.
 - Both reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
