@@ -210,7 +210,6 @@ async function enforceSnapshotCheckpoint(input: {
 }
 
 export async function verifyPrincipalPolicySnapshots(input: {
-  readonly execSql: ExecSql;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly snapshots: readonly PrincipalPolicySnapshotResponse[];
 }): Promise<VerifiedPrincipalPolicySnapshot[]> {
@@ -263,11 +262,6 @@ export async function verifyPrincipalPolicySnapshots(input: {
         signerPublicKeys: publicKeys,
         snapshot,
       });
-      await enforceSnapshotCheckpoint({
-        execSql: input.execSql,
-        policy,
-        reference: snapshotReference(snapshot),
-      });
       verifiedByPrincipal.set(key, policy);
       return policy;
     } finally {
@@ -279,4 +273,24 @@ export async function verifyPrincipalPolicySnapshots(input: {
     await verifyOne(snapshot);
   }
   return [...verifiedByPrincipal.values()];
+}
+
+export async function enforcePrincipalPolicySnapshotCheckpoints(input: {
+  readonly execSql: ExecSql;
+  readonly policies: readonly VerifiedPrincipalPolicySnapshot[];
+}): Promise<void> {
+  for (const policy of input.policies) {
+    await enforceSnapshotCheckpoint({
+      execSql: input.execSql,
+      policy,
+      reference: {
+        principalType: policy.state.principalType,
+        principalId: policy.state.principalId,
+        version: policy.state.version,
+        keyEpoch: policy.state.keyEpoch,
+        stateHash: policy.state.stateHash,
+        keyFingerprint: policy.state.keyFingerprint,
+      },
+    });
+  }
 }

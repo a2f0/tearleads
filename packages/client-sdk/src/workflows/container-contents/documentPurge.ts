@@ -1,4 +1,5 @@
 import type { DocumentPurgeResponse } from "@symcrypt/validators/response";
+import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
@@ -10,6 +11,7 @@ import {
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
 } from "../documents";
+import { ensureDocumentClientProjectionTables } from "../documents/persistence";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
@@ -42,13 +44,84 @@ interface ContainerDocumentPurgeRuntime
   apiClient: ContainerDocumentPurgeApi;
 }
 
-export async function purgeRemoteContainerDocument(input: {
+interface PurgeRemoteContainerDocumentInput {
   documentId: string;
   noteId: string;
   persistence?: DocumentsPersistence | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerDocumentPurgeRuntime;
-}): Promise<DocumentPurgeResult> {
+}
+
+async function deleteAbsentDocumentState(input: {
+  readonly commitPurgeProof: (
+    transactionExecSql: ContainerDocumentPurgeRuntime["infra"]["execSql"],
+  ) => Promise<void>;
+  readonly documentId: string;
+  readonly noteId: string;
+  readonly persistence: DocumentsPersistence;
+  readonly runtime: ContainerDocumentPurgeRuntime;
+}): Promise<boolean> {
+  return input.persistence.deleteDocumentSideRowsIfAbsent(
+    input.runtime.infra.execSql,
+    input.noteId,
+    input.documentId,
+    async (transactionExecSql) => {
+      await input.runtime.infra.documentProjectors.deleteStoredDocumentClientProjection(
+        {
+          documentKind: DEFAULT_DOCUMENT_KIND,
+          execSql: transactionExecSql,
+          localId: input.noteId,
+        },
+      );
+      await input.commitPurgeProof(transactionExecSql);
+    },
+  );
+}
+
+async function commitVerifiedDocumentPurge(input: {
+  readonly commitPurgeProof: (
+    transactionExecSql: ContainerDocumentPurgeRuntime["infra"]["execSql"],
+  ) => Promise<void>;
+  readonly documentId: string;
+  readonly noteId: string;
+  readonly persistence: DocumentsPersistence;
+  readonly runtime: ContainerDocumentPurgeRuntime;
+}): Promise<boolean> {
+  await input.persistence.ensureSchema(input.runtime.infra.execSql);
+  await ensureDocumentClientProjectionTables({
+    documentProjectors: input.runtime.infra.documentProjectors,
+    execSql: input.runtime.infra.execSql,
+  });
+  const expectedRecord = await input.persistence.loadDocument(
+    input.runtime.infra.execSql,
+    input.noteId,
+  );
+  if (expectedRecord && expectedRecord.documentId !== input.documentId) {
+    throw new Error(
+      "Local document identity changed while its remote purge was committing",
+    );
+  }
+  const deleted = expectedRecord
+    ? await deletePersistedDocument({
+        beforeDeleteInTransaction: input.commitPurgeProof,
+        documentProjectors: input.runtime.infra.documentProjectors,
+        execSql: input.runtime.infra.execSql,
+        expectedRecord,
+        localId: input.noteId,
+        persistence: input.persistence,
+      })
+    : await deleteAbsentDocumentState(input);
+  if (!deleted) {
+    throw new Error(
+      "Local document state changed while its remote purge was committing",
+    );
+  }
+  return true;
+}
+
+export async function purgeRemoteContainerDocument(
+  input: PurgeRemoteContainerDocumentInput,
+): Promise<DocumentPurgeResult> {
   const { documentId, noteId, runtime } = input;
   const persistence = input.persistence ?? defaultDocumentsPersistence;
   try {
@@ -66,43 +139,13 @@ export async function purgeRemoteContainerDocument(input: {
       documentId,
       execSql: runtime.infra.execSql,
       onVerifiedPurge: async ({ commitPurgeProof }) => {
-        await persistence.ensureSchema(runtime.infra.execSql);
-        const expectedRecord = await persistence.loadDocument(
-          runtime.infra.execSql,
+        deleted = await commitVerifiedDocumentPurge({
+          commitPurgeProof,
+          documentId,
           noteId,
-        );
-        if (!expectedRecord) {
-          deleted = await persistence.deleteDocumentSideRowsIfAbsent(
-            runtime.infra.execSql,
-            noteId,
-            documentId,
-            commitPurgeProof,
-          );
-          if (!deleted) {
-            throw new Error(
-              "Local document state changed while its remote purge was committing",
-            );
-          }
-          return;
-        }
-        if (expectedRecord.documentId !== documentId) {
-          throw new Error(
-            "Local document identity changed while its remote purge was committing",
-          );
-        }
-        deleted = await deletePersistedDocument({
-          beforeDeleteInTransaction: commitPurgeProof,
-          documentProjectors: runtime.infra.documentProjectors,
-          execSql: runtime.infra.execSql,
-          expectedRecord,
-          localId: noteId,
           persistence,
+          runtime,
         });
-        if (!deleted) {
-          throw new Error(
-            "Local document state changed while its remote purge was committing",
-          );
-        }
       },
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies:

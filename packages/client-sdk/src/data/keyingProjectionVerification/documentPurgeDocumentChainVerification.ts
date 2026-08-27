@@ -12,14 +12,18 @@ import type {
   DocumentPurgeProofResponse,
 } from "@symcrypt/validators/response";
 import { readCanonicalJson } from "../keyingCanonicalJson";
-import { addBundleByHash, assertCanonicalEqual } from "./bundleVerification";
+import {
+  addBundleByHash,
+  assertCanonicalEqual,
+  verifyAccessEventBundle,
+} from "./bundleVerification";
 import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyDocumentManifestBundle } from "./documentProjectionVerification";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
-import { readAccessManifest } from "./readers";
+import { readAccessManifest, readDocumentAccessEventBody } from "./readers";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -73,6 +77,50 @@ async function verifyPinnedChainEndpoint(input: {
   return verified.value;
 }
 
+async function recordSnapshotContainerEvidence(input: {
+  readonly containerPathByManifestHash: ReadonlyMap<
+    string,
+    readonly VerifiedContainerAccessManifest[]
+  >;
+  readonly manifest: VerifiedDocumentLinkSetSnapshot;
+  readonly proof: DocumentPurgeProofResponse;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly usedContainerManifests?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
+}): Promise<void> {
+  if (!input.usedContainerManifests) return;
+  const event = await verifyAccessEventBundle({
+    bundle: input.proof.documentManifest,
+    label: "Document purge manifest snapshot",
+    resolveUserKey: input.resolveUserKey,
+  });
+  if (event.eventHash !== input.manifest.manifest.eventHash) {
+    throw new KeyingVerificationError(
+      "hash_mismatch",
+      "Document purge manifest snapshot event is not bound to its manifest",
+    );
+  }
+  const body = readDocumentAccessEventBody(
+    event.body,
+    "Document purge manifest snapshot event body",
+  );
+  const manifestHashes = [
+    ...event.event.dependencyManifestHashes,
+    body.containerManifestHash,
+  ];
+  for (const manifestHash of manifestHashes) {
+    for (const containerManifest of input.containerPathByManifestHash.get(
+      manifestHash,
+    ) ?? []) {
+      input.usedContainerManifests.set(
+        containerManifest.manifestHash,
+        containerManifest,
+      );
+    }
+  }
+}
+
 async function verifySignedPurgeDocumentManifestChain(input: {
   readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ProjectionCheckpointContext;
@@ -83,6 +131,9 @@ async function verifySignedPurgeDocumentManifestChain(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly usedContainerManifests?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -143,6 +194,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       trustedPredecessorByHash,
+      usedContainerManifests: input.usedContainerManifests,
       verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
@@ -159,6 +211,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     trustedPredecessorByHash,
+    usedContainerManifests: input.usedContainerManifests,
     verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
@@ -180,6 +233,9 @@ export async function verifyPurgeDocumentManifest(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly usedContainerManifests?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -192,6 +248,7 @@ export async function verifyPurgeDocumentManifest(input: {
       principalPolicyCache: input.principalPolicyCache,
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
+      usedContainerManifests: input.usedContainerManifests,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
@@ -215,6 +272,13 @@ export async function verifyPurgeDocumentManifest(input: {
   });
   if (!verified.ok) throw verified.error;
   const documentManifest = verified.value;
+  await recordSnapshotContainerEvidence({
+    containerPathByManifestHash: input.containerPathByManifestHash,
+    manifest: documentManifest,
+    proof: input.proof,
+    resolveUserKey: input.resolveUserKey,
+    usedContainerManifests: input.usedContainerManifests,
+  });
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [documentManifest],
     verifiedManifests: [...verifiedByHash.values()],

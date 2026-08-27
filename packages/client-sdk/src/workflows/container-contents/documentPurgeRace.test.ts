@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
-import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import {
+  createDocumentProjectorRegistry,
+  defaultDocumentProjectorRegistry,
+} from "../../data/documents/documentKinds";
 import { verifyDocumentWriterProjection } from "../../data/keyingProjectionVerification";
 import type { DocumentsPersistence } from "../documents";
 import { purgeRemoteContainerDocument } from "./documentPurge";
@@ -102,6 +105,118 @@ test("purge retry refuses a document recreated before the absence transaction", 
         resolveUserKey: resolveProjectionUserKey,
       }),
     ).resolves.toBeDefined();
+  } finally {
+    close();
+  }
+});
+
+test("purge retry deletes an absent document projection with its proof", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const proof = await createDocumentPurgeProof(
+    fixture.author,
+    fixture.writerProjection,
+  );
+  const { close, execSql } = await createTestExecSql(
+    "document-purge-absent-projection",
+  );
+  const projectionDeletes: string[] = [];
+  const documentProjectors = createDocumentProjectorRegistry([
+    {
+      clientProjection: {
+        delete: ({ localId }) => {
+          projectionDeletes.push(localId);
+        },
+        save: () => undefined,
+        tables: [],
+      },
+      kind: "note",
+    },
+  ]);
+  const persistence = {
+    deleteDocumentSideRowsIfAbsent: async (
+      _execSql: typeof execSql,
+      _localId: string,
+      _documentId: string | null,
+      deleteClientProjection: (
+        transactionExecSql: typeof execSql,
+      ) => Promise<void>,
+    ) => {
+      await deleteClientProjection(execSql);
+      return true;
+    },
+    ensureSchema: async () => undefined,
+    loadDocument: async () => null,
+  } as unknown as DocumentsPersistence;
+
+  try {
+    await expect(
+      purgeRemoteContainerDocument({
+        documentId: fixture.writerProjection.documentId,
+        noteId: "local-document",
+        persistence,
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        runtime: {
+          apiClient: {
+            getCurrentPrincipalPolicy: async () => null,
+            getDocumentPurgeProof: async () => {
+              throw new Error("Unexpected purge-proof fetch");
+            },
+            getDocumentWriterProjectionResult: async () => ({
+              data: fixture.writerProjection,
+              ok: true,
+            }),
+            purgeDocument: async () => ({
+              ...proof,
+              reclaimedBlobStorageKeys: [],
+            }),
+          },
+          auth: {
+            isAuthenticated: true,
+            organizationId: fixture.author.organizationId,
+            userId: fixture.author.signerUserId,
+          },
+          crypto: {
+            encapsulationKeyPair: {
+              publicKey: fixture.publicKey,
+              secretKey: fixture.secretKey,
+            },
+            signingFingerprint: fixture.author.signerKeyFingerprint,
+            signingKeyPair: {
+              signingPrivateKey: fixture.author.signerPrivateKey,
+              signingPublicKey: fixture.signingPublicKey,
+            },
+          },
+          infra: {
+            blobStore: null as never,
+            dbStatus: "ready",
+            documentProjectors,
+            execSql,
+          },
+          resolveTrustedUserIdentity: async () => null,
+          state: {
+            containerId: null,
+            domainScope: null as never,
+            events: [],
+            online: true,
+          },
+          util: {
+            log: () => undefined,
+            reportSecurityIncident: async () => undefined,
+          },
+        },
+      }),
+    ).resolves.toMatchObject({
+      documentId: fixture.writerProjection.documentId,
+    });
+
+    expect(projectionDeletes).toEqual(["local-document"]);
+    await expect(
+      verifyDocumentWriterProjection({
+        execSql,
+        projection: fixture.writerProjection,
+        resolveUserKey: fixture.resolveProjectionUserKey,
+      }),
+    ).rejects.toThrow("purged");
   } finally {
     close();
   }

@@ -2,24 +2,19 @@ import {
   type AccessManifestCheckpoint,
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
-  principalPolicyMatchesReference,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
   verifyAccessManifestSnapshot,
-  verifyDocumentPurgeEvent,
 } from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@symcrypt/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import {
-  addBundleByHash,
-  verifyStandaloneAccessEventBundle,
-} from "./bundleVerification";
+import { addBundleByHash } from "./bundleVerification";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
@@ -29,10 +24,13 @@ import {
   verifiedContainerManifestsForBundles,
   verifyContainerManifestPath,
 } from "./containerProjectionVerification";
-import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
+import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import { rethrowDatabaseUnavailableError } from "./error";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
+import {
+  enforcePrincipalPolicySnapshotCheckpoints,
+  verifyPrincipalPolicySnapshots,
+} from "./principalPolicySnapshotVerification";
 import { readAccessManifest } from "./readers";
 import type {
   PrincipalPolicyCache,
@@ -347,27 +345,11 @@ async function verifyPurgeContainerPaths(input: {
       verifiedByHash,
     ),
   });
-  return { authorizingContainerPath, containerPathByManifestHash };
-}
-
-function assertPurgePrincipalEvidence(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
-  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-}): void {
-  for (const reference of input.authorizingContainerPath.flatMap(
-    (manifest) => manifest.state.referencedPrincipalHeads,
-  )) {
-    if (
-      !input.authorizationEvidence.some((policy) =>
-        principalPolicyMatchesReference({ policy, reference }),
-      )
-    ) {
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        "Document purge proof omits referenced principal policy evidence",
-      );
-    }
-  }
+  return {
+    authorizingContainerPath,
+    containerPathByManifestHash,
+    verifiedContainerManifests: new Map(verifiedByHash),
+  };
 }
 
 async function verifyDocumentPurgeProofWithMode(
@@ -390,55 +372,47 @@ async function verifyDocumentPurgeProofWithMode(
     const principalPolicyCache =
       input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
     const authorizationEvidence = await verifyPrincipalPolicySnapshots({
-      execSql: input.execSql,
       resolveUserKey: input.resolveUserKey,
       snapshots: input.proof.principalPolicySnapshots,
     });
-    const { authorizingContainerPath, containerPathByManifestHash } =
-      await verifyPurgeContainerPaths({
-        authorizationEvidence,
-        checkpointContext,
-        enforceLocalCheckpoints,
-        principalPolicyCache,
-        proof: input.proof,
-        resolveUserKey: input.resolveUserKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      });
-    const documentManifest = await verifyPurgeDocumentManifest({
+    const {
+      authorizingContainerPath,
+      containerPathByManifestHash,
+      verifiedContainerManifests,
+    } = await verifyPurgeContainerPaths({
       authorizationEvidence,
       checkpointContext,
-      containerPathByManifestHash,
       enforceLocalCheckpoints,
       principalPolicyCache,
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    const event = await verifyStandaloneAccessEventBundle({
-      bundle: input.proof.purgeEvent,
-      label: "Document purge event",
-      resolveUserKey: input.resolveUserKey,
-    });
-    assertPurgePrincipalEvidence({
-      authorizationEvidence,
-      authorizingContainerPath,
-    });
-    const principalPolicies = authorizationEvidence;
-    const verified = await verifyDocumentPurgeEvent({
-      authorizingContainerPath,
-      documentManifest,
-      event,
-      expectedDocumentId: input.expectedDocumentId,
-      principalPolicies,
-    });
-    if (!verified.ok) {
-      throw verified.error;
+    const { documentManifest, principalPolicies, purgeEventHash } =
+      await authenticateDocumentPurgeArtifacts({
+        authorizationEvidence,
+        authorizingContainerPath,
+        checkpointContext,
+        containerPathByManifestHash,
+        enforceLocalCheckpoints,
+        expectedDocumentId: input.expectedDocumentId,
+        principalPolicyCache,
+        proof: input.proof,
+        resolveUserKey: input.resolveUserKey,
+        verifiedContainerManifests,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+    if (enforceLocalCheckpoints) {
+      await enforcePrincipalPolicySnapshotCheckpoints({
+        execSql: input.execSql,
+        policies: principalPolicies,
+      });
     }
     const documentPurgeCheckpoint = {
       documentId: input.expectedDocumentId,
       documentManifestHash: documentManifest.manifestHash,
       organizationId: documentManifest.state.organizationId,
-      purgeEventHash: verified.value.eventHash,
+      purgeEventHash,
     };
     return {
       authorizingContainerCheckpoints: authorizingContainerPath.map(

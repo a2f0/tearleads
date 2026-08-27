@@ -30,7 +30,11 @@ import {
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
-import { collectDocumentManifestPrincipalPolicies } from "./documentManifestPolicies";
+import {
+  collectDocumentManifestPrincipalPolicies,
+  recordUsedDocumentContainerManifests,
+  type UsedDocumentContainerManifests,
+} from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowDatabaseUnavailableError } from "./error";
@@ -252,6 +256,7 @@ export async function verifyDocumentManifestBundle(input: {
   readonly trustedPredecessorByHash?:
     | ReadonlyMap<string, VerifiedDocumentLinkSetSnapshot>
     | undefined;
+  readonly usedContainerManifests?: UsedDocumentContainerManifests | undefined;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -328,6 +333,10 @@ export async function verifyDocumentManifestBundle(input: {
     );
   }
 
+  recordUsedDocumentContainerManifests({
+    paths: [...dependencyContainerPaths, targetContainerPath],
+    used: input.usedContainerManifests,
+  });
   assertCanonicalEqual({
     actual: input.bundle.state,
     expected: readCanonicalJson(verified.value.state, `${input.label} state`),

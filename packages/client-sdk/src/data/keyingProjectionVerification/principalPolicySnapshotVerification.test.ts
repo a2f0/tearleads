@@ -2,49 +2,35 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
+import {
+  enforcePrincipalPolicySnapshotCheckpoints,
+  verifyPrincipalPolicySnapshots,
+} from "./principalPolicySnapshotVerification";
 
 test("verifies a redacted policy through its signed external authority", async () => {
   const fixture = await createExternallyAuthorizedPrincipalPolicySnapshots();
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-snapshot-verification",
-  );
-  try {
-    const verified = await verifyPrincipalPolicySnapshots({
-      execSql,
-      resolveUserKey: fixture.resolveUserKey,
-      snapshots: [fixture.subject, fixture.admin],
-    });
-    expect(verified).toHaveLength(2);
+  const verified = await verifyPrincipalPolicySnapshots({
+    resolveUserKey: fixture.resolveUserKey,
+    snapshots: [fixture.subject, fixture.admin],
+  });
+  expect(verified).toHaveLength(2);
 
-    await expect(
-      verifyPrincipalPolicySnapshots({
-        execSql,
-        resolveUserKey: fixture.resolveUserKey,
-        snapshots: [fixture.subject],
-      }),
-    ).rejects.toThrow("Principal policy snapshot authority is missing");
-  } finally {
-    close();
-  }
+  await expect(
+    verifyPrincipalPolicySnapshots({
+      resolveUserKey: fixture.resolveUserKey,
+      snapshots: [fixture.subject],
+    }),
+  ).rejects.toThrow("Principal policy snapshot authority is missing");
 });
 
 test("rejects a tampered redacted policy projection", async () => {
   const fixture = await createExternallyAuthorizedPrincipalPolicySnapshots();
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-snapshot-verification",
-  );
-  try {
-    await expect(
-      verifyPrincipalPolicySnapshots({
-        execSql,
-        resolveUserKey: fixture.resolveUserKey,
-        snapshots: [{ ...fixture.admin, currentProjection: [] }],
-      }),
-    ).rejects.toThrow("projection root does not match");
-  } finally {
-    close();
-  }
+  await expect(
+    verifyPrincipalPolicySnapshots({
+      resolveUserKey: fixture.resolveUserKey,
+      snapshots: [{ ...fixture.admin, currentProjection: [] }],
+    }),
+  ).rejects.toThrow("projection root does not match");
 });
 
 test("rejects a signed snapshot that conflicts with the durable policy pin", async () => {
@@ -72,12 +58,12 @@ test("rejects a signed snapshot that conflicts with the durable policy pin", asy
       ],
     );
 
+    const policies = await verifyPrincipalPolicySnapshots({
+      resolveUserKey: fixture.resolveUserKey,
+      snapshots: [fixture.admin],
+    });
     await expect(
-      verifyPrincipalPolicySnapshots({
-        execSql,
-        resolveUserKey: fixture.resolveUserKey,
-        snapshots: [fixture.admin],
-      }),
+      enforcePrincipalPolicySnapshotCheckpoints({ execSql, policies }),
     ).rejects.toMatchObject({ code: "equivocation" });
   } finally {
     close();

@@ -11,6 +11,11 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 
+export type UsedDocumentContainerManifests = Map<
+  string,
+  VerifiedContainerAccessManifest
+>;
+
 export async function collectDocumentManifestPrincipalPolicies(input: {
   readonly authorizationEvidence?:
     | readonly AnyVerifiedPrincipalPolicy[]
@@ -51,4 +56,18 @@ export async function collectDocumentManifestPrincipalPolicies(input: {
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     })),
   ];
+}
+
+export function recordUsedDocumentContainerManifests(input: {
+  readonly paths: readonly (
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined
+  )[];
+  readonly used?: UsedDocumentContainerManifests | undefined;
+}): void {
+  for (const path of input.paths) {
+    for (const manifest of path ?? []) {
+      input.used?.set(manifest.manifestHash, manifest);
+    }
+  }
 }

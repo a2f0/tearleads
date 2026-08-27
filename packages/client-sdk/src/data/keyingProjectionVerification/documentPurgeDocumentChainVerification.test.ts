@@ -166,7 +166,6 @@ test("signed purge history uses retained group evidence after group deletion", a
       resolveUserKey,
     });
     const authorizationEvidence = await verifyPrincipalPolicySnapshots({
-      execSql,
       resolveUserKey,
       snapshots: [policyFixture.subject, policyFixture.admin],
     });
