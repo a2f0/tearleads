@@ -211,6 +211,16 @@ Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
 
+Document purge is likewise a signed terminal event. It commits the exact
+document head and sole authorizing container head, and requires signer write
+access through that path. The API retains the event and manifest evidence after
+content deletion. On another device, a coded not-found response is only a
+prompt to fetch that proof; the SDK deletes local state only after independently
+verifying it against pinned identities and local checkpoints. A later pinned
+authorizing-container head makes the proof fail closed because its ordering
+relative to the purge is not signed. Document predecessor history can still
+advance an older document checkpoint to the purge-time head.
+
 ### Content Confidentiality
 
 Encrypted document, blob, and metadata content remains confidential from a
@@ -281,11 +291,13 @@ material cases are:
   retained container grant is rematerialized against the current head. A fresh
   recovery-key login can therefore recover the still-granted container without
   a repair action by another user. **Recoverable.**
-- **Group deleted.** `deleteOrganizationGroupRows` purges the group's states,
-  payloads, epoch keys, and member envelopes. The key material is gone from the
-  server, so a later recovery cannot reconstruct it. **Permanently unrecoverable
-  from server state**, by design. This is not a client-side erasure guarantee: a
-  client that cached the group key while authorized still holds that material.
+- **Group deleted.** `deleteOrganizationGroupRows` purges the group's encrypted
+  payloads, epoch keys, and member envelopes. It retains only signed public
+  state and committed membership/grant projections so terminal purge proofs
+  remain verifiable. The key material is gone from the server, so a later
+  recovery cannot reconstruct it. **Permanently unrecoverable from server
+  state**, by design. This is not a client-side erasure guarantee: a client that
+  cached the group key while authorized still holds that material.
 - **Anchor caps.** The per-epoch envelope cap and the principal-scope cap rank
   candidates by identity, not by whether the client can resolve them. A
   requester with a very wide principal set can be served envelopes they cannot

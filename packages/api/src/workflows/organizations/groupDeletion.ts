@@ -5,13 +5,10 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
-  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
-  principalMembershipProjection,
   principalPolicyMutationAcknowledgements,
   principalStatePayloads,
-  principalStates,
 } from "@symcrypt/api-shared/schema";
 import { and, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
@@ -132,27 +129,11 @@ export async function deleteOrganizationGroupRows(input: {
       ),
     );
   await input.executor
-    .delete(principalContainerGrantProjection)
-    .where(
-      and(
-        eq(principalContainerGrantProjection.principalType, "group"),
-        eq(principalContainerGrantProjection.principalId, input.groupId),
-      ),
-    );
-  await input.executor
     .delete(principalMemberEnvelopes)
     .where(
       and(
         eq(principalMemberEnvelopes.principalType, "group"),
         eq(principalMemberEnvelopes.principalId, input.groupId),
-      ),
-    );
-  await input.executor
-    .delete(principalMembershipProjection)
-    .where(
-      and(
-        eq(principalMembershipProjection.principalType, "group"),
-        eq(principalMembershipProjection.principalId, input.groupId),
       ),
     );
   await input.executor
@@ -171,14 +152,9 @@ export async function deleteOrganizationGroupRows(input: {
         eq(principalEpochKeys.principalId, input.groupId),
       ),
     );
-  await input.executor
-    .delete(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, "group"),
-        eq(principalStates.principalId, input.groupId),
-      ),
-    );
+  // Keep only the signed public state, membership projection, and grant
+  // commitments needed to verify terminal proofs. Encrypted payloads and every
+  // recoverable key envelope are erased before the catalog row is removed.
   await input.executor
     .delete(groupsTable)
     .where(eq(groupsTable.id, input.groupId));

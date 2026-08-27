@@ -35,6 +35,7 @@ import {
   uniquePrincipalPolicies,
   userRecipientKeysFromKekTargets,
 } from "./keyingWriterProjectionKit";
+import { buildRootRevokeRequest } from "./keyingWriterProjectionRevoke";
 import { createGroupRequest } from "./organizationGroup";
 import { joinOrg } from "./organizationMembership";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
@@ -54,12 +55,14 @@ async function signGroupSuccessor(input: {
   actor: TestUser;
   current: VerifiedPrincipalPolicy;
   grants: readonly PrincipalContainerGrant[];
+  projection?: VerifiedPrincipalPolicy["projection"];
 }): Promise<SignedGroupSuccessor> {
   const principalKem = generateKemSeedAndKeyPair();
+  const projection = input.projection ?? input.current.projection;
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
       principalSecretKey: principalKem.secretKey,
-      projection: input.current.projection,
+      projection,
     });
   const signed = await signPrincipalStateBundle({
     principalType: "group",
@@ -70,13 +73,11 @@ async function signGroupSuccessor(input: {
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
-    projection: input.current.projection,
+    projection,
     grants: [...input.grants],
     memberEnvelopes,
     payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(
-        JSON.stringify({ members: input.current.projection }),
-      ),
+      new TextEncoder().encode(JSON.stringify({ members: projection })),
     ),
     signedAt: new Date(
       Date.parse(input.current.state.signedAt) + 1_000,
@@ -171,7 +172,8 @@ async function createManagedPrincipalWrap(input: {
   };
 }
 
-async function buildReadGroupGrantMutation(input: {
+async function buildGroupGrantMutation(input: {
+  accessLevel: "read" | "write";
   actor: TestUser;
   policy: VerifiedPrincipalPolicy;
   root: DecryptableStoredRootFixture;
@@ -179,7 +181,7 @@ async function buildReadGroupGrantMutation(input: {
   const previous = asVerifiedContainerManifest(input.root.bundle);
   const reference = principalHead(input.policy);
   const grant = {
-    accessLevel: "read" as const,
+    accessLevel: input.accessLevel,
     subjectId: reference.principalId,
     subjectType: "group" as const,
   };
@@ -273,11 +275,62 @@ async function submitSuccessor(input: {
   return mutation;
 }
 
+async function rotateRootGroupPolicy(input: {
+  readonly actor: TestUser;
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly root: DecryptableStoredRootFixture;
+  readonly successor: SignedGroupSuccessor;
+}): Promise<DecryptableStoredRootFixture> {
+  const rekey = await buildRootContainerRekeyMutation({
+    previous: input.root,
+    replacementPrincipalPolicy: input.successor.policy,
+    signer: input.actor,
+  });
+  rekey.request.wraps = (await Promise.all(
+    rekey.kekState.recipientTargets.map(async (target) => {
+      invariant(
+        target.recipientKind === "group",
+        "expected root rekey recipients to be groups",
+      );
+      const policy = rekey.container.principalPolicies?.find(
+        (candidate) =>
+          candidate.principalType === target.recipientKind &&
+          candidate.principalId === target.recipientId,
+      );
+      invariant(policy, "expected root rekey recipient policy");
+      return createManagedPrincipalWrap({
+        containerKey: rekey.plaintextKek,
+        containerKeyEpochId: rekey.kekState.containerKeyEpochId,
+        policy,
+        wrapManifestHash: rekey.bundle.manifestHash,
+      });
+    }),
+  )) as unknown as Record<string, unknown>[];
+  const mutation = await submitSuccessor({
+    actor: input.actor,
+    containerMutation: rekey.request,
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+    successor: input.successor,
+  });
+  return {
+    bundle: accessManifestFromContainerResponse(mutation),
+    kekState: kekStateFromContainerResponse(mutation),
+    plaintextKek: rekey.plaintextKek,
+    principalPolicies: rekey.container.principalPolicies ?? [],
+  };
+}
+
 export async function grantRootThroughRotatedReadGroup(input: {
+  accessLevel?: "read" | "write";
   actor: TestUser;
   reader: TestUser;
   root: DecryptableStoredRootFixture;
-}): Promise<string> {
+}): Promise<{
+  readonly groupId: string;
+  readonly root: DecryptableStoredRootFixture;
+}> {
   const organizationId = asVerifiedContainerManifest(input.root.bundle).state
     .organizationId;
   await joinOrg(organizationId, input.actor, input.reader);
@@ -313,14 +366,15 @@ export async function grantRootThroughRotatedReadGroup(input: {
     current: initialPolicy,
     grants: [
       {
-        accessLevel: "read",
+        accessLevel: input.accessLevel ?? "read",
         containerId: input.root.kekState.containerId,
       },
     ],
   });
   const grantMutation = await submitSuccessor({
     actor: input.actor,
-    containerMutation: await buildReadGroupGrantMutation({
+    containerMutation: await buildGroupGrantMutation({
+      accessLevel: input.accessLevel ?? "read",
       actor: input.actor,
       policy: granted.policy,
       root: input.root,
@@ -344,37 +398,51 @@ export async function grantRootThroughRotatedReadGroup(input: {
     current: granted.policy,
     grants: granted.policy.grants,
   });
-  const rekey = await buildRootContainerRekeyMutation({
-    previous: grantedRoot,
-    replacementPrincipalPolicy: rotated.policy,
-    signer: input.actor,
-  });
-  rekey.request.wraps = (await Promise.all(
-    rekey.kekState.recipientTargets.map(async (target) => {
-      invariant(
-        target.recipientKind === "group",
-        "expected root rekey recipients to be groups",
-      );
-      const policy = rekey.container.principalPolicies?.find(
-        (candidate) =>
-          candidate.principalType === target.recipientKind &&
-          candidate.principalId === target.recipientId,
-      );
-      invariant(policy, "expected root rekey recipient policy");
-      return createManagedPrincipalWrap({
-        containerKey: rekey.plaintextKek,
-        containerKeyEpochId: rekey.kekState.containerKeyEpochId,
-        policy,
-        wrapManifestHash: rekey.bundle.manifestHash,
-      });
-    }),
-  )) as unknown as Record<string, unknown>[];
-  await submitSuccessor({
+  const rotatedRoot = await rotateRootGroupPolicy({
     actor: input.actor,
-    containerMutation: rekey.request,
     groupId,
     organizationId,
+    root: grantedRoot,
     successor: rotated,
   });
-  return groupId;
+  return { groupId, root: rotatedRoot };
+}
+
+export async function revokeRootRotatedReadGroup(input: {
+  readonly actor: TestUser;
+  readonly groupId: string;
+  readonly removedMemberUserId?: string;
+  readonly root: DecryptableStoredRootFixture;
+}): Promise<void> {
+  const current = await loadVerifiedPrincipalPolicy(db, "group", input.groupId);
+  const successor = await signGroupSuccessor({
+    actor: input.actor,
+    current,
+    grants: [],
+    projection: input.removedMemberUserId
+      ? current.projection.filter(
+          (member) => member.userId !== input.removedMemberUserId,
+        )
+      : current.projection,
+  });
+  const revoke = await buildRootRevokeRequest({
+    previous: input.root.bundle,
+    previousKekState: input.root.kekState,
+    revokedGrant: {
+      subjectId: input.groupId,
+      subjectType: "group",
+    },
+    signer: input.actor,
+  });
+  revoke.principalPolicies = (revoke.principalPolicies ?? []).filter(
+    (policy) => Reflect.get(policy, "principalId") !== input.groupId,
+  );
+  await submitSuccessor({
+    actor: input.actor,
+    containerMutation: revoke,
+    groupId: input.groupId,
+    organizationId: asVerifiedContainerManifest(input.root.bundle).state
+      .organizationId,
+    successor,
+  });
 }

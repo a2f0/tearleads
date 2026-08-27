@@ -162,9 +162,41 @@ export function createDocumentLinkSetMutationResponse() {
 
 export function createDocumentPurgeResponse() {
   return {
-    documentId: "document-1",
-    purgedAt: "2026-08-06T00:00:00.000Z",
+    ...createDocumentPurgeProofResponse(),
     reclaimedBlobStorageKeys: ["blobs/document-1"],
+  };
+}
+
+export function createDocumentPurgeProofResponse() {
+  const authorizingContainer = createAccessManifestBundle();
+  const documentManifestBundle = createAccessManifestBundle();
+  return {
+    authorizingContainerPath: [authorizingContainer],
+    documentContainerManifestHistory: [],
+    documentId: "document-1",
+    documentManifest: {
+      ...documentManifestBundle,
+      manifestHash: "document-manifest-hash",
+    },
+    documentManifestContainerPaths: [],
+    documentManifestPredecessors: [],
+    purgeEvent: {
+      body: { eventType: "document.purge" },
+      event: { signature: "signed-purge-event" },
+      eventHash: "purge-event-hash",
+    },
+    purgedAt: "2026-08-06T00:00:00.000Z",
+    principalPolicySnapshots: [],
+  };
+}
+
+export function createDocumentPurgeRequest() {
+  return {
+    authorizingContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "manifest-hash" },
+    ],
+    body: { eventType: "document.purge" },
+    event: { signature: "signed-purge-event" },
   };
 }
 

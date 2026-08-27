@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ContainerAccessLevel,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
@@ -57,6 +58,7 @@ export interface ContainerWriterProjectionContext {
     string,
     Promise<AccessManifestBundleWireResponse>
   >;
+  readonly principalPolicyAuthorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
 }
 

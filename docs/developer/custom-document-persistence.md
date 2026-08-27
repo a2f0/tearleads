@@ -76,9 +76,10 @@ invalidated probe's late response is not persisted. Ordinary store activity can
 subsequently re-arm a cancelled on-demand store.
 
 `deleteDocumentSideRowsIfAbsent(...)` checks that the canonical row is absent,
-deletes its orphaned queue/history/attachment/projection rows, and invokes the
-host projection callback in one write transaction. A concurrent initializer
-must either be observed and preserved or begin after cleanup commits.
+rejects another local alias for the expected remote document, deletes its
+orphaned queue/history/attachment/projection rows, and invokes the host
+projection callback in one write transaction. A concurrent initializer must
+either be observed and preserved or begin after cleanup commits.
 
 `invalidatePullContinuation(...)` atomically replaces only the exact rejected
 cursor and matching sync identity with the durable recovery marker. It returns

@@ -1,5 +1,9 @@
 import type { DatabaseTransaction } from "@symcrypt/api-shared/postgres";
-import { groups, organizationRosterEntries } from "@symcrypt/api-shared/schema";
+import {
+  groups,
+  organizationGroupTombstones,
+  organizationRosterEntries,
+} from "@symcrypt/api-shared/schema";
 import type { VerifiedContainerAccessManifest } from "@symcrypt/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
@@ -27,14 +31,24 @@ async function assertGroupReferencesValid(input: {
     input.executor,
     groupIds,
   );
+  if (groupIds.length === 0) {
+    return;
+  }
+  const deletedGroups = await input.executor
+    .select({ groupId: organizationGroupTombstones.groupId })
+    .from(organizationGroupTombstones)
+    .where(inArray(organizationGroupTombstones.groupId, groupIds));
+  if (deletedGroups.length > 0) {
+    throw new ContainerMutationError(
+      "Container manifest references a deleted group",
+      409,
+    );
+  }
   if (missingGroupIds.length > 0) {
     throw new ContainerMutationError(
       "Container manifest references a missing group",
       409,
     );
-  }
-  if (groupIds.length === 0) {
-    return;
   }
   const groupOrganizations = await input.executor
     .select({ organizationId: groups.organizationId })

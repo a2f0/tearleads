@@ -7,9 +7,11 @@ import type { DocumentCreateResponse } from "@symcrypt/validators/response";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
+import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
+import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   assertCreateCanAdvanceDocumentHead,
@@ -97,6 +99,13 @@ export async function createDocumentWithExecutor(input: {
       );
     }
 
+    // This lock remains addressable after purge deletes the document and head.
+    // Take it before both terminal-state checks so create cannot observe a
+    // half-completed purge and then resurrect its retained initial manifest.
+    await lockDocumentLifecycleInTransaction(
+      input.executor,
+      manifest.state.documentId,
+    );
     await assertRosterProfileDocumentIdCanBeCreated({
       documentId: manifest.state.documentId,
       executor: input.executor,
@@ -114,6 +123,11 @@ export async function createDocumentWithExecutor(input: {
       { verifiedManifest: manifest },
       input.executor,
     );
+    await recordDocumentManifestObservationInTransaction(input.executor, {
+      documentId: manifest.state.documentId,
+      manifestHash: manifest.manifestHash,
+      userId: input.userId,
+    });
     const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
       toStoredContentKeyBundleInput(
         manifest.state.documentId,

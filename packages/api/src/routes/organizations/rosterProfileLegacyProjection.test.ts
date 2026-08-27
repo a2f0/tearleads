@@ -20,6 +20,7 @@ import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
 } from "../../../test/helpers/documentLinkMutation";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -230,14 +231,18 @@ test("a purged document ID with a legacy roster pointer cannot be recreated", as
   const organizationId = await registerAndAuthenticate(actor);
   const root = await bootstrapRoot(actor);
   const documentId = crypto.randomUUID();
-  const firstCreate = await postCreateDocument(
-    actor,
-    await createDocumentRequest({ documentId, owner: actor, root }),
-  );
+  const firstCreateRequest = await createDocumentRequest({
+    documentId,
+    owner: actor,
+    root,
+  });
+  const firstCreate = await postCreateDocument(actor, firstCreateRequest);
   expect(firstCreate.status).toBe(200);
-  const purge = await routeApp.request(`/documents/${documentId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${actor.token}` },
+  const purge = await postDocumentPurge({
+    documentId,
+    documentManifestHash: firstCreateRequest.expectedManifestHash,
+    owner: actor,
+    root,
   });
   expect(purge.status).toBe(200);
   await db

@@ -57,6 +57,7 @@ import {
   isContainerMutationResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
+  isDocumentPurgeProofResponse,
   isDocumentPurgeResponse,
 } from "@symcrypt/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -68,10 +69,14 @@ import {
 } from "../../../test/helpers/blobObjectStore";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
+import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
-import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
+import {
+  getAccessManifestBundle,
+  listAccessEventDependencyProjection,
+} from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
@@ -534,14 +539,22 @@ async function linkDocumentToSecondContainer(input: {
 async function purgeDocumentViaRoute(input: {
   readonly app?: Pick<typeof routeApp, "request">;
   readonly documentId: string;
+  readonly documentManifestHash: string;
+  readonly owner: TestUser;
+  readonly root: StoredRootFixture;
   readonly token: string;
 }): Promise<Response> {
-  return (input.app ?? routeApp).request(`/documents/${input.documentId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
+  return (input.app ?? routeApp).request(
+    `/documents/${input.documentId}/purge`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(await buildDocumentPurgeRequest(input)),
     },
-  });
+  );
 }
 
 // Writes `bytes` into the production runtime's object store at `storageKey`
@@ -750,6 +763,9 @@ test("document purge succeeds when event publication fails", async () => {
   const response = await purgeDocumentViaRoute({
     app,
     documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -762,12 +778,37 @@ test("document purge succeeds when event publication fails", async () => {
   expect(purged.reclaimedBlobStorageKeys).toEqual([]);
   expect(publishedEvents).toHaveLength(1);
 
+  const proofResponse = await app.request(`/documents/${created.id}/purge`, {
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  expect(proofResponse.status).toBe(200);
+  const proof = await proofResponse.json();
+  expect(isDocumentPurgeProofResponse(proof)).toBe(true);
+  expect(proof).toMatchObject({
+    documentId: created.id,
+    documentManifest: {
+      manifestHash: created.accessManifest.manifestHash,
+    },
+    purgeEvent: purged.purgeEvent,
+  });
+  await expect(
+    listAccessEventDependencyProjection(purged.purgeEvent.eventHash, db),
+  ).resolves.toEqual([
+    {
+      dependencyIndex: 0,
+      dependencyManifestHash: root.bundle.manifestHash,
+      eventHash: purged.purgeEvent.eventHash,
+      objectId: created.id,
+      objectKind: "document",
+    },
+  ]);
+
   const after = await countDocumentRows(created.id);
   expect(after).toEqual({
-    accessEvents: 0,
-    accessManifestDocumentLinkProjection: 0,
+    accessEvents: 2,
+    accessManifestDocumentLinkProjection: 1,
     accessManifestHeads: 0,
-    accessManifests: 0,
+    accessManifests: 1,
     documentContainerLinks: 0,
     documentContentKeyEpochs: 0,
     documentContentKeyTargets: 0,
@@ -784,7 +825,48 @@ test("document purge succeeds when event publication fails", async () => {
   ).toBe(1);
 });
 
-test("DELETE /documents/:documentId rejects a document linked to more than one container", async () => {
+test("purge proof retrieval rejects a database-tampered terminal event", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const purgeResponse = await purgeDocumentViaRoute({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
+    token: owner.token,
+  });
+  expect(purgeResponse.status).toBe(200);
+
+  await db
+    .update(accessEvents)
+    .set({
+      body: {
+        containerId: root.kekState.containerId,
+        containerManifestHash: root.bundle.manifestHash,
+        documentManifestHash: "f".repeat(64),
+        eventType: "document.purge",
+      },
+    })
+    .where(
+      and(
+        eq(accessEvents.eventType, "document.purge"),
+        eq(accessEvents.objectId, created.id),
+      ),
+    );
+
+  const proofResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(proofResponse.status).not.toBe(200);
+  expect(await proofResponse.json()).toEqual({
+    error: "access event body hash does not match body",
+  });
+});
+
+test("POST document purge rejects a document linked to more than one container", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -803,6 +885,9 @@ test("DELETE /documents/:documentId rejects a document linked to more than one c
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -823,7 +908,7 @@ test("DELETE /documents/:documentId rejects a document linked to more than one c
   ).toBe(0);
 });
 
-test("DELETE /documents/:documentId rejects callers without write access to the container", async () => {
+test("POST document purge rejects callers without container write access", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
   await registerAndAuthenticate(owner);
@@ -833,6 +918,9 @@ test("DELETE /documents/:documentId rejects callers without write access to the 
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
     token: outsider.token,
   });
 
@@ -851,12 +939,16 @@ test("DELETE /documents/:documentId rejects callers without write access to the 
   ).toBe(0);
 });
 
-test("DELETE /documents/:documentId returns 404 for an unknown document id", async () => {
+test("POST document purge returns 404 for an unknown document id", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
 
   const response = await purgeDocumentViaRoute({
     documentId: crypto.randomUUID(),
+    documentManifestHash: "0".repeat(64),
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -864,7 +956,7 @@ test("DELETE /documents/:documentId returns 404 for an unknown document id", asy
   expect(await response.json()).toEqual({ error: "Document not found" });
 });
 
-test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains its bytes", async () => {
+test("POST document purge soft-deletes an orphaned blob and retains its bytes", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -884,6 +976,9 @@ test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains it
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -919,7 +1014,7 @@ test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains it
   ).not.toBeNull();
 });
 
-test("DELETE /documents/:documentId preserves a blob shared with another document", async () => {
+test("POST document purge preserves a blob shared with another document", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -942,6 +1037,9 @@ test("DELETE /documents/:documentId preserves a blob shared with another documen
 
   const response = await purgeDocumentViaRoute({
     documentId: documentToPurge.id,
+    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -1036,7 +1134,7 @@ async function seedBlobAuditHistory(input: {
 // Detached bindings and audit events retain metadata, not live blob bytes. A
 // purge that removes the final active binding starts the GC grace clock even if
 // another document's audit history still names the blob.
-test("DELETE /documents/:documentId dereferences a blob retained only in another document's history", async () => {
+test("POST document purge dereferences a blob retained only in another document's history", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1071,6 +1169,9 @@ test("DELETE /documents/:documentId dereferences a blob retained only in another
 
   const response = await purgeDocumentViaRoute({
     documentId: documentToPurge.id,
+    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 
@@ -1105,7 +1206,7 @@ test("DELETE /documents/:documentId dereferences a blob retained only in another
 // a blob whose only remaining references are this document's own DETACHED
 // bindings (e.g. left behind by a replace) must be reclaimed on purge. The old
 // candidate set considered only ACTIVE bindings, so such blobs leaked forever.
-test("DELETE /documents/:documentId soft-deletes a blob referenced only by this document's detached binding", async () => {
+test("POST document purge soft-deletes detached document-only blobs", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1127,6 +1228,9 @@ test("DELETE /documents/:documentId soft-deletes a blob referenced only by this 
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
     token: owner.token,
   });
 

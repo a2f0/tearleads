@@ -422,18 +422,55 @@ the blob content key and decrypt the committed bytes.
 
 ## Delete And Purge Semantics
 
-Removal is terminal and structural. Link, unlink, share, revoke, rekey, and
-move are signed access-event mutations that rewrite manifests; container delete
-and document purge instead remove rows outright and are authenticated
-operations rather than signed access events.
+Removal is terminal and structural. Link, unlink, share, revoke, rekey, move,
+and document purge carry signed access events. Container delete remains an
+authenticated control-plane operation without a signed artifact.
 
-`DELETE /documents/:documentId` purges a document and every per-document row it
-owns. The API requires that the caller holds write access through the
-document's linked container, that the document is linked to exactly one
-container — a document still linked to more than one container must be unlinked
-down to a single link first — and that the target is not a container metadata
-document, which is withheld from purge and torn down only when its container is
-deleted. An unknown document id returns not found. Blobs the purge orphans —
+`POST /documents/:documentId/purge` accepts a signed `document.purge` event.
+The signature binds the current document manifest, the sole linked container,
+and every manifest hash in the exact current root-to-leaf container path that
+authorized the purge. The API independently verifies the event, exact heads,
+root completeness, path contiguity, organization scope, and signer write access,
+stores the terminal event, and
+then removes the document's mutable row, content keys, encrypted updates,
+attachments, and live-head pointer. It retains the signed document manifest
+chain and the exact signed authorization path plus its verification
+dependencies so a device authorized through that purge-time path can retrieve
+the proof from `GET /documents/:documentId/purge` after the live document is
+gone. A user whose only access came through a path unlinked before the purge
+cannot retrieve it.
+
+The proof carries redacted principal-policy snapshots for every group head its
+container evidence references. Each snapshot retains the signed public state
+chain and committed membership/grant projections, but no encrypted payload,
+epoch-key row, or member envelope. Clients verify those signatures and
+commitments before using historical group membership. Group deletion can
+therefore erase recoverable server-side key material without making an earlier
+terminal purge unverifiable.
+
+The initial proof is strictly purge-time-bounded. The SDK authenticates that
+proof before using its claimed object identities to read any local checkpoint.
+Only then may it send an already-known document checkpoint hash to request the
+signed predecessor history leading to the purge-time document head. Container
+authorization is stricter: the signed purge-time path must itself satisfy every
+local container checkpoint. A later local container head makes the purge
+ambiguous and the client fails closed, because container ancestry alone cannot
+prove whether the separate purge signature preceded that later transition.
+The response never returns unrelated historical document paths, states, or
+events.
+The SDK commits the terminal purge checkpoint in the same local SQLite
+transaction that removes the matching document row and its side state. A stale
+local generation, identity replacement, failed cleanup, or interruption rolls
+back both the checkpoint and deletion so the verified proof can be retried
+safely. If the purge committed but its POST response was lost, a coded
+not-found on retry switches to the retained proof instead of submitting the
+purge twice.
+
+The API also requires that the document is linked to exactly one container — a
+document still linked to more than one container must be unlinked down to a
+single link first — and that the target is not a container metadata document,
+which is withheld from purge and torn down only when its container is deleted.
+An unknown document id returns not found. Blobs the purge orphans —
 referenced only by the purged document once its rows are gone — are
 soft-deleted: `dereferencedAt` is stamped while the encrypted bytes, stored
 objects, and key material are retained for a later garbage-collection sweep. A
@@ -470,9 +507,10 @@ unlink its source containers); a container is relocated by re-parenting it under
 Trash with `container.move`. The move workflow guards only the moved container's
 own system slot, not the destination's, so a normal folder and its whole subtree
 may be moved into Trash, and moved back out again to restore it. Terminal
-removal is the separate, structural step: `DELETE /documents/:documentId` for a
-document and `DELETE /containers/:containerId` for a folder — a non-empty folder
-is torn down by a client-orchestrated cascade of those two primitives applied
+removal is the separate, structural step:
+`POST /documents/:documentId/purge` for a document and
+`DELETE /containers/:containerId` for a folder — a non-empty folder is torn
+down by a client-orchestrated cascade of those two primitives applied
 leaf-first.
 
 ## Failure Semantics

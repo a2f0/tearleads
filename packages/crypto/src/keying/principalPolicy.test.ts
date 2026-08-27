@@ -4,6 +4,7 @@ import type { PrincipalProjectionMember } from "../principalState";
 import {
   getPrincipalPolicyTransitionMismatch,
   verifyPrincipalPolicyBundle,
+  verifyPrincipalPolicySnapshot,
 } from "./index";
 import {
   createBundle,
@@ -358,4 +359,34 @@ test("verifyPrincipalPolicyBundle rejects an omitted or altered signed grant", a
     signerPublicKeys: [signer],
   });
   expectVerificationError(altered, "hash_mismatch");
+});
+
+test("verifyPrincipalPolicySnapshot authenticates public policy history without key material", async () => {
+  const signer = await createPolicySigner();
+  const state = await signPolicyState({
+    members: [{ userId: signer.userId }],
+    prevStateHash: null,
+    principalId: "group-public-snapshot",
+    signer,
+    version: 1,
+  });
+  const bundle = createBundle({ current: state });
+  const snapshot = {
+    currentGrants: bundle.currentGrants,
+    currentProjection: bundle.currentProjection,
+    currentState: bundle.currentState,
+    previousStates: bundle.previousStates,
+  };
+
+  const verified = await verifyPrincipalPolicySnapshot({
+    signerPublicKeys: [signer],
+    snapshot,
+  });
+  expect(verified.ok).toBe(true);
+
+  const tampered = await verifyPrincipalPolicySnapshot({
+    signerPublicKeys: [signer],
+    snapshot: { ...snapshot, currentProjection: [] },
+  });
+  expectVerificationError(tampered, "hash_mismatch");
 });

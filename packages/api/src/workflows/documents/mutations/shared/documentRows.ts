@@ -8,7 +8,10 @@ import {
 } from "@symcrypt/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@symcrypt/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
-import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
+import {
+  getCurrentAccessManifestHead,
+  getStoredAccessEventByObjectType,
+} from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
 import { DocumentMutationError, documentNotFound } from "../errors";
@@ -63,6 +66,16 @@ export async function assertCreateCanAdvanceDocumentHead(
   executor: DatabaseTransaction,
   documentId: string,
 ): Promise<void> {
+  const purgeEvent = await getStoredAccessEventByObjectType({
+    eventType: "document.purge",
+    executor,
+    objectId: documentId,
+    objectKind: "document",
+  });
+  if (purgeEvent) {
+    throw new DocumentMutationError("Document was permanently purged", 409);
+  }
+
   const head = await getCurrentAccessManifestHead(
     "document",
     documentId,

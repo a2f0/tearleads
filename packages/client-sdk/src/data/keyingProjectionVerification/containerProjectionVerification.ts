@@ -1,4 +1,5 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -176,6 +177,10 @@ async function verifyContainerKekProjection(input: {
 }
 
 export async function verifyContainerManifestPath(input: {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly enforceLocalCheckpoints: boolean;
@@ -183,6 +188,7 @@ export async function verifyContainerManifestPath(input: {
   readonly path: readonly AccessManifestBundleWireResponse[];
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -192,6 +198,8 @@ export async function verifyContainerManifestPath(input: {
   for (const [index, bundle] of input.path.entries()) {
     verifiedPath.push(
       await verifyContainerManifestBundle({
+        authorizationMembership: input.authorizationMembership,
+        authorizationEvidence: input.authorizationEvidence,
         bundle,
         bundlesByHash: input.bundlesByHash,
         checkpointContext: input.checkpointContext,
@@ -200,6 +208,7 @@ export async function verifyContainerManifestPath(input: {
         parentPath: verifiedPath,
         principalPolicyCache: input.principalPolicyCache,
         resolveUserKey: input.resolveUserKey,
+        requireAuthorizationEvidence: input.requireAuthorizationEvidence,
         verifiedByHash: input.verifiedByHash,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
@@ -408,7 +417,7 @@ export function addContainerWriterProjectionBundles(
   }
 }
 
-export async function collectPrincipalPoliciesForContainerPaths(input: {
+async function collectPrincipalPoliciesForContainerPaths(input: {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];

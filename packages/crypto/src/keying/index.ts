@@ -1,4 +1,5 @@
 export * from "./accessEvent";
+export * from "./accessManifestSnapshot";
 export * from "./canonical";
 export * from "./checkpoints";
 export * from "./containerAccess";
@@ -22,6 +23,12 @@ export {
   unwrapContainerKekPredecessorBridge,
 } from "./containerKekPredecessor";
 export * from "./documentAccess";
+export {
+  type DocumentPurgeAccessEventBody,
+  normalizeDocumentPurgeAccessEventBody,
+  type VerifyDocumentPurgeEventInput,
+  verifyDocumentPurgeEvent,
+} from "./documentPurge";
 export * from "./principalPolicy";
 export type {
   PrincipalPolicyExternalAuthority,

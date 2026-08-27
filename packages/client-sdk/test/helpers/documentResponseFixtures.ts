@@ -231,8 +231,10 @@ export async function createSyncFixture() {
   };
 }
 
-export async function createMaterializedSyncFixture() {
-  const { author, signingPublicKey } = await createAuthor();
+export async function createMaterializedSyncFixture(
+  input: { documentId?: string; organizationId?: string; userId?: string } = {},
+) {
+  const { author, signingPublicKey } = await createAuthor(input);
   const keyPair = generateKemSeedAndKeyPair();
   const projection = await createContainerWriterProjectionFixture({
     containerId: "materialized-sync-container",
@@ -253,7 +255,7 @@ export async function createMaterializedSyncFixture() {
     author,
     containerProjection: projection,
     contentKey,
-    documentId: "550e8400-e29b-41d4-a716-446655440010",
+    documentId: input.documentId ?? "550e8400-e29b-41d4-a716-446655440010",
     eventId: "event-materialized-sync",
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,

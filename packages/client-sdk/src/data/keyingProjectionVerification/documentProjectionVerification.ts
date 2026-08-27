@@ -1,7 +1,9 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
+  type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicy,
   verifyDocumentLinkSetManifest,
 } from "@symcrypt/crypto";
@@ -24,11 +26,17 @@ import {
 } from "./checkpointContext";
 import {
   addContainerWriterProjectionBundles,
-  collectPrincipalPoliciesForContainerPaths,
   verifiedContainerManifestsForBundles,
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import {
+  collectDocumentManifestPrincipalPolicies,
+  recordUsedDocumentContainerManifests,
+  type UsedDocumentContainerManifests,
+} from "./documentManifestPolicies";
+import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
+import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowDatabaseUnavailableError } from "./error";
 import {
   loadManifestCheckpointVerification,
@@ -40,6 +48,9 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
+
+type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
+type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
 
 function readDocumentProjectionContainerPaths(
   projection: DocumentWriterProjectionResponse,
@@ -127,12 +138,8 @@ async function verifyProjectionContainerPaths(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash?:
-    | Map<string, VerifiedContainerAccessManifest>
-    | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
+  readonly verifiedByHash?: VerifiedManifestMap | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<Map<string, readonly VerifiedContainerAccessManifest[]>> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
@@ -197,13 +204,9 @@ async function verifyProjectionContainerPaths(input: {
   for (const [index, path] of readDocumentProjectionContainerPaths(
     input.projection,
   ).entries()) {
-    // These are signed historical dependencies of document-manifest events,
-    // not claims about a container's current head. Enforcing the current local
-    // checkpoint here would reject legitimate document history after that
-    // container advances. Current authorizingContainerPaths were verified
-    // above with checkpoints enabled; this pass contributes only verified
-    // predecessor evidence and never advances a head.
+    // Historical dependencies provide evidence without advancing heads.
     const verifiedPath = await verifyContainerManifestPath({
+      authorizationMembership: "referenced",
       bundlesByHash,
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
@@ -235,27 +238,11 @@ async function verifyProjectionContainerPaths(input: {
 
   return containerPathByManifestHash;
 }
-function previousDocumentManifestFromCache(input: {
-  readonly event: Awaited<ReturnType<typeof verifyAccessEventBundle>>;
-  readonly label: string;
-  readonly verifiedByHash: ReadonlyMap<string, VerifiedDocumentLinkSetManifest>;
-}): VerifiedDocumentLinkSetManifest | null {
-  const previousManifestHash = input.event.event.previousManifestHash;
-  if (previousManifestHash === null) {
-    return null;
-  }
-
-  const previousManifest = input.verifiedByHash.get(previousManifestHash);
-  if (!previousManifest) {
-    throw new Error(
-      `${input.label} previous manifest ${previousManifestHash} is missing`,
-    );
-  }
-
-  return previousManifest;
-}
-
-async function verifyDocumentManifestBundle(input: {
+export async function verifyDocumentManifestBundle(input: {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
+  readonly authorizationEvidence?:
+    | readonly AnyVerifiedPrincipalPolicy[]
+    | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -267,10 +254,13 @@ async function verifyDocumentManifestBundle(input: {
   readonly label: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
+  readonly requireAuthorizationEvidence?: boolean | undefined;
+  readonly trustedPredecessorByHash?:
+    | ReadonlyMap<string, VerifiedDocumentLinkSetSnapshot>
     | undefined;
+  readonly usedContainerManifests?: UsedDocumentContainerManifests | undefined;
+  readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
@@ -289,9 +279,10 @@ async function verifyDocumentManifestBundle(input: {
     input.bundle.manifest,
     `${input.label} manifest`,
   );
-  const previousManifest = previousDocumentManifestFromCache({
-    event,
+  const previousManifest = requireVerifiedDocumentPredecessor({
     label: input.label,
+    previousManifestHash: event.event.previousManifestHash,
+    trustedPredecessorByHash: input.trustedPredecessorByHash,
     verifiedByHash: input.verifiedByHash,
   });
   const body = readDocumentAccessEventBody(
@@ -309,12 +300,14 @@ async function verifyDocumentManifestBundle(input: {
   const targetContainerPath = input.containerPathByManifestHash.get(
     body.containerManifestHash,
   );
-  const principalPolicies = await collectPrincipalPoliciesForContainerPaths({
+  const principalPolicies = await collectDocumentManifestPrincipalPolicies({
+    authorizationEvidence: input.authorizationEvidence,
     checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     paths: [...dependencyContainerPaths, targetContainerPath],
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    requireAuthorizationEvidence: input.requireAuthorizationEvidence,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const checkpointVerification = input.enforceLocalCheckpoint
@@ -325,6 +318,7 @@ async function verifyDocumentManifestBundle(input: {
       })
     : null;
   const verified = await verifyDocumentLinkSetManifest({
+    authorizationMembership: input.authorizationMembership,
     authorizingContainerPaths: dependencyContainerPaths,
     event,
     expectedManifestHash: input.bundle.manifestHash,
@@ -341,6 +335,10 @@ async function verifyDocumentManifestBundle(input: {
     );
   }
 
+  recordUsedDocumentContainerManifests({
+    paths: [...dependencyContainerPaths, targetContainerPath],
+    used: input.usedContainerManifests,
+  });
   assertCanonicalEqual({
     actual: input.bundle.state,
     expected: readCanonicalJson(verified.value.state, `${input.label} state`),
@@ -356,12 +354,8 @@ interface DocumentWriterProjectionVerificationInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash?:
-    | Map<string, VerifiedContainerAccessManifest>
-    | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
+  readonly verifiedByHash?: VerifiedManifestMap | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }
 
 export interface DocumentWriterProjectionAuthorization {
@@ -444,6 +438,10 @@ async function verifyDocumentWriterProjectionWithContext(
     verifiedByHash,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  await rejectPurgedDocumentProjection(
+    headManifest.state.documentId,
+    checkpointContext.execSql,
+  );
 
   observeAccessManifestCheckpoints(checkpointContext, {
     verifiedHeads: [headManifest],

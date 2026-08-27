@@ -12,7 +12,7 @@ import {
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
-test("document store deletes local state when a pending write targets a purged remote document", async () => {
+test("document store preserves local state when a purge proof is unavailable", async () => {
   const persistence = createDocumentStorePersistence();
   const offlineRuntime = createDocumentStoreRuntime();
   const store = createDocumentStore(
@@ -43,9 +43,14 @@ test("document store deletes local state when a pending write targets a purged r
     signingKeyPair.signingPublicKey,
   );
   const reportedErrors: string[] = [];
+  const purgeProofCalls: string[] = [];
   const projectionResultCalls: string[] = [];
   const onlineRuntime = createDocumentStoreRuntime({
     apiClient: createMockApiClient({
+      getDocumentPurgeProof: async (documentId) => {
+        purgeProofCalls.push(documentId);
+        return null;
+      },
       getDocumentWriterProjectionResult: async (documentId) => {
         projectionResultCalls.push(documentId);
         // The positively-coded deletion 404 the API emits for a purged
@@ -87,18 +92,14 @@ test("document store deletes local state when a pending write targets a purged r
   store.requestSync();
 
   await waitForCondition(
-    () =>
-      persistence.getState().document === null &&
-      persistence.getState().pendingUpdates.length === 0 &&
-      !store.getSnapshot().ready &&
-      !store.getSnapshot().syncing,
-    "Purged remote document did not clear local document state and pending updates.",
+    () => projectionResultCalls.length === 1 && !store.getSnapshot().syncing,
+    "Unproven purge did not finish the document sync pass.",
   );
 
-  await store.setText("edit after purge cleanup");
-
-  expect(persistence.getState().document).toBeNull();
-  expect(persistence.getState().pendingUpdates).toEqual([]);
+  expect(persistence.getState().document).not.toBeNull();
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
+  expect(store.getSnapshot().ready).toBe(true);
   expect(projectionResultCalls).toEqual(["remote-purged-document"]);
+  expect(purgeProofCalls).toEqual(["remote-purged-document"]);
   expect(reportedErrors).toEqual([]);
 });

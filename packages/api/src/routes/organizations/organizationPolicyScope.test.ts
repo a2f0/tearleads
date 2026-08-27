@@ -3,7 +3,9 @@ import { db } from "@symcrypt/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-  principalContainerGrantProjection,
+  principalEpochKeys,
+  principalMemberEnvelopes,
+  principalStatePayloads,
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
@@ -111,25 +113,37 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
   expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
     createdState,
   );
-  await db.insert(principalContainerGrantProjection).values({
-    accessLevel: "read",
-    containerId: crypto.randomUUID(),
-    principalId: groupId,
-    principalType: "group",
-    stateHash: createdState.stateHash,
-  });
   const deleteResponse = await deleteGroupRequest({
     actor: owner,
     groupId,
     organizationId: organization.organizationId,
   });
   expect(deleteResponse.status).toBe(200);
-  expect(
-    await db
-      .select({ id: principalContainerGrantProjection.id })
-      .from(principalContainerGrantProjection)
-      .where(eq(principalContainerGrantProjection.principalId, groupId)),
-  ).toEqual([]);
+  expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
+    createdState,
+  );
+  const [epochKeys, envelopes, payloads] = await Promise.all([
+    db
+      .select()
+      .from(principalEpochKeys)
+      .where(eq(principalEpochKeys.principalId, groupId)),
+    db
+      .select()
+      .from(principalMemberEnvelopes)
+      .where(eq(principalMemberEnvelopes.principalId, groupId)),
+    db
+      .select()
+      .from(principalStatePayloads)
+      .where(eq(principalStatePayloads.principalId, groupId)),
+  ]);
+  expect(epochKeys).toEqual([]);
+  expect(envelopes).toEqual([]);
+  expect(payloads).toEqual([]);
+  const retainedPolicyResponse = await routeApp.request(
+    `/principals/group/${groupId}/policy`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(retainedPolicyResponse.status).toBe(404);
   const before = await readSnapshot(owner, organization.organizationId);
 
   const replayResponse = await routeApp.request(
@@ -144,7 +158,9 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
     },
   );
   expect(replayResponse.status).toBe(409);
-  expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
+  expect(await getCurrentPrincipalState("group", groupId, db)).toEqual(
+    createdState,
+  );
 
   const reuseResponse = await postGroup(
     owner,

@@ -7,6 +7,7 @@ import type { DocumentLinkSetMutationResponse } from "@symcrypt/validators/respo
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
+import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendOrganizationReadModelChangeInTransaction } from "../../organizations/readModelChanges";
@@ -288,6 +289,11 @@ async function mutateDocumentLinkSetWithExecutor(
       manifest,
       previousManifest,
       request: input.request,
+    });
+    await recordDocumentManifestObservationInTransaction(input.executor, {
+      documentId: input.documentId,
+      manifestHash: manifest.manifestHash,
+      userId: input.userId,
     });
 
     const insertedUpdateIds = await appendMutationRotationBaseline(

@@ -10,6 +10,7 @@ import {
   normalizeContainerGrantPrincipalHead,
   normalizeContainerGrantPrincipalHeads,
 } from "./containerGrantPrincipalHead";
+import { principalPolicyEntryForReference } from "./principalPolicyReference";
 import {
   assertExactKeys,
   normalizeContainerAccessLevel,
@@ -25,6 +26,7 @@ import {
   throwVerification,
 } from "./shared";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ContainerAccessEventBody,
   ContainerAccessKeyState,
   ContainerAccessLevel,
@@ -45,7 +47,6 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
   VerifyContainerAccessManifestInput,
 } from "./types";
 import { makeVerifiedContainerAccessManifest } from "./types";
@@ -719,34 +720,16 @@ function requirePathLastMatchesManifest(input: {
 }
 
 export function principalPolicyMatchesReference(input: {
-  readonly policy: VerifiedPrincipalPolicy;
+  readonly policy: AnyVerifiedPrincipalPolicy;
   readonly reference: ReferencedPrincipalHead;
 }): boolean {
-  const policyHeadMatches =
-    input.policy.principalType === input.reference.principalType &&
-    input.policy.principalId === input.reference.principalId &&
-    input.policy.version === input.reference.version &&
-    input.policy.keyEpoch === input.reference.keyEpoch &&
-    input.policy.stateHash === input.reference.stateHash &&
-    input.policy.state.keyFingerprint === input.reference.keyFingerprint;
-
-  return (
-    policyHeadMatches ||
-    input.policy.history?.some(
-      (entry) =>
-        entry.state.principalType === input.reference.principalType &&
-        entry.state.principalId === input.reference.principalId &&
-        entry.state.version === input.reference.version &&
-        entry.state.keyEpoch === input.reference.keyEpoch &&
-        entry.state.stateHash === input.reference.stateHash &&
-        entry.state.keyFingerprint === input.reference.keyFingerprint,
-    ) === true
-  );
+  return principalPolicyEntryForReference(input) !== undefined;
 }
 
 function grantAccessLevelForUser(input: {
   readonly grant: ContainerDirectGrant;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly membershipAt: "current" | "referenced";
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly state: Pick<
     ContainerAccessManifestState,
     "referencedPrincipalHeads"
@@ -772,21 +755,26 @@ function grantAccessLevelForUser(input: {
   const verifiedPolicy = input.principalPolicies.find((policy) =>
     principalPolicyMatchesReference({ policy, reference: referencedHead }),
   );
-
   if (!verifiedPolicy) {
     return null;
   }
+  const projection =
+    input.membershipAt === "current"
+      ? verifiedPolicy.projection
+      : principalPolicyEntryForReference({
+          policy: verifiedPolicy,
+          reference: referencedHead,
+        })?.projection;
 
-  return verifiedPolicy.projection.some(
-    (member) => member.userId === input.userId,
-  )
+  return projection?.some((member) => member.userId === input.userId)
     ? input.grant.accessLevel
     : null;
 }
 
-export function resolveContainerPathUserAccessLevel(input: {
+function resolveContainerPathUserAccessLevelAt(input: {
+  readonly membershipAt: "current" | "referenced";
   readonly path: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly userId: string;
 }): ContainerAccessLevel | null {
   let accessLevel: ContainerAccessLevel | null = null;
@@ -795,6 +783,7 @@ export function resolveContainerPathUserAccessLevel(input: {
     for (const grant of containerManifest.state.directGrants) {
       const grantAccessLevel = grantAccessLevelForUser({
         grant,
+        membershipAt: input.membershipAt,
         principalPolicies: input.principalPolicies ?? [],
         state: containerManifest.state,
         userId: input.userId,
@@ -809,11 +798,36 @@ export function resolveContainerPathUserAccessLevel(input: {
   return accessLevel;
 }
 
+export function resolveContainerPathUserAccessLevel(
+  input: Omit<
+    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
+    "membershipAt"
+  >,
+): ContainerAccessLevel | null {
+  return resolveContainerPathUserAccessLevelAt({
+    ...input,
+    membershipAt: "current",
+  });
+}
+
+export function resolveHistoricalContainerPathUserAccessLevel(
+  input: Omit<
+    Parameters<typeof resolveContainerPathUserAccessLevelAt>[0],
+    "membershipAt"
+  >,
+): ContainerAccessLevel | null {
+  return resolveContainerPathUserAccessLevelAt({
+    ...input,
+    membershipAt: "referenced",
+  });
+}
+
 export function requireContainerPathUserAccess(input: {
+  readonly membershipAt?: "current" | "referenced";
   readonly label: string;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly userId: string;
 }): void {
   const path = input.path;
@@ -821,7 +835,8 @@ export function requireContainerPathUserAccess(input: {
     throwVerification("missing_dependency", `${input.label} path is required`);
   }
 
-  const accessLevel = resolveContainerPathUserAccessLevel({
+  const accessLevel = resolveContainerPathUserAccessLevelAt({
+    membershipAt: input.membershipAt ?? "current",
     path,
     principalPolicies: input.principalPolicies,
     userId: input.userId,
@@ -867,10 +882,11 @@ function requireContainerPathCurrentParent(input: {
 function requireRootCreateSignerAdmin(input: {
   readonly body: ContainerCreateAccessEventBody;
   readonly event: VerifiedAccessEvent;
+  readonly membershipAt: "current" | "referenced";
   readonly parentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
 }): void {
   if (input.parentContainerPath && input.parentContainerPath.length > 0) {
     throwVerification(
@@ -884,6 +900,7 @@ function requireRootCreateSignerAdmin(input: {
       (current, grant) => {
         const grantAccessLevel = grantAccessLevelForUser({
           grant,
+          membershipAt: input.membershipAt,
           principalPolicies: input.principalPolicies,
           state: {
             referencedPrincipalHeads: input.body.referencedPrincipalHeads,
@@ -910,6 +927,7 @@ function requireRootCreateSignerAdmin(input: {
 }
 
 type ContainerAccessManifestDerivationInput = {
+  readonly authorizationMembership: "current" | "referenced";
   readonly body: ContainerAccessEventBody;
   readonly event: VerifiedAccessEvent;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
@@ -922,7 +940,7 @@ type ContainerAccessManifestDerivationInput = {
   readonly destinationParentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
 };
 
 type ContainerAccessManifestTransitionBase = Omit<
@@ -972,6 +990,7 @@ function deriveContainerCreateManifestState(
     requireRootCreateSignerAdmin({
       body,
       event,
+      membershipAt: input.authorizationMembership,
       parentContainerPath: input.parentContainerPath,
       principalPolicies: input.principalPolicies,
     });
@@ -985,6 +1004,7 @@ function deriveContainerCreateManifestState(
     requireContainerPathUserAccess({
       label: "container.create",
       minimumAccessLevel: "write",
+      membershipAt: input.authorizationMembership,
       path: input.parentContainerPath,
       principalPolicies: input.principalPolicies,
       userId: event.event.signerUserId,
@@ -1022,7 +1042,7 @@ function preparePreviousContainerAccessTransition(
   if (event.event.previousManifestHash !== previousManifest.manifestHash) {
     throwVerification(
       "stale_predecessor",
-      "container access event previous manifest does not match supplied previous manifest",
+      "container access event previous manifest mismatch",
     );
   }
 
@@ -1058,6 +1078,7 @@ function deriveContainerGrantManifestState(
   requireContainerPathUserAccess({
     label: "container.grant",
     minimumAccessLevel: "admin",
+    membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
@@ -1094,6 +1115,7 @@ function deriveContainerRevokeManifestState(
   requireContainerPathUserAccess({
     label: "container.revoke",
     minimumAccessLevel: "admin",
+    membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
@@ -1131,6 +1153,7 @@ function deriveContainerRekeyManifestState(
   requireContainerPathUserAccess({
     label: "container.rekey",
     minimumAccessLevel: "write",
+    membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
@@ -1161,6 +1184,7 @@ function deriveContainerMoveManifestState(
   requireContainerPathUserAccess({
     label: "container.move source",
     minimumAccessLevel: "admin",
+    membershipAt: input.authorizationMembership,
     path: input.previousContainerPath,
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
@@ -1174,6 +1198,7 @@ function deriveContainerMoveManifestState(
   requireContainerPathUserAccess({
     label: "container.move destination",
     minimumAccessLevel: "write",
+    membershipAt: input.authorizationMembership,
     path: input.destinationParentContainerPath,
     principalPolicies: input.principalPolicies,
     userId: input.event.event.signerUserId,
@@ -1229,6 +1254,7 @@ function deriveContainerAccessManifestStateFromEvent(
 }
 
 export async function verifyContainerAccessManifest({
+  authorizationMembership = "current",
   checkpointPredecessors,
   destinationParentContainerPath,
   event,
@@ -1245,6 +1271,7 @@ export async function verifyContainerAccessManifest({
   return runVerifier(async () => {
     const body = normalizeContainerAccessEventBody(event.body);
     const state = deriveContainerAccessManifestStateFromEvent({
+      authorizationMembership,
       body,
       destinationParentContainerPath,
       event,

@@ -1,23 +1,27 @@
 import {
-  type AnyVerifiedAccessManifest,
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
-  type VerifiedPrincipalPolicy,
+  type VerifiedAccessManifestCheckpointEvidence,
 } from "@symcrypt/crypto";
+import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import {
   type AccessManifestCheckpointAdvance,
   advanceKeyingCheckpointsAtomically,
 } from "../persistence/keyingCheckpointAdvancePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
-function objectKey(manifest: AnyVerifiedAccessManifest): string {
+function objectKey(manifest: VerifiedAccessManifestCheckpointEvidence): string {
   const { objectKind, organizationId, objectId } = manifest.checkpoint;
   return JSON.stringify([objectKind, organizationId, objectId]);
 }
 
 function manifestsByObject(
-  manifests: readonly AnyVerifiedAccessManifest[],
-): Map<string, Map<string, AnyVerifiedAccessManifest>> {
-  const byObject = new Map<string, Map<string, AnyVerifiedAccessManifest>>();
+  manifests: readonly VerifiedAccessManifestCheckpointEvidence[],
+): Map<string, Map<string, VerifiedAccessManifestCheckpointEvidence>> {
+  const byObject = new Map<
+    string,
+    Map<string, VerifiedAccessManifestCheckpointEvidence>
+  >();
   for (const manifest of manifests) {
     const key = objectKey(manifest);
     let byHash = byObject.get(key);
@@ -31,8 +35,8 @@ function manifestsByObject(
 }
 
 function accessManifestCheckpointAdvances(input: {
-  readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
-  readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
+  readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
+  readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): AccessManifestCheckpointAdvance[] {
   const evidenceByObject = manifestsByObject(input.verifiedManifests);
   const headsByObject = manifestsByObject(input.verifiedHeads);
@@ -60,12 +64,14 @@ function accessManifestCheckpointAdvances(input: {
 
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
-  readonly policies: readonly VerifiedPrincipalPolicy[];
-  readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
-  readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
+  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
+  readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
+    documentPurgeCheckpoint: input.documentPurgeCheckpoint,
     execSql: input.execSql,
     policies: input.policies,
   });

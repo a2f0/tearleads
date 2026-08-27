@@ -1,5 +1,8 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalPolicySnapshotResponse,
+} from "@symcrypt/validators/response";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
 import {
   getPrincipalStatePayloadForState,
@@ -87,6 +90,42 @@ export async function buildPrincipalPolicyForStateWithExecutor(
       epoch: currentState.keyEpoch,
       envelopes: currentMemberEnvelopes,
     }),
+    previousStates: stateHistory
+      .filter((entry) => entry.state.version < currentState.version)
+      .map((entry) => ({
+        state: toPrincipalStateResponse(entry.state),
+        projection: toProjectionResponse(entry.projection),
+        grants: toGrantResponse(entry.grants),
+      })),
+  };
+}
+
+export async function buildPrincipalPolicySnapshotForStateWithExecutor(
+  executor: DatabaseSession,
+  currentState: StoredPrincipalState,
+): Promise<PrincipalPolicySnapshotResponse> {
+  const { principalId, principalType } = currentState;
+  const currentProjection = await listProjectionMembersForState(
+    principalType,
+    principalId,
+    currentState.stateHash,
+    executor,
+  );
+  const currentGrants = await listContainerGrantsForState(
+    principalType,
+    principalId,
+    currentState.stateHash,
+    executor,
+  );
+  const stateHistory = await listPrincipalStateHistory(
+    principalType,
+    principalId,
+    executor,
+  );
+  return {
+    currentState: toPrincipalStateResponse(currentState),
+    currentProjection: toProjectionResponse(currentProjection),
+    currentGrants: toGrantResponse(currentGrants),
     previousStates: stateHistory
       .filter((entry) => entry.state.version < currentState.version)
       .map((entry) => ({

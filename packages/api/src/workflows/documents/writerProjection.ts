@@ -32,6 +32,7 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
+import { recordDocumentManifestObservationInTransaction } from "../../access/write/documentManifestObservationStore";
 import { createProjectionReaders } from "../../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
@@ -148,12 +149,12 @@ async function loadCurrentDocumentManifestBundle(
   return toAccessManifestBundleWireResponse(bundle);
 }
 
-interface LoadedProjectionManifestBundle {
+export interface LoadedProjectionManifestBundle {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly objectKind: AccessManifest["objectKind"];
 }
 
-async function loadProjectionManifestBundleByHash(
+export async function loadProjectionManifestBundleByHash(
   executor: DatabaseSession,
   manifestHash: string,
   cache: Map<string, LoadedProjectionManifestBundle>,
@@ -277,7 +278,7 @@ function collectDocumentDependencyManifestHashes(
   return [...manifestHashes].sort();
 }
 
-async function loadDocumentManifestHistory(input: {
+export async function loadDocumentManifestHistory(input: {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly executor: DatabaseSession;
   readonly manifestCache: Map<string, LoadedProjectionManifestBundle>;
@@ -322,7 +323,7 @@ interface ContainerDependencyMaterial {
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
 }
 
-interface ContainerDependencyLoadState {
+export interface ContainerDependencyLoadState {
   readonly containerHistoryByHash: Map<
     string,
     AccessManifestBundleWireResponse
@@ -371,7 +372,7 @@ async function collectContainerDependencyPredecessors(input: {
   }
 }
 
-async function loadContainerDependencyPath(input: {
+export async function loadContainerDependencyPath(input: {
   readonly leafManifestHash: string;
   readonly state: ContainerDependencyLoadState;
 }): Promise<void> {
@@ -422,7 +423,7 @@ async function loadContainerDependencyPath(input: {
   );
 }
 
-async function loadDocumentContainerDependencyMaterial(input: {
+export async function loadDocumentContainerDependencyMaterial(input: {
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestHistory: readonly AccessManifestBundleWireResponse[];
   readonly executor: DatabaseSession;
@@ -627,11 +628,17 @@ export async function runDocumentWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<DocumentWriterProjectionResponse> {
-  return db.transaction((tx) =>
-    resolveDocumentWriterProjection({
+  return db.transaction(async (tx) => {
+    const projection = await resolveDocumentWriterProjection({
       documentId: input.documentId,
       executor: tx,
       userId: input.userId,
-    }),
-  );
+    });
+    await recordDocumentManifestObservationInTransaction(tx, {
+      documentId: input.documentId,
+      manifestHash: projection.documentManifest.manifestHash,
+      userId: input.userId,
+    });
+    return projection;
+  });
 }

@@ -6,6 +6,7 @@ import type {
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
   DocumentSyncRequest,
   PutPrincipalPolicyRequest,
 } from "@symcrypt/validators/request";
@@ -17,6 +18,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
@@ -128,6 +130,45 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
         },
       ],
     },
+  };
+}
+
+export function createDocumentPurgeRequest(): DocumentPurgeRequest {
+  return {
+    authorizingContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+    body: { eventType: "document.purge" },
+    event: { eventType: "document.purge" },
+  };
+}
+
+export function createDocumentPurgeResponse(): DocumentPurgeResponse {
+  const authorizingContainer = createContainerMutationResponse().accessManifest;
+  return {
+    authorizingContainerPath: [authorizingContainer],
+    documentContainerManifestHistory: [],
+    documentId: "document-1",
+    documentManifest: {
+      event: {
+        body: { eventType: "document.link" },
+        event: { eventType: "document.link" },
+        eventHash: "document-link-event-hash",
+      },
+      manifest: { objectKind: "document" },
+      manifestHash: "document-manifest-hash",
+      state: { documentId: "document-1" },
+    },
+    documentManifestContainerPaths: [],
+    documentManifestPredecessors: [],
+    principalPolicySnapshots: [],
+    purgeEvent: {
+      body: { eventType: "document.purge" },
+      event: { eventType: "document.purge" },
+      eventHash: "document-purge-event-hash",
+    },
+    purgedAt: "2026-07-14T12:00:00.000Z",
+    reclaimedBlobStorageKeys: [],
   };
 }
 

@@ -12,7 +12,7 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
 import {
-  loadPrincipalPoliciesForReferences,
+  loadPrincipalAuthorizationPoliciesForReferences,
   PrincipalPolicyProjectionError,
 } from "../../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -26,6 +26,10 @@ const MAX_CONTAINER_PATH_DEPTH = 100;
 const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
 const verifiedStoredManifests =
   new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
+
+export function clearStoredContainerManifestVerificationCache(): void {
+  verifiedStoredManifests.clear();
+}
 
 interface StoredManifestVerificationInput {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -146,6 +150,15 @@ function storedVerificationSource(
   };
 }
 
+function verifyHistoricalContainerManifest(
+  input: Parameters<typeof verifyContainerAccessManifest>[0],
+) {
+  return verifyContainerAccessManifest({
+    ...input,
+    authorizationMembership: "referenced",
+  });
+}
+
 async function loadStoredManifestArtifacts(input: {
   readonly parsed: VerifiedContainerAccessManifest;
   readonly verifyHash: (
@@ -227,15 +240,17 @@ async function verifyBundle(
     ): Promise<VerifiedContainerAccessManifest> =>
       verifyBundle(input, await input.loadBundle(manifestHash), visiting);
     const artifacts = await loadStoredManifestArtifacts({ parsed, verifyHash });
-    const principalPolicies = await loadPrincipalPoliciesForReferences(
-      input.context.executor,
-      collectPrincipalReferences(parsed, [
-        artifacts.previousPath,
-        artifacts.parentPath,
-        artifacts.destinationParentPath,
-      ]),
-    );
-    const verification = await verifyContainerAccessManifest({
+    const principalPolicies =
+      await loadPrincipalAuthorizationPoliciesForReferences(
+        input.context.executor,
+        collectPrincipalReferences(parsed, [
+          artifacts.previousPath,
+          artifacts.parentPath,
+          artifacts.destinationParentPath,
+        ]),
+        input.context.principalPolicyAuthorizationEvidence,
+      );
+    const verification = await verifyHistoricalContainerManifest({
       event: signedEvent,
       expectedManifestHash: bundle.manifestHash,
       manifest: parsed.manifest,

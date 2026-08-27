@@ -15,6 +15,13 @@ import {
 import { ensureDocumentClientProjectionTables } from "./persistence";
 
 export async function deletePersistedDocument(input: {
+  /**
+   * Runs in the same SQLite transaction as the matched document teardown.
+   * Used to atomically pin a verified terminal purge proof.
+   */
+  beforeDeleteInTransaction?:
+    | ((transactionExecSql: ExecSql) => Promise<void>)
+    | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
@@ -51,15 +58,23 @@ export async function deletePersistedDocument(input: {
         lockedExecSql,
         input.expectedRecord,
         (transactionExecSql) =>
-          documentProjectors.deleteStoredDocumentClientProjection({
-            documentKind:
-              input.expectedRecord?.documentKind ?? DEFAULT_DOCUMENT_KIND,
-            execSql: transactionExecSql,
-            localId: input.localId,
-          }),
+          (async () => {
+            await documentProjectors.deleteStoredDocumentClientProjection({
+              documentKind:
+                input.expectedRecord?.documentKind ?? DEFAULT_DOCUMENT_KIND,
+              execSql: transactionExecSql,
+              localId: input.localId,
+            });
+            await input.beforeDeleteInTransaction?.(transactionExecSql);
+          })(),
       );
       if (!identityMatched) return;
     } else {
+      if (input.beforeDeleteInTransaction) {
+        throw new Error(
+          "Atomic document purge checkpointing requires an expected document record",
+        );
+      }
       const existing = await input.persistence.loadDocument(
         lockedExecSql,
         input.localId,

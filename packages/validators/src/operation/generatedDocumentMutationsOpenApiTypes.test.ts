@@ -2,10 +2,12 @@ import { test } from "bun:test";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
 } from "../request";
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeProofResponse,
   DocumentPurgeResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
@@ -49,9 +51,14 @@ type LinkOperation = operations["documents.link"];
 type LinkRequest = LinkOperation["requestBody"]["content"]["application/json"];
 type LinkResponse =
   LinkOperation["responses"][200]["content"]["application/json"];
-type DeleteOperation = operations["documents.delete"];
-type DeleteResponse =
-  DeleteOperation["responses"][200]["content"]["application/json"];
+type PurgeOperation = operations["documents.purge"];
+type PurgeRequest =
+  PurgeOperation["requestBody"]["content"]["application/json"];
+type PurgeResponse =
+  PurgeOperation["responses"][200]["content"]["application/json"];
+type PurgeProofOperation = operations["documents.purgeProof"];
+type PurgeProofResponse =
+  PurgeProofOperation["responses"][200]["content"]["application/json"];
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
 
@@ -93,12 +100,27 @@ test("generated OpenAPI types match document mutation contracts", () => {
   >();
 
   assertType<
-    IsEqual<paths["/documents/{documentId}"]["delete"], DeleteOperation>
+    IsEqual<paths["/documents/{documentId}/purge"]["post"], PurgeOperation>
   >();
   assertType<
     IsAssignable<
-      NormalizeWireType<DeleteResponse>,
+      NormalizeWireType<PurgeRequest>,
+      NormalizeWireType<DocumentPurgeRequest>
+    >
+  >();
+  assertType<
+    IsAssignable<
+      NormalizeWireType<PurgeResponse>,
       NormalizeWireType<DocumentPurgeResponse>
+    >
+  >();
+  assertType<
+    IsEqual<paths["/documents/{documentId}/purge"]["get"], PurgeProofOperation>
+  >();
+  assertType<
+    IsAssignable<
+      NormalizeWireType<PurgeProofResponse>,
+      NormalizeWireType<DocumentPurgeProofResponse>
     >
   >();
 });

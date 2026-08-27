@@ -1,19 +1,21 @@
 import {
   type AccessManifest,
   type AccessManifestCheckpoint,
-  type AnyVerifiedAccessManifest,
+  type VerifiedAccessManifestCheckpointEvidence,
   verifyAccessManifestLocalCheckpoint,
 } from "@symcrypt/crypto";
 import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
-interface ManifestCheckpointVerificationInput {
-  readonly checkpointPredecessors: readonly AnyVerifiedAccessManifest[];
+interface ManifestCheckpointVerificationInput<
+  TManifest extends VerifiedAccessManifestCheckpointEvidence,
+> {
+  readonly checkpointPredecessors: readonly TManifest[];
   readonly localCheckpoint: AccessManifestCheckpoint | null;
 }
 
 function isCheckpointPredecessor(input: {
-  readonly candidate: AnyVerifiedAccessManifest;
+  readonly candidate: VerifiedAccessManifestCheckpointEvidence;
   readonly current: AccessManifest;
   readonly localCheckpoint: AccessManifestCheckpoint;
 }): boolean {
@@ -27,11 +29,13 @@ function isCheckpointPredecessor(input: {
   );
 }
 
-export async function loadManifestCheckpointVerification(input: {
+export async function loadManifestCheckpointVerification<
+  TManifest extends VerifiedAccessManifestCheckpointEvidence,
+>(input: {
   readonly current: AccessManifest;
   readonly execSql: ExecSql;
-  readonly verifiedManifests: ReadonlyMap<string, AnyVerifiedAccessManifest>;
-}): Promise<ManifestCheckpointVerificationInput> {
+  readonly verifiedManifests: ReadonlyMap<string, TManifest>;
+}): Promise<ManifestCheckpointVerificationInput<TManifest>> {
   const localCheckpoint = await loadAccessManifestCheckpoint(
     input.execSql,
     input.current.objectKind,
@@ -53,9 +57,12 @@ export async function loadManifestCheckpointVerification(input: {
 }
 
 export async function verifyCachedManifestCheckpoint(input: {
-  readonly current: AnyVerifiedAccessManifest;
+  readonly current: VerifiedAccessManifestCheckpointEvidence;
   readonly execSql: ExecSql;
-  readonly verifiedManifests: ReadonlyMap<string, AnyVerifiedAccessManifest>;
+  readonly verifiedManifests: ReadonlyMap<
+    string,
+    VerifiedAccessManifestCheckpointEvidence
+  >;
 }): Promise<void> {
   const checkpoint = await loadManifestCheckpointVerification({
     current: input.current.manifest,

@@ -3,19 +3,24 @@ import {
   documentLinkSetPathRefinement,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
+import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
+  DocumentPurgeRequestSchema,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
+  isDocumentPurgeRequest,
 } from "../request";
 import {
   DocumentCreateResponseSchema,
   DocumentLinkSetMutationResponseSchema,
+  DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   ErrorResponseSchema,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
+  isDocumentPurgeProofResponse,
   isDocumentPurgeResponse,
   PaymentRequiredErrorResponseSchema,
 } from "../response";
@@ -28,6 +33,19 @@ export const DocumentMutationPathParamsSchema = DocumentSyncPathParamsSchema;
 
 export type DocumentMutationPathParams = z.infer<
   typeof DocumentMutationPathParamsSchema
+>;
+
+const checkpointManifestHashQuerySchema = registerJsonSchemaFragment(
+  z.string().min(1).max(6_500),
+  { maxLength: 6_500, minLength: 1, type: "string" },
+);
+
+export const DocumentPurgeProofQuerySchema = z.strictObject({
+  documentCheckpointManifestHash: checkpointManifestHashQuerySchema.optional(),
+});
+
+export type DocumentPurgeProofQuery = z.infer<
+  typeof DocumentPurgeProofQuerySchema
 >;
 
 const documentMutationFailureResponses = {
@@ -88,15 +106,28 @@ export const unlinkDocumentOperation = defineDocumentLinkSetMutationOperation({
   path: "/documents/{documentId}/unlink",
 });
 
-export const deleteDocumentOperation = defineJsonOperation({
+export const purgeDocumentOperation = defineJsonOperation({
+  auth: "session",
+  body: DocumentPurgeRequestSchema,
+  failureResponses: documentMutationFailureResponses,
+  failureStatuses: documentMutationFailureStatuses,
+  id: "documents.purge",
+  method: "POST",
+  params: DocumentMutationPathParamsSchema,
+  path: "/documents/{documentId}/purge",
+  responses: { 200: DocumentPurgeResponseSchema },
+});
+
+export const getDocumentPurgeProofOperation = defineJsonOperation({
   auth: "session",
   failureResponses: documentMutationFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
-  id: "documents.delete",
-  method: "DELETE",
+  id: "documents.purgeProof",
+  method: "GET",
   params: DocumentMutationPathParamsSchema,
-  path: "/documents/{documentId}",
-  responses: { 200: DocumentPurgeResponseSchema },
+  path: "/documents/{documentId}/purge",
+  query: DocumentPurgeProofQuerySchema,
+  responses: { 200: DocumentPurgeProofResponseSchema },
 });
 
 export const isCreateDocumentOperationRequest = isDocumentCreateRequest;
@@ -105,4 +136,7 @@ export const isDocumentLinkSetMutationOperationRequest =
   isDocumentLinkSetMutationRequest;
 export const isDocumentLinkSetMutationOperationResponse =
   isDocumentLinkSetMutationResponse;
-export const isDeleteDocumentOperationResponse = isDocumentPurgeResponse;
+export const isPurgeDocumentOperationRequest = isDocumentPurgeRequest;
+export const isPurgeDocumentOperationResponse = isDocumentPurgeResponse;
+export const isGetDocumentPurgeProofOperationResponse =
+  isDocumentPurgeProofResponse;

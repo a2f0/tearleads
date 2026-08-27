@@ -1,16 +1,17 @@
 import {
-  type AnyVerifiedAccessManifest,
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
-  type VerifiedPrincipalPolicy,
+  type VerifiedAccessManifestCheckpointEvidence,
 } from "@symcrypt/crypto";
+import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
-  readonly policies: VerifiedPrincipalPolicy[];
-  readonly verifiedHeads: AnyVerifiedAccessManifest[];
-  readonly verifiedManifests: AnyVerifiedAccessManifest[];
+  readonly policies: AnyVerifiedPrincipalPolicy[];
+  readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
+  readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
 
 export function createProjectionCheckpointContext(input: {
@@ -34,8 +35,8 @@ export function createProjectionCheckpointContext(input: {
 export function observeAccessManifestCheckpoints(
   context: ProjectionCheckpointContext,
   input: {
-    readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
-    readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
+    readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
+    readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
   },
 ): void {
   context.verifiedHeads.push(...input.verifiedHeads);
@@ -44,16 +45,21 @@ export function observeAccessManifestCheckpoints(
 
 export function observePrincipalPolicy(
   context: ProjectionCheckpointContext,
-  policy: VerifiedPrincipalPolicy,
+  policy: AnyVerifiedPrincipalPolicy,
 ): void {
   context.policies.push(policy);
 }
 
 export async function commitProjectionCheckpoints(
   context: ProjectionCheckpointContext,
+  input?: {
+    readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+    readonly execSql?: ExecSql | undefined;
+  },
 ): Promise<void> {
   await enforceAccessManifestCheckpoints({
-    execSql: context.execSql,
+    documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
+    execSql: input?.execSql ?? context.execSql,
     policies: context.policies,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,

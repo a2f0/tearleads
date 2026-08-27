@@ -25,13 +25,11 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
-  toFingerprint,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
 import type {
   AccessManifestBundleWire,
-  ContainerMutationRequest,
   DocumentCreateRequest,
 } from "@symcrypt/validators/request";
 import {
@@ -47,8 +45,9 @@ import {
   listContainerKeyWraps,
 } from "../../src/access/read/containerKekStore";
 import { routeApp } from "../../src/routeApp";
-import { joinOrg } from "./organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+
+export { buildRootGrantRequest } from "./containerGrantMutation";
 
 interface RootContainerFixture {
   readonly adminGroupId: string;
@@ -241,18 +240,6 @@ export async function loadPrincipalPoliciesForContainerPath(
   return uniquePrincipalPolicies(principalPolicies);
 }
 
-async function userRecipientKey(
-  user: TestUser,
-): Promise<ContainerUserRecipientKey> {
-  const recipientKeyFingerprint = await toFingerprint(user.kem.publicKey);
-
-  return {
-    userId: user.userId,
-    recipientKeyEpochId: `user:${user.userId}:encapsulation:${recipientKeyFingerprint}`,
-    recipientKeyFingerprint,
-  };
-}
-
 export function userRecipientKeysFromRecipientTargets(
   recipientTargets: readonly VerifiedContainerKekState["recipientTargets"][number][],
 ): ContainerUserRecipientKey[] {
@@ -383,6 +370,7 @@ export function createContainerKeyWrap(input: {
   };
 }
 export async function createDocumentRequest(input: {
+  readonly containerPath?: readonly AccessManifestBundleWire[] | undefined;
   readonly documentId?: string | undefined;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
@@ -430,12 +418,12 @@ export async function createDocumentRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPathRefs: [
-      {
-        containerId: input.root.kekState.containerId,
-        manifestHash: input.root.bundle.manifestHash,
-      },
-    ],
+    targetContainerPathRefs: (input.containerPath ?? [input.root.bundle]).map(
+      (bundle) => ({
+        containerId: asVerifiedContainerManifest(bundle).state.containerId,
+        manifestHash: bundle.manifestHash,
+      }),
+    ),
     contentKeyBundle: {
       contentKeyEpoch: 1,
       linkSetManifestHash: manifestHash,
@@ -450,6 +438,7 @@ export async function createDocumentRequest(input: {
 }
 
 export async function createDocument(input: {
+  readonly containerPath?: readonly AccessManifestBundleWire[] | undefined;
   readonly owner: TestUser;
   readonly root: StoredRootFixture;
 }): Promise<DocumentCreateResponse> {
@@ -465,82 +454,4 @@ export async function createDocument(input: {
   const created = await createResponse.json();
   expect(isDocumentCreateResponse(created)).toBe(true);
   return created as DocumentCreateResponse;
-}
-
-export async function buildRootGrantRequest(input: {
-  readonly previous: AccessManifestBundleWire;
-  readonly previousKekState: VerifiedContainerKekState;
-  readonly accessLevel?: "read" | "write" | "admin";
-  readonly recipient: TestUser;
-  readonly signer: TestUser;
-}): Promise<ContainerMutationRequest> {
-  const previous = asVerifiedContainerManifest(input.previous);
-  await joinOrg(previous.state.organizationId, input.signer, input.recipient);
-  const recipientKey = await userRecipientKey(input.recipient);
-  const principalPolicies = await loadPrincipalPoliciesForContainerPath([
-    input.previous,
-  ]);
-  const grant = {
-    subjectType: "user" as const,
-    subjectId: input.recipient.userId,
-    accessLevel: input.accessLevel ?? ("write" as const),
-  };
-  const body: ContainerAccessEventBody = {
-    eventType: "container.grant",
-    containerKeyEpochId: previous.state.containerKeyEpochId,
-    grant,
-    referencedPrincipalHead: null,
-  };
-  const event = await createSignedAccessEvent({
-    body,
-    dependencyManifestHashes: [input.previous.manifestHash],
-    objectId: previous.state.containerId,
-    objectKind: "container",
-    organizationId: previous.state.organizationId,
-    previousManifestHash: input.previous.manifestHash,
-    signer: input.signer,
-  });
-  const bundle = await createContainerManifestBundle(
-    {
-      ...previous.state,
-      epoch: previous.state.epoch + 1,
-      previousManifestHash: input.previous.manifestHash,
-      eventHash: event.eventHash,
-      directGrants: [...previous.state.directGrants, grant],
-    },
-    event,
-  );
-  const wraps = [
-    ...(input.previousKekState.wraps as readonly ContainerKeyWrap[]),
-    {
-      containerKeyEpochId: input.previousKekState.containerKeyEpochId,
-      recipientKind: "user" as const,
-      recipientId: recipientKey.userId,
-      recipientKeyEpochId: recipientKey.recipientKeyEpochId,
-      recipientKeyFingerprint: recipientKey.recipientKeyFingerprint,
-      kemCipherText: `kem:${input.previousKekState.containerKeyEpochId}:${recipientKey.userId}`,
-      wrappedKey: `wrapped:${input.previousKekState.containerKeyEpochId}:${recipientKey.userId}`,
-      wrapManifestHash: bundle.manifestHash,
-    },
-  ];
-
-  return {
-    event: event.event,
-    body,
-    expectedManifestHash: bundle.manifestHash,
-    manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [input.previous],
-    containerManifestHistory: [input.previous],
-    principalPolicies,
-    keyEpoch: input.previousKekState.keyEpoch,
-    predecessorBridge: null,
-    keyring: null,
-    wraps,
-    parentKekState: null,
-    userRecipientKeys: [
-      ...userRecipientKeysFromKekTargets(input.previousKekState),
-      recipientKey,
-    ],
-  } as unknown as ContainerMutationRequest;
 }

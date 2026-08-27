@@ -1,5 +1,6 @@
 import { verifySignedAccessEvent } from "@symcrypt/crypto";
 import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import type { AccessEventBundleWireResponse } from "@symcrypt/validators/util";
 import {
   canonicalKeyingJsonString,
   readCanonicalJson,
@@ -46,13 +47,13 @@ export function addBundleByHash(
   }
 }
 
-export async function verifyAccessEventBundle(input: {
-  readonly bundle: AccessManifestBundleWireResponse;
+export async function verifyStandaloneAccessEventBundle(input: {
+  readonly bundle: AccessEventBundleWireResponse;
   readonly label: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
 }) {
   const eventBundle = readCanonicalRecord(
-    input.bundle.event,
+    input.bundle,
     `${input.label} event bundle`,
   );
   const eventHash = readRecordString(
@@ -92,4 +93,16 @@ export async function verifyAccessEventBundle(input: {
   }
 
   return verified.value;
+}
+
+export function verifyAccessEventBundle(input: {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly label: string;
+  readonly resolveUserKey: ProjectionUserKeyResolver;
+}) {
+  return verifyStandaloneAccessEventBundle({
+    bundle: input.bundle.event,
+    label: input.label,
+    resolveUserKey: input.resolveUserKey,
+  });
 }

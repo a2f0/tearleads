@@ -57,11 +57,12 @@ async function grantColdReader(input: {
   root: DecryptableStoredRootFixture;
 }): Promise<string | null> {
   if (input.grantKind === "rotated group") {
-    return grantRootThroughRotatedReadGroup({
+    const granted = await grantRootThroughRotatedReadGroup({
       actor: input.owner,
       reader: input.reader,
       root: input.root,
     });
+    return granted.groupId;
   }
 
   const grantRequest = await buildRootGrantRequest({

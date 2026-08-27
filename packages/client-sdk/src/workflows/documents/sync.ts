@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
@@ -18,6 +19,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import { isDocumentSyncRequestLimitError } from "../../data/sync/documentSyncOutgoingBatch";
+import { createVerifiedRemoteDocumentDeletionHandler } from "./purge";
 import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
@@ -407,7 +409,27 @@ export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
   try {
-    return await syncRemoteDocumentInternal(input);
+    return await syncRemoteDocumentInternal({
+      ...input,
+      onRemoteDocumentDeleted: createVerifiedRemoteDocumentDeletionHandler({
+        apiClient: input.apiClient,
+        execSql: input.execSql,
+        expectedOrganizationId: input.author.organizationId,
+        onVerifiedDeletion: ({ commitPurgeProof, documentId }) => {
+          if (!input.onRemoteDocumentDeleted) {
+            throw new KeyingVerificationError(
+              "missing_dependency",
+              "Remote document deletion requires atomic local teardown",
+            );
+          }
+          return input.onRemoteDocumentDeleted({
+            commitPurgeProof,
+            documentId,
+          });
+        },
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+      }),
+    });
   } catch (error) {
     if (isDocumentSyncUpdateIsolationError(error)) {
       await input.onIncomingUpdateIsolationFailure?.(error);

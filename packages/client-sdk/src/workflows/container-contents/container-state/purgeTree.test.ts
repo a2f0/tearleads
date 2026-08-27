@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { createTestExecSql } from "@symcrypt/test-utils";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerState } from "../remoteHydration";
-import { classifySubtreeDocument, collectSubtreeLeafFirst } from "./purgeTree";
+import {
+  classifySubtreeDocument,
+  collectSubtreeLeafFirst,
+  purgeContainerTree,
+} from "./purgeTree";
 
 function containerState(id: string, parentId: string | null): ContainerState {
   // Only the fields the subtree walk reads are populated; the rest of
@@ -83,7 +90,7 @@ describe("classifySubtreeDocument", () => {
         linkedContainerIds: ["trashed"],
         subtreeContainerIds,
       }),
-    ).toEqual({ kind: "purge" });
+    ).toEqual({ kind: "purge", unlinkContainerIds: [] });
   });
 
   test("purges a synced document even when linked to several in-subtree folders", () => {
@@ -93,7 +100,10 @@ describe("classifySubtreeDocument", () => {
         linkedContainerIds: ["trashed", "trashed-child"],
         subtreeContainerIds,
       }),
-    ).toEqual({ kind: "purge" });
+    ).toEqual({
+      kind: "purge",
+      unlinkContainerIds: ["trashed-child"],
+    });
   });
 
   test("unlinks (preserves) a document also linked outside the subtree", () => {
@@ -130,4 +140,81 @@ describe("classifySubtreeDocument", () => {
       }),
     ).toEqual({ kind: "purge-local" });
   });
+});
+
+test("purgeContainerTree unlinks extra internal links before remote purge", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "purge-tree-multi-link-document",
+  );
+  const controller = new AbortController();
+  const operations: string[] = [];
+  const documentId = "remote-multi-link-document";
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state",
+        containerId: "trashed",
+        documentId,
+        documentKind: "note",
+        id: "local-multi-link-document",
+        snapshotEndVersion: "",
+        text: "",
+        title: "Multi-link document",
+      },
+      { updatedAt: "2026-08-27T00:00:00.000Z" },
+    );
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      execSql,
+      documentId,
+      ["trashed", "trashed-child"],
+    );
+
+    const result = await purgeContainerTree({
+      containersById: containersById([
+        containerState("trashed", null),
+        containerState("trashed-child", "trashed"),
+      ]),
+      documentOperations: {
+        purgeLocal: async () => {
+          throw new Error("Unexpected local purge");
+        },
+        purgeRemote: async (document) => {
+          operations.push(`purge:${document.documentId}`);
+          controller.abort();
+          return true;
+        },
+        unlink: async (document, containerIds) => {
+          operations.push(
+            `unlink:${document.documentId}:${containerIds.join(",")}`,
+          );
+          return true;
+        },
+      },
+      persistence: {} as never,
+      prepareDocumentRotationSnapshot: async () => {
+        throw new Error("Unexpected rotation snapshot preparation");
+      },
+      resolveProjectionUserKey: async () => null,
+      rootContainerId: "trashed",
+      runtime: { infra: { execSql } } as never,
+      signal: controller.signal,
+    });
+
+    expect(operations).toEqual([
+      `unlink:${documentId}:trashed-child`,
+      `purge:${documentId}`,
+    ]);
+    expect(result).toMatchObject({
+      aborted: true,
+      completedCount: 1,
+      failedCount: 0,
+      totalCount: 3,
+    });
+  } finally {
+    close();
+  }
 });
