@@ -85,54 +85,93 @@ function gitRefExists(ref: string): boolean {
   return result.status === 0;
 }
 
-/**
- * Resolve the PR base branch to a ref that exists locally. GitHub returns a
- * bare branch name (e.g. `main`), which `git diff` cannot resolve when the
- * branch only exists as a remote-tracking ref. Prefer a local ref, then the
- * remote-tracking ref, then the base commit SHA, fetching from origin if none
- * are present locally.
- */
-function resolveBaseRef(baseRefName: string, baseRefOid: string): string {
-  for (const candidate of [baseRefName, `origin/${baseRefName}`, baseRefOid]) {
-    if (gitRefExists(candidate)) {
-      return candidate;
-    }
-  }
+type RefExists = (ref: string) => boolean;
 
-  spawnSync("git", ["fetch", "--quiet", "origin", baseRefName], {
-    stdio: "ignore",
-  });
-  if (gitRefExists(`origin/${baseRefName}`)) {
-    return `origin/${baseRefName}`;
+/** Resolve an optional exact review base supplied by the coordinating skill. */
+export function resolvePinnedReviewBase(
+  pinnedBaseOid: string | undefined,
+  refExists: RefExists = gitRefExists,
+): string | undefined {
+  const oid = pinnedBaseOid?.trim() ?? "";
+  if (oid.length === 0) {
+    return undefined;
   }
-  if (gitRefExists(baseRefOid)) {
-    return baseRefOid;
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/iu.test(oid)) {
+    throw new Error("AGENT_TOOL_REVIEW_BASE_OID must be a full Git OID.");
   }
+  if (!refExists(oid)) {
+    throw new Error(
+      `Pinned review base '${oid}' is unavailable locally. Fetch it and retry.`,
+    );
+  }
+  return oid;
+}
 
-  throw new Error(
-    `Could not resolve base ref '${baseRefName}' locally. Fetch it and retry.`,
-  );
+/** Select a repository fetch URL using the protocol configured for `gh`. */
+export function selectRepositoryGitUrl(
+  protocol: string,
+  httpsUrl: string,
+  sshUrl: string,
+): string {
+  if (protocol === "https" && httpsUrl.length > 0) {
+    return httpsUrl;
+  }
+  if (protocol === "ssh" && sshUrl.length > 0) {
+    return sshUrl;
+  }
+  throw new Error(`Unsupported or unavailable git protocol '${protocol}'.`);
+}
+
+function resolveRepositoryGitUrl(repo: string): string {
+  const repoRaw = run("gh", ["repo", "view", repo, "--json", "url,sshUrl"]);
+  const httpsUrl = stringField(repoRaw, "url");
+  const sshUrl = stringField(repoRaw, "sshUrl");
+  let host = "";
+  try {
+    host = new URL(httpsUrl).host;
+  } catch {
+    throw new Error(`Could not resolve the GitHub host for '${repo}'.`);
+  }
+  const protocol = run("gh", ["config", "get", "git_protocol", "--host", host]);
+  return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
 }
 
 /**
- * Base ref for a review, resolved to the *current* remote base. A branch cut from
- * an older base than the local ref would otherwise diff in upstream commits it
- * never authored — so a review (or a repair round) could flag or touch code the
- * branch does not own. Fetch first and prefer the freshly-updated remote-tracking
- * ref, then the base OID GitHub reported, then whatever `resolveBaseRef` can find
- * when offline.
+ * Base ref for a review, resolved to the exact base snapshot from the repository
+ * that owns the PR. A branch cut from an older base would otherwise diff in
+ * upstream commits it never authored — so a review (or repair round) could flag
+ * or touch code the branch does not own.
  */
-function resolveFreshBaseRef(baseRefName: string, baseRefOid: string): string {
-  spawnSync("git", ["fetch", "--quiet", "origin", baseRefName], {
-    stdio: "ignore",
-  });
-  if (gitRefExists(`origin/${baseRefName}`)) {
-    return `origin/${baseRefName}`;
+function resolveFreshBaseRef(
+  repo: string,
+  baseRefName: string,
+  baseRefOid: string,
+): string {
+  if (gitRefExists(baseRefOid)) {
+    return baseRefOid;
+  }
+  const fetchTarget = baseRefOid || baseRefName;
+  const result = spawnSync(
+    "git",
+    ["fetch", "--quiet", resolveRepositoryGitUrl(repo), fetchTarget],
+    {
+      stdio: "ignore",
+    },
+  );
+  if (spawnExitCode("git fetch", result) !== 0) {
+    throw new Error(
+      `Could not fetch base '${fetchTarget}' from the repository '${repo}'.`,
+    );
   }
   if (gitRefExists(baseRefOid)) {
     return baseRefOid;
   }
-  return resolveBaseRef(baseRefName, baseRefOid);
+  if (gitRefExists("FETCH_HEAD")) {
+    return "FETCH_HEAD";
+  }
+  throw new Error(
+    `Fetched base '${fetchTarget}' from '${repo}' is unavailable locally.`,
+  );
 }
 
 /**
@@ -292,6 +331,8 @@ export function resolvePr(): PrIdentity {
  */
 export function resolveReviewContext(): PrContext {
   const { branch, repo, defaultBranch } = resolveRepoContext();
+  const { AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid } = process.env;
+  const pinnedBaseRef = resolvePinnedReviewBase(pinnedBaseOid);
 
   const prNumber = findOpenPrNumber(branch, repo);
   if (prNumber.length === 0) {
@@ -308,7 +349,7 @@ export function resolveReviewContext(): PrContext {
       repo,
       prNumber: "",
       title: "",
-      baseRef: resolveFreshBaseRef(defaultBranch, ""),
+      baseRef: pinnedBaseRef ?? resolveFreshBaseRef(repo, defaultBranch, ""),
     };
   }
 
@@ -321,6 +362,8 @@ export function resolveReviewContext(): PrContext {
     repo,
     prNumber,
     title: view.title,
-    baseRef: resolveFreshBaseRef(view.baseRefName, view.baseRefOid),
+    baseRef:
+      pinnedBaseRef ??
+      resolveFreshBaseRef(repo, view.baseRefName, view.baseRefOid),
   };
 }

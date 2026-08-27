@@ -104,7 +104,14 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    a fork checkout it is commonly the contributor's fork.
 
    ```bash
-   BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl)
+   BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
+   BASE_REPO_HOST=${BASE_REPO_HOST%%/*}
+   case $(gh config get git_protocol --host "$BASE_REPO_HOST") in
+     ssh) BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
+   esac
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
      BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
@@ -181,15 +188,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    **For Claude Code review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
-   bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
+   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **For Codex review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
-   bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
+   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
    **Fallback behavior (required):**
@@ -199,7 +206,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      tool's built-in retry), immediately fall back to a Codex self-review:
 
      ```bash
-     bun "$AGENT_TOOL" solicitCodexReview
+     AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview
      ```
 
    - If the Codex review also fails (or was selected first and fails due to

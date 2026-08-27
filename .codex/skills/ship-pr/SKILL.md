@@ -243,7 +243,14 @@ loop, subject-only squash, and `MERGED`-state verification.
    assuming the local `origin` is that repository:
 
    ```bash
-   BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl)
+   BASE_REPO_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
+   BASE_REPO_HOST=${BASE_REPO_HTTPS_URL#*://}
+   BASE_REPO_HOST=${BASE_REPO_HOST%%/*}
+   case $(gh config get git_protocol --host "$BASE_REPO_HOST") in
+     ssh) BASE_REPO_URL=$(gh repo view "$REPO" --json sshUrl -q .sshUrl) ;;
+     https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
+     *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
+   esac
    BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
