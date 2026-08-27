@@ -1,6 +1,6 @@
 ---
 name: squash-merge
-description: Squash-merge the current PR with a subject-only commit message validated against the repo's commitlint rules, then return to the PR's base branch, fast-forward it, and delete the merged branch
+description: Squash-merge a default-branch PR with a validated subject-only commit, then fast-forward the default branch and delete the merged feature branch
 ---
 
 # Squash Merge
@@ -11,8 +11,9 @@ is validated against the repository's own commitlint configuration before the
 merge runs, and the tool requires the prepared commit to end with the PR
 reference `(#<pr>)` — the same reference GitHub adds for web/default merges.
 
-Once the PR is confirmed `MERGED`, return to the PR's base branch, fast-forward
-it, and delete the merged branch, so a shipped PR leaves no local leftovers.
+This workflow intentionally supports only PRs targeting the base repository's
+default branch. Once the PR is confirmed `MERGED`, return there, fast-forward
+it, and delete the merged feature branch.
 
 ## Arguments
 
@@ -94,9 +95,10 @@ fi
 [ -n "$REPO" ] || { echo "Error: could not resolve PR repository" >&2; exit 1; }
 [ -n "$PR_NUMBER" ] || { echo "Error: no open PR for branch $BRANCH" >&2; exit 1; }
 
-# The branch to return to is the PR's base — NOT necessarily the default branch.
 BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
 [ -n "$BASE_BRANCH" ] || { echo "Error: could not resolve base branch for PR #$PR_NUMBER" >&2; exit 1; }
+DEFAULT_BRANCH=$(gh repo view "$REPO" --json defaultBranchRef -q .defaultBranchRef.name)
+[ "$BASE_BRANCH" = "$DEFAULT_BRANCH" ] || { echo "Error: squash-merge supports only default-branch PRs ($DEFAULT_BRANCH), not $BASE_BRANCH" >&2; exit 1; }
 
 PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,headRepository -R "$REPO")
 PR_HEAD_BRANCH=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
@@ -130,14 +132,10 @@ follow a fork branch to its upstream PR. After deriving `REPO`, pass
 `-R "$REPO"` to every numbered-PR lookup, as the tool does internally. Those
 lookups gate a merge and branch deletion, so they must resolve to the PR owner.
 
-**Return to the PR's base branch, not the repository default.** They coincide for
-a PR opened by `open-pr` (which bases on the default), but a stacked PR or a
-release-branch PR merges somewhere else. Switching to the default there would
-fast-forward a branch that never received the commits and then delete the feature
-branch on the strength of a merge that landed elsewhere. The `MERGED` gate does
-not catch this — it confirms the PR merged, not that *this* branch contains it.
-The `$BRANCH` != `$DEFAULT_BRANCH` preflight above is a separate guard and stays
-as-is.
+The default-branch restriction is deliberate: GitHub documents indirect merge
+recognition for commits reaching the default branch, and the atomic push relies
+on that recognition before cleanup. Stacked and release-branch PRs must use a
+different merge workflow; this skill stops before changing either branch.
 
 ## Workflow
 
@@ -261,11 +259,11 @@ as-is.
    - The remote delete is bound to the captured PR head OID twice: an explicit
      comparison catches an already-moved branch, and `--force-with-lease`
      atomically rejects a push racing the delete. The local branch must still
-     point to that same OID before `-D` is allowed. After deletion, the exact
+     point to that same OID before `-d` is allowed. After deletion, the exact
      remote-tracking ref is removed from every named remote GitHub identifies as
      the PR head repository, so standalone cleanup does not retain a stale ref.
-   - **`-D`, not `-d`, is required here** — see the note below. The `MERGED` check
-     plus the ancestry check above are what make the force safe.
+   - **Use `-d`, never `-D`** — the atomic squash makes the reviewed feature tip
+     the default-branch tip, so ordinary ancestry proves the local delete safe.
 
 5. **Report results**: state the merged PR number, the final squash subject
    (including the `(#<pr>)` reference), and confirm the merge succeeded. Name the
@@ -287,11 +285,6 @@ as-is.
   existing queued/automatic merge and never creates one as a fallback.
 - The reviewed squash commit becomes the base tip, so ordinary
   `git branch -d` proves it is merged before deleting the local branch.
-  `-d` may appear to work if the branch's remote-tracking ref still exists and
-  matches — git then treats it as merged to its upstream and deletes it with a
-  warning — but that is incidental, and it stops working the moment `--prune`
-  drops that ref. Do not rely on it. Gate the delete on GitHub reporting `MERGED`,
-  which is authoritative, and then force with `-D`.
 - The tool itself does not delete the branch or change the checkout, and knows
   nothing of `--keep-branch`; step 4 of this skill owns all of that. A caller that
   invokes the tool directly gets the merge **without** the cleanup.

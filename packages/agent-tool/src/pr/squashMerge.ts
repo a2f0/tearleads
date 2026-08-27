@@ -232,6 +232,18 @@ export function assertSquashCommitMessage(
   }
 }
 
+/** Indirect merge recognition is supported only on the default branch. */
+export function assertDefaultBaseRef(
+  baseRef: string,
+  defaultBranch: string,
+): void {
+  if (baseRef !== defaultBranch) {
+    throw new Error(
+      `Atomic squash merge requires the repository default branch '${defaultBranch}', not '${baseRef}'.`,
+    );
+  }
+}
+
 /**
  * Squash-merge the open PR for the current branch with a subject-only commit
  * message — no auto-generated body or extended message. The reviewed head must
@@ -275,11 +287,7 @@ export function squashMerge(
     "--jq",
     ".defaultBranchRef.name",
   ]);
-  if (baseRef !== defaultBranch) {
-    throw new Error(
-      `Atomic squash merge requires the repository default branch '${defaultBranch}', not '${baseRef}'.`,
-    );
-  }
+  assertDefaultBaseRef(baseRef, defaultBranch);
   assertAtomicBaseRules(pr.repo, baseRef);
   assertAtomicSquashCandidate(
     mergeTarget,

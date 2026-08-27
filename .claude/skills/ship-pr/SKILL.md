@@ -7,9 +7,9 @@ description: Ship current work end-to-end — commit on a feature branch, cross-
 
 Run the full ship flow for the current work: **commit the work on a feature
 branch**, get a **cross-agent review** that repairs its own blocking findings,
-**open or resume its PR**, then **squash-merge** and clean up. The PR is opened
-*after* the review, so a fresh branch is pushed **once** — through the pre-push
-hook once — instead of once at open time and again for each repair round.
+**open or resume its default-branch PR**, prepare and review its one-commit
+**squash**, then atomically land it and clean up. A fresh PR is opened after the
+first review; its final canonicalizing rewrite is guarded by an exact lease.
 Delegate PR creation, the review-and-repair loop, and the final merge to the
 `open-pr`, `cross-agent-review`, `squash-merge`, and `reset` skills. This skill
 owns the ordering and the merge gate; it does not re-implement the wrapped
@@ -20,11 +20,11 @@ findings and re-reviews every head it changes, then reports the final reviewed
 SHA and verdict. This skill merges that exact SHA, and only on a non-blocking
 verdict. Never merge a commit that was not itself reviewed.
 
-A successful flow ends back on the PR's base branch — the default branch for a PR
-`open-pr` created — fast-forwarded, with the merged branch deleted, and with the
-repo's git hooks reinstalled. That cleanup belongs to `squash-merge`, which runs
-it only after GitHub confirms the PR is `MERGED` and that the base branch
-actually contains the merge commit; the final checkout reset belongs to `reset`.
+A successful flow supports only a PR targeting its base repository's default
+branch. It ends there, fast-forwarded, with the merged branch deleted and the
+repo's git hooks reinstalled. Cleanup belongs to `squash-merge`, which runs only
+after GitHub confirms `MERGED` and the default branch contains the commit; the
+final checkout reset belongs to `reset`.
 
 ## Arguments
 
@@ -214,6 +214,9 @@ loop, subject-only squash, and `MERGED`-state verification.
    ```bash
    REPO=$(printf '%s' "$PR_URL" | jq -Rr 'split("/") | .[-4] + "/" + .[-3]')
    [ -n "$REPO" ] || { echo "Error: could not resolve the PR base repository" >&2; exit 1; }
+   DEFAULT_BRANCH=$(gh repo view "$REPO" --json defaultBranchRef -q .defaultBranchRef.name)
+   PR_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   [ "$PR_BASE_REF" = "$DEFAULT_BRANCH" ] || { echo "Error: ship-pr supports only default-branch PRs ($DEFAULT_BRANCH), not $PR_BASE_REF" >&2; exit 1; }
    ```
 
    Then confirm the pushed PR head is exactly the reviewed head, so step 4 binds
@@ -467,10 +470,10 @@ loop, subject-only squash, and `MERGED`-state verification.
   `open-pr`, `cross-agent-review`, `squash-merge`, and `reset` retain ownership
   of their validation and external operations — including the post-merge cleanup,
   which lives in `squash-merge` because it must be gated on the merge landing.
-- **Cleanup and reset are different steps.** `squash-merge` returns to the PR's
-  *base* branch and deletes the merged branch, gated on the merge landing;
-  `reset` then re-asserts the checkout on the *default* branch and reinstalls the
-  hooks, knowing nothing about PRs and never deleting anything. The gated half
+- **Cleanup and reset are different steps.** `squash-merge` returns to the
+  default branch and deletes the merged branch, gated on the merge landing;
+  `reset` then re-asserts that checkout and reinstalls the hooks, knowing nothing
+  about PRs and never deleting anything. The gated half
   cannot move into `reset` without losing its gate, which is why `reset` runs
   after rather than instead.
 - **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting

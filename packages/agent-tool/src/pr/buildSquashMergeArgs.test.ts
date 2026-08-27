@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   assertAtomicSquashCandidate,
+  assertDefaultBaseRef,
   assertSquashCommitMessage,
   atomicRuleCoverage,
   buildAtomicSquashPushArgs,
@@ -103,6 +104,15 @@ describe("assertSquashCommitMessage", () => {
     expect(() =>
       assertSquashCommitMessage("expected", "details", "expected"),
     ).toThrow("must not have a message body");
+  });
+});
+
+describe("assertDefaultBaseRef", () => {
+  test("accepts the default branch and rejects stacked or release bases", () => {
+    expect(() => assertDefaultBaseRef("main", "main")).not.toThrow();
+    expect(() => assertDefaultBaseRef("release", "main")).toThrow(
+      "requires the repository default branch 'main', not 'release'",
+    );
   });
 });
 
