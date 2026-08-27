@@ -7,8 +7,15 @@ import {
   defaultDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import { verifyDocumentWriterProjection } from "../../data/keyingProjectionVerification";
-import type { DocumentsPersistence } from "../documents";
-import { purgeRemoteContainerDocument } from "./documentPurge";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import {
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
+} from "../documents";
+import {
+  purgeLocalContainerDocument,
+  purgeRemoteContainerDocument,
+} from "./documentPurge";
 
 test("purge retry refuses a document recreated before the absence transaction", async () => {
   const {
@@ -219,6 +226,79 @@ test("purge retry deletes an absent custom document projection with its proof", 
         resolveUserKey: fixture.resolveProjectionUserKey,
       }),
     ).rejects.toThrow("purged");
+  } finally {
+    close();
+  }
+});
+
+test("local-only purge refuses a document adopted before its transactional delete", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-document-purge-adoption-race",
+  );
+  const localId = "local-document-adoption-race";
+  const remoteDocumentId = "adopted-remote-document";
+  const logs: string[] = [];
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 0,
+      accessStateHash: null,
+      containerId: "local-container",
+      documentId: null,
+      documentKind: "note",
+      id: localId,
+      snapshotEndVersion: "",
+      text: "local text",
+      title: "Local document",
+    });
+    const persistence: DocumentsPersistence = {
+      ...defaultDocumentsPersistence,
+      deleteDocumentIfMatches: async (
+        lockedExecSql,
+        expectedRecord,
+        deleteClientProjection,
+      ) => {
+        await lockedExecSql(
+          `UPDATE documents
+           SET document_id = ?
+           WHERE app_kind = 'documents' AND local_id = ?`,
+          [remoteDocumentId, localId],
+        );
+        return defaultDocumentsPersistence.deleteDocumentIfMatches(
+          lockedExecSql,
+          expectedRecord,
+          deleteClientProjection,
+        );
+      },
+    };
+
+    await expect(
+      purgeLocalContainerDocument({
+        noteId: localId,
+        persistence,
+        runtime: {
+          infra: {
+            blobStore: null as never,
+            dbStatus: "ready",
+            documentProjectors: defaultDocumentProjectorRegistry,
+            execSql,
+          },
+          util: {
+            log: (message) => {
+              logs.push(message);
+            },
+            reportSecurityIncident: async () => undefined,
+          },
+        },
+      }),
+    ).resolves.toBeNull();
+
+    expect(
+      (await sqlDocumentsPersistence.loadDocument(execSql, localId))
+        ?.documentId,
+    ).toBe(remoteDocumentId);
+    expect(logs.at(-1)).toContain("identity changed");
   } finally {
     close();
   }

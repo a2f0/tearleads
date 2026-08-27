@@ -196,12 +196,30 @@ export async function purgeLocalContainerDocument(input: {
   const { noteId, runtime } = input;
   const persistence = input.persistence ?? defaultDocumentsPersistence;
   try {
+    await persistence.ensureSchema(runtime.infra.execSql);
+    const expectedRecord = await persistence.loadDocument(
+      runtime.infra.execSql,
+      noteId,
+    );
+    if (!expectedRecord || expectedRecord.documentId !== null) {
+      runtime.util.log(
+        `Container contents: local-only purge refused for note ${noteId} because it is absent or remote-backed`,
+      );
+      return null;
+    }
     const deleted = await deletePersistedDocument({
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
+      expectedRecord,
       localId: noteId,
       persistence,
     });
+    if (!deleted) {
+      runtime.util.log(
+        `Container contents: local-only purge refused for note ${noteId} because its identity changed`,
+      );
+      return null;
+    }
     if (deleted && persistence === defaultDocumentsPersistence) {
       void reclaimDocumentOrphanBlobs(runtime);
     }

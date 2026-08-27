@@ -151,6 +151,12 @@ export async function buildDocumentPurgeRequest(input: {
   if (identity.documentId !== input.writerProjection.documentId) {
     throw new Error("Document purge projection identity mismatch");
   }
+  if (identity.organizationId !== input.author.organizationId) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document purge author organization mismatch",
+    );
+  }
   const linkedContainerIds = readLinkedContainerIdsFromDocumentManifest(
     input.writerProjection,
   );
@@ -184,7 +190,7 @@ export async function buildDocumentPurgeRequest(input: {
     eventType: "document.purge",
     objectKind: "document",
     objectId: input.writerProjection.documentId,
-    organizationId: identity.organizationId,
+    organizationId: input.author.organizationId,
     previousManifestHash: input.writerProjection.documentManifest.manifestHash,
     dependencyManifestHashes: authorizingContainerManifestHashes,
     bodyHash: await computeAccessEventBodyHash(

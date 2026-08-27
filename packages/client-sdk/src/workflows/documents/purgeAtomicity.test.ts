@@ -51,3 +51,47 @@ test("purge does not commit its proof outside atomic local teardown", async () =
     close();
   }
 });
+
+test("purge rejects a cross-organization projection before posting", async () => {
+  const local = await createMaterializedSyncFixture();
+  const foreign = await createMaterializedSyncFixture({
+    documentId: local.writerProjection.documentId,
+    organizationId: "foreign-organization",
+    userId: "foreign-user",
+  });
+  const { close, execSql } = await createTestExecSql(
+    "document-purge-cross-organization-preflight",
+  );
+  let purgeCalls = 0;
+
+  try {
+    await expect(
+      purgeRemoteDocument({
+        apiClient: {
+          getDocumentPurgeProof: async () => {
+            throw new Error("Unexpected purge proof fetch");
+          },
+          getDocumentWriterProjectionResult: async () => ({
+            data: foreign.writerProjection,
+            ok: true,
+          }),
+          purgeDocument: async () => {
+            purgeCalls += 1;
+            throw new Error("Unexpected purge post");
+          },
+        },
+        author: local.author,
+        documentId: local.writerProjection.documentId,
+        execSql,
+        onVerifiedPurge: () => {
+          throw new Error("Unexpected local teardown");
+        },
+        resolveProjectionUserKey: foreign.resolveProjectionUserKey,
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+
+    expect(purgeCalls).toBe(0);
+  } finally {
+    close();
+  }
+});
