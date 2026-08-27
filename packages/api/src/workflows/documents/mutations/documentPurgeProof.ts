@@ -138,6 +138,39 @@ async function verifyStoredContainerPath(input: {
   return verified;
 }
 
+async function assertAuthorizingHeadExtendsCheckpoint(input: {
+  readonly authorizingManifest: VerifiedContainerAccessManifest;
+  readonly checkpointManifest: VerifiedContainerAccessManifest;
+  readonly context: ContainerProjectionContext;
+}): Promise<void> {
+  let current = input.authorizingManifest;
+  const visited = new Set<string>();
+  for (let depth = 0; depth < MAX_CONTAINER_HISTORY_DEPTH; depth += 1) {
+    if (current.manifestHash === input.checkpointManifest.manifestHash) return;
+    if (
+      current.state.epoch <= input.checkpointManifest.state.epoch ||
+      !current.state.previousManifestHash ||
+      visited.has(current.manifestHash)
+    ) {
+      break;
+    }
+    visited.add(current.manifestHash);
+    current = await verifyStoredContainerManifest({
+      bundle: await loadContainerManifestBundleByHash(
+        input.context,
+        current.state.previousManifestHash,
+      ),
+      context: input.context,
+      loadBundle: (manifestHash) =>
+        loadContainerManifestBundleByHash(input.context, manifestHash),
+    });
+  }
+  throw new DocumentMutationError(
+    "Document purge authorization path does not extend the checkpoint",
+    409,
+  );
+}
+
 async function assertCheckpointHeadExtends(input: {
   readonly authorizingManifest: VerifiedContainerAccessManifest;
   readonly bundle: AccessManifestBundleWireResponse;
@@ -160,6 +193,14 @@ async function assertCheckpointHeadExtends(input: {
         "Document purge authorization checkpoint belongs to another container",
         409,
       );
+    }
+    if (current.state.epoch < input.authorizingManifest.state.epoch) {
+      await assertAuthorizingHeadExtendsCheckpoint({
+        authorizingManifest: input.authorizingManifest,
+        checkpointManifest: current,
+        context: input.context,
+      });
+      return [];
     }
     if (current.manifestHash === input.authorizingManifest.manifestHash) {
       return reverseChain.reverse();

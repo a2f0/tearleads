@@ -8,6 +8,7 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicy,
+  verifyAccessManifestLocalCheckpoint,
   verifyAccessManifestSnapshot,
   verifyDocumentLinkSetSnapshot,
   verifyDocumentPurgeEvent,
@@ -128,17 +129,29 @@ async function enforceCheckpointChainEndpoint(input: {
     typeof createProjectionCheckpointContext
   >;
   readonly current: VerifiedAccessManifestCheckpointEvidence;
-  readonly verifiedByHash: ReadonlyMap<string, VerifiedAccessManifestSnapshot>;
+  readonly verifiedByHash: ReadonlyMap<
+    string,
+    VerifiedAccessManifestCheckpointEvidence
+  >;
 }): Promise<void> {
-  const { localCheckpoint } = await loadManifestCheckpointVerification({
+  const checkpointVerification = await loadManifestCheckpointVerification({
     current: input.current.manifest,
     execSql: input.checkpointContext.execSql,
     verifiedManifests: input.verifiedByHash,
   });
-  const endpointMatches = localCheckpoint
-    ? localCheckpoint.manifestHash === input.current.manifestHash &&
-      localCheckpoint.epoch === input.current.checkpoint.epoch
-    : input.chainLength === 0;
+  verifyAccessManifestLocalCheckpoint({
+    checkpointPredecessors: checkpointVerification.checkpointPredecessors,
+    current: {
+      ...input.current.checkpoint,
+      previousManifestHash: input.current.manifest.previousManifestHash,
+    },
+    localCheckpoint: checkpointVerification.localCheckpoint,
+  });
+  if (input.chainLength === 0) return;
+  const { localCheckpoint } = checkpointVerification;
+  const endpointMatches =
+    localCheckpoint?.manifestHash === input.current.manifestHash &&
+    localCheckpoint.epoch === input.current.checkpoint.epoch;
   if (!endpointMatches) {
     throw new KeyingVerificationError(
       checkpointEndpointErrorCode({ current: input.current, localCheckpoint }),
@@ -155,10 +168,17 @@ async function verifyCheckpointChain(input: {
   >;
   readonly enforceLocalCheckpoints: boolean;
   readonly index: number;
+  readonly verifiedContainerManifests: ReadonlyMap<
+    string,
+    VerifiedContainerAccessManifest
+  >;
 }): Promise<VerifiedAccessManifestCheckpointEvidence> {
   let current: VerifiedAccessManifestCheckpointEvidence =
     input.authorizingManifest;
-  const verifiedByHash = new Map<string, VerifiedAccessManifestSnapshot>();
+  const verifiedByHash = new Map<
+    string,
+    VerifiedAccessManifestCheckpointEvidence
+  >(input.verifiedContainerManifests);
   for (const [chainIndex, snapshot] of input.chain.entries()) {
     const verified = await verifyAccessManifestSnapshot({
       expectedManifestHash: snapshot.manifestHash,
@@ -198,6 +218,10 @@ async function verifyPurgeCheckpointHeads(input: {
   >;
   readonly enforceLocalCheckpoints: boolean;
   readonly proof: DocumentPurgeProofResponse;
+  readonly verifiedContainerManifests: ReadonlyMap<
+    string,
+    VerifiedContainerAccessManifest
+  >;
 }): Promise<VerifiedAccessManifestCheckpointEvidence[]> {
   if (
     input.proof.authorizingContainerCheckpointChains.length !==
@@ -226,6 +250,7 @@ async function verifyPurgeCheckpointHeads(input: {
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: input.enforceLocalCheckpoints,
       index,
+      verifiedContainerManifests: input.verifiedContainerManifests,
     });
     checkpointHeads.push(checkpointHead);
   }
@@ -273,6 +298,7 @@ async function verifyPurgeContainerPaths(input: {
     checkpointContext: input.checkpointContext,
     enforceLocalCheckpoints: input.enforceLocalCheckpoints,
     proof: input.proof,
+    verifiedContainerManifests: verifiedByHash,
   });
 
   observeAccessManifestCheckpoints(input.checkpointContext, {

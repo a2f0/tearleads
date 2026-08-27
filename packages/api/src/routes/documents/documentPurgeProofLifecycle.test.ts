@@ -363,7 +363,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
     root: sharedChild,
   });
   expect(purgeResponse.status).toBe(200);
-
   const revokeRequest = await buildRevokeRequest({
     parentKekState: root.kekState,
     previous: sharedChild.bundle,
@@ -388,7 +387,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
   if (!isContainerMutationResponse(revoked)) {
     throw new Error("Expected revoked container response");
   }
-
   const proofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,
     { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
@@ -410,7 +408,24 @@ test("purge proof remains available to a later-revoked replica", async () => {
       ),
     ).toBe(false);
   }
-
+  const olderCheckpointProofResponse = await routeApp.request(
+    `/documents/${created.id}/purge?checkpointManifestHashes=${root.bundle.manifestHash}%2C${childFixture.bundle.manifestHash}`,
+    { headers: { Authorization: `Bearer ${replicaOwner.token}` } },
+  );
+  expect(olderCheckpointProofResponse.status).toBe(200);
+  const olderCheckpointProof = await olderCheckpointProofResponse.json();
+  expect(isDocumentPurgeProofResponse(olderCheckpointProof)).toBe(true);
+  if (isDocumentPurgeProofResponse(olderCheckpointProof)) {
+    expect(olderCheckpointProof.authorizingContainerCheckpointChains).toEqual([
+      [],
+      [],
+    ]);
+    expect(
+      olderCheckpointProof.documentContainerManifestHistory.map(
+        (bundle) => bundle.manifestHash,
+      ),
+    ).toContain(childFixture.bundle.manifestHash);
+  }
   const knownRevocationHash =
     accessManifestFromContainerResponse(revoked).manifestHash;
   const boundedProofResponse = await routeApp.request(
@@ -433,7 +448,6 @@ test("purge proof remains available to a later-revoked replica", async () => {
       );
     }
   }
-
   const incompleteBoundsResponse = await routeApp.request(
     `/documents/${created.id}/purge?checkpointManifestHashes=${knownRevocationHash}`,
     { headers: { Authorization: `Bearer ${replicaOwner.token}` } },

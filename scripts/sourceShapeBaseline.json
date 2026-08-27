@@ -138,6 +138,10 @@
       "lines": 3822,
       "bytes": 126138
     },
+    "packages/api/src/routes/documents/documentPurgeProofLifecycle.test.ts": {
+      "lines": 503,
+      "bytes": 17927
+    },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1275,
       "bytes": 42660
