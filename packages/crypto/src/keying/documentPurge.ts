@@ -1,4 +1,3 @@
-import type { VerifiedDocumentLinkSetSnapshot } from "./accessManifestSnapshot";
 import {
   containerAccessLevelRank,
   requireContainerPathLast,
@@ -19,6 +18,7 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
+  VerifiedDocumentLinkSetSnapshot,
 } from "./types";
 
 export interface DocumentPurgeAccessEventBody {

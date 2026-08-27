@@ -186,6 +186,7 @@ test("discovery cannot recreate a document after its purge checkpoint commits", 
     const purge = sqlDocumentsPersistence.deleteDocumentSideRowsIfAbsent(
       race.first.execSql,
       "purged-local-document",
+      documentId,
       async (transactionExecSql) => {
         signalPurgeLocked();
         await purgeReleased;

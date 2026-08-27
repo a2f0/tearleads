@@ -519,6 +519,9 @@ const verifiedContainerAccessManifestBrand: unique symbol = Symbol(
 const verifiedDocumentLinkSetManifestBrand: unique symbol = Symbol(
   "verifiedDocumentLinkSetManifest",
 );
+const verifiedDocumentLinkSetStateEvidenceBrand: unique symbol = Symbol(
+  "verifiedDocumentLinkSetStateEvidence",
+);
 const verifiedDocumentKekTargetsBrand: unique symbol = Symbol(
   "verifiedDocumentKekTargets",
 );
@@ -600,7 +603,6 @@ export interface VerifiedAccessManifest {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly [verifiedAccessManifestBrand]: true;
 }
-
 export interface VerifiedContainerAccessManifest {
   readonly manifest: ContainerAccessManifest;
   readonly manifestHash: string;
@@ -609,21 +611,24 @@ export interface VerifiedContainerAccessManifest {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly [verifiedContainerAccessManifestBrand]: true;
 }
-
-export interface VerifiedDocumentLinkSetManifest {
+export interface VerifiedDocumentLinkSetStateEvidence {
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
-  readonly event: VerifiedAccessEvent;
   readonly state: DocumentLinkSetManifestState;
   readonly checkpoint: AccessManifestCheckpoint;
+  readonly [verifiedDocumentLinkSetStateEvidenceBrand]: true;
+}
+export interface VerifiedDocumentLinkSetManifest
+  extends VerifiedDocumentLinkSetStateEvidence {
+  readonly event: VerifiedAccessEvent;
   readonly [verifiedDocumentLinkSetManifestBrand]: true;
 }
-
+export type VerifiedDocumentLinkSetSnapshot =
+  VerifiedDocumentLinkSetStateEvidence;
 export type AnyVerifiedAccessManifest =
   | VerifiedAccessManifest
   | VerifiedContainerAccessManifest
   | VerifiedDocumentLinkSetManifest;
-
 export interface VerifiedDocumentKekTargets {
   readonly documentId: string;
   readonly linkSetManifestHash: string;
@@ -777,12 +782,26 @@ export function makeVerifiedContainerAccessManifest(
 export function makeVerifiedDocumentLinkSetManifest(
   value: Omit<
     VerifiedDocumentLinkSetManifest,
-    typeof verifiedDocumentLinkSetManifestBrand
+    | typeof verifiedDocumentLinkSetManifestBrand
+    | typeof verifiedDocumentLinkSetStateEvidenceBrand
   >,
 ): VerifiedDocumentLinkSetManifest {
   return {
     ...value,
     [verifiedDocumentLinkSetManifestBrand]: verifiedBrandValue,
+    [verifiedDocumentLinkSetStateEvidenceBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedDocumentLinkSetSnapshot(
+  value: Omit<
+    VerifiedDocumentLinkSetSnapshot,
+    typeof verifiedDocumentLinkSetStateEvidenceBrand
+  >,
+): VerifiedDocumentLinkSetSnapshot {
+  return {
+    ...value,
+    [verifiedDocumentLinkSetStateEvidenceBrand]: verifiedBrandValue,
   };
 }
 
@@ -952,7 +971,7 @@ export interface VerifyDocumentLinkSetManifestInput {
   readonly manifest: AccessManifest;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
-  readonly previousManifest?: VerifiedDocumentLinkSetManifest | null;
+  readonly previousManifest?: VerifiedDocumentLinkSetStateEvidence | null;
   readonly localCheckpoint?: AccessManifestCheckpoint | null | undefined;
   readonly checkpointPredecessors?:
     | readonly AnyVerifiedAccessManifest[]

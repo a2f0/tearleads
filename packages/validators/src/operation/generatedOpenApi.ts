@@ -10801,6 +10801,15 @@ export interface operations {
                         })[];
                         documentId: string;
                         documentManifest: {
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
                             manifest: {
                                 [key: string]: unknown;
                             };
@@ -10811,11 +10820,43 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        documentManifestPredecessors: ({
+                        documentManifestContainerPaths: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
                             manifest: {
                                 [key: string]: unknown;
                             };
                             manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        documentManifestPredecessors: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11140,6 +11181,15 @@ export interface operations {
                         })[];
                         documentId: string;
                         documentManifest: {
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
                             manifest: {
                                 [key: string]: unknown;
                             };
@@ -11150,11 +11200,43 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        documentManifestPredecessors: ({
+                        documentManifestContainerPaths: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
                             manifest: {
                                 [key: string]: unknown;
                             };
                             manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        documentManifestPredecessors: ({
+                            event: {
+                                body: unknown;
+                                event: {
+                                    [key: string]: unknown;
+                                };
+                                eventHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         })[];

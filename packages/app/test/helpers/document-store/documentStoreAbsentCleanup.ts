@@ -8,6 +8,7 @@ export function createMemoryAbsentDocumentCleanup(input: {
     async deleteDocumentSideRowsIfAbsent(
       execSql,
       localId,
+      _expectedDocumentId,
       deleteClientProjection,
     ) {
       if (input.documentExists(localId)) return false;

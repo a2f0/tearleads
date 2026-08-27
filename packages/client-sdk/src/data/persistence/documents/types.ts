@@ -385,6 +385,7 @@ export interface DocumentsPersistence {
   deleteDocumentSideRowsIfAbsent: (
     execSql: ExecSql,
     localId: string,
+    expectedDocumentId: string | null,
     deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
   ) => Promise<boolean>;
   upsertDiscoveredDocument: (

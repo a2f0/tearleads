@@ -75,6 +75,7 @@ export async function purgeRemoteContainerDocument(input: {
           deleted = await persistence.deleteDocumentSideRowsIfAbsent(
             runtime.infra.execSql,
             noteId,
+            documentId,
             commitPurgeProof,
           );
           if (!deleted) {

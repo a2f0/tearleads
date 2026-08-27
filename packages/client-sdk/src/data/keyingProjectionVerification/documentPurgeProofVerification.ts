@@ -6,11 +6,9 @@ import {
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
-  type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
   verifyAccessManifestSnapshot,
-  verifyDocumentLinkSetSnapshot,
   verifyDocumentPurgeEvent,
 } from "@symcrypt/crypto";
 import type {
@@ -31,6 +29,7 @@ import {
   verifiedContainerManifestsForBundles,
   verifyContainerManifestPath,
 } from "./containerProjectionVerification";
+import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { rethrowDatabaseUnavailableError } from "./error";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
 import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
@@ -78,6 +77,18 @@ function collectContainerBundles(
       bundle,
       `Document purge container history[${index}]`,
     );
+  }
+  for (const [
+    pathIndex,
+    path,
+  ] of proof.documentManifestContainerPaths.entries()) {
+    for (const [bundleIndex, bundle] of path.entries()) {
+      addBundleByHash(
+        bundlesByHash,
+        bundle,
+        `Document purge dependency path[${pathIndex}][${bundleIndex}]`,
+      );
+    }
   }
   return bundlesByHash;
 }
@@ -293,6 +304,34 @@ async function verifyPurgeContainerPaths(input: {
       "Document purge authorizing container path is empty",
     );
   }
+  const containerPathByManifestHash = new Map<
+    string,
+    readonly VerifiedContainerAccessManifest[]
+  >();
+  containerPathByManifestHash.set(authorizingLeaf.manifestHash, [
+    ...authorizingContainerPath,
+  ]);
+  for (const [
+    index,
+    path,
+  ] of input.proof.documentManifestContainerPaths.entries()) {
+    const verifiedPath = await verifyContainerManifestPath({
+      authorizationEvidence: input.authorizationEvidence,
+      bundlesByHash,
+      checkpointContext: input.checkpointContext,
+      enforceLocalCheckpoints: false,
+      label: `Document purge dependency path[${index}]`,
+      path,
+      principalPolicyCache: input.principalPolicyCache,
+      resolveUserKey: input.resolveUserKey,
+      verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
+    const leaf = verifiedPath.at(-1);
+    if (leaf) {
+      containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
+    }
+  }
   const checkpointHeads = await verifyPurgeCheckpointHeads({
     authorizingContainerPath,
     checkpointContext: input.checkpointContext,
@@ -308,59 +347,27 @@ async function verifyPurgeContainerPaths(input: {
       verifiedByHash,
     ),
   });
-  return authorizingContainerPath;
+  return { authorizingContainerPath, containerPathByManifestHash };
 }
 
-async function verifyPurgeDocumentManifest(input: {
-  readonly checkpointContext: ReturnType<
-    typeof createProjectionCheckpointContext
-  >;
-  readonly enforceLocalCheckpoints: boolean;
-  readonly proof: DocumentPurgeProofResponse;
-}): Promise<VerifiedDocumentLinkSetSnapshot> {
-  const verifiedByHash = new Map<string, VerifiedAccessManifestSnapshot>();
-  for (const [
-    index,
-    predecessor,
-  ] of input.proof.documentManifestPredecessors.entries()) {
-    const verified = await verifyAccessManifestSnapshot({
-      expectedManifestHash: predecessor.manifestHash,
-      manifest: readAccessManifest(
-        predecessor.manifest,
-        `Document purge predecessor snapshot[${index}]`,
-      ),
-    });
-    if (!verified.ok) {
-      throw verified.error;
+function assertPurgePrincipalEvidence(input: {
+  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
+}): void {
+  for (const reference of input.authorizingContainerPath.flatMap(
+    (manifest) => manifest.state.referencedPrincipalHeads,
+  )) {
+    if (
+      !input.authorizationEvidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      )
+    ) {
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Document purge proof omits referenced principal policy evidence",
+      );
     }
-    verifiedByHash.set(verified.value.manifestHash, verified.value);
   }
-  const manifest = readAccessManifest(
-    input.proof.documentManifest.manifest,
-    "Document purge manifest snapshot",
-  );
-  const checkpointVerification = input.enforceLocalCheckpoints
-    ? await loadManifestCheckpointVerification({
-        current: manifest,
-        execSql: input.checkpointContext.execSql,
-        verifiedManifests: verifiedByHash,
-      })
-    : undefined;
-  const verified = await verifyDocumentLinkSetSnapshot({
-    ...(checkpointVerification ?? {}),
-    expectedManifestHash: input.proof.documentManifest.manifestHash,
-    manifest,
-    state: input.proof.documentManifest.state,
-  });
-  if (!verified.ok) {
-    throw verified.error;
-  }
-  const documentManifest = verified.value;
-  observeAccessManifestCheckpoints(input.checkpointContext, {
-    verifiedHeads: [documentManifest],
-    verifiedManifests: [...verifiedByHash.values()],
-  });
-  return documentManifest;
 }
 
 async function verifyDocumentPurgeProofWithMode(
@@ -386,39 +393,34 @@ async function verifyDocumentPurgeProofWithMode(
       resolveUserKey: input.resolveUserKey,
       snapshots: input.proof.principalPolicySnapshots,
     });
-    const authorizingContainerPath = await verifyPurgeContainerPaths({
-      authorizationEvidence,
+    const { authorizingContainerPath, containerPathByManifestHash } =
+      await verifyPurgeContainerPaths({
+        authorizationEvidence,
+        checkpointContext,
+        enforceLocalCheckpoints,
+        principalPolicyCache,
+        proof: input.proof,
+        resolveUserKey: input.resolveUserKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+    const documentManifest = await verifyPurgeDocumentManifest({
       checkpointContext,
+      containerPathByManifestHash,
       enforceLocalCheckpoints,
       principalPolicyCache,
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
-    const documentManifest = await verifyPurgeDocumentManifest({
-      checkpointContext,
-      enforceLocalCheckpoints,
-      proof: input.proof,
-    });
     const event = await verifyStandaloneAccessEventBundle({
       bundle: input.proof.purgeEvent,
       label: "Document purge event",
       resolveUserKey: input.resolveUserKey,
     });
-    for (const reference of authorizingContainerPath.flatMap(
-      (manifest) => manifest.state.referencedPrincipalHeads,
-    )) {
-      if (
-        !authorizationEvidence.some((policy) =>
-          principalPolicyMatchesReference({ policy, reference }),
-        )
-      ) {
-        throw new KeyingVerificationError(
-          "missing_dependency",
-          "Document purge proof omits referenced principal policy evidence",
-        );
-      }
-    }
+    assertPurgePrincipalEvidence({
+      authorizationEvidence,
+      authorizingContainerPath,
+    });
     const principalPolicies = authorizationEvidence;
     const verified = await verifyDocumentPurgeEvent({
       authorizingContainerPath,

@@ -48,6 +48,7 @@ import type {
   VerifiedContainerParentEdge,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
+  VerifiedDocumentLinkSetStateEvidence,
   VerifyAccessEventInput,
   VerifyAttachmentBindingEventInput,
   VerifyAttachmentDetachEventInput,
@@ -818,11 +819,10 @@ export function requireWriteAccessThroughCommittedBlobTarget(input: {
     `${input.label} signer lacks write access through a committed blob target`,
   );
 }
-
 type DocumentLinkSetManifestDerivationInput = {
   readonly body: DocumentAccessEventBody;
   readonly event: VerifiedAccessEvent;
-  readonly previousManifest: VerifiedDocumentLinkSetManifest | null;
+  readonly previousManifest: VerifiedDocumentLinkSetStateEvidence | null;
   readonly targetContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;

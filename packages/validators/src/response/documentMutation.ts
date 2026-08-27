@@ -75,13 +75,12 @@ const documentPurgeProofShape = {
     AccessManifestBundleWireResponseSchema,
   ),
   documentId: nonEmptyStringSchema,
-  documentManifest: loosePlainObject({
-    manifest: plainObjectSchema,
-    manifestHash: nonEmptyStringSchema,
-    state: plainObjectSchema,
-  }),
+  documentManifest: AccessManifestBundleWireResponseSchema,
+  documentManifestContainerPaths: arraySchema(
+    arraySchema(AccessManifestBundleWireResponseSchema),
+  ),
   documentManifestPredecessors: arraySchema(
-    AccessManifestSnapshotResponseSchema,
+    AccessManifestBundleWireResponseSchema,
   ),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,

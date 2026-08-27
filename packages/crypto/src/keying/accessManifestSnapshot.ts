@@ -15,28 +15,18 @@ import { runVerifier, throwVerification } from "./shared";
 import type {
   AccessManifest,
   AccessManifestCheckpoint,
-  DocumentLinkSetManifestState,
   KeyingVerificationResult,
+  VerifiedDocumentLinkSetSnapshot,
 } from "./types";
+import { makeVerifiedDocumentLinkSetSnapshot } from "./types";
 
 const verifiedAccessManifestSnapshotBrand: unique symbol = Symbol(
   "verifiedAccessManifestSnapshot",
-);
-const verifiedDocumentLinkSetSnapshotBrand: unique symbol = Symbol(
-  "verifiedDocumentLinkSetSnapshot",
 );
 
 export interface VerifiedAccessManifestSnapshot
   extends VerifiedAccessManifestCheckpointEvidence {
   readonly [verifiedAccessManifestSnapshotBrand]: true;
-}
-
-export interface VerifiedDocumentLinkSetSnapshot {
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-  readonly state: DocumentLinkSetManifestState;
-  readonly checkpoint: AccessManifestCheckpoint;
-  readonly [verifiedDocumentLinkSetSnapshotBrand]: true;
 }
 
 function verifiedAccessManifestSnapshot(input: {
@@ -103,10 +93,9 @@ export async function verifyDocumentLinkSetSnapshot(input: {
       },
       localCheckpoint: input.localCheckpoint,
     });
-    return {
+    return makeVerifiedDocumentLinkSetSnapshot({
       ...verifiedManifest.value,
       state,
-      [verifiedDocumentLinkSetSnapshotBrand]: true,
-    };
+    });
   });
 }

@@ -23,6 +23,7 @@ import {
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
+import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
 import {
   collectPurgeProofPrincipalReferences,
   loadDocumentPurgeProofMaterial,
@@ -75,6 +76,37 @@ async function resolveSolePurgeContainerId(input: {
   }
 
   return containerId;
+}
+
+async function loadInitialPurgeResponseMaterial(input: {
+  readonly authorizingContainerManifestHashes: readonly string[];
+  readonly documentManifestHash: string;
+  readonly executor: DatabaseTransaction;
+}) {
+  const proofMaterial = await loadDocumentPurgeProofMaterial({
+    authorizingContainerManifestHashes:
+      input.authorizingContainerManifestHashes,
+    documentManifestHash: input.documentManifestHash,
+    executor: input.executor,
+  });
+  const documentDependencies = await loadDocumentContainerDependencyMaterial({
+    documentManifest: proofMaterial.documentManifest,
+    documentManifestHistory: [],
+    executor: input.executor,
+    manifestCache: new Map(),
+  });
+  const principalPolicySnapshots = (
+    await loadVerifiedPrincipalPolicySnapshotsForReferences(
+      input.executor,
+      collectPurgeProofPrincipalReferences([
+        ...proofMaterial.authorizingContainerPath,
+        ...proofMaterial.authorizingContainerManifestHistory,
+        ...documentDependencies.documentManifestContainerPaths.flat(),
+        ...documentDependencies.documentContainerManifestHistory,
+      ]),
+    )
+  ).snapshots;
+  return { documentDependencies, principalPolicySnapshots, proofMaterial };
 }
 
 async function assertDocumentIsPurgeable(input: {
@@ -301,20 +333,12 @@ async function purgeDocumentWithExecutor(input: {
       409,
     );
   }
-  const proofMaterial = await loadDocumentPurgeProofMaterial({
-    authorizingContainerManifestHashes,
-    documentManifestHash: verifiedPurge.documentManifest.manifestHash,
-    executor: input.executor,
-  });
-  const principalPolicySnapshots = (
-    await loadVerifiedPrincipalPolicySnapshotsForReferences(
-      input.executor,
-      collectPurgeProofPrincipalReferences([
-        ...proofMaterial.authorizingContainerPath,
-        ...proofMaterial.authorizingContainerManifestHistory,
-      ]),
-    )
-  ).snapshots;
+  const { documentDependencies, principalPolicySnapshots, proofMaterial } =
+    await loadInitialPurgeResponseMaterial({
+      authorizingContainerManifestHashes,
+      documentManifestHash: verifiedPurge.documentManifest.manifestHash,
+      executor: input.executor,
+    });
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,
@@ -348,14 +372,18 @@ async function purgeDocumentWithExecutor(input: {
       authorizingContainerCheckpointChains:
         proofMaterial.authorizingContainerPath.map(() => []),
       authorizingContainerPath: proofMaterial.authorizingContainerPath,
-      documentContainerManifestHistory:
-        proofMaterial.authorizingContainerManifestHistory,
+      documentContainerManifestHistory: [
+        ...new Map(
+          [
+            ...proofMaterial.authorizingContainerManifestHistory,
+            ...documentDependencies.documentContainerManifestHistory,
+          ].map((bundle) => [bundle.manifestHash, bundle]),
+        ).values(),
+      ],
       documentId: input.documentId,
-      documentManifest: {
-        manifest: proofMaterial.documentManifest.manifest,
-        manifestHash: proofMaterial.documentManifest.manifestHash,
-        state: proofMaterial.documentManifest.state,
-      },
+      documentManifest: proofMaterial.documentManifest,
+      documentManifestContainerPaths:
+        documentDependencies.documentManifestContainerPaths,
       documentManifestPredecessors: [],
       purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),

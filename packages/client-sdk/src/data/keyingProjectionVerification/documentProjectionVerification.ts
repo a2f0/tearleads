@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
+  type VerifiedDocumentLinkSetSnapshot,
   type VerifiedPrincipalPolicy,
   verifyDocumentLinkSetManifest,
 } from "@symcrypt/crypto";
@@ -29,6 +30,7 @@ import {
   verifyContainerManifestPath,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { rethrowDatabaseUnavailableError } from "./error";
 import {
@@ -231,27 +233,7 @@ async function verifyProjectionContainerPaths(input: {
 
   return containerPathByManifestHash;
 }
-function previousDocumentManifestFromCache(input: {
-  readonly event: Awaited<ReturnType<typeof verifyAccessEventBundle>>;
-  readonly label: string;
-  readonly verifiedByHash: ReadonlyMap<string, VerifiedDocumentLinkSetManifest>;
-}): VerifiedDocumentLinkSetManifest | null {
-  const previousManifestHash = input.event.event.previousManifestHash;
-  if (previousManifestHash === null) {
-    return null;
-  }
-
-  const previousManifest = input.verifiedByHash.get(previousManifestHash);
-  if (!previousManifest) {
-    throw new Error(
-      `${input.label} previous manifest ${previousManifestHash} is missing`,
-    );
-  }
-
-  return previousManifest;
-}
-
-async function verifyDocumentManifestBundle(input: {
+export async function verifyDocumentManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -263,6 +245,9 @@ async function verifyDocumentManifestBundle(input: {
   readonly label: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly trustedPredecessorByHash?:
+    | ReadonlyMap<string, VerifiedDocumentLinkSetSnapshot>
+    | undefined;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -285,9 +270,10 @@ async function verifyDocumentManifestBundle(input: {
     input.bundle.manifest,
     `${input.label} manifest`,
   );
-  const previousManifest = previousDocumentManifestFromCache({
-    event,
+  const previousManifest = requireVerifiedDocumentPredecessor({
     label: input.label,
+    previousManifestHash: event.event.previousManifestHash,
+    trustedPredecessorByHash: input.trustedPredecessorByHash,
     verifiedByHash: input.verifiedByHash,
   });
   const body = readDocumentAccessEventBody(

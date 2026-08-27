@@ -182,10 +182,10 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
   expect(ownerProofResponse.status).toBe(200);
   const ownerProof = await ownerProofResponse.json();
   expect(isDocumentPurgeProofResponse(ownerProof)).toBe(true);
-  expect(JSON.stringify(ownerProof)).not.toContain(
+  expect(JSON.stringify(ownerProof)).toContain(
     sharedFirstChild.bundle.manifestHash,
   );
-  expect(ownerProof).not.toHaveProperty("documentManifestContainerPaths");
+  expect(ownerProof.documentManifestContainerPaths.length).toBeGreaterThan(0);
   expect(ownerProof).not.toHaveProperty("documentManifestHistory");
 
   const boundedProofResponse = await routeApp.request(
@@ -201,9 +201,14 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     boundedProof.documentManifestPredecessors.map(
       (predecessor) => predecessor.manifestHash,
     ),
-  ).toEqual([linked.accessManifest.manifestHash]);
+  ).toEqual([
+    linked.accessManifest.manifestHash,
+    created.accessManifest.manifestHash,
+  ]);
   for (const predecessor of boundedProof.documentManifestPredecessors) {
-    expect(predecessor).not.toHaveProperty("event");
-    expect(predecessor).not.toHaveProperty("state");
+    expect(Reflect.get(predecessor.event.event, "eventType")).toMatch(
+      /^document\.(create|link)$/,
+    );
+    expect(predecessor.state).toHaveProperty("documentId", created.id);
   }
 });

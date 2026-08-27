@@ -25,11 +25,9 @@ export async function createDocumentPurgeProof(
     documentContainerManifestHistory:
       writerProjection.documentContainerManifestHistory,
     documentId: writerProjection.documentId,
-    documentManifest: {
-      manifest: writerProjection.documentManifest.manifest,
-      manifestHash: writerProjection.documentManifest.manifestHash,
-      state: writerProjection.documentManifest.state,
-    },
+    documentManifest: writerProjection.documentManifest,
+    documentManifestContainerPaths:
+      writerProjection.documentManifestContainerPaths,
     documentManifestPredecessors: [],
     purgeEvent: {
       body: request.body,

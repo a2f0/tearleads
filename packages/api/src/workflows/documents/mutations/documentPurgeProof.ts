@@ -35,12 +35,19 @@ import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
 } from "../storedDocumentManifestVerification";
-import { DocumentWriterProjectionError } from "../writerProjection";
+import {
+  DocumentWriterProjectionError,
+  loadDocumentContainerDependencyMaterial,
+} from "../writerProjection";
 import {
   collectPurgeProofPrincipalReferences,
   loadAuthorizingContainerCheckpointMaterial,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
+import {
+  selectDocumentManifestPredecessors,
+  uniquePurgeProofBundles,
+} from "./documentPurgeProofHistory";
 import { DocumentMutationError } from "./errors";
 
 const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
@@ -48,45 +55,11 @@ type ContainerProjectionContext = ReturnType<
   typeof createContainerWriterProjectionContext
 >;
 
-function documentManifestSnapshot(bundle: AccessManifestBundleWireResponse) {
-  return {
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-    state: bundle.state,
-  };
-}
-
 function accessManifestSnapshot(bundle: AccessManifestBundleWireResponse) {
   return {
     manifest: bundle.manifest,
     manifestHash: bundle.manifestHash,
   };
-}
-
-function documentManifestPredecessors(input: {
-  readonly checkpointManifestHash?: string | undefined;
-  readonly head: AccessManifestBundleWireResponse;
-  readonly history: readonly AccessManifestBundleWireResponse[];
-}) {
-  if (
-    input.checkpointManifestHash === undefined ||
-    input.checkpointManifestHash === input.head.manifestHash
-  ) {
-    return [];
-  }
-  const checkpointIndex = input.history.findIndex(
-    (bundle) => bundle.manifestHash === input.checkpointManifestHash,
-  );
-  if (checkpointIndex < 0) {
-    throw new DocumentMutationError(
-      "Document purge checkpoint does not belong to the retained document chain",
-      409,
-    );
-  }
-  return input.history.slice(0, checkpointIndex).map((bundle) => ({
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-  }));
 }
 
 async function verifyStoredPurgeEvent(input: {
@@ -334,12 +307,9 @@ function internalPurgePrincipalReferences(
 }
 
 function responsePurgePrincipalReferences(input: {
-  readonly material: Awaited<ReturnType<typeof loadDocumentPurgeProofMaterial>>;
+  readonly bundles: readonly AccessManifestBundleWireResponse[];
 }) {
-  return collectPurgeProofPrincipalReferences([
-    ...input.material.authorizingContainerPath,
-    ...input.material.authorizingContainerManifestHistory,
-  ]);
+  return collectPurgeProofPrincipalReferences(input.bundles);
 }
 
 async function verifyProofMaterial(input: {
@@ -397,6 +367,27 @@ async function verifyProofMaterial(input: {
   };
 }
 
+async function loadPurgeTombstoneTime(input: {
+  readonly containerId: string;
+  readonly documentId: string;
+  readonly executor: DatabaseSession;
+}): Promise<string> {
+  const [tombstone] = await input.executor
+    .select({ purgedAt: containerDocumentSyncTombstones.updatedAt })
+    .from(containerDocumentSyncTombstones)
+    .where(
+      and(
+        eq(containerDocumentSyncTombstones.containerId, input.containerId),
+        eq(containerDocumentSyncTombstones.documentId, input.documentId),
+      ),
+    )
+    .limit(1);
+  if (!tombstone) {
+    throw new DocumentMutationError("Document purge tombstone is missing", 409);
+  }
+  return tombstone.purgedAt.toISOString();
+}
+
 export async function loadDocumentPurgeProof(input: {
   readonly checkpointManifestHashes?: readonly string[] | undefined;
   readonly documentCheckpointManifestHash?: string | undefined;
@@ -452,40 +443,51 @@ export async function loadDocumentPurgeProof(input: {
     context,
     executor: input.executor,
   });
+  const documentManifestPredecessorBundles = selectDocumentManifestPredecessors(
+    {
+      checkpointManifestHash: input.documentCheckpointManifestHash,
+      head: material.documentManifest,
+      history: material.documentManifestHistory,
+    },
+  );
+  const documentDependencies = await loadDocumentContainerDependencyMaterial({
+    documentManifest: material.documentManifest,
+    documentManifestHistory: documentManifestPredecessorBundles,
+    executor: input.executor,
+    manifestCache: new Map(),
+  });
+  const responseContainerBundles = uniquePurgeProofBundles([
+    ...material.authorizingContainerPath,
+    ...material.authorizingContainerManifestHistory,
+    ...documentDependencies.documentManifestContainerPaths.flat(),
+    ...documentDependencies.documentContainerManifestHistory,
+  ]);
   const responseEvidence =
     await loadVerifiedPrincipalPolicySnapshotsForReferences(
       input.executor,
-      responsePurgePrincipalReferences({ material }),
+      responsePurgePrincipalReferences({ bundles: responseContainerBundles }),
     );
 
-  const [tombstone] = await input.executor
-    .select({ purgedAt: containerDocumentSyncTombstones.updatedAt })
-    .from(containerDocumentSyncTombstones)
-    .where(
-      and(
-        eq(containerDocumentSyncTombstones.containerId, body.containerId),
-        eq(containerDocumentSyncTombstones.documentId, input.documentId),
-      ),
-    )
-    .limit(1);
-  if (!tombstone) {
-    throw new DocumentMutationError("Document purge tombstone is missing", 409);
-  }
+  const purgedAt = await loadPurgeTombstoneTime({
+    containerId: body.containerId,
+    documentId: input.documentId,
+    executor: input.executor,
+  });
 
   return {
     authorizingContainerCheckpointChains: checkpointMaterial.chains,
     authorizingContainerPath: material.authorizingContainerPath,
-    documentContainerManifestHistory:
-      material.authorizingContainerManifestHistory,
+    documentContainerManifestHistory: uniquePurgeProofBundles([
+      ...material.authorizingContainerManifestHistory,
+      ...documentDependencies.documentContainerManifestHistory,
+    ]),
     documentId: input.documentId,
-    documentManifest: documentManifestSnapshot(material.documentManifest),
-    documentManifestPredecessors: documentManifestPredecessors({
-      checkpointManifestHash: input.documentCheckpointManifestHash,
-      head: material.documentManifest,
-      history: material.documentManifestHistory,
-    }),
+    documentManifest: material.documentManifest,
+    documentManifestContainerPaths:
+      documentDependencies.documentManifestContainerPaths,
+    documentManifestPredecessors: documentManifestPredecessorBundles,
     principalPolicySnapshots: responseEvidence.snapshots,
     purgeEvent: projectionVerifiedAccessEventRecord(event),
-    purgedAt: tombstone.purgedAt.toISOString(),
+    purgedAt,
   };
 }

@@ -72,7 +72,8 @@ updates or a deferred-sync frontier behind its snapshot; otherwise it selects
 deterministically by descending update time and local id. This lets a restarted
 store adopt the same local owner without discarding unsynced work.
 `deleteDocumentSideRowsIfAbsent(...)` likewise owns one transaction spanning
-the canonical absence check and orphaned side-row/client-projection cleanup.
+the canonical absence check, remote-document alias rejection, and orphaned
+side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue
 fallback.
 

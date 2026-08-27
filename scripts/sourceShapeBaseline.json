@@ -63,8 +63,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 55451,
-      "bytes": 2302975
+      "lines": 55609,
+      "bytes": 2309535
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -343,16 +343,16 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1144,
-      "bytes": 35605
+      "lines": 1163,
+      "bytes": 36405
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 21246,
-      "bytes": 879175
+      "lines": 21304,
+      "bytes": 881697
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

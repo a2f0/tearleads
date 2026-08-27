@@ -151,10 +151,16 @@ export function createDocumentPurgeResponse(): DocumentPurgeResponse {
     documentContainerManifestHistory: [],
     documentId: "document-1",
     documentManifest: {
+      event: {
+        body: { eventType: "document.link" },
+        event: { eventType: "document.link" },
+        eventHash: "document-link-event-hash",
+      },
       manifest: { objectKind: "document" },
       manifestHash: "document-manifest-hash",
       state: { documentId: "document-1" },
     },
+    documentManifestContainerPaths: [],
     documentManifestPredecessors: [],
     principalPolicySnapshots: [],
     purgeEvent: {

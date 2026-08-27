@@ -19,6 +19,7 @@ export async function refuseDeletedDocumentPersist(input: {
   return input.persistence.deleteDocumentSideRowsIfAbsent(
     input.execSql,
     input.localId,
+    currentRecord.documentId,
     async (transactionExecSql) => {
       await input.documentProjectors.deleteStoredDocumentClientProjection({
         documentKind: currentRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,
