@@ -19,6 +19,7 @@
     "packages/crypto/src/keying.ts": ["./keying/index"],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
+      "./accessManifestSnapshot",
       "./canonical",
       "./checkpoints",
       "./containerAccess",
@@ -62,16 +63,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 53841,
-      "bytes": 2234907
+      "lines": 55609,
+      "bytes": 2309535
     },
     "docs/protocol-specification.md": {
       "lines": 585,
       "bytes": 27100
     },
     "docs/security-guarantees.md": {
-      "lines": 541,
-      "bytes": 28553
+      "lines": 553,
+      "bytes": 29348
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 566,
@@ -82,8 +83,8 @@
       "bytes": 15169
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1843,
-      "bytes": 59743
+      "lines": 1855,
+      "bytes": 60045
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -181,10 +182,6 @@
       "lines": 530,
       "bytes": 16424
     },
-    "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
-      "lines": 546,
-      "bytes": 18102
-    },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1142,
       "bytes": 39493
@@ -250,8 +247,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 565,
-      "bytes": 18529
+      "lines": 568,
+      "bytes": 18514
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 895,
@@ -327,7 +324,7 @@
     },
     "packages/crypto/src/keying/documentAccess.ts": {
       "lines": 1151,
-      "bytes": 32354
+      "bytes": 32357
     },
     "packages/crypto/src/keying/principalPolicy.ts": {
       "lines": 719,
@@ -342,16 +339,16 @@
       "bytes": 30430
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1105,
-      "bytes": 34036
+      "lines": 1163,
+      "bytes": 36405
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
       "lines": 555,
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 20692,
-      "bytes": 854901
+      "lines": 21304,
+      "bytes": 881697
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

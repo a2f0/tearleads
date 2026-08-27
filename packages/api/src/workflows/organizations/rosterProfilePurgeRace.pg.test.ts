@@ -9,6 +9,7 @@ import { createTestUser } from "@symcrypt/bob-and-alice";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@symcrypt/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
@@ -40,7 +41,13 @@ async function createRaceFixture() {
     })
     .where(eq(containers.id, root.kekState.containerId));
   const profile = await createDocument({ owner, root });
-  return { organizationId, owner, profile };
+  const purgeRequest = await buildDocumentPurgeRequest({
+    documentId: profile.id,
+    documentManifestHash: profile.accessManifest.manifestHash,
+    owner,
+    root,
+  });
+  return { organizationId, owner, profile, purgeRequest };
 }
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
@@ -70,6 +77,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
 
     const purge = runPurgeDocumentWorkflow(db, {
       documentId: fixture.profile.id,
+      fingerprint: fixture.owner.fingerprint,
+      request: fixture.purgeRequest,
       userId: fixture.owner.userId,
     }).then(
       () => ({ kind: "fulfilled" as const }),
@@ -119,6 +128,8 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
 
     const purge = runPurgeDocumentWorkflow(db, {
       documentId: fixture.profile.id,
+      fingerprint: fixture.owner.fingerprint,
+      request: fixture.purgeRequest,
       userId: fixture.owner.userId,
     });
 

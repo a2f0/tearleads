@@ -12,7 +12,7 @@ const lifecycleScript = `
 require "json"
 require ARGV.fetch(0)
 
-def exercise(environment, fail: false, setup_fail: false, cleanup_fail: false)
+def exercise(environment, lock_path:, fail: false, setup_fail: false, cleanup_fail: false)
   events = []
   result = nil
   error = nil
@@ -22,6 +22,7 @@ def exercise(environment, fail: false, setup_fail: false, cleanup_fail: false)
   begin
     result = IosSigningKeychain.with_temporary(
       environment: environment,
+      lock_path: lock_path,
       setup: proc do |name, password|
         events << ["setup", name]
         setup_password = password
@@ -52,17 +53,18 @@ def exercise(environment, fail: false, setup_fail: false, cleanup_fail: false)
   }
 end
 
+lock_path = ARGV.fetch(1)
 original_term_handler = proc {}
 prior_term_handler = Signal.trap("TERM", original_term_handler)
-cleanup_failure = exercise({}, cleanup_fail: true)
+cleanup_failure = exercise({}, lock_path: lock_path, cleanup_fail: true)
 restored_term_handler = Signal.trap("TERM", prior_term_handler)
 
 puts JSON.generate(
-  success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret", "MATCH_READONLY" => "false" }),
-  failure: exercise({}, fail: true),
-  setup_failure: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }, setup_fail: true),
+  success: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret", "MATCH_READONLY" => "false" }, lock_path: lock_path),
+  failure: exercise({}, lock_path: lock_path, fail: true),
+  setup_failure: exercise({ "MATCH_KEYCHAIN_NAME" => "", "MATCH_KEYCHAIN_PASSWORD" => "login-secret" }, lock_path: lock_path, setup_fail: true),
   cleanup_failure: cleanup_failure,
-  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }),
+  custom: exercise({ "MATCH_KEYCHAIN_NAME" => "caller-keychain", "MATCH_KEYCHAIN_PASSWORD" => "caller-secret" }, lock_path: lock_path),
   signal_handler_restored: restored_term_handler.equal?(original_term_handler)
 )
 `;
@@ -116,15 +118,23 @@ end
 `;
 
 test("temporary signing keychain lifecycle preserves caller state", async () => {
-  const child = Bun.spawn(["ruby", "-e", lifecycleScript, helperPath], {
-    stderr: "pipe",
-    stdout: "pipe",
-  });
+  const temporaryDirectory = await mkdtemp(
+    join(tmpdir(), "symcrypt-keychain-lifecycle-"),
+  );
+  const lockPath = join(temporaryDirectory, "release.lock");
+  const child = Bun.spawn(
+    ["ruby", "-e", lifecycleScript, helperPath, lockPath],
+    {
+      stderr: "pipe",
+      stdout: "pipe",
+    },
+  );
   const [exitCode, stderr, stdout] = await Promise.all([
     child.exited,
     new Response(child.stderr).text(),
     new Response(child.stdout).text(),
   ]);
+  await rm(temporaryDirectory, { force: true, recursive: true });
   expect(exitCode, stderr).toBe(0);
 
   const results = JSON.parse(stdout);

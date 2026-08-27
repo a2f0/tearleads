@@ -65,6 +65,10 @@ export {
   replaceDocumentLinks,
 } from "./documentLinks";
 export {
+  purgeLocalContainerDocument,
+  purgeRemoteContainerDocument,
+} from "./documentPurge";
+export {
   type ContainerDocumentLinkInput,
   type ContainerDocumentQueries,
   type ContainerDocumentSidebarRow,

@@ -1,16 +1,19 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { gatherWithExecutor } from "@symcrypt/api-shared/postgres";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@symcrypt/crypto";
+import { principalPolicyMatchesReference } from "@symcrypt/crypto";
 import {
   getCurrentPrincipalStates,
   type PrincipalStateReference,
   principalStateReferenceKey,
 } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
 import { PrincipalPolicyError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
@@ -91,7 +94,48 @@ export async function loadPrincipalPoliciesForContainerPaths(
   );
 }
 
-export async function loadPrincipalPoliciesForReferences(
+export async function loadPrincipalAuthorizationPoliciesForReferences(
+  executor: DatabaseSession,
+  references: readonly ReferencedPrincipalHead[],
+  evidence: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<AnyVerifiedPrincipalPolicy[]> {
+  const missing = references.filter(
+    (reference) =>
+      !evidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
+  );
+  if (missing.length === 0) return [...evidence];
+  try {
+    const { policies } =
+      await loadVerifiedPrincipalPolicySnapshotsForReferences(
+        executor,
+        missing,
+      );
+    return [...evidence, ...policies];
+  } catch (error) {
+    if (error instanceof PrincipalPolicyError) {
+      throw new PrincipalPolicyProjectionError(
+        `Principal policy failed integrity verification: ${error.message}`,
+      );
+    }
+    throw error;
+  }
+}
+
+export async function loadPrincipalAuthorizationPoliciesForContainerPaths(
+  executor: DatabaseSession,
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+  evidence: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<AnyVerifiedPrincipalPolicy[]> {
+  return loadPrincipalAuthorizationPoliciesForReferences(
+    executor,
+    collectReferencedPrincipalHeads(paths),
+    evidence,
+  );
+}
+
+async function loadPrincipalPoliciesForReferences(
   executor: DatabaseSession,
   references: readonly ReferencedPrincipalHead[],
 ): Promise<VerifiedPrincipalPolicy[]> {

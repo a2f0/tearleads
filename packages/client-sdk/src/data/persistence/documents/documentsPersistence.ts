@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -12,6 +13,7 @@ import { findLocalIdByDocumentId } from "../../sqlite/documentPersistence";
 import {
   documentPendingUpdates,
   documentProjection,
+  documentPurgeCheckpoints,
   documents,
 } from "../../sqlite/schema";
 import {
@@ -87,6 +89,17 @@ async function upsertDiscoveredDocumentWithExec(
   pendingCreates: ReadonlyMap<string, string>,
   tx: ClientSQLiteTransactionScope,
 ): Promise<DocumentSummary> {
+  const [purgeCheckpoint] = await tx
+    .select({ documentId: documentPurgeCheckpoints.documentId })
+    .from(documentPurgeCheckpoints)
+    .where(eq(documentPurgeCheckpoints.documentId, input.documentId))
+    .limit(1);
+  if (purgeCheckpoint) {
+    throw new KeyingVerificationError(
+      "rollback",
+      "Document discovery targets a permanently purged document",
+    );
+  }
   const existingLocalId = await findLocalIdByDocumentId(
     execSql,
     DOCUMENTS_APP_KIND,

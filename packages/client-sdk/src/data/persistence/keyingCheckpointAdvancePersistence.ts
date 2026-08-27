@@ -1,7 +1,8 @@
 import {
   type AccessManifestCheckpoint,
-  type AnyVerifiedAccessManifest,
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
@@ -17,6 +18,10 @@ import {
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import {
+  type DocumentPurgeCheckpoint,
+  storeDocumentPurgeCheckpointInTransaction,
+} from "./documentPurgeCheckpointPersistence";
+import {
   accessManifestObjectKey,
   loadStoredAccessManifestCheckpoint,
   loadStoredPrincipalPolicyCheckpoint,
@@ -31,8 +36,8 @@ import {
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 export interface AccessManifestCheckpointAdvance {
-  readonly head: AnyVerifiedAccessManifest;
-  readonly predecessors: readonly AnyVerifiedAccessManifest[];
+  readonly head: VerifiedAccessManifestCheckpointEvidence;
+  readonly predecessors: readonly VerifiedAccessManifestCheckpointEvidence[];
 }
 
 interface VerifiedPrincipalPolicyBundleEntry {
@@ -41,7 +46,7 @@ interface VerifiedPrincipalPolicyBundleEntry {
 }
 
 interface PendingAccessCheckpoint {
-  readonly checkpoint: AnyVerifiedAccessManifest["checkpoint"];
+  readonly checkpoint: AccessManifestCheckpoint;
 }
 
 function validateAccessAdvance(
@@ -152,9 +157,9 @@ async function validateAccessAdvances(
 
 async function validatePolicyAdvances(
   tx: ClientSQLiteTransactionScope,
-  policies: readonly VerifiedPrincipalPolicy[],
-): Promise<Map<string, VerifiedPrincipalPolicy>> {
-  const policiesByPrincipal = new Map<string, VerifiedPrincipalPolicy[]>();
+  policies: readonly AnyVerifiedPrincipalPolicy[],
+): Promise<Map<string, AnyVerifiedPrincipalPolicy>> {
+  const policiesByPrincipal = new Map<string, AnyVerifiedPrincipalPolicy[]>();
   for (const policy of policies) {
     const key = principalPolicyKey(policy);
     const candidates = policiesByPrincipal.get(key) ?? [];
@@ -162,7 +167,7 @@ async function validatePolicyAdvances(
     policiesByPrincipal.set(key, candidates);
   }
 
-  const pending = new Map<string, VerifiedPrincipalPolicy>();
+  const pending = new Map<string, AnyVerifiedPrincipalPolicy>();
   for (const key of [...policiesByPrincipal.keys()].sort()) {
     const candidates = policiesByPrincipal.get(key) ?? [];
     const maxVersion = Math.max(...candidates.map((policy) => policy.version));
@@ -224,7 +229,7 @@ async function writeAccessCheckpoints(
 
 async function writePolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
-  pending: ReadonlyMap<string, VerifiedPrincipalPolicy>,
+  pending: ReadonlyMap<string, AnyVerifiedPrincipalPolicy>,
   updatedAt: string,
 ): Promise<void> {
   for (const policy of pending.values()) {
@@ -244,8 +249,9 @@ async function writePolicyCheckpoints(
  */
 export async function advanceKeyingCheckpointsAtomically(input: {
   readonly access: readonly AccessManifestCheckpointAdvance[];
+  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
-  readonly policies: readonly VerifiedPrincipalPolicy[];
+  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
 }): Promise<void> {
   await ensureSqlTables(input.execSql, keyingCheckpointTables);
   const updatedAt = new Date().toISOString();
@@ -257,6 +263,13 @@ export async function advanceKeyingCheckpointsAtomically(input: {
 
       await writeAccessCheckpoints(tx, access, updatedAt);
       await writePolicyCheckpoints(tx, policies, updatedAt);
+      if (input.documentPurgeCheckpoint) {
+        await storeDocumentPurgeCheckpointInTransaction(
+          tx,
+          input.documentPurgeCheckpoint,
+          updatedAt,
+        );
+      }
     },
     { behavior: "immediate" },
   );

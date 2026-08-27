@@ -51,6 +51,7 @@ function createSyncFailureRuntime(input: {
   blobStageCalls: number[];
   code?: string | undefined;
   offlineRuntime: Awaited<ReturnType<typeof createSyncRuntime>>;
+  purgeProofCalls?: string[] | undefined;
   reportedErrors: string[];
   status?: number | undefined;
   syncResultCalls: string[];
@@ -58,6 +59,10 @@ function createSyncFailureRuntime(input: {
   const status = input.status ?? 404;
   return cloneDocumentsTestRuntime(input.offlineRuntime, {
     apiClient: createMockApiClient({
+      getDocumentPurgeProof: async (documentId) => {
+        input.purgeProofCalls?.push(documentId);
+        return null;
+      },
       initiateMultipartBlobStage: async () => {
         input.blobStageCalls.push(1);
         return null;
@@ -83,16 +88,18 @@ function createSyncFailureRuntime(input: {
   });
 }
 
-test("coded deletion clears a document before pending attachment upload", async () => {
+test("coded deletion without a signed proof preserves pending attachment state", async () => {
   const { offlineRuntime, persistence, remoteDocumentId, store } =
     await createStoreWithPendingAttachment("deleted-before-attachment");
   const blobStageCalls: number[] = [];
   const reportedErrors: string[] = [];
+  const purgeProofCalls: string[] = [];
   const syncResultCalls: string[] = [];
   const onlineRuntime = createSyncFailureRuntime({
     blobStageCalls,
     code: DOCUMENT_NOT_FOUND_ERROR_CODE,
     offlineRuntime,
+    purgeProofCalls,
     reportedErrors,
     syncResultCalls,
   });
@@ -101,16 +108,16 @@ test("coded deletion clears a document before pending attachment upload", async 
   store.requestSync();
 
   await waitForCondition(
-    () =>
-      persistence.getState().document === null &&
-      !store.getSnapshot().ready &&
-      !store.getSnapshot().syncing,
-    "Coded deletion did not clear the document before attachment upload.",
+    () => syncResultCalls.length === 1 && !store.getSnapshot().syncing,
+    "Unproven deletion did not finish the attachment revalidation pass.",
   );
 
-  expect(persistence.getState().pendingAttachments).toEqual([]);
-  expect(persistence.getState().pendingUpdates).toEqual([]);
+  expect(persistence.getState().document).not.toBeNull();
+  expect(persistence.getState().pendingAttachments).toHaveLength(1);
+  expect(persistence.getState().pendingUpdates.length).toBeGreaterThan(0);
+  expect(store.getSnapshot().ready).toBe(true);
   expect(syncResultCalls).toEqual([remoteDocumentId]);
+  expect(purgeProofCalls).toEqual([remoteDocumentId]);
   expect(blobStageCalls).toEqual([]);
   expect(reportedErrors).toEqual([]);
 });

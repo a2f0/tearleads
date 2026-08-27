@@ -9,6 +9,7 @@ export {
   accessManifestPrincipalHeadProjection,
   accessManifests,
   containerBuiltinGrants,
+  documentManifestObservations,
 } from "./accessManifests";
 export {
   blobAuditObjects,

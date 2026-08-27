@@ -222,11 +222,15 @@ as an authoritative removal. `known_containers_ack` is sent after in-memory
 routing changes and before best-effort persistence, so a later event is either
 delivered or causes the in-flight probe's signal sequence to arm a trailing pass.
 
-All three probes use the normal HTTP document-sync response: verified incoming
-Loro updates are merged and projected first, then current attachment bindings
-and blob bytes are hydrated. Only the existing coded `document_not_found`
-response authorizes local destruction; a bare 404 remains non-destructive, and
-403s keep the normal read-only suppression or write-bearing parking behavior.
+All three probes use normal document sync: verified Loro updates are projected
+before attachments and blob bytes hydrate. A coded `document_not_found` fetches
+a signed purge proof; the SDK verifies it before local destruction. Proofs
+default to purge-time heads. The SDK authenticates that baseline before reading
+local checkpoint identities and requests document predecessor evidence for a
+known document checkpoint. A later container checkpoint fails closed because
+its ordering relative to the purge is not signed. Missing or invalid proofs fail
+hard, bare 404s remain non-destructive, and 403s keep normal parking behavior.
+The same coded-404 path completes a purge whose successful POST response was lost.
 After the initial missing-listing convergence pass, ordinary documents that
 have never been opened remain lazy until a document window, explicit
 registered-store revalidation, or other owning workflow opens them.

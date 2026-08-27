@@ -1,26 +1,26 @@
+import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import { unlinkRemoteContainerDocument } from "../documentLinks";
 import {
   purgeLocalContainerDocument,
   purgeRemoteContainerDocument,
-  unlinkRemoteContainerDocument,
-} from "../documentLinks";
+} from "../documentPurge";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { deleteContainerState } from "./delete";
 import type { PurgeProgress } from "./purgeProgress";
 
-// The cascade hands its runtime straight to the per-document purge/unlink
-// workflows. The container store's workflow runtime already satisfies every
-// group they need (its apiClient is the full ApiClient, infra carries the
-// resolved document projector registry), so the cascade reuses it verbatim.
+// The store runtime satisfies the per-document purge/unlink workflows, so the
+// cascade reuses it verbatim.
 type PurgeContainerTreeRuntime = ContainerContentsWorkflowRuntime;
 
 interface PurgeContainerTreeInput {
   readonly containersById: ReadonlyMap<string, ContainerState>;
+  readonly documentOperations?: SubtreeDocumentOperations | undefined;
   // When true, tear down everything UNDER the root (its documents plus every
   // descendant container) but never delete the root container itself. This is
   // how "Empty Trash" reuses the same engine: the Trash bin is a protected system
@@ -47,12 +47,8 @@ interface PurgeContainerTreeResult {
   readonly totalCount: number;
 }
 
-// The folder being purged plus every descendant container, in deepest-first
-// order. Container deletion is leaf-only at both the store and the server, so a
-// non-empty subtree must be torn down from the leaves up. A breadth-first walk
-// over `containersById` yields parents before children; reversing it gives the
-// leaf-first order the deletes require. Self/cyclic parent chains are guarded by
-// the enqueued set.
+// Collect the target and descendants leaf-first because container deletion is
+// leaf-only. The enqueued set guards self/cyclic parent chains.
 export function collectSubtreeLeafFirst(
   containersById: ReadonlyMap<string, ContainerState>,
   rootContainerId: string,
@@ -96,8 +92,12 @@ export function collectSubtreeLeafFirst(
 }
 
 interface SubtreeDocumentPlan {
-  // Synced documents whose every link falls inside the subtree: destroy them.
-  readonly purge: readonly DocumentSummary[];
+  // Synced documents whose every link falls inside the subtree: reduce them to
+  // one retained link, as required by the purge endpoint, then destroy them.
+  readonly purge: readonly {
+    document: DocumentSummary;
+    unlinkContainerIds: readonly string[];
+  }[];
   // Synced documents also linked outside the subtree: keep them, but unlink
   // from each in-subtree container so the containers can be deleted.
   readonly unlinkByDocument: ReadonlyMap<
@@ -109,21 +109,17 @@ interface SubtreeDocumentPlan {
 }
 
 type SubtreeDocumentDisposition =
-  | { kind: "purge" }
+  | { kind: "purge"; unlinkContainerIds: readonly string[] }
   | { kind: "purge-local" }
   | { kind: "unlink"; containerIds: readonly string[] };
 
-// The pure decision for a single document: destroy it, destroy it locally, or
-// keep it and unlink it from the subtree. A never-synced document (no remote id)
-// has no remote link projection, so the subtree is necessarily its only home and
-// it is purged locally. A synced document linked only within the subtree is
-// destroyed (its last link is here); one also linked to a folder OUTSIDE the
-// subtree is preserved and only unlinked from the in-subtree containers, so its
-// other folders stay intact. This mirrors the server's purge cardinality guard
-// (purge requires a sole container link) while honoring multi-folder documents.
+// Destroy local-only documents locally. Destroy synced documents only when all
+// links are in the subtree; preserve documents with an external link. The purge
+// plan reduces owned documents to the server-required sole link first.
 export function classifySubtreeDocument(input: {
   readonly documentId: string | null;
   readonly linkedContainerIds: readonly string[];
+  readonly preferredContainerId?: string | null | undefined;
   readonly subtreeContainerIds: ReadonlySet<string>;
 }): SubtreeDocumentDisposition {
   if (!input.documentId) {
@@ -133,7 +129,24 @@ export function classifySubtreeDocument(input: {
     (containerId) => !input.subtreeContainerIds.has(containerId),
   );
   if (!hasExternalLink) {
-    return { kind: "purge" };
+    const linkedContainerIds = Array.from(
+      new Set(
+        input.linkedContainerIds.filter((containerId) =>
+          input.subtreeContainerIds.has(containerId),
+        ),
+      ),
+    );
+    const retainedContainerId =
+      input.preferredContainerId &&
+      linkedContainerIds.includes(input.preferredContainerId)
+        ? input.preferredContainerId
+        : linkedContainerIds[0];
+    return {
+      kind: "purge",
+      unlinkContainerIds: linkedContainerIds.filter(
+        (containerId) => containerId !== retainedContainerId,
+      ),
+    };
   }
   return {
     kind: "unlink",
@@ -163,7 +176,10 @@ async function planSubtreeDocuments(input: {
       remoteDocumentIds,
     );
 
-  const purge: DocumentSummary[] = [];
+  const purge: Array<{
+    document: DocumentSummary;
+    unlinkContainerIds: readonly string[];
+  }> = [];
   const purgeLocal: DocumentSummary[] = [];
   const unlinkByDocument = new Map<
     string,
@@ -175,12 +191,16 @@ async function planSubtreeDocuments(input: {
       linkedContainerIds: document.documentId
         ? (linkedContainerIdsByDocumentId.get(document.documentId) ?? [])
         : [],
+      preferredContainerId: document.containerId,
       subtreeContainerIds: input.subtreeContainerIds,
     });
     if (disposition.kind === "purge-local") {
       purgeLocal.push(document);
     } else if (disposition.kind === "purge") {
-      purge.push(document);
+      purge.push({
+        document,
+        unlinkContainerIds: disposition.unlinkContainerIds,
+      });
     } else if (document.documentId) {
       unlinkByDocument.set(document.documentId, {
         document,
@@ -230,26 +250,60 @@ async function unlinkSubtreeDocument(input: {
   return true;
 }
 
+interface SubtreeDocumentOperations {
+  readonly purgeLocal: (document: DocumentSummary) => Promise<boolean>;
+  readonly purgeRemote: (document: DocumentSummary) => Promise<boolean>;
+  readonly unlink: (
+    document: DocumentSummary,
+    containerIds: readonly string[],
+  ) => Promise<boolean>;
+}
+
+function resolveSubtreeDocumentOperations(
+  input: PurgeContainerTreeInput,
+): SubtreeDocumentOperations {
+  return (
+    input.documentOperations ?? {
+      purgeLocal: async (document) =>
+        (await purgeLocalContainerDocument({
+          noteId: document.id,
+          runtime: input.runtime,
+        })) !== null,
+      purgeRemote: async (document) =>
+        Boolean(
+          document.documentId &&
+            (await purgeRemoteContainerDocument({
+              documentId: document.documentId,
+              documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
+              noteId: document.id,
+              resolveProjectionUserKey: input.resolveProjectionUserKey,
+              runtime: input.runtime,
+            })),
+        ),
+      unlink: (document, containerIds) =>
+        unlinkSubtreeDocument({
+          containerIds,
+          document,
+          prepareDocumentRotationSnapshot:
+            input.prepareDocumentRotationSnapshot,
+          resolveProjectionUserKey: input.resolveProjectionUserKey,
+          runtime: input.runtime,
+        }),
+    }
+  );
+}
+
 interface SubtreeTeardownResult {
   readonly aborted: boolean;
 }
 
-// Destroy every document the subtree owns, reporting one progress step per
-// document. Multi-folder documents are unlinked first (so their external folders
-// survive and the container delete won't trip the server's "container has linked
-// documents" guard); sole-owned documents are purged; never-synced documents are
-// torn down locally. Unlike the old all-or-nothing teardown, a single failed
-// document no longer aborts the whole operation — it is counted as a failed step
-// and skipped, so "Empty Trash" still clears every OTHER item (a failed document
-// merely leaves its own container undeletable, which the container phase then
-// skips). Cancellation is honored between documents, so the last completed
-// document finished both its remote and local halves.
+// Tear down one whole document per progress step. A failed document is skipped,
+// leaving its container undeletable while the remaining subtree work continues.
+// Cancellation is honored only between complete document operations.
 async function teardownSubtreeDocuments(input: {
+  readonly documentOperations: SubtreeDocumentOperations;
   readonly plan: SubtreeDocumentPlan;
-  readonly prepareDocumentRotationSnapshot: PurgeContainerTreeInput["prepareDocumentRotationSnapshot"];
   readonly reportStep: (ok: boolean) => void;
-  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly runtime: PurgeContainerTreeRuntime;
   readonly signal?: AbortSignal | undefined;
 }): Promise<SubtreeTeardownResult> {
   for (const {
@@ -259,39 +313,30 @@ async function teardownSubtreeDocuments(input: {
     if (input.signal?.aborted) {
       return { aborted: true };
     }
-    const unlinked = await unlinkSubtreeDocument({
-      containerIds,
+    const unlinked = await input.documentOperations.unlink(
       document,
-      prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      runtime: input.runtime,
-    });
+      containerIds,
+    );
     input.reportStep(unlinked);
   }
-  for (const document of input.plan.purge) {
+  for (const { document, unlinkContainerIds } of input.plan.purge) {
     if (input.signal?.aborted) {
       return { aborted: true };
     }
-    if (!document.documentId) {
-      input.reportStep(true);
+    if (
+      unlinkContainerIds.length > 0 &&
+      !(await input.documentOperations.unlink(document, unlinkContainerIds))
+    ) {
+      input.reportStep(false);
       continue;
     }
-    const purged = await purgeRemoteContainerDocument({
-      documentId: document.documentId,
-      noteId: document.id,
-      runtime: input.runtime,
-    });
-    input.reportStep(purged !== null);
+    input.reportStep(await input.documentOperations.purgeRemote(document));
   }
   for (const document of input.plan.purgeLocal) {
     if (input.signal?.aborted) {
       return { aborted: true };
     }
-    const purged = await purgeLocalContainerDocument({
-      noteId: document.id,
-      runtime: input.runtime,
-    });
-    input.reportStep(purged !== null);
+    input.reportStep(await input.documentOperations.purgeLocal(document));
   }
   return { aborted: false };
 }
@@ -301,15 +346,8 @@ interface SubtreeContainerDeletionResult {
   readonly purgedContainerIds: string[];
 }
 
-// Delete each subtree container in the given leaf-first order, returning the ids
-// that were actually removed. A container that still holds surviving content — a
-// document that failed to tear down, or a child that was not deleted — cannot be
-// deleted leaf-only, so it is skipped and its parent is marked blocked. A blocked
-// container is never even attempted (that would be a guaranteed-to-fail
-// round-trip) and it blocks its own parent in turn, so an entire chain of
-// ancestors above a survivor stays intact. Cancellation stops at a container
-// boundary. The result is always a consistent prefix: no parent is removed before
-// a surviving child.
+// Delete leaf-first. A surviving document or child blocks its container and all
+// ancestors; cancellation stops at a container boundary.
 async function deleteSubtreeContainers(input: {
   readonly persistence: PurgeContainerTreeInput["persistence"];
   readonly reportStep: (ok: boolean) => void;
@@ -423,11 +461,9 @@ export async function purgeContainerTree(
   emitProgress();
 
   const teardown = await teardownSubtreeDocuments({
+    documentOperations: resolveSubtreeDocumentOperations(input),
     plan,
-    prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
     reportStep,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    runtime: input.runtime,
     signal: input.signal,
   });
 

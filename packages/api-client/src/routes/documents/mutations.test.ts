@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import {
   documentCreate,
-  documentDelete,
   documentLink,
+  documentPurge,
+  documentPurgeProof,
   documentUnlink,
 } from "./mutations";
 
@@ -26,7 +27,22 @@ test("document mutation client metadata derives from shared operations", () => {
     expect(metadata.isResponse).toBeDefined();
   }
 
-  expect(documentDelete.method).toBe("DELETE");
-  expect(documentDelete.path("document/1")).toBe("/documents/document%2F1");
-  expect(documentDelete.isResponse).toBeDefined();
+  expect(documentPurge.method).toBe("POST");
+  expect(documentPurge.path("document/1")).toBe(
+    "/documents/document%2F1/purge",
+  );
+  expect(documentPurge.isRequest).toBeDefined();
+  expect(documentPurge.isResponse).toBeDefined();
+  expect(documentPurgeProof.method).toBe("GET");
+  expect(documentPurgeProof.path("document/1")).toBe(
+    "/documents/document%2F1/purge",
+  );
+  expect(
+    documentPurgeProof.path("document/1", {
+      documentCheckpointManifestHash: "document-head",
+    }),
+  ).toBe(
+    "/documents/document%2F1/purge?documentCheckpointManifestHash=document-head",
+  );
+  expect(documentPurgeProof.isResponse).toBeDefined();
 });

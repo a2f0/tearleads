@@ -343,7 +343,7 @@ export function normalizeReferencedPrincipalHeads(
   return normalizedValues;
 }
 
-function normalizeAccessManifest(value: unknown): AccessManifest {
+export function normalizeAccessManifest(value: unknown): AccessManifest {
   const record = assertExactKeys(
     value,
     [

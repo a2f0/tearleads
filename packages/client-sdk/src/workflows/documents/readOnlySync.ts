@@ -441,6 +441,7 @@ export interface SyncRemoteDocumentInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
+  /** Atomically commits the verified purge proof with matching local teardown. */
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   // Receives the reason whenever this sync returns null, so callers that
   // convert a null result into their own error can name the real cause.

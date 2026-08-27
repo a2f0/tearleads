@@ -6,10 +6,12 @@ import {
 import {
   DocumentCreateRequestSchema,
   DocumentLinkSetMutationRequestSchema,
+  DocumentPurgeRequestSchema,
 } from "../request";
 import {
   DocumentCreateResponseSchema,
   DocumentLinkSetMutationResponseSchema,
+  DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
@@ -17,13 +19,16 @@ import {
 import {
   createDocumentOperation,
   DocumentMutationPathParamsSchema,
-  deleteDocumentOperation,
+  getDocumentPurgeProofOperation,
   isCreateDocumentOperationRequest,
   isCreateDocumentOperationResponse,
-  isDeleteDocumentOperationResponse,
   isDocumentLinkSetMutationOperationRequest,
   isDocumentLinkSetMutationOperationResponse,
+  isGetDocumentPurgeProofOperationResponse,
+  isPurgeDocumentOperationRequest,
+  isPurgeDocumentOperationResponse,
   linkDocumentOperation,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "./documentMutations";
 import { DocumentSyncPathParamsSchema } from "./documentSync";
@@ -33,6 +38,8 @@ import {
   createDocumentCreateResponse,
   createDocumentLinkSetMutationRequest,
   createDocumentLinkSetMutationResponse,
+  createDocumentPurgeProofResponse,
+  createDocumentPurgeRequest,
   createDocumentPurgeResponse,
 } from "./openApiTestFixtures";
 
@@ -69,13 +76,21 @@ test("document mutation operations own their complete wire metadata", () => {
       ],
     });
   }
-  expect(deleteDocumentOperation).toMatchObject({
+  expect(purgeDocumentOperation).toMatchObject({
     auth: "session",
     failureResponses,
     failureStatuses,
-    id: "documents.delete",
-    method: "DELETE",
-    path: "/documents/{documentId}",
+    id: "documents.purge",
+    method: "POST",
+    path: "/documents/{documentId}/purge",
+  });
+  expect(getDocumentPurgeProofOperation).toMatchObject({
+    auth: "session",
+    failureResponses,
+    failureStatuses,
+    id: "documents.purgeProof",
+    method: "GET",
+    path: "/documents/{documentId}/purge",
   });
 });
 
@@ -112,7 +127,15 @@ test("document mutation guards derive from canonical schemas", () => {
   expect(DocumentPurgeResponseSchema.safeParse(purgeResponse).success).toBe(
     true,
   );
-  expect(isDeleteDocumentOperationResponse(purgeResponse)).toBe(true);
+  const purgeRequest = createDocumentPurgeRequest();
+  expect(DocumentPurgeRequestSchema.safeParse(purgeRequest).success).toBe(true);
+  expect(isPurgeDocumentOperationRequest(purgeRequest)).toBe(true);
+  expect(isPurgeDocumentOperationResponse(purgeResponse)).toBe(true);
+  const purgeProof = createDocumentPurgeProofResponse();
+  expect(DocumentPurgeProofResponseSchema.safeParse(purgeProof).success).toBe(
+    true,
+  );
+  expect(isGetDocumentPurgeProofOperationResponse(purgeProof)).toBe(true);
 });
 
 test("document mutation path parameters preserve string compatibility", () => {

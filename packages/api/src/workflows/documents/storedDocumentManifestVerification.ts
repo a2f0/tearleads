@@ -27,7 +27,7 @@ import {
   ContainerWriterProjectionError,
 } from "../containers/writerProjection/types";
 import {
-  loadPrincipalPoliciesForContainerPaths,
+  loadPrincipalAuthorizationPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
 } from "../principals/principalPolicyProjection";
 import { loadSignerPublicKey } from "../signerPublicKey";
@@ -157,6 +157,15 @@ async function verifyStoredEvent(input: {
     throw integrityError("access event hash is inconsistent");
   }
   return result.value;
+}
+
+export function verifyStoredDocumentManifestTransition(
+  input: Parameters<typeof verifyDocumentLinkSetManifest>[0],
+) {
+  return verifyDocumentLinkSetManifest({
+    ...input,
+    authorizationMembership: "referenced",
+  });
 }
 
 async function loadStoredEventSigner(input: {
@@ -296,11 +305,13 @@ async function verifyBundle(input: {
     if (!targetContainerPath) {
       throw integrityError("signed target container path is missing");
     }
-    const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
-      input.containerContext.executor,
-      containerPaths,
-    );
-    const result = await verifyDocumentLinkSetManifest({
+    const principalPolicies =
+      await loadPrincipalAuthorizationPoliciesForContainerPaths(
+        input.containerContext.executor,
+        containerPaths,
+        input.containerContext.principalPolicyAuthorizationEvidence,
+      );
+    const result = await verifyStoredDocumentManifestTransition({
       authorizingContainerPaths: containerPaths,
       event,
       expectedManifestHash: input.bundle.manifestHash,

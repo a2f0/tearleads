@@ -61,6 +61,7 @@ export type AccessEventType =
   | "container.rekey"
   | "container.revoke"
   | "document.link"
+  | "document.purge"
   | "document.unlink";
 
 export type AccessObjectKind = "blob" | "container" | "document";
@@ -505,6 +506,7 @@ const verifiedIdentityStateBrand: unique symbol = Symbol(
 const verifiedPrincipalPolicyBrand: unique symbol = Symbol(
   "verifiedPrincipalPolicy",
 );
+const verifiedPrincipalPolicySnapshotBrand: unique symbol = Symbol();
 const verifiedAccessEventBrand: unique symbol = Symbol("verifiedAccessEvent");
 const verifiedAccessManifestBrand: unique symbol = Symbol(
   "verifiedAccessManifest",
@@ -515,6 +517,7 @@ const verifiedContainerAccessManifestBrand: unique symbol = Symbol(
 const verifiedDocumentLinkSetManifestBrand: unique symbol = Symbol(
   "verifiedDocumentLinkSetManifest",
 );
+const verifiedDocumentLinkSetStateEvidenceBrand: unique symbol = Symbol();
 const verifiedDocumentKekTargetsBrand: unique symbol = Symbol(
   "verifiedDocumentKekTargets",
 );
@@ -530,16 +533,10 @@ const verifiedBlobKekTargetsBrand: unique symbol = Symbol(
 const verifiedContainerParentEdgeBrand: unique symbol = Symbol(
   "verifiedContainerParentEdge",
 );
-const verifiedContainerKekStateBrand: unique symbol = Symbol(
-  "verifiedContainerKekState",
-);
+const verifiedContainerKekStateBrand: unique symbol = Symbol("kek");
 const verifiedWriteHeaderBrand: unique symbol = Symbol("verifiedWriteHeader");
-const verifiedTransparencyTreeHeadBrand: unique symbol = Symbol(
-  "verifiedTransparencyTreeHead",
-);
-const verifiedTransparencyProofBrand: unique symbol = Symbol(
-  "verifiedTransparencyProof",
-);
+const verifiedTransparencyTreeHeadBrand: unique symbol = Symbol("treeHead");
+const verifiedTransparencyProofBrand: unique symbol = Symbol("proof");
 
 export interface VerifiedIdentityState {
   readonly identityId: string;
@@ -564,6 +561,24 @@ export interface VerifiedPrincipalPolicy {
   readonly [verifiedPrincipalPolicyBrand]: true;
 }
 
+export interface VerifiedPrincipalPolicySnapshot {
+  readonly principalType: ManagedPrincipalKind;
+  readonly principalId: string;
+  readonly version: number;
+  readonly keyEpoch: number;
+  readonly stateHash: string;
+  readonly state: PrincipalPolicySignedState;
+  readonly projection: PrincipalProjectionMember[];
+  readonly grants: PrincipalContainerGrant[];
+  readonly history: readonly NormalizedPrincipalPolicyStateChainEntry[];
+  readonly checkpoint: PrincipalPolicyCheckpoint;
+  readonly [verifiedPrincipalPolicySnapshotBrand]: true;
+}
+
+export type AnyVerifiedPrincipalPolicy =
+  | VerifiedPrincipalPolicy
+  | VerifiedPrincipalPolicySnapshot;
+
 export interface VerifiedAccessEvent {
   readonly event: AccessEvent;
   readonly body: KeyingCanonicalJson;
@@ -578,7 +593,6 @@ export interface VerifiedAccessManifest {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly [verifiedAccessManifestBrand]: true;
 }
-
 export interface VerifiedContainerAccessManifest {
   readonly manifest: ContainerAccessManifest;
   readonly manifestHash: string;
@@ -587,21 +601,24 @@ export interface VerifiedContainerAccessManifest {
   readonly checkpoint: AccessManifestCheckpoint;
   readonly [verifiedContainerAccessManifestBrand]: true;
 }
-
-export interface VerifiedDocumentLinkSetManifest {
+export interface VerifiedDocumentLinkSetStateEvidence {
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
-  readonly event: VerifiedAccessEvent;
   readonly state: DocumentLinkSetManifestState;
   readonly checkpoint: AccessManifestCheckpoint;
+  readonly [verifiedDocumentLinkSetStateEvidenceBrand]: true;
+}
+export interface VerifiedDocumentLinkSetManifest
+  extends VerifiedDocumentLinkSetStateEvidence {
+  readonly event: VerifiedAccessEvent;
   readonly [verifiedDocumentLinkSetManifestBrand]: true;
 }
-
+export type VerifiedDocumentLinkSetSnapshot =
+  VerifiedDocumentLinkSetStateEvidence;
 export type AnyVerifiedAccessManifest =
   | VerifiedAccessManifest
   | VerifiedContainerAccessManifest
   | VerifiedDocumentLinkSetManifest;
-
 export interface VerifiedDocumentKekTargets {
   readonly documentId: string;
   readonly linkSetManifestHash: string;
@@ -710,6 +727,18 @@ export function makeVerifiedPrincipalPolicy(
   };
 }
 
+export function makeVerifiedPrincipalPolicySnapshot(
+  value: Omit<
+    VerifiedPrincipalPolicySnapshot,
+    typeof verifiedPrincipalPolicySnapshotBrand
+  >,
+): VerifiedPrincipalPolicySnapshot {
+  return {
+    ...value,
+    [verifiedPrincipalPolicySnapshotBrand]: verifiedBrandValue,
+  };
+}
+
 export function makeVerifiedAccessEvent(
   value: Omit<VerifiedAccessEvent, typeof verifiedAccessEventBrand>,
 ): VerifiedAccessEvent {
@@ -743,12 +772,26 @@ export function makeVerifiedContainerAccessManifest(
 export function makeVerifiedDocumentLinkSetManifest(
   value: Omit<
     VerifiedDocumentLinkSetManifest,
-    typeof verifiedDocumentLinkSetManifestBrand
+    | typeof verifiedDocumentLinkSetManifestBrand
+    | typeof verifiedDocumentLinkSetStateEvidenceBrand
   >,
 ): VerifiedDocumentLinkSetManifest {
   return {
     ...value,
     [verifiedDocumentLinkSetManifestBrand]: verifiedBrandValue,
+    [verifiedDocumentLinkSetStateEvidenceBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedDocumentLinkSetSnapshot(
+  value: Omit<
+    VerifiedDocumentLinkSetSnapshot,
+    typeof verifiedDocumentLinkSetStateEvidenceBrand
+  >,
+): VerifiedDocumentLinkSetSnapshot {
+  return {
+    ...value,
+    [verifiedDocumentLinkSetStateEvidenceBrand]: verifiedBrandValue,
   };
 }
 
@@ -895,6 +938,7 @@ export interface VerifyAccessManifestInput {
 }
 
 export interface VerifyContainerAccessManifestInput {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly manifest: AccessManifest;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
@@ -906,7 +950,7 @@ export interface VerifyContainerAccessManifestInput {
   readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
 }
 
 export interface VerifyContainerParentEdgeInput {
@@ -915,17 +959,18 @@ export interface VerifyContainerParentEdgeInput {
 }
 
 export interface VerifyDocumentLinkSetManifestInput {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly manifest: AccessManifest;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;
-  readonly previousManifest?: VerifiedDocumentLinkSetManifest | null;
+  readonly previousManifest?: VerifiedDocumentLinkSetStateEvidence | null;
   readonly localCheckpoint?: AccessManifestCheckpoint | null | undefined;
   readonly checkpointPredecessors?:
     | readonly AnyVerifiedAccessManifest[]
     | undefined;
   readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
 }
 
 export interface DeriveContainerKekRecipientTargetsInput {
@@ -1075,6 +1120,13 @@ export interface PrincipalPolicyBundle {
   readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
 }
 
+export interface PrincipalPolicySnapshot {
+  readonly currentState: PrincipalPolicySignedState;
+  readonly currentProjection: readonly PrincipalProjectionMember[];
+  readonly currentGrants: readonly PrincipalContainerGrant[];
+  readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
+}
+
 export interface PrincipalPolicySignerPublicKey {
   readonly userId: string;
   readonly signingKeyFingerprint: string;
@@ -1086,6 +1138,13 @@ export interface VerifyPrincipalPolicyBundleInput {
   readonly externalAuthority?: PrincipalPolicyExternalAuthority;
   readonly expectedReference?: ReferencedPrincipalHead;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+}
+
+export interface VerifyPrincipalPolicySnapshotInput {
+  readonly snapshot: PrincipalPolicySnapshot;
+  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
+  readonly expectedReference?: ReferencedPrincipalHead;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }
 

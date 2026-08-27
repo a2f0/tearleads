@@ -109,6 +109,7 @@ export interface SetActiveDocumentContainerInput
 }
 
 export interface PurgeDocumentInput {
+  /** The current local summary of the document to destroy. */
   readonly note: DocumentSummary;
 }
 
@@ -133,6 +134,12 @@ export interface ContainerDocumentLinks
   moveDocumentToContainer(
     input: MoveDocumentToContainerInput,
   ): Promise<{ linksChanged: boolean; note: DocumentSummary | null }>;
+  /**
+   * Permanently destroy a local-only document, or submit and verify a signed
+   * terminal purge for a remote document. Remote purge requires exactly one
+   * remaining container link and returns null on refusal or verification
+   * failure.
+   */
   purgeDocument(input: PurgeDocumentInput): Promise<PurgeDocumentResult | null>;
   readonly resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   unlinkDocumentFromContainer(

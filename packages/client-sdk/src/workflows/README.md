@@ -72,7 +72,8 @@ updates or a deferred-sync frontier behind its snapshot; otherwise it selects
 deterministically by descending update time and local id. This lets a restarted
 store adopt the same local owner without discarding unsynced work.
 `deleteDocumentSideRowsIfAbsent(...)` likewise owns one transaction spanning
-the canonical absence check and orphaned side-row/client-projection cleanup.
+the canonical absence check, remote-document alias rejection, and orphaned
+side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue
 fallback.
 
@@ -110,6 +111,25 @@ increment a repeat count, and each trust domain retains its 1,000 most recently
 detected rows. Network and SQLite availability errors are not incidents.
 Incident rows intentionally exclude exception messages, ciphertext, and
 decrypted values, and remote-state reset does not erase them.
+
+Remote document deletion commits its verified terminal purge checkpoint in the
+same local transaction as the matching document teardown. An interruption,
+stale store generation, or identity replacement leaves both operations
+uncommitted so the current generation can retry the retained proof.
+The public entry point is
+`symcrypt.containerContents.documentLinks().purgeDocument({ note })`. A remote
+document must have exactly one remaining container link; recursive container
+purge unlinks any additional in-subtree links before calling it. `null` means
+the purge was refused or could not be verified, and callers must retain the
+local document.
+Proof fetching reveals only purge-time heads by default. The SDK authenticates
+that baseline, including its redacted signed principal-policy snapshots, before
+reading local checkpoint identities. It may then supply an already-known
+document hash to fetch signed predecessor history. The purge-time container
+path must satisfy local container checkpoints directly; a later local head is
+ambiguous and fails closed because ancestry cannot order the separate purge
+signature. A coded not-found while retrying a user-initiated purge follows this
+retained-proof path as well.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

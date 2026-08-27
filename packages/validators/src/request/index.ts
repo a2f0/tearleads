@@ -58,12 +58,15 @@ export {
   DocumentLinkSetMutationRequestSchema,
   type DocumentOutgoingUpdate,
   DocumentOutgoingUpdateSchema,
+  type DocumentPurgeRequest,
+  DocumentPurgeRequestSchema,
   type DocumentSyncRequest,
   DocumentSyncRequestSchema,
   isContainerManifestRefArrayArray,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
+  isDocumentPurgeRequest,
   isDocumentSyncRequest,
 } from "./document";
 export {

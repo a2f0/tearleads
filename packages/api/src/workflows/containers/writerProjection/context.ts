@@ -1,8 +1,10 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
+import type { AnyVerifiedPrincipalPolicy } from "@symcrypt/crypto";
 import type { ContainerWriterProjectionContext } from "./types";
 
 export function createContainerWriterProjectionContext(
   executor: DatabaseSession,
+  principalPolicyAuthorizationEvidence: readonly AnyVerifiedPrincipalPolicy[] = [],
 ): ContainerWriterProjectionContext {
   return {
     containerKekStateByCacheKey: new Map(),
@@ -10,6 +12,7 @@ export function createContainerWriterProjectionContext(
     executor,
     currentManifestBundleByContainerId: new Map(),
     manifestBundleByHash: new Map(),
+    principalPolicyAuthorizationEvidence,
     verifiedManifestByHash: new Map(),
   };
 }

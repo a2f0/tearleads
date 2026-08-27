@@ -27,6 +27,7 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { deleteUpstreamDeletedDocument } from "./syncRequest";
 import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
@@ -136,6 +137,14 @@ async function pullVerifiedRawHistoryForRotation(input: {
       isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
       localVersionVector: null,
       minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+      onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
+        deleteUpstreamDeletedDocument(
+          input.state,
+          input.generation,
+          input.currentRecord,
+          documentId,
+          commitPurgeProof,
+        ),
       onSyncAbandoned: (reason) => {
         abandonReason = reason;
       },

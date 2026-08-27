@@ -1,8 +1,12 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { accessEvents } from "@symcrypt/api-shared/schema";
-import type { VerifiedAccessEvent } from "@symcrypt/crypto";
+import type {
+  AccessEventType,
+  AccessObjectKind,
+  VerifiedAccessEvent,
+} from "@symcrypt/crypto";
 import { makeVerifiedAccessEvent } from "@symcrypt/crypto";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import {
   isString,
@@ -54,4 +58,28 @@ export async function getStoredAccessEvents(
   return new Map(
     events.map((event) => [event.eventHash, toStoredAccessEvent(event)]),
   );
+}
+
+export async function getStoredAccessEventByObjectType(input: {
+  readonly eventType: AccessEventType;
+  readonly executor: DatabaseSession;
+  readonly objectId: string;
+  readonly objectKind: AccessObjectKind;
+}): Promise<VerifiedAccessEvent | null> {
+  const rows = await input.executor
+    .select()
+    .from(accessEvents)
+    .where(
+      and(
+        eq(accessEvents.eventType, input.eventType),
+        eq(accessEvents.objectKind, input.objectKind),
+        eq(accessEvents.objectId, input.objectId),
+      ),
+    )
+    .limit(2);
+  if (rows.length > 1) {
+    throw new Error("Stored access event type is not unique for its object");
+  }
+  const [row] = rows;
+  return row ? toStoredAccessEvent(row) : null;
 }

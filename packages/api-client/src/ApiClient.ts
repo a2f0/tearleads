@@ -12,6 +12,7 @@ import type {
   DeleteOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
   ListContainerParentLanesRequest,
@@ -97,9 +98,11 @@ import {
 import { listDocumentAttachments as documentAttachmentsList } from "./routes/documents/attachments";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import {
+  type DocumentPurgeProofOptions,
   documentCreate,
-  documentDelete,
   documentLink,
+  documentPurge,
+  documentPurgeProof,
   documentUnlink,
 } from "./routes/documents/mutations";
 import { documentSync as sync } from "./routes/documents/sync";
@@ -1594,17 +1597,29 @@ export class ApiClient {
     });
   }
 
-  purgeDocument(documentId: string) {
+  purgeDocument(documentId: string, input: DocumentPurgeRequest) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
-      documentDelete.path(documentId),
-      documentDelete.isResponse,
-      documentDelete.method,
+      documentPurge.path(documentId),
+      documentPurge.isResponse,
+      documentPurge.method,
+      JSON.stringify(input),
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
       this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
+  }
+
+  getDocumentPurgeProof(
+    documentId: string,
+    options?: DocumentPurgeProofOptions,
+  ) {
+    return this.request(
+      documentPurgeProof.path(documentId, options),
+      documentPurgeProof.isResponse,
+      documentPurgeProof.method,
+    );
   }
 
   syncDocument(documentId: string, input: DocumentSyncRequest) {

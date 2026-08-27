@@ -87,6 +87,7 @@ import {
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
+import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
 import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
@@ -1635,7 +1636,7 @@ test("DELETE /containers/:id deletes an empty metadata folder and tears down its
     asVerifiedContainerManifest(root.bundle).state.organizationId,
   );
 
-  // The container and every trace of its metadata document are gone (no orphan).
+  await expectDocumentAccessHistoryAbsent(metadataDocumentId);
   expect(
     await db
       .select({ id: containers.id })

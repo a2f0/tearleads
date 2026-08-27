@@ -22,7 +22,12 @@ function createNoopExecSql(): ExecSql {
 function createMemoryAbsentCleanup(
   documentExists: () => boolean,
 ): DocumentsPersistence["deleteDocumentSideRowsIfAbsent"] {
-  return async (execSql, _localId, deleteClientProjection) => {
+  return async (
+    execSql,
+    _localId,
+    _expectedDocumentId,
+    deleteClientProjection,
+  ) => {
     if (documentExists()) return false;
     await deleteClientProjection(execSql);
     return true;

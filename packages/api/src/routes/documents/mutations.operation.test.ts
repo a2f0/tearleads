@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   createDocumentOperation,
-  deleteDocumentOperation,
   documentSyncOperation,
+  getDocumentPurgeProofOperation,
   linkDocumentOperation,
   operationRoutePath,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 } from "@symcrypt/validators/operation";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@symcrypt/validators/util";
@@ -23,9 +24,10 @@ function createTestRoute(requireAuth: MiddlewareHandler<SessionEnv>) {
 
 const documentOperations = [
   createDocumentOperation,
-  deleteDocumentOperation,
   documentSyncOperation,
+  getDocumentPurgeProofOperation,
   linkDocumentOperation,
+  purgeDocumentOperation,
   unlinkDocumentOperation,
 ] as const;
 
@@ -73,6 +75,11 @@ test("document mutations reject invalid bodies at the HTTP boundary", async () =
       body: "{}",
       headers: { "Content-Type": "application/json" },
       method: unlinkDocumentOperation.method,
+    }),
+    route.request("/documents/document-1/purge", {
+      body: "{}",
+      headers: { "Content-Type": "application/json" },
+      method: purgeDocumentOperation.method,
     }),
   ];
 

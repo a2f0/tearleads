@@ -1,6 +1,9 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import type { PrincipalPolicySignerPublicKey } from "@symcrypt/crypto";
-import type { PrincipalPolicyBundleResponse } from "@symcrypt/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalPolicySnapshotResponse,
+} from "@symcrypt/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { loadSignerPublicKey } from "../signerPublicKey";
 import { buildPrincipalPolicyForStateWithExecutor } from "./principalPolicyBundleRecords";
@@ -18,17 +21,17 @@ export interface StoredPrincipalPolicyVerificationSource {
 }
 
 function principalPolicyStates(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse["currentState"][] {
+  bundle: PrincipalPolicySnapshotResponse,
+): PrincipalPolicySnapshotResponse["currentState"][] {
   return [
     ...bundle.previousStates.map((entry) => entry.state),
     bundle.currentState,
   ];
 }
 
-async function loadPolicySignerPublicKeys(
+export async function loadPolicySignerPublicKeys(
   executor: DatabaseSession,
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: PrincipalPolicySnapshotResponse,
 ): Promise<PrincipalPolicySignerPublicKey[]> {
   const keys = new Map<string, PrincipalPolicySignerPublicKey>();
   for (const state of principalPolicyStates(bundle)) {

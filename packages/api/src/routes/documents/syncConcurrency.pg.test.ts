@@ -14,6 +14,7 @@ import {
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { runDirectGrantRosterRemovalRace } from "../../../test/helpers/containerGrantConcurrency";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -409,9 +410,11 @@ test.skipIf(!onConcurrencyBackend)(
       });
 
       const [purgeResponse, syncResponse] = await Promise.all([
-        routeApp.request(`/documents/${created.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${owner.token}` },
+        postDocumentPurge({
+          documentId: created.id,
+          documentManifestHash: created.accessManifest.manifestHash,
+          owner,
+          root,
         }),
         postDocumentSync(owner, created.id, request),
       ]);

@@ -5,6 +5,8 @@ import {
   toFingerprint,
 } from "@symcrypt/crypto";
 import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
+import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
@@ -314,7 +316,7 @@ test("hydration probe batches large container-id sets below SQLite limits", asyn
   }
 });
 
-test("an undiscovered probe uses coded deletion to destroy local state", async () => {
+test("an undiscovered probe requires a signed purge proof to destroy local state", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-hydration-probe-coded-deletion",
   );
@@ -329,9 +331,16 @@ test("an undiscovered probe uses coded deletion to destroy local state", async (
       parentId: null,
       timestamp: "2026-07-30T12:00:00.000Z",
     });
+    const { author, resolveProjectionUserKey, writerProjection } =
+      await createMaterializedSyncFixture({
+        organizationId: "org-a",
+        userId: "user-a",
+      });
+    const documentId = writerProjection.documentId;
+    const purgeProof = await createDocumentPurgeProof(author, writerProjection);
     await saveTestDocument({
       containerId: "root-a",
-      documentId: "deleted-remote",
+      documentId,
       execSql,
       id: "deleted-local",
       title: "Deleted remotely",
@@ -341,7 +350,7 @@ test("an undiscovered probe uses coded deletion to destroy local state", async (
       `INSERT INTO document_container_projection
          (document_id, container_id, updated_at)
        VALUES (?, ?, ?)`,
-      ["deleted-remote", "root-a", "2026-07-30T12:00:00.000Z"],
+      [documentId, "root-a", "2026-07-30T12:00:00.000Z"],
     );
 
     const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -351,6 +360,7 @@ test("an undiscovered probe uses coded deletion to destroy local state", async (
     );
     const runtime = createDocumentsWorkflowRuntime({
       apiClient: createMockApiClient({
+        getDocumentPurgeProof: async () => purgeProof,
         getDocumentWriterProjectionResult: async (documentId) => ({
           code: "document_not_found",
           kind: "http",
@@ -382,7 +392,7 @@ test("an undiscovered probe uses coded deletion to destroy local state", async (
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
       },
-      resolveTrustedUserIdentity: async () => null,
+      resolveTrustedUserIdentity: resolveProjectionUserKey,
       state: {
         containerId: "root-a",
         domainScope: createDomainScope(),

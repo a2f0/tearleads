@@ -8,6 +8,7 @@ import type {
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
+  DocumentPurgeRequest,
   DocumentSyncRequest,
 } from "@symcrypt/validators/request";
 import type { DocumentPurgeResponse } from "@symcrypt/validators/response";
@@ -36,6 +37,13 @@ export interface MutateDocumentLinkSetInput {
 export interface PurgeDocumentWorkflowResult {
   readonly containerIds: readonly string[];
   readonly response: DocumentPurgeResponse;
+}
+
+export interface PurgeDocumentInput {
+  readonly documentId: string;
+  readonly fingerprint: string;
+  readonly request: DocumentPurgeRequest;
+  readonly userId: string;
 }
 
 export interface AppendDocumentUpdatesInput {

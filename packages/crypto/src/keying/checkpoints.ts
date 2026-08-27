@@ -1,3 +1,4 @@
+import type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
 import {
   assertExactKeys,
   normalizeAccessObjectKind,
@@ -11,7 +12,6 @@ import {
 import type {
   AccessManifest,
   AccessManifestCheckpoint,
-  AnyVerifiedAccessManifest,
   IdentityStateCheckpoint,
   IdentityStateHead,
   KeyingVerificationResult,
@@ -19,6 +19,8 @@ import type {
   VerifyIdentityStateCheckpointInput,
 } from "./types";
 import { makeVerifiedIdentityState } from "./types";
+
+export type { VerifiedAccessManifestCheckpointEvidence } from "./accessManifestSnapshotTypes";
 
 export function normalizeIdentityStateHead(value: unknown): IdentityStateHead {
   const record = assertExactKeys(
@@ -219,7 +221,7 @@ function accessManifestCheckpointObjectMatches(
 }
 
 function verifiedAccessManifestCheckpointLink(
-  manifest: AnyVerifiedAccessManifest,
+  manifest: VerifiedAccessManifestCheckpointEvidence,
 ): AccessManifestCheckpoint & {
   readonly previousManifestHash: string | null;
 } {
@@ -235,7 +237,7 @@ export function verifyAccessManifestLocalCheckpoint(input: {
   };
   readonly localCheckpoint: AccessManifestCheckpoint | null | undefined;
   readonly checkpointPredecessors:
-    | readonly AnyVerifiedAccessManifest[]
+    | readonly VerifiedAccessManifestCheckpointEvidence[]
     | undefined;
 }): void {
   const { current, localCheckpoint } = input;

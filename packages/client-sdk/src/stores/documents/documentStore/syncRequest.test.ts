@@ -46,6 +46,7 @@ test("a deletion response waits behind relink and cannot delete the new identity
     id: "local-document",
   } as DocumentRecord;
   const deletedLocalIds: string[] = [];
+  let purgeProofCommits = 0;
   const persistence = {
     deleteDocument: async (_execSql: ExecSql, localId: string) => {
       deletedLocalIds.push(localId);
@@ -97,11 +98,15 @@ test("a deletion response waits behind relink and cannot delete the new identity
     generation,
     requestRecord,
     requestRecord.documentId ?? "",
+    async () => {
+      purgeProofCommits += 1;
+    },
   );
   releaseRelink();
   await Promise.all([relink, deletion]);
 
   expect(deletedLocalIds).toEqual([]);
+  expect(purgeProofCommits).toBe(0);
   expect(state.doc).toBe(currentDoc);
   expect(state.record?.documentId).toBe("document-b");
   expect(state.initialized).toBe(true);

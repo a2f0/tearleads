@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,
@@ -14,6 +14,7 @@ import {
   documentPendingAttachments,
   documentProjection,
   documentProjectionText,
+  documents,
 } from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -81,6 +82,25 @@ async function ensureDocumentDeletionTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, documentMoveIntentTables);
 }
 
+async function hasAnotherDocumentAlias(input: {
+  documentId: string;
+  localId: string;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<boolean> {
+  const rows = await input.tx
+    .select({ localId: documents.localId })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.documentId, input.documentId),
+        ne(documents.localId, input.localId),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function deleteStoredDocument(
   execSql: ExecSql,
   localId: string,
@@ -127,6 +147,16 @@ export async function deleteStoredDocumentIfMatches(
         ) {
           return false;
         }
+        if (
+          existingDocument.documentId &&
+          (await hasAnotherDocumentAlias({
+            documentId: existingDocument.documentId,
+            localId: expectedRecord.id,
+            tx,
+          }))
+        ) {
+          return false;
+        }
         await deleteStoredDocumentRows({
           existingDocumentId: existingDocument.documentId ?? null,
           localId: expectedRecord.id,
@@ -144,6 +174,7 @@ export async function deleteStoredDocumentIfMatches(
 export async function deleteStoredDocumentSideRowsIfAbsent(
   execSql: ExecSql,
   localId: string,
+  expectedDocumentId: string | null,
   deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
 ): Promise<boolean> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
@@ -155,9 +186,19 @@ export async function deleteStoredDocumentSideRowsIfAbsent(
           localId,
         });
         if (existingDocument) return false;
+        if (
+          expectedDocumentId &&
+          (await hasAnotherDocumentAlias({
+            documentId: expectedDocumentId,
+            localId,
+            tx,
+          }))
+        ) {
+          return false;
+        }
 
         await deleteStoredDocumentRows({
-          existingDocumentId: null,
+          existingDocumentId: expectedDocumentId,
           localId,
           lockedExecSql,
           tx,

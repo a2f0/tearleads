@@ -1,0 +1,3 @@
+# Greenfield signed document purge deliberately removes the unsigned DELETE route.
+# Remove after this signed purge contract lands on the default branch.
+DELETE /documents/{documentId} api path removed without deprecation
