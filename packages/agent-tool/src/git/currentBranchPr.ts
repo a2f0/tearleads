@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process";
 
 interface CurrentBranchPr {
   readonly baseRefName: string;
-  readonly baseRefOid: string;
   readonly branch: string;
   readonly prNumber: string;
   readonly repo: string;
@@ -75,7 +74,7 @@ export function viewCurrentBranchPr(
     "pr",
     "view",
     "--json",
-    "number,state,title,url,baseRefName,baseRefOid",
+    "number,state,title,url,baseRefName",
   ]);
   if (result.error) {
     throw new Error(`Could not run gh pr view: ${result.error.message}`);
@@ -111,6 +110,5 @@ export function viewCurrentBranchPr(
     prNumber,
     title: stringField(result.stdout, "title"),
     baseRefName: stringField(result.stdout, "baseRefName"),
-    baseRefOid: stringField(result.stdout, "baseRefOid"),
   };
 }

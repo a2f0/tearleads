@@ -5,7 +5,11 @@ import {
   parsePullRequestMergeTarget,
 } from "./squashMerge";
 
-const target = { headOid: "def456", id: "PR_node_id" };
+const target = {
+  baseRefName: "main",
+  headOid: "def456",
+  id: "PR_node_id",
+};
 
 describe("buildSquashMergeArgs", () => {
   test("builds a subject-only squash with an empty body", () => {
@@ -36,6 +40,7 @@ describe("parsePullRequestMergeTarget", () => {
         repository: {
           pullRequest: {
             autoMergeRequest: null,
+            baseRefName: "main",
             headRefOid: "abc123",
             id: "PR_node_id",
             isInMergeQueue: false,
@@ -48,6 +53,7 @@ describe("parsePullRequestMergeTarget", () => {
 
   test("accepts an open synchronous merge target", () => {
     expect(parsePullRequestMergeTarget(response())).toEqual({
+      baseRefName: "main",
       headOid: "abc123",
       id: "PR_node_id",
     });
@@ -65,5 +71,11 @@ describe("parsePullRequestMergeTarget", () => {
         response({ autoMergeRequest: { enabledAt: "2026-08-27T00:00:00Z" } }),
       ),
     ).toThrow("queued or automatic merge");
+  });
+
+  test("rejects a PR retargeted after merge validation", () => {
+    expect(() => parsePullRequestMergeTarget(response(), "release")).toThrow(
+      "base changed from 'release' to 'main'",
+    );
   });
 });

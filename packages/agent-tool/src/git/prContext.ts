@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 import { viewCurrentBranchPr } from "./currentBranchPr";
 
@@ -15,7 +16,6 @@ export interface PrContext extends PrIdentity {
 
 export interface PrView extends PrIdentity {
   readonly baseRefName: string;
-  readonly baseRefOid: string;
 }
 
 interface SpawnResult {
@@ -144,16 +144,40 @@ function resolveRepositoryGitUrl(repo: string): string {
   return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
 }
 
+/** Build a fetch that records the requested branch in a caller-owned ref. */
+export function buildBaseFetchArgs(
+  repositoryUrl: string,
+  target: string,
+  temporaryRef: string,
+): string[] {
+  return [
+    "fetch",
+    "--quiet",
+    "--no-tags",
+    repositoryUrl,
+    `+${target}:${temporaryRef}`,
+  ];
+}
+
 function fetchBase(repositoryUrl: string, target: string): string {
-  const result = spawnSync("git", ["fetch", "--quiet", repositoryUrl, target], {
-    stdio: "ignore",
-  });
-  if (spawnExitCode("git fetch", result) !== 0) {
-    throw new Error(
-      `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+  const temporaryRef = `refs/codex/review-base/${process.pid}-${randomUUID()}`;
+  try {
+    const result = spawnSync(
+      "git",
+      buildBaseFetchArgs(repositoryUrl, target, temporaryRef),
+      { stdio: "ignore" },
     );
+    if (spawnExitCode("git fetch", result) !== 0) {
+      throw new Error(
+        `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+      );
+    }
+    return run("git", ["rev-parse", `${temporaryRef}^{commit}`]);
+  } finally {
+    spawnSync("git", ["update-ref", "-d", temporaryRef], {
+      stdio: "ignore",
+    });
   }
-  return run("git", ["rev-parse", "FETCH_HEAD"]);
 }
 
 const freshBaseRefDependencies: FreshBaseRefDependencies = {
@@ -171,22 +195,12 @@ const freshBaseRefDependencies: FreshBaseRefDependencies = {
 export function resolveFreshBaseRef(
   repo: string,
   baseRefName: string,
-  baseRefOid: string,
   dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
 ): string {
-  if (dependencies.refExists(baseRefOid)) {
-    return baseRefOid;
-  }
-  const fetchTarget = baseRefOid || baseRefName;
   const fetchedOid = dependencies.fetch(
     dependencies.repositoryGitUrl(repo),
-    fetchTarget,
+    `refs/heads/${baseRefName}`,
   );
-  if (baseRefOid.length > 0 && fetchedOid !== baseRefOid) {
-    throw new Error(
-      `Fetched base '${fetchedOid}' does not match expected OID '${baseRefOid}'.`,
-    );
-  }
   if (!dependencies.refExists(fetchedOid)) {
     throw new Error(
       `Fetched base '${fetchedOid}' from '${repo}' is unavailable locally.`,
@@ -200,13 +214,9 @@ export function selectReviewBaseRef(
   pinnedBaseRef: string | undefined,
   repo: string,
   baseRefName: string,
-  baseRefOid: string,
   dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
 ): string {
-  return (
-    pinnedBaseRef ??
-    resolveFreshBaseRef(repo, baseRefName, baseRefOid, dependencies)
-  );
+  return pinnedBaseRef ?? resolveFreshBaseRef(repo, baseRefName, dependencies);
 }
 
 /**
@@ -302,7 +312,7 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
     "view",
     prNumber,
     "--json",
-    "title,baseRefName,baseRefOid",
+    "title,baseRefName",
     "-R",
     repo,
   ]);
@@ -313,18 +323,31 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
     prNumber,
     title: stringField(viewRaw, "title"),
     baseRefName: stringField(viewRaw, "baseRefName"),
-    baseRefOid: stringField(viewRaw, "baseRefOid"),
   };
 }
 
 export interface ReviewContextDependencies {
   readonly findOpenPrNumber: typeof findOpenPrNumber;
+  readonly pinnedBaseRefName: string | undefined;
   readonly pinnedBaseOid: string | undefined;
   readonly resolvePinnedReviewBase: typeof resolvePinnedReviewBase;
   readonly resolveRepoContext: typeof resolveRepoContext;
   readonly selectReviewBaseRef: typeof selectReviewBaseRef;
   readonly viewCurrentBranchPr: typeof viewCurrentBranchPr;
   readonly viewPr: typeof viewPr;
+}
+
+/** Require a coordinator's named review target to match current GitHub state. */
+export function assertPinnedReviewBaseRef(
+  pinnedBaseRefName: string | undefined,
+  actualBaseRefName: string,
+): void {
+  const expected = pinnedBaseRefName?.trim() ?? "";
+  if (expected.length > 0 && expected !== actualBaseRefName) {
+    throw new Error(
+      `Review base changed from pinned branch '${expected}' to '${actualBaseRefName}'.`,
+    );
+  }
 }
 
 /**
@@ -382,9 +405,13 @@ export function resolvePr(): PrIdentity {
 export function resolveReviewContext(
   dependencies?: ReviewContextDependencies,
 ): PrContext {
-  const { AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid } = process.env;
+  const {
+    AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid,
+    AGENT_TOOL_REVIEW_BASE_REF: pinnedBaseRefName,
+  } = process.env;
   const deps = dependencies ?? {
     findOpenPrNumber,
+    pinnedBaseRefName,
     pinnedBaseOid,
     resolvePinnedReviewBase,
     resolveRepoContext,
@@ -408,6 +435,7 @@ export function resolveReviewContext(
         "Could not determine the repository default branch to review against.",
       );
     }
+    assertPinnedReviewBaseRef(deps.pinnedBaseRefName, defaultBranch);
     // No PR yet: review the local branch against the *current* remote default,
     // fetched fresh so a stale local ref cannot pull unrelated upstream commits
     // into the diff.
@@ -420,7 +448,6 @@ export function resolveReviewContext(
         pinnedBaseRef,
         checkoutRepo,
         defaultBranch,
-        "",
       ),
     };
   }
@@ -429,6 +456,7 @@ export function resolveReviewContext(
   if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
+  assertPinnedReviewBaseRef(deps.pinnedBaseRefName, view.baseRefName);
   return {
     branch,
     repo: view.repo,
@@ -438,7 +466,6 @@ export function resolveReviewContext(
       pinnedBaseRef,
       view.repo,
       view.baseRefName,
-      view.baseRefOid,
     ),
   };
 }
