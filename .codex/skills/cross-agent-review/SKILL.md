@@ -69,7 +69,18 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 CHECKOUT_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-CURRENT_PR_JSON=$(gh pr view --json number,url 2>/dev/null || true)
+if CURRENT_PR_JSON=$(gh pr view --json number,state,url 2>&1); then
+  case $(printf '%s' "$CURRENT_PR_JSON" | jq -r '.state') in
+    OPEN) ;;
+    CLOSED|MERGED) CURRENT_PR_JSON="" ;;
+    *) echo "Error: current branch PR has an invalid state" >&2; exit 1 ;;
+  esac
+else
+  case "$CURRENT_PR_JSON" in
+    no\ pull\ requests\ found\ for\ branch*) CURRENT_PR_JSON="" ;;
+    *) printf 'Error: could not resolve the current branch PR:\n%s\n' "$CURRENT_PR_JSON" >&2; exit 1 ;;
+  esac
+fi
 if [ -n "$CURRENT_PR_JSON" ]; then
   PR_NUMBER=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.number')
   REPO=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.url | split("/") | .[-4] + "/" + .[-3]')
@@ -138,7 +149,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    masking the very mismatch that check exists to catch:
 
    ```bash
-   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
+   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
    ```
 
    Then **merge** the fetched base in — merge `FETCH_HEAD`, which the fetch always
@@ -246,7 +257,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    ```bash
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either changed, something landed underneath the review. Discard the stale

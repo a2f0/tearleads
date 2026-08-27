@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import { repoFromPrUrl, viewCurrentBranchPr } from "./currentBranchPr";
 import {
   type PrView,
   type ReviewContextDependencies,
-  repoFromPrUrl,
   resolveFreshBaseRef,
   resolvePinnedReviewBase,
   resolveReviewContext,
@@ -71,6 +71,51 @@ describe("review base integration", () => {
     expect(() => repoFromPrUrl("https://github.com/upstream/repo")).toThrow(
       "Could not resolve the base repository",
     );
+  });
+
+  test("accepts only an open current-branch PR", () => {
+    const open = viewCurrentBranchPr("feature", () => ({
+      status: 0,
+      signal: null,
+      stderr: "",
+      stdout: JSON.stringify({
+        number: 42,
+        state: "OPEN",
+        title: "Fork PR",
+        url: "https://github.com/upstream/repo/pull/42",
+        baseRefName: "main",
+        baseRefOid: SHA1_OID,
+      }),
+    }));
+    const closed = viewCurrentBranchPr("feature", () => ({
+      status: 0,
+      signal: null,
+      stderr: "",
+      stdout: JSON.stringify({ state: "CLOSED" }),
+    }));
+
+    expect(open?.repo).toBe("upstream/repo");
+    expect(open?.prNumber).toBe("42");
+    expect(closed).toBeUndefined();
+  });
+
+  test("distinguishes a confirmed no-PR result from lookup failures", () => {
+    const noPr = viewCurrentBranchPr("feature", () => ({
+      status: 1,
+      signal: null,
+      stderr: 'no pull requests found for branch "feature"\n',
+      stdout: "",
+    }));
+
+    expect(noPr).toBeUndefined();
+    expect(() =>
+      viewCurrentBranchPr("feature", () => ({
+        status: 1,
+        signal: null,
+        stderr: "authentication failed",
+        stdout: "",
+      })),
+    ).toThrow("authentication failed");
   });
 
   test("gives a pinned base precedence without fetching", () => {

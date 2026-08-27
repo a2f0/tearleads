@@ -1,5 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 
+import { viewCurrentBranchPr } from "./currentBranchPr";
+
 export interface PrIdentity {
   readonly branch: string;
   readonly repo: string;
@@ -71,11 +73,6 @@ function firstPrNumber(source: string | null): string {
   }
   const numberField = fieldOf(parsed[0], "number");
   return typeof numberField === "number" ? String(numberField) : "";
-}
-
-function numberFieldString(source: string, key: string): string {
-  const value = fieldOf(safeParse(source), key);
-  return typeof value === "number" ? String(value) : "";
 }
 
 function gitRefExists(ref: string): boolean {
@@ -313,44 +310,6 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
   return {
     branch,
     repo,
-    prNumber,
-    title: stringField(viewRaw, "title"),
-    baseRefName: stringField(viewRaw, "baseRefName"),
-    baseRefOid: stringField(viewRaw, "baseRefOid"),
-  };
-}
-
-export function repoFromPrUrl(prUrl: string): string {
-  try {
-    const segments = new URL(prUrl).pathname.split("/").filter(Boolean);
-    if (segments.length >= 4 && segments[2] === "pull") {
-      return `${segments[0]}/${segments[1]}`;
-    }
-  } catch {
-    // Fall through to the actionable error below.
-  }
-  throw new Error(`Could not resolve the base repository from '${prUrl}'.`);
-}
-
-/** Resolve the current branch's PR, including an upstream PR from a fork. */
-function viewCurrentBranchPr(branch: string): PrView | undefined {
-  const viewRaw = tryRun("gh", [
-    "pr",
-    "view",
-    "--json",
-    "number,title,url,baseRefName,baseRefOid",
-  ]);
-  if (viewRaw === null) {
-    return undefined;
-  }
-  const prNumber = numberFieldString(viewRaw, "number");
-  const prUrl = stringField(viewRaw, "url");
-  if (prNumber.length === 0 || prUrl.length === 0) {
-    throw new Error("Could not determine the current branch's PR identity.");
-  }
-  return {
-    branch,
-    repo: repoFromPrUrl(prUrl),
     prNumber,
     title: stringField(viewRaw, "title"),
     baseRefName: stringField(viewRaw, "baseRefName"),

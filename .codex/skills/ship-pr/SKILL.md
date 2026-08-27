@@ -93,11 +93,26 @@ loop, subject-only squash, and `MERGED`-state verification.
    and the branch is pushed exactly once, when the PR is opened.
 
    First look up whether an open PR already exists for the branch. Prefer
-   `gh pr view --json number,url` without `-R`, which follows the current branch
-   to an upstream PR from a fork; derive `REPO` from that PR URL. Fall back to
-   `gh pr list --head "$BRANCH" --state open -R "$CHECKOUT_REPO"` only when the
-   current branch has no PR. One may remain from a prior gated run. Then take the
-   matching case:
+   `gh pr view --json number,state,url` without `-R`, which follows the current
+   branch to an upstream PR from a fork; derive `REPO` from that PR URL. Fall
+   back to `gh pr list --head "$BRANCH" --state open -R "$CHECKOUT_REPO"` only
+   when the current branch has no PR. One may remain from a prior gated run.
+   Then take the matching case:
+
+   ```bash
+   if CURRENT_PR_JSON=$(gh pr view --json number,state,url 2>&1); then
+     case $(printf '%s' "$CURRENT_PR_JSON" | jq -r '.state') in
+       OPEN) ;;
+       CLOSED|MERGED) CURRENT_PR_JSON="" ;;
+       *) echo "Error: current branch PR has an invalid state" >&2; exit 1 ;;
+     esac
+   else
+     case "$CURRENT_PR_JSON" in
+       no\ pull\ requests\ found\ for\ branch*) CURRENT_PR_JSON="" ;;
+       *) printf 'Error: could not resolve the current branch PR:\n%s\n' "$CURRENT_PR_JSON" >&2; exit 1 ;;
+     esac
+   fi
+   ```
 
    - **A PR is already open for the branch** (a prior gated run resuming after
      fixes): do not prepare a new branch or open another PR. Confirm it targets
@@ -153,7 +168,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    ```bash
    REVIEWED_SHA=<final reviewed SHA reported by cross-agent-review>
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either differs, a commit landed after the loop finished. Discard the
@@ -207,7 +222,7 @@ loop, subject-only squash, and `MERGED`-state verification.
 
    ```bash
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid -R "$REPO")"
    ```
 
    If either differs — `open-pr` committed a stray change, or the head moved —
