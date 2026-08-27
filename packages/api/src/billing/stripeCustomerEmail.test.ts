@@ -58,7 +58,26 @@ test("the payment-method email is promoted to the Stripe Customer", async () => 
   ]);
 });
 
-test("a subscription without any email cannot be acknowledged", async () => {
+test("a stale Customer email is replaced by the checkout email", async () => {
+  const requests: string[] = [];
+  const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    requests.push(init?.body?.toString() ?? "");
+    return new Response("{}");
+  }) as typeof fetch;
+
+  expect(
+    await ensureStripeCustomerEmail(
+      binding({
+        customerEmail: "old@example.com",
+        paymentMethodBillingEmail: "new@example.com",
+      }),
+      { env: { STRIPE_SECRET_KEY: "sk_test_123" }, fetchImpl },
+    ),
+  ).toBe(true);
+  expect(requests).toEqual(["email=new%40example.com"]);
+});
+
+test("a subscription without any email reports no recovery path", async () => {
   expect(
     await ensureStripeCustomerEmail(binding({}), {
       env: { STRIPE_SECRET_KEY: "sk_test_123" },

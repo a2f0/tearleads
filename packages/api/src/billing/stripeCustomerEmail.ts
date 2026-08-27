@@ -10,10 +10,15 @@ export async function ensureStripeCustomerEmail(
   binding: StripeSubscriptionBinding,
   deps: StripeApiDeps = {},
 ): Promise<boolean> {
-  if (binding.customerEmail) {
+  const customerEmail = binding.customerEmail?.trim();
+  const paymentMethodEmail = binding.paymentMethodBillingEmail?.trim();
+  if (!paymentMethodEmail) {
+    return Boolean(customerEmail);
+  }
+  if (customerEmail === paymentMethodEmail) {
     return true;
   }
-  if (!binding.customerId || !binding.paymentMethodBillingEmail) {
+  if (!binding.customerId) {
     return false;
   }
   const { fetchImpl, secretKey } = resolveDeps(deps);
@@ -26,7 +31,7 @@ export async function ensureStripeCustomerEmail(
     method: "POST",
     path: `/v1/customers/${encodeURIComponent(binding.customerId)}`,
     operation: "customer recovery email update",
-    form: new URLSearchParams({ email: binding.paymentMethodBillingEmail }),
+    form: new URLSearchParams({ email: paymentMethodEmail }),
   });
   return true;
 }

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
@@ -108,28 +108,42 @@ test("a new subscription promotes its card email to the Customer", async () => {
   expect(urls[1]).toBe("POST https://api.stripe.com/v1/customers/cus_1");
 });
 
-test("a new subscription without a recovery email asks for redelivery", async () => {
+test("a new subscription without a recovery email is fulfilled and alerted", async () => {
+  await createWebhookBillingOrganization();
   const subscription = {
     ...stripeSubscriptionBody(),
     customer: { id: "cus_1", email: "" },
   };
-  const outcome = await processStripeWebhook(
-    getDefaultApiServiceRuntime(),
-    signedDelivery(
-      paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
-    ),
-    {
-      stripe: {
-        env: STRIPE_ENV,
-        fetchImpl: respondingFetch([{ body: subscription }], []),
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    const outcome = await processStripeWebhook(
+      getDefaultApiServiceRuntime(),
+      signedDelivery(
+        paidInvoiceEvent({ invoiceId: "in_no_email", subscription }),
+      ),
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch([{ body: subscription }], []),
+        },
+        revenueCat: {
+          env: REVENUECAT_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: {} }, { body: {} }, { body: {} }],
+            [],
+          ),
+        },
       },
-    },
-  );
+    );
 
-  expect(outcome).toEqual({
-    status: "retry",
-    reason: "Subscription carries no billing email",
-  });
+    expect(outcome.status).toBe("associated");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "No Stripe billing recovery email",
+      "sub_1",
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 });
 
 test("renewal invoices reset the Stripe paid-capacity baseline", async () => {

@@ -467,7 +467,7 @@ export async function processAuthenticatedStripeWebhook(
     invoice.billingReason === "subscription_create" &&
     !(await ensureStripeCustomerEmail(binding, deps.stripe ?? {}))
   ) {
-    return { status: "retry", reason: "Subscription carries no billing email" };
+    console.error("No Stripe billing recovery email", invoice.subscriptionId);
   }
 
   return applyPaidSubscriptionInvoice({
