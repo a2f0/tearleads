@@ -2,7 +2,10 @@ import {
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../../sqlite/documentPersistence";
-import { documentContainerProjectionTables } from "../../../sqlite/schema";
+import {
+  documentContainerProjectionTables,
+  keyingCheckpointTables,
+} from "../../../sqlite/schema";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -15,7 +18,10 @@ export async function ensureDocumentsSchema(execSql: ExecSql): Promise<void> {
     runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
       await ensureDocumentProjectionTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+      await ensureSqlTables(lockedExecSql, [
+        ...documentContainerProjectionTables,
+        ...keyingCheckpointTables,
+      ]);
     }),
   );
 }

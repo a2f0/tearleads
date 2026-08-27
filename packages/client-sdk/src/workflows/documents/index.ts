@@ -93,7 +93,6 @@ export {
 export {
   buildDocumentPurgeRequest,
   purgeRemoteDocument,
-  verifyRemoteDocumentPurgeProof,
 } from "./purge";
 export type { SyncRemoteDocumentInput } from "./readOnlySync";
 export {

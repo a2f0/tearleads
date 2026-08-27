@@ -3,6 +3,8 @@ import { execDatabaseStatement } from "@symcrypt/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@symcrypt/test-utils";
 import { createClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
+import { loadDocumentPurgeCheckpoint } from "../documentPurgeCheckpointPersistence";
+import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpointAdvancePersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 async function openCoordinatedDocumentConnections() {
@@ -164,6 +166,76 @@ test.each([
     });
   } finally {
     releasePausedRead();
+    race.close();
+  }
+});
+
+test("discovery cannot recreate a document after its purge checkpoint commits", async () => {
+  const race = await openCoordinatedDocumentConnections();
+  const documentId = "purged-remote-document";
+  let releasePurge = () => {};
+  const purgeReleased = new Promise<void>((resolve) => {
+    releasePurge = resolve;
+  });
+  let signalPurgeLocked = () => {};
+  const purgeLocked = new Promise<void>((resolve) => {
+    signalPurgeLocked = resolve;
+  });
+
+  try {
+    const purge = sqlDocumentsPersistence.deleteDocumentSideRowsIfAbsent(
+      race.first.execSql,
+      "purged-local-document",
+      async (transactionExecSql) => {
+        signalPurgeLocked();
+        await purgeReleased;
+        await advanceKeyingCheckpointsAtomically({
+          access: [],
+          documentPurgeCheckpoint: {
+            documentId,
+            documentManifestHash: "document-manifest-hash",
+            organizationId: "organization",
+            purgeEventHash: "purge-event-hash",
+          },
+          execSql: transactionExecSql,
+          policies: [],
+        });
+      },
+    );
+    await purgeLocked;
+
+    const discovery = sqlDocumentsPersistence.upsertDiscoveredDocument(
+      race.second.execSql,
+      {
+        accessEpoch: 1,
+        containerId: "container",
+        createdAt: "2026-08-26T00:00:00.000Z",
+        documentId,
+        linkedContainerIds: ["container"],
+      },
+    );
+    releasePurge();
+
+    const [purgeResult, discoveryResult] = await Promise.allSettled([
+      purge,
+      discovery,
+    ]);
+    expect(purgeResult).toEqual({ status: "fulfilled", value: true });
+    expect(discoveryResult).toMatchObject({
+      reason: { code: "rollback" },
+      status: "rejected",
+    });
+    await expect(
+      loadDocumentPurgeCheckpoint(race.second.execSql, documentId),
+    ).resolves.toMatchObject({ documentId });
+    await expect(
+      sqlDocumentsPersistence.loadDocument(
+        race.second.execSql,
+        "purged-local-document",
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    releasePurge();
     race.close();
   }
 });

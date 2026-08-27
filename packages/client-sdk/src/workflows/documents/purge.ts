@@ -278,25 +278,6 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
   };
 }
 
-export async function verifyRemoteDocumentPurgeProof(input: {
-  readonly documentId: string;
-  readonly execSql: ExecSql;
-  readonly proof: DocumentPurgeProofResponse;
-  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}): Promise<void> {
-  const verified = await verifyDocumentPurgeProof({
-    execSql: input.execSql,
-    expectedDocumentId: input.documentId,
-    proof: input.proof,
-    resolveUserKey: input.resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
-  await verified.commitCheckpoints(input.execSql);
-}
-
 export async function purgeRemoteDocument(input: {
   readonly apiClient: DocumentPurgeApi;
   readonly author: DocumentCreateAuthor;
