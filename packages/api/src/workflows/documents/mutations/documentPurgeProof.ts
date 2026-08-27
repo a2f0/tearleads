@@ -3,13 +3,9 @@ import {
   gatherWithExecutor,
 } from "@symcrypt/api-shared/postgres";
 import { containerDocumentSyncTombstones } from "@symcrypt/api-shared/schema";
-import type {
-  VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
-} from "@symcrypt/crypto";
+import type { VerifiedAccessEvent } from "@symcrypt/crypto";
 import {
   normalizeDocumentPurgeAccessEventBody,
-  resolveHistoricalContainerPathUserAccessLevel,
   verifyDocumentPurgeEvent,
   verifySignedAccessEvent,
 } from "@symcrypt/crypto";
@@ -27,8 +23,6 @@ import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
 } from "../../containers/writerProjection";
-import { loadContainerManifestBundleByHash } from "../../containers/writerProjection/accessPaths";
-import { verifyStoredContainerManifest } from "../../containers/writerProjection/storedManifestVerification";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
@@ -38,17 +32,19 @@ import {
 import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
 import {
   collectPurgeProofPrincipalReferences,
+  type DocumentPurgeAuthorizationMaterial,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
+import {
+  authorizeDocumentPurgeProof,
+  type ContainerProjectionContext,
+  verifyStoredContainerPath,
+} from "./documentPurgeProofAuthorization";
 import {
   selectDocumentManifestPredecessors,
   uniquePurgeProofBundles,
 } from "./documentPurgeProofHistory";
 import { DocumentMutationError } from "./errors";
-
-type ContainerProjectionContext = ReturnType<
-  typeof createContainerWriterProjectionContext
->;
 
 async function verifyStoredPurgeEvent(input: {
   readonly documentId: string;
@@ -82,24 +78,6 @@ async function verifyStoredPurgeEvent(input: {
     );
   }
   return verified.value;
-}
-
-async function verifyStoredContainerPath(input: {
-  readonly bundles: readonly AccessManifestBundleWireResponse[];
-  readonly context: ContainerProjectionContext;
-}): Promise<VerifiedContainerAccessManifest[]> {
-  const verified: VerifiedContainerAccessManifest[] = [];
-  for (const bundle of input.bundles) {
-    verified.push(
-      await verifyStoredContainerManifest({
-        bundle,
-        context: input.context,
-        loadBundle: (manifestHash) =>
-          loadContainerManifestBundleByHash(input.context, manifestHash),
-      }),
-    );
-  }
-  return verified;
 }
 
 async function verifyRetainedPurgeManifests(input: {
@@ -151,24 +129,18 @@ function responsePurgePrincipalReferences(input: {
 }
 
 async function verifyProofMaterial(input: {
+  readonly authorizationMaterial: DocumentPurgeAuthorizationMaterial;
+  readonly body: ReturnType<typeof normalizeDocumentPurgeAccessEventBody>;
   readonly documentId: string;
+  readonly documentManifestHash: string;
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseSession;
 }) {
-  const body = normalizeDocumentPurgeAccessEventBody(input.event.body);
-  const documentManifestHash = input.event.event.previousManifestHash;
-  if (
-    documentManifestHash === null ||
-    documentManifestHash !== body.documentManifestHash
-  ) {
-    throw new DocumentMutationError(
-      "Stored document purge predecessor is inconsistent",
-      409,
-    );
-  }
   const material = await loadDocumentPurgeProofMaterial({
-    authorizingContainerManifestHashes: body.authorizingContainerManifestHashes,
-    documentManifestHash,
+    authorizationMaterial: input.authorizationMaterial,
+    authorizingContainerManifestHashes:
+      input.body.authorizingContainerManifestHashes,
+    documentManifestHash: input.documentManifestHash,
     executor: input.executor,
   });
   const internalEvidence =
@@ -196,13 +168,22 @@ async function verifyProofMaterial(input: {
       keyingVerificationHttpStatus(verified.error),
     );
   }
-  return {
-    authorizingContainerPath,
-    body,
-    context,
-    material,
-    principalPolicies,
-  };
+  return material;
+}
+
+function readStoredPurgeReference(event: VerifiedAccessEvent) {
+  const body = normalizeDocumentPurgeAccessEventBody(event.body);
+  const documentManifestHash = event.event.previousManifestHash;
+  if (
+    documentManifestHash === null ||
+    documentManifestHash !== body.documentManifestHash
+  ) {
+    throw new DocumentMutationError(
+      "Stored document purge predecessor is inconsistent",
+      409,
+    );
+  }
+  return { body, documentManifestHash };
 }
 
 async function loadPurgeTombstoneTime(input: {
@@ -246,26 +227,20 @@ export async function loadDocumentPurgeProof(input: {
     event: storedEvent,
     executor: input.executor,
   });
-  const { authorizingContainerPath, body, material, principalPolicies } =
-    await verifyProofMaterial({
-      documentId: input.documentId,
-      event,
-      executor: input.executor,
-    });
-
-  // A purge proof is terminal history, not a claim about the container's
-  // current state. A replica that had access when the purge was signed must
-  // still be able to learn that it should delete its local copy after the user
-  // is revoked or the container itself is deleted.
-  const hadPurgePathAccess =
-    resolveHistoricalContainerPathUserAccessLevel({
-      path: authorizingContainerPath,
-      principalPolicies,
-      userId: input.userId,
-    }) !== null;
-  if (!hadPurgePathAccess) {
-    throw new DocumentMutationError("Forbidden", 403);
-  }
+  const { body, documentManifestHash } = readStoredPurgeReference(event);
+  const authorizationMaterial = await authorizeDocumentPurgeProof({
+    body,
+    executor: input.executor,
+    userId: input.userId,
+  });
+  const material = await verifyProofMaterial({
+    authorizationMaterial,
+    body,
+    documentId: input.documentId,
+    documentManifestHash,
+    event,
+    executor: input.executor,
+  });
 
   const documentManifestPredecessorBundles = selectDocumentManifestPredecessors(
     {

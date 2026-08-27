@@ -12,13 +12,66 @@ import {
   loadProjectionManifestBundleByHash,
 } from "./writerProjection";
 
-interface DocumentPurgeProofMaterial {
+export interface DocumentPurgeAuthorizationMaterial {
   readonly authorizingContainerPath: AccessManifestBundleWireResponse[];
   readonly authorizingContainerManifestHistory: AccessManifestBundleWireResponse[];
+}
+
+interface DocumentPurgeProofMaterial
+  extends DocumentPurgeAuthorizationMaterial {
   readonly documentContainerManifestHistory: AccessManifestBundleWireResponse[];
   readonly documentManifest: AccessManifestBundleWireResponse;
   readonly documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
   readonly documentManifestHistory: AccessManifestBundleWireResponse[];
+}
+
+async function loadDocumentPurgeAuthorizationMaterialWithCache(input: {
+  readonly authorizingContainerManifestHashes: readonly string[];
+  readonly executor: DatabaseSession;
+  readonly manifestCache: Map<string, LoadedProjectionManifestBundle>;
+}): Promise<DocumentPurgeAuthorizationMaterial> {
+  const state: ContainerDependencyLoadState = {
+    containerHistoryByHash: new Map(),
+    containerPathsByLeafHash: new Map(),
+    executor: input.executor,
+    manifestCache: input.manifestCache,
+    walkedContainerPredecessors: new Set(),
+  };
+  const authorizingContainerPath: AccessManifestBundleWireResponse[] = [];
+  for (const manifestHash of input.authorizingContainerManifestHashes) {
+    await loadContainerDependencyPath({
+      leafManifestHash: manifestHash,
+      state,
+    });
+    const loaded = await loadProjectionManifestBundleByHash(
+      input.executor,
+      manifestHash,
+      input.manifestCache,
+    );
+    if (loaded.objectKind !== "container") {
+      throw new DocumentWriterProjectionError(
+        "Document purge authorization path has the wrong object kind",
+        409,
+      );
+    }
+    authorizingContainerPath.push(loaded.bundle);
+  }
+  return {
+    authorizingContainerPath,
+    authorizingContainerManifestHistory: [
+      ...state.containerHistoryByHash.values(),
+    ],
+  };
+}
+
+export function loadDocumentPurgeAuthorizationMaterial(input: {
+  readonly authorizingContainerManifestHashes: readonly string[];
+  readonly executor: DatabaseSession;
+}): Promise<DocumentPurgeAuthorizationMaterial> {
+  return loadDocumentPurgeAuthorizationMaterialWithCache({
+    ...input,
+    manifestCache: new Map(),
+  });
 }
 
 export function collectPurgeProofPrincipalReferences(
@@ -49,6 +102,9 @@ export function collectPurgeProofPrincipalReferences(
 }
 
 export async function loadDocumentPurgeProofMaterial(input: {
+  readonly authorizationMaterial?:
+    | DocumentPurgeAuthorizationMaterial
+    | undefined;
   readonly authorizingContainerManifestHashes: readonly string[];
   readonly documentManifestHash: string;
   readonly executor: DatabaseSession;
@@ -76,49 +132,27 @@ export async function loadDocumentPurgeProofMaterial(input: {
     executor: input.executor,
     manifestCache,
   });
-  const authorizingState: ContainerDependencyLoadState = {
-    containerHistoryByHash: new Map(),
-    containerPathsByLeafHash: new Map(),
-    executor: input.executor,
-    manifestCache,
-    walkedContainerPredecessors: new Set(),
-  };
-  const authorizingContainerPath: AccessManifestBundleWireResponse[] = [];
-  for (const manifestHash of input.authorizingContainerManifestHashes) {
-    await loadContainerDependencyPath({
-      leafManifestHash: manifestHash,
-      state: authorizingState,
-    });
-    const loaded = await loadProjectionManifestBundleByHash(
-      input.executor,
-      manifestHash,
+  const authorizationMaterial =
+    input.authorizationMaterial ??
+    (await loadDocumentPurgeAuthorizationMaterialWithCache({
+      authorizingContainerManifestHashes:
+        input.authorizingContainerManifestHashes,
+      executor: input.executor,
       manifestCache,
-    );
-    if (loaded.objectKind !== "container") {
-      throw new DocumentWriterProjectionError(
-        "Document purge authorization path has the wrong object kind",
-        409,
-      );
-    }
-    authorizingContainerPath.push(loaded.bundle);
-  }
+    }));
   const containerHistoryByHash = new Map(
     documentDependencies.documentContainerManifestHistory.map((bundle) => [
       bundle.manifestHash,
       bundle,
     ]),
   );
-  for (const [
-    manifestHash,
-    bundle,
-  ] of authorizingState.containerHistoryByHash) {
-    containerHistoryByHash.set(manifestHash, bundle);
+  for (const bundle of authorizationMaterial.authorizingContainerManifestHistory) {
+    containerHistoryByHash.set(bundle.manifestHash, bundle);
   }
   return {
-    authorizingContainerPath,
-    authorizingContainerManifestHistory: [
-      ...authorizingState.containerHistoryByHash.values(),
-    ],
+    authorizingContainerPath: authorizationMaterial.authorizingContainerPath,
+    authorizingContainerManifestHistory:
+      authorizationMaterial.authorizingContainerManifestHistory,
     documentContainerManifestHistory: [...containerHistoryByHash.values()],
     documentManifest: documentManifest.bundle,
     documentManifestContainerPaths:
