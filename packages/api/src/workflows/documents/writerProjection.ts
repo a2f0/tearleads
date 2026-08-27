@@ -32,6 +32,7 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
+import { recordDocumentManifestObservationInTransaction } from "../../access/write/documentManifestObservationStore";
 import { createProjectionReaders } from "../../keyingProjectionRecords";
 import { uniqueSortedStrings } from "../../utils/array";
 import {
@@ -627,11 +628,17 @@ export async function runDocumentWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<DocumentWriterProjectionResponse> {
-  return db.transaction((tx) =>
-    resolveDocumentWriterProjection({
+  return db.transaction(async (tx) => {
+    const projection = await resolveDocumentWriterProjection({
       documentId: input.documentId,
       executor: tx,
       userId: input.userId,
-    }),
-  );
+    });
+    await recordDocumentManifestObservationInTransaction(tx, {
+      documentId: input.documentId,
+      manifestHash: projection.documentManifest.manifestHash,
+      userId: input.userId,
+    });
+    return projection;
+  });
 }

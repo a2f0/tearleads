@@ -5,6 +5,7 @@ import type {
 } from "@symcrypt/crypto";
 import { resolveHistoricalContainerPathUserAccessLevel } from "@symcrypt/crypto";
 import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/response";
+import { hasDocumentManifestObservation } from "../../../access/read/documentManifestObservationStore";
 import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
@@ -43,6 +44,8 @@ export async function verifyStoredContainerPath(input: {
 
 export async function authorizeDocumentPurgeProof(input: {
   readonly body: DocumentPurgeAccessEventBody;
+  readonly checkpointManifestHash?: string | undefined;
+  readonly documentId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentPurgeAuthorizationMaterial> {
@@ -76,6 +79,17 @@ export async function authorizeDocumentPurgeProof(input: {
         userId: input.userId,
       }) !== null;
     if (!hadPurgePathAccess) {
+      throw new DocumentMutationError("Forbidden", 403);
+    }
+    if (
+      input.checkpointManifestHash !== undefined &&
+      input.checkpointManifestHash !== input.body.documentManifestHash &&
+      !(await hasDocumentManifestObservation(input.executor, {
+        documentId: input.documentId,
+        manifestHash: input.checkpointManifestHash,
+        userId: input.userId,
+      }))
+    ) {
       throw new DocumentMutationError("Forbidden", 403);
     }
     return material;

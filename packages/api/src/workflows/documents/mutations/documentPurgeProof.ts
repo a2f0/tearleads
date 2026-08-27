@@ -230,6 +230,8 @@ export async function loadDocumentPurgeProof(input: {
   const { body, documentManifestHash } = readStoredPurgeReference(event);
   const authorizationMaterial = await authorizeDocumentPurgeProof({
     body,
+    checkpointManifestHash: input.documentCheckpointManifestHash,
+    documentId: input.documentId,
     executor: input.executor,
     userId: input.userId,
   });
@@ -244,7 +246,7 @@ export async function loadDocumentPurgeProof(input: {
 
   const documentManifestPredecessorBundles = selectDocumentManifestPredecessors(
     {
-      checkpointManifestHash: input.documentCheckpointManifestHash,
+      authorizedCheckpointManifestHash: input.documentCheckpointManifestHash,
       head: material.documentManifest,
       history: material.documentManifestHistory,
     },

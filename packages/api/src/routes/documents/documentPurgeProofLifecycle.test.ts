@@ -92,7 +92,7 @@ test("purge proof remains available after its container is deleted", async () =>
     `/documents/${created.id}/purge?documentCheckpointManifestHash=${"a".repeat(64)}`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
-  expect(invalidCheckpointResponse.status).toBe(409);
+  expect(invalidCheckpointResponse.status).toBe(403);
 });
 
 test("document purge rejects a disconnected signed authorization path", async () => {

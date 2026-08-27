@@ -50,6 +50,13 @@
       "when": 1787407910227,
       "tag": "0006_tranquil_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787824002862,
+      "tag": "0007_solid_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

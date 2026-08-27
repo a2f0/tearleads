@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@symcrypt/api-shared/postgres";
+import { documentManifestObservations } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import type { VerifiedContainerKekState } from "@symcrypt/crypto";
 import type { AccessManifestBundleWire } from "@symcrypt/validators/request";
@@ -7,6 +9,7 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeProofResponse,
 } from "@symcrypt/validators/response";
+import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import {
@@ -211,4 +214,22 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     );
     expect(predecessor.state).toHaveProperty("documentId", created.id);
   }
+
+  await db
+    .delete(documentManifestObservations)
+    .where(
+      and(
+        eq(documentManifestObservations.documentId, created.id),
+        eq(
+          documentManifestObservations.manifestHash,
+          created.accessManifest.manifestHash,
+        ),
+        eq(documentManifestObservations.userId, owner.userId),
+      ),
+    );
+  const unobservedCheckpointResponse = await routeApp.request(
+    `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.accessManifest.manifestHash}`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(unobservedCheckpointResponse.status).toBe(403);
 });

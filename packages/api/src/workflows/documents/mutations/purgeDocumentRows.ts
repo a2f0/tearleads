@@ -15,6 +15,7 @@ import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
+  documentManifestObservations,
   documents,
   documentUpdateAuditEvents,
   documentUpdateSpans,
@@ -140,6 +141,9 @@ async function deleteDocumentAccessHistory(
   documentId: string,
   executor: DatabaseTransaction,
 ): Promise<void> {
+  await executor
+    .delete(documentManifestObservations)
+    .where(eq(documentManifestObservations.documentId, documentId));
   await executor
     .delete(accessEventDependencyProjection)
     .where(

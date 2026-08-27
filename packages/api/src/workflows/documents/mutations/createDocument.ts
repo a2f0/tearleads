@@ -7,6 +7,7 @@ import type { DocumentCreateResponse } from "@symcrypt/validators/response";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
+import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
@@ -122,6 +123,11 @@ export async function createDocumentWithExecutor(input: {
       { verifiedManifest: manifest },
       input.executor,
     );
+    await recordDocumentManifestObservationInTransaction(input.executor, {
+      documentId: manifest.state.documentId,
+      manifestHash: manifest.manifestHash,
+      userId: input.userId,
+    });
     const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
       toStoredContentKeyBundleInput(
         manifest.state.documentId,

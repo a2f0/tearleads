@@ -2,18 +2,19 @@ import type { AccessManifestBundleWireResponse } from "@symcrypt/validators/resp
 import { DocumentMutationError } from "./errors";
 
 export function selectDocumentManifestPredecessors(input: {
-  readonly checkpointManifestHash?: string | undefined;
+  /** Exact hash already authorized from durable caller-observation state. */
+  readonly authorizedCheckpointManifestHash?: string | undefined;
   readonly head: AccessManifestBundleWireResponse;
   readonly history: readonly AccessManifestBundleWireResponse[];
 }): AccessManifestBundleWireResponse[] {
   if (
-    input.checkpointManifestHash === undefined ||
-    input.checkpointManifestHash === input.head.manifestHash
+    input.authorizedCheckpointManifestHash === undefined ||
+    input.authorizedCheckpointManifestHash === input.head.manifestHash
   ) {
     return [];
   }
   const checkpointIndex = input.history.findIndex(
-    (bundle) => bundle.manifestHash === input.checkpointManifestHash,
+    (bundle) => bundle.manifestHash === input.authorizedCheckpointManifestHash,
   );
   if (checkpointIndex < 0) {
     throw new DocumentMutationError(
