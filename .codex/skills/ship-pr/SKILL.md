@@ -235,7 +235,7 @@ loop, subject-only squash, and `MERGED`-state verification.
    head moved, do **not** re-review. Verify and re-pin:
 
    ```bash
-   COAUTHOR_BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
+   COAUTHOR_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
    COAUTHOR_BASE_HTTPS_URL=$(gh repo view "$REPO" --json url -q .url)
    COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HTTPS_URL#*://}
    COAUTHOR_BASE_HOST=${COAUTHOR_BASE_HOST%%/*}
@@ -244,6 +244,8 @@ loop, subject-only squash, and `MERGED`-state verification.
      https) COAUTHOR_BASE_URL="$COAUTHOR_BASE_HTTPS_URL" ;;
      *) echo "Error: unsupported git protocol for $COAUTHOR_BASE_HOST" >&2; exit 1 ;;
    esac
+   COAUTHOR_BASE_OID=$(git ls-remote "$COAUTHOR_BASE_URL" "refs/heads/$COAUTHOR_BASE_REF" | awk 'NR == 1 { print $1 }')
+   [ -n "$COAUTHOR_BASE_OID" ] || { echo "Error: could not resolve live PR base $COAUTHOR_BASE_REF" >&2; exit 1; }
    git fetch "$COAUTHOR_BASE_URL" "$COAUTHOR_BASE_OID" || { echo "Error: could not fetch PR base $COAUTHOR_BASE_OID" >&2; exit 1; }
    test "$(git rev-parse FETCH_HEAD)" = "$COAUTHOR_BASE_OID"
    test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
@@ -299,7 +301,7 @@ loop, subject-only squash, and `MERGED`-state verification.
      https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
      *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
    esac
-   BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
+   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
    test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }

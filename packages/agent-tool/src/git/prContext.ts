@@ -15,7 +15,6 @@ export interface PrContext extends PrIdentity {
 
 export interface PrView extends PrIdentity {
   readonly baseRefName: string;
-  readonly baseRefOid: string;
 }
 
 interface SpawnResult {
@@ -171,22 +170,12 @@ const freshBaseRefDependencies: FreshBaseRefDependencies = {
 export function resolveFreshBaseRef(
   repo: string,
   baseRefName: string,
-  baseRefOid: string,
   dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
 ): string {
-  if (dependencies.refExists(baseRefOid)) {
-    return baseRefOid;
-  }
-  const fetchTarget = baseRefOid || baseRefName;
   const fetchedOid = dependencies.fetch(
     dependencies.repositoryGitUrl(repo),
-    fetchTarget,
+    baseRefName,
   );
-  if (baseRefOid.length > 0 && fetchedOid !== baseRefOid) {
-    throw new Error(
-      `Fetched base '${fetchedOid}' does not match expected OID '${baseRefOid}'.`,
-    );
-  }
   if (!dependencies.refExists(fetchedOid)) {
     throw new Error(
       `Fetched base '${fetchedOid}' from '${repo}' is unavailable locally.`,
@@ -200,13 +189,9 @@ export function selectReviewBaseRef(
   pinnedBaseRef: string | undefined,
   repo: string,
   baseRefName: string,
-  baseRefOid: string,
   dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
 ): string {
-  return (
-    pinnedBaseRef ??
-    resolveFreshBaseRef(repo, baseRefName, baseRefOid, dependencies)
-  );
+  return pinnedBaseRef ?? resolveFreshBaseRef(repo, baseRefName, dependencies);
 }
 
 /**
@@ -302,7 +287,7 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
     "view",
     prNumber,
     "--json",
-    "title,baseRefName,baseRefOid",
+    "title,baseRefName",
     "-R",
     repo,
   ]);
@@ -313,7 +298,6 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
     prNumber,
     title: stringField(viewRaw, "title"),
     baseRefName: stringField(viewRaw, "baseRefName"),
-    baseRefOid: stringField(viewRaw, "baseRefOid"),
   };
 }
 
@@ -420,7 +404,6 @@ export function resolveReviewContext(
         pinnedBaseRef,
         checkoutRepo,
         defaultBranch,
-        "",
       ),
     };
   }
@@ -438,7 +421,6 @@ export function resolveReviewContext(
       pinnedBaseRef,
       view.repo,
       view.baseRefName,
-      view.baseRefOid,
     ),
   };
 }

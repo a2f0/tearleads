@@ -84,7 +84,6 @@ describe("review base integration", () => {
         title: "Fork PR",
         url: "https://github.com/upstream/repo/pull/42",
         baseRefName: "main",
-        baseRefOid: SHA1_OID,
       }),
     }));
     const closed = viewCurrentBranchPr("feature", () => ({
@@ -120,28 +119,22 @@ describe("review base integration", () => {
 
   test("gives a pinned base precedence without fetching", () => {
     let fetched = false;
-    const resolved = selectReviewBaseRef(
-      SHA1_OID,
-      "upstream/repo",
-      "main",
-      SHA256_OID,
-      {
-        fetch: () => {
-          fetched = true;
-          return SHA256_OID;
-        },
-        refExists: () => true,
-        repositoryGitUrl: () => "https://github.com/upstream/repo",
+    const resolved = selectReviewBaseRef(SHA1_OID, "upstream/repo", "main", {
+      fetch: () => {
+        fetched = true;
+        return SHA256_OID;
       },
-    );
+      refExists: () => true,
+      repositoryGitUrl: () => "https://github.com/upstream/repo",
+    });
 
     expect(resolved).toBe(SHA1_OID);
     expect(fetched).toBe(false);
   });
 
-  test("fetches a PR base by exact OID from the upstream repository", () => {
+  test("fetches the live PR base branch from the upstream repository", () => {
     const calls: string[][] = [];
-    const resolved = resolveFreshBaseRef("upstream/repo", "main", SHA1_OID, {
+    const resolved = resolveFreshBaseRef("upstream/repo", "main", {
       fetch: (url, target) => {
         calls.push([url, target]);
         return SHA1_OID;
@@ -151,12 +144,12 @@ describe("review base integration", () => {
     });
 
     expect(resolved).toBe(SHA1_OID);
-    expect(calls).toEqual([["https://github.com/upstream/repo", SHA1_OID]]);
+    expect(calls).toEqual([["https://github.com/upstream/repo", "main"]]);
   });
 
-  test("fetches the default branch when no PR base OID exists", () => {
+  test("fetches the default branch without PR metadata", () => {
     const calls: string[][] = [];
-    const resolved = resolveFreshBaseRef("owner/repo", "main", "", {
+    const resolved = resolveFreshBaseRef("owner/repo", "main", {
       fetch: (url, target) => {
         calls.push([url, target]);
         return SHA256_OID;
@@ -167,16 +160,6 @@ describe("review base integration", () => {
 
     expect(resolved).toBe(SHA256_OID);
     expect(calls).toEqual([["https://github.com/owner/repo", "main"]]);
-  });
-
-  test("rejects a fetched OID that differs from the PR base", () => {
-    expect(() =>
-      resolveFreshBaseRef("upstream/repo", "main", SHA1_OID, {
-        fetch: () => SHA256_OID,
-        refExists: () => false,
-        repositoryGitUrl: () => "https://github.com/upstream/repo",
-      }),
-    ).toThrow("does not match expected OID");
   });
 
   function dependencies(
@@ -201,27 +184,24 @@ describe("review base integration", () => {
         prNumber: fallbackPrNumber,
         title: "Local PR",
         baseRefName: "main",
-        baseRefOid: SHA1_OID,
       }),
     };
   }
 
-  test("resolves an upstream fork PR and its immutable base", () => {
+  test("resolves an upstream fork PR and its live base", () => {
     const upstreamPr: PrView = {
       branch: "feature",
       repo: "upstream/repo",
       prNumber: "42",
       title: "Fork PR",
       baseRefName: "trunk",
-      baseRefOid: SHA1_OID,
     };
     const context = resolveReviewContext(
-      dependencies(upstreamPr, "", (pinned, repo, name, oid) => {
-        expect([pinned, repo, name, oid]).toEqual([
+      dependencies(upstreamPr, "", (pinned, repo, name) => {
+        expect([pinned, repo, name]).toEqual([
           undefined,
           "upstream/repo",
           "trunk",
-          SHA1_OID,
         ]);
         return SHA1_OID;
       }),
@@ -238,8 +218,8 @@ describe("review base integration", () => {
 
   test("resolves a no-PR branch against its checkout default branch", () => {
     const context = resolveReviewContext(
-      dependencies(undefined, "", (_pinned, repo, name, oid) => {
-        expect([repo, name, oid]).toEqual(["fork/repo", "main", ""]);
+      dependencies(undefined, "", (_pinned, repo, name) => {
+        expect([repo, name]).toEqual(["fork/repo", "main"]);
         return SHA256_OID;
       }),
     );
@@ -253,21 +233,20 @@ describe("review base integration", () => {
     });
   });
 
-  test("propagates a base-fetch mismatch from full context resolution", () => {
+  test("propagates a live base-fetch failure from full context resolution", () => {
     const upstreamPr: PrView = {
       branch: "feature",
       repo: "upstream/repo",
       prNumber: "42",
       title: "Fork PR",
       baseRefName: "main",
-      baseRefOid: SHA1_OID,
     };
     expect(() =>
       resolveReviewContext(
         dependencies(upstreamPr, "", () => {
-          throw new Error("Fetched base does not match expected OID");
+          throw new Error("Could not fetch live base");
         }),
       ),
-    ).toThrow("does not match expected OID");
+    ).toThrow("Could not fetch live base");
   });
 });

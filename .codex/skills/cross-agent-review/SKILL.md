@@ -133,7 +133,6 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    esac
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
-     BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
      PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRepository -R "$REPO")
      HEAD_REF=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
      HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
@@ -148,8 +147,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      esac
    else
      BASE_REF="$DEFAULT_BRANCH"
-     BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
    fi
+   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
    test "$(git rev-parse FETCH_HEAD)" = "$BASE_OID" || { echo "Error: fetched base does not match $BASE_OID" >&2; exit 1; }
