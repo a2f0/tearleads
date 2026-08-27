@@ -4,6 +4,7 @@ import {
   createDocumentLinkSetMutationRequest,
   createDocumentLinkSetMutationResponse,
   createDocumentPurgeRequest,
+  createDocumentPurgeResponse,
   createDocumentSyncRequest,
   createDocumentSyncResponse,
 } from "../test/helpers/apiClientTestFactories";
@@ -147,17 +148,7 @@ for (const mutationCase of attributionMutationCases) {
         mutationStarted.resolve();
         await finishMutation.promise;
         if (request.url.endsWith("/purge")) {
-          return HttpResponse.json({
-            authorizingContainerPath: [],
-            documentContainerManifestHistory: [],
-            documentId: "document-1",
-            documentManifest: {},
-            documentManifestContainerPaths: [],
-            documentManifestHistory: [],
-            purgeEvent: {},
-            purgedAt: "2026-07-14T12:00:00.000Z",
-            reclaimedBlobStorageKeys: [],
-          });
+          return HttpResponse.json(createDocumentPurgeResponse());
         }
         return HttpResponse.json(
           request.url.endsWith("/sync")

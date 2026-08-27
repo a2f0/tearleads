@@ -18,6 +18,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
@@ -139,6 +140,30 @@ export function createDocumentPurgeRequest(): DocumentPurgeRequest {
     ],
     body: { eventType: "document.purge" },
     event: { eventType: "document.purge" },
+  };
+}
+
+export function createDocumentPurgeResponse(): DocumentPurgeResponse {
+  const authorizingContainer = createContainerMutationResponse().accessManifest;
+  return {
+    authorizingContainerCheckpointChains: [[]],
+    authorizingContainerPath: [authorizingContainer],
+    documentContainerManifestHistory: [],
+    documentId: "document-1",
+    documentManifest: {
+      manifest: { objectKind: "document" },
+      manifestHash: "document-manifest-hash",
+      state: { documentId: "document-1" },
+    },
+    documentManifestPredecessors: [],
+    principalPolicySnapshots: [],
+    purgeEvent: {
+      body: { eventType: "document.purge" },
+      event: { eventType: "document.purge" },
+      eventHash: "document-purge-event-hash",
+    },
+    purgedAt: "2026-07-14T12:00:00.000Z",
+    reclaimedBlobStorageKeys: [],
   };
 }
 
