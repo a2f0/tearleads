@@ -271,11 +271,11 @@ loop, subject-only squash, and `MERGED`-state verification.
    ```bash
    BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
    BASE_REF_PATH=$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')
-   STRICT_RULESET_IDS=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true) | .ruleset_id] | unique | .[]') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
+   STRICT_RULESET_IDS=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and ((.parameters.required_status_checks // []) | length > 0)) | .ruleset_id] | unique | .[]') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
    [ -n "$STRICT_RULESET_IDS" ] || { echo "Error: $REPO:$BASE_REF has no strict status-check ruleset" >&2; exit 1; }
    NON_BYPASS_STRICT=false
    for RULESET_ID in $STRICT_RULESET_IDS; do
-     RULESET_ENFORCES=$(gh api "repos/$REPO/rulesets/$RULESET_ID" --jq '(.enforcement == "active") and (.current_user_can_bypass == "never") and ([.rules[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0)') || { echo "Error: could not verify ruleset $RULESET_ID" >&2; exit 1; }
+     RULESET_ENFORCES=$(gh api "repos/$REPO/rulesets/$RULESET_ID" --jq '(.enforcement == "active") and (.current_user_can_bypass == "never") and ([.rules[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and ((.parameters.required_status_checks // []) | length > 0))] | length > 0)') || { echo "Error: could not verify ruleset $RULESET_ID" >&2; exit 1; }
      [ "$RULESET_ENFORCES" != "true" ] || NON_BYPASS_STRICT=true
    done
    [ "$NON_BYPASS_STRICT" = "true" ] || { echo "Error: the authenticated actor can bypass strict base freshness for $REPO:$BASE_REF" >&2; exit 1; }

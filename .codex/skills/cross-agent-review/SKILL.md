@@ -134,6 +134,18 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    if [ -n "$PR_NUMBER" ]; then
      BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
      BASE_OID=$(gh pr view "$PR_NUMBER" --json baseRefOid -q .baseRefOid -R "$REPO")
+     PR_HEAD_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRepository -R "$REPO")
+     HEAD_REF=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRefName // ""')
+     HEAD_REPO=$(printf '%s' "$PR_HEAD_JSON" | jq -r '.headRepository.nameWithOwner // ""')
+     [ "$HEAD_REF" = "$BRANCH" ] && [ -n "$HEAD_REPO" ] || { echo "Error: could not resolve the PR head repository and branch" >&2; exit 1; }
+     HEAD_REPO_HTTPS_URL=$(gh repo view "$HEAD_REPO" --json url -q .url)
+     HEAD_REPO_HOST=${HEAD_REPO_HTTPS_URL#*://}
+     HEAD_REPO_HOST=${HEAD_REPO_HOST%%/*}
+     case $(gh config get git_protocol --host "$HEAD_REPO_HOST") in
+       ssh) HEAD_REPO_URL=$(gh repo view "$HEAD_REPO" --json sshUrl -q .sshUrl) ;;
+       https) HEAD_REPO_URL="$HEAD_REPO_HTTPS_URL" ;;
+       *) echo "Error: unsupported git protocol for $HEAD_REPO_HOST" >&2; exit 1 ;;
+     esac
    else
      BASE_REF="$DEFAULT_BRANCH"
      BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
@@ -181,7 +193,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    ```bash
    if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
-     git push origin "$BRANCH"
+     git push "$HEAD_REPO_URL" "HEAD:refs/heads/$HEAD_REF"
    fi
    ```
 
