@@ -332,7 +332,10 @@ test("an undiscovered probe requires a signed purge proof to destroy local state
       timestamp: "2026-07-30T12:00:00.000Z",
     });
     const { author, resolveProjectionUserKey, writerProjection } =
-      await createMaterializedSyncFixture();
+      await createMaterializedSyncFixture({
+        organizationId: "org-a",
+        userId: "user-a",
+      });
     const documentId = writerProjection.documentId;
     const purgeProof = await createDocumentPurgeProof(author, writerProjection);
     await saveTestDocument({

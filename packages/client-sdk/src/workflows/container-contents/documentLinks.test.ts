@@ -161,11 +161,25 @@ test("relinkRemoteContainerDocument persists linked container projections after 
 test("purgeLocalContainerDocument tears down local state and returns a result", async () => {
   const execSql: ExecSql = (async () => []) as ExecSql;
   const deletedLocalIds: string[] = [];
+  const expectedRecord = {
+    accessEpoch: 1,
+    containerId: null,
+    documentId: null,
+    id: "purge-local-note",
+    snapshotEndVersion: "",
+    text: "",
+  };
   const persistence = {
     ensureSchema: async () => undefined,
-    loadDocument: async () => null,
-    deleteDocument: async (_execSql: ExecSql, localId: string) => {
-      deletedLocalIds.push(localId);
+    loadDocument: async () => expectedRecord,
+    deleteDocumentIfMatches: async (
+      _execSql: ExecSql,
+      record: typeof expectedRecord,
+      deleteClientProjection: (transactionExecSql: ExecSql) => Promise<void>,
+    ) => {
+      await deleteClientProjection(execSql);
+      deletedLocalIds.push(record.id);
+      return true;
     },
   } as unknown as DocumentsPersistence;
 
