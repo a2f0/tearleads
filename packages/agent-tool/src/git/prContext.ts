@@ -11,7 +11,7 @@ export interface PrContext extends PrIdentity {
   readonly baseRef: string;
 }
 
-interface PrView extends PrIdentity {
+export interface PrView extends PrIdentity {
   readonly baseRefName: string;
   readonly baseRefOid: string;
 }
@@ -73,6 +73,11 @@ function firstPrNumber(source: string | null): string {
   return typeof numberField === "number" ? String(numberField) : "";
 }
 
+function numberFieldString(source: string, key: string): string {
+  const value = fieldOf(safeParse(source), key);
+  return typeof value === "number" ? String(value) : "";
+}
+
 function gitRefExists(ref: string): boolean {
   if (ref.length === 0) {
     return false;
@@ -86,6 +91,12 @@ function gitRefExists(ref: string): boolean {
 }
 
 type RefExists = (ref: string) => boolean;
+
+interface FreshBaseRefDependencies {
+  readonly fetch: (repositoryUrl: string, target: string) => string;
+  readonly refExists: RefExists;
+  readonly repositoryGitUrl: (repo: string) => string;
+}
 
 /** Resolve an optional exact review base supplied by the coordinating skill. */
 export function resolvePinnedReviewBase(
@@ -136,41 +147,68 @@ function resolveRepositoryGitUrl(repo: string): string {
   return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
 }
 
+function fetchBase(repositoryUrl: string, target: string): string {
+  const result = spawnSync("git", ["fetch", "--quiet", repositoryUrl, target], {
+    stdio: "ignore",
+  });
+  if (spawnExitCode("git fetch", result) !== 0) {
+    throw new Error(
+      `Could not fetch base '${target}' from '${repositoryUrl}'.`,
+    );
+  }
+  return run("git", ["rev-parse", "FETCH_HEAD"]);
+}
+
+const freshBaseRefDependencies: FreshBaseRefDependencies = {
+  fetch: fetchBase,
+  refExists: gitRefExists,
+  repositoryGitUrl: resolveRepositoryGitUrl,
+};
+
 /**
  * Base ref for a review, resolved to the exact base snapshot from the repository
  * that owns the PR. A branch cut from an older base would otherwise diff in
  * upstream commits it never authored — so a review (or repair round) could flag
  * or touch code the branch does not own.
  */
-function resolveFreshBaseRef(
+export function resolveFreshBaseRef(
   repo: string,
   baseRefName: string,
   baseRefOid: string,
+  dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
 ): string {
-  if (gitRefExists(baseRefOid)) {
+  if (dependencies.refExists(baseRefOid)) {
     return baseRefOid;
   }
   const fetchTarget = baseRefOid || baseRefName;
-  const result = spawnSync(
-    "git",
-    ["fetch", "--quiet", resolveRepositoryGitUrl(repo), fetchTarget],
-    {
-      stdio: "ignore",
-    },
+  const fetchedOid = dependencies.fetch(
+    dependencies.repositoryGitUrl(repo),
+    fetchTarget,
   );
-  if (spawnExitCode("git fetch", result) !== 0) {
+  if (baseRefOid.length > 0 && fetchedOid !== baseRefOid) {
     throw new Error(
-      `Could not fetch base '${fetchTarget}' from the repository '${repo}'.`,
+      `Fetched base '${fetchedOid}' does not match expected OID '${baseRefOid}'.`,
     );
   }
-  if (gitRefExists(baseRefOid)) {
-    return baseRefOid;
+  if (!dependencies.refExists(fetchedOid)) {
+    throw new Error(
+      `Fetched base '${fetchedOid}' from '${repo}' is unavailable locally.`,
+    );
   }
-  if (gitRefExists("FETCH_HEAD")) {
-    return "FETCH_HEAD";
-  }
-  throw new Error(
-    `Fetched base '${fetchTarget}' from '${repo}' is unavailable locally.`,
+  return fetchedOid;
+}
+
+/** Prefer an already-fetched pinned base over any new repository lookup. */
+export function selectReviewBaseRef(
+  pinnedBaseRef: string | undefined,
+  repo: string,
+  baseRefName: string,
+  baseRefOid: string,
+  dependencies: FreshBaseRefDependencies = freshBaseRefDependencies,
+): string {
+  return (
+    pinnedBaseRef ??
+    resolveFreshBaseRef(repo, baseRefName, baseRefOid, dependencies)
   );
 }
 
@@ -282,6 +320,54 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
   };
 }
 
+export function repoFromPrUrl(prUrl: string): string {
+  try {
+    const segments = new URL(prUrl).pathname.split("/").filter(Boolean);
+    if (segments.length >= 4 && segments[2] === "pull") {
+      return `${segments[0]}/${segments[1]}`;
+    }
+  } catch {
+    // Fall through to the actionable error below.
+  }
+  throw new Error(`Could not resolve the base repository from '${prUrl}'.`);
+}
+
+/** Resolve the current branch's PR, including an upstream PR from a fork. */
+function viewCurrentBranchPr(branch: string): PrView | undefined {
+  const viewRaw = tryRun("gh", [
+    "pr",
+    "view",
+    "--json",
+    "number,title,url,baseRefName,baseRefOid",
+  ]);
+  if (viewRaw === null) {
+    return undefined;
+  }
+  const prNumber = numberFieldString(viewRaw, "number");
+  const prUrl = stringField(viewRaw, "url");
+  if (prNumber.length === 0 || prUrl.length === 0) {
+    throw new Error("Could not determine the current branch's PR identity.");
+  }
+  return {
+    branch,
+    repo: repoFromPrUrl(prUrl),
+    prNumber,
+    title: stringField(viewRaw, "title"),
+    baseRefName: stringField(viewRaw, "baseRefName"),
+    baseRefOid: stringField(viewRaw, "baseRefOid"),
+  };
+}
+
+export interface ReviewContextDependencies {
+  readonly findOpenPrNumber: typeof findOpenPrNumber;
+  readonly pinnedBaseOid: string | undefined;
+  readonly resolvePinnedReviewBase: typeof resolvePinnedReviewBase;
+  readonly resolveRepoContext: typeof resolveRepoContext;
+  readonly selectReviewBaseRef: typeof selectReviewBaseRef;
+  readonly viewCurrentBranchPr: typeof viewCurrentBranchPr;
+  readonly viewPr: typeof viewPr;
+}
+
 /**
  * Resolve the open PR for the current branch from git + GitHub. Throws with an
  * actionable message when there is nothing reviewable (on main, no PR, gh not
@@ -289,6 +375,11 @@ function viewPr(branch: string, repo: string, prNumber: string): PrView {
  */
 function fetchPrView(): PrView {
   const { branch, repo } = resolveRepoContext();
+
+  const currentBranchPr = viewCurrentBranchPr(branch);
+  if (currentBranchPr !== undefined) {
+    return currentBranchPr;
+  }
 
   const prNumber = findOpenPrNumber(branch, repo);
   if (prNumber.length === 0) {
@@ -329,12 +420,29 @@ export function resolvePr(): PrIdentity {
  * is fetched fresh, so a stale local ref never leaks upstream commits into the
  * diff. Throws on the default branch, via `resolveRepoContext`.
  */
-export function resolveReviewContext(): PrContext {
-  const { branch, repo, defaultBranch } = resolveRepoContext();
+export function resolveReviewContext(
+  dependencies?: ReviewContextDependencies,
+): PrContext {
   const { AGENT_TOOL_REVIEW_BASE_OID: pinnedBaseOid } = process.env;
-  const pinnedBaseRef = resolvePinnedReviewBase(pinnedBaseOid);
+  const deps = dependencies ?? {
+    findOpenPrNumber,
+    pinnedBaseOid,
+    resolvePinnedReviewBase,
+    resolveRepoContext,
+    selectReviewBaseRef,
+    viewCurrentBranchPr,
+    viewPr,
+  };
+  const {
+    branch,
+    repo: checkoutRepo,
+    defaultBranch,
+  } = deps.resolveRepoContext();
+  const pinnedBaseRef = deps.resolvePinnedReviewBase(deps.pinnedBaseOid);
 
-  const prNumber = findOpenPrNumber(branch, repo);
+  const currentBranchPr = deps.viewCurrentBranchPr(branch);
+  const prNumber =
+    currentBranchPr?.prNumber ?? deps.findOpenPrNumber(branch, checkoutRepo);
   if (prNumber.length === 0) {
     if (defaultBranch.length === 0) {
       throw new Error(
@@ -346,24 +454,32 @@ export function resolveReviewContext(): PrContext {
     // into the diff.
     return {
       branch,
-      repo,
+      repo: checkoutRepo,
       prNumber: "",
       title: "",
-      baseRef: pinnedBaseRef ?? resolveFreshBaseRef(repo, defaultBranch, ""),
+      baseRef: deps.selectReviewBaseRef(
+        pinnedBaseRef,
+        checkoutRepo,
+        defaultBranch,
+        "",
+      ),
     };
   }
 
-  const view = viewPr(branch, repo, prNumber);
+  const view = currentBranchPr ?? deps.viewPr(branch, checkoutRepo, prNumber);
   if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
   return {
     branch,
-    repo,
+    repo: view.repo,
     prNumber,
     title: view.title,
-    baseRef:
-      pinnedBaseRef ??
-      resolveFreshBaseRef(repo, view.baseRefName, view.baseRefOid),
+    baseRef: deps.selectReviewBaseRef(
+      pinnedBaseRef,
+      view.repo,
+      view.baseRefName,
+      view.baseRefOid,
+    ),
   };
 }

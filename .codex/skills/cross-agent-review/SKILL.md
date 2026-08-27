@@ -49,7 +49,7 @@ commit, repair rounds produce new commits to read.
 
 ## Prerequisites
 
-- `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
+- `git`, `gh` (authenticated), `jq`, and POSIX `awk` on `PATH`.
 - The `@symcrypt/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
@@ -67,11 +67,19 @@ Resolve the branch, repo, PR, and tool path:
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+CHECKOUT_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
+CURRENT_PR_JSON=$(gh pr view --json number,url 2>/dev/null || true)
+if [ -n "$CURRENT_PR_JSON" ]; then
+  PR_NUMBER=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.number')
+  REPO=$(printf '%s' "$CURRENT_PR_JSON" | jq -r '.url | split("/") | .[-4] + "/" + .[-3]')
+else
+  REPO="$CHECKOUT_REPO"
+  PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
+fi
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
+[ -n "$REPO" ] || { echo "Error: repository is unavailable" >&2; exit 1; }
 ```
 
 If `$BRANCH` equals `$DEFAULT_BRANCH` (or a conventional `main`/`master`), report

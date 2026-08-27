@@ -72,7 +72,8 @@ the single push. Each wrapped skill re-checks its own preconditions.
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+CHECKOUT_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+REPO="$CHECKOUT_REPO"
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
@@ -91,9 +92,12 @@ loop, subject-only squash, and `MERGED`-state verification.
    case, nothing is pushed and no PR exists — so the review reads local commits
    and the branch is pushed exactly once, when the PR is opened.
 
-   First look up whether an open PR already exists for the branch
-   (`gh pr list --head "$BRANCH" --state open`); one may remain from a prior gated
-   run. Then take the matching case:
+   First look up whether an open PR already exists for the branch. Prefer
+   `gh pr view --json number,url` without `-R`, which follows the current branch
+   to an upstream PR from a fork; derive `REPO` from that PR URL. Fall back to
+   `gh pr list --head "$BRANCH" --state open -R "$CHECKOUT_REPO"` only when the
+   current branch has no PR. One may remain from a prior gated run. Then take the
+   matching case:
 
    - **A PR is already open for the branch** (a prior gated run resuming after
      fixes): do not prepare a new branch or open another PR. Confirm it targets
@@ -185,10 +189,18 @@ loop, subject-only squash, and `MERGED`-state verification.
      pushes the branch
      **once** — the only push of the flow, and the one that goes through the
      pre-push hook — and opens the PR. Capture its number and URL, and set
-     `PR_NUMBER`. Stop if creation fails.
+     `PR_NUMBER`. Derive `REPO` from the returned PR URL before any base or rules
+     lookup. Stop if creation fails.
    - **A PR is already open** (the resume path from step 1): it is already pushed
      with the reviewed repairs; do **not** call `open-pr`. Reuse its number, URL,
      and title.
+
+   On either path, bind later lookups to the repository that owns the PR:
+
+   ```bash
+   REPO=$(printf '%s' "$PR_URL" | jq -Rr 'split("/") | .[-4] + "/" + .[-3]')
+   [ -n "$REPO" ] || { echo "Error: could not resolve the PR base repository" >&2; exit 1; }
+   ```
 
    Then confirm the pushed PR head is exactly the reviewed head, so step 4 binds
    the merge to a commit a review actually read:
@@ -232,8 +244,9 @@ loop, subject-only squash, and `MERGED`-state verification.
    ```bash
    BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
    BASE_REF_PATH=$(jq -rn --arg ref "$BASE_REF" '$ref | @uri')
-   STRICT_BASE_POLICY=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0') || { echo "Error: could not read effective rules for $REPO:$BASE_REF" >&2; exit 1; }
-   [ "$STRICT_BASE_POLICY" = "true" ] || { echo "Error: $REPO:$BASE_REF does not require branches to be up to date before merge" >&2; exit 1; }
+   RULESET_STRICT=$(gh api "repos/$REPO/rules/branches/$BASE_REF_PATH" --jq '[.[] | select(.type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true)] | length > 0' 2>/dev/null) || RULESET_STRICT=false
+   CLASSIC_STRICT=$(gh api "repos/$REPO/branches/$BASE_REF_PATH/protection/required_status_checks" --jq '.strict == true' 2>/dev/null) || CLASSIC_STRICT=false
+   [ "$RULESET_STRICT" = "true" ] || [ "$CLASSIC_STRICT" = "true" ] || { echo "Error: $REPO:$BASE_REF does not require branches to be up to date before merge" >&2; exit 1; }
    ```
 
    That server-side rule closes the fetch-to-merge race: if the base advances
