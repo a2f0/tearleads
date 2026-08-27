@@ -62,11 +62,12 @@ const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
 async function loadLocalDocumentCheckpointManifestHash(input: {
   readonly documentCheckpoint: AccessManifestCheckpoint;
   readonly execSql: ExecSql;
+  readonly expectedOrganizationId: string;
 }): Promise<string> {
   const storedDocument = await loadAccessManifestCheckpoint(
     input.execSql,
     "document",
-    input.documentCheckpoint.organizationId,
+    input.expectedOrganizationId,
     input.documentCheckpoint.objectId,
   );
   return storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash;
@@ -76,6 +77,7 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly documentId: string;
   readonly execSql: ExecSql;
+  readonly expectedOrganizationId: string;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -96,6 +98,7 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   const baseline = await verifyDocumentPurgeProofBaseline({
     execSql: input.execSql,
     expectedDocumentId: input.documentId,
+    expectedOrganizationId: input.expectedOrganizationId,
     proof: initialProof,
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -104,6 +107,7 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     await loadLocalDocumentCheckpointManifestHash({
       documentCheckpoint: baseline.documentCheckpoint,
       execSql: input.execSql,
+      expectedOrganizationId: input.expectedOrganizationId,
     });
   if (
     documentCheckpointManifestHash ===
@@ -210,6 +214,7 @@ export async function buildDocumentPurgeRequest(input: {
 export function createVerifiedRemoteDocumentDeletionHandler(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly execSql: ExecSql;
+  readonly expectedOrganizationId: string;
   readonly onVerifiedDeletion: (input: {
     readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
     readonly documentId: string;
@@ -224,6 +229,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       apiClient: input.apiClient,
       documentId,
       execSql: input.execSql,
+      expectedOrganizationId: input.expectedOrganizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
@@ -236,6 +242,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
     const verified = await verifyDocumentPurgeProof({
       execSql: input.execSql,
       expectedDocumentId: documentId,
+      expectedOrganizationId: input.expectedOrganizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -272,6 +279,7 @@ export async function purgeRemoteDocument(input: {
       apiClient: input.apiClient,
       documentId: input.documentId,
       execSql: input.execSql,
+      expectedOrganizationId: input.author.organizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
@@ -284,6 +292,7 @@ export async function purgeRemoteDocument(input: {
     const verified = await verifyDocumentPurgeProof({
       execSql: input.execSql,
       expectedDocumentId: input.documentId,
+      expectedOrganizationId: input.author.organizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -313,6 +322,7 @@ export async function purgeRemoteDocument(input: {
   const verified = await verifyDocumentPurgeProof({
     execSql: input.execSql,
     expectedDocumentId: input.documentId,
+    expectedOrganizationId: input.author.organizationId,
     proof: response,
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,

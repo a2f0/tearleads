@@ -29,6 +29,7 @@ import {
   revokeRootRotatedReadGroup,
 } from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
+import { clearStoredContainerManifestVerificationCache } from "../../workflows/containers/writerProjection/storedManifestVerification";
 
 async function registerAndAuthenticate(user: TestUser): Promise<void> {
   await registerUser(user);
@@ -443,6 +444,18 @@ test("purge proof preserves historical signer membership after group deletion", 
     organizationId,
   });
   expect(deleteResponse.status).toBe(200);
+
+  // Model a new API process: historical verification must use the retained
+  // signed public snapshot, not cached full policy material erased on delete.
+  clearStoredContainerManifestVerificationCache();
+  const freshProjectionResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(
+    freshProjectionResponse.status,
+    await freshProjectionResponse.clone().text(),
+  ).toBe(200);
 
   const proofResponse = await routeApp.request(
     `/documents/${created.id}/purge`,

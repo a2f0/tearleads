@@ -41,6 +41,7 @@ test("purge rejects unrelated policy evidence before consulting its checkpoint",
       verifyDocumentPurgeProof({
         execSql,
         expectedDocumentId: fixture.writerProjection.documentId,
+        expectedOrganizationId: fixture.author.organizationId,
         proof: {
           ...proof,
           principalPolicySnapshots: [policyFixture.admin],

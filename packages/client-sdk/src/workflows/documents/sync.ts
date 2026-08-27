@@ -414,6 +414,7 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: createVerifiedRemoteDocumentDeletionHandler({
         apiClient: input.apiClient,
         execSql: input.execSql,
+        expectedOrganizationId: input.author.organizationId,
         onVerifiedDeletion: ({ commitPurgeProof, documentId }) => {
           if (!input.onRemoteDocumentDeleted) {
             throw new KeyingVerificationError(

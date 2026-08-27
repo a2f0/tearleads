@@ -36,6 +36,7 @@ import type {
 interface VerifyDocumentPurgeProofInput {
   readonly execSql: ExecSql;
   readonly expectedDocumentId: string;
+  readonly expectedOrganizationId: string;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -214,6 +215,14 @@ async function verifyDocumentPurgeProofWithMode(
         verifiedContainerManifests,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       });
+    if (
+      documentManifest.state.organizationId !== input.expectedOrganizationId
+    ) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Document purge proof belongs to another organization",
+      );
+    }
     if (enforceLocalCheckpoints) {
       const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
         execSql: input.execSql,

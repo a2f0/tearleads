@@ -40,6 +40,10 @@ export class StoredVerificationCache<T> {
     });
   }
 
+  clear(): void {
+    this.entries.clear();
+  }
+
   private fingerprint(source: unknown): string {
     return sha256Hex(JSON.stringify(source) ?? "undefined");
   }

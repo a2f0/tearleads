@@ -27,6 +27,10 @@ const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
 const verifiedStoredManifests =
   new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
 
+export function clearStoredContainerManifestVerificationCache(): void {
+  verifiedStoredManifests.clear();
+}
+
 interface StoredManifestVerificationInput {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly context: ContainerWriterProjectionContext;

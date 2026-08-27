@@ -13,6 +13,7 @@ import {
   principalStateReferenceKey,
 } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
 import { PrincipalPolicyError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
@@ -104,10 +105,22 @@ export async function loadPrincipalAuthorizationPoliciesForReferences(
         principalPolicyMatchesReference({ policy, reference }),
       ),
   );
-  return [
-    ...evidence,
-    ...(await loadPrincipalPoliciesForReferences(executor, missing)),
-  ];
+  if (missing.length === 0) return [...evidence];
+  try {
+    const { policies } =
+      await loadVerifiedPrincipalPolicySnapshotsForReferences(
+        executor,
+        missing,
+      );
+    return [...evidence, ...policies];
+  } catch (error) {
+    if (error instanceof PrincipalPolicyError) {
+      throw new PrincipalPolicyProjectionError(
+        `Principal policy failed integrity verification: ${error.message}`,
+      );
+    }
+    throw error;
+  }
 }
 
 export async function loadPrincipalAuthorizationPoliciesForContainerPaths(

@@ -94,6 +94,7 @@ async function createGroupAuthorizedPurge(input: { execSql: ExecSql }) {
     writerProjection,
   );
   return {
+    organizationId: fixture.author.organizationId,
     policies,
     proof: {
       ...proof,
@@ -113,6 +114,7 @@ test("purge commit atomically pins first-seen policy snapshots", async () => {
     const verified = await verifyDocumentPurgeProof({
       execSql,
       expectedDocumentId: fixture.writerProjection.documentId,
+      expectedOrganizationId: fixture.organizationId,
       proof: fixture.proof,
       resolveUserKey: fixture.resolveUserKey,
     });
@@ -144,6 +146,7 @@ test("purge commit rolls back when a policy checkpoint races verification", asyn
     const verified = await verifyDocumentPurgeProof({
       execSql,
       expectedDocumentId: fixture.writerProjection.documentId,
+      expectedOrganizationId: fixture.organizationId,
       proof: fixture.proof,
       resolveUserKey: fixture.resolveUserKey,
     });

@@ -138,6 +138,7 @@ test("document purge verifies every signed transition after its checkpoint", asy
     const verified = await verifyDocumentPurgeProof({
       execSql,
       expectedDocumentId: fixture.writerProjection.documentId,
+      expectedOrganizationId: fixture.author.organizationId,
       proof: fixture.proof,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
@@ -263,6 +264,7 @@ test("document purge rejects a tampered intermediate signed transition", async (
       verifyDocumentPurgeProof({
         execSql,
         expectedDocumentId: fixture.writerProjection.documentId,
+        expectedOrganizationId: fixture.author.organizationId,
         proof: tampered,
         resolveUserKey: fixture.resolveProjectionUserKey,
       }),
