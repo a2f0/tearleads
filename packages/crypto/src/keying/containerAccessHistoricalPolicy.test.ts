@@ -1,15 +1,22 @@
 import { expect, test } from "bun:test";
+import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import type {
+  ContainerAccessEventBody,
+  ContainerAccessManifestState,
   ContainerGrantPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "./index";
 import {
+  computeAccessManifestHash,
+  deriveContainerAccessManifest,
   resolveContainerPathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
+  verifyContainerAccessManifest,
 } from "./index";
 import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
+  createVerifiedContainerAccessEvent,
   fixtureHash,
 } from "./testFixtures";
 
@@ -100,4 +107,111 @@ test("historical access resolves membership at the manifest's exact policy head"
       userId: laterMember.userId,
     }),
   ).toBe("read");
+});
+
+test("historical manifest verification uses membership at the referenced policy head", async () => {
+  const historicalHead: ContainerGrantPrincipalHead = {
+    principalType: "group",
+    principalId: "historical-verification-group",
+    version: 1,
+    keyEpoch: 1,
+    stateHash: await fixtureHash("historical-verification-state-1"),
+    keyFingerprint: await fixtureHash("historical-verification-key-1"),
+  };
+  const currentHead: ContainerGrantPrincipalHead = {
+    ...historicalHead,
+    version: 2,
+    keyEpoch: 2,
+    stateHash: await fixtureHash("historical-verification-state-2"),
+    keyFingerprint: await fixtureHash("historical-verification-key-2"),
+  };
+  const formerMember = "former-admin";
+  const laterMember = "later-admin";
+  const currentPolicy = createPrincipalPolicyFixture(currentHead);
+  const policy = {
+    ...currentPolicy,
+    projection: [{ role: "admin", userId: laterMember }],
+    history: [
+      {
+        grants: [],
+        projection: [{ role: "admin", userId: formerMember }],
+        state: policyState(historicalHead),
+      },
+      {
+        grants: [],
+        projection: [{ role: "admin", userId: laterMember }],
+        state: policyState(currentHead),
+      },
+    ],
+  } as unknown as VerifiedPrincipalPolicy;
+  const previous = await createContainerManifestFixture({
+    containerId: "historical-verification-container",
+    containerKeyEpochId: "historical-verification-key-epoch",
+    directGrants: [
+      {
+        accessLevel: "admin",
+        subjectId: historicalHead.principalId,
+        subjectType: "group",
+      },
+    ],
+    referencedPrincipalHeads: [historicalHead],
+  });
+
+  async function verifyGrant(signerUserId: string) {
+    const body: ContainerAccessEventBody = {
+      containerKeyEpochId: previous.state.containerKeyEpochId,
+      eventType: "container.grant",
+      grant: {
+        accessLevel: "read",
+        subjectId: `reader-${signerUserId}`,
+        subjectType: "user",
+      },
+      referencedPrincipalHead: null,
+    };
+    const event = await createVerifiedContainerAccessEvent({
+      body,
+      objectId: previous.state.containerId,
+      organizationId: previous.state.organizationId,
+      previousManifestHash: previous.manifestHash,
+      signer: generateSigningSeedAndKeyPair(),
+      signerUserId,
+    });
+    const state: ContainerAccessManifestState = {
+      ...previous.state,
+      directGrants: [...previous.state.directGrants, body.grant],
+      epoch: previous.state.epoch + 1,
+      eventHash: event.eventHash,
+      previousManifestHash: previous.manifestHash,
+    };
+    const manifest = await deriveContainerAccessManifest(state);
+    const base = {
+      event,
+      expectedManifestHash: await computeAccessManifestHash(manifest),
+      manifest,
+      previousContainerPath: [previous],
+      previousManifest: previous,
+      principalPolicies: [policy],
+    };
+    return {
+      current: await verifyContainerAccessManifest(base),
+      historical: await verifyContainerAccessManifest({
+        ...base,
+        authorizationMembership: "referenced",
+      }),
+    };
+  }
+
+  const former = await verifyGrant(formerMember);
+  expect(former.current).toMatchObject({
+    error: { code: "unauthorized" },
+    ok: false,
+  });
+  expect(former.historical.ok).toBe(true);
+
+  const later = await verifyGrant(laterMember);
+  expect(later.current.ok).toBe(true);
+  expect(later.historical).toMatchObject({
+    error: { code: "unauthorized" },
+    ok: false,
+  });
 });

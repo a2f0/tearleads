@@ -49,6 +49,9 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 
+type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
+type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
+
 function readDocumentProjectionContainerPaths(
   projection: DocumentWriterProjectionResponse,
 ): AccessManifestBundleWireResponse[][] {
@@ -135,12 +138,8 @@ async function verifyProjectionContainerPaths(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash?:
-    | Map<string, VerifiedContainerAccessManifest>
-    | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
+  readonly verifiedByHash?: VerifiedManifestMap | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<Map<string, readonly VerifiedContainerAccessManifest[]>> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
@@ -207,6 +206,7 @@ async function verifyProjectionContainerPaths(input: {
   ).entries()) {
     // Historical dependencies provide evidence without advancing heads.
     const verifiedPath = await verifyContainerManifestPath({
+      authorizationMembership: "referenced",
       bundlesByHash,
       checkpointContext: input.checkpointContext,
       enforceLocalCheckpoints: false,
@@ -253,14 +253,13 @@ export async function verifyDocumentManifestBundle(input: {
   readonly label: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly trustedPredecessorByHash?:
     | ReadonlyMap<string, VerifiedDocumentLinkSetSnapshot>
     | undefined;
   readonly usedContainerManifests?: UsedDocumentContainerManifests | undefined;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
@@ -307,6 +306,7 @@ export async function verifyDocumentManifestBundle(input: {
     paths: [...dependencyContainerPaths, targetContainerPath],
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    requireAuthorizationEvidence: input.requireAuthorizationEvidence,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const checkpointVerification = input.enforceLocalCheckpoint
@@ -352,12 +352,8 @@ interface DocumentWriterProjectionVerificationInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly verifiedByHash?:
-    | Map<string, VerifiedContainerAccessManifest>
-    | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
+  readonly verifiedByHash?: VerifiedManifestMap | undefined;
+  readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }
 
 export interface DocumentWriterProjectionAuthorization {

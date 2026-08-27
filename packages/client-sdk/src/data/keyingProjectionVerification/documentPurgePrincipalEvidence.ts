@@ -13,11 +13,7 @@ import type { DocumentPurgeProofResponse } from "@symcrypt/validators/response";
 import { verifyStandaloneAccessEventBundle } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
-import type {
-  PrincipalPolicyCache,
-  ProjectionUserKeyResolver,
-  ReferencedPrincipalPolicyWarmer,
-} from "./types";
+import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 
 function principalIdentity(input: {
   readonly principalId: string;
@@ -152,9 +148,6 @@ export async function authenticateDocumentPurgeArtifacts(input: {
     string,
     VerifiedContainerAccessManifest
   >;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }) {
   const usedContainerManifests = new Map<
     string,
@@ -169,7 +162,6 @@ export async function authenticateDocumentPurgeArtifacts(input: {
     proof: input.proof,
     resolveUserKey: input.resolveUserKey,
     usedContainerManifests,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   return {
     documentManifest,

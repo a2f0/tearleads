@@ -79,9 +79,6 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
   readonly execSql: ExecSql;
   readonly expectedOrganizationId: string;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }): Promise<DocumentPurgeProofResponse | null> {
   if (!input.apiClient.getDocumentPurgeProof) {
     throw new KeyingVerificationError(
@@ -101,7 +98,6 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     expectedOrganizationId: input.expectedOrganizationId,
     proof: initialProof,
     resolveUserKey: input.resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const documentCheckpointManifestHash =
     await loadLocalDocumentCheckpointManifestHash({
@@ -220,9 +216,6 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
     readonly documentId: string;
   }) => Promise<void> | void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }): (deleted: { readonly documentId: string }) => Promise<void> {
   return async ({ documentId }) => {
     const proof = await loadCheckpointBoundedDocumentPurgeProof({
@@ -231,7 +224,6 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       execSql: input.execSql,
       expectedOrganizationId: input.expectedOrganizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new KeyingVerificationError(
@@ -245,7 +237,6 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       expectedOrganizationId: input.expectedOrganizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     await input.onVerifiedDeletion({
       commitPurgeProof: verified.commitCheckpoints,
@@ -281,7 +272,6 @@ export async function purgeRemoteDocument(input: {
       execSql: input.execSql,
       expectedOrganizationId: input.author.organizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new KeyingVerificationError(
@@ -295,7 +285,6 @@ export async function purgeRemoteDocument(input: {
       expectedOrganizationId: input.author.organizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     await input.onVerifiedPurge({
       commitPurgeProof: verified.commitCheckpoints,
@@ -325,7 +314,6 @@ export async function purgeRemoteDocument(input: {
     expectedOrganizationId: input.author.organizationId,
     proof: response,
     resolveUserKey: input.resolveProjectionUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   await input.onVerifiedPurge({
     commitPurgeProof: verified.commitCheckpoints,

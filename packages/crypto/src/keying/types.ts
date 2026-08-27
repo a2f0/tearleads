@@ -537,16 +537,10 @@ const verifiedBlobKekTargetsBrand: unique symbol = Symbol(
 const verifiedContainerParentEdgeBrand: unique symbol = Symbol(
   "verifiedContainerParentEdge",
 );
-const verifiedContainerKekStateBrand: unique symbol = Symbol(
-  "verifiedContainerKekState",
-);
+const verifiedContainerKekStateBrand: unique symbol = Symbol("kek");
 const verifiedWriteHeaderBrand: unique symbol = Symbol("verifiedWriteHeader");
-const verifiedTransparencyTreeHeadBrand: unique symbol = Symbol(
-  "verifiedTransparencyTreeHead",
-);
-const verifiedTransparencyProofBrand: unique symbol = Symbol(
-  "verifiedTransparencyProof",
-);
+const verifiedTransparencyTreeHeadBrand: unique symbol = Symbol("treeHead");
+const verifiedTransparencyProofBrand: unique symbol = Symbol("proof");
 
 export interface VerifiedIdentityState {
   readonly identityId: string;
@@ -948,6 +942,7 @@ export interface VerifyAccessManifestInput {
 }
 
 export interface VerifyContainerAccessManifestInput {
+  readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly manifest: AccessManifest;
   readonly expectedManifestHash: string;
   readonly event: VerifiedAccessEvent;

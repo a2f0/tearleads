@@ -27,11 +27,7 @@ import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
 } from "./principalPolicySnapshotVerification";
-import type {
-  PrincipalPolicyCache,
-  ProjectionUserKeyResolver,
-  ReferencedPrincipalPolicyWarmer,
-} from "./types";
+import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 
 interface VerifyDocumentPurgeProofInput {
   readonly execSql: ExecSql;
@@ -40,9 +36,6 @@ interface VerifyDocumentPurgeProofInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }
 
 interface VerifiedDocumentPurgeProofCommit {
@@ -95,13 +88,11 @@ async function verifyPurgeContainerPaths(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }) {
   const bundlesByHash = collectContainerBundles(input.proof);
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const authorizingContainerPath = await verifyContainerManifestPath({
+    authorizationMembership: "referenced",
     authorizationEvidence: input.authorizationEvidence,
     bundlesByHash,
     checkpointContext: input.checkpointContext,
@@ -113,8 +104,8 @@ async function verifyPurgeContainerPaths(input: {
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    requireAuthorizationEvidence: true,
     verifiedByHash,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const authorizingLeaf = authorizingContainerPath.at(-1);
   if (!authorizingLeaf) {
@@ -135,6 +126,7 @@ async function verifyPurgeContainerPaths(input: {
     path,
   ] of input.proof.documentManifestContainerPaths.entries()) {
     const verifiedPath = await verifyContainerManifestPath({
+      authorizationMembership: "referenced",
       authorizationEvidence: input.authorizationEvidence,
       bundlesByHash,
       checkpointContext: input.checkpointContext,
@@ -143,8 +135,8 @@ async function verifyPurgeContainerPaths(input: {
       path,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
+      requireAuthorizationEvidence: true,
       verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     const leaf = verifiedPath.at(-1);
     if (leaf) {
@@ -199,7 +191,6 @@ async function verifyDocumentPurgeProofWithMode(
       principalPolicyCache,
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     const { documentManifest, principalPolicies, purgeEventHash } =
       await authenticateDocumentPurgeArtifacts({
@@ -213,7 +204,6 @@ async function verifyDocumentPurgeProofWithMode(
         proof: input.proof,
         resolveUserKey: input.resolveUserKey,
         verifiedContainerManifests,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       });
     if (
       documentManifest.state.organizationId !== input.expectedOrganizationId

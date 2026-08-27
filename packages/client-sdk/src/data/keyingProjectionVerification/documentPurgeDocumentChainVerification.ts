@@ -24,11 +24,7 @@ import {
 import { verifyDocumentManifestBundle } from "./documentProjectionVerification";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
 import { readAccessManifest, readDocumentAccessEventBody } from "./readers";
-import type {
-  PrincipalPolicyCache,
-  ProjectionUserKeyResolver,
-  ReferencedPrincipalPolicyWarmer,
-} from "./types";
+import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 
 async function verifyPinnedChainEndpoint(input: {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -134,9 +130,6 @@ async function verifySignedPurgeDocumentManifestChain(input: {
   readonly usedContainerManifests?:
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   addBundleByHash(
@@ -193,10 +186,10 @@ async function verifySignedPurgeDocumentManifestChain(input: {
       label: `Document purge predecessor[${index}]`,
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
+      requireAuthorizationEvidence: true,
       trustedPredecessorByHash,
       usedContainerManifests: input.usedContainerManifests,
       verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
 
@@ -210,10 +203,10 @@ async function verifySignedPurgeDocumentManifestChain(input: {
     label: "Document purge manifest",
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    requireAuthorizationEvidence: true,
     trustedPredecessorByHash,
     usedContainerManifests: input.usedContainerManifests,
     verifiedByHash,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [head],
@@ -236,9 +229,6 @@ export async function verifyPurgeDocumentManifest(input: {
   readonly usedContainerManifests?:
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest | VerifiedDocumentLinkSetSnapshot> {
   if (input.proof.documentManifestPredecessors.length > 0) {
     return verifySignedPurgeDocumentManifestChain({
@@ -249,7 +239,6 @@ export async function verifyPurgeDocumentManifest(input: {
       proof: input.proof,
       resolveUserKey: input.resolveUserKey,
       usedContainerManifests: input.usedContainerManifests,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
   const verifiedByHash = new Map<string, VerifiedAccessManifestSnapshot>();

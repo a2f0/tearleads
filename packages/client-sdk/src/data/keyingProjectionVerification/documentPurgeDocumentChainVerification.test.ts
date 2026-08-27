@@ -228,9 +228,6 @@ test("signed purge history uses retained group evidence after group deletion", a
         principalPolicyCache: new Map(),
         proof: fixture.proof,
         resolveUserKey,
-        warmReferencedPrincipalPolicies: async () => {
-          throw new Error("Deleted group policy must not be fetched");
-        },
       }),
     ).resolves.toMatchObject({
       manifestHash: fixture.proof.documentManifest.manifestHash,

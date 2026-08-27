@@ -1,5 +1,6 @@
 import {
   type AnyVerifiedPrincipalPolicy,
+  KeyingVerificationError,
   principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
 } from "@symcrypt/crypto";
@@ -28,6 +29,7 @@ export async function collectDocumentManifestPrincipalPolicies(input: {
   )[];
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly requireAuthorizationEvidence?: boolean | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -45,6 +47,13 @@ export async function collectDocumentManifestPrincipalPolicies(input: {
           principalPolicyMatchesReference({ policy, reference }),
         ),
     );
+  if (input.requireAuthorizationEvidence && references.length > 0) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Projection omits required principal policy evidence",
+    );
+  }
+  if (input.requireAuthorizationEvidence) return [...authorizationEvidence];
   return [
     ...authorizationEvidence,
     ...(await collectReferencedPrincipalPolicies({

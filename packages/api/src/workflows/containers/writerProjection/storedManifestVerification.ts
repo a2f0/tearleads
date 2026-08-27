@@ -150,6 +150,15 @@ function storedVerificationSource(
   };
 }
 
+function verifyHistoricalContainerManifest(
+  input: Parameters<typeof verifyContainerAccessManifest>[0],
+) {
+  return verifyContainerAccessManifest({
+    ...input,
+    authorizationMembership: "referenced",
+  });
+}
+
 async function loadStoredManifestArtifacts(input: {
   readonly parsed: VerifiedContainerAccessManifest;
   readonly verifyHash: (
@@ -241,7 +250,7 @@ async function verifyBundle(
         ]),
         input.context.principalPolicyAuthorizationEvidence,
       );
-    const verification = await verifyContainerAccessManifest({
+    const verification = await verifyHistoricalContainerManifest({
       event: signedEvent,
       expectedManifestHash: bundle.manifestHash,
       manifest: parsed.manifest,

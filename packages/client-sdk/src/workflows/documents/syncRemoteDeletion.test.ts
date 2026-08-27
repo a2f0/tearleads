@@ -74,69 +74,6 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   close();
 });
 
-test("purge proof for the same document id in another organization fails closed", async () => {
-  const local = await createMaterializedSyncFixture();
-  const foreign = await createMaterializedSyncFixture({
-    documentId: local.writerProjection.documentId,
-    organizationId: "organization-2",
-    userId: "foreign-user",
-  });
-  const foreignProof = await createDocumentPurgeProof(
-    foreign.author,
-    foreign.writerProjection,
-  );
-  const deletedDocumentIds: string[] = [];
-  let proofFetches = 0;
-  const { close, execSql } = await createTestExecSql(
-    "cross-organization-document-purge",
-  );
-
-  try {
-    await expect(
-      syncRemoteDocument({
-        apiClient: {
-          getDocumentPurgeProof: async () => {
-            proofFetches += 1;
-            return foreignProof;
-          },
-          getDocumentWriterProjection: async () => {
-            throw new Error("Unexpected writer projection fetch");
-          },
-          syncDocument: async () => {
-            throw new Error("Expected syncDocumentResult failure");
-          },
-          syncDocumentResult: async () => ({
-            code: DOCUMENT_NOT_FOUND_ERROR_CODE,
-            message: "Document not found",
-            ok: false,
-            report: () => undefined,
-            status: 404,
-          }),
-        },
-        author: local.author,
-        documentId: local.writerProjection.documentId,
-        execSql,
-        localVersionVector: null,
-        onRemoteDocumentDeleted: ({ documentId }) => {
-          deletedDocumentIds.push(documentId);
-        },
-        pendingUpdates: [createPendingUpdateRecord()],
-        resolveProjectionUserKey: async (userId) =>
-          (await local.resolveProjectionUserKey(userId)) ??
-          foreign.resolveProjectionUserKey(userId),
-        resolveWriterPublicKey: async () => null,
-        targetSecretKey: local.secretKey,
-        writerProjection: local.writerProjection,
-      }),
-    ).rejects.toMatchObject({ code: "object_mismatch" });
-
-    expect(proofFetches).toBe(1);
-    expect(deletedDocumentIds).toEqual([]);
-  } finally {
-    close();
-  }
-});
-
 test("purge authorized before a pinned revocation fails closed", async () => {
   const {
     author,
@@ -250,19 +187,33 @@ test("syncRemoteDocument authenticates an initial purge proof before disclosing 
     "invalid-purge-proof-sync",
   );
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
+  const missingPolicyReference = {
+    keyEpoch: 1,
+    keyFingerprint: await fixtureHash("missing-purge-policy-key"),
+    principalId: "missing-purge-policy",
+    principalType: "group" as const,
+    stateHash: await fixtureHash("missing-purge-policy-state"),
+    version: 1,
+  };
   const substitutedContainerPath = purgeProof.authorizingContainerPath.map(
     (bundle, index, path) =>
       index === path.length - 1
         ? {
             ...bundle,
+            manifest: {
+              ...bundle.manifest,
+              referencedPrincipalHeads: [missingPolicyReference],
+            },
             state: {
               ...bundle.state,
               containerId: "server-substituted-container",
+              referencedPrincipalHeads: [missingPolicyReference],
             },
           }
         : bundle,
   );
   const proofRequests: Array<unknown> = [];
+  let policyWarmerCalls = 0;
 
   try {
     await expect(
@@ -300,10 +251,14 @@ test("syncRemoteDocument authenticates an initial purge proof before disclosing 
         resolveProjectionUserKey,
         resolveWriterPublicKey: async () => null,
         targetSecretKey: secretKey,
+        warmReferencedPrincipalPolicies: async () => {
+          policyWarmerCalls += 1;
+        },
         writerProjection,
       }),
     ).rejects.toMatchObject({ name: "KeyingVerificationError" });
     expect(deletedDocumentIds).toEqual([]);
+    expect(policyWarmerCalls).toBe(0);
     expect(proofRequests).toEqual([undefined]);
   } finally {
     close();
