@@ -90,9 +90,11 @@ async function seedResetFixture(
     organizationId: "org-old",
     updatedAt: STALE,
   });
-  await db
-    .insert(documentAttachmentBlobProjection)
-    .values([...input.attachments]);
+  if (input.attachments.length > 0) {
+    await db
+      .insert(documentAttachmentBlobProjection)
+      .values([...input.attachments]);
+  }
   return db;
 }
 
@@ -161,6 +163,59 @@ test("clearRemoteSyncState requeues a slot the snapshot still advertises", async
       .select({ slotId: documentAttachmentBlobProjection.slotId })
       .from(documentAttachmentBlobProjection);
     expect(projectionRows).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("clearRemoteSyncState preserves a pending-only attachment upload", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-pending-only-attachment-test",
+  );
+
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const db = await seedResetFixture(execSql, {
+      attachments: [],
+      snapshotSlotIds: ["slot-pending"],
+    });
+    await db.insert(documentPendingAttachments).values({
+      byteLength: 12,
+      createdAt: STALE,
+      localId: "doc-1",
+      mimeType: "image/png",
+      name: "slot-pending.png",
+      slotId: "slot-pending",
+      storageKey: "local/pending-only",
+      uploadBlobId: "old-remote-blob",
+      uploadContentKey: "old-content-key",
+      uploadContentKeyEpoch: 3,
+      uploadIv: "old-iv",
+      uploadPartSize: 5,
+      uploadPlaintextSha256: "old-plaintext-hash",
+      uploadStageId: "old-remote-stage",
+    });
+
+    const result = await clearRemoteSyncState(execSql, {
+      organizationId: "org-old",
+    });
+
+    expect(result.queuedAttachmentUploadCount).toBe(1);
+    expect(await db.select().from(documentPendingAttachments)).toEqual([
+      expect.objectContaining({
+        localId: "doc-1",
+        name: "slot-pending.png",
+        slotId: "slot-pending",
+        storageKey: "local/pending-only",
+        uploadBlobId: null,
+        uploadContentKey: null,
+        uploadContentKeyEpoch: null,
+        uploadIv: null,
+        uploadPartSize: null,
+        uploadPlaintextSha256: null,
+        uploadStageId: null,
+      }),
+    ]);
   } finally {
     close();
   }

@@ -7,6 +7,7 @@ import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,
   documentHistoryUpdates,
+  documentPendingAttachments,
   documents,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -35,6 +36,10 @@ type ResetContentDoc = Awaited<ReturnType<typeof createDocument>>;
 
 function historyScopeKey(appKind: string, localId: string): string {
   return `${appKind} ${localId}`;
+}
+
+function attachmentScopeKey(localId: string, slotId: string): string {
+  return `${localId}\0${slotId}`;
 }
 
 function buildResetUpdate(input: {
@@ -227,24 +232,43 @@ async function loadResetPlanRows(
         selectedScopeKeys.has(historyScopeKey(row.appKind, row.localId)),
       )
     : allDocumentRows;
-  const allAttachmentRows = await db
-    .select({
-      byteLength: documentAttachmentBlobProjection.byteLength,
-      localId: documentAttachmentBlobProjection.localId,
-      mimeType: documentAttachmentBlobProjection.mimeType,
-      slotId: documentAttachmentBlobProjection.slotId,
-      storageKey: documentAttachmentBlobProjection.storageKey,
-    })
-    .from(documentAttachmentBlobProjection);
+  const [allAttachmentRows, pendingAttachmentRows] = await Promise.all([
+    db
+      .select({
+        byteLength: documentAttachmentBlobProjection.byteLength,
+        localId: documentAttachmentBlobProjection.localId,
+        mimeType: documentAttachmentBlobProjection.mimeType,
+        slotId: documentAttachmentBlobProjection.slotId,
+        storageKey: documentAttachmentBlobProjection.storageKey,
+      })
+      .from(documentAttachmentBlobProjection),
+    db
+      .select({
+        byteLength: documentPendingAttachments.byteLength,
+        localId: documentPendingAttachments.localId,
+        mimeType: documentPendingAttachments.mimeType,
+        slotId: documentPendingAttachments.slotId,
+        storageKey: documentPendingAttachments.storageKey,
+      })
+      .from(documentPendingAttachments),
+  ]);
   const selectedDocumentLocalIds = new Set(
     documentRows
       .filter((row) => row.appKind === DOCUMENTS_APP_KIND)
       .map((row) => row.localId),
   );
+  const attachmentRows = new Map(
+    allAttachmentRows
+      .filter((row) => selectedDocumentLocalIds.has(row.localId))
+      .map((row) => [attachmentScopeKey(row.localId, row.slotId), row]),
+  );
+  for (const row of pendingAttachmentRows) {
+    if (selectedDocumentLocalIds.has(row.localId)) {
+      attachmentRows.set(attachmentScopeKey(row.localId, row.slotId), row);
+    }
+  }
   return {
-    attachmentRows: allAttachmentRows.filter((row) =>
-      selectedDocumentLocalIds.has(row.localId),
-    ),
+    attachmentRows: [...attachmentRows.values()],
     documentRows,
   };
 }
