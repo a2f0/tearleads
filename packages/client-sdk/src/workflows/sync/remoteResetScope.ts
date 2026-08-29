@@ -43,6 +43,11 @@ export interface ResetDocumentRow extends ResetDocumentScope {
   readonly recoveryDocumentId: string | null;
 }
 
+export interface RemoteResetPrincipalKey {
+  readonly principalId: string;
+  readonly principalType: "group" | "organization";
+}
+
 export interface RemoteSyncStateSnapshot {
   readonly clearedContainerCreateIntentCount: number;
   readonly clearedContainerMoveIntentCount: number;
@@ -54,7 +59,18 @@ export interface RemoteSyncStateSnapshot {
   readonly documentLocalIds: readonly string[];
   readonly documentRows: readonly ResetDocumentRow[];
   readonly oldDocumentIds: readonly string[];
-  readonly principalIds: readonly string[];
+  readonly principalKeys: readonly RemoteResetPrincipalKey[];
+}
+
+function principalKey(principalType: string, principalId: string): string {
+  return `${principalType}\0${principalId}`;
+}
+
+function principalKeyOfRow(row: {
+  readonly principalId: string;
+  readonly principalType: string;
+}): string {
+  return principalKey(row.principalType, row.principalId);
 }
 
 function scopeKey(scope: ResetDocumentScope): string {
@@ -182,6 +198,27 @@ function loadDocumentAssociationRows(
   ]);
 }
 
+function buildPrincipalKeys(input: {
+  readonly groupRows: readonly { id: string }[];
+  readonly organizationId: string;
+  readonly ownedPolicyRows: readonly { id: string; type: string }[];
+  readonly policyHeadRows: readonly { id: string; type: string }[];
+}): RemoteResetPrincipalKey[] {
+  const keys = new Map<string, RemoteResetPrincipalKey>();
+  const add = (principalType: string, principalId: string) => {
+    if (principalType !== "group" && principalType !== "organization") return;
+    keys.set(principalKey(principalType, principalId), {
+      principalId,
+      principalType,
+    });
+  };
+  add("organization", input.organizationId);
+  for (const row of input.groupRows) add("group", row.id);
+  for (const row of input.policyHeadRows) add(row.type, row.id);
+  for (const row of input.ownedPolicyRows) add(row.type, row.id);
+  return [...keys.values()];
+}
+
 async function loadSnapshotCounts(input: {
   containerIds: readonly string[];
   documentRows: readonly ResetDocumentRow[];
@@ -205,29 +242,33 @@ async function loadSnapshotCounts(input: {
       .from(organizationReadModelGroups)
       .where(eq(organizationReadModelGroups.organizationId, organizationId)),
     tx
-      .select({ id: organizationReadModelPolicyHeads.principalId })
+      .select({
+        id: organizationReadModelPolicyHeads.principalId,
+        type: organizationReadModelPolicyHeads.principalType,
+      })
       .from(organizationReadModelPolicyHeads)
       .where(
         eq(organizationReadModelPolicyHeads.organizationId, organizationId),
       ),
     tx.select().from(principalPolicies),
     tx
-      .select({ id: principalPolicyOrganizations.principalId })
+      .select({
+        id: principalPolicyOrganizations.principalId,
+        type: principalPolicyOrganizations.principalType,
+      })
       .from(principalPolicyOrganizations)
       .where(eq(principalPolicyOrganizations.organizationId, organizationId)),
     tx.select().from(containerCreateIntents),
     tx.select().from(containerMoveIntents),
     tx.select().from(documentMoveIntents),
   ]);
-  const principalIds = [
-    ...new Set([
-      organizationId,
-      ...groupRows.map((row) => row.id),
-      ...policyHeadRows.map((row) => row.id),
-      ...ownedPolicyRows.map((row) => row.id),
-    ]),
-  ];
-  const principalIdSet = new Set(principalIds);
+  const principalKeys = buildPrincipalKeys({
+    groupRows,
+    organizationId,
+    ownedPolicyRows,
+    policyHeadRows,
+  });
+  const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
   const scopedContainerIds = new Set(input.containerIds);
   const [watermarks, laneChecks] = await Promise.all([
     tx.select().from(containerSyncWatermarks),
@@ -247,7 +288,7 @@ async function loadSnapshotCounts(input: {
       ),
     ).length,
     clearedPrincipalPolicyCount: policyRows.filter((row) =>
-      principalIdSet.has(row.principalId),
+      principalKeySet.has(principalKeyOfRow(row)),
     ).length,
     clearedSyncCursorCount:
       watermarks.filter((row) =>
@@ -264,7 +305,7 @@ async function loadSnapshotCounts(input: {
           row,
         }),
       ).length,
-    principalIds,
+    principalKeys,
   };
 }
 

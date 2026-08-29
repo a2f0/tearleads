@@ -17,7 +17,7 @@ import {
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -90,6 +90,31 @@ test("organization purge removes one organization's remote state and retains its
     .from(organizations)
     .where(eq(organizations.id, organizationId));
   invariant(organization, "expected organization groups");
+  await db.insert(groups).values({
+    id: untouchedOrganizationId,
+    name: "Colliding group",
+    organizationId,
+  });
+  const untouchedPrincipalStates = await db
+    .select()
+    .from(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, "organization"),
+        eq(principalStates.principalId, untouchedOrganizationId),
+      ),
+    );
+  const untouchedPrincipalEpochKeys = await db
+    .select()
+    .from(principalEpochKeys)
+    .where(
+      and(
+        eq(principalEpochKeys.principalType, "organization"),
+        eq(principalEpochKeys.principalId, untouchedOrganizationId),
+      ),
+    );
+  expect(untouchedPrincipalStates).not.toEqual([]);
+  expect(untouchedPrincipalEpochKeys).not.toEqual([]);
   const principalIds = [
     organizationId,
     organization.adminGroupId,
@@ -156,6 +181,34 @@ test("organization purge removes one organization's remote state and retains its
   expect(
     await db.select().from(groups).where(inArray(groups.id, principalIds)),
   ).toEqual([]);
+  expect(
+    await db
+      .select()
+      .from(groups)
+      .where(eq(groups.organizationId, organizationId)),
+  ).toEqual([]);
+  expect(
+    await db
+      .select()
+      .from(principalStates)
+      .where(
+        and(
+          eq(principalStates.principalType, "organization"),
+          eq(principalStates.principalId, untouchedOrganizationId),
+        ),
+      ),
+  ).toEqual(untouchedPrincipalStates);
+  expect(
+    await db
+      .select()
+      .from(principalEpochKeys)
+      .where(
+        and(
+          eq(principalEpochKeys.principalType, "organization"),
+          eq(principalEpochKeys.principalId, untouchedOrganizationId),
+        ),
+      ),
+  ).toEqual(untouchedPrincipalEpochKeys);
   for (const table of [
     principalStatePayloads,
     principalEpochKeys,

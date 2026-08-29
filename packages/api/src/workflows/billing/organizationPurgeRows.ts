@@ -29,7 +29,7 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@symcrypt/api-shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
@@ -154,21 +154,31 @@ async function deleteOrganizationPrincipalRows(
     .from(groups)
     .where(eq(groups.organizationId, organizationId));
   const groupIds = groupRows.map((row) => row.id);
-  const principalIds = [organizationId, ...groupIds];
-
-  for (const principalBatch of organizationPurgeBatches(principalIds)) {
-    for (const table of [
-      principalPolicyMutationAcknowledgements,
-      principalMemberEnvelopes,
-      principalStatePayloads,
-      principalEpochKeys,
-      principalContainerGrantProjection,
-      principalMembershipProjection,
-      principalStates,
-    ] as const) {
-      await executor
-        .delete(table)
-        .where(inArray(table.principalId, principalBatch));
+  for (const principalScope of [
+    { principalIds: [organizationId], principalType: "organization" },
+    { principalIds: groupIds, principalType: "group" },
+  ] as const) {
+    for (const principalBatch of organizationPurgeBatches(
+      principalScope.principalIds,
+    )) {
+      for (const table of [
+        principalPolicyMutationAcknowledgements,
+        principalMemberEnvelopes,
+        principalStatePayloads,
+        principalEpochKeys,
+        principalContainerGrantProjection,
+        principalMembershipProjection,
+        principalStates,
+      ] as const) {
+        await executor
+          .delete(table)
+          .where(
+            and(
+              eq(table.principalType, principalScope.principalType),
+              inArray(table.principalId, principalBatch),
+            ),
+          );
+      }
     }
   }
   if (groupIds.length === 0) return;

@@ -111,7 +111,7 @@ async function clearScopedPrincipalRows(
   input: ScopedRemoteRowsInput,
 ): Promise<void> {
   for (const principalBatch of remoteResetBatches(
-    input.snapshot.principalIds,
+    input.snapshot.principalKeys,
   )) {
     for (const table of [
       principalPolicies,
@@ -122,7 +122,16 @@ async function clearScopedPrincipalRows(
     ] as const) {
       await input.tx
         .delete(table)
-        .where(inArray(table.principalId, principalBatch))
+        .where(
+          or(
+            ...principalBatch.map((principal) =>
+              and(
+                eq(table.principalType, principal.principalType),
+                eq(table.principalId, principal.principalId),
+              ),
+            ),
+          ),
+        )
         .run();
     }
   }

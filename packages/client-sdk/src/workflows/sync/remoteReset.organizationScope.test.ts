@@ -273,18 +273,25 @@ test("remote reset clears owned policy caches without read-model rows", async ()
         principalId: "group-keep",
         organizationId: "org-keep",
       },
+      {
+        principalType: "group",
+        principalId: "org-old",
+        organizationId: "org-keep",
+      },
     ]);
     await db
       .insert(principalPolicies)
       .values([
         policyRow("group-old", "old-head"),
         policyRow("group-keep", "keep-head"),
+        policyRow("org-old", "collision-head"),
       ]);
     await db
       .insert(principalPolicyBundleHistory)
       .values([
         policyRow("group-old", "old-history"),
         policyRow("group-keep", "keep-history"),
+        policyRow("org-old", "collision-history"),
       ]);
     await db.insert(principalPolicyBundleReferences).values([
       {
@@ -307,6 +314,16 @@ test("remote reset clears owned policy caches without read-model rows", async ()
         bundleVersion: 2,
         bundleStateHash: "keep-head",
       },
+      {
+        principalType: "group",
+        principalId: "org-old",
+        version: 1,
+        stateHash: "collision-history",
+        keyEpoch: 1,
+        keyFingerprint: "collision-key",
+        bundleVersion: 2,
+        bundleStateHash: "collision-head",
+      },
     ]);
     await db.insert(principalPolicyCheckpoints).values([
       {
@@ -323,6 +340,13 @@ test("remote reset clears owned policy caches without read-model rows", async ()
         stateHash: "keep-head",
         updatedAt: STALE,
       },
+      {
+        principalType: "group",
+        principalId: "org-old",
+        version: 2,
+        stateHash: "collision-head",
+        updatedAt: STALE,
+      },
     ]);
 
     const result = await clearRemoteSyncState(execSql, {
@@ -337,9 +361,20 @@ test("remote reset clears owned policy caches without read-model rows", async ()
       principalPolicyCheckpoints,
       principalPolicyOrganizations,
     ] as const) {
-      expect(await db.select().from(table)).toEqual([
-        expect.objectContaining({ principalId: "group-keep" }),
-      ]);
+      const rows = await db.select().from(table);
+      expect(rows).toHaveLength(2);
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            principalId: "group-keep",
+            principalType: "group",
+          }),
+          expect.objectContaining({
+            principalId: "org-old",
+            principalType: "group",
+          }),
+        ]),
+      );
     }
   } finally {
     close();
