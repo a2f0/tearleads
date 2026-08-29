@@ -142,9 +142,9 @@ Runtime input snapshots are grouped by capability:
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
-`auth.defaultOrganizationId` moves only after sync-eligible
-[billing-purge recovery](./billing-purge-recovery.md). Hosts catch
-`PurgedOrganizationRecoveryBillingRequiredError` to activate the replacement
+`auth.defaultOrganizationId` moves after local reset and finalization in
+[billing-purge recovery](./billing-purge-recovery.md).
+Hosts catch `PurgedOrganizationRecoveryBillingRequiredError` to activate it
 without early local rebind. Runtime snapshots expose only grouped capabilities.
 
 `symcrypt.containerContents.workflowRuntime()` remains available to advanced

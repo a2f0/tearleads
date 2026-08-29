@@ -1,5 +1,5 @@
 import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import { sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
@@ -11,6 +11,7 @@ import {
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { importDocumentHistoryTailUpdates } from "../documents/historyContent";
+import { remoteResetBatches } from "./remoteResetBatches";
 
 export interface ResetDocumentUpdate {
   readonly appKind: string;
@@ -56,6 +57,78 @@ function buildResetUpdate(input: {
   };
 }
 
+interface ResetHistoryRows {
+  checkpointRows: Array<{
+    appKind: string;
+    localId: string;
+    snapshot: string;
+  }>;
+  tailRows: Array<{
+    appKind: string;
+    localId: string;
+    updateData: string;
+  }>;
+}
+
+async function loadResetHistoryRows(
+  db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
+): Promise<ResetHistoryRows> {
+  const rows: ResetHistoryRows = { checkpointRows: [], tailRows: [] };
+  const scopes = documentScopes
+    ? [
+        ...new Map(
+          documentScopes.map((scope) => [
+            historyScopeKey(scope.appKind, scope.localId),
+            scope,
+          ]),
+        ).values(),
+      ]
+    : null;
+  for (const scopeBatch of scopes ? remoteResetBatches(scopes) : [null]) {
+    const scopeTail = scopeBatch
+      ? or(
+          ...scopeBatch.map((scope) =>
+            and(
+              eq(documentHistoryUpdates.appKind, scope.appKind),
+              eq(documentHistoryUpdates.localId, scope.localId),
+            ),
+          ),
+        )
+      : undefined;
+    const scopeCheckpoints = scopeBatch
+      ? or(
+          ...scopeBatch.map((scope) =>
+            and(
+              eq(documentHistoryCheckpoints.appKind, scope.appKind),
+              eq(documentHistoryCheckpoints.localId, scope.localId),
+            ),
+          ),
+        )
+      : undefined;
+    const tailBatch = await db
+      .select({
+        appKind: documentHistoryUpdates.appKind,
+        localId: documentHistoryUpdates.localId,
+        updateData: documentHistoryUpdates.updateData,
+      })
+      .from(documentHistoryUpdates)
+      .where(scopeTail)
+      .orderBy(sql`rowid`);
+    const checkpointBatch = await db
+      .select({
+        appKind: documentHistoryCheckpoints.appKind,
+        localId: documentHistoryCheckpoints.localId,
+        snapshot: documentHistoryCheckpoints.snapshot,
+      })
+      .from(documentHistoryCheckpoints)
+      .where(scopeCheckpoints);
+    rows.tailRows.push(...tailBatch);
+    rows.checkpointRows.push(...checkpointBatch);
+  }
+  return rows;
+}
+
 /**
  * Reconstruct every persisted document's content from the durable-history
  * tables (checkpoint + tail) — the only content source. A scope without a
@@ -66,29 +139,17 @@ function buildResetUpdate(input: {
  */
 async function buildResetContentDocs(
   db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
 ): Promise<Map<string, ResetContentDoc>> {
   // Read the TAIL before the checkpoints (the same order the restore path
   // uses): a compaction landing between the two reads then yields old-tail +
   // new-checkpoint — a safe superset, since replay is idempotent by op
   // identity — whereas the reverse order could yield an old checkpoint plus
   // an already-emptied tail and republish stale content.
-  const tailRows = await db
-    .select({
-      appKind: documentHistoryUpdates.appKind,
-      localId: documentHistoryUpdates.localId,
-      updateData: documentHistoryUpdates.updateData,
-    })
-    .from(documentHistoryUpdates)
-    // Insertion order (see loadDocumentHistoryRestoreState): createdAt can
-    // tie within a millisecond and the uuid tiebreak is random.
-    .orderBy(sql`rowid`);
-  const checkpointRows = await db
-    .select({
-      appKind: documentHistoryCheckpoints.appKind,
-      localId: documentHistoryCheckpoints.localId,
-      snapshot: documentHistoryCheckpoints.snapshot,
-    })
-    .from(documentHistoryCheckpoints);
+  const { checkpointRows, tailRows } = await loadResetHistoryRows(
+    db,
+    documentScopes,
+  );
 
   const tailByScope = new Map<string, string[]>();
   for (const row of tailRows) {
@@ -111,9 +172,9 @@ async function buildResetContentDocs(
       row,
     ]),
   );
-  const scopes = new Map<string, { appKind: string; localId: string }>();
+  const historyScopes = new Map<string, { appKind: string; localId: string }>();
   for (const row of [...checkpointRows, ...tailRows]) {
-    scopes.set(historyScopeKey(row.appKind, row.localId), {
+    historyScopes.set(historyScopeKey(row.appKind, row.localId), {
       appKind: row.appKind,
       localId: row.localId,
     });
@@ -121,7 +182,7 @@ async function buildResetContentDocs(
 
   const contentDocByScope = new Map<string, ResetContentDoc>();
   await Promise.all(
-    [...scopes.entries()].map(async ([key, scope]) => {
+    [...historyScopes.entries()].map(async ([key, scope]) => {
       const doc = await createDocument(
         `remote-reset:${scope.appKind}:${scope.localId}`,
       );
@@ -199,7 +260,7 @@ export async function buildResetPlans(
     db,
     documentScopes,
   );
-  const contentDocByScope = await buildResetContentDocs(db);
+  const contentDocByScope = await buildResetContentDocs(db, documentScopes);
   const documentUpdates = documentRows.flatMap((row) => {
     const doc = contentDocByScope.get(
       historyScopeKey(row.appKind, row.localId),

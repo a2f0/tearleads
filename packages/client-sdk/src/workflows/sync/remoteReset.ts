@@ -1,4 +1,4 @@
-import { and, eq, inArray, like, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -20,8 +20,6 @@ import {
   containerCreateIntents,
   containerHydrationTombstones,
   containerMoveIntents,
-  containerSyncLaneChecks,
-  containerSyncWatermarks,
   containers,
   documentAttachmentBlobProjection,
   documentContainerProjection,
@@ -47,6 +45,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
 import { remoteResetBatches } from "./remoteResetBatches";
+import { clearRemoteResetSyncCursors } from "./remoteResetCursorScope";
 import {
   buildResetPlans,
   type ResetAttachmentUpload,
@@ -222,15 +221,11 @@ async function clearScopedRemoteRows(
   await clearScopedPrincipalRows(input);
   await clearScopedContainerRows(input);
   await clearScopedDocumentRows(input);
-  const lanePattern = `${organizationId}:%`;
-  await tx
-    .delete(containerSyncWatermarks)
-    .where(like(containerSyncWatermarks.laneId, lanePattern))
-    .run();
-  await tx
-    .delete(containerSyncLaneChecks)
-    .where(like(containerSyncLaneChecks.laneId, lanePattern))
-    .run();
+  await clearRemoteResetSyncCursors({
+    containerIds: input.snapshot.containerIds,
+    organizationId,
+    tx,
+  });
 }
 
 async function resetRemoteColumns(input: {

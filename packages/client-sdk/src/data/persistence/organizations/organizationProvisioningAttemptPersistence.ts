@@ -22,6 +22,31 @@ interface OrganizationProvisioningAttemptRecord {
 }
 
 export const sqlOrganizationProvisioningAttemptPersistence = {
+  async load(
+    execSql: ExecSql,
+    replacedOrganizationId: string,
+  ): Promise<OrganizationProvisioningAttemptRecord | null> {
+    await ensureSqlTables(execSql, organizationProvisioningAttemptTables);
+    const [stored] = await getClientSQLitePersistenceRuntime(execSql)
+      .db.select({
+        replacedOrganizationId:
+          organizationProvisioningAttempts.replacedOrganizationId,
+        userId: organizationProvisioningAttempts.userId,
+        organizationId: organizationProvisioningAttempts.organizationId,
+        rootContainerId: organizationProvisioningAttempts.rootContainerId,
+        serializedArtifacts:
+          organizationProvisioningAttempts.serializedArtifacts,
+      })
+      .from(organizationProvisioningAttempts)
+      .where(
+        eq(
+          organizationProvisioningAttempts.replacedOrganizationId,
+          replacedOrganizationId,
+        ),
+      );
+    return stored ?? null;
+  },
+
   async loadOrSave(
     execSql: ExecSql,
     candidate: OrganizationProvisioningAttemptRecord,

@@ -20,6 +20,7 @@ import {
   principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { isRemoteResetSyncCursor } from "./remoteResetCursorScope";
 import type { ResetDocumentScope } from "./remoteResetPlans";
 
 export interface RemoteResetReplacement {
@@ -227,7 +228,7 @@ async function loadSnapshotCounts(input: {
     ]),
   ];
   const principalIdSet = new Set(principalIds);
-  const cursorPrefix = `${organizationId}:`;
+  const scopedContainerIds = new Set(input.containerIds);
   const [watermarks, laneChecks] = await Promise.all([
     tx.select().from(containerSyncWatermarks),
     tx.select().from(containerSyncLaneChecks),
@@ -249,8 +250,20 @@ async function loadSnapshotCounts(input: {
       principalIdSet.has(row.principalId),
     ).length,
     clearedSyncCursorCount:
-      watermarks.filter((row) => row.laneId.startsWith(cursorPrefix)).length +
-      laneChecks.filter((row) => row.laneId.startsWith(cursorPrefix)).length,
+      watermarks.filter((row) =>
+        isRemoteResetSyncCursor({
+          containerIds: scopedContainerIds,
+          organizationId,
+          row,
+        }),
+      ).length +
+      laneChecks.filter((row) =>
+        isRemoteResetSyncCursor({
+          containerIds: scopedContainerIds,
+          organizationId,
+          row,
+        }),
+      ).length,
     principalIds,
   };
 }

@@ -3,8 +3,10 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import { eq } from "drizzle-orm";
 import {
   clientSqlTables,
+  containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
+  documentHistoryCheckpoints,
   documentProjection,
   documents,
   principalPolicies,
@@ -74,6 +76,14 @@ test("remote reset rebinds only the purged organization to its replacement", asy
         updatedAt: STALE,
       },
     ]);
+    await db.insert(documentHistoryCheckpoints).values({
+      appKind: "documents",
+      localId: "keep-local",
+      snapshot: "corrupt-unrelated-history",
+      endVersionVector: "corrupt-unrelated-version",
+      revision: "corrupt-unrelated-revision",
+      updatedAt: STALE,
+    });
     await db.insert(containerSyncWatermarks).values([
       {
         laneKind: "container_parent",
@@ -144,6 +154,90 @@ test("remote reset rebinds only the purged organization to its replacement", asy
     expect(await db.select().from(containerSyncWatermarks)).toEqual([
       expect.objectContaining({ laneId: "org-keep:root" }),
     ]);
+    expect(await db.select().from(documentHistoryCheckpoints)).toEqual([
+      expect.objectContaining({ localId: "keep-local" }),
+    ]);
+    await expect(
+      clearRemoteSyncState(execSql, { organizationId: "org-keep" }),
+    ).rejects.toThrow();
+  } finally {
+    close();
+  }
+});
+
+test("remote reset clears legacy cursor lanes owned by the purged organization", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-legacy-cursor-scope",
+  );
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    await db.insert(containers).values([
+      {
+        id: "old-root",
+        organizationId: "org-old",
+        parentId: null,
+        metadataDocumentId: "old-metadata",
+        systemSlot: "root",
+        localCreatedAt: STALE,
+        localUpdatedAt: STALE,
+      },
+      {
+        id: "keep-root",
+        organizationId: "org-keep",
+        parentId: null,
+        metadataDocumentId: "keep-metadata",
+        systemSlot: "root",
+        localCreatedAt: STALE,
+        localUpdatedAt: STALE,
+      },
+    ]);
+    const cursors = [
+      ["container_parent", "org-old:root"],
+      ["container_parent", "org-keep:root"],
+      ["container_parent", "root"],
+      ["container_parent", "parent:old-root"],
+      ["container_documents", "old-root"],
+      ["container_parent", "parent:keep-root"],
+      ["container_documents", "keep-root"],
+    ] as const;
+    await db.insert(containerSyncWatermarks).values(
+      cursors.map(([laneKind, laneId]) => ({
+        laneKind,
+        laneId,
+        watermarkUpdatedAt: STALE,
+        watermarkId: laneId,
+        updatedAt: STALE,
+      })),
+    );
+    await db.insert(containerSyncLaneChecks).values(
+      cursors.map(([laneKind, laneId]) => ({
+        laneKind,
+        laneId,
+        checkedAt: STALE,
+      })),
+    );
+
+    const result = await clearRemoteSyncState(execSql, {
+      organizationId: "org-old",
+    });
+
+    expect(result.clearedSyncCursorCount).toBe(8);
+    const expectedRetainedLaneIds = [
+      "keep-root",
+      "org-keep:root",
+      "parent:keep-root",
+    ];
+    expect(
+      (await db.select().from(containerSyncWatermarks))
+        .map((row) => row.laneId)
+        .sort(),
+    ).toEqual(expectedRetainedLaneIds);
+    expect(
+      (await db.select().from(containerSyncLaneChecks))
+        .map((row) => row.laneId)
+        .sort(),
+    ).toEqual(expectedRetainedLaneIds);
   } finally {
     close();
   }

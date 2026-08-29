@@ -19,6 +19,7 @@ interface DurableOrganizationProvisioningAttempt {
 
 function buildCreateOrganizationRequest(input: {
   artifacts: OrganizationProvisioningArtifacts;
+  finalizeReplacement?: boolean | undefined;
   replacesOrganizationId?: string | undefined;
   rootContainerId: string;
   userId: string;
@@ -45,10 +46,47 @@ function buildCreateOrganizationRequest(input: {
     initialSystemContainers: artifacts.systemContainerBootstraps.map(
       (systemContainer) => systemContainer.containerRequest,
     ),
+    ...(input.finalizeReplacement ? { finalizeReplacement: true } : {}),
     ...(input.replacesOrganizationId
       ? { replacesOrganizationId: input.replacesOrganizationId }
       : {}),
   };
+}
+
+export async function loadOrganizationReplacementFinalizationRequest(input: {
+  execSql: ExecSql;
+  replacedOrganizationId: string;
+  userId: string;
+}): Promise<CreateOrganizationRequest> {
+  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+    input.execSql,
+    input.replacedOrganizationId,
+  );
+  if (!stored) {
+    throw new Error("Organization replacement attempt is unavailable");
+  }
+  if (stored.userId !== input.userId) {
+    throw new Error(
+      "Stored organization provisioning attempt belongs to another user",
+    );
+  }
+  const artifacts = deserializeArtifacts(stored.serializedArtifacts);
+  const request = buildCreateOrganizationRequest({
+    artifacts,
+    finalizeReplacement: true,
+    replacesOrganizationId: input.replacedOrganizationId,
+    rootContainerId: stored.rootContainerId,
+    userId: stored.userId,
+  });
+  if (
+    artifacts.organizationId !== stored.organizationId ||
+    request.organizationId !== stored.organizationId ||
+    request.rootContainerId !== stored.rootContainerId ||
+    !isCreateOrganizationRequest(request)
+  ) {
+    throw new Error("Stored organization provisioning attempt is inconsistent");
+  }
+  return request;
 }
 
 function serializeArtifacts(artifacts: OrganizationProvisioningArtifacts) {

@@ -37,7 +37,8 @@ and root through `replacement`; normal session consumers use
 `session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
 method exposes the replacement id through
 `PurgedOrganizationRecoveryBillingRequiredError` until that replacement has
-sync-eligible billing; only then does it rebind retained local data.
+sync-eligible billing; only then does it rebind retained local data and finalize
+the server default-organization pointer.
 
 Provider-neutral purchase errors live in
 `client/billing/purchaseErrors.ts`, outside the organization workflow

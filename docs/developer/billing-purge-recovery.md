@@ -18,10 +18,14 @@ organization in local-only billing state. Until that replacement has active
 billing and the current user has a sync seat, recovery throws
 `PurgedOrganizationRecoveryBillingRequiredError` with the stable replacement
 organization id; callers use that id for trial or checkout and retry recovery.
-The old organization's local data is not rebound during this billing wait.
-Once the replacement is sync-eligible, the session clears the purged
-organization's remote state transactionally and resumes sync under the new id.
-A durable provisioning attempt makes lost responses and billing-gated retries
+The old organization's local data and the server default-organization pointer
+remain bound to the old id during this billing wait, so re-authentication still
+opens the retained organization. Once the replacement is sync-eligible, the
+session clears the purged organization's remote state transactionally, then
+replays the durable provisioning request with replacement finalization. The
+server rechecks billing and the current user's sync seat before moving the
+default pointer. Only then does the session remove its durable attempt and
+resume under the new id. Lost responses and interrupted resets remain
 idempotent.
 
 Only one replacement can win. When two devices race with different candidate

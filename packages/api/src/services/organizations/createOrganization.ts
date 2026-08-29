@@ -34,18 +34,20 @@ export async function createOrganization(
   // sessions do not know to list yet. Reuse the same user-scoped discovery hint
   // as a newly shared root; the authoring session is excluded because it owns
   // the provisioning response and persists that state locally itself.
-  await publishBestEffort(
-    runtime.eventPublisher.publish,
-    {
-      type: "shared_with_you",
-      userId: authenticatedUserId,
-      origin: {
-        sessionId: authenticatedSessionId,
+  if (!input.finalizeReplacement) {
+    await publishBestEffort(
+      runtime.eventPublisher.publish,
+      {
+        type: "shared_with_you",
         userId: authenticatedUserId,
+        origin: {
+          sessionId: authenticatedSessionId,
+          userId: authenticatedUserId,
+        },
       },
-    },
-    "organization root discovery notification",
-  );
+      "organization root discovery notification",
+    );
+  }
 
   return response;
 }

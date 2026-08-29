@@ -12,6 +12,10 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {
+  assertOrganizationCanSync,
+  OrganizationSyncDisabledError,
+} from "../billing/organizationSyncEligibility";
+import {
   type OrganizationProvisioningSigner,
   type ProvisionOrganizationOptions,
   provisionOrganizationInTransaction,
@@ -99,7 +103,8 @@ async function assertReplacementReady(
   if (billing.replacementOrganizationId !== null) {
     const response = billing.replacementProvisioningResponse;
     if (
-      user?.defaultOrganizationId !== billing.replacementOrganizationId ||
+      (user?.defaultOrganizationId !== replacedOrganizationId &&
+        user?.defaultOrganizationId !== billing.replacementOrganizationId) ||
       !isCreateOrganizationResponse(response) ||
       response.organizationId !== billing.replacementOrganizationId ||
       response.userId !== input.userId
@@ -119,7 +124,7 @@ async function assertReplacementReady(
   return null;
 }
 
-async function moveDefaultOrganizationToReplacement(
+async function linkReplacementOrganization(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
   response: CreateOrganizationResponse,
@@ -145,17 +150,49 @@ async function moveDefaultOrganizationToReplacement(
       409,
     );
   }
+}
+
+async function finalizeReplacementDefaultOrganization(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+  response: CreateOrganizationResponse,
+): Promise<void> {
+  if (!input.finalizeReplacement) return;
+  const replacedOrganizationId = input.replacesOrganizationId;
+  if (!replacedOrganizationId) {
+    throw new OrganizationProvisioningError(
+      "Replacement finalization requires a replaced organization",
+      400,
+    );
+  }
+  try {
+    await assertOrganizationCanSync(tx, response.organizationId, input.userId);
+  } catch (error) {
+    if (error instanceof OrganizationSyncDisabledError) {
+      throw new OrganizationProvisioningError(
+        "The replacement organization is not sync eligible",
+        409,
+      );
+    }
+    throw error;
+  }
   const [updated] = await tx
     .update(users)
-    .set({ defaultOrganizationId: input.organizationId })
+    .set({ defaultOrganizationId: response.organizationId })
     .where(
       and(
         eq(users.id, input.userId),
-        eq(users.defaultOrganizationId, input.replacesOrganizationId),
+        eq(users.defaultOrganizationId, replacedOrganizationId),
       ),
     )
     .returning({ id: users.id });
-  if (!updated || updated.id !== input.userId) {
+  if (updated?.id === input.userId) return;
+  const [user] = await tx
+    .select({ defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+  if (user?.defaultOrganizationId !== response.organizationId) {
     throw new OrganizationProvisioningError(
       "The personal organization changed during replacement",
       409,
@@ -174,12 +211,25 @@ export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
 ): Promise<CreateOrganizationResponse> {
+  if (input.finalizeReplacement && !input.replacesOrganizationId) {
+    throw new OrganizationProvisioningError(
+      "Replacement finalization requires a replaced organization",
+      400,
+    );
+  }
   const signer = await readProvisioningSigner(db, input.userId);
   await validateOrganizationProvisioningInput(input, signer);
   try {
     return await db.transaction(async (tx) => {
       const existingReplacement = await assertReplacementReady(tx, input);
-      if (existingReplacement) return existingReplacement;
+      if (existingReplacement) {
+        await finalizeReplacementDefaultOrganization(
+          tx,
+          input,
+          existingReplacement,
+        );
+        return existingReplacement;
+      }
       const provisioned = await provisionOrganizationInTransaction(
         tx,
         input,
@@ -190,7 +240,8 @@ export async function runCreateOrganizationWorkflow(
         input.userId,
         provisioned,
       );
-      await moveDefaultOrganizationToReplacement(tx, input, response);
+      await linkReplacementOrganization(tx, input, response);
+      await finalizeReplacementDefaultOrganization(tx, input, response);
       return response;
     });
   } catch (error) {

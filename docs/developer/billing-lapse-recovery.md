@@ -30,16 +30,19 @@ After the old organization reports `purged`, `recoverPurgedOrganization`
 provisions a fresh organization id and root container in local-only billing
 state. It throws `PurgedOrganizationRecoveryBillingRequiredError` with that id
 until the host activates sync billing and the current user has a seat. A retry
-then rebinds the old local root beneath the fresh root, and retained documents
-are recreated using their former server document ids as deterministic recovery
-identities. This lets multiple devices race safely: the first create wins and
-the other clients adopt the same remote document rather than creating
-duplicates.
+then rebinds the old local root beneath the fresh root. The old organization
+remains the server default until that local reset commits; a final provisioning
+replay rechecks sync eligibility and atomically moves the default pointer.
+Retained documents are recreated using their former server document ids as
+deterministic recovery identities. This lets multiple devices race safely: the
+first create wins and the other clients adopt the same remote document rather
+than creating duplicates.
 
 Before submitting the replacement, the client durably checkpoints its exact
-signed provisioning artifacts. The checkpoint remains until the local reset
-commits, so a lost API response, process restart, or interrupted reset retries
-the same organization and root ids instead of minting a conflicting generation.
+signed provisioning artifacts. The checkpoint remains until both the local
+reset and server finalization commit, so a lost API response, process restart,
+or interrupted reset retries the same organization and root ids instead of
+minting a conflicting generation.
 
 Split-view clients use separate Loro peer ids. Their full histories therefore
 form ordinary concurrent branches and converge when both reach the recovered

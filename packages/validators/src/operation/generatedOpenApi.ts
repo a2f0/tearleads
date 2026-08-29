@@ -12495,6 +12495,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    finalizeReplacement?: boolean;
                     initialAdminGroup: {
                         groupId: string;
                         initialGroupPolicy: {

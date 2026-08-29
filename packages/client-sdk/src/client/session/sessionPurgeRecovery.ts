@@ -1,6 +1,9 @@
 import type { ApiClient } from "@symcrypt/api-client";
 import { resolveOrganizationBillingView } from "../../workflows/organizations/billing";
-import { removeOrganizationProvisioningAttempt } from "../../workflows/organizations/organizationProvisioningAttempt";
+import {
+  loadOrganizationReplacementFinalizationRequest,
+  removeOrganizationProvisioningAttempt,
+} from "../../workflows/organizations/organizationProvisioningAttempt";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
@@ -50,7 +53,9 @@ export async function recoverPurgedSessionOrganization(
   dependencies: SessionPurgeRecoveryDependencies & {
     api: Pick<
       ApiClient,
-      "clearWriterProjectionCaches" | "getOrganizationBilling"
+      | "clearWriterProjectionCaches"
+      | "createOrganization"
+      | "getOrganizationBilling"
     >;
   },
   session: SessionPurgeRecoveryContext,
@@ -105,6 +110,24 @@ export async function recoverPurgedSessionOrganization(
     isRecoveryCurrent,
   );
   if (!isRecoveryCurrent()) return null;
+  const finalizationRequest =
+    await loadOrganizationReplacementFinalizationRequest({
+      execSql,
+      replacedOrganizationId: organizationId,
+      userId,
+    });
+  if (!isRecoveryCurrent()) return null;
+  const finalizedReplacement =
+    await dependencies.api.createOrganization(finalizationRequest);
+  if (!isRecoveryCurrent()) return null;
+  if (
+    !finalizedReplacement ||
+    finalizedReplacement.organizationId !== replacement.organizationId ||
+    finalizedReplacement.rootContainerId !== replacement.containerId ||
+    finalizedReplacement.userId !== userId
+  ) {
+    throw new Error("Organization replacement finalization was inconsistent");
+  }
   const attemptRemoved = await removeOrganizationProvisioningAttempt({
     canCommit: isRecoveryCurrent,
     execSql,

@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   organizationProvisioningContainerSeedRefinement,
@@ -154,9 +154,16 @@ export function isOrganizationProvisioningRequest(
 export const CreateOrganizationRequestSchema = loosePlainObject({
   ...organizationProvisioningRequestShape,
   /**
+   * Completes a previously provisioned personal-organization replacement
+   * after the client has committed its local remote-state reset. The server
+   * rechecks replacement ownership and sync eligibility before moving the
+   * user's default-organization pointer.
+   */
+  finalizeReplacement: z.boolean().optional(),
+  /**
    * Purged personal organization this fresh organization replaces. The server
-   * accepts this only after the old organization's purge is complete and then
-   * moves the user's default-organization pointer atomically.
+   * accepts this only after the old organization's purge is complete. The
+   * default pointer moves only on a later `finalizeReplacement` replay.
    */
   replacesOrganizationId: uuidV4StringSchema.optional(),
 });

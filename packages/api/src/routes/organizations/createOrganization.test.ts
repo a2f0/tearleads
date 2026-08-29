@@ -430,7 +430,7 @@ test("POST /organizations leaves the caller's default organization unchanged", a
   expect(row.defaultOrganizationId).toBe(defaultOrganizationId);
 });
 
-test("POST /organizations replaces a personal organization only after purge completion", async () => {
+test("POST /organizations links a replacement only after purge completion", async () => {
   const { user, defaultOrganizationId } = await registeredActor();
   const body = {
     ...(await createOrganizationRequestBody(user)),
@@ -457,7 +457,7 @@ test("POST /organizations replaces a personal organization only after purge comp
     .select({ defaultOrganizationId: users.defaultOrganizationId })
     .from(users)
     .where(eq(users.id, user.userId));
-  expect(row?.defaultOrganizationId).toBe(body.organizationId);
+  expect(row?.defaultOrganizationId).toBe(defaultOrganizationId);
 
   const retryResponse = await submitCreateOrganization(user, body);
   expect(retryResponse.status).toBe(200);

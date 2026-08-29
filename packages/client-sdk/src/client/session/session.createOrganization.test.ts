@@ -240,9 +240,13 @@ test("recoverPurgedOrganization waits for replacement billing before local rebin
   );
   const oldOrganizationId = crypto.randomUUID();
   let replacementBillingStatus: "active" | "local" = "local";
+  const organizationRequests: Array<
+    Parameters<ApiClient["createOrganization"]>[0]
+  > = [];
   const { identity, session } = createHarness({
     databaseId: "recover-purged-billing-gate-db",
     execSql,
+    onOrganizationRequest: (request) => organizationRequests.push(request),
     replacementBillingStatus: () => replacementBillingStatus,
   });
   try {
@@ -278,6 +282,8 @@ test("recoverPurgedOrganization waits for replacement billing before local rebin
     }
     invariant(billingError, "expected replacement billing error");
     expect(billingError.billingStatus).toBe("local");
+    expect(organizationRequests).toHaveLength(1);
+    expect(organizationRequests[0]?.finalizeReplacement).toBeUndefined();
     expect(session.organizationId).toBe(oldOrganizationId);
     const [waitingRoot] = await getClientSQLitePersistenceRuntime(execSql)
       .db.select()
@@ -299,6 +305,8 @@ test("recoverPurgedOrganization waits for replacement billing before local rebin
       billingError.replacementOrganizationId,
     );
     expect(session.organizationId).toBe(recovered.organizationId);
+    expect(organizationRequests).toHaveLength(3);
+    expect(organizationRequests[2]?.finalizeReplacement).toBe(true);
   } finally {
     close();
   }

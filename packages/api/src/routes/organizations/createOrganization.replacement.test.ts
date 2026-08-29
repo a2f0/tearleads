@@ -6,17 +6,55 @@ import {
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
-import { isCreateOrganizationResponse } from "@symcrypt/validators/response";
+import { authChallengeSigningBytes, sign } from "@symcrypt/crypto";
+import {
+  isCreateOrganizationResponse,
+  isVerifyResponse,
+} from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createOrganizationRequestBody,
+  requestChallenge,
   submitCreateOrganization,
+  submitVerify,
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 import { assertOrganizationCanSync } from "../../workflows/billing/organizationSyncEligibility";
+
+async function reauthenticateOrganizationId(
+  user: ReturnType<typeof createTestUser>,
+): Promise<string> {
+  const challengeResponse = await requestChallenge(user.fingerprint);
+  expect(challengeResponse.status).toBe(200);
+  const challengeBody: unknown = await challengeResponse.json();
+  invariant(
+    typeof challengeBody === "object" &&
+      challengeBody !== null &&
+      typeof Reflect.get(challengeBody, "challenge") === "string",
+    "expected challenge",
+  );
+  const challengeHex = Reflect.get(challengeBody, "challenge");
+  invariant(typeof challengeHex === "string", "expected challenge string");
+  const signature = sign(
+    authChallengeSigningBytes({
+      challengeHex,
+      fingerprint: user.fingerprint,
+    }),
+    user.signing.signingPrivateKey,
+  );
+  const response = await submitVerify(user.fingerprint, signature);
+  expect(response.status).toBe(200);
+  const body: unknown = await response.json();
+  invariant(
+    isVerifyResponse(body) && body.authenticated,
+    "expected authenticated response",
+  );
+  user.token = body.token;
+  return body.organizationId;
+}
 
 test("replacement creation returns one winner to competing devices", async () => {
   const user = createTestUser();
@@ -61,6 +99,24 @@ test("replacement creation returns one winner to competing devices", async () =>
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, winner.organizationId));
   expect(replacementBilling?.status).toBe("local");
+  const [waitingUser] = await db
+    .select({ defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  expect(waitingUser?.defaultOrganizationId).toBe(
+    registered.defaultOrganizationId,
+  );
+  expect(
+    (
+      await submitCreateOrganization(user, {
+        ...secondBody,
+        finalizeReplacement: true,
+      })
+    ).status,
+  ).toBe(409);
+  expect(await reauthenticateOrganizationId(user)).toBe(
+    registered.defaultOrganizationId,
+  );
   await expect(
     assertOrganizationCanSync(db, winner.organizationId, user.userId),
   ).rejects.toMatchObject({
@@ -77,4 +133,12 @@ test("replacement creation returns one winner to competing devices", async () =>
   await expect(
     assertOrganizationCanSync(db, winner.organizationId, user.userId),
   ).resolves.toBeUndefined();
+
+  const finalizationResponse = await submitCreateOrganization(user, {
+    ...secondBody,
+    finalizeReplacement: true,
+  });
+  expect(finalizationResponse.status).toBe(200);
+  expect(await finalizationResponse.json()).toEqual(winner);
+  expect(await reauthenticateOrganizationId(user)).toBe(winner.organizationId);
 });
