@@ -58,6 +58,31 @@ export interface CreateOrganizationInput {
   userId: string;
 }
 
+function isAdoptedReplacementResponse(input: {
+  creation: CreateOrganizationInput;
+  request: CreateOrganizationRequest;
+  response: CreateOrganizationResponse;
+}): boolean {
+  if (
+    input.response.organizationId === input.request.organizationId &&
+    input.response.rootContainerId === input.request.rootContainerId
+  ) {
+    return false;
+  }
+  if (
+    !input.creation.replacesOrganizationId ||
+    input.response.userId !== input.creation.userId
+  ) {
+    throw new Error(
+      "Organization provisioning returned an unexpected organization",
+    );
+  }
+  input.creation.log?.(
+    `Organization replacement adopted (${input.response.organizationId})`,
+  );
+  return true;
+}
+
 /**
  * Provisions an additional organization for an already-registered user, reusing
  * the exact artifact-build and local-persistence path as registration
@@ -132,6 +157,14 @@ export async function createOrganization(
       "Organization creation discarded: identity changed while provisioning",
     );
     return null;
+  }
+
+  if (isAdoptedReplacementResponse({ creation: input, request, response })) {
+    // Another device won the serialized replacement race. Its encrypted
+    // bootstrap is server-authoritative and will hydrate normally; persisting
+    // this device's losing candidate would instead create an unrelated local
+    // root. The session reset rebinds retained local data to the winning ids.
+    return response;
   }
 
   input.log?.(`Organization created (${response.organizationId})`);

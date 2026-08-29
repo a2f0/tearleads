@@ -7,6 +7,7 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { createOrganization } from "./createOrganization";
 
 function requireRequest(
@@ -70,5 +71,70 @@ test("replacement provisioning replays exact artifacts after a lost response", a
     );
   } finally {
     close();
+  }
+});
+
+test("two devices adopt the same winning replacement organization", async () => {
+  const left = await createTestExecSql("organization-replacement-left-device");
+  const right = await createTestExecSql(
+    "organization-replacement-right-device",
+  );
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const userId = crypto.randomUUID();
+  const replacesOrganizationId = crypto.randomUUID();
+  const requests: CreateOrganizationRequest[] = [];
+  let winningResponse: Awaited<
+    ReturnType<typeof respondToOrganizationProvisioning>
+  > | null = null;
+  const apiClient = {
+    createOrganization: async (request: CreateOrganizationRequest) => {
+      requests.push(request);
+      winningResponse ??= await respondToOrganizationProvisioning(request);
+      return winningResponse;
+    },
+  };
+
+  try {
+    const leftResponse = await createOrganization({
+      apiClient,
+      dbClient: execSqlClientFromExecSql(left.execSql),
+      encapsulationKeyPair,
+      replacesOrganizationId,
+      signingKeyPair,
+      userId,
+    });
+    const rightResponse = await createOrganization({
+      apiClient,
+      dbClient: execSqlClientFromExecSql(right.execSql),
+      encapsulationKeyPair,
+      replacesOrganizationId,
+      signingKeyPair,
+      userId,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.organizationId).not.toBe(requests[0]?.organizationId);
+    expect(rightResponse).toEqual(leftResponse);
+    const winnerRootId = leftResponse?.rootContainerId;
+    const losingRootId = requests[1]?.rootContainerId;
+    if (!winnerRootId || !losingRootId) {
+      throw new Error("Expected both replacement candidates");
+    }
+    await expect(
+      sqlContainerContentsPersistence.containerExists(
+        left.execSql,
+        winnerRootId,
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      sqlContainerContentsPersistence.containerExists(
+        right.execSql,
+        losingRootId,
+      ),
+    ).resolves.toBe(false);
+  } finally {
+    left.close();
+    right.close();
   }
 });

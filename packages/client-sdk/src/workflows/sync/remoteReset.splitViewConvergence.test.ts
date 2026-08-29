@@ -359,3 +359,60 @@ test("reset history with a same-peer collision is quarantined before live import
     right.close();
   }
 });
+
+test("same-page same-peer collisions are quarantined at batch scope", async () => {
+  const oldOrganizationId = crypto.randomUUID();
+  const oldDocumentId = crypto.randomUUID();
+  const replacementOrganizationId = crypto.randomUUID();
+  const replacementRootContainerId = crypto.randomUUID();
+  const leftDocument = await createDocument("same-page-colliding-peer");
+  const rightDocument = await createDocument("same-page-colliding-peer");
+  leftDocument.getText("text").update("left pane update");
+  leftDocument.commit();
+  rightDocument.getText("text").update("right pane edit");
+  rightDocument.commit();
+
+  const left = await resetClient({
+    databaseName: "same-page-collision-left",
+    document: leftDocument,
+    oldDocumentId,
+    oldOrganizationId,
+    replacementOrganizationId,
+    replacementRootContainerId,
+  });
+  const right = await resetClient({
+    databaseName: "same-page-collision-right",
+    document: rightDocument,
+    oldDocumentId,
+    oldOrganizationId,
+    replacementOrganizationId,
+    replacementRootContainerId,
+  });
+  const current = await createDocument("same-page-collision-current");
+  const currentIdentity = exportFullHistoryIdentity(current);
+  try {
+    let isolated: unknown;
+    try {
+      await validateDocumentSyncUpdateImports({
+        currentDocument: current,
+        decryptedUpdates: [
+          decryptedPendingUpdate(left),
+          decryptedPendingUpdate(right),
+        ],
+      });
+    } catch (error) {
+      isolated = error;
+    }
+
+    expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
+    if (!isDocumentSyncUpdateIsolationError(isolated)) return;
+    expect(isolated.attribution).toBe("batch");
+    expect(isolated.stage).toBe("loro_import");
+    expect(isolated.message).toContain("already-covered frontier");
+    expect(exportFullHistoryIdentity(current)).toBe(currentIdentity);
+  } finally {
+    current.free();
+    left.close();
+    right.close();
+  }
+});

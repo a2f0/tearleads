@@ -4,6 +4,7 @@ import {
   type OrganizationPurgeInput,
   purgeClaimedOrganizationRemoteData,
 } from "../../workflows/billing/organizationPurge";
+import { organizationPurgeBatches } from "../../workflows/billing/organizationPurgeBatches";
 import { reclaimDereferencedBlobs } from "../blobs/blobMaintenance";
 import type { ApiServiceRuntime } from "../runtime";
 
@@ -22,7 +23,6 @@ export async function runOrganizationPurgeMaintenance(
     input,
   );
   let failed = 0;
-  const claimedBlobIds = new Set<string>();
   for (const organizationId of claimedOrganizationIds) {
     try {
       const blobIds = await purgeClaimedOrganizationRemoteData({
@@ -30,27 +30,17 @@ export async function runOrganizationPurgeMaintenance(
         now,
         organizationId,
       });
-      for (const blobId of blobIds) claimedBlobIds.add(blobId);
+      for (const batch of organizationPurgeBatches(blobIds)) {
+        await reclaimDereferencedBlobs(runtime, {
+          blobIds: batch,
+          gracePeriodMs: 0,
+          limit: batch.length,
+          now,
+        });
+      }
     } catch (error) {
       failed += 1;
       console.error(`Organization purge failed for ${organizationId}:`, error);
-    }
-  }
-
-  // Organization purge removes attachment reachability with no grace. The
-  // existing durable blob-GC path prunes DB key material, records object-store
-  // work before deletion, and retries any failed object acknowledgement.
-  if (claimedBlobIds.size > 0) {
-    try {
-      await reclaimDereferencedBlobs(runtime, {
-        blobIds: [...claimedBlobIds],
-        gracePeriodMs: 0,
-        limit: 1000,
-        now,
-      });
-    } catch (error) {
-      failed += 1;
-      console.error("Organization purge blob cleanup failed:", error);
     }
   }
 

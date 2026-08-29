@@ -97,12 +97,6 @@ async function assertReplacementReady(
     .limit(1);
   const [user] = await lockRowForUpdate(userQuery);
   if (billing.replacementOrganizationId !== null) {
-    if (billing.replacementOrganizationId !== input.organizationId) {
-      throw new OrganizationProvisioningError(
-        "The purged personal organization already has a replacement",
-        409,
-      );
-    }
     const response = billing.replacementProvisioningResponse;
     if (
       user?.defaultOrganizationId !== billing.replacementOrganizationId ||

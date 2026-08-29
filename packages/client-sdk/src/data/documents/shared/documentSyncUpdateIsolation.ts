@@ -1,11 +1,9 @@
 import {
   createDocument,
-  encodeVersionVector,
   exportFullHistorySnapshot,
   importSnapshot,
   importUpdates,
   LoroImportUnresolvedDependenciesError,
-  satisfiesVersionVector,
   updateMatchesDocumentHistory,
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
@@ -174,16 +172,14 @@ function firstDuplicateUpdateId(
   return null;
 }
 
-function assertCoveredUpdatesMatchCurrentHistory(input: {
-  currentDocument: SyncDocument;
+function assertImportedUpdatesMatchValidatedHistory(input: {
+  document: SyncDocument;
   responseById: ReadonlyMap<string, SyncResponseUpdate>;
   updates: readonly DecryptedDocumentSyncUpdate[];
 }): void {
-  const currentVersion = encodeVersionVector(input.currentDocument);
   const collisions = input.updates.filter(
     (update) =>
-      satisfiesVersionVector(currentVersion, update.partialEndVersionVector) &&
-      !updateMatchesDocumentHistory(input.currentDocument, update.updateData),
+      !updateMatchesDocumentHistory(input.document, update.updateData),
   );
   if (collisions.length === 0) return;
   const cause = new Error(
@@ -256,6 +252,7 @@ export function importDecryptedDocumentSyncUpdates(
 
 async function validateDecryptedUpdateBatch(input: {
   currentSnapshot: Uint8Array;
+  responseById?: ReadonlyMap<string, SyncResponseUpdate> | undefined;
   updates: readonly DecryptedDocumentSyncUpdate[];
 }): Promise<void> {
   const document = await createValidationDocument(input.currentSnapshot);
@@ -271,6 +268,17 @@ async function validateDecryptedUpdateBatch(input: {
         document,
         ordinaryUpdates.map((update) => update.updateData),
       );
+    }
+    if (input.responseById) {
+      // Validate against the completed scratch history, not only the live
+      // pre-page frontier. If two updates in this page reuse one peer/counter
+      // with different operations, Loro accepts one and treats the other as a
+      // no-op; only the accepted history can match both when they are equal.
+      assertImportedUpdatesMatchValidatedHistory({
+        document,
+        responseById: input.responseById,
+        updates: input.updates,
+      });
     }
   } finally {
     document.free();
@@ -356,15 +364,6 @@ export async function validateDocumentSyncUpdateImports(input: {
   try {
     await validateDecryptedUpdateBatch({
       currentSnapshot,
-      updates: input.decryptedUpdates,
-    });
-    // Loro treats an operation whose peer/counter is already present as
-    // idempotent. Prove the bytes are the same history before accepting that
-    // no-op, so a divergent same-peer operation cannot hide at an equal
-    // frontier. Run this only after a clean batch import; ordinary import
-    // failures retain the exact-attribution policy below.
-    assertCoveredUpdatesMatchCurrentHistory({
-      currentDocument: input.currentDocument,
       responseById,
       updates: input.decryptedUpdates,
     });

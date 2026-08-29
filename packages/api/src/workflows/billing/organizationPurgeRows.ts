@@ -31,6 +31,7 @@ import {
 } from "@symcrypt/api-shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
+import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
 
 async function deleteContainerRows(input: {
@@ -39,40 +40,40 @@ async function deleteContainerRows(input: {
   readonly scope: OrganizationRemotePurgeScope;
 }): Promise<void> {
   const { containerIds } = input.scope;
-  if (containerIds.length > 0) {
+  for (const containerBatch of organizationPurgeBatches(containerIds)) {
     await input.executor
       .delete(principalPolicyMutationAcknowledgements)
       .where(
         inArray(
           principalPolicyMutationAcknowledgements.containerId,
-          containerIds,
+          containerBatch,
         ),
       );
     await input.executor
       .delete(principalContainerGrantProjection)
       .where(
-        inArray(principalContainerGrantProjection.containerId, containerIds),
+        inArray(principalContainerGrantProjection.containerId, containerBatch),
       );
     const epochs = await input.executor
       .select({ id: containerKeyEpochs.id })
       .from(containerKeyEpochs)
-      .where(inArray(containerKeyEpochs.containerId, containerIds));
+      .where(inArray(containerKeyEpochs.containerId, containerBatch));
     const epochIds = epochs.map((row) => row.id);
-    if (epochIds.length > 0) {
+    for (const epochBatch of organizationPurgeBatches(epochIds)) {
       await input.executor
         .delete(containerKeyWraps)
-        .where(inArray(containerKeyWraps.containerKeyEpochId, epochIds));
+        .where(inArray(containerKeyWraps.containerKeyEpochId, epochBatch));
     }
     await input.executor
       .delete(containerKeyEpochs)
-      .where(inArray(containerKeyEpochs.containerId, containerIds));
+      .where(inArray(containerKeyEpochs.containerId, containerBatch));
     await input.executor
       .delete(containerMetadataDocuments)
-      .where(inArray(containerMetadataDocuments.containerId, containerIds));
+      .where(inArray(containerMetadataDocuments.containerId, containerBatch));
     await input.executor
       .delete(containerDocumentSyncTombstones)
       .where(
-        inArray(containerDocumentSyncTombstones.containerId, containerIds),
+        inArray(containerDocumentSyncTombstones.containerId, containerBatch),
       );
   }
   await input.executor
@@ -102,18 +103,18 @@ async function deleteAccessRows(
   ]);
   const eventHashes = events.map((row) => row.hash);
   const manifestHashes = manifests.map((row) => row.hash);
-  if (eventHashes.length > 0) {
+  for (const eventBatch of organizationPurgeBatches(eventHashes)) {
     await executor
       .delete(accessEventDependencyProjection)
-      .where(inArray(accessEventDependencyProjection.eventHash, eventHashes));
+      .where(inArray(accessEventDependencyProjection.eventHash, eventBatch));
   }
-  if (manifestHashes.length > 0) {
+  for (const manifestBatch of organizationPurgeBatches(manifestHashes)) {
     await executor
       .delete(accessManifestContainerGrantProjection)
       .where(
         inArray(
           accessManifestContainerGrantProjection.manifestHash,
-          manifestHashes,
+          manifestBatch,
         ),
       );
     await executor
@@ -121,7 +122,7 @@ async function deleteAccessRows(
       .where(
         inArray(
           accessManifestDocumentLinkProjection.manifestHash,
-          manifestHashes,
+          manifestBatch,
         ),
       );
     await executor
@@ -129,7 +130,7 @@ async function deleteAccessRows(
       .where(
         inArray(
           accessManifestPrincipalHeadProjection.manifestHash,
-          manifestHashes,
+          manifestBatch,
         ),
       );
   }
@@ -155,25 +156,29 @@ async function deleteOrganizationPrincipalRows(
   const groupIds = groupRows.map((row) => row.id);
   const principalIds = [organizationId, ...groupIds];
 
-  for (const table of [
-    principalPolicyMutationAcknowledgements,
-    principalMemberEnvelopes,
-    principalStatePayloads,
-    principalEpochKeys,
-    principalContainerGrantProjection,
-    principalMembershipProjection,
-    principalStates,
-  ] as const) {
-    await executor
-      .delete(table)
-      .where(inArray(table.principalId, principalIds));
+  for (const principalBatch of organizationPurgeBatches(principalIds)) {
+    for (const table of [
+      principalPolicyMutationAcknowledgements,
+      principalMemberEnvelopes,
+      principalStatePayloads,
+      principalEpochKeys,
+      principalContainerGrantProjection,
+      principalMembershipProjection,
+      principalStates,
+    ] as const) {
+      await executor
+        .delete(table)
+        .where(inArray(table.principalId, principalBatch));
+    }
   }
   if (groupIds.length === 0) return;
-  await executor
-    .insert(organizationGroupTombstones)
-    .values(groupIds.map((groupId) => ({ groupId, organizationId })))
-    .onConflictDoNothing();
-  await executor.delete(groups).where(inArray(groups.id, groupIds));
+  for (const groupBatch of organizationPurgeBatches(groupIds)) {
+    await executor
+      .insert(organizationGroupTombstones)
+      .values(groupBatch.map((groupId) => ({ groupId, organizationId })))
+      .onConflictDoNothing();
+    await executor.delete(groups).where(inArray(groups.id, groupBatch));
+  }
 }
 
 export async function deleteOrganizationRemoteRows(input: {
@@ -198,11 +203,11 @@ export async function deleteOrganizationRemoteRows(input: {
       retainAccessHistory: false,
     });
   }
-  if (input.scope.blobIds.length > 0) {
+  for (const blobBatch of organizationPurgeBatches(input.scope.blobIds)) {
     await input.executor
       .update(blobs)
       .set({ dereferencedAt: input.now, reclaimAttemptedAt: null })
-      .where(inArray(blobs.id, input.scope.blobIds));
+      .where(inArray(blobs.id, blobBatch));
   }
   await deleteContainerRows(input);
   await deleteAccessRows(input.executor, input.organizationId);

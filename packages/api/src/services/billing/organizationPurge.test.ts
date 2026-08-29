@@ -24,6 +24,10 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { sha256Hex } from "../../utils/sha256";
+import {
+  ORGANIZATION_PURGE_BATCH_SIZE,
+  organizationPurgeBatches,
+} from "../../workflows/billing/organizationPurgeBatches";
 import { runOrganizationPurgeMaintenance } from "./organizationPurge";
 
 async function registerOrganization(): Promise<string> {
@@ -277,4 +281,45 @@ test("organization stays deleting until object-store purge work succeeds", async
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(purged?.status).toBe("purged");
+});
+
+test("organization purge batches scopes larger than its SQL limit", async () => {
+  const organizationId = await registerOrganization();
+  const now = new Date("2099-08-29T12:00:00.000Z");
+  const [root] = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(eq(containers.organizationId, organizationId));
+  invariant(root, "expected organization root");
+  const childIds = Array.from(
+    { length: ORGANIZATION_PURGE_BATCH_SIZE + 1 },
+    () => crypto.randomUUID(),
+  );
+  for (const batch of organizationPurgeBatches(childIds)) {
+    await db.insert(containers).values(
+      batch.map((id) => ({
+        depth: 1,
+        id,
+        organizationId,
+        parentId: root.id,
+      })),
+    );
+  }
+  await db
+    .update(organizationBilling)
+    .set({ purgeAfter: new Date(now.getTime() - 1), status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  expect(
+    await runOrganizationPurgeMaintenance(createServiceTestRuntime(), {
+      now,
+      organizationIds: [organizationId],
+    }),
+  ).toEqual({ claimed: 1, failed: 0, purged: 1 });
+  expect(
+    await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.organizationId, organizationId)),
+  ).toEqual([]);
 });

@@ -45,6 +45,7 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
+import { remoteResetBatches } from "./remoteResetBatches";
 import {
   buildResetPlans,
   type ResetAttachmentUpload,
@@ -109,7 +110,9 @@ interface ScopedRemoteRowsInput {
 async function clearScopedPrincipalRows(
   input: ScopedRemoteRowsInput,
 ): Promise<void> {
-  if (input.snapshot.principalIds.length > 0) {
+  for (const principalBatch of remoteResetBatches(
+    input.snapshot.principalIds,
+  )) {
     for (const table of [
       principalPolicies,
       principalPolicyBundleHistory,
@@ -118,7 +121,7 @@ async function clearScopedPrincipalRows(
     ] as const) {
       await input.tx
         .delete(table)
-        .where(inArray(table.principalId, input.snapshot.principalIds))
+        .where(inArray(table.principalId, principalBatch))
         .run();
     }
   }
@@ -127,39 +130,24 @@ async function clearScopedPrincipalRows(
 async function clearScopedContainerRows(
   input: ScopedRemoteRowsInput,
 ): Promise<void> {
-  if (input.snapshot.containerIds.length > 0) {
+  for (const containerBatch of remoteResetBatches(
+    input.snapshot.containerIds,
+  )) {
     await input.tx
       .delete(documentContainerProjection)
-      .where(
-        inArray(
-          documentContainerProjection.containerId,
-          input.snapshot.containerIds,
-        ),
-      )
+      .where(inArray(documentContainerProjection.containerId, containerBatch))
       .run();
     await input.tx
       .delete(containerMoveIntents)
-      .where(
-        inArray(containerMoveIntents.containerId, input.snapshot.containerIds),
-      )
+      .where(inArray(containerMoveIntents.containerId, containerBatch))
       .run();
     await input.tx
       .delete(containerCreateIntents)
-      .where(
-        inArray(
-          containerCreateIntents.containerId,
-          input.snapshot.containerIds,
-        ),
-      )
+      .where(inArray(containerCreateIntents.containerId, containerBatch))
       .run();
     await input.tx
       .delete(containerHydrationTombstones)
-      .where(
-        inArray(
-          containerHydrationTombstones.containerId,
-          input.snapshot.containerIds,
-        ),
-      )
+      .where(inArray(containerHydrationTombstones.containerId, containerBatch))
       .run();
   }
 }
@@ -168,35 +156,28 @@ async function clearScopedDocumentRows(
   input: ScopedRemoteRowsInput,
 ): Promise<void> {
   const { snapshot, tx } = input;
-  if (snapshot.oldDocumentIds.length > 0) {
+  for (const documentIdBatch of remoteResetBatches(snapshot.oldDocumentIds)) {
     await tx
       .delete(documentContainerProjection)
-      .where(
-        inArray(
-          documentContainerProjection.documentId,
-          snapshot.oldDocumentIds,
-        ),
-      )
+      .where(inArray(documentContainerProjection.documentId, documentIdBatch))
       .run();
   }
-  if (snapshot.documentLocalIds.length > 0) {
+  for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
     await tx
       .delete(documentMoveIntents)
-      .where(inArray(documentMoveIntents.localId, snapshot.documentLocalIds))
+      .where(inArray(documentMoveIntents.localId, localIdBatch))
       .run();
     await tx
       .delete(documentPendingAttachments)
-      .where(
-        inArray(documentPendingAttachments.localId, snapshot.documentLocalIds),
-      )
+      .where(inArray(documentPendingAttachments.localId, localIdBatch))
       .run();
   }
-  if (snapshot.documentRows.length > 0) {
+  for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
     await tx
       .delete(documentPendingUpdates)
       .where(
         or(
-          ...snapshot.documentRows.map((row) =>
+          ...documentBatch.map((row) =>
             and(
               eq(documentPendingUpdates.appKind, row.appKind),
               eq(documentPendingUpdates.localId, row.localId),
@@ -209,7 +190,7 @@ async function clearScopedDocumentRows(
       .delete(documentSyncFailures)
       .where(
         or(
-          ...snapshot.documentRows.map((row) =>
+          ...documentBatch.map((row) =>
             and(
               eq(documentSyncFailures.appKind, row.appKind),
               eq(documentSyncFailures.localId, row.localId),
@@ -280,7 +261,7 @@ async function resetRemoteColumns(input: {
       )
       .run();
   }
-  if (snapshot.documentLocalIds.length > 0) {
+  for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
     await tx
       .update(documentProjection)
       .set({
@@ -288,7 +269,7 @@ async function resetRemoteColumns(input: {
         organizationId:
           reset.replacement?.organizationId ?? reset.organizationId,
       })
-      .where(inArray(documentProjection.localId, snapshot.documentLocalIds))
+      .where(inArray(documentProjection.localId, localIdBatch))
       .run();
   }
   for (const row of snapshot.containerRows) {
@@ -317,17 +298,18 @@ async function queueResetDocumentUpdates(input: {
   now: string;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  if (input.documentUpdates.length === 0) return;
-  await input.tx
-    .insert(documentPendingUpdates)
-    .values(
-      input.documentUpdates.map((update) => ({
-        ...update,
-        id: crypto.randomUUID(),
-        createdAt: input.now,
-      })),
-    )
-    .run();
+  for (const updateBatch of remoteResetBatches(input.documentUpdates)) {
+    await input.tx
+      .insert(documentPendingUpdates)
+      .values(
+        updateBatch.map((update) => ({
+          ...update,
+          id: crypto.randomUUID(),
+          createdAt: input.now,
+        })),
+      )
+      .run();
+  }
 }
 
 async function queueResetContainerCreates(input: {
@@ -342,24 +324,26 @@ async function queueResetContainerCreates(input: {
     return parentId ? [{ id: row.id, parentId }] : [];
   });
   if (rows.length === 0) return 0;
-  await input.tx
-    .insert(containerCreateIntents)
-    .values(
-      rows.map((row) => ({
-        id: crypto.randomUUID(),
-        containerId: row.id,
-        parentContainerId: row.parentId,
-        intentType: CONTAINER_CREATE_INTENT_TYPE,
-        syncStatus: "pending" as const,
-        remoteContainerId: null,
-        remoteMetadataAccessStateHash: null,
-        remoteMetadataDocumentId: null,
-        lastError: null,
-        createdAt: input.now,
-        updatedAt: input.now,
-      })),
-    )
-    .run();
+  for (const rowBatch of remoteResetBatches(rows)) {
+    await input.tx
+      .insert(containerCreateIntents)
+      .values(
+        rowBatch.map((row) => ({
+          id: crypto.randomUUID(),
+          containerId: row.id,
+          parentContainerId: row.parentId,
+          intentType: CONTAINER_CREATE_INTENT_TYPE,
+          syncStatus: "pending" as const,
+          remoteContainerId: null,
+          remoteMetadataAccessStateHash: null,
+          remoteMetadataDocumentId: null,
+          lastError: null,
+          createdAt: input.now,
+          updatedAt: input.now,
+        })),
+      )
+      .run();
+  }
   return rows.length;
 }
 
@@ -368,29 +352,30 @@ async function queueResetAttachmentUploads(input: {
   now: string;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  if (input.attachmentUploads.length === 0) return;
-  await input.tx
-    .insert(documentPendingAttachments)
-    .values(
-      input.attachmentUploads.map((attachment) => ({
-        ...attachment,
-        createdAt: input.now,
-      })),
-    )
-    .run();
-  await input.tx
-    .delete(documentAttachmentBlobProjection)
-    .where(
-      or(
-        ...input.attachmentUploads.map((attachment) =>
-          and(
-            eq(documentAttachmentBlobProjection.localId, attachment.localId),
-            eq(documentAttachmentBlobProjection.slotId, attachment.slotId),
+  for (const attachmentBatch of remoteResetBatches(input.attachmentUploads)) {
+    await input.tx
+      .insert(documentPendingAttachments)
+      .values(
+        attachmentBatch.map((attachment) => ({
+          ...attachment,
+          createdAt: input.now,
+        })),
+      )
+      .run();
+    await input.tx
+      .delete(documentAttachmentBlobProjection)
+      .where(
+        or(
+          ...attachmentBatch.map((attachment) =>
+            and(
+              eq(documentAttachmentBlobProjection.localId, attachment.localId),
+              eq(documentAttachmentBlobProjection.slotId, attachment.slotId),
+            ),
           ),
         ),
-      ),
-    )
-    .run();
+      )
+      .run();
+  }
 }
 
 async function clearRemoteSyncStateInTransaction(input: {
