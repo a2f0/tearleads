@@ -396,13 +396,11 @@ async function queueResetAttachmentUploads(input: {
 async function clearRemoteSyncStateInTransaction(input: {
   plans: Awaited<ReturnType<typeof buildResetPlans>>;
   reset: RemoteResetInput;
+  snapshot: RemoteSyncStateSnapshot;
   tx: ClientSQLiteTransactionScope;
 }): Promise<ClearRemoteSyncStateResult> {
   const now = new Date().toISOString();
-  const snapshot = await readRemoteSyncStateSnapshot(
-    input.tx,
-    input.reset.organizationId,
-  );
+  const { snapshot } = input;
   await clearScopedRemoteRows({
     organizationId: input.reset.organizationId,
     snapshot,
@@ -443,16 +441,32 @@ async function clearRemoteSyncStateInTransaction(input: {
 export async function clearRemoteSyncState(
   execSql: ExecSql,
   reset: RemoteResetInput,
+  canCommit?: (() => boolean) | undefined,
 ): Promise<ClearRemoteSyncStateResult> {
   return runOrganizationPresentationReset(execSql, async () => {
     await ensureSqlTables(execSql, clientSqlTables);
     const runtime = getClientSQLitePersistenceRuntime(execSql);
-    const snapshot = await runtime.transaction((tx) =>
-      readRemoteSyncStateSnapshot(tx, reset.organizationId),
+    const resetInTransaction = async (tx: ClientSQLiteTransactionScope) => {
+      if (canCommit && !canCommit()) {
+        throw new Error("Remote sync reset aborted: session identity changed");
+      }
+      const snapshot = await readRemoteSyncStateSnapshot(
+        tx,
+        reset.organizationId,
+      );
+      const plans = await buildResetPlans(tx, snapshot.documentRows);
+      return clearRemoteSyncStateInTransaction({ plans, reset, snapshot, tx });
+    };
+    if (!canCommit) {
+      return runtime.transaction(resetInTransaction);
+    }
+    const outcome = await runtime.guardedTransaction(
+      resetInTransaction,
+      canCommit,
     );
-    const plans = await buildResetPlans(execSql, snapshot.documentRows);
-    return runtime.transaction((tx) =>
-      clearRemoteSyncStateInTransaction({ plans, reset, tx }),
-    );
+    if (!outcome.committed || !outcome.result) {
+      throw new Error("Remote sync reset aborted: session identity changed");
+    }
+    return outcome.result;
   });
 }

@@ -209,12 +209,14 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
 }
 
 export async function removeOrganizationProvisioningAttempt(input: {
+  canCommit?: (() => boolean) | undefined;
   execSql: ExecSql;
   replacedOrganizationId: string;
   userId: string;
-}): Promise<void> {
-  await sqlOrganizationProvisioningAttemptPersistence.remove(
+}): Promise<boolean> {
+  return sqlOrganizationProvisioningAttemptPersistence.remove(
     input.execSql,
     input,
+    input.canCommit,
   );
 }

@@ -2,6 +2,7 @@ import type { ApiClient } from "@symcrypt/api-client";
 import { removeOrganizationProvisioningAttempt } from "../../workflows/organizations/organizationProvisioningAttempt";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Database } from "../database";
+import type { Identity } from "../identity";
 import type {
   CreateOrganizationOptions,
   SessionContext,
@@ -12,6 +13,7 @@ import type {
 interface SessionPurgeRecoveryDependencies {
   api: Pick<ApiClient, "clearWriterProjectionCaches">;
   database: Pick<Database, "requireExecSql">;
+  identity: Pick<Identity, "snapshot">;
   log: (message: string) => void;
 }
 
@@ -53,33 +55,48 @@ export async function recoverPurgedSessionOrganization(
   organizationId: string,
   options: CreateOrganizationOptions | undefined,
 ): Promise<SessionRecoverOrganizationResult | null> {
+  const identitySnapshot = dependencies.identity.snapshot;
+  const sessionOrganizationId = session.organizationId;
+  const userId = session.userId;
+  if (!userId) {
+    throw new Error("Purged organization recovery requires a current user");
+  }
+  const isRecoveryCurrent = () =>
+    dependencies.identity.snapshot === identitySnapshot &&
+    session.organizationId === sessionOrganizationId &&
+    session.userId === userId;
   const billing = await dependencies.api.getOrganizationBilling(organizationId);
   if (!billing || billing.status !== "purged") {
     throw new Error(
       `Organization ${organizationId} cannot be recovered before its purge finishes`,
     );
   }
+  if (!isRecoveryCurrent()) return null;
   const replacement = await session.createOrganization(options, organizationId);
   if (!replacement) return null;
+  if (!isRecoveryCurrent()) return null;
   const execSql = dependencies.database.requireExecSql(
     "recoverPurgedOrganization",
   );
-  const reset = await clearRemoteSyncState(execSql, {
-    organizationId,
-    replacement: {
-      organizationId: replacement.organizationId,
-      rootContainerId: replacement.containerId,
+  const reset = await clearRemoteSyncState(
+    execSql,
+    {
+      organizationId,
+      replacement: {
+        organizationId: replacement.organizationId,
+        rootContainerId: replacement.containerId,
+      },
     },
-  });
-  const userId = session.userId;
-  if (!userId) {
-    throw new Error("Purged organization recovery requires a current user");
-  }
-  await removeOrganizationProvisioningAttempt({
+    isRecoveryCurrent,
+  );
+  if (!isRecoveryCurrent()) return null;
+  const attemptRemoved = await removeOrganizationProvisioningAttempt({
+    canCommit: isRecoveryCurrent,
     execSql,
     replacedOrganizationId: organizationId,
     userId,
   });
+  if (!attemptRemoved || !isRecoveryCurrent()) return null;
   dependencies.api.clearWriterProjectionCaches();
   session.setContext({
     containerId: replacement.containerId,

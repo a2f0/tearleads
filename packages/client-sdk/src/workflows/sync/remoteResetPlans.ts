@@ -9,8 +9,7 @@ import {
   documentHistoryUpdates,
   documents,
 } from "../../data/sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { importDocumentHistoryTailUpdates } from "../documents/historyContent";
 
 export interface ResetDocumentUpdate {
@@ -66,7 +65,7 @@ function buildResetUpdate(input: {
  * exported-updates blobs (container metadata).
  */
 async function buildResetContentDocs(
-  db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
+  db: ClientSQLiteTransactionScope,
 ): Promise<Map<string, ResetContentDoc>> {
   // Read the TAIL before the checkpoints (the same order the restore path
   // uses): a compaction landing between the two reads then yields old-tail +
@@ -149,7 +148,7 @@ export interface ResetDocumentScope {
 }
 
 async function loadResetPlanRows(
-  db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
+  db: ClientSQLiteTransactionScope,
   documentScopes?: readonly ResetDocumentScope[],
 ) {
   const selectedScopeKeys = documentScopes
@@ -190,13 +189,12 @@ async function loadResetPlanRows(
 }
 
 export async function buildResetPlans(
-  execSql: ExecSql,
+  db: ClientSQLiteTransactionScope,
   documentScopes?: readonly ResetDocumentScope[],
 ): Promise<{
   readonly attachmentUploads: ResetAttachmentUpload[];
   readonly documentUpdates: ResetDocumentUpdate[];
 }> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
   const { attachmentRows, documentRows } = await loadResetPlanRows(
     db,
     documentScopes,

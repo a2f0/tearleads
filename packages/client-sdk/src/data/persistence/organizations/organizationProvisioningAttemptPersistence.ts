@@ -3,7 +3,10 @@ import {
   organizationProvisioningAttempts,
   organizationProvisioningAttemptTables,
 } from "../../sqlite/organizationProvisioningAttemptSchema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
@@ -63,14 +66,14 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
   async remove(
     execSql: ExecSql,
     input: { replacedOrganizationId: string; userId: string },
-  ): Promise<void> {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureSqlTables(
-        lockedExecSql,
-        organizationProvisioningAttemptTables,
-      );
-      await getClientSQLitePersistenceRuntime(lockedExecSql)
-        .db.delete(organizationProvisioningAttempts)
+    canCommit?: (() => boolean) | undefined,
+  ): Promise<boolean> {
+    await ensureSqlTables(execSql, organizationProvisioningAttemptTables);
+    if (canCommit && !canCommit()) return false;
+    const runtime = getClientSQLitePersistenceRuntime(execSql);
+    const remove = async (tx: ClientSQLiteTransactionScope) => {
+      await tx
+        .delete(organizationProvisioningAttempts)
         .where(
           and(
             eq(
@@ -81,6 +84,11 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
           ),
         )
         .run();
-    });
+    };
+    if (!canCommit) {
+      await runtime.transaction(remove);
+      return true;
+    }
+    return (await runtime.guardedTransaction(remove, canCommit)).committed;
   },
 };
