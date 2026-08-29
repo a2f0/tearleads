@@ -24,10 +24,6 @@ import { withOrganizationAdminTransaction } from "../organizations/mutationAcces
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
-interface NativeSubscriptionOwner {
-  readonly organizationId: string;
-}
-
 async function requirePersonalOrganization(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
@@ -70,9 +66,12 @@ async function findCurrentOwner(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly subscriptionId: string;
-}): Promise<NativeSubscriptionOwner | null> {
+}) {
   const query = input.executor
-    .select({ organizationId: organizationBilling.organizationId })
+    .select({
+      organizationId: organizationBilling.organizationId,
+      status: organizationBilling.status,
+    })
     .from(organizationBilling)
     .where(
       and(
@@ -110,25 +109,32 @@ async function disablePreviousOwner(input: {
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly organizationId: string;
+  readonly preserveTerminalStatus: boolean;
 }): Promise<void> {
   await input.executor
     .update(organizationBilling)
     .set({
-      currentPeriodEndsAt: null,
-      currentPeriodStartsAt: null,
-      disabledAt: input.now,
       entitlementId: null,
       provider: null,
       providerCustomerId: null,
       providerProductId: null,
       providerSubscriptionId: null,
       providerTransactionId: null,
-      purgeAfter: new Date(input.now.getTime() + LAPSED_BILLING_PURGE_GRACE_MS),
       seatCount: 0,
       seatPeriodKey: null,
-      status: "disabled",
-      trialEndsAt: null,
       updatedAt: input.now,
+      ...(input.preserveTerminalStatus
+        ? {}
+        : {
+            currentPeriodEndsAt: null,
+            currentPeriodStartsAt: null,
+            disabledAt: input.now,
+            purgeAfter: new Date(
+              input.now.getTime() + LAPSED_BILLING_PURGE_GRACE_MS,
+            ),
+            status: "disabled" as const,
+            trialEndsAt: null,
+          }),
     })
     .where(eq(organizationBilling.organizationId, input.organizationId));
 }
@@ -282,6 +288,8 @@ async function applyNativeSubscriptionClaim(input: {
       executor: input.executor,
       now: input.now,
       organizationId: source.organizationId,
+      preserveTerminalStatus:
+        source.status === "deleting" || source.status === "purged",
     });
     await releasePreviousOwnerSeats({
       executor: input.executor,
