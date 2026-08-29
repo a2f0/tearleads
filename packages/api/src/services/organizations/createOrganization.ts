@@ -3,7 +3,6 @@ import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import { OrganizationProvisioningError } from "../../workflows/organizations/provisionOrganizationError";
-import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganizationResponse";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationProvisioningError };
@@ -29,7 +28,7 @@ export async function createOrganization(
       403,
     );
   }
-  const provisioned = await runCreateOrganizationWorkflow(runtime.db, input);
+  const response = await runCreateOrganizationWorkflow(runtime.db, input);
 
   // The transaction has committed a brand-new root that this user's other
   // sessions do not know to list yet. Reuse the same user-scoped discovery hint
@@ -48,5 +47,5 @@ export async function createOrganization(
     "organization root discovery notification",
   );
 
-  return toOrganizationProvisioningResponse(authenticatedUserId, provisioned);
+  return response;
 }

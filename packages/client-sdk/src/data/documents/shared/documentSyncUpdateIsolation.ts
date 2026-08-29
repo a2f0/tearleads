@@ -1,9 +1,12 @@
 import {
   createDocument,
+  encodeVersionVector,
   exportFullHistorySnapshot,
   importSnapshot,
   importUpdates,
   LoroImportUnresolvedDependenciesError,
+  satisfiesVersionVector,
+  updateMatchesDocumentHistory,
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import type {
@@ -171,6 +174,37 @@ function firstDuplicateUpdateId(
   return null;
 }
 
+function assertCoveredUpdatesMatchCurrentHistory(input: {
+  currentDocument: SyncDocument;
+  responseById: ReadonlyMap<string, SyncResponseUpdate>;
+  updates: readonly DecryptedDocumentSyncUpdate[];
+}): void {
+  const currentVersion = encodeVersionVector(input.currentDocument);
+  const collisions = input.updates.filter(
+    (update) =>
+      satisfiesVersionVector(currentVersion, update.partialEndVersionVector) &&
+      !updateMatchesDocumentHistory(input.currentDocument, update.updateData),
+  );
+  if (collisions.length === 0) return;
+  const cause = new Error(
+    "incoming Loro update reuses an already-covered frontier with different operations",
+  );
+  const [collision] = collisions;
+  if (input.updates.length === 1 && collision) {
+    throw isolateDocumentSyncUpdateError({
+      cause,
+      responseUpdate: input.responseById.get(collision.id),
+      stage: "loro_import",
+      updateId: collision.id,
+    });
+  }
+  throw isolateDocumentSyncBatchError({
+    cause,
+    stage: "loro_import",
+    updateIds: input.updates.map((update) => update.id),
+  });
+}
+
 async function createValidationDocument(snapshot: Uint8Array) {
   const document = await createDocument(crypto.randomUUID());
   try {
@@ -324,8 +358,19 @@ export async function validateDocumentSyncUpdateImports(input: {
       currentSnapshot,
       updates: input.decryptedUpdates,
     });
+    // Loro treats an operation whose peer/counter is already present as
+    // idempotent. Prove the bytes are the same history before accepting that
+    // no-op, so a divergent same-peer operation cannot hide at an equal
+    // frontier. Run this only after a clean batch import; ordinary import
+    // failures retain the exact-attribution policy below.
+    assertCoveredUpdatesMatchCurrentHistory({
+      currentDocument: input.currentDocument,
+      responseById,
+      updates: input.decryptedUpdates,
+    });
     return;
   } catch (error) {
+    if (isDocumentSyncUpdateIsolationError(error)) throw error;
     batchError = error;
   }
 

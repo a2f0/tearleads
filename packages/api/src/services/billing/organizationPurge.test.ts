@@ -5,13 +5,19 @@ import {
   blobs,
   containers,
   documentContentWriteHeaders,
+  groups,
   organizationBilling,
   organizationRosterEntries,
   organizations,
+  principalEpochKeys,
+  principalMemberEnvelopes,
+  principalMembershipProjection,
+  principalStatePayloads,
+  principalStates,
   users,
 } from "@symcrypt/api-shared/schema";
 import { createTestUser } from "@symcrypt/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -31,10 +37,60 @@ async function registerOrganization(): Promise<string> {
   return row.organizationId;
 }
 
+async function insertDereferencedBlob(
+  organizationId: string,
+  dereferencedAt: Date,
+): Promise<string> {
+  const blobId = crypto.randomUUID();
+  const storageKey = `purge-scope:${blobId}`;
+  const bytes = `blob:${blobId}`;
+  await db.insert(blobs).values({
+    id: blobId,
+    storageKey,
+    sha256: await sha256Hex(bytes),
+    byteLength: bytes.length,
+    dereferencedAt,
+  });
+  await db.insert(blobAuditObjects).values({
+    blobId,
+    byteLength: bytes.length,
+    historicalBytesRetained: false,
+    liveStorageKey: storageKey,
+    organizationId,
+    retentionMode: "live_only",
+    sha256: await sha256Hex(bytes),
+  });
+  return blobId;
+}
+
+async function deleteTestBlob(blobId: string): Promise<void> {
+  await db.delete(blobs).where(eq(blobs.id, blobId));
+  await db.delete(blobAuditObjects).where(eq(blobAuditObjects.blobId, blobId));
+}
+
 test("organization purge removes one organization's remote state and retains its control plane", async () => {
   const organizationId = await registerOrganization();
   const untouchedOrganizationId = await registerOrganization();
-  const now = new Date("2026-08-27T12:00:00.000Z");
+  // Keep this test's deliberately old blob outside wall-clock GC sweeps that
+  // may run concurrently in another test file.
+  const now = new Date("2099-08-27T12:00:00.000Z");
+  const unrelatedBlobId = await insertDereferencedBlob(
+    untouchedOrganizationId,
+    new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000),
+  );
+  const [organization] = await db
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected organization groups");
+  const principalIds = [
+    organizationId,
+    organization.adminGroupId,
+    organization.memberGroupId,
+  ];
   await db
     .update(organizationBilling)
     .set({
@@ -90,6 +146,49 @@ test("organization purge removes one organization's remote state and retains its
       .from(containers)
       .where(eq(containers.organizationId, untouchedOrganizationId)),
   ).not.toEqual([]);
+  expect(
+    await db.select().from(blobs).where(eq(blobs.id, unrelatedBlobId)),
+  ).toHaveLength(1);
+  expect(
+    await db.select().from(groups).where(inArray(groups.id, principalIds)),
+  ).toEqual([]);
+  for (const table of [
+    principalStatePayloads,
+    principalEpochKeys,
+    principalMemberEnvelopes,
+    principalMembershipProjection,
+    principalStates,
+  ] as const) {
+    expect(
+      await db
+        .select({ principalId: table.principalId })
+        .from(table)
+        .where(inArray(table.principalId, principalIds)),
+    ).toEqual([]);
+  }
+  await deleteTestBlob(unrelatedBlobId);
+});
+
+test("organization purge with no claim does not run zero-grace global blob GC", async () => {
+  const organizationId = await registerOrganization();
+  // This maintenance call uses an explicit future clock while unrelated
+  // wall-clock GC tests share the database.
+  const now = new Date("2099-08-27T12:00:00.000Z");
+  const blobId = await insertDereferencedBlob(
+    organizationId,
+    new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000),
+  );
+
+  expect(
+    await runOrganizationPurgeMaintenance(createServiceTestRuntime(), {
+      now,
+      organizationIds: [organizationId],
+    }),
+  ).toEqual({ claimed: 0, failed: 0, purged: 0 });
+  expect(
+    await db.select().from(blobs).where(eq(blobs.id, blobId)),
+  ).toHaveLength(1);
+  await deleteTestBlob(blobId);
 });
 
 test("organization purge does not steal an active deletion lease", async () => {

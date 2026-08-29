@@ -5,16 +5,20 @@ import type {
 import { organizationBilling, users } from "@symcrypt/api-shared/schema";
 import { base64ToBytes } from "@symcrypt/encoding";
 import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
-import { and, eq } from "drizzle-orm";
+import {
+  type CreateOrganizationResponse,
+  isCreateOrganizationResponse,
+} from "@symcrypt/validators/response";
+import { and, eq, isNull } from "drizzle-orm";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {
   type OrganizationProvisioningSigner,
-  type ProvisionedOrganization,
   type ProvisionOrganizationOptions,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
 } from "./provisionOrganization";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
+import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
 /**
@@ -60,9 +64,9 @@ async function readProvisioningSigner(
 async function assertReplacementReady(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
-): Promise<void> {
+): Promise<CreateOrganizationResponse | null> {
   const replacedOrganizationId = input.replacesOrganizationId;
-  if (!replacedOrganizationId) return;
+  if (!replacedOrganizationId) return null;
   if (replacedOrganizationId === input.organizationId) {
     throw new OrganizationProvisioningError(
       "A replacement organization must use a fresh organization id",
@@ -70,7 +74,12 @@ async function assertReplacementReady(
     );
   }
   const billingQuery = tx
-    .select({ status: organizationBilling.status })
+    .select({
+      replacementOrganizationId: organizationBilling.replacementOrganizationId,
+      replacementProvisioningResponse:
+        organizationBilling.replacementProvisioningResponse,
+      status: organizationBilling.status,
+    })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, replacedOrganizationId))
     .limit(1);
@@ -87,19 +96,61 @@ async function assertReplacementReady(
     .where(eq(users.id, input.userId))
     .limit(1);
   const [user] = await lockRowForUpdate(userQuery);
+  if (billing.replacementOrganizationId !== null) {
+    if (billing.replacementOrganizationId !== input.organizationId) {
+      throw new OrganizationProvisioningError(
+        "The purged personal organization already has a replacement",
+        409,
+      );
+    }
+    const response = billing.replacementProvisioningResponse;
+    if (
+      user?.defaultOrganizationId !== billing.replacementOrganizationId ||
+      !isCreateOrganizationResponse(response) ||
+      response.organizationId !== billing.replacementOrganizationId ||
+      response.userId !== input.userId
+    ) {
+      throw new Error(
+        "Stored personal organization replacement is inconsistent",
+      );
+    }
+    return response;
+  }
   if (user?.defaultOrganizationId !== replacedOrganizationId) {
     throw new OrganizationProvisioningError(
       "Only a purged personal organization can be replaced",
       409,
     );
   }
+  return null;
 }
 
 async function moveDefaultOrganizationToReplacement(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
+  response: CreateOrganizationResponse,
 ): Promise<void> {
   if (!input.replacesOrganizationId) return;
+  const [linked] = await tx
+    .update(organizationBilling)
+    .set({
+      replacementOrganizationId: input.organizationId,
+      replacementProvisioningResponse: response,
+    })
+    .where(
+      and(
+        eq(organizationBilling.organizationId, input.replacesOrganizationId),
+        eq(organizationBilling.status, "purged"),
+        isNull(organizationBilling.replacementOrganizationId),
+      ),
+    )
+    .returning({ organizationId: organizationBilling.organizationId });
+  if (!linked) {
+    throw new OrganizationProvisioningError(
+      "The personal organization replacement changed during provisioning",
+      409,
+    );
+  }
   const [updated] = await tx
     .update(users)
     .set({ defaultOrganizationId: input.organizationId })
@@ -128,20 +179,25 @@ async function moveDefaultOrganizationToReplacement(
 export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
-): Promise<ProvisionedOrganization> {
+): Promise<CreateOrganizationResponse> {
   const signer = await readProvisioningSigner(db, input.userId);
   await validateOrganizationProvisioningInput(input, signer);
   try {
     return await db.transaction(async (tx) => {
-      await assertReplacementReady(tx, input);
+      const existingReplacement = await assertReplacementReady(tx, input);
+      if (existingReplacement) return existingReplacement;
       const provisioned = await provisionOrganizationInTransaction(
         tx,
         input,
         signer,
         ADDITIONAL_ORGANIZATION_OPTIONS,
       );
-      await moveDefaultOrganizationToReplacement(tx, input);
-      return provisioned;
+      const response = toOrganizationProvisioningResponse(
+        input.userId,
+        provisioned,
+      );
+      await moveDefaultOrganizationToReplacement(tx, input, response);
+      return response;
     });
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);

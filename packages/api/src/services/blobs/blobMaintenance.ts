@@ -30,10 +30,10 @@ async function drainPendingBlobObjectDeletions(
 ) {
   let deletedObjectCount = 0;
   const failures: unknown[] = [];
-  const pendingDeletions = await listPendingBlobObjectDeletions(
-    runtime.db,
-    input.limit === undefined ? {} : { limit: input.limit },
-  );
+  const pendingDeletions = await listPendingBlobObjectDeletions(runtime.db, {
+    ...(input.blobIds === undefined ? {} : { blobIds: input.blobIds }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+  });
   for (
     let start = 0;
     start < pendingDeletions.length;

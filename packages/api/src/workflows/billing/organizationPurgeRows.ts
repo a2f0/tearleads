@@ -15,12 +15,19 @@ import {
   containerMetadataDocuments,
   containerSyncTombstones,
   containers,
+  groups,
+  organizationGroupTombstones,
   organizationReadModelChanges,
   organizationReadModelHeads,
   organizationRosterEntries,
   organizations,
   principalContainerGrantProjection,
+  principalEpochKeys,
+  principalMemberEnvelopes,
+  principalMembershipProjection,
   principalPolicyMutationAcknowledgements,
+  principalStatePayloads,
+  principalStates,
 } from "@symcrypt/api-shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
@@ -137,6 +144,38 @@ async function deleteAccessRows(
     .where(eq(accessEvents.organizationId, organizationId));
 }
 
+async function deleteOrganizationPrincipalRows(
+  executor: DatabaseTransaction,
+  organizationId: string,
+): Promise<void> {
+  const groupRows = await executor
+    .select({ id: groups.id })
+    .from(groups)
+    .where(eq(groups.organizationId, organizationId));
+  const groupIds = groupRows.map((row) => row.id);
+  const principalIds = [organizationId, ...groupIds];
+
+  for (const table of [
+    principalPolicyMutationAcknowledgements,
+    principalMemberEnvelopes,
+    principalStatePayloads,
+    principalEpochKeys,
+    principalContainerGrantProjection,
+    principalMembershipProjection,
+    principalStates,
+  ] as const) {
+    await executor
+      .delete(table)
+      .where(inArray(table.principalId, principalIds));
+  }
+  if (groupIds.length === 0) return;
+  await executor
+    .insert(organizationGroupTombstones)
+    .values(groupIds.map((groupId) => ({ groupId, organizationId })))
+    .onConflictDoNothing();
+  await executor.delete(groups).where(inArray(groups.id, groupIds));
+}
+
 export async function deleteOrganizationRemoteRows(input: {
   readonly executor: DatabaseTransaction;
   readonly now: Date;
@@ -167,6 +206,7 @@ export async function deleteOrganizationRemoteRows(input: {
   }
   await deleteContainerRows(input);
   await deleteAccessRows(input.executor, input.organizationId);
+  await deleteOrganizationPrincipalRows(input.executor, input.organizationId);
   await input.executor
     .delete(organizationReadModelChanges)
     .where(

@@ -25,8 +25,8 @@ export async function purgeClaimedOrganizationRemoteData(input: {
   readonly db: ApiDatabase;
   readonly now: Date;
   readonly organizationId: string;
-}): Promise<void> {
-  await input.db.transaction(async (tx) => {
+}): Promise<readonly string[]> {
+  return input.db.transaction(async (tx) => {
     const scope = await loadOrganizationRemotePurgeScope({
       executor: tx,
       organizationId: input.organizationId,
@@ -37,6 +37,7 @@ export async function purgeClaimedOrganizationRemoteData(input: {
       organizationId: input.organizationId,
       scope,
     });
+    return scope.blobIds;
   });
 }
 
