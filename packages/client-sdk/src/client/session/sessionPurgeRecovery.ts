@@ -1,4 +1,5 @@
 import type { ApiClient } from "@symcrypt/api-client";
+import { removeOrganizationProvisioningAttempt } from "../../workflows/organizations/organizationProvisioningAttempt";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Database } from "../database";
 import type {
@@ -21,6 +22,7 @@ interface SessionPurgeRecoveryContext {
   ) => Promise<SessionCreateOrganizationResult | null>;
   organizationId: string | null;
   setContext: (context: SessionContext) => void;
+  userId: string | null;
 }
 
 export async function clearSessionRemoteSyncState(
@@ -68,6 +70,15 @@ export async function recoverPurgedSessionOrganization(
       organizationId: replacement.organizationId,
       rootContainerId: replacement.containerId,
     },
+  });
+  const userId = session.userId;
+  if (!userId) {
+    throw new Error("Purged organization recovery requires a current user");
+  }
+  await removeOrganizationProvisioningAttempt({
+    execSql,
+    replacedOrganizationId: organizationId,
+    userId,
   });
   dependencies.api.clearWriterProjectionCaches();
   session.setContext({

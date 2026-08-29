@@ -7,6 +7,7 @@ import {
   type OrganizationBillingStatus,
   organizationBilling,
   organizationBillingStripeSeats,
+  organizationRosterEntries,
   organizations,
   revenuecatWebhookEvents,
 } from "@symcrypt/api-shared/schema";
@@ -139,12 +140,29 @@ export async function runGetOrganizationBillingWorkflow(
   readonly pendingSeatCount: number | null;
 }> {
   return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      userId: sessionUserId,
-    });
     const billing = await resolveOrganizationBilling(tx, organizationId, now);
+    if (billing.status === "deleting" || billing.status === "purged") {
+      const [retainedMember] = await tx
+        .select({ id: organizationRosterEntries.id })
+        .from(organizationRosterEntries)
+        .where(
+          and(
+            eq(organizationRosterEntries.organizationId, organizationId),
+            eq(organizationRosterEntries.userId, sessionUserId),
+            eq(organizationRosterEntries.status, "active"),
+          ),
+        )
+        .limit(1);
+      if (!retainedMember) {
+        throw new OrganizationManagerError("Organization access denied", 403);
+      }
+    } else {
+      await requireDirectOrganizationAccess({
+        executor: tx,
+        organizationId,
+        userId: sessionUserId,
+      });
+    }
     const activeMemberCount = await countActiveOrganizationMembers(
       tx,
       organizationId,

@@ -33,6 +33,11 @@ their former server document ids as deterministic recovery identities. This
 lets multiple devices race safely: the first create wins and the other clients
 adopt the same remote document rather than creating duplicates.
 
+Before submitting the replacement, the client durably checkpoints its exact
+signed provisioning artifacts. The checkpoint remains until the local reset
+commits, so a lost API response, process restart, or interrupted reset retries
+the same organization and root ids instead of minting a conflicting generation.
+
 Split-view clients use separate Loro peer ids. Their full histories therefore
 form ordinary concurrent branches and converge when both reach the recovered
 remote document. A reused peer/counter is not treated as ordinary concurrency:

@@ -14,10 +14,8 @@ import {
   documentOrphanBlobReclaims,
   documentOrphanBlobReclaimTable,
 } from "./documentOrphanBlobReclaims";
-import {
-  organizationDataUsageSQLiteSchema,
-  organizationDataUsageTables,
-} from "./organizationDataUsageSchema";
+import * as organizationDataUsage from "./organizationDataUsageSchema";
+import * as provisioningAttempt from "./organizationProvisioningAttemptSchema";
 import {
   organizationReadModelSQLiteSchema,
   organizationReadModelTables,
@@ -864,7 +862,8 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
   ...organizationReadModelTables,
-  ...organizationDataUsageTables,
+  ...organizationDataUsage.organizationDataUsageTables,
+  ...provisioningAttempt.organizationProvisioningAttemptTables,
 ];
 
 export const clientSQLiteSchema = {
@@ -891,5 +890,6 @@ export const clientSQLiteSchema = {
   containerSyncLaneChecks,
   containerSyncWatermarks,
   ...organizationReadModelSQLiteSchema,
-  ...organizationDataUsageSQLiteSchema,
+  ...organizationDataUsage.organizationDataUsageSQLiteSchema,
+  ...provisioningAttempt.organizationProvisioningAttemptSQLiteSchema,
 };

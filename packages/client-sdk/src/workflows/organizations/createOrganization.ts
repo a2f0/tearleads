@@ -10,6 +10,7 @@ import {
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../registration/registerIdentity";
+import { makeOrganizationProvisioningAttemptDurable } from "./organizationProvisioningAttempt";
 
 export interface CreateOrganizationApi {
   createOrganization(
@@ -80,38 +81,43 @@ export async function createOrganization(
     signingKeyPair: input.signingKeyPair,
     userId: input.userId,
   };
-  const artifacts: OrganizationProvisioningArtifacts =
+  const candidateArtifacts: OrganizationProvisioningArtifacts =
     await buildOrganizationProvisioningArtifacts(artifactsInput);
 
-  const request: CreateOrganizationRequest = {
-    userId: input.userId,
-    organizationId: artifacts.organizationId,
+  if (
+    input.replacesOrganizationId &&
+    input.isIdentityCurrent &&
+    !input.isIdentityCurrent()
+  ) {
+    input.log?.(
+      "Organization creation aborted: identity changed while building artifacts",
+    );
+    return null;
+  }
+
+  const durableAttempt = await makeOrganizationProvisioningAttemptDurable({
+    artifacts: candidateArtifacts,
+    canStartDurableMutation: input.isIdentityCurrent,
+    dbClient: input.dbClient,
+    replacesOrganizationId: input.replacesOrganizationId,
     rootContainerId,
-    initialAdminGroup: artifacts.initialAdminGroup,
-    initialMemberGroup: artifacts.initialMemberGroup,
-    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
-    initialRootContainer: artifacts.initialRootContainer,
-    initialRootMetadataDocument: artifacts.rootMetadataDocumentRequest,
-    initialRosterProfileContainer:
-      artifacts.rosterProfileBootstrap.containerRequest,
-    initialRosterProfileDocument:
-      artifacts.rosterProfileBootstrap.profileDocumentRequest,
-    initialOrganizationMetadataContainer:
-      artifacts.organizationMetadataBootstrap.containerRequest,
-    initialOrganizationProfileDocument:
-      artifacts.organizationMetadataBootstrap
-        .organizationProfileDocumentRequest,
-    initialSystemContainers: artifacts.systemContainerBootstraps.map(
-      (systemContainer) => systemContainer.containerRequest,
-    ),
-    ...(input.replacesOrganizationId
-      ? { replacesOrganizationId: input.replacesOrganizationId }
-      : {}),
-  };
+    userId: input.userId,
+  });
+  if (!durableAttempt) {
+    input.log?.(
+      "Organization creation aborted: identity changed before saving artifacts",
+    );
+    return null;
+  }
+  const {
+    artifacts,
+    request,
+    rootContainerId: durableRootContainerId,
+  } = durableAttempt;
 
   if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
     input.log?.(
-      "Organization creation aborted: identity changed while building artifacts",
+      "Organization creation aborted: identity changed before provisioning",
     );
     return null;
   }
@@ -133,7 +139,7 @@ export async function createOrganization(
     bootstrap: artifacts.bootstrap,
     canStartDurableMutation: input.isIdentityCurrent,
     onPersistQueued: input.onPersistQueued,
-    containerId: rootContainerId,
+    containerId: durableRootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
     initialAdminGroup: artifacts.initialAdminGroup,
