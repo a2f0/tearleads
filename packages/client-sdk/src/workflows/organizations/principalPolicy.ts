@@ -153,6 +153,7 @@ async function commitAndCacheGroupPolicyMutation(input: {
       stateHash: expectedHead.stateHash,
       version: expectedHead.version,
     },
+    organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   return acknowledgedBundle;
@@ -217,6 +218,7 @@ export async function createOrganizationGroup(input: {
       stateHash: expectedHead.stateHash,
       version: expectedHead.version,
     },
+    organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   return group;

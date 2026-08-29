@@ -242,6 +242,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     await persistVerifiedPrincipalPolicyBundlesAtomically({
       entries: externalAdminPolicyPersistenceEntries(verified),
       execSql: input.execSql,
+      organizationId: input.organizationId,
       updatedAt: new Date().toISOString(),
     });
     return verified;

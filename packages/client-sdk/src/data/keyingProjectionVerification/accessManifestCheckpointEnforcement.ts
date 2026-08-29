@@ -64,6 +64,7 @@ function accessManifestCheckpointAdvances(input: {
 
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
@@ -73,6 +74,7 @@ export async function enforceAccessManifestCheckpoints(input: {
     access: accessManifestCheckpointAdvances(input),
     documentPurgeCheckpoint: input.documentPurgeCheckpoint,
     execSql: input.execSql,
+    organizationId: input.organizationId,
     policies: input.policies,
   });
 }

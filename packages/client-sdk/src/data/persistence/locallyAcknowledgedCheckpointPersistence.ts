@@ -178,6 +178,7 @@ function assertUniqueAcknowledgedPolicies(
 async function storeAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly placement: "current" | "history";
   readonly updatedAt: string;
 }): Promise<void> {
@@ -203,12 +204,14 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
             tx,
             entry.bundle,
             input.updatedAt,
+            input.organizationId,
           );
         } else {
           await retainPrincipalPolicyBundleInTransaction(
             tx,
             entry.bundle,
             input.updatedAt,
+            input.organizationId,
           );
         }
       }
@@ -217,6 +220,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
           tx,
           policy.checkpoint,
           input.updatedAt,
+          input.organizationId,
         );
       }
     },
@@ -228,6 +232,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
 export function persistLocallyAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   return storeAcknowledgedPrincipalPolicyBundles({
@@ -239,12 +244,14 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundles(input: {
 export function persistLocallyAcknowledgedPrincipalPolicyBundle(
   input: LocallyAcknowledgedPrincipalPolicyBundle & {
     readonly execSql: ExecSql;
+    readonly organizationId?: string | undefined;
     readonly updatedAt: string;
   },
 ): Promise<void> {
   return persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [input],
     execSql: input.execSql,
+    organizationId: input.organizationId,
     updatedAt: input.updatedAt,
   });
 }
@@ -252,6 +259,7 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
 export function retainLocallyAcknowledgedPrincipalPolicyBundles(input: {
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   return storeAcknowledgedPrincipalPolicyBundles({

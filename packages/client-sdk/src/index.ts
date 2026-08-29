@@ -198,6 +198,7 @@ export {
   PurchaseProviderStalledError,
   type PurchasesCapability,
   PurchasesUnavailableError,
+  PurgedOrganizationRecoveryBillingRequiredError,
   parseLocalKeyringManifest,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,

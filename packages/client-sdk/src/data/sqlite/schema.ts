@@ -25,6 +25,7 @@ import {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
+  principalPolicyOrganizations,
 } from "./principalPolicySchema";
 import {
   securityIncidents,
@@ -44,6 +45,7 @@ export {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
+  principalPolicyOrganizations,
 } from "./principalPolicySchema";
 export { securityIncidents } from "./securityIncidentSchema";
 export { organizationReadModelTables };
@@ -802,6 +804,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
     requiredColumns: ["current_grants_json"],
   },
   defineSqlTableSchema(principalPolicyBundleReferences),
+  defineSqlTableSchema(principalPolicyOrganizations),
 ];
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
@@ -873,6 +876,7 @@ export const clientSQLiteSchema = {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
+  principalPolicyOrganizations,
   accessManifestCheckpoints,
   documentPurgeCheckpoints,
   principalPolicyCheckpoints,

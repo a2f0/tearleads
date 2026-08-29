@@ -16,9 +16,9 @@ import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpo
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
-  retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../persistence/principalPolicyPersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../persistence/verifiedPrincipalPolicyRetentionPersistence";
 import { principalPolicyBundleContainsReference } from "../principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,

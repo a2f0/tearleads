@@ -58,10 +58,25 @@ test("recovery reuses its durable replacement after a local reset failure", asyn
       return serverResponse;
     },
     clearWriterProjectionCaches: () => undefined,
-    getOrganizationBilling: async (organizationId: string) => ({
-      organizationId,
-      status: "purged" as const,
-    }),
+    getOrganizationBilling: async (organizationId: string) => {
+      const active = organizationId !== oldOrganizationId;
+      return {
+        activeMemberCount: 1,
+        assignedSeatCount: active ? 1 : 0,
+        assignedUserIds: active ? [userId] : [],
+        currentPeriodEndsAt: active ? "2099-01-01T00:00:00.000Z" : null,
+        currentPeriodStartsAt: active ? "2026-08-29T00:00:00.000Z" : null,
+        currentUserHasSyncSeat: active,
+        disabledAt: null,
+        organizationId,
+        pendingSeatCount: null,
+        provider: null,
+        purgeAfter: null,
+        seatCount: active ? 1 : 0,
+        status: active ? ("active" as const) : ("purged" as const),
+        trialEndsAt: null,
+      };
+    },
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;

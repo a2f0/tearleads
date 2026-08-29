@@ -1,7 +1,4 @@
-import {
-  KeyingVerificationError,
-  type VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
+import { KeyingVerificationError } from "@symcrypt/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalStateResponse,
@@ -21,9 +18,12 @@ import {
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
+import {
+  recordPrincipalPolicyBundleOrganizationInTransaction,
+  recordPrincipalPolicyOrganizationInTransaction,
+} from "./principalPolicyOrganizationPersistence";
 import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
 import { storedPrincipalPolicyBundleFromJson } from "./storedPrincipalPolicyBundle";
-import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 interface PrincipalPolicyRow {
   principalType: "group" | "organization";
@@ -374,12 +374,18 @@ async function writePrincipalPolicyBundle(
   await indexPrincipalPolicyBundleInTransaction(tx, bundle);
 }
 
-export function writePrincipalPolicyBundleInTransaction(
+export async function writePrincipalPolicyBundleInTransaction(
   tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
+  organizationId?: string | undefined,
 ): Promise<void> {
-  return writePrincipalPolicyBundle(
+  await recordPrincipalPolicyBundleOrganizationInTransaction(
+    tx,
+    bundle,
+    organizationId,
+  );
+  await writePrincipalPolicyBundle(
     tx,
     bundle,
     policyBundleRow(bundle, updatedAt),
@@ -412,8 +418,14 @@ export async function retainPrincipalPolicyBundleInTransaction(
   tx: ClientSQLiteTransactionScope,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
+  organizationId?: string | undefined,
 ): Promise<void> {
   const row = policyBundleRow(bundle, updatedAt);
+  await recordPrincipalPolicyOrganizationInTransaction(tx, {
+    organizationId,
+    principalId: row.principalId,
+    principalType: row.principalType,
+  });
   const [current] = await tx
     .select(principalPolicyBundleSelection(principalPolicies))
     .from(principalPolicies)
@@ -449,41 +461,25 @@ export async function retainPrincipalPolicyBundleInTransaction(
   await indexPrincipalPolicyBundleInTransaction(tx, bundle);
 }
 
-/** Retains a just-verified epoch without promoting it to the mutable head. */
-export async function retainVerifiedPrincipalPolicyBundle(input: {
-  readonly bundle: PrincipalPolicyBundleResponse;
-  readonly execSql: ExecSql;
-  readonly policy: VerifiedPrincipalPolicy;
-  readonly updatedAt: string;
-}): Promise<void> {
-  await assertBundleMatchesVerifiedPolicy(input);
-  await ensurePrincipalPolicyTables(input.execSql);
-  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    (tx) =>
-      retainPrincipalPolicyBundleInTransaction(
-        tx,
-        input.bundle,
-        input.updatedAt,
-      ),
-    { behavior: "immediate" },
-  );
-}
-
 export async function savePrincipalPolicyBundle(
   execSql: ExecSql,
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
+  organizationId?: string | undefined,
 ): Promise<void> {
   await ensureSqlTables(execSql, [
     ...principalPolicyTables,
     ...keyingCheckpointTables,
   ]);
 
-  const nextRow = policyBundleRow(bundle, updatedAt);
-
   await getClientSQLitePersistenceRuntime(execSql).transaction(
     (tx) =>
-      writePrincipalPolicyBundle(tx, bundle, nextRow, bundle.currentState),
+      writePrincipalPolicyBundleInTransaction(
+        tx,
+        bundle,
+        updatedAt,
+        organizationId,
+      ),
     { behavior: "immediate" },
   );
 }

@@ -27,11 +27,14 @@ then queues the retained local histories for republish. Sync remains blocked
 while the server reports `deleting`.
 
 After the old organization reports `purged`, `recoverPurgedOrganization`
-provisions a fresh organization id and root container. The old local root is
-rebound beneath the fresh root, and retained documents are recreated using
-their former server document ids as deterministic recovery identities. This
-lets multiple devices race safely: the first create wins and the other clients
-adopt the same remote document rather than creating duplicates.
+provisions a fresh organization id and root container in local-only billing
+state. It throws `PurgedOrganizationRecoveryBillingRequiredError` with that id
+until the host activates sync billing and the current user has a seat. A retry
+then rebinds the old local root beneath the fresh root, and retained documents
+are recreated using their former server document ids as deterministic recovery
+identities. This lets multiple devices race safely: the first create wins and
+the other clients adopt the same remote document rather than creating
+duplicates.
 
 Before submitting the replacement, the client durably checkpoints its exact
 signed provisioning artifacts. The checkpoint remains until the local reset

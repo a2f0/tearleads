@@ -173,6 +173,7 @@ async function verifyDocumentPurgeProofWithMode(
     }
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
+      organizationId: input.expectedOrganizationId,
     });
     const principalPolicyCache =
       input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
@@ -219,7 +220,11 @@ async function verifyDocumentPurgeProofWithMode(
         policies: principalPolicies,
       });
       for (const policy of policiesToPin) {
-        observePrincipalPolicy(checkpointContext, policy);
+        observePrincipalPolicy(
+          checkpointContext,
+          policy,
+          input.expectedOrganizationId,
+        );
       }
     }
     const documentPurgeCheckpoint = {

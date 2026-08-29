@@ -37,6 +37,7 @@ import {
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
+  principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -118,6 +119,7 @@ async function clearScopedPrincipalRows(
       principalPolicyBundleHistory,
       principalPolicyBundleReferences,
       principalPolicyCheckpoints,
+      principalPolicyOrganizations,
     ] as const) {
       await input.tx
         .delete(table)

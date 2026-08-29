@@ -101,6 +101,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
   await advanceVerifiedSharePolicies(input.runtime.infra.execSql, {
     checkpointPolicies,
     dependencyBundles,
+    organizationId: input.expectedOrganizationId,
   });
   await verifyContainerWriterProjection({
     execSql: input.runtime.infra.execSql,
@@ -126,6 +127,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
         input.runtime.infra.execSql,
         bundle,
         new Date().toISOString(),
+        input.expectedOrganizationId,
       );
     } catch {
       // The cryptographically verified root grant is already safe. A local

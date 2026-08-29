@@ -1,9 +1,26 @@
 import {
+  index,
   integer,
   primaryKey,
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+
+/** Durable organization ownership for every managed-principal cache. */
+export const principalPolicyOrganizations = sqliteTable(
+  "principal_policy_organizations",
+  {
+    principalType: text("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.principalType, table.principalId] }),
+    index("principal_policy_organizations_organization_idx").on(
+      table.organizationId,
+    ),
+  ],
+);
 
 function principalPolicyBundleColumns() {
   return {

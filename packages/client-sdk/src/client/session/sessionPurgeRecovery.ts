@@ -1,8 +1,10 @@
 import type { ApiClient } from "@symcrypt/api-client";
+import { resolveOrganizationBillingView } from "../../workflows/organizations/billing";
 import { removeOrganizationProvisioningAttempt } from "../../workflows/organizations/organizationProvisioningAttempt";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
+import { PurgedOrganizationRecoveryBillingRequiredError } from "./sessionRecoveryErrors";
 import type {
   CreateOrganizationOptions,
   SessionContext,
@@ -75,6 +77,19 @@ export async function recoverPurgedSessionOrganization(
   const replacement = await session.createOrganization(options, organizationId);
   if (!replacement) return null;
   if (!isRecoveryCurrent()) return null;
+  const replacementBilling = await dependencies.api.getOrganizationBilling(
+    replacement.organizationId,
+  );
+  if (!isRecoveryCurrent()) return null;
+  if (!replacementBilling) {
+    throw new Error("Replacement organization billing could not be loaded");
+  }
+  if (!resolveOrganizationBillingView(replacementBilling, Date.now()).canSync) {
+    throw new PurgedOrganizationRecoveryBillingRequiredError(
+      replacement.organizationId,
+      replacementBilling.status,
+    );
+  }
   const execSql = dependencies.database.requireExecSql(
     "recoverPurgedOrganization",
   );

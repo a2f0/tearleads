@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ApiClient } from "@symcrypt/api-client";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import type { OrganizationBillingResponse } from "@symcrypt/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
@@ -15,6 +16,30 @@ import type { ExecSql } from "../../sqlite";
 import { Database } from "../database";
 import { createIdentity } from "../identity";
 import { createSession } from "./index";
+import { PurgedOrganizationRecoveryBillingRequiredError } from "./sessionRecoveryErrors";
+
+function billingSnapshot(
+  organizationId: string,
+  status: OrganizationBillingResponse["status"],
+): OrganizationBillingResponse {
+  const active = status === "active";
+  return {
+    activeMemberCount: 1,
+    assignedSeatCount: active ? 1 : 0,
+    assignedUserIds: active ? ["current-user"] : [],
+    currentPeriodEndsAt: active ? "2099-01-01T00:00:00.000Z" : null,
+    currentPeriodStartsAt: active ? "2026-08-29T00:00:00.000Z" : null,
+    currentUserHasSyncSeat: active,
+    disabledAt: null,
+    organizationId,
+    pendingSeatCount: null,
+    provider: null,
+    purgeAfter: null,
+    seatCount: active ? 1 : 0,
+    status,
+    trialEndsAt: null,
+  };
+}
 
 function createHarness(input: {
   execSql: ExecSql;
@@ -25,21 +50,27 @@ function createHarness(input: {
     request: Parameters<ApiClient["createOrganization"]>[0],
   ) => void;
   organizationBillingStatus?: "deleting" | "purged";
+  replacementBillingStatus?: () => "active" | "local";
 }) {
+  let replacementOrganizationId: string | null = null;
   const api = {
     createOrganization: async (
       request: Parameters<ApiClient["createOrganization"]>[0],
     ) => {
       input.onOrganizationRequest?.(request);
       const response = await respondToOrganizationProvisioning(request);
+      replacementOrganizationId = response.organizationId;
       await input.onCreateOrganization?.();
       return response;
     },
     clearWriterProjectionCaches: () => undefined,
-    getOrganizationBilling: async (organizationId: string) => ({
-      organizationId,
-      status: input.organizationBillingStatus ?? "purged",
-    }),
+    getOrganizationBilling: async (organizationId: string) =>
+      billingSnapshot(
+        organizationId,
+        organizationId === replacementOrganizationId
+          ? (input.replacementBillingStatus?.() ?? "active")
+          : (input.organizationBillingStatus ?? "purged"),
+      ),
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
@@ -198,6 +229,76 @@ test("recoverPurgedOrganization rejects recovery while deletion is still running
     await expect(
       session.recoverPurgedOrganization(crypto.randomUUID()),
     ).rejects.toThrow("cannot be recovered before its purge finishes");
+  } finally {
+    close();
+  }
+});
+
+test("recoverPurgedOrganization waits for replacement billing before local rebind", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "session-recover-purged-billing-gate-test",
+  );
+  const oldOrganizationId = crypto.randomUUID();
+  let replacementBillingStatus: "active" | "local" = "local";
+  const { identity, session } = createHarness({
+    databaseId: "recover-purged-billing-gate-db",
+    execSql,
+    replacementBillingStatus: () => replacementBillingStatus,
+  });
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    await getClientSQLitePersistenceRuntime(execSql)
+      .db.insert(containers)
+      .values({
+        id: "billing-gated-retained-root",
+        organizationId: oldOrganizationId,
+        parentId: null,
+        metadataDocumentId: "billing-gated-old-metadata",
+        systemSlot: "root",
+        localCreatedAt: "2026-08-01T00:00:00.000Z",
+        localUpdatedAt: "2026-08-01T00:00:00.000Z",
+      });
+    await setGeneratedIdentity(identity);
+    session.setContext({
+      defaultOrganizationId: oldOrganizationId,
+      organizationId: oldOrganizationId,
+      userId: crypto.randomUUID(),
+    });
+
+    let billingError: PurgedOrganizationRecoveryBillingRequiredError | null =
+      null;
+    try {
+      await session.recoverPurgedOrganization(oldOrganizationId);
+    } catch (error) {
+      if (error instanceof PurgedOrganizationRecoveryBillingRequiredError) {
+        billingError = error;
+      } else {
+        throw error;
+      }
+    }
+    invariant(billingError, "expected replacement billing error");
+    expect(billingError.billingStatus).toBe("local");
+    expect(session.organizationId).toBe(oldOrganizationId);
+    const [waitingRoot] = await getClientSQLitePersistenceRuntime(execSql)
+      .db.select()
+      .from(containers)
+      .where(eq(containers.id, "billing-gated-retained-root"));
+    expect(waitingRoot).toEqual(
+      expect.objectContaining({
+        organizationId: oldOrganizationId,
+        parentId: null,
+        systemSlot: "root",
+      }),
+    );
+    replacementBillingStatus = "active";
+
+    const recovered =
+      await session.recoverPurgedOrganization(oldOrganizationId);
+    invariant(recovered, "expected recovered organization");
+    expect(recovered.organizationId).toBe(
+      billingError.replacementOrganizationId,
+    );
+    expect(session.organizationId).toBe(recovered.organizationId);
   } finally {
     close();
   }

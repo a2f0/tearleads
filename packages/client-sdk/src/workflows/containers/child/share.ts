@@ -280,6 +280,7 @@ export async function shareRemoteContainerWithGroup(
     input.execSql,
     verifiedPrincipalPolicy.bundle,
     new Date().toISOString(),
+    input.author.organizationId,
   );
 
   return {

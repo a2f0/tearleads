@@ -103,6 +103,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "PurchaseIdentityPendingError",
   "PurchaseProviderStalledError",
   "PurchasesUnavailableError",
+  "PurgedOrganizationRecoveryBillingRequiredError",
   "ROSTER_PROFILE_DOCUMENT_KIND",
   "SymCrypt",
   "SyncBillingGate",

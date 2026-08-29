@@ -14,9 +14,15 @@ retained local records to them.
 
 Normal clients should call `session.recoverPurgedOrganization(...)` only after
 the server reports `purged`. The session provisions a replacement personal
-organization, clears the purged organization's remote state transactionally,
-and then resumes sync under the new id. A durable provisioning attempt makes a
-lost server response retryable.
+organization in local-only billing state. Until that replacement has active
+billing and the current user has a sync seat, recovery throws
+`PurgedOrganizationRecoveryBillingRequiredError` with the stable replacement
+organization id; callers use that id for trial or checkout and retry recovery.
+The old organization's local data is not rebound during this billing wait.
+Once the replacement is sync-eligible, the session clears the purged
+organization's remote state transactionally and resumes sync under the new id.
+A durable provisioning attempt makes lost responses and billing-gated retries
+idempotent.
 
 Only one replacement can win. When two devices race with different candidate
 organization ids, the server stores the first complete provisioning response
@@ -26,7 +32,8 @@ then sync into the same replacement organization, where ordinary Loro frontier
 convergence applies; divergent operations that reuse the same peer/counter are
 quarantined before live import.
 
-The root package exports `RemoteResetInput`, `RemoteResetReplacement`, and
-`ClearRemoteSyncStateResult` for hosts that own session orchestration. Most
-applications should use the session recovery method instead of calling the
-low-level reset directly.
+The root package exports `RemoteResetInput`, `RemoteResetReplacement`,
+`ClearRemoteSyncStateResult`, and
+`PurgedOrganizationRecoveryBillingRequiredError` for hosts that own session
+or billing orchestration. Most applications should use the session recovery
+method instead of calling the low-level reset directly.

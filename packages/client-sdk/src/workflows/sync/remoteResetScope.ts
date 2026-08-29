@@ -17,6 +17,7 @@ import {
   documents,
   dormantContainerMetadata,
   principalPolicies,
+  principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ResetDocumentScope } from "./remoteResetPlans";
@@ -193,6 +194,7 @@ async function loadSnapshotCounts(input: {
     groupRows,
     policyHeadRows,
     policyRows,
+    ownedPolicyRows,
     createRows,
     moveRows,
     docMoves,
@@ -208,6 +210,10 @@ async function loadSnapshotCounts(input: {
         eq(organizationReadModelPolicyHeads.organizationId, organizationId),
       ),
     tx.select().from(principalPolicies),
+    tx
+      .select({ id: principalPolicyOrganizations.principalId })
+      .from(principalPolicyOrganizations)
+      .where(eq(principalPolicyOrganizations.organizationId, organizationId)),
     tx.select().from(containerCreateIntents),
     tx.select().from(containerMoveIntents),
     tx.select().from(documentMoveIntents),
@@ -217,6 +223,7 @@ async function loadSnapshotCounts(input: {
       organizationId,
       ...groupRows.map((row) => row.id),
       ...policyHeadRows.map((row) => row.id),
+      ...ownedPolicyRows.map((row) => row.id),
     ]),
   ];
   const principalIdSet = new Set(principalIds);

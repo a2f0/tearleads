@@ -15,6 +15,8 @@ import {
 } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
+import { assertOrganizationCanSync } from "../../workflows/billing/organizationSyncEligibility";
 
 test("replacement creation returns one winner to competing devices", async () => {
   const user = createTestUser();
@@ -54,4 +56,25 @@ test("replacement creation returns one winner to competing devices", async () =>
       .from(organizations)
       .where(eq(organizations.id, secondBody.organizationId)),
   ).toHaveLength(0);
+  const [replacementBilling] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, winner.organizationId));
+  expect(replacementBilling?.status).toBe("local");
+  await expect(
+    assertOrganizationCanSync(db, winner.organizationId, user.userId),
+  ).rejects.toMatchObject({
+    organizationId: winner.organizationId,
+    reason: "billing_inactive",
+    status: 402,
+  });
+
+  await runStartOrganizationTrialWorkflow(
+    db,
+    winner.organizationId,
+    user.userId,
+  );
+  await expect(
+    assertOrganizationCanSync(db, winner.organizationId, user.userId),
+  ).resolves.toBeUndefined();
 });

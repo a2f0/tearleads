@@ -34,7 +34,10 @@ timestamps without reaching into coordinator internals or owning sync policy.
 organization's remote-derived rows and cursor lanes while retaining local Loro
 history for republish. A post-purge replacement supplies a fresh organization
 and root through `replacement`; normal session consumers use
-`session.recoverPurgedOrganization(...)` after billing reaches `purged`.
+`session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
+method exposes the replacement id through
+`PurgedOrganizationRecoveryBillingRequiredError` until that replacement has
+sync-eligible billing; only then does it rebind retained local data.
 
 Provider-neutral purchase errors live in
 `client/billing/purchaseErrors.ts`, outside the organization workflow

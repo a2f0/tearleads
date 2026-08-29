@@ -17,6 +17,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { recordPrincipalPolicyOrganizationInTransaction } from "./principalPolicyOrganizationPersistence";
 
 type CheckpointHandle = ClientSQLiteDatabase | ClientSQLiteTransactionScope;
 
@@ -138,7 +139,13 @@ export async function upsertPrincipalPolicyCheckpointInTransaction(
   tx: ClientSQLiteTransactionScope,
   checkpoint: PrincipalPolicyCheckpoint,
   updatedAt: string,
+  organizationId?: string | undefined,
 ): Promise<void> {
+  await recordPrincipalPolicyOrganizationInTransaction(tx, {
+    organizationId,
+    principalId: checkpoint.principalId,
+    principalType: checkpoint.principalType,
+  });
   const row = { ...checkpoint, updatedAt };
   await tx
     .insert(principalPolicyCheckpoints)
