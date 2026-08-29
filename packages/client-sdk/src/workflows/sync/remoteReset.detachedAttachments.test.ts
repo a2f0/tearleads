@@ -12,6 +12,7 @@ import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,
   documentPendingAttachments,
+  documentProjection,
   documents,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -82,6 +83,13 @@ async function seedResetFixture(
     revision: "revision-doc-1",
     updatedAt: STALE,
   });
+  await db.insert(documentProjection).values({
+    localId: "doc-1",
+    documentId: "doc-remote-old",
+    containerId: null,
+    organizationId: "org-old",
+    updatedAt: STALE,
+  });
   await db
     .insert(documentAttachmentBlobProjection)
     .values([...input.attachments]);
@@ -103,7 +111,7 @@ test("clearRemoteSyncState leaves an unlinked slot out of the requeue", async ()
       snapshotSlotIds: ["slot-live"],
     });
 
-    await clearRemoteSyncState(execSql);
+    await clearRemoteSyncState(execSql, { organizationId: "org-old" });
 
     const pendingRows = await db
       .select({ slotId: documentPendingAttachments.slotId })
@@ -137,7 +145,7 @@ test("clearRemoteSyncState requeues a slot the snapshot still advertises", async
       snapshotSlotIds: ["slot-interrupted"],
     });
 
-    await clearRemoteSyncState(execSql);
+    await clearRemoteSyncState(execSql, { organizationId: "org-old" });
 
     const pendingRows = await db
       .select({

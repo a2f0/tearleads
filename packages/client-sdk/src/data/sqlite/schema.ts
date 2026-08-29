@@ -86,12 +86,9 @@ const accessLevelColumn = "effective_access_level";
  *   compare version coverage without loading content. Empty string when the
  *   document has never hydrated content, which readers treat as "no deferred
  *   tail claimable".
- * - `recoveryGeneration`: Monotonic fence advanced by an atomic raw-history
- *   recovery install. A writer that captured an older generation before it
- *   waited for the mutation queue cannot publish after that install.
- * - `pullContinuation`: Versioned, serialized progress for the next bounded
- *   remote pull page. It advances only after the current page's content is
- *   durable and is cleared when the frozen snapshot drains.
+ * - `recoveryGeneration`: Atomic raw-history recovery writer fence.
+ * - `recoveryDocumentId`: Former server id for cross-client post-purge recreation.
+ * - `pullContinuation`: Durable progress for the next bounded remote pull.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -115,6 +112,7 @@ export const documents = sqliteTable(
     pendingBaseVersion: text("pending_base_version"),
     pullContinuation: text("pull_continuation"),
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
+    recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
     updatedAt: text("updated_at").notNull(),
   },
@@ -783,6 +781,10 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       {
         definition: '"recovery_generation" INTEGER NOT NULL DEFAULT 0',
         name: "recovery_generation",
+      },
+      {
+        definition: '"recovery_document_id" TEXT',
+        name: "recovery_document_id",
       },
     ],
   },

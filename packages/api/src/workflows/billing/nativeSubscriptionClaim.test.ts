@@ -282,6 +282,30 @@ test("rejects unknown products and a different destination subscription", async 
   );
 });
 
+test("rejects native claims for deleting and purged organization generations", async () => {
+  const destination = await registerPersonalOrganization();
+  for (const status of ["deleting", "purged"] as const) {
+    await db
+      .update(organizationBilling)
+      .set({ status })
+      .where(
+        eq(organizationBilling.organizationId, destination.organizationId),
+      );
+    await expect(
+      runClaimNativeSubscriptionWorkflow({
+        appUserId: destination.user.userId,
+        db,
+        organizationId: destination.organizationId,
+        requireSessionAccess: false,
+        sourceId: crypto.randomUUID(),
+        subscription: subscription(crypto.randomUUID()),
+      }),
+    ).rejects.toThrow(
+      "Organization purge is terminal; provision a replacement organization",
+    );
+  }
+});
+
 /** The API package runs this concurrency case on memory and SQLite adapters. */
 test("the database matrix leaves one owner after concurrent claims", async () => {
   const first = await registerPersonalOrganization();

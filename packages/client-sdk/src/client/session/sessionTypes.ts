@@ -34,6 +34,12 @@ export interface SessionCreateOrganizationResult {
   readonly organizationId: string;
 }
 
+export interface SessionRecoverOrganizationResult
+  extends SessionCreateOrganizationResult {
+  readonly reset: ClearRemoteSyncStateResult;
+  readonly replacedOrganizationId: string;
+}
+
 export interface CreateOrganizationOptions {
   /** Overrides the seeded organization profile name; see registration. */
   readonly organizationProfileName?: string | undefined;
@@ -81,7 +87,9 @@ export interface Session {
     containerId: string;
     created: boolean;
   }>;
-  clearRemoteSyncState(): Promise<ClearRemoteSyncStateResult>;
+  clearRemoteSyncState(
+    organizationId: string,
+  ): Promise<ClearRemoteSyncStateResult>;
   createOrganization(
     options?: CreateOrganizationOptions,
   ): Promise<SessionCreateOrganizationResult | null>;
@@ -93,6 +101,10 @@ export interface Session {
   registerIdentity(
     options?: RegisterIdentityOptions,
   ): Promise<SessionRegistrationResult | null>;
+  recoverPurgedOrganization(
+    organizationId: string,
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionRecoverOrganizationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
   setContext(context: SessionContext): void;

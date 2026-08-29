@@ -216,7 +216,9 @@ export async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  const documentId = await deriveStableDocumentId(state.localId);
+  const documentId =
+    nextRecord?.recoveryDocumentId ??
+    (await deriveStableDocumentId(state.localId));
   if (!generationIsCurrent()) return state.record ?? nextRecord;
 
   const created = await createRemoteDocument({

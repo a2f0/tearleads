@@ -26,6 +26,9 @@ export const SUPERSEDED_STRIPE_EVENT_REASON =
 export const UNRESOLVED_STRIPE_TIER_REASON =
   "Stripe subscription tier could not be resolved";
 
+export const TERMINAL_ORGANIZATION_BILLING_REASON =
+  "Organization purge is terminal; provision a replacement organization";
+
 const REUSABLE_STRIPE_TIER_EVENT_TYPES = new Set([
   "RENEWAL",
   "SUBSCRIPTION_EXTENDED",
@@ -143,6 +146,12 @@ export async function resolveRevenueCatIgnoredReason(input: {
   }
   if (!input.billing) {
     return "Unknown organization";
+  }
+  if (
+    input.billing.status === "deleting" ||
+    input.billing.status === "purged"
+  ) {
+    return TERMINAL_ORGANIZATION_BILLING_REASON;
   }
   if (
     input.transition.kind === "grant" ||

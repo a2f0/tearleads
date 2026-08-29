@@ -235,6 +235,7 @@ export type {
   SessionContext,
   SessionCreateOrganizationResult,
   SessionListener,
+  SessionRecoverOrganizationResult,
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,

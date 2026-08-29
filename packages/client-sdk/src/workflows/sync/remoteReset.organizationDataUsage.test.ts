@@ -47,7 +47,7 @@ test("remote reset deletes durable organization data usage", async () => {
       updateCount: 2,
     });
 
-    await clearRemoteSyncState(execSql);
+    await clearRemoteSyncState(execSql, { organizationId: "org-1" });
 
     expect(await db.select().from(organizationDataUsageSnapshots)).toEqual([]);
     expect(await db.select().from(organizationDataUsageCategories)).toEqual([]);
@@ -86,7 +86,7 @@ test("remote reset invalidates an in-flight organization usage response", async 
       requesterUserId: REQUESTER_USER_ID,
     });
     await requestStarted;
-    await clearRemoteSyncState(execSql);
+    await clearRemoteSyncState(execSql, { organizationId });
 
     resolveRequest({ data: dataUsage, ok: true });
     await expect(reconciliation).resolves.toBeNull();

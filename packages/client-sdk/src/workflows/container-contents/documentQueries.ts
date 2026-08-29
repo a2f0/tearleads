@@ -371,6 +371,7 @@ export function createContainerDocumentQueriesFromRuntime(
   runtime: ContainerDocumentQueriesRuntime,
 ): ContainerDocumentQueries {
   const execSql = runtime.infra.execSql;
+  const organizationId = runtime.auth?.organizationId ?? undefined;
   return {
     applyContainerDocumentTombstones(tombstones) {
       return applyPersistedContainerDocumentTombstones(execSql, tombstones);
@@ -400,7 +401,7 @@ export function createContainerDocumentQueriesFromRuntime(
     loadContainerDocumentWatermark(containerId) {
       return sqlContainerSyncWatermarkPersistence.loadWatermark(
         execSql,
-        containerContentsSyncLane(containerId),
+        containerContentsSyncLane(containerId, organizationId),
       );
     },
     listLinkedContainerIdsByDocumentIds(documentIds) {
@@ -424,7 +425,7 @@ export function createContainerDocumentQueriesFromRuntime(
     saveContainerDocumentWatermark(containerId, watermark) {
       return sqlContainerSyncWatermarkPersistence.saveWatermark(
         execSql,
-        containerContentsSyncLane(containerId),
+        containerContentsSyncLane(containerId, organizationId),
         watermark,
       );
     },

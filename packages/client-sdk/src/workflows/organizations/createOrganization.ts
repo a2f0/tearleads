@@ -44,6 +44,8 @@ export interface CreateOrganizationInput {
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
+  /** Purged organization whose personal-org generation this replaces. */
+  replacesOrganizationId?: string | undefined;
   /** Overrides the seeded self roster-profile nickname; see registration. */
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -102,6 +104,9 @@ export async function createOrganization(
     initialSystemContainers: artifacts.systemContainerBootstraps.map(
       (systemContainer) => systemContainer.containerRequest,
     ),
+    ...(input.replacesOrganizationId
+      ? { replacesOrganizationId: input.replacesOrganizationId }
+      : {}),
   };
 
   if (input.isIdentityCurrent && !input.isIdentityCurrent()) {

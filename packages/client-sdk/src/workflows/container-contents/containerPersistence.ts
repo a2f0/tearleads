@@ -49,14 +49,16 @@ export async function enqueuePendingContainerUpdate(
 
 export function createContainerParentSyncLane(
   parentId: string | null,
+  organizationId?: string,
 ): ContainerSyncWatermarkLane {
-  return containerParentSyncLane(parentId);
+  return containerParentSyncLane(parentId, organizationId);
 }
 
 export function createContainerContentsSyncLane(
   containerId: string,
+  organizationId?: string,
 ): ContainerSyncWatermarkLane {
-  return containerContentsSyncLane(containerId);
+  return containerContentsSyncLane(containerId, organizationId);
 }
 
 export async function loadContainerSyncWatermark(

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import { organizationBilling, users } from "@symcrypt/api-shared/schema";
 import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -225,4 +225,40 @@ test("lapsed organizations can pull document sync but cannot push updates", asyn
     organizationId,
     reason: "billing_inactive",
   });
+}, 10_000);
+
+test("document sync rejects pulls and pushes while organization deletion is in progress", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const request = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  const organizationId = asVerifiedContainerManifest(root.bundle).state
+    .organizationId;
+  await db
+    .update(organizationBilling)
+    .set({ purgeStartedAt: new Date(), status: "deleting" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  for (const outgoingUpdates of [[], request.outgoingUpdates]) {
+    const response = await routeApp.request(`/documents/${created.id}/sync`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...request, outgoingUpdates }),
+    });
+    expect(response.status).toBe(402);
+    expect(await response.json()).toEqual({
+      error: "Organization sync is not active",
+      organizationId,
+      reason: "billing_inactive",
+    });
+  }
 }, 10_000);

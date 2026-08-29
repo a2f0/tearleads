@@ -1,7 +1,9 @@
 // Out-of-process billing maintenance. The existing systemd timer runs this
-// every minute: due free trials are persisted before Stripe seat reconciliation.
-// Row locks, DB predicates, and Stripe idempotency make overlaps safe.
+// every minute: due free trials and purges are persisted before Stripe seat
+// reconciliation. Row locks, leases, DB predicates, and Stripe idempotency make
+// overlaps safe.
 import { closeApiDatabase } from "@symcrypt/api-shared/postgres";
+import { runOrganizationPurgeMaintenance } from "../src/services/billing/organizationPurge";
 import { expireOrganizationTrials } from "../src/services/billing/organizationTrialExpiry";
 import { runStripeSeatSynchronization } from "../src/services/billing/stripeSeatSync";
 import { getDefaultApiServiceRuntime } from "../src/services/runtime";
@@ -35,12 +37,22 @@ try {
   const trialExpiry = await runMaintenancePhase("Free-trial expiry", () =>
     expireOrganizationTrials(runtime, options),
   );
+  const organizationPurge = await runMaintenancePhase(
+    "Organization purge",
+    () => runOrganizationPurgeMaintenance(runtime, options),
+  );
   const stripeSeatSync = await runMaintenancePhase(
     "Stripe seat synchronization",
     () => runStripeSeatSynchronization(runtime, options),
   );
-  console.log(JSON.stringify({ stripeSeatSync, trialExpiry }));
-  if ((stripeSeatSync?.failed ?? 0) > 0 || (trialExpiry?.failed ?? 0) > 0) {
+  console.log(
+    JSON.stringify({ organizationPurge, stripeSeatSync, trialExpiry }),
+  );
+  if (
+    (organizationPurge?.failed ?? 0) > 0 ||
+    (stripeSeatSync?.failed ?? 0) > 0 ||
+    (trialExpiry?.failed ?? 0) > 0
+  ) {
     process.exitCode = 1;
   }
 } catch (error) {

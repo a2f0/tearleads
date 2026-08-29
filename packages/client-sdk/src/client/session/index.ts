@@ -6,10 +6,7 @@ import {
   type ProvisionedSystemContainerSpec,
   registerIdentity as registerIdentityWorkflow,
 } from "../../workflows/registration";
-import {
-  type ClearRemoteSyncStateResult,
-  clearRemoteSyncState as clearRemoteSyncStateWorkflow,
-} from "../../workflows/sync";
+import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
 import { createListenerSet } from "../listenerSet";
@@ -18,6 +15,10 @@ import {
   requireUserIdentityAvailable,
   type UserIdentityAvailable,
 } from "./sessionIdentityTrust";
+import {
+  clearSessionRemoteSyncState,
+  recoverPurgedSessionOrganization,
+} from "./sessionPurgeRecovery";
 import type {
   CreateOrganizationOptions,
   RegisterIdentityOptions,
@@ -25,6 +26,7 @@ import type {
   SessionContext,
   SessionCreateOrganizationResult,
   SessionListener,
+  SessionRecoverOrganizationResult,
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,
@@ -135,14 +137,10 @@ class SessionService implements Session {
     );
   }
 
-  async clearRemoteSyncState(): Promise<ClearRemoteSyncStateResult> {
-    const result = await clearRemoteSyncStateWorkflow(
-      this.dependencies.database.requireExecSql("clearRemoteSyncState"),
-    );
-    this.dependencies.api.clearWriterProjectionCaches();
-    this.setContext({ organizationId: null });
-    this.dependencies.log("Remote sync state cleared");
-    return result;
+  async clearRemoteSyncState(
+    organizationId: string,
+  ): Promise<ClearRemoteSyncStateResult> {
+    return clearSessionRemoteSyncState(this.dependencies, this, organizationId);
   }
 
   async destroySession(sessionId: string): Promise<boolean> {
@@ -339,6 +337,7 @@ class SessionService implements Session {
 
   async createOrganization(
     options?: CreateOrganizationOptions,
+    replacesOrganizationId?: string,
   ): Promise<SessionCreateOrganizationResult | null> {
     const userId = this.userId;
     if (!userId) {
@@ -379,6 +378,7 @@ class SessionService implements Session {
         organizationProfileName: options?.organizationProfileName,
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
+        replacesOrganizationId,
         rosterProfileNickname: options?.rosterProfileNickname,
         signingKeyPair,
         userId,
@@ -402,6 +402,18 @@ class SessionService implements Session {
       containerId: response.rootContainerId,
       organizationId: response.organizationId,
     };
+  }
+
+  async recoverPurgedOrganization(
+    organizationId: string,
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionRecoverOrganizationResult | null> {
+    return recoverPurgedSessionOrganization(
+      this.dependencies,
+      this,
+      organizationId,
+      options,
+    );
   }
 
   setAuthToken(authToken: string | null): void {

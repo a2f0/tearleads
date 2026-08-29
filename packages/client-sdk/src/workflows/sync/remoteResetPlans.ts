@@ -143,18 +143,31 @@ async function buildResetContentDocs(
   return contentDocByScope;
 }
 
-export async function buildResetPlans(execSql: ExecSql): Promise<{
-  readonly attachmentUploads: ResetAttachmentUpload[];
-  readonly documentUpdates: ResetDocumentUpdate[];
-}> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const documentRows = await db
-    .select({
-      appKind: documents.appKind,
-      localId: documents.localId,
-    })
+export interface ResetDocumentScope {
+  readonly appKind: string;
+  readonly localId: string;
+}
+
+async function loadResetPlanRows(
+  db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
+  documentScopes?: readonly ResetDocumentScope[],
+) {
+  const selectedScopeKeys = documentScopes
+    ? new Set(
+        documentScopes.map((scope) =>
+          historyScopeKey(scope.appKind, scope.localId),
+        ),
+      )
+    : null;
+  const allDocumentRows = await db
+    .select({ appKind: documents.appKind, localId: documents.localId })
     .from(documents);
-  const attachmentRows = await db
+  const documentRows = selectedScopeKeys
+    ? allDocumentRows.filter((row) =>
+        selectedScopeKeys.has(historyScopeKey(row.appKind, row.localId)),
+      )
+    : allDocumentRows;
+  const allAttachmentRows = await db
     .select({
       byteLength: documentAttachmentBlobProjection.byteLength,
       localId: documentAttachmentBlobProjection.localId,
@@ -163,6 +176,31 @@ export async function buildResetPlans(execSql: ExecSql): Promise<{
       storageKey: documentAttachmentBlobProjection.storageKey,
     })
     .from(documentAttachmentBlobProjection);
+  const selectedDocumentLocalIds = new Set(
+    documentRows
+      .filter((row) => row.appKind === DOCUMENTS_APP_KIND)
+      .map((row) => row.localId),
+  );
+  return {
+    attachmentRows: allAttachmentRows.filter((row) =>
+      selectedDocumentLocalIds.has(row.localId),
+    ),
+    documentRows,
+  };
+}
+
+export async function buildResetPlans(
+  execSql: ExecSql,
+  documentScopes?: readonly ResetDocumentScope[],
+): Promise<{
+  readonly attachmentUploads: ResetAttachmentUpload[];
+  readonly documentUpdates: ResetDocumentUpdate[];
+}> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const { attachmentRows, documentRows } = await loadResetPlanRows(
+    db,
+    documentScopes,
+  );
   const contentDocByScope = await buildResetContentDocs(db);
   const documentUpdates = documentRows.flatMap((row) => {
     const doc = contentDocByScope.get(

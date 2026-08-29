@@ -22,7 +22,10 @@ import {
   readDocumentUpdateUpperBound,
   resolveDocumentUpdateCursorBounds,
 } from "../../../documents/documentUpdateStore";
-import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
+import {
+  assertOrganizationCanSync,
+  assertOrganizationSyncEndpointAvailable,
+} from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
@@ -114,8 +117,12 @@ async function assertDocumentSyncAllowed(
     readonly userId: string;
   },
   organizationId: string,
+  requireWriteEntitlement: boolean,
 ): Promise<void> {
-  await assertOrganizationCanSync(input.tx, organizationId, input.userId);
+  await assertOrganizationSyncEndpointAvailable(input.tx, organizationId);
+  if (requireWriteEntitlement) {
+    await assertOrganizationCanSync(input.tx, organizationId, input.userId);
+  }
 }
 
 async function lockSyncDocumentFrontier(input: {
@@ -201,11 +208,12 @@ async function syncDocumentTransaction(input: {
     request: input.request,
     userId: input.userId,
   });
-  if (
-    input.enforceSyncEligibility &&
-    (hasOutgoingUpdates || hasContainerRekeys)
-  ) {
-    await assertDocumentSyncAllowed(input, currentTargets.organizationId);
+  if (input.enforceSyncEligibility) {
+    await assertDocumentSyncAllowed(
+      input,
+      currentTargets.organizationId,
+      hasOutgoingUpdates || hasContainerRekeys,
+    );
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,

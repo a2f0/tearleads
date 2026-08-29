@@ -90,6 +90,7 @@ export {
 } from "./organization";
 export {
   type CreateOrganizationRequest,
+  CreateOrganizationRequestSchema,
   isCreateOrganizationRequest,
   isOrganizationProvisioningRequest,
   isProvisionedDocumentRequest,

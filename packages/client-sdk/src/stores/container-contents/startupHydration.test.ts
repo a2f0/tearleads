@@ -22,6 +22,8 @@ import {
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
 
+const TEST_ORGANIZATION_ID = "org-1";
+
 async function createStartupWorkFixture(testDbName: string) {
   const { close, execSql } = await createTestExecSql(testDbName);
   await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -80,7 +82,7 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
   try {
     await markContainerSyncLaneChecked(
       execSql,
-      createContainerParentSyncLane(null),
+      createContainerParentSyncLane(null, TEST_ORGANIZATION_ID),
     );
     let hydrationRequestCount = 0;
     const state = {
@@ -98,7 +100,10 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
       ]),
       rootLaneHydrated: false,
       runtime: {
-        auth: { isAuthenticated: true },
+        auth: {
+          isAuthenticated: true,
+          organizationId: TEST_ORGANIZATION_ID,
+        },
         infra: { execSql },
         state: { containerId: "remote-root", online: true },
       },
@@ -127,7 +132,7 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
   try {
     await markContainerSyncLaneChecked(
       execSql,
-      createContainerParentSyncLane(null),
+      createContainerParentSyncLane(null, TEST_ORGANIZATION_ID),
     );
     let hydrationRequestCount = 0;
     const state = {
@@ -145,7 +150,10 @@ test("startup schedules stale-root recovery with no durable sync work", async ()
       ]),
       rootLaneHydrated: false,
       runtime: {
-        auth: { isAuthenticated: true },
+        auth: {
+          isAuthenticated: true,
+          organizationId: TEST_ORGANIZATION_ID,
+        },
         infra: { execSql },
         state: { containerId: "deleted-local-root", online: true },
       },

@@ -82,6 +82,9 @@ function toDocumentRecordRow(input: {
     localId: document.id,
     documentId: document.documentId,
     recoveryGeneration: document.recoveryGeneration ?? 0,
+    recoveryDocumentId: document.documentId
+      ? null
+      : (document.recoveryDocumentId ?? null),
     snapshotEndVersion: document.snapshotEndVersion,
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,

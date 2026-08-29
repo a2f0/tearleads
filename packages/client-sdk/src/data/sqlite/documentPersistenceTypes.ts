@@ -10,6 +10,8 @@ export interface DocumentRecord {
    * publish when recovery advanced it first.
    */
   recoveryGeneration?: number;
+  /** Former server id reserved for deterministic post-purge recreation. */
+  recoveryDocumentId?: string | null;
   /**
    * Encoded end version vector of the persisted content frontier. Content
    * itself lives in the durable history (checkpoint + tail); this column
@@ -60,6 +62,7 @@ export interface SelectedDocumentRecordRow {
   id: string;
   documentId: string | null;
   recoveryGeneration: number;
+  recoveryDocumentId: string | null;
   snapshotEndVersion: string;
   accessEpoch: number;
   accessStateHash: string | null;

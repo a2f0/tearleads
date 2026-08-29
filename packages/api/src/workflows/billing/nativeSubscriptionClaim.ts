@@ -381,6 +381,12 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       userId: input.appUserId,
     });
     const target = await lockBilling(tx, input.organizationId);
+    if (target.status === "deleting" || target.status === "purged") {
+      throw new OrganizationManagerError(
+        "Organization purge is terminal; provision a replacement organization",
+        409,
+      );
+    }
     const alreadyOwned = targetOwnsNativeSubscription({
       appUserId: input.appUserId,
       subscription: input.subscription,

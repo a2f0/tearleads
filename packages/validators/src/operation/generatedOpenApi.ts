@@ -15502,6 +15502,7 @@ export interface operations {
                         [key: string]: unknown;
                     })[];
                     organizationId: string;
+                    replacesOrganizationId?: string;
                     rootContainerId: string;
                     userId: string;
                 } & {

@@ -151,10 +151,22 @@ export function isOrganizationProvisioningRequest(
  * their existing identity keys, so the request is exactly an
  * {@link OrganizationProvisioningRequest} where `userId` is the caller.
  */
-export type CreateOrganizationRequest = OrganizationProvisioningRequest;
+export const CreateOrganizationRequestSchema = loosePlainObject({
+  ...organizationProvisioningRequestShape,
+  /**
+   * Purged personal organization this fresh organization replaces. The server
+   * accepts this only after the old organization's purge is complete and then
+   * moves the user's default-organization pointer atomically.
+   */
+  replacesOrganizationId: uuidV4StringSchema.optional(),
+});
+
+export type CreateOrganizationRequest = z.infer<
+  typeof CreateOrganizationRequestSchema
+>;
 
 export function isCreateOrganizationRequest(
   value: unknown,
 ): value is CreateOrganizationRequest {
-  return isOrganizationProvisioningRequest(value);
+  return CreateOrganizationRequestSchema.safeParse(value).success;
 }

@@ -10,12 +10,12 @@ import {
 import { organizationReadModelResponseRuntimeRefinements } from "../organizationReadModelRefinements";
 import {
   CreateOrganizationGroupWithPolicyRequestSchema,
+  CreateOrganizationRequestSchema,
   DeleteOrganizationGroupRequestSchema,
   isCreateOrganizationGroupWithPolicyRequest,
   isCreateOrganizationRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
-  OrganizationProvisioningRequestSchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
@@ -68,7 +68,7 @@ export type OrganizationRosterPathParams = z.infer<
 
 export const createOrganizationOperation = defineJsonOperation({
   auth: "session",
-  body: OrganizationProvisioningRequestSchema,
+  body: CreateOrganizationRequestSchema,
   failureResponses: {
     400: ErrorResponseSchema,
     401: ErrorResponseSchema,
