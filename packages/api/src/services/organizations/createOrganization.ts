@@ -3,7 +3,6 @@ import type { CreateOrganizationResponse } from "@symcrypt/validators/response";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { runCreateOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import { OrganizationProvisioningError } from "../../workflows/organizations/provisionOrganizationError";
-import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganizationResponse";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationProvisioningError };
@@ -29,24 +28,26 @@ export async function createOrganization(
       403,
     );
   }
-  const provisioned = await runCreateOrganizationWorkflow(runtime.db, input);
+  const response = await runCreateOrganizationWorkflow(runtime.db, input);
 
   // The transaction has committed a brand-new root that this user's other
   // sessions do not know to list yet. Reuse the same user-scoped discovery hint
   // as a newly shared root; the authoring session is excluded because it owns
   // the provisioning response and persists that state locally itself.
-  await publishBestEffort(
-    runtime.eventPublisher.publish,
-    {
-      type: "shared_with_you",
-      userId: authenticatedUserId,
-      origin: {
-        sessionId: authenticatedSessionId,
+  if (!input.finalizeReplacement) {
+    await publishBestEffort(
+      runtime.eventPublisher.publish,
+      {
+        type: "shared_with_you",
         userId: authenticatedUserId,
+        origin: {
+          sessionId: authenticatedSessionId,
+          userId: authenticatedUserId,
+        },
       },
-    },
-    "organization root discovery notification",
-  );
+      "organization root discovery notification",
+    );
+  }
 
-  return toOrganizationProvisioningResponse(authenticatedUserId, provisioned);
+  return response;
 }

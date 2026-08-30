@@ -142,10 +142,10 @@ Runtime input snapshots are grouped by capability:
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
-`auth.defaultOrganizationId` identifies the personal org across active switches.
-Host and workflow integration code should use these grouped fields so a
-consumer's dependency boundary is visible. Runtime snapshots expose grouped
-capabilities only.
+`auth.defaultOrganizationId` moves after local reset and finalization in
+[billing-purge recovery](./billing-purge-recovery.md).
+Hosts catch `PurgedOrganizationRecoveryBillingRequiredError` to activate it
+without early local rebind. Runtime snapshots expose only grouped capabilities.
 
 `symcrypt.containerContents.workflowRuntime()` remains available to advanced
 host stores and includes root adoption. Custom hosts assembling a store directly

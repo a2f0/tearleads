@@ -57,6 +57,20 @@
       "when": 1787824003247,
       "tag": "0007_flippant_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788012911951,
+      "tag": "0008_cooing_wendell_vaughn",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788050303333,
+      "tag": "0009_closed_sugar_man",
+      "breakpoints": true
     }
   ]
 }

@@ -231,12 +231,14 @@ async function writePolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
   pending: ReadonlyMap<string, AnyVerifiedPrincipalPolicy>,
   updatedAt: string,
+  organizationId?: string | undefined,
 ): Promise<void> {
   for (const policy of pending.values()) {
     await upsertPrincipalPolicyCheckpointInTransaction(
       tx,
       policy.checkpoint,
       updatedAt,
+      organizationId,
     );
   }
 }
@@ -251,9 +253,15 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly access: readonly AccessManifestCheckpointAdvance[];
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
 }): Promise<void> {
-  await ensureSqlTables(input.execSql, keyingCheckpointTables);
+  await ensureSqlTables(
+    input.execSql,
+    input.policies.length > 0
+      ? [...principalPolicyTables, ...keyingCheckpointTables]
+      : keyingCheckpointTables,
+  );
   const updatedAt = new Date().toISOString();
 
   await getClientSQLitePersistenceRuntime(input.execSql).transaction(
@@ -262,7 +270,12 @@ export async function advanceKeyingCheckpointsAtomically(input: {
       const policies = await validatePolicyAdvances(tx, input.policies);
 
       await writeAccessCheckpoints(tx, access, updatedAt);
-      await writePolicyCheckpoints(tx, policies, updatedAt);
+      await writePolicyCheckpoints(
+        tx,
+        policies,
+        updatedAt,
+        input.organizationId,
+      );
       if (input.documentPurgeCheckpoint) {
         await storeDocumentPurgeCheckpointInTransaction(
           tx,
@@ -283,6 +296,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
 export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
   readonly entries: readonly VerifiedPrincipalPolicyBundleEntry[];
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
   readonly updatedAt: string;
 }): Promise<void> {
   const seen = new Set<string>();
@@ -315,10 +329,16 @@ export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
           tx,
           entry.bundle,
           input.updatedAt,
+          input.organizationId,
         );
         await assertPrincipalPolicyBundleStoredInTransaction(tx, entry.bundle);
       }
-      await writePolicyCheckpoints(tx, policies, input.updatedAt);
+      await writePolicyCheckpoints(
+        tx,
+        policies,
+        input.updatedAt,
+        input.organizationId,
+      );
       for (const policy of policies.values()) {
         const checkpoint = await loadStoredPrincipalPolicyCheckpoint(
           tx,

@@ -259,7 +259,7 @@
       "bytes": 18514
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 895,
+      "lines": 899,
       "bytes": 35552
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {

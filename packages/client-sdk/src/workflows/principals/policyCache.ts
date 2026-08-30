@@ -77,6 +77,7 @@ async function cacheReferencedPrincipalPolicy(
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
+  organizationId: string | null | undefined,
 ): Promise<void> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
@@ -122,6 +123,7 @@ async function cacheReferencedPrincipalPolicy(
       { bundle, policy: validation.policy },
     ],
     execSql,
+    ...(organizationId ? { organizationId } : {}),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -131,6 +133,7 @@ async function cachePrincipalPolicyBundle(input: {
   readonly execSql: ExecSql;
   readonly loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>;
   readonly log: ((message: string) => void) | undefined;
+  readonly organizationId: string | null | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   const reference = principalPolicyReferenceFromBundle(input.bundle);
@@ -160,6 +163,7 @@ async function cachePrincipalPolicyBundle(input: {
       { bundle: input.bundle, policy: validation.policy },
     ],
     execSql: input.execSql,
+    ...(input.organizationId ? { organizationId: input.organizationId } : {}),
     updatedAt: new Date().toISOString(),
   });
 }
@@ -249,6 +253,7 @@ export async function cacheReferencedPrincipalPolicies({
         resolveTrustedUserIdentity,
         log,
         loadExternalAdminPolicy,
+        organizationId,
       ),
     dedupe: dedupeReferencedPrincipalStates,
     execSql,
@@ -278,6 +283,7 @@ export async function cachePrincipalPolicyBundles({
         execSql,
         loadExternalAdminPolicy,
         log,
+        organizationId,
         resolveTrustedUserIdentity,
       }),
     dedupe: dedupePrincipalPolicyBundles,

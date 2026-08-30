@@ -103,6 +103,7 @@ interface LocalContainerInfoRecord {
   hasSyncedContainer: boolean;
   localCreatedAt: string | null;
   localUpdatedAt: string | null;
+  organizationId: string | null;
   parentId: string | null;
 }
 
@@ -198,20 +199,30 @@ interface ContainerInfoSyncCursorDefinition {
 
 function getContainerSyncCursorDefinitions(input: {
   containerId: string;
+  organizationId: string | null;
   parentId: string | null;
 }): ContainerInfoSyncCursorDefinition[] {
   return [
     {
       label: "Parent Listing",
-      lane: containerParentSyncLane(input.parentId),
+      lane: containerParentSyncLane(
+        input.parentId,
+        input.organizationId ?? undefined,
+      ),
     },
     {
       label: "Child Containers",
-      lane: containerParentSyncLane(input.containerId),
+      lane: containerParentSyncLane(
+        input.containerId,
+        input.organizationId ?? undefined,
+      ),
     },
     {
       label: "Documents",
-      lane: containerContentsSyncLane(input.containerId),
+      lane: containerContentsSyncLane(
+        input.containerId,
+        input.organizationId ?? undefined,
+      ),
     },
   ];
 }
@@ -219,6 +230,7 @@ function getContainerSyncCursorDefinitions(input: {
 async function loadContainerSyncCursors(input: {
   containerId: string;
   execSql: ExecSql | null;
+  organizationId: string | null;
   parentId: string | null;
 }): Promise<ContainerInfoSyncCursor[]> {
   const cursorDefinitions = getContainerSyncCursorDefinitions(input);
@@ -257,6 +269,7 @@ async function loadLocalContainerInfoRecord(input: {
     hasSyncedContainer: false,
     localCreatedAt: null,
     localUpdatedAt: null,
+    organizationId: null,
     parentId: input.parentId,
   };
 
@@ -272,6 +285,7 @@ async function loadLocalContainerInfoRecord(input: {
       localCreatedAt: containers.localCreatedAt,
       localUpdatedAt: containers.localUpdatedAt,
       metadataDocumentId: containers.metadataDocumentId,
+      organizationId: containers.organizationId,
       parentId: containers.parentId,
     })
     .from(containers)
@@ -289,6 +303,7 @@ async function loadLocalContainerInfoRecord(input: {
       row.metadataDocumentId.length > 0,
     localCreatedAt: row.localCreatedAt,
     localUpdatedAt: row.localUpdatedAt,
+    organizationId: row.organizationId,
     parentId: row.parentId,
   };
 }
@@ -348,6 +363,7 @@ export async function loadContainerInfo(input: {
     loadContainerSyncCursors({
       containerId: input.containerId,
       execSql: input.execSql ?? null,
+      organizationId: localContainerInfo.organizationId,
       parentId: localContainerInfo.parentId,
     }),
   ]);

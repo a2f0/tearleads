@@ -28,4 +28,6 @@ export {
 export {
   type ClearRemoteSyncStateResult,
   clearRemoteSyncState,
+  type RemoteResetInput,
+  type RemoteResetReplacement,
 } from "./remoteReset";

@@ -12495,6 +12495,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    finalizeReplacement?: boolean;
                     initialAdminGroup: {
                         groupId: string;
                         initialGroupPolicy: {
@@ -15502,6 +15503,7 @@ export interface operations {
                         [key: string]: unknown;
                     })[];
                     organizationId: string;
+                    replacesOrganizationId?: string;
                     rootContainerId: string;
                     userId: string;
                 } & {

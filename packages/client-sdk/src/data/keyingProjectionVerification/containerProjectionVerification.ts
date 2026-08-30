@@ -340,6 +340,7 @@ export async function verifyContainerWriterProjection(
   try {
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
+      organizationId: input.projection.organizationId,
     });
     const verifiedPath = await verifyContainerWriterProjectionWithContext(
       input,
@@ -372,6 +373,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
+    organizationId: input.projection.organizationId,
   });
   const verifiedPath = await verifyContainerWriterProjectionWithContext(
     {

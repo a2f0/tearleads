@@ -96,6 +96,12 @@ async function lockStripeCheckoutBilling(
       409,
     );
   }
+  if (billing.status === "deleting" || billing.status === "purged") {
+    throw new OrganizationManagerError(
+      "Organization purge is terminal; provision a replacement organization",
+      409,
+    );
+  }
   return billing;
 }
 

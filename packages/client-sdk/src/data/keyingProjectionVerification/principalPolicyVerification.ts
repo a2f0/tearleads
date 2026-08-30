@@ -276,8 +276,16 @@ async function loadOrganizationExternalAuthority(
     if (!verifiedAdmins) {
       return null;
     }
-    observePrincipalPolicy(input.checkpointContext, verified.value);
-    observePrincipalPolicy(input.checkpointContext, verifiedAdmins);
+    observePrincipalPolicy(
+      input.checkpointContext,
+      verified.value,
+      input.organizationId,
+    );
+    observePrincipalPolicy(
+      input.checkpointContext,
+      verifiedAdmins,
+      input.organizationId,
+    );
     return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
@@ -313,7 +321,11 @@ async function verifyReferencedPrincipalPolicy(input: {
       );
     }
     if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
-      observePrincipalPolicy(input.checkpointContext, cachedPolicy);
+      observePrincipalPolicy(
+        input.checkpointContext,
+        cachedPolicy,
+        input.organizationId,
+      );
       return cachedPolicy;
     }
   }
@@ -366,7 +378,11 @@ async function verifyReferencedPrincipalPolicy(input: {
     throw verified.error;
   }
 
-  observePrincipalPolicy(input.checkpointContext, verified.value);
+  observePrincipalPolicy(
+    input.checkpointContext,
+    verified.value,
+    input.organizationId,
+  );
   input.principalPolicyCache.set(cacheKey, verified.value);
   return verified.value;
 }

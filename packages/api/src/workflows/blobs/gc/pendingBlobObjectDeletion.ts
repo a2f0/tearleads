@@ -3,7 +3,7 @@ import type {
   DatabaseSession,
 } from "@symcrypt/api-shared/postgres";
 import { blobAuditObjects } from "@symcrypt/api-shared/schema";
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { selectFairBlobWorkCandidates } from "./fairBlobWorkSelection";
 
@@ -53,13 +53,19 @@ function toPendingCandidates(
  */
 export async function listPendingBlobObjectDeletions(
   db: ApiDatabase,
-  input: { readonly limit?: number } = {},
+  input: {
+    readonly blobIds?: readonly string[];
+    readonly limit?: number;
+  } = {},
 ): Promise<PendingBlobObjectDeletion[]> {
   const limit = normalizeLimit(input.limit);
+  const scopedBlobIds = input.blobIds ? [...new Set(input.blobIds)] : undefined;
+  if (scopedBlobIds?.length === 0) return [];
   const pendingPredicate = and(
     isNotNull(blobAuditObjects.prunedAt),
     isNull(blobAuditObjects.objectDeletedAt),
     isNotNull(blobAuditObjects.liveStorageKey),
+    scopedBlobIds ? inArray(blobAuditObjects.blobId, scopedBlobIds) : undefined,
   );
   const selectedColumns = {
     attemptedAt: blobAuditObjects.objectDeleteAttemptedAt,

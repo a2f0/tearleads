@@ -113,6 +113,7 @@ export async function persistRegistrationPrincipalPolicies(input: {
       }),
     ),
     execSql: input.execSql,
+    organizationId: input.organization.currentState.principalId,
     updatedAt: new Date().toISOString(),
   });
 }

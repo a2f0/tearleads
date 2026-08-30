@@ -13,11 +13,9 @@ import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import {
-  retainVerifiedPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/verifiedPrincipalPolicyRetentionPersistence";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
@@ -54,12 +52,14 @@ export interface VerifiedSharePrincipalPolicy {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly checkpointPolicies: readonly VerifiedPrincipalPolicy[];
   readonly dependencyBundles: readonly PrincipalPolicyBundleResponse[];
+  readonly organizationId: string;
   readonly policy: VerifiedPrincipalPolicy;
 }
 
 async function retainVerifiedSharePolicies(input: {
   bundle: PrincipalPolicyBundleResponse;
   execSql: ExecSql;
+  organizationId: string;
   organizationPolicy: VerifiedExternalAdminPolicy | null;
   policy: VerifiedPrincipalPolicy;
 }): Promise<VerifiedPrincipalPolicy[]> {
@@ -71,6 +71,7 @@ async function retainVerifiedSharePolicies(input: {
       await retainVerifiedPrincipalPolicyBundle({
         ...entry,
         execSql: input.execSql,
+        organizationId: input.organizationId,
         updatedAt: retainedAt,
       });
     }
@@ -78,6 +79,7 @@ async function retainVerifiedSharePolicies(input: {
   await retainVerifiedPrincipalPolicyBundle({
     bundle: input.bundle,
     execSql: input.execSql,
+    organizationId: input.organizationId,
     policy: input.policy,
     updatedAt: retainedAt,
   });
@@ -100,16 +102,22 @@ export async function advanceVerifiedSharePolicies(
   execSql: ExecSql,
   verified: Pick<
     VerifiedSharePrincipalPolicy,
-    "checkpointPolicies" | "dependencyBundles"
+    "checkpointPolicies" | "dependencyBundles" | "organizationId"
   >,
 ): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: [],
     execSql,
+    organizationId: verified.organizationId,
     policies: verified.checkpointPolicies,
   });
   for (const bundle of verified.dependencyBundles) {
-    await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      new Date().toISOString(),
+      verified.organizationId,
+    );
   }
 }
 
@@ -247,6 +255,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   const checkpointPolicies = await retainVerifiedSharePolicies({
     bundle,
     execSql: input.execSql,
+    organizationId: input.organizationId,
     organizationPolicy: organizationAdminPolicy,
     policy: verified.value,
   });
@@ -256,6 +265,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     dependencyBundles: externalAdminPolicyPersistenceEntries(
       organizationAdminPolicy,
     ).map((entry) => entry.bundle),
+    organizationId: input.organizationId,
     policy: verified.value,
   };
 }

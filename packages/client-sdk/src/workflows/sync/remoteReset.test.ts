@@ -61,8 +61,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     ]);
     const metadataDoc = await createDocument("remote-reset-test-metadata");
     metadataDoc.getMap("container").set("name", "Child");
-    // Content lives ONLY in the durable-history tables; the record rows carry
-    // just the content frontier. Export before encoding so pending ops commit.
+    // Export before encoding so pending ops commit into durable history.
     const docSnapshot = bytesToBase64(exportFullHistorySnapshot(doc));
     const docVersion = encodeVersionVector(doc);
     const metadataSnapshot = bytesToBase64(exportAllUpdates(metadataDoc));
@@ -253,14 +252,14 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       });
       await tx.insert(containerSyncWatermarks).values({
         laneKind: "container_parent",
-        laneId: "root",
+        laneId: "org-old:root",
         watermarkUpdatedAt: stale,
         watermarkId: "child",
         updatedAt: stale,
       });
       await tx.insert(containerSyncLaneChecks).values({
         laneKind: "container_parent",
-        laneId: "root",
+        laneId: "org-old:root",
         checkedAt: stale,
       });
       await tx.insert(organizationReadModelState).values({
@@ -353,7 +352,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       });
     });
 
-    const result = await clearRemoteSyncState(execSql);
+    const result = await clearRemoteSyncState(execSql, {
+      organizationId: "org-old",
+    });
 
     expect(result).toEqual({
       clearedContainerCreateIntentCount: 1,
@@ -397,7 +398,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         pullContinuation: null,
       }),
     ]);
-    // The durable history is the only content source and must survive a reset.
     expect(await db.select().from(documentHistoryCheckpoints)).toHaveLength(2);
     expect(await db.select().from(securityIncidents)).toEqual([
       expect.objectContaining({ id: "incident-1", code: "rollback" }),
@@ -443,14 +443,14 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       expect.objectContaining({
         id: "child",
         metadataDocumentId: null,
-        organizationId: "",
+        organizationId: "org-old",
         serverCreatedAt: null,
         serverUpdatedAt: null,
       }),
       expect.objectContaining({
         id: "root",
         metadataDocumentId: null,
-        organizationId: "",
+        organizationId: "org-old",
         serverCreatedAt: null,
         serverUpdatedAt: null,
       }),

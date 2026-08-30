@@ -3,6 +3,7 @@ import { createTestExecSql } from "@symcrypt/test-utils";
 import {
   clientSqlTables,
   containerHydrationTombstones,
+  dormantContainerMetadata,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -20,8 +21,13 @@ test("remote reset clears container hydration tombstones", async () => {
       reason: "access_revoked",
       updatedAt: "2026-05-01T00:00:00.000Z",
     });
+    await db.insert(dormantContainerMetadata).values({
+      containerId: "revoked-container",
+      organizationId: "org-old",
+      retainedAt: "2026-05-01T00:00:00.000Z",
+    });
 
-    await clearRemoteSyncState(execSql);
+    await clearRemoteSyncState(execSql, { organizationId: "org-old" });
 
     expect(await db.select().from(containerHydrationTombstones)).toEqual([]);
   } finally {

@@ -1,7 +1,7 @@
 {
   "name": "@symcrypt/client-sdk",
   "version": "0.1.0",
-  "description": "React-free SymCrypt client runtime with unified device-first reads, locally durable writes, verified terminal document purge, bounded resumable, poison-update-isolating, and all-or-nothing raw-history document sync, background reconciliation, trusted identity, durable security-incident reporting, strict local organization, streamed encrypted blob storage, and sync diagnostics.",
+  "description": "React-free SymCrypt client runtime with unified device-first reads, locally durable writes, billing-gated organization-scoped purge recovery, verified terminal document purge, bounded resumable, poison-update-isolating, and all-or-nothing raw-history document sync, background reconciliation, trusted identity, durable security-incident reporting, strict local organization, streamed encrypted blob storage, and sync diagnostics.",
   "private": true,
   "sideEffects": false,
   "type": "module",

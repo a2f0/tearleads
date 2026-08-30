@@ -1,19 +1,14 @@
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import {
   containerCreateIntents,
   containerMoveIntents,
   containerProjection,
-  containerSyncWatermarks,
   containers,
   documentContainerProjection,
   documentProjection,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import {
-  containerContentsSyncLane,
-  containerParentSyncLane,
-  containerSyncWatermarkLaneKey,
-} from "../containers/containerSyncWatermarkPersistence";
+import { deleteContainerWatermarksInTransaction } from "../containers/containerSyncWatermarkPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
 import type {
   ContainerRemoval,
@@ -272,12 +267,11 @@ export async function deleteLocalContainerRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { containerId, tx } = input;
-  const parentLane = containerSyncWatermarkLaneKey(
-    containerParentSyncLane(containerId),
-  );
-  const documentsLane = containerSyncWatermarkLaneKey(
-    containerContentsSyncLane(containerId),
-  );
+  const [container] = await tx
+    .select({ organizationId: containers.organizationId })
+    .from(containers)
+    .where(eq(containers.id, containerId))
+    .limit(1);
 
   await tx
     .delete(containerCreateIntents)
@@ -293,19 +287,11 @@ export async function deleteLocalContainerRows(input: {
     .run();
   await tx.delete(containers).where(eq(containers.id, containerId)).run();
   await deleteContainerMetadataDocumentRowsInTransaction(tx, [containerId]);
-  await tx
-    .delete(containerSyncWatermarks)
-    .where(
-      or(
-        and(
-          eq(containerSyncWatermarks.laneKind, parentLane.laneKind),
-          eq(containerSyncWatermarks.laneId, parentLane.laneId),
-        ),
-        and(
-          eq(containerSyncWatermarks.laneKind, documentsLane.laneKind),
-          eq(containerSyncWatermarks.laneId, documentsLane.laneId),
-        ),
-      ),
-    )
-    .run();
+  await deleteContainerWatermarksInTransaction(
+    tx,
+    [containerId],
+    container?.organizationId
+      ? new Map([[containerId, container.organizationId]])
+      : undefined,
+  );
 }

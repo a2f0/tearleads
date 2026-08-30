@@ -100,6 +100,7 @@ export async function deleteOrganizationGroup(input: {
       { bundle: stored.organizationPolicy, policy: organizationPolicy },
     ],
     execSql: input.execSql,
+    organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
   });
   return stored;

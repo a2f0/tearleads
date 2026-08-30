@@ -19,7 +19,6 @@ import {
 } from "../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
-import { waitForDomainSyncCoordinatorToSettle } from "../../../data/sync/syncCoordinator";
 import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,
@@ -38,8 +37,6 @@ import {
   persistFullHistoryDocument,
 } from "./rotationRecoveryHelpers.test";
 import { createDocumentStoreState } from "./state";
-import { registerDocumentStoreSyncLane } from "./sync";
-import { captureDocumentStoreSyncLaneGeneration } from "./syncGeneration";
 
 async function createForgedRotationBaseline(
   fixture: Awaited<ReturnType<typeof createRemoteHistoryFixture>>,
@@ -80,7 +77,7 @@ async function createForgedRotationBaseline(
   };
 }
 
-test("raw recovery ignores a forged rotation baseline and replays original updates", async () => {
+test("raw recovery quarantines a same-page forged rotation baseline", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-forged-baseline",
   );
@@ -163,33 +160,27 @@ test("raw recovery ignores a forged rotation baseline and replays original updat
       ),
     ).toBe(true);
 
-    const baseline = await assertDocumentStoreCanRotateContentKey(state);
-    const recovered = await createDocument("forged-baseline-reader");
-    importSnapshot(recovered, baseline);
-    expect(getTextValue(recovered)).toBe("survives key rotation");
-    expect(await listPendingUpdates(state)).toHaveLength(0);
-    expect(
-      (await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId))
-        ?.tailUpdates,
-    ).toEqual([]);
-
-    state.remoteUpdatePending = true;
-    let syncLaneGeneration: ReturnType<
-      typeof captureDocumentStoreSyncLaneGeneration
-    > | null = null;
-    state.syncLane = registerDocumentStoreSyncLane(
-      state,
-      () => syncLaneGeneration,
+    const historyBefore = await sqlDocumentsPersistence.loadHistoryRestoreState(
+      execSql,
+      localId,
     );
-    syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
-    state.syncLane.requestSync();
+    const pendingBefore = await listPendingUpdates(state);
+    const error = await assertDocumentStoreCanRotateContentKey(state).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+
+    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
+    if (!isDocumentSyncUpdateIsolationError(error)) return;
+    expect(error.attribution).toBe("batch");
+    expect(error.stage).toBe("loro_import");
+    expect(await hasRecordedTerminalSyncFailures(execSql)).toBe(true);
+    expect(await listPendingUpdates(state)).toEqual(pendingBefore);
     expect(
-      await waitForDomainSyncCoordinatorToSettle(runtime.state.domainScope),
-    ).toBe(true);
-    expect(requests).toEqual([
-      { historyMode: "raw", outgoingIds: [] },
-      { historyMode: undefined, outgoingIds: [] },
-    ]);
+      await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
+    ).toEqual(historyBefore);
+    expect(state.doc && getTextValue(state.doc)).toBe("survives key rotation");
+    expect(requests).toEqual([{ historyMode: "raw", outgoingIds: [] }]);
   } finally {
     close();
   }

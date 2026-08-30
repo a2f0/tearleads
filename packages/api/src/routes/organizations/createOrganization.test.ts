@@ -430,6 +430,53 @@ test("POST /organizations leaves the caller's default organization unchanged", a
   expect(row.defaultOrganizationId).toBe(defaultOrganizationId);
 });
 
+test("POST /organizations links a replacement only after purge completion", async () => {
+  const { user, defaultOrganizationId } = await registeredActor();
+  const body = {
+    ...(await createOrganizationRequestBody(user)),
+    replacesOrganizationId: defaultOrganizationId,
+  };
+  await db
+    .update(organizationBilling)
+    .set({ purgeStartedAt: new Date(), status: "deleting" })
+    .where(eq(organizationBilling.organizationId, defaultOrganizationId));
+
+  expect((await submitCreateOrganization(user, body)).status).toBe(409);
+
+  await db
+    .update(organizationBilling)
+    .set({ purgedAt: new Date(), status: "purged" })
+    .where(eq(organizationBilling.organizationId, defaultOrganizationId));
+  const response = await submitCreateOrganization(user, body);
+  expect(response.status).toBe(200);
+  const provisioned: unknown = await response.json();
+  invariant(isCreateOrganizationResponse(provisioned), "expected replacement");
+  expect(provisioned.organizationId).toBe(body.organizationId);
+
+  const [row] = await db
+    .select({ defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  expect(row?.defaultOrganizationId).toBe(defaultOrganizationId);
+
+  const retryResponse = await submitCreateOrganization(user, body);
+  expect(retryResponse.status).toBe(200);
+  expect(await retryResponse.json()).toEqual(provisioned);
+  const [replacementLink] = await db
+    .select({
+      replacementOrganizationId: organizationBilling.replacementOrganizationId,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, defaultOrganizationId));
+  expect(replacementLink?.replacementOrganizationId).toBe(body.organizationId);
+  expect(
+    await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, body.organizationId)),
+  ).toHaveLength(1);
+});
+
 test("POST /organizations rejects provisioning for a different user", async () => {
   const { user } = await registeredActor();
 

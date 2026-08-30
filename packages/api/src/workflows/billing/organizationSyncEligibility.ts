@@ -36,6 +36,17 @@ export async function assertOrganizationIsSyncEntitled(
   }
 }
 
+/** Rejects every sync operation once destructive organization purge starts. */
+export async function assertOrganizationSyncEndpointAvailable(
+  executor: DatabaseSession,
+  organizationId: string,
+): Promise<void> {
+  const billing = await resolveOrganizationBilling(executor, organizationId);
+  if (billing.status === "deleting" || billing.status === "purged") {
+    throw new OrganizationSyncDisabledError(organizationId, "billing_inactive");
+  }
+}
+
 /** Guards a content sync write by entitlement and the caller's stable seat. */
 export async function assertOrganizationCanSync(
   executor: DatabaseSession,

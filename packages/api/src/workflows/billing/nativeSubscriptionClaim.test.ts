@@ -193,6 +193,62 @@ test("atomically moves a native subscription between personal organizations", as
   ).toEqual({ duplicate: true, sourceOrganizationId: null });
 });
 
+test("moving a native subscription preserves a purged source generation", async () => {
+  const previous = await registerPersonalOrganization();
+  const destination = await registerPersonalOrganization();
+  const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);
+  const purgedAt = new Date("2030-01-02T00:00:00Z");
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: previous.user.userId,
+      providerProductId: nativeSubscription.productId,
+      providerSubscriptionId: nativeSubscription.subscriptionId,
+      purgedAt,
+      seatCount: 5,
+      status: "purged",
+    })
+    .where(eq(organizationBilling.organizationId, previous.organizationId));
+
+  await runClaimNativeSubscriptionWorkflow({
+    appUserId: destination.user.userId,
+    db,
+    organizationId: destination.organizationId,
+    requireSessionAccess: false,
+    sourceId: crypto.randomUUID(),
+    subscription: nativeSubscription,
+  });
+
+  const [source] = await db
+    .select({
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      purgedAt: organizationBilling.purgedAt,
+      seatCount: organizationBilling.seatCount,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, previous.organizationId));
+  expect(source).toEqual({
+    providerSubscriptionId: null,
+    purgedAt,
+    seatCount: 0,
+    status: "purged",
+  });
+  await expect(
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: previous.user.userId,
+      db,
+      organizationId: previous.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: nativeSubscription,
+    }),
+  ).rejects.toThrow(
+    "Organization purge is terminal; provision a replacement organization",
+  );
+});
+
 test("rejects custom organizations and Stripe-bound destinations", async () => {
   const destination = await registerPersonalOrganization();
   const customOrganizationId = crypto.randomUUID();
@@ -280,6 +336,30 @@ test("rejects unknown products and a different destination subscription", async 
   ).rejects.toThrow(
     "The personal organization already has a different subscription",
   );
+});
+
+test("rejects native claims for deleting and purged organization generations", async () => {
+  const destination = await registerPersonalOrganization();
+  for (const status of ["deleting", "purged"] as const) {
+    await db
+      .update(organizationBilling)
+      .set({ status })
+      .where(
+        eq(organizationBilling.organizationId, destination.organizationId),
+      );
+    await expect(
+      runClaimNativeSubscriptionWorkflow({
+        appUserId: destination.user.userId,
+        db,
+        organizationId: destination.organizationId,
+        requireSessionAccess: false,
+        sourceId: crypto.randomUUID(),
+        subscription: subscription(crypto.randomUUID()),
+      }),
+    ).rejects.toThrow(
+      "Organization purge is terminal; provision a replacement organization",
+    );
+  }
 });
 
 /** The API package runs this concurrency case on memory and SQLite adapters. */

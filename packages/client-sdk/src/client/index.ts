@@ -229,12 +229,14 @@ export type {
   SecurityIncidentObjectKind,
   SecurityIncidents,
 } from "./securityIncidents";
+export { PurgedOrganizationRecoveryBillingRequiredError } from "./session/sessionRecoveryErrors";
 export type {
   CreateOrganizationOptions,
   Session,
   SessionContext,
   SessionCreateOrganizationResult,
   SessionListener,
+  SessionRecoverOrganizationResult,
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,

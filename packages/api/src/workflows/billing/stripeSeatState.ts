@@ -193,6 +193,7 @@ async function bindOrganizationStripeSeatsInTransaction(
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
       seatCount: organizationBilling.seatCount,
       seatPeriodKey: organizationBilling.seatPeriodKey,
+      status: organizationBilling.status,
     })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, binding.organizationId))
@@ -202,6 +203,9 @@ async function bindOrganizationStripeSeatsInTransaction(
     : await billingQuery.for("update", { of: organizationBilling });
   if (!billing) {
     throw new Error("Organization billing not found for Stripe subscription");
+  }
+  if (billing.status === "deleting" || billing.status === "purged") {
+    return { status: "stale" };
   }
 
   const [current] = await executor

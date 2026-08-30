@@ -1,6 +1,7 @@
 import {
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -148,7 +149,11 @@ export const organizationRosterEntries = pgTable(
  *   fixed for an idempotent retry and the token rotates after expiry.
  * - `disabledAt` / `purgeAfter`: Set when sync lapses. The purge job may delete
  *   the organization's remote sync data after `purgeAfter`.
- * - `purgeStartedAt` / `purgedAt`: Purge job progress markers.
+ * - `purgeStartedAt` / `purgeLeaseId` / `purgedAt`: Purge job progress and
+ *   fencing markers.
+ * - `replacementOrganizationId` / `replacementProvisioningResponse`: Durable
+ *   old-to-new personal-organization handoff. These make a lost provisioning
+ *   response retryable after the user's default pointer has moved.
  * - `createdAt` / `updatedAt`: Server-side row timestamps.
  */
 export const organizationBilling = pgTable(
@@ -187,7 +192,12 @@ export const organizationBilling = pgTable(
     disabledAt: timestamp("disabled_at"),
     purgeAfter: timestamp("purge_after"),
     purgeStartedAt: timestamp("purge_started_at"),
+    purgeLeaseId: uuid("purge_lease_id"),
     purgedAt: timestamp("purged_at"),
+    replacementOrganizationId: uuid("replacement_organization_id"),
+    replacementProvisioningResponse: jsonb(
+      "replacement_provisioning_response",
+    ).$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

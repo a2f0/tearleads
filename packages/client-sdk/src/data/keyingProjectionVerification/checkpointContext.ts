@@ -9,6 +9,7 @@ import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnfo
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
+  organizationId?: string | undefined;
   readonly policies: AnyVerifiedPrincipalPolicy[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
@@ -16,6 +17,7 @@ export interface ProjectionCheckpointContext {
 
 export function createProjectionCheckpointContext(input: {
   readonly execSql: ExecSql;
+  readonly organizationId?: string | undefined;
 }): ProjectionCheckpointContext {
   if (typeof input.execSql !== "function") {
     throw new KeyingVerificationError(
@@ -26,6 +28,7 @@ export function createProjectionCheckpointContext(input: {
 
   return {
     execSql: input.execSql,
+    organizationId: input.organizationId,
     policies: [],
     verifiedHeads: [],
     verifiedManifests: [],
@@ -46,7 +49,19 @@ export function observeAccessManifestCheckpoints(
 export function observePrincipalPolicy(
   context: ProjectionCheckpointContext,
   policy: AnyVerifiedPrincipalPolicy,
+  organizationId?: string | undefined,
 ): void {
+  if (
+    organizationId !== undefined &&
+    context.organizationId !== undefined &&
+    context.organizationId !== organizationId
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "projection checkpoint batch crosses organization ownership",
+    );
+  }
+  context.organizationId ??= organizationId;
   context.policies.push(policy);
 }
 
@@ -60,6 +75,7 @@ export async function commitProjectionCheckpoints(
   await enforceAccessManifestCheckpoints({
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: input?.execSql ?? context.execSql,
+    organizationId: context.organizationId,
     policies: context.policies,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,

@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -15,12 +15,11 @@ import {
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
+  accessManifestCheckpoints,
   clientSqlTables,
   containerCreateIntents,
   containerHydrationTombstones,
   containerMoveIntents,
-  containerSyncLaneChecks,
-  containerSyncWatermarks,
   containers,
   documentAttachmentBlobProjection,
   documentContainerProjection,
@@ -30,7 +29,13 @@ import {
   documentProjection,
   documentSyncFailures,
   documents,
+  dormantContainerMetadata,
+  dormantMetadataSweepRequests,
   principalPolicies,
+  principalPolicyBundleHistory,
+  principalPolicyBundleReferences,
+  principalPolicyCheckpoints,
+  principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -39,28 +44,26 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
+import { clearResetPendingAttachments } from "./remoteResetAttachments";
+import { remoteResetBatches } from "./remoteResetBatches";
+import { clearRemoteResetSyncCursors } from "./remoteResetCursorScope";
 import {
   buildResetPlans,
   type ResetAttachmentUpload,
   type ResetDocumentUpdate,
 } from "./remoteResetPlans";
+import {
+  type RemoteResetInput,
+  type RemoteSyncStateSnapshot,
+  readRemoteSyncStateSnapshot,
+} from "./remoteResetScope";
+
+export type {
+  RemoteResetInput,
+  RemoteResetReplacement,
+} from "./remoteResetScope";
 
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
-
-interface ResetContainerRow {
-  readonly id: string | null;
-  readonly parentId: string | null;
-}
-
-interface RemoteSyncStateSnapshot {
-  readonly clearedContainerCreateIntentCount: number;
-  readonly clearedContainerMoveIntentCount: number;
-  readonly clearedDocumentMoveIntentCount: number;
-  readonly clearedPrincipalPolicyCount: number;
-  readonly clearedSyncCursorCount: number;
-  readonly containerRows: ResetContainerRow[];
-  readonly resetDocumentCount: number;
-}
 
 export interface ClearRemoteSyncStateResult {
   readonly clearedContainerCreateIntentCount: number;
@@ -75,114 +78,228 @@ export interface ClearRemoteSyncStateResult {
   readonly resetDocumentCount: number;
 }
 
-async function readRemoteSyncStateSnapshot(
+async function clearOrganizationPresentationRows(
   tx: ClientSQLiteTransactionScope,
-): Promise<RemoteSyncStateSnapshot> {
-  const containerRows = await tx
-    .select({ id: containers.id, parentId: containers.parentId })
-    .from(containers);
-  const principalPolicyRows = await tx
-    .select({ principalId: principalPolicies.principalId })
-    .from(principalPolicies);
-  const documentMoveIntentRows = await tx
-    .select({ id: documentMoveIntents.id })
-    .from(documentMoveIntents);
-  const containerMoveIntentRows = await tx
-    .select({ id: containerMoveIntents.id })
-    .from(containerMoveIntents);
-  const containerCreateIntentRows = await tx
-    .select({ id: containerCreateIntents.id })
-    .from(containerCreateIntents);
-  const syncWatermarkRows = await tx
-    .select({ laneId: containerSyncWatermarks.laneId })
-    .from(containerSyncWatermarks);
-  const syncLaneCheckRows = await tx
-    .select({ laneId: containerSyncLaneChecks.laneId })
-    .from(containerSyncLaneChecks);
-  const documentRows = await tx
-    .select({ appKind: documents.appKind, localId: documents.localId })
-    .from(documents);
-
-  return {
-    clearedContainerCreateIntentCount: containerCreateIntentRows.length,
-    clearedContainerMoveIntentCount: containerMoveIntentRows.length,
-    clearedDocumentMoveIntentCount: documentMoveIntentRows.length,
-    clearedPrincipalPolicyCount: principalPolicyRows.length,
-    clearedSyncCursorCount: syncWatermarkRows.length + syncLaneCheckRows.length,
-    containerRows,
-    resetDocumentCount: documentRows.length,
-  };
+  organizationId: string,
+): Promise<void> {
+  for (const table of [
+    organizationDataUsageCategories,
+    organizationDataUsageSnapshots,
+    organizationReadModelContainerGrants,
+    organizationReadModelGroupMembers,
+    organizationReadModelGroupMemberships,
+    organizationReadModelDirectoryUsers,
+    organizationReadModelGroups,
+    organizationReadModelPolicyHeads,
+    organizationReadModelRequesters,
+    organizationReadModelState,
+    organizationPresentationDenials,
+  ] as const) {
+    await tx
+      .delete(table)
+      .where(eq(table.organizationId, organizationId))
+      .run();
+  }
 }
 
-async function clearRemoteDerivedRows(
-  tx: ClientSQLiteTransactionScope,
-): Promise<void> {
-  await tx.delete(organizationDataUsageCategories).run();
-  await tx.delete(organizationDataUsageSnapshots).run();
-  await tx.delete(organizationReadModelContainerGrants).run();
-  await tx.delete(organizationReadModelGroupMembers).run();
-  await tx.delete(organizationReadModelGroupMemberships).run();
-  await tx.delete(organizationReadModelDirectoryUsers).run();
-  await tx.delete(organizationReadModelGroups).run();
-  await tx.delete(organizationReadModelPolicyHeads).run();
-  await tx.delete(organizationReadModelRequesters).run();
-  await tx.delete(organizationReadModelState).run();
-  // A reset denial is a local lifecycle event, not a server verdict: the next
-  // session re-derives access, so durable denial markers must not survive.
-  await tx.delete(organizationPresentationDenials).run();
-  await tx.delete(principalPolicies).run();
-  await tx.delete(documentContainerProjection).run();
-  await tx.delete(documentMoveIntents).run();
-  await tx.delete(containerMoveIntents).run();
-  await tx.delete(containerSyncWatermarks).run();
-  await tx.delete(containerSyncLaneChecks).run();
-  await tx.delete(containerHydrationTombstones).run();
-  await tx.delete(containerCreateIntents).run();
-  await tx.delete(documentPendingUpdates).run();
-  // documentHistoryCheckpoints / documentHistoryUpdates are deliberately
-  // PRESERVED: they hold purely local Loro op history keyed by localId, which
-  // a remote reset does not invalidate — and they are the only durable content
-  // source, so deleting them would destroy every retained document's content.
-  // Recorded terminal failures describe pre-reset attempts; the rebuilt queue
-  // must not inherit them (nor keep the restore re-arm evidence gate armed).
-  await tx.delete(documentSyncFailures).run();
+interface ScopedRemoteRowsInput {
+  attachmentUploads: readonly ResetAttachmentUpload[];
+  organizationId: string;
+  snapshot: RemoteSyncStateSnapshot;
+  tx: ClientSQLiteTransactionScope;
 }
 
-async function resetRemoteColumns(
-  tx: ClientSQLiteTransactionScope,
-  now: string,
+async function clearScopedPrincipalRows(
+  input: ScopedRemoteRowsInput,
 ): Promise<void> {
-  await tx
-    .update(documents)
-    .set({
-      accessEpoch: 1,
-      accessStateHash: null,
-      contentKeyBundle: null,
-      documentId: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-      lastCommitLsn: null,
-      pullContinuation: null,
-      updatedAt: now,
-    })
-    .run();
-  // `organizationId` is the retained attribution for documents detached from a
-  // removed shared container; a reset clears every org binding, so it resets
-  // with them.
-  await tx
-    .update(documentProjection)
-    .set({ documentId: null, organizationId: null })
-    .run();
-  await tx
-    .update(containers)
-    .set({
-      metadataDocumentId: null,
-      organizationId: "",
-      serverCreatedAt: null,
-      serverUpdatedAt: null,
-      localUpdatedAt: now,
-    })
-    .run();
+  for (const principalBatch of remoteResetBatches(
+    input.snapshot.principalKeys,
+  )) {
+    for (const table of [
+      principalPolicies,
+      principalPolicyBundleHistory,
+      principalPolicyBundleReferences,
+      principalPolicyCheckpoints,
+      principalPolicyOrganizations,
+    ] as const) {
+      await input.tx
+        .delete(table)
+        .where(
+          or(
+            ...principalBatch.map((principal) =>
+              and(
+                eq(table.principalType, principal.principalType),
+                eq(table.principalId, principal.principalId),
+              ),
+            ),
+          ),
+        )
+        .run();
+    }
+  }
+}
+
+async function clearScopedContainerRows(
+  input: ScopedRemoteRowsInput,
+): Promise<void> {
+  for (const containerBatch of remoteResetBatches(
+    input.snapshot.containerIds,
+  )) {
+    await input.tx
+      .delete(documentContainerProjection)
+      .where(inArray(documentContainerProjection.containerId, containerBatch))
+      .run();
+    await input.tx
+      .delete(containerMoveIntents)
+      .where(inArray(containerMoveIntents.containerId, containerBatch))
+      .run();
+    await input.tx
+      .delete(containerCreateIntents)
+      .where(inArray(containerCreateIntents.containerId, containerBatch))
+      .run();
+    await input.tx
+      .delete(containerHydrationTombstones)
+      .where(inArray(containerHydrationTombstones.containerId, containerBatch))
+      .run();
+  }
+}
+
+async function clearScopedDocumentRows(
+  input: ScopedRemoteRowsInput,
+): Promise<void> {
+  const { snapshot, tx } = input;
+  for (const documentIdBatch of remoteResetBatches(snapshot.oldDocumentIds)) {
+    await tx
+      .delete(documentContainerProjection)
+      .where(inArray(documentContainerProjection.documentId, documentIdBatch))
+      .run();
+  }
+  await clearResetPendingAttachments({
+    attachmentUploads: input.attachmentUploads,
+    documentLocalIds: snapshot.documentLocalIds,
+    tx,
+  });
+  for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
+    await tx
+      .delete(documentMoveIntents)
+      .where(inArray(documentMoveIntents.localId, localIdBatch))
+      .run();
+  }
+  for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
+    await tx
+      .delete(documentPendingUpdates)
+      .where(
+        or(
+          ...documentBatch.map((row) =>
+            and(
+              eq(documentPendingUpdates.appKind, row.appKind),
+              eq(documentPendingUpdates.localId, row.localId),
+            ),
+          ),
+        ),
+      )
+      .run();
+    await tx
+      .delete(documentSyncFailures)
+      .where(
+        or(
+          ...documentBatch.map((row) =>
+            and(
+              eq(documentSyncFailures.appKind, row.appKind),
+              eq(documentSyncFailures.localId, row.localId),
+            ),
+          ),
+        ),
+      )
+      .run();
+  }
+}
+
+async function clearScopedRemoteRows(
+  input: ScopedRemoteRowsInput,
+): Promise<void> {
+  const { organizationId, tx } = input;
+  await clearOrganizationPresentationRows(tx, organizationId);
+  for (const table of [
+    accessManifestCheckpoints,
+    dormantContainerMetadata,
+    dormantMetadataSweepRequests,
+  ] as const) {
+    await tx
+      .delete(table)
+      .where(eq(table.organizationId, organizationId))
+      .run();
+  }
+  await clearScopedPrincipalRows(input);
+  await clearScopedContainerRows(input);
+  await clearScopedDocumentRows(input);
+  await clearRemoteResetSyncCursors({
+    containerIds: input.snapshot.containerIds,
+    organizationId,
+    tx,
+  });
+}
+
+async function resetRemoteColumns(input: {
+  now: string;
+  reset: RemoteResetInput;
+  snapshot: RemoteSyncStateSnapshot;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  const { now, reset, snapshot, tx } = input;
+  for (const row of snapshot.documentRows) {
+    await tx
+      .update(documents)
+      .set({
+        accessEpoch: 1,
+        accessStateHash: null,
+        contentKeyBundle: null,
+        documentId: null,
+        documentKekTargets: null,
+        documentManifestBundle: null,
+        lastCommitLsn: null,
+        pullContinuation: null,
+        recoveryDocumentId: row.documentId ?? row.recoveryDocumentId,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(documents.appKind, row.appKind),
+          eq(documents.localId, row.localId),
+        ),
+      )
+      .run();
+  }
+  for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
+    await tx
+      .update(documentProjection)
+      .set({
+        documentId: null,
+        organizationId:
+          reset.replacement?.organizationId ?? reset.organizationId,
+      })
+      .where(inArray(documentProjection.localId, localIdBatch))
+      .run();
+  }
+  for (const row of snapshot.containerRows) {
+    await tx
+      .update(containers)
+      .set({
+        metadataDocumentId: null,
+        organizationId:
+          reset.replacement?.organizationId ?? reset.organizationId,
+        parentId:
+          reset.replacement && row.parentId === null
+            ? reset.replacement.rootContainerId
+            : row.parentId,
+        serverCreatedAt: null,
+        serverUpdatedAt: null,
+        ...(reset.replacement ? { systemSlot: null } : {}),
+        localUpdatedAt: now,
+      })
+      .where(eq(containers.id, row.id))
+      .run();
+  }
 }
 
 async function queueResetDocumentUpdates(input: {
@@ -190,64 +307,53 @@ async function queueResetDocumentUpdates(input: {
   now: string;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  if (input.documentUpdates.length === 0) {
-    return;
+  for (const updateBatch of remoteResetBatches(input.documentUpdates)) {
+    await input.tx
+      .insert(documentPendingUpdates)
+      .values(
+        updateBatch.map((update) => ({
+          ...update,
+          id: crypto.randomUUID(),
+          createdAt: input.now,
+        })),
+      )
+      .run();
   }
-
-  await input.tx
-    .insert(documentPendingUpdates)
-    .values(
-      input.documentUpdates.map((update) => ({
-        id: crypto.randomUUID(),
-        appKind: update.appKind,
-        localId: update.localId,
-        updateData: update.updateData,
-        partialStartVersionVector: update.partialStartVersionVector,
-        partialEndVersionVector: update.partialEndVersionVector,
-        sourceVersionVector: update.sourceVersionVector,
-        createdAt: input.now,
-      })),
-    )
-    .run();
 }
 
 async function queueResetContainerCreates(input: {
-  containerRows: readonly ResetContainerRow[];
   now: string;
+  reset: RemoteResetInput;
+  snapshot: RemoteSyncStateSnapshot;
   tx: ClientSQLiteTransactionScope;
 }): Promise<number> {
-  const containerRows = input.containerRows.filter(
-    (
-      container,
-    ): container is ResetContainerRow & {
-      readonly id: string;
-      readonly parentId: string;
-    } => container.id !== null && container.parentId !== null,
-  );
-  if (containerRows.length === 0) {
-    return 0;
+  const rows = input.snapshot.containerRows.flatMap((row) => {
+    const parentId =
+      row.parentId ?? input.reset.replacement?.rootContainerId ?? null;
+    return parentId ? [{ id: row.id, parentId }] : [];
+  });
+  if (rows.length === 0) return 0;
+  for (const rowBatch of remoteResetBatches(rows)) {
+    await input.tx
+      .insert(containerCreateIntents)
+      .values(
+        rowBatch.map((row) => ({
+          id: crypto.randomUUID(),
+          containerId: row.id,
+          parentContainerId: row.parentId,
+          intentType: CONTAINER_CREATE_INTENT_TYPE,
+          syncStatus: "pending" as const,
+          remoteContainerId: null,
+          remoteMetadataAccessStateHash: null,
+          remoteMetadataDocumentId: null,
+          lastError: null,
+          createdAt: input.now,
+          updatedAt: input.now,
+        })),
+      )
+      .run();
   }
-
-  await input.tx
-    .insert(containerCreateIntents)
-    .values(
-      containerRows.map((container) => ({
-        id: crypto.randomUUID(),
-        containerId: container.id,
-        parentContainerId: container.parentId,
-        intentType: CONTAINER_CREATE_INTENT_TYPE,
-        syncStatus: "pending" as const,
-        remoteContainerId: null,
-        remoteMetadataAccessStateHash: null,
-        remoteMetadataDocumentId: null,
-        lastError: null,
-        createdAt: input.now,
-        updatedAt: input.now,
-      })),
-    )
-    .run();
-
-  return containerRows.length;
+  return rows.length;
 }
 
 async function queueResetAttachmentUploads(input: {
@@ -255,41 +361,21 @@ async function queueResetAttachmentUploads(input: {
   now: string;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  if (input.attachmentUploads.length > 0) {
+  for (const attachmentBatch of remoteResetBatches(input.attachmentUploads)) {
     await input.tx
       .insert(documentPendingAttachments)
       .values(
-        input.attachmentUploads.map((attachment) => ({
-          byteLength: attachment.byteLength,
+        attachmentBatch.map((attachment) => ({
+          ...attachment,
           createdAt: input.now,
-          localId: attachment.localId,
-          mimeType: attachment.mimeType,
-          name: attachment.name,
-          slotId: attachment.slotId,
-          storageKey: attachment.storageKey,
         })),
       )
-      .onConflictDoNothing({
-        target: [
-          documentPendingAttachments.localId,
-          documentPendingAttachments.slotId,
-        ],
-      })
       .run();
-  }
-
-  // Drop only the rows this requeued. What is left belongs to slots the
-  // document no longer advertises: those rows are not remote-derived state but
-  // the markers that still own an unlinked slot's local bytes, and this
-  // workflow has no blob store to delete those bytes itself. Keeping them lets
-  // the document lane's usual detach cleanup delete the row and the bytes
-  // together, instead of stranding bytes nothing references.
-  if (input.attachmentUploads.length > 0) {
     await input.tx
       .delete(documentAttachmentBlobProjection)
       .where(
         or(
-          ...input.attachmentUploads.map((attachment) =>
+          ...attachmentBatch.map((attachment) =>
             and(
               eq(documentAttachmentBlobProjection.localId, attachment.localId),
               eq(documentAttachmentBlobProjection.slotId, attachment.slotId),
@@ -303,20 +389,28 @@ async function queueResetAttachmentUploads(input: {
 
 async function clearRemoteSyncStateInTransaction(input: {
   plans: Awaited<ReturnType<typeof buildResetPlans>>;
+  reset: RemoteResetInput;
+  snapshot: RemoteSyncStateSnapshot;
   tx: ClientSQLiteTransactionScope;
 }): Promise<ClearRemoteSyncStateResult> {
   const now = new Date().toISOString();
-  const snapshot = await readRemoteSyncStateSnapshot(input.tx);
-  await clearRemoteDerivedRows(input.tx);
-  await resetRemoteColumns(input.tx, now);
+  const { snapshot } = input;
+  await clearScopedRemoteRows({
+    attachmentUploads: input.plans.attachmentUploads,
+    organizationId: input.reset.organizationId,
+    snapshot,
+    tx: input.tx,
+  });
+  await resetRemoteColumns({ now, reset: input.reset, snapshot, tx: input.tx });
   await queueResetDocumentUpdates({
     documentUpdates: input.plans.documentUpdates,
     now,
     tx: input.tx,
   });
   const queuedContainerCreateCount = await queueResetContainerCreates({
-    containerRows: snapshot.containerRows,
     now,
+    reset: input.reset,
+    snapshot,
     tx: input.tx,
   });
   await queueResetAttachmentUploads({
@@ -324,26 +418,61 @@ async function clearRemoteSyncStateInTransaction(input: {
     now,
     tx: input.tx,
   });
-  const { containerRows, ...counts } = snapshot;
-
   return {
-    ...counts,
+    clearedContainerCreateIntentCount:
+      snapshot.clearedContainerCreateIntentCount,
+    clearedContainerMoveIntentCount: snapshot.clearedContainerMoveIntentCount,
+    clearedDocumentMoveIntentCount: snapshot.clearedDocumentMoveIntentCount,
+    clearedPrincipalPolicyCount: snapshot.clearedPrincipalPolicyCount,
+    clearedSyncCursorCount: snapshot.clearedSyncCursorCount,
     queuedAttachmentUploadCount: input.plans.attachmentUploads.length,
     queuedContainerCreateCount,
     queuedDocumentUpdateCount: input.plans.documentUpdates.length,
-    resetContainerCount: containerRows.length,
+    resetContainerCount: snapshot.containerRows.length,
+    resetDocumentCount: snapshot.documentRows.length,
   };
 }
 
 export async function clearRemoteSyncState(
   execSql: ExecSql,
+  reset: RemoteResetInput,
+  canCommit?: (() => boolean) | undefined,
 ): Promise<ClearRemoteSyncStateResult> {
-  return runOrganizationPresentationReset(execSql, async () => {
-    await ensureSqlTables(execSql, clientSqlTables);
-    const plans = await buildResetPlans(execSql);
-
-    return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
-      clearRemoteSyncStateInTransaction({ plans, tx }),
-    );
-  });
+  return runOrganizationPresentationReset(
+    execSql,
+    reset.organizationId,
+    async () => {
+      await ensureSqlTables(execSql, clientSqlTables);
+      const runtime = getClientSQLitePersistenceRuntime(execSql);
+      const resetInTransaction = async (tx: ClientSQLiteTransactionScope) => {
+        if (canCommit && !canCommit()) {
+          throw new Error(
+            "Remote sync reset aborted: session identity changed",
+          );
+        }
+        const snapshot = await readRemoteSyncStateSnapshot(
+          tx,
+          reset.organizationId,
+        );
+        const plans = await buildResetPlans(tx, snapshot.documentRows);
+        return clearRemoteSyncStateInTransaction({
+          plans,
+          reset,
+          snapshot,
+          tx,
+        });
+      };
+      if (!canCommit) {
+        return runtime.transaction(resetInTransaction);
+      }
+      const outcome = await runtime.guardedTransaction(
+        resetInTransaction,
+        canCommit,
+      );
+      if (!outcome.committed || !outcome.result) {
+        throw new Error("Remote sync reset aborted: session identity changed");
+      }
+      return outcome.result;
+    },
+  );
 }

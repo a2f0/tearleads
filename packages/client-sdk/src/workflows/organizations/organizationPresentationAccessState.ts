@@ -22,14 +22,15 @@ interface ProjectionAccessState {
 }
 
 interface AccessScopeState {
+  readonly organizationId: string;
   readonly readModel: ProjectionAccessState;
   readonly usage: ProjectionAccessState;
 }
 
 interface AccessExecutorState {
-  generation: number;
+  readonly generationByOrganization: Map<string, number>;
   mutationQueue?: Promise<void> | undefined;
-  resetDepth: number;
+  readonly resetDepthByOrganization: Map<string, number>;
   readonly scopes: Map<string, AccessScopeState>;
 }
 
@@ -54,8 +55,8 @@ function accessExecutorState(execSql: ExecSql): AccessExecutorState {
   let state = accessByExecutor.get(execSql);
   if (!state) {
     state = {
-      generation: 0,
-      resetDepth: 0,
+      generationByOrganization: new Map(),
+      resetDepthByOrganization: new Map(),
       scopes: new Map(),
     };
     accessByExecutor.set(execSql, state);
@@ -67,6 +68,20 @@ function newProjectionState(denied: boolean): ProjectionAccessState {
   return { denied, deniedByServer: false, generation: 0 };
 }
 
+function organizationResetDepth(
+  executor: AccessExecutorState,
+  organizationId: string,
+): number {
+  return executor.resetDepthByOrganization.get(organizationId) ?? 0;
+}
+
+function organizationGeneration(
+  executor: AccessExecutorState,
+  organizationId: string,
+): number {
+  return executor.generationByOrganization.get(organizationId) ?? 0;
+}
+
 function accessScopeState(
   executor: AccessExecutorState,
   organizationId: string,
@@ -75,8 +90,9 @@ function accessScopeState(
   const key = organizationAccessScopeKey(organizationId, requesterUserId);
   let scope = executor.scopes.get(key);
   if (!scope) {
-    const denied = executor.resetDepth > 0;
+    const denied = organizationResetDepth(executor, organizationId) > 0;
     scope = {
+      organizationId,
       readModel: newProjectionState(denied),
       usage: newProjectionState(denied),
     };
@@ -102,11 +118,12 @@ export function captureOrganizationPresentationAccessAttempt(
     projection,
   );
   return {
-    executorGeneration: executor.generation,
+    executorGeneration: organizationGeneration(executor, input.organizationId),
     projection,
     projectionGeneration: state.generation,
     startedDenied: state.denied,
-    startedDuringReset: executor.resetDepth > 0,
+    startedDuringReset:
+      organizationResetDepth(executor, input.organizationId) > 0,
   };
 }
 
@@ -121,8 +138,9 @@ export function isOrganizationPresentationAccessAttemptCurrent(
   );
   return (
     !attempt.startedDuringReset &&
-    executor.resetDepth === 0 &&
-    executor.generation === attempt.executorGeneration &&
+    organizationResetDepth(executor, input.organizationId) === 0 &&
+    organizationGeneration(executor, input.organizationId) ===
+      attempt.executorGeneration &&
     state.generation === attempt.projectionGeneration
   );
 }
@@ -136,7 +154,10 @@ export function isOrganizationPresentationAccessReadable(
     accessScopeState(executor, input.organizationId, input.requesterUserId),
     projection,
   );
-  return executor.resetDepth === 0 && !state.denied;
+  return (
+    organizationResetDepth(executor, input.organizationId) === 0 &&
+    !state.denied
+  );
 }
 
 export function denyOrganizationPresentationAccess(
@@ -216,11 +237,21 @@ export async function runOrganizationPresentationRead<T>(
     : null;
 }
 
-function beginOrganizationPresentationAccessReset(execSql: ExecSql): void {
+function beginOrganizationPresentationAccessReset(
+  execSql: ExecSql,
+  organizationId: string,
+): void {
   const executor = accessExecutorState(execSql);
-  executor.generation += 1;
-  executor.resetDepth += 1;
+  executor.generationByOrganization.set(
+    organizationId,
+    organizationGeneration(executor, organizationId) + 1,
+  );
+  executor.resetDepthByOrganization.set(
+    organizationId,
+    organizationResetDepth(executor, organizationId) + 1,
+  );
   for (const scope of executor.scopes.values()) {
+    if (scope.organizationId !== organizationId) continue;
     // A reset denies presentation locally but is not a server denial: the next
     // session re-derives server state, and startup sync already re-drives the
     // lanes, so the lost-access memory must not survive into it.
@@ -231,9 +262,20 @@ function beginOrganizationPresentationAccessReset(execSql: ExecSql): void {
   }
 }
 
-function finishOrganizationPresentationAccessReset(execSql: ExecSql): void {
+function finishOrganizationPresentationAccessReset(
+  execSql: ExecSql,
+  organizationId: string,
+): void {
   const executor = accessExecutorState(execSql);
-  executor.resetDepth = Math.max(0, executor.resetDepth - 1);
+  const nextDepth = Math.max(
+    0,
+    organizationResetDepth(executor, organizationId) - 1,
+  );
+  if (nextDepth === 0) {
+    executor.resetDepthByOrganization.delete(organizationId);
+  } else {
+    executor.resetDepthByOrganization.set(organizationId, nextDepth);
+  }
 }
 
 export async function runOrganizationPresentationMutation<T>(
@@ -263,12 +305,13 @@ export async function runOrganizationPresentationMutation<T>(
 
 export async function runOrganizationPresentationReset<T>(
   execSql: ExecSql,
+  organizationId: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  beginOrganizationPresentationAccessReset(execSql);
+  beginOrganizationPresentationAccessReset(execSql, organizationId);
   try {
     return await runOrganizationPresentationMutation(execSql, operation);
   } finally {
-    finishOrganizationPresentationAccessReset(execSql);
+    finishOrganizationPresentationAccessReset(execSql, organizationId);
   }
 }

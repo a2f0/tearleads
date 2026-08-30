@@ -24,16 +24,21 @@ interface ReclaimDereferencedBlobsSummary {
   readonly deletedObjectCount: number;
 }
 
+interface ReclaimDereferencedBlobsHooks {
+  readonly assertObjectDeletionLease: () => Promise<void>;
+}
+
 async function drainPendingBlobObjectDeletions(
   runtime: ApiServiceRuntime,
   input: ReclaimDereferencedBlobsInput,
+  hooks?: ReclaimDereferencedBlobsHooks,
 ) {
   let deletedObjectCount = 0;
   const failures: unknown[] = [];
-  const pendingDeletions = await listPendingBlobObjectDeletions(
-    runtime.db,
-    input.limit === undefined ? {} : { limit: input.limit },
-  );
+  const pendingDeletions = await listPendingBlobObjectDeletions(runtime.db, {
+    ...(input.blobIds === undefined ? {} : { blobIds: input.blobIds }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+  });
   for (
     let start = 0;
     start < pendingDeletions.length;
@@ -43,6 +48,7 @@ async function drainPendingBlobObjectDeletions(
       start,
       start + OBJECT_DELETE_CONCURRENCY,
     );
+    await hooks?.assertObjectDeletionLease();
     await Promise.all(
       batch.map(async (pending) => {
         try {
@@ -63,6 +69,7 @@ async function drainPendingBlobObjectDeletions(
         }
       }),
     );
+    await hooks?.assertObjectDeletionLease();
   }
 
   return { deletedObjectCount, failures };
@@ -75,6 +82,7 @@ async function drainPendingBlobObjectDeletions(
 export async function reclaimDereferencedBlobs(
   runtime: ApiServiceRuntime,
   input: ReclaimDereferencedBlobsInput = {},
+  hooks?: ReclaimDereferencedBlobsHooks,
 ): Promise<ReclaimDereferencedBlobsSummary> {
   const reclaimAttempt = await runReclaimDereferencedBlobsWorkflow(
     runtime.db,
@@ -83,7 +91,11 @@ export async function reclaimDereferencedBlobs(
     (result) => ({ ok: true as const, result }),
     (error: unknown) => ({ error, ok: false as const }),
   );
-  const deletionSummary = await drainPendingBlobObjectDeletions(runtime, input);
+  const deletionSummary = await drainPendingBlobObjectDeletions(
+    runtime,
+    input,
+    hooks,
+  );
   if (!reclaimAttempt.ok || deletionSummary.failures.length > 0) {
     const failures = [
       ...(reclaimAttempt.ok ? [] : [reclaimAttempt.error]),

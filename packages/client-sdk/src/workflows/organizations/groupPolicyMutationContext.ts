@@ -102,6 +102,7 @@ export async function cacheGroupPolicy(input: {
   readonly expectedCurrentHead?: ReferencedPrincipalHead | undefined;
   readonly groupId: string;
   readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
+  readonly organizationId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<PrincipalPolicyBundleResponse> {
   const bundle = await input.apiClient.getCurrentPrincipalPolicy(
@@ -140,12 +141,14 @@ export async function cacheGroupPolicy(input: {
   await advanceKeyingCheckpointsAtomically({
     access: [],
     execSql: input.execSql,
+    organizationId: input.organizationId,
     policies: [verified],
   });
   await savePrincipalPolicyBundle(
     input.execSql,
     bundle,
     new Date().toISOString(),
+    input.organizationId,
   );
   return bundle;
 }
@@ -223,6 +226,7 @@ export async function loadGroupPolicyMutationContext(input: {
       { bundle: currentPolicy, policy: verified },
     ],
     execSql: input.execSql,
+    organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
   });
 
@@ -304,6 +308,7 @@ export async function commitGroupPolicyMutation(input: {
       },
     ],
     execSql: input.execSql,
+    organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
   });
   return storedPolicy;

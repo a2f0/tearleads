@@ -18,9 +18,9 @@ import {
   loadAllPrincipalPolicyBundles,
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
-  retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "./principalPolicyPersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "./verifiedPrincipalPolicyRetentionPersistence";
 
 async function createPrincipalPolicyBundle() {
   const principalKem = generateKemSeedAndKeyPair();

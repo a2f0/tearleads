@@ -15,7 +15,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; and verified, explicitly organization-scoped native-subscription claims invoked by the atomic `PurchasesCapability.moveNativeSubscription` flow. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
-| `sync` | Platform runtime | Shared sync coordinator helpers. |
+| `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
 The documents facade also admits explicit `historyMode: "raw"` reads through
 `syncRemoteDocument`. A raw consumer must start at a null version vector, send
@@ -30,6 +30,15 @@ The `sync` facade exposes read-only coordinator snapshots through
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
+`clearRemoteSyncState(execSql, { organizationId })` clears only one
+organization's remote-derived rows and cursor lanes while retaining local Loro
+history for republish. A post-purge replacement supplies a fresh organization
+and root through `replacement`; normal session consumers use
+`session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
+method exposes the replacement id through
+`PurgedOrganizationRecoveryBillingRequiredError` until that replacement has
+sync-eligible billing; only then does it rebind retained local data and finalize
+the server default-organization pointer.
 
 Provider-neutral purchase errors live in
 `client/billing/purchaseErrors.ts`, outside the organization workflow

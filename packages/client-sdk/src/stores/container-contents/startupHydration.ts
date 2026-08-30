@@ -24,7 +24,7 @@ interface StartupHydrationState {
   >;
   rootLaneHydrated: boolean;
   runtime: {
-    auth: { isAuthenticated: boolean };
+    auth: { isAuthenticated: boolean; organizationId?: string | null };
     infra: { execSql: StartupHydrationExecSql };
     state: { containerId: string | null; online: boolean };
   };
@@ -56,7 +56,10 @@ async function getStaleStartupRemoteHydrationParentIds(
 ): Promise<Array<string | null> | null> {
   const parentIds = [null, ...state.containersById.keys()];
   const syncLanes = parentIds.map((parentId) =>
-    createContainerParentSyncLane(parentId),
+    createContainerParentSyncLane(
+      parentId,
+      state.runtime.auth.organizationId ?? undefined,
+    ),
   );
   const checkRecords = await loadContainerSyncLaneCheckRecords(
     state.runtime.infra.execSql,

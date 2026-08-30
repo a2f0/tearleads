@@ -104,6 +104,9 @@ export interface ContainerContentsStoreWorkflowRuntime
 }
 
 export interface ContainerContentsWorkflowSqlRuntime {
+  readonly auth?: {
+    readonly organizationId?: string | null | undefined;
+  };
   readonly infra: {
     readonly execSql: ExecSql;
   };

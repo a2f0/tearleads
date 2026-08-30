@@ -36,6 +36,8 @@ const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
 
 export interface ReclaimDereferencedBlobsInput {
+  /** Restricts both database reclamation and object deletion to these blobs. */
+  readonly blobIds?: readonly string[];
   readonly now?: Date;
   readonly gracePeriodMs?: number;
   readonly limit?: number;
@@ -295,6 +297,10 @@ export async function runReclaimDereferencedBlobsWorkflow(
   const gracePeriodMs = input.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const cutoff = new Date(now.getTime() - gracePeriodMs);
   const limit = normalizeLimit(input.limit);
+  const scopedBlobIds = input.blobIds ? [...new Set(input.blobIds)] : undefined;
+  if (scopedBlobIds?.length === 0) {
+    return { reclaimedBlobIds: [], revivedBlobIds: [] };
+  }
 
   const candidateColumns = {
     dereferencedAt: blobs.dereferencedAt,
@@ -304,6 +310,7 @@ export async function runReclaimDereferencedBlobsWorkflow(
   const eligiblePredicate = and(
     isNotNull(blobs.dereferencedAt),
     lte(blobs.dereferencedAt, cutoff),
+    scopedBlobIds ? inArray(blobs.id, scopedBlobIds) : undefined,
   );
   const [newRows, retryRows] = await Promise.all([
     db

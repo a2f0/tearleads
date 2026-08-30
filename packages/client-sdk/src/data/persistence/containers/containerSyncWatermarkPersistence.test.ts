@@ -228,3 +228,36 @@ test("lane reads chunk under SQLite's bind-variable limit", async () => {
     close();
   }
 });
+
+test("root sync cursors are isolated by organization", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-sync-watermark-organization-scope-test",
+  );
+  try {
+    const first = containerParentSyncLane(null, "org-first");
+    const second = containerParentSyncLane(null, "org-second");
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, first, {
+      id: "first-root",
+      updatedAt: "2026-08-27T00:00:00.000Z",
+    });
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, second, {
+      id: "second-root",
+      updatedAt: "2026-08-27T00:01:00.000Z",
+    });
+
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, first),
+    ).resolves.toEqual({
+      id: "first-root",
+      updatedAt: "2026-08-27T00:00:00.000Z",
+    });
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermark(execSql, second),
+    ).resolves.toEqual({
+      id: "second-root",
+      updatedAt: "2026-08-27T00:01:00.000Z",
+    });
+  } finally {
+    close();
+  }
+});

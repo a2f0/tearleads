@@ -10,6 +10,7 @@ import {
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../registration/registerIdentity";
+import { makeOrganizationProvisioningAttemptDurable } from "./organizationProvisioningAttempt";
 
 export interface CreateOrganizationApi {
   createOrganization(
@@ -44,6 +45,8 @@ export interface CreateOrganizationInput {
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
+  /** Purged organization whose personal-org generation this replaces. */
+  replacesOrganizationId?: string | undefined;
   /** Overrides the seeded self roster-profile nickname; see registration. */
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -53,6 +56,31 @@ export interface CreateOrganizationInput {
    * authenticated session.
    */
   userId: string;
+}
+
+function isAdoptedReplacementResponse(input: {
+  creation: CreateOrganizationInput;
+  request: CreateOrganizationRequest;
+  response: CreateOrganizationResponse;
+}): boolean {
+  if (
+    input.response.organizationId === input.request.organizationId &&
+    input.response.rootContainerId === input.request.rootContainerId
+  ) {
+    return false;
+  }
+  if (
+    !input.creation.replacesOrganizationId ||
+    input.response.userId !== input.creation.userId
+  ) {
+    throw new Error(
+      "Organization provisioning returned an unexpected organization",
+    );
+  }
+  input.creation.log?.(
+    `Organization replacement adopted (${input.response.organizationId})`,
+  );
+  return true;
 }
 
 /**
@@ -78,35 +106,43 @@ export async function createOrganization(
     signingKeyPair: input.signingKeyPair,
     userId: input.userId,
   };
-  const artifacts: OrganizationProvisioningArtifacts =
+  const candidateArtifacts: OrganizationProvisioningArtifacts =
     await buildOrganizationProvisioningArtifacts(artifactsInput);
 
-  const request: CreateOrganizationRequest = {
-    userId: input.userId,
-    organizationId: artifacts.organizationId,
+  if (
+    input.replacesOrganizationId &&
+    input.isIdentityCurrent &&
+    !input.isIdentityCurrent()
+  ) {
+    input.log?.(
+      "Organization creation aborted: identity changed while building artifacts",
+    );
+    return null;
+  }
+
+  const durableAttempt = await makeOrganizationProvisioningAttemptDurable({
+    artifacts: candidateArtifacts,
+    canStartDurableMutation: input.isIdentityCurrent,
+    dbClient: input.dbClient,
+    replacesOrganizationId: input.replacesOrganizationId,
     rootContainerId,
-    initialAdminGroup: artifacts.initialAdminGroup,
-    initialMemberGroup: artifacts.initialMemberGroup,
-    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
-    initialRootContainer: artifacts.initialRootContainer,
-    initialRootMetadataDocument: artifacts.rootMetadataDocumentRequest,
-    initialRosterProfileContainer:
-      artifacts.rosterProfileBootstrap.containerRequest,
-    initialRosterProfileDocument:
-      artifacts.rosterProfileBootstrap.profileDocumentRequest,
-    initialOrganizationMetadataContainer:
-      artifacts.organizationMetadataBootstrap.containerRequest,
-    initialOrganizationProfileDocument:
-      artifacts.organizationMetadataBootstrap
-        .organizationProfileDocumentRequest,
-    initialSystemContainers: artifacts.systemContainerBootstraps.map(
-      (systemContainer) => systemContainer.containerRequest,
-    ),
-  };
+    userId: input.userId,
+  });
+  if (!durableAttempt) {
+    input.log?.(
+      "Organization creation aborted: identity changed before saving artifacts",
+    );
+    return null;
+  }
+  const {
+    artifacts,
+    request,
+    rootContainerId: durableRootContainerId,
+  } = durableAttempt;
 
   if (input.isIdentityCurrent && !input.isIdentityCurrent()) {
     input.log?.(
-      "Organization creation aborted: identity changed while building artifacts",
+      "Organization creation aborted: identity changed before provisioning",
     );
     return null;
   }
@@ -123,12 +159,20 @@ export async function createOrganization(
     return null;
   }
 
+  if (isAdoptedReplacementResponse({ creation: input, request, response })) {
+    // Another device won the serialized replacement race. Its encrypted
+    // bootstrap is server-authoritative and will hydrate normally; persisting
+    // this device's losing candidate would instead create an unrelated local
+    // root. The session reset rebinds retained local data to the winning ids.
+    return response;
+  }
+
   input.log?.(`Organization created (${response.organizationId})`);
   await persistOrganizationProvisioningState({
     bootstrap: artifacts.bootstrap,
     canStartDurableMutation: input.isIdentityCurrent,
     onPersistQueued: input.onPersistQueued,
-    containerId: rootContainerId,
+    containerId: durableRootContainerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
     initialAdminGroup: artifacts.initialAdminGroup,

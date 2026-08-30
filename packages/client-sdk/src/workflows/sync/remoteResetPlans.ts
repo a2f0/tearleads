@@ -1,5 +1,5 @@
 import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import { sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
@@ -7,11 +7,12 @@ import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,
   documentHistoryUpdates,
+  documentPendingAttachments,
   documents,
 } from "../../data/sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { importDocumentHistoryTailUpdates } from "../documents/historyContent";
+import { remoteResetBatches } from "./remoteResetBatches";
 
 export interface ResetDocumentUpdate {
   readonly appKind: string;
@@ -37,6 +38,10 @@ function historyScopeKey(appKind: string, localId: string): string {
   return `${appKind} ${localId}`;
 }
 
+function attachmentScopeKey(localId: string, slotId: string): string {
+  return `${localId}\0${slotId}`;
+}
+
 function buildResetUpdate(input: {
   appKind: string;
   doc: ResetContentDoc;
@@ -57,6 +62,78 @@ function buildResetUpdate(input: {
   };
 }
 
+interface ResetHistoryRows {
+  checkpointRows: Array<{
+    appKind: string;
+    localId: string;
+    snapshot: string;
+  }>;
+  tailRows: Array<{
+    appKind: string;
+    localId: string;
+    updateData: string;
+  }>;
+}
+
+async function loadResetHistoryRows(
+  db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
+): Promise<ResetHistoryRows> {
+  const rows: ResetHistoryRows = { checkpointRows: [], tailRows: [] };
+  const scopes = documentScopes
+    ? [
+        ...new Map(
+          documentScopes.map((scope) => [
+            historyScopeKey(scope.appKind, scope.localId),
+            scope,
+          ]),
+        ).values(),
+      ]
+    : null;
+  for (const scopeBatch of scopes ? remoteResetBatches(scopes) : [null]) {
+    const scopeTail = scopeBatch
+      ? or(
+          ...scopeBatch.map((scope) =>
+            and(
+              eq(documentHistoryUpdates.appKind, scope.appKind),
+              eq(documentHistoryUpdates.localId, scope.localId),
+            ),
+          ),
+        )
+      : undefined;
+    const scopeCheckpoints = scopeBatch
+      ? or(
+          ...scopeBatch.map((scope) =>
+            and(
+              eq(documentHistoryCheckpoints.appKind, scope.appKind),
+              eq(documentHistoryCheckpoints.localId, scope.localId),
+            ),
+          ),
+        )
+      : undefined;
+    const tailBatch = await db
+      .select({
+        appKind: documentHistoryUpdates.appKind,
+        localId: documentHistoryUpdates.localId,
+        updateData: documentHistoryUpdates.updateData,
+      })
+      .from(documentHistoryUpdates)
+      .where(scopeTail)
+      .orderBy(sql`rowid`);
+    const checkpointBatch = await db
+      .select({
+        appKind: documentHistoryCheckpoints.appKind,
+        localId: documentHistoryCheckpoints.localId,
+        snapshot: documentHistoryCheckpoints.snapshot,
+      })
+      .from(documentHistoryCheckpoints)
+      .where(scopeCheckpoints);
+    rows.tailRows.push(...tailBatch);
+    rows.checkpointRows.push(...checkpointBatch);
+  }
+  return rows;
+}
+
 /**
  * Reconstruct every persisted document's content from the durable-history
  * tables (checkpoint + tail) — the only content source. A scope without a
@@ -66,30 +143,18 @@ function buildResetUpdate(input: {
  * exported-updates blobs (container metadata).
  */
 async function buildResetContentDocs(
-  db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
+  db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
 ): Promise<Map<string, ResetContentDoc>> {
   // Read the TAIL before the checkpoints (the same order the restore path
   // uses): a compaction landing between the two reads then yields old-tail +
   // new-checkpoint — a safe superset, since replay is idempotent by op
   // identity — whereas the reverse order could yield an old checkpoint plus
   // an already-emptied tail and republish stale content.
-  const tailRows = await db
-    .select({
-      appKind: documentHistoryUpdates.appKind,
-      localId: documentHistoryUpdates.localId,
-      updateData: documentHistoryUpdates.updateData,
-    })
-    .from(documentHistoryUpdates)
-    // Insertion order (see loadDocumentHistoryRestoreState): createdAt can
-    // tie within a millisecond and the uuid tiebreak is random.
-    .orderBy(sql`rowid`);
-  const checkpointRows = await db
-    .select({
-      appKind: documentHistoryCheckpoints.appKind,
-      localId: documentHistoryCheckpoints.localId,
-      snapshot: documentHistoryCheckpoints.snapshot,
-    })
-    .from(documentHistoryCheckpoints);
+  const { checkpointRows, tailRows } = await loadResetHistoryRows(
+    db,
+    documentScopes,
+  );
 
   const tailByScope = new Map<string, string[]>();
   for (const row of tailRows) {
@@ -112,9 +177,9 @@ async function buildResetContentDocs(
       row,
     ]),
   );
-  const scopes = new Map<string, { appKind: string; localId: string }>();
+  const historyScopes = new Map<string, { appKind: string; localId: string }>();
   for (const row of [...checkpointRows, ...tailRows]) {
-    scopes.set(historyScopeKey(row.appKind, row.localId), {
+    historyScopes.set(historyScopeKey(row.appKind, row.localId), {
       appKind: row.appKind,
       localId: row.localId,
     });
@@ -122,7 +187,7 @@ async function buildResetContentDocs(
 
   const contentDocByScope = new Map<string, ResetContentDoc>();
   await Promise.all(
-    [...scopes.entries()].map(async ([key, scope]) => {
+    [...historyScopes.entries()].map(async ([key, scope]) => {
       const doc = await createDocument(
         `remote-reset:${scope.appKind}:${scope.localId}`,
       );
@@ -143,27 +208,83 @@ async function buildResetContentDocs(
   return contentDocByScope;
 }
 
-export async function buildResetPlans(execSql: ExecSql): Promise<{
+export interface ResetDocumentScope {
+  readonly appKind: string;
+  readonly localId: string;
+}
+
+async function loadResetPlanRows(
+  db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
+) {
+  const selectedScopeKeys = documentScopes
+    ? new Set(
+        documentScopes.map((scope) =>
+          historyScopeKey(scope.appKind, scope.localId),
+        ),
+      )
+    : null;
+  const allDocumentRows = await db
+    .select({ appKind: documents.appKind, localId: documents.localId })
+    .from(documents);
+  const documentRows = selectedScopeKeys
+    ? allDocumentRows.filter((row) =>
+        selectedScopeKeys.has(historyScopeKey(row.appKind, row.localId)),
+      )
+    : allDocumentRows;
+  const [allAttachmentRows, pendingAttachmentRows] = await Promise.all([
+    db
+      .select({
+        byteLength: documentAttachmentBlobProjection.byteLength,
+        localId: documentAttachmentBlobProjection.localId,
+        mimeType: documentAttachmentBlobProjection.mimeType,
+        slotId: documentAttachmentBlobProjection.slotId,
+        storageKey: documentAttachmentBlobProjection.storageKey,
+      })
+      .from(documentAttachmentBlobProjection),
+    db
+      .select({
+        byteLength: documentPendingAttachments.byteLength,
+        localId: documentPendingAttachments.localId,
+        mimeType: documentPendingAttachments.mimeType,
+        slotId: documentPendingAttachments.slotId,
+        storageKey: documentPendingAttachments.storageKey,
+      })
+      .from(documentPendingAttachments),
+  ]);
+  const selectedDocumentLocalIds = new Set(
+    documentRows
+      .filter((row) => row.appKind === DOCUMENTS_APP_KIND)
+      .map((row) => row.localId),
+  );
+  const attachmentRows = new Map(
+    allAttachmentRows
+      .filter((row) => selectedDocumentLocalIds.has(row.localId))
+      .map((row) => [attachmentScopeKey(row.localId, row.slotId), row]),
+  );
+  for (const row of pendingAttachmentRows) {
+    if (selectedDocumentLocalIds.has(row.localId)) {
+      attachmentRows.set(attachmentScopeKey(row.localId, row.slotId), row);
+    }
+  }
+  return {
+    attachmentRows: [...attachmentRows.values()],
+    documentRows,
+  };
+}
+
+export async function buildResetPlans(
+  db: ClientSQLiteTransactionScope,
+  documentScopes?: readonly ResetDocumentScope[],
+): Promise<{
   readonly attachmentUploads: ResetAttachmentUpload[];
   readonly documentUpdates: ResetDocumentUpdate[];
 }> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const documentRows = await db
-    .select({
-      appKind: documents.appKind,
-      localId: documents.localId,
-    })
-    .from(documents);
-  const attachmentRows = await db
-    .select({
-      byteLength: documentAttachmentBlobProjection.byteLength,
-      localId: documentAttachmentBlobProjection.localId,
-      mimeType: documentAttachmentBlobProjection.mimeType,
-      slotId: documentAttachmentBlobProjection.slotId,
-      storageKey: documentAttachmentBlobProjection.storageKey,
-    })
-    .from(documentAttachmentBlobProjection);
-  const contentDocByScope = await buildResetContentDocs(db);
+  const { attachmentRows, documentRows } = await loadResetPlanRows(
+    db,
+    documentScopes,
+  );
+  const contentDocByScope = await buildResetContentDocs(db, documentScopes);
   const documentUpdates = documentRows.flatMap((row) => {
     const doc = contentDocByScope.get(
       historyScopeKey(row.appKind, row.localId),

@@ -1,16 +1,28 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@symcrypt/api-shared/postgres";
+import { organizationBilling, users } from "@symcrypt/api-shared/schema";
 import { base64ToBytes } from "@symcrypt/encoding";
 import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
-import { eq } from "drizzle-orm";
+import {
+  type CreateOrganizationResponse,
+  isCreateOrganizationResponse,
+} from "@symcrypt/validators/response";
+import { and, eq, isNull } from "drizzle-orm";
+import { lockRowForUpdate } from "../../utils/sqlDialect";
+import {
+  assertOrganizationCanSync,
+  OrganizationSyncDisabledError,
+} from "../billing/organizationSyncEligibility";
 import {
   type OrganizationProvisioningSigner,
-  type ProvisionedOrganization,
   type ProvisionOrganizationOptions,
   provisionOrganizationInTransaction,
   toOrganizationProvisioningError,
 } from "./provisionOrganization";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
+import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
 /**
@@ -53,6 +65,141 @@ async function readProvisioningSigner(
   };
 }
 
+async function assertReplacementReady(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+): Promise<CreateOrganizationResponse | null> {
+  const replacedOrganizationId = input.replacesOrganizationId;
+  if (!replacedOrganizationId) return null;
+  if (replacedOrganizationId === input.organizationId) {
+    throw new OrganizationProvisioningError(
+      "A replacement organization must use a fresh organization id",
+      409,
+    );
+  }
+  const billingQuery = tx
+    .select({
+      replacementOrganizationId: organizationBilling.replacementOrganizationId,
+      replacementProvisioningResponse:
+        organizationBilling.replacementProvisioningResponse,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, replacedOrganizationId))
+    .limit(1);
+  const [billing] = await lockRowForUpdate(billingQuery);
+  if (!billing || billing.status !== "purged") {
+    throw new OrganizationProvisioningError(
+      "The replaced organization's remote data purge is not complete",
+      409,
+    );
+  }
+  const userQuery = tx
+    .select({ defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+  const [user] = await lockRowForUpdate(userQuery);
+  if (billing.replacementOrganizationId !== null) {
+    const response = billing.replacementProvisioningResponse;
+    if (
+      (user?.defaultOrganizationId !== replacedOrganizationId &&
+        user?.defaultOrganizationId !== billing.replacementOrganizationId) ||
+      !isCreateOrganizationResponse(response) ||
+      response.organizationId !== billing.replacementOrganizationId ||
+      response.userId !== input.userId
+    ) {
+      throw new Error(
+        "Stored personal organization replacement is inconsistent",
+      );
+    }
+    return response;
+  }
+  if (user?.defaultOrganizationId !== replacedOrganizationId) {
+    throw new OrganizationProvisioningError(
+      "Only a purged personal organization can be replaced",
+      409,
+    );
+  }
+  return null;
+}
+
+async function linkReplacementOrganization(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+  response: CreateOrganizationResponse,
+): Promise<void> {
+  if (!input.replacesOrganizationId) return;
+  const [linked] = await tx
+    .update(organizationBilling)
+    .set({
+      replacementOrganizationId: input.organizationId,
+      replacementProvisioningResponse: response,
+    })
+    .where(
+      and(
+        eq(organizationBilling.organizationId, input.replacesOrganizationId),
+        eq(organizationBilling.status, "purged"),
+        isNull(organizationBilling.replacementOrganizationId),
+      ),
+    )
+    .returning({ organizationId: organizationBilling.organizationId });
+  if (!linked) {
+    throw new OrganizationProvisioningError(
+      "The personal organization replacement changed during provisioning",
+      409,
+    );
+  }
+}
+
+async function finalizeReplacementDefaultOrganization(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+  response: CreateOrganizationResponse,
+): Promise<void> {
+  if (!input.finalizeReplacement) return;
+  const replacedOrganizationId = input.replacesOrganizationId;
+  if (!replacedOrganizationId) {
+    throw new OrganizationProvisioningError(
+      "Replacement finalization requires a replaced organization",
+      400,
+    );
+  }
+  try {
+    await assertOrganizationCanSync(tx, response.organizationId, input.userId);
+  } catch (error) {
+    if (error instanceof OrganizationSyncDisabledError) {
+      throw new OrganizationProvisioningError(
+        "The replacement organization is not sync eligible",
+        409,
+      );
+    }
+    throw error;
+  }
+  const [updated] = await tx
+    .update(users)
+    .set({ defaultOrganizationId: response.organizationId })
+    .where(
+      and(
+        eq(users.id, input.userId),
+        eq(users.defaultOrganizationId, replacedOrganizationId),
+      ),
+    )
+    .returning({ id: users.id });
+  if (updated?.id === input.userId) return;
+  const [user] = await tx
+    .select({ defaultOrganizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+  if (user?.defaultOrganizationId !== response.organizationId) {
+    throw new OrganizationProvisioningError(
+      "The personal organization changed during replacement",
+      409,
+    );
+  }
+}
+
 /**
  * Provisions an additional organization for an already-registered user. Shares
  * the whole bootstrap sequence with registration via
@@ -63,18 +210,40 @@ async function readProvisioningSigner(
 export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
-): Promise<ProvisionedOrganization> {
+): Promise<CreateOrganizationResponse> {
+  if (input.finalizeReplacement && !input.replacesOrganizationId) {
+    throw new OrganizationProvisioningError(
+      "Replacement finalization requires a replaced organization",
+      400,
+    );
+  }
   const signer = await readProvisioningSigner(db, input.userId);
   await validateOrganizationProvisioningInput(input, signer);
   try {
-    return await db.transaction((tx) =>
-      provisionOrganizationInTransaction(
+    return await db.transaction(async (tx) => {
+      const existingReplacement = await assertReplacementReady(tx, input);
+      if (existingReplacement) {
+        await finalizeReplacementDefaultOrganization(
+          tx,
+          input,
+          existingReplacement,
+        );
+        return existingReplacement;
+      }
+      const provisioned = await provisionOrganizationInTransaction(
         tx,
         input,
         signer,
         ADDITIONAL_ORGANIZATION_OPTIONS,
-      ),
-    );
+      );
+      const response = toOrganizationProvisioningResponse(
+        input.userId,
+        provisioned,
+      );
+      await linkReplacementOrganization(tx, input, response);
+      await finalizeReplacementDefaultOrganization(tx, input, response);
+      return response;
+    });
   } catch (error) {
     const provisioningError = toOrganizationProvisioningError(error);
     if (provisioningError) {

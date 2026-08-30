@@ -15,6 +15,10 @@ export function sameCanonicalDocumentSecurityIdentity(
   return (
     current.id === expected.id &&
     current.documentId === expected.documentId &&
+    sameNullableDocumentValue(
+      current.recoveryDocumentId,
+      expected.recoveryDocumentId,
+    ) &&
     current.accessEpoch === expected.accessEpoch &&
     sameNullableDocumentValue(
       current.accessStateHash,

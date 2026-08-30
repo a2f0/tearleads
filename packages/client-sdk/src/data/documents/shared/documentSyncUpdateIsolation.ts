@@ -4,6 +4,7 @@ import {
   importSnapshot,
   importUpdates,
   LoroImportUnresolvedDependenciesError,
+  updateMatchesDocumentHistory,
 } from "@symcrypt/loro";
 import type { DocumentSyncResponse } from "@symcrypt/validators/response";
 import type {
@@ -171,6 +172,35 @@ function firstDuplicateUpdateId(
   return null;
 }
 
+function assertImportedUpdatesMatchValidatedHistory(input: {
+  document: SyncDocument;
+  responseById: ReadonlyMap<string, SyncResponseUpdate>;
+  updates: readonly DecryptedDocumentSyncUpdate[];
+}): void {
+  const collisions = input.updates.filter(
+    (update) =>
+      !updateMatchesDocumentHistory(input.document, update.updateData),
+  );
+  if (collisions.length === 0) return;
+  const cause = new Error(
+    "incoming Loro update reuses an already-covered frontier with different operations",
+  );
+  const [collision] = collisions;
+  if (input.updates.length === 1 && collision) {
+    throw isolateDocumentSyncUpdateError({
+      cause,
+      responseUpdate: input.responseById.get(collision.id),
+      stage: "loro_import",
+      updateId: collision.id,
+    });
+  }
+  throw isolateDocumentSyncBatchError({
+    cause,
+    stage: "loro_import",
+    updateIds: input.updates.map((update) => update.id),
+  });
+}
+
 async function createValidationDocument(snapshot: Uint8Array) {
   const document = await createDocument(crypto.randomUUID());
   try {
@@ -222,6 +252,7 @@ export function importDecryptedDocumentSyncUpdates(
 
 async function validateDecryptedUpdateBatch(input: {
   currentSnapshot: Uint8Array;
+  responseById?: ReadonlyMap<string, SyncResponseUpdate> | undefined;
   updates: readonly DecryptedDocumentSyncUpdate[];
 }): Promise<void> {
   const document = await createValidationDocument(input.currentSnapshot);
@@ -237,6 +268,17 @@ async function validateDecryptedUpdateBatch(input: {
         document,
         ordinaryUpdates.map((update) => update.updateData),
       );
+    }
+    if (input.responseById) {
+      // Validate against the completed scratch history, not only the live
+      // pre-page frontier. If two updates in this page reuse one peer/counter
+      // with different operations, Loro accepts one and treats the other as a
+      // no-op; only the accepted history can match both when they are equal.
+      assertImportedUpdatesMatchValidatedHistory({
+        document,
+        responseById: input.responseById,
+        updates: input.updates,
+      });
     }
   } finally {
     document.free();
@@ -322,10 +364,12 @@ export async function validateDocumentSyncUpdateImports(input: {
   try {
     await validateDecryptedUpdateBatch({
       currentSnapshot,
+      responseById,
       updates: input.decryptedUpdates,
     });
     return;
   } catch (error) {
+    if (isDocumentSyncUpdateIsolationError(error)) throw error;
     batchError = error;
   }
 

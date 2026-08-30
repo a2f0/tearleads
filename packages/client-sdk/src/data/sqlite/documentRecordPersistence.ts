@@ -19,6 +19,7 @@ export const documentRecordSelection = {
   id: documents.localId,
   documentId: documents.documentId,
   recoveryGeneration: documents.recoveryGeneration,
+  recoveryDocumentId: documents.recoveryDocumentId,
   snapshotEndVersion: documents.snapshotEndVersion,
   accessEpoch: documents.accessEpoch,
   accessStateHash: documents.accessStateHash,
@@ -51,6 +52,10 @@ export function mapSelectedDocumentRecord(
 
   if (row.accessStateHash !== null) {
     record.accessStateHash = row.accessStateHash;
+  }
+
+  if (row.recoveryDocumentId !== null) {
+    record.recoveryDocumentId = row.recoveryDocumentId;
   }
 
   // Only surface the marker when one was persisted, so a row that never stored
