@@ -24,7 +24,7 @@ interface ReclaimDereferencedBlobsSummary {
   readonly deletedObjectCount: number;
 }
 
-export interface ReclaimDereferencedBlobsHooks {
+interface ReclaimDereferencedBlobsHooks {
   readonly assertObjectDeletionLease: () => Promise<void>;
 }
 
