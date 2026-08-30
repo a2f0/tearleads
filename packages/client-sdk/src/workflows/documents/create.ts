@@ -1,7 +1,3 @@
-import type {
-  VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
-} from "@symcrypt/crypto";
 import type { DocumentCreateRequest } from "@symcrypt/validators/request";
 import type {
   ContainerWriterProjectionResponse,
@@ -12,13 +8,9 @@ import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import {
   assertDocumentWriterProjectionConsistent,
-  unwrapDocumentContentKeyFromWriterProjection,
   wrapDocumentContentKeyForCreate,
 } from "../../data/documents/shared/projection";
-import {
-  persistedDocumentCreateStateFromResponse,
-  persistedDocumentCreateStateFromWriterProjection,
-} from "../../data/documents/shared/responses";
+import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
@@ -33,6 +25,7 @@ import type {
 } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
 import {
@@ -129,6 +122,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
+  expectedOrganizationId?: string | undefined;
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -137,22 +131,33 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
 }): Promise<MaterializedDocumentCreatePlanWithProjection | null> {
   const buildWithProjection = async (
     containerProjection: ContainerWriterProjectionResponse,
-  ) => ({
-    containerProjection,
-    materializedPlan: await buildMaterializedDocumentCreatePlan({
-      author: input.author,
+  ) => {
+    if (
+      containerProjection.containerId !== input.containerId ||
+      (input.expectedOrganizationId !== undefined &&
+        containerProjection.organizationId !== input.expectedOrganizationId)
+    ) {
+      throw new Error(
+        "Container writer projection belongs to another container or organization",
+      );
+    }
+    return {
       containerProjection,
-      contentKey: input.contentKey,
-      contentKeyEpoch: input.contentKeyEpoch,
-      documentId: input.documentId,
-      eventId: input.eventId,
-      execSql: input.execSql,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      signedAt: input.signedAt,
-      targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    }),
-  });
+      materializedPlan: await buildMaterializedDocumentCreatePlan({
+        author: input.author,
+        containerProjection,
+        contentKey: input.contentKey,
+        contentKeyEpoch: input.contentKeyEpoch,
+        documentId: input.documentId,
+        eventId: input.eventId,
+        execSql: input.execSql,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        signedAt: input.signedAt,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      }),
+    };
+  };
 
   const containerProjection = await fetchContainerWriterProjectionForCreate({
     apiClient: input.apiClient,
@@ -196,6 +201,7 @@ interface RemoteDocumentCreateInput {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
+  expectedOrganizationId?: string | undefined;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   /**
    * Invoked when the create submission fails terminally (not a benign
@@ -226,6 +232,7 @@ async function submitPlannedDocumentCreate(
       documentId: input.documentId,
       eventId: input.eventId,
       execSql: input.execSql,
+      expectedOrganizationId: input.expectedOrganizationId,
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
@@ -263,6 +270,7 @@ async function submitPlannedDocumentCreate(
         documentId: firstPlan.plan.documentId,
         eventId: firstPlan.plan.event.eventId,
         execSql: input.execSql,
+        expectedOrganizationId: input.expectedOrganizationId,
         onTerminalSubmitFailure: input.onTerminalSubmitFailure,
         resolveProjectionUserKey,
         signedAt: firstPlan.plan.event.signedAt,
@@ -351,6 +359,10 @@ export async function createRemoteDocument(
       apiClient: input.apiClient,
       documentId: input.documentId,
       execSql: input.execSql,
+      expectedContainerId: input.containerId,
+      expectedOrganizationId:
+        input.expectedOrganizationId ??
+        createPlan.containerProjection.organizationId,
       resolveProjectionUserKey,
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -408,60 +420,4 @@ async function submitDocumentCreate(
   return response
     ? { data: response, ok: true }
     : { message: "", ok: false, status: null };
-}
-
-/**
- * Adopts an already-committed remote document after a create conflict: refetch
- * its writer projection, recover the content key from it (the key generated for
- * this attempt is not what the committed manifest wraps, and is gone after a
- * restart), and rebuild the persisted create-state. Returns null if the
- * projection cannot be fetched yet, so the caller falls back to reporting.
- */
-async function adoptExistingRemoteDocument(
-  input: {
-    apiClient: DocumentCreateApi;
-    documentId: string;
-    execSql: ExecSql;
-    targetSecretKey: Uint8Array;
-  } & ProjectionVerificationOptions,
-): Promise<CreateRemoteDocumentResult | null> {
-  if (!input.apiClient.getDocumentWriterProjection) {
-    return null;
-  }
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
-  );
-  if (!writerProjection) {
-    return null;
-  }
-
-  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
-  const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
-  await assertDocumentWriterProjectionConsistent(writerProjection, {
-    execSql: input.execSql,
-    principalPolicyCache,
-    verifiedByHash,
-    ...projectionVerificationOptions(input),
-  });
-  const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
-    execSql: input.execSql,
-    principalPolicyCache,
-    secretKey: input.targetSecretKey,
-    verifiedByHash,
-    writerProjection,
-    ...projectionVerificationOptions(input),
-  });
-
-  input.apiClient.primeDocumentWriterProjection(
-    writerProjection.documentId,
-    writerProjection,
-  );
-
-  return {
-    contentKey,
-    documentId: writerProjection.documentId,
-    persistedState:
-      persistedDocumentCreateStateFromWriterProjection(writerProjection),
-    writerProjection,
-  };
 }
