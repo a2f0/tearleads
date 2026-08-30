@@ -47,6 +47,14 @@ test("remote reset rebinds only the purged organization to its replacement", asy
         localCreatedAt: STALE,
         localUpdatedAt: STALE,
       },
+      {
+        id: "old-local",
+        organizationId: "org-keep",
+        parentId: "keep-root",
+        metadataDocumentId: "colliding-metadata-id",
+        localCreatedAt: STALE,
+        localUpdatedAt: STALE,
+      },
     ]);
     await db.insert(documents).values([
       {
@@ -59,6 +67,12 @@ test("remote reset rebinds only the purged organization to its replacement", asy
         appKind: "documents",
         localId: "keep-local",
         documentId: "keep-document-id",
+        updatedAt: STALE,
+      },
+      {
+        appKind: "container-metadata",
+        localId: "old-local",
+        documentId: "colliding-metadata-id",
         updatedAt: STALE,
       },
     ]);
@@ -126,6 +140,17 @@ test("remote reset rebinds only the purged organization to its replacement", asy
     expect(keptDocument).toEqual(
       expect.objectContaining({
         documentId: "keep-document-id",
+        recoveryDocumentId: null,
+      }),
+    );
+    const [collidingMetadata] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.appKind, "container-metadata"));
+    expect(collidingMetadata).toEqual(
+      expect.objectContaining({
+        documentId: "colliding-metadata-id",
+        localId: "old-local",
         recoveryDocumentId: null,
       }),
     );

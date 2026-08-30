@@ -11,6 +11,8 @@ import {
   claimOrganizationForPurge,
   listOrganizationPurgeCandidates,
   normalizeOrganizationPurgeLimit,
+  type OrganizationPurgeClaim,
+  renewOrganizationPurgeClaim,
 } from "./organizationPurgeCandidates";
 import { deleteOrganizationRemoteRows } from "./organizationPurgeRows";
 import { loadOrganizationRemotePurgeScope } from "./organizationPurgeScope";
@@ -22,19 +24,29 @@ export interface OrganizationPurgeInput {
 }
 
 export async function purgeClaimedOrganizationRemoteData(input: {
+  readonly claim: OrganizationPurgeClaim;
   readonly db: ApiDatabase;
+  readonly leaseNow?: Date | undefined;
   readonly now: Date;
-  readonly organizationId: string;
-}): Promise<readonly string[]> {
+}): Promise<readonly string[] | undefined> {
   return input.db.transaction(async (tx) => {
+    if (
+      !(await renewOrganizationPurgeClaim(
+        tx,
+        input.claim,
+        input.leaseNow ?? input.now,
+      ))
+    ) {
+      return undefined;
+    }
     const scope = await loadOrganizationRemotePurgeScope({
       executor: tx,
-      organizationId: input.organizationId,
+      organizationId: input.claim.organizationId,
     });
     await deleteOrganizationRemoteRows({
       executor: tx,
       now: input.now,
-      organizationId: input.organizationId,
+      organizationId: input.claim.organizationId,
       scope,
     });
     return scope.blobIds;
@@ -44,19 +56,20 @@ export async function purgeClaimedOrganizationRemoteData(input: {
 export async function claimDueOrganizationPurges(
   db: ApiDatabase,
   input: OrganizationPurgeInput = {},
-): Promise<{ readonly claimedOrganizationIds: string[]; readonly now: Date }> {
+): Promise<{ readonly claims: OrganizationPurgeClaim[]; readonly now: Date }> {
   const now = input.now ?? new Date();
   const limit = normalizeOrganizationPurgeLimit(input.limit);
   const candidates = input.organizationIds
     ? input.organizationIds.slice(0, limit)
     : await listOrganizationPurgeCandidates(db, { limit, now });
-  const claimedOrganizationIds: string[] = [];
+  const claims: OrganizationPurgeClaim[] = [];
   for (const organizationId of candidates) {
-    if (await claimOrganizationForPurge(db, organizationId, now)) {
-      claimedOrganizationIds.push(organizationId);
+    const claim = await claimOrganizationForPurge(db, organizationId, now);
+    if (claim) {
+      claims.push(claim);
     }
   }
-  return { claimedOrganizationIds, now };
+  return { claims, now };
 }
 
 async function organizationPurgeIsComplete(
@@ -101,20 +114,28 @@ async function organizationPurgeIsComplete(
 }
 
 export async function finalizeOrganizationPurge(input: {
+  readonly claim: OrganizationPurgeClaim;
   readonly db: ApiDatabase;
   readonly now: Date;
-  readonly organizationId: string;
 }): Promise<boolean> {
-  if (!(await organizationPurgeIsComplete(input.db, input.organizationId))) {
+  if (
+    !(await organizationPurgeIsComplete(input.db, input.claim.organizationId))
+  ) {
     return false;
   }
   const [updated] = await input.db
     .update(organizationBilling)
-    .set({ purgedAt: input.now, status: "purged", updatedAt: input.now })
+    .set({
+      purgeLeaseId: null,
+      purgedAt: input.now,
+      status: "purged",
+      updatedAt: input.now,
+    })
     .where(
       and(
-        eq(organizationBilling.organizationId, input.organizationId),
+        eq(organizationBilling.organizationId, input.claim.organizationId),
         eq(organizationBilling.status, "deleting"),
+        eq(organizationBilling.purgeLeaseId, input.claim.leaseId),
       ),
     )
     .returning({ organizationId: organizationBilling.organizationId });

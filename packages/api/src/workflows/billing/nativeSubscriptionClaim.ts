@@ -228,6 +228,7 @@ async function activateNewOwner(input: {
       providerSubscriptionId: input.subscription.subscriptionId,
       providerTransactionId: input.subscription.subscriptionId,
       purgeAfter: null,
+      purgeLeaseId: null,
       purgeStartedAt: null,
       purgedAt: null,
       seatCount: input.seatCount,

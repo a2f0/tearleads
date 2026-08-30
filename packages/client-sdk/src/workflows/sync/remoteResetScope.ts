@@ -136,7 +136,7 @@ async function loadDocumentScope(input: {
     (row) =>
       (row.appKind === "container-metadata" &&
         containerIdSet.has(row.localId)) ||
-      projectedLocalIds.has(row.localId) ||
+      (row.appKind === "documents" && projectedLocalIds.has(row.localId)) ||
       (row.documentId !== null &&
         (linkedDocumentIds.has(row.documentId) ||
           profileDocumentIds.has(row.documentId))),

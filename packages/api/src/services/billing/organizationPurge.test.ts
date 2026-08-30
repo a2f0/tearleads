@@ -25,9 +25,17 @@ import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { sha256Hex } from "../../utils/sha256";
 import {
+  finalizeOrganizationPurge,
+  purgeClaimedOrganizationRemoteData,
+} from "../../workflows/billing/organizationPurge";
+import {
   ORGANIZATION_PURGE_BATCH_SIZE,
   organizationPurgeBatches,
 } from "../../workflows/billing/organizationPurgeBatches";
+import {
+  claimOrganizationForPurge,
+  renewOrganizationPurgeClaim,
+} from "../../workflows/billing/organizationPurgeCandidates";
 import { runOrganizationPurgeMaintenance } from "./organizationPurge";
 
 async function registerOrganization(): Promise<string> {
@@ -267,6 +275,78 @@ test("organization purge does not steal an active deletion lease", async () => {
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId));
   expect(billing?.status).toBe("deleting");
+});
+
+test("organization purge fences a worker after an expired lease is reclaimed", async () => {
+  const organizationId = await registerOrganization();
+  const firstNow = new Date("2026-08-27T12:00:00.000Z");
+  await db
+    .update(organizationBilling)
+    .set({ purgeAfter: new Date(firstNow.getTime() - 1), status: "disabled" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const firstClaim = await claimOrganizationForPurge(
+    db,
+    organizationId,
+    firstNow,
+  );
+  invariant(firstClaim, "expected first purge claim");
+  expect(
+    await renewOrganizationPurgeClaim(
+      db,
+      firstClaim,
+      new Date(firstNow.getTime() + 4 * 60 * 1_000),
+    ),
+  ).toBe(true);
+  expect(
+    await claimOrganizationForPurge(
+      db,
+      organizationId,
+      new Date(firstNow.getTime() + 6 * 60 * 1_000),
+    ),
+  ).toBeUndefined();
+
+  const replacementClaim = await claimOrganizationForPurge(
+    db,
+    organizationId,
+    new Date(firstNow.getTime() + 10 * 60 * 1_000),
+  );
+  invariant(replacementClaim, "expected replacement purge claim");
+  expect(
+    await purgeClaimedOrganizationRemoteData({
+      claim: firstClaim,
+      db,
+      now: new Date(firstNow.getTime() + 10 * 60 * 1_000),
+    }),
+  ).toBeUndefined();
+  expect(
+    await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.organizationId, organizationId)),
+  ).not.toEqual([]);
+
+  expect(
+    await purgeClaimedOrganizationRemoteData({
+      claim: replacementClaim,
+      db,
+      now: new Date(firstNow.getTime() + 10 * 60 * 1_000),
+    }),
+  ).toBeDefined();
+  expect(
+    await finalizeOrganizationPurge({
+      claim: firstClaim,
+      db,
+      now: new Date(firstNow.getTime() + 10 * 60 * 1_000),
+    }),
+  ).toBe(false);
+  expect(
+    await finalizeOrganizationPurge({
+      claim: replacementClaim,
+      db,
+      now: new Date(firstNow.getTime() + 10 * 60 * 1_000),
+    }),
+  ).toBe(true);
 });
 
 test("organization stays deleting until object-store purge work succeeds", async () => {
