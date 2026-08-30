@@ -7,6 +7,7 @@ import {
 } from "@symcrypt/loro";
 import { createTestExecSql } from "@symcrypt/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
+import { documentOrphanBlobReclaims } from "../../data/sqlite/documentOrphanBlobReclaims";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,
@@ -215,6 +216,49 @@ test("clearRemoteSyncState preserves a pending-only attachment upload", async ()
         uploadPlaintextSha256: null,
         uploadStageId: null,
       }),
+    ]);
+    expect(await db.select().from(documentOrphanBlobReclaims)).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("clearRemoteSyncState queues dropped pending-only bytes for reclaim", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "sync-remote-reset-dropped-pending-attachment-test",
+  );
+
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const db = await seedResetFixture(execSql, {
+      attachments: [],
+      snapshotSlotIds: [],
+    });
+    await db.insert(documentPendingAttachments).values({
+      byteLength: 12,
+      createdAt: STALE,
+      localId: "doc-1",
+      mimeType: "image/png",
+      name: "slot-dropped.png",
+      slotId: "slot-dropped",
+      storageKey: "local/dropped-pending-only",
+      uploadBlobId: null,
+      uploadContentKey: null,
+      uploadContentKeyEpoch: null,
+      uploadIv: null,
+      uploadPartSize: null,
+      uploadPlaintextSha256: null,
+      uploadStageId: null,
+    });
+
+    const result = await clearRemoteSyncState(execSql, {
+      organizationId: "org-old",
+    });
+
+    expect(result.queuedAttachmentUploadCount).toBe(0);
+    expect(await db.select().from(documentPendingAttachments)).toEqual([]);
+    expect(await db.select().from(documentOrphanBlobReclaims)).toEqual([
+      { storageKey: "local/dropped-pending-only" },
     ]);
   } finally {
     close();

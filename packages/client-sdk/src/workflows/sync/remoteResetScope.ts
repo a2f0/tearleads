@@ -1,8 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,
-  organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
@@ -16,15 +14,16 @@ import {
   documentProjection,
   documents,
   dormantContainerMetadata,
-  principalPolicies,
-  principalPolicyBundleHistory,
-  principalPolicyBundleReferences,
-  principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { isRemoteResetSyncCursor } from "./remoteResetCursorScope";
 import type { ResetDocumentScope } from "./remoteResetPlans";
+import {
+  loadRemoteResetPrincipalScope,
+  type RemoteResetPrincipalKey,
+} from "./remoteResetPrincipalScope";
+
+export type { RemoteResetPrincipalKey } from "./remoteResetPrincipalScope";
 
 export interface RemoteResetReplacement {
   readonly organizationId: string;
@@ -46,11 +45,6 @@ export interface ResetDocumentRow extends ResetDocumentScope {
   readonly recoveryDocumentId: string | null;
 }
 
-export interface RemoteResetPrincipalKey {
-  readonly principalId: string;
-  readonly principalType: "group" | "organization";
-}
-
 export interface RemoteSyncStateSnapshot {
   readonly clearedContainerCreateIntentCount: number;
   readonly clearedContainerMoveIntentCount: number;
@@ -65,15 +59,11 @@ export interface RemoteSyncStateSnapshot {
   readonly principalKeys: readonly RemoteResetPrincipalKey[];
 }
 
-function principalKey(principalType: string, principalId: string): string {
-  return `${principalType}\0${principalId}`;
-}
-
 function principalKeyOfRow(row: {
   readonly principalId: string;
   readonly principalType: string;
 }): string {
-  return principalKey(row.principalType, row.principalId);
+  return `${row.principalType}\0${row.principalId}`;
 }
 
 function scopeKey(scope: ResetDocumentScope): string {
@@ -201,90 +191,6 @@ function loadDocumentAssociationRows(
   ]);
 }
 
-function buildPrincipalKeys(input: {
-  readonly groupRows: readonly { id: string }[];
-  readonly legacyUnownedPolicyRows: readonly { id: string; type: string }[];
-  readonly organizationId: string;
-  readonly ownedPolicyRows: readonly { id: string; type: string }[];
-  readonly policyHeadRows: readonly { id: string; type: string }[];
-}): RemoteResetPrincipalKey[] {
-  const keys = new Map<string, RemoteResetPrincipalKey>();
-  const add = (principalType: string, principalId: string) => {
-    if (principalType !== "group" && principalType !== "organization") return;
-    keys.set(principalKey(principalType, principalId), {
-      principalId,
-      principalType,
-    });
-  };
-  add("organization", input.organizationId);
-  for (const row of input.groupRows) add("group", row.id);
-  for (const row of input.policyHeadRows) add(row.type, row.id);
-  for (const row of input.ownedPolicyRows) add(row.type, row.id);
-  for (const row of input.legacyUnownedPolicyRows) add(row.type, row.id);
-  return [...keys.values()];
-}
-
-async function loadPrincipalCacheScope(
-  tx: ClientSQLiteTransactionScope,
-  organizationId: string,
-) {
-  const [
-    policyRows,
-    policyOwnershipRows,
-    policyHistoryRows,
-    policyReferenceRows,
-    policyCheckpointRows,
-  ] = await Promise.all([
-    tx
-      .select({
-        id: principalPolicies.principalId,
-        type: principalPolicies.principalType,
-      })
-      .from(principalPolicies),
-    tx
-      .select({
-        id: principalPolicyOrganizations.principalId,
-        organizationId: principalPolicyOrganizations.organizationId,
-        type: principalPolicyOrganizations.principalType,
-      })
-      .from(principalPolicyOrganizations),
-    tx
-      .select({
-        id: principalPolicyBundleHistory.principalId,
-        type: principalPolicyBundleHistory.principalType,
-      })
-      .from(principalPolicyBundleHistory),
-    tx
-      .select({
-        id: principalPolicyBundleReferences.principalId,
-        type: principalPolicyBundleReferences.principalType,
-      })
-      .from(principalPolicyBundleReferences),
-    tx
-      .select({
-        id: principalPolicyCheckpoints.principalId,
-        type: principalPolicyCheckpoints.principalType,
-      })
-      .from(principalPolicyCheckpoints),
-  ]);
-  const ownedPrincipalKeys = new Set(
-    policyOwnershipRows.map((row) => principalKey(row.type, row.id)),
-  );
-  const legacyUnownedPolicyRows = [
-    ...policyRows,
-    ...policyHistoryRows,
-    ...policyReferenceRows,
-    ...policyCheckpointRows,
-  ].filter((row) => !ownedPrincipalKeys.has(principalKey(row.type, row.id)));
-  return {
-    legacyUnownedPolicyRows,
-    ownedPolicyRows: policyOwnershipRows.filter(
-      (row) => row.organizationId === organizationId,
-    ),
-    policyRows,
-  };
-}
-
 async function loadSnapshotCounts(input: {
   containerIds: readonly string[];
   documentRows: readonly ResetDocumentRow[];
@@ -294,39 +200,13 @@ async function loadSnapshotCounts(input: {
   const { organizationId, tx } = input;
   const containerIdSet = new Set(input.containerIds);
   const documentScopeKeys = new Set(input.documentRows.map(scopeKey));
-  const [
-    groupRows,
-    policyHeadRows,
-    principalCache,
-    createRows,
-    moveRows,
-    docMoves,
-  ] = await Promise.all([
-    tx
-      .select({ id: organizationReadModelGroups.groupId })
-      .from(organizationReadModelGroups)
-      .where(eq(organizationReadModelGroups.organizationId, organizationId)),
-    tx
-      .select({
-        id: organizationReadModelPolicyHeads.principalId,
-        type: organizationReadModelPolicyHeads.principalType,
-      })
-      .from(organizationReadModelPolicyHeads)
-      .where(
-        eq(organizationReadModelPolicyHeads.organizationId, organizationId),
-      ),
-    loadPrincipalCacheScope(tx, organizationId),
+  const [principalScope, createRows, moveRows, docMoves] = await Promise.all([
+    loadRemoteResetPrincipalScope(tx, organizationId),
     tx.select().from(containerCreateIntents),
     tx.select().from(containerMoveIntents),
     tx.select().from(documentMoveIntents),
   ]);
-  const principalKeys = buildPrincipalKeys({
-    groupRows,
-    legacyUnownedPolicyRows: principalCache.legacyUnownedPolicyRows,
-    organizationId,
-    ownedPolicyRows: principalCache.ownedPolicyRows,
-    policyHeadRows,
-  });
+  const principalKeys = principalScope.principalKeys;
   const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
   const scopedContainerIds = new Set(input.containerIds);
   const [watermarks, laneChecks] = await Promise.all([
@@ -346,8 +226,8 @@ async function loadSnapshotCounts(input: {
         scopeKey({ appKind: "documents", localId: row.localId }),
       ),
     ).length,
-    clearedPrincipalPolicyCount: principalCache.policyRows.filter((row) =>
-      principalKeySet.has(principalKey(row.type, row.id)),
+    clearedPrincipalPolicyCount: principalScope.policyRows.filter((row) =>
+      principalKeySet.has(`${row.type}\0${row.id}`),
     ).length,
     clearedSyncCursorCount:
       watermarks.filter((row) =>

@@ -44,6 +44,7 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
+import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";
 import { clearRemoteResetSyncCursors } from "./remoteResetCursorScope";
 import {
@@ -102,6 +103,7 @@ async function clearOrganizationPresentationRows(
 }
 
 interface ScopedRemoteRowsInput {
+  attachmentUploads: readonly ResetAttachmentUpload[];
   organizationId: string;
   snapshot: RemoteSyncStateSnapshot;
   tx: ClientSQLiteTransactionScope;
@@ -172,14 +174,15 @@ async function clearScopedDocumentRows(
       .where(inArray(documentContainerProjection.documentId, documentIdBatch))
       .run();
   }
+  await clearResetPendingAttachments({
+    attachmentUploads: input.attachmentUploads,
+    documentLocalIds: snapshot.documentLocalIds,
+    tx,
+  });
   for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
     await tx
       .delete(documentMoveIntents)
       .where(inArray(documentMoveIntents.localId, localIdBatch))
-      .run();
-    await tx
-      .delete(documentPendingAttachments)
-      .where(inArray(documentPendingAttachments.localId, localIdBatch))
       .run();
   }
   for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
@@ -393,6 +396,7 @@ async function clearRemoteSyncStateInTransaction(input: {
   const now = new Date().toISOString();
   const { snapshot } = input;
   await clearScopedRemoteRows({
+    attachmentUploads: input.plans.attachmentUploads,
     organizationId: input.reset.organizationId,
     snapshot,
     tx: input.tx,

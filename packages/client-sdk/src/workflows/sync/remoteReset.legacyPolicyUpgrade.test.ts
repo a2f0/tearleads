@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
+import { organizationReadModelGroups } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
   principalPolicies,
@@ -29,7 +30,22 @@ function policyRow(principalId: string, stateHash: string) {
   };
 }
 
-test("an upgraded reset purges legacy policy caches without ownership rows", async () => {
+function groupRow(organizationId: string, groupId: string) {
+  return {
+    createdAt: STALE,
+    groupId,
+    isBuiltin: false,
+    keyEpoch: 1,
+    memberCount: 1,
+    name: groupId,
+    organizationId,
+    sortOrder: 0,
+    stateHash: `${groupId}-head`,
+    stateVersion: 1,
+  };
+}
+
+test("an upgraded reset derives ownership and retains another org's legacy cache", async () => {
   const { close, execSql } = await createTestExecSql(
     "sync-remote-reset-legacy-policy-upgrade",
   );
@@ -44,19 +60,19 @@ test("an upgraded reset purges legacy policy caches without ownership rows", asy
     await db
       .insert(principalPolicies)
       .values([
-        policyRow("legacy-unowned-group", "legacy-head"),
-        policyRow("owned-retained-group", "retained-head"),
+        policyRow("legacy-purged-group", "legacy-head"),
+        policyRow("legacy-retained-group", "retained-head"),
       ]);
     await db
       .insert(principalPolicyBundleHistory)
       .values([
-        policyRow("legacy-unowned-group", "legacy-history"),
-        policyRow("owned-retained-group", "retained-history"),
+        policyRow("legacy-purged-group", "legacy-history"),
+        policyRow("legacy-retained-group", "retained-history"),
       ]);
     await db.insert(principalPolicyBundleReferences).values([
       {
         principalType: "group",
-        principalId: "legacy-unowned-group",
+        principalId: "legacy-purged-group",
         version: 1,
         stateHash: "legacy-history",
         keyEpoch: 1,
@@ -66,7 +82,7 @@ test("an upgraded reset purges legacy policy caches without ownership rows", asy
       },
       {
         principalType: "group",
-        principalId: "owned-retained-group",
+        principalId: "legacy-retained-group",
         version: 1,
         stateHash: "retained-history",
         keyEpoch: 1,
@@ -78,25 +94,26 @@ test("an upgraded reset purges legacy policy caches without ownership rows", asy
     await db.insert(principalPolicyCheckpoints).values([
       {
         principalType: "group",
-        principalId: "legacy-unowned-group",
+        principalId: "legacy-purged-group",
         version: 2,
         stateHash: "legacy-head",
         updatedAt: STALE,
       },
       {
         principalType: "group",
-        principalId: "owned-retained-group",
+        principalId: "legacy-retained-group",
         version: 2,
         stateHash: "retained-head",
         updatedAt: STALE,
       },
     ]);
+    await db
+      .insert(organizationReadModelGroups)
+      .values([
+        groupRow("org-purged", "legacy-purged-group"),
+        groupRow("org-retained", "legacy-retained-group"),
+      ]);
     await ensureSqlTables(execSql, clientSqlTables);
-    await db.insert(principalPolicyOrganizations).values({
-      principalType: "group",
-      principalId: "owned-retained-group",
-      organizationId: "org-retained",
-    });
 
     const result = await clearRemoteSyncState(execSql, {
       organizationId: "org-purged",
@@ -112,7 +129,7 @@ test("an upgraded reset purges legacy policy caches without ownership rows", asy
     ] as const) {
       expect(await db.select().from(table)).toEqual([
         expect.objectContaining({
-          principalId: "owned-retained-group",
+          principalId: "legacy-retained-group",
           principalType: "group",
         }),
       ]);
