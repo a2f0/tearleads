@@ -4,7 +4,7 @@ import type {
 } from "@symcrypt/api-shared/postgres";
 import { organizationBilling, users } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 const NATIVE_BINDING_CONTINUATION_EVENT_TYPES: ReadonlySet<string> = new Set([
   "EXPIRATION",
@@ -19,7 +19,7 @@ export function canInferNativeBindingWithoutReceiptId(type: string): boolean {
   return NATIVE_BINDING_CONTINUATION_EVENT_TYPES.has(type);
 }
 
-export async function resolveActiveNativeSubscriptionOrganizationForUser(
+export async function resolveRetainedNativeSubscriptionOrganizationForUser(
   executor: DatabaseSession,
   userId: string,
   subscriptionId?: string,
@@ -35,7 +35,7 @@ export async function resolveActiveNativeSubscriptionOrganizationForUser(
       and(
         eq(organizationBilling.provider, "revenuecat"),
         eq(organizationBilling.providerCustomerId, userId),
-        eq(organizationBilling.status, "active"),
+        isNotNull(organizationBilling.providerSubscriptionId),
       ),
     );
   const recognizedNativeBindings = nativeBindings.filter((binding) =>
@@ -57,7 +57,7 @@ export async function resolveNativeSubscriptionOrganizationForUser(
   subscriptionId?: string,
 ): Promise<string | null | "ambiguous"> {
   return db.transaction(async (tx) => {
-    const resolved = await resolveActiveNativeSubscriptionOrganizationForUser(
+    const resolved = await resolveRetainedNativeSubscriptionOrganizationForUser(
       tx,
       userId,
       subscriptionId,

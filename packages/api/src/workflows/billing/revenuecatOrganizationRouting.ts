@@ -9,7 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { resolveOrganizationIdFromEvent } from "../../billing/revenuecatWebhook";
 import {
   canInferNativeBindingWithoutReceiptId,
-  resolveActiveNativeSubscriptionOrganizationForUser,
+  resolveRetainedNativeSubscriptionOrganizationForUser,
 } from "./nativeSubscriptionResolution";
 import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import type { ImmutableStripeStoreOrgResolution } from "./revenuecatStripeResolution";
@@ -73,14 +73,14 @@ async function resolveBoundNativeOrganization(
     if (!canInferNativeBindingWithoutReceiptId(event.type)) {
       return { kind: "none" };
     }
-    const activeOrganizationId =
-      await resolveActiveNativeSubscriptionOrganizationForUser(
+    const retainedOrganizationId =
+      await resolveRetainedNativeSubscriptionOrganizationForUser(
         db,
         event.app_user_id,
       );
-    if (activeOrganizationId === "ambiguous") return { kind: "ambiguous" };
-    return activeOrganizationId
-      ? { kind: "resolved", organizationId: activeOrganizationId }
+    if (retainedOrganizationId === "ambiguous") return { kind: "ambiguous" };
+    return retainedOrganizationId
+      ? { kind: "resolved", organizationId: retainedOrganizationId }
       : { kind: "none" };
   }
   const [binding] = await db

@@ -8,7 +8,7 @@ import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import {
   canInferNativeBindingWithoutReceiptId,
-  resolveActiveNativeSubscriptionOrganizationForUser,
+  resolveRetainedNativeSubscriptionOrganizationForUser,
 } from "./nativeSubscriptionResolution";
 
 const NON_NATIVE_REVENUECAT_STORES = new Set([
@@ -116,9 +116,9 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     // but buyer identity alone is not enough: one RevenueCat customer can own
     // multiple Apple/Play subscriptions. Require the exact durable receipt, or
     // the provider's preceding product-change event for a replacement Play
-    // token, or the unique active binding when the provider omits the receipt
-    // id. PRODUCT_CHANGE itself is separately checked against the locked source
-    // tier before it reaches this policy.
+    // token, or the unique retained binding when a continuation event omits the
+    // receipt id. PRODUCT_CHANGE itself is separately checked against the
+    // locked source tier before it reaches this policy.
     if (
       sameProviderCustomer &&
       getSyncBillingTierForNativeProduct(input.currentProviderProductId) &&
@@ -129,7 +129,7 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
         (await hasPriorNativeProductChange(input)) ||
         (!input.event.original_transaction_id &&
           canInferNativeBindingWithoutReceiptId(input.event.type) &&
-          (await resolveActiveNativeSubscriptionOrganizationForUser(
+          (await resolveRetainedNativeSubscriptionOrganizationForUser(
             input.executor,
             input.event.app_user_id,
           )) === input.organizationId))

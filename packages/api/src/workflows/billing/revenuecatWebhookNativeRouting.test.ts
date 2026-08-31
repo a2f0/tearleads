@@ -36,6 +36,7 @@ async function bindSubscription(input: {
   buyerId: string;
   organizationId: string;
   productId?: string;
+  status?: "active" | "disabled";
   subscriptionId: string;
 }): Promise<void> {
   await db
@@ -46,7 +47,7 @@ async function bindSubscription(input: {
       providerProductId: input.productId ?? "com.symcrypt.sync.monthly",
       providerSubscriptionId: input.subscriptionId,
       seatCount: 1,
-      status: "active",
+      status: input.status ?? "active",
     })
     .where(eq(organizationBilling.organizationId, input.organizationId));
 }
@@ -217,6 +218,43 @@ test("a missing receipt id routes to the unique restored binding", async () => {
   });
   expect(await readSubscriptionId(restoredOrganizationId)).toBe(
     "restored-subscription-with-omitted-event-id",
+  );
+});
+
+test("a receipt-less lifecycle event fails closed across retained bindings", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  const disabledOrganizationId = await createOrganization(user);
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: disabledOrganizationId,
+    status: "disabled",
+    subscriptionId: "disabled-retained-subscription",
+  });
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    subscriptionId: "active-retained-subscription",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      organizationId: personalOrganizationId,
+      store: "APP_STORE",
+      type: "RENEWAL",
+    }),
+  );
+
+  expect(outcome).toEqual({
+    reason: "Event carried no organization id",
+    status: "ignored",
+  });
+  expect(await readSubscriptionId(disabledOrganizationId)).toBe(
+    "disabled-retained-subscription",
+  );
+  expect(await readSubscriptionId(personalOrganizationId)).toBe(
+    "active-retained-subscription",
   );
 });
 
