@@ -30,6 +30,12 @@ import {
 import { useCancelSubscription } from "./useCancelSubscription";
 import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
+function allowsPurchaseForBillingStatus(
+  status: OrganizationBillingView["status"],
+): boolean {
+  return status !== "deleting" && status !== "purged";
+}
+
 export function allowsNativePurchase(input: {
   readonly isActive: boolean;
   readonly isPersonalOrganization: boolean | null;
@@ -38,6 +44,7 @@ export function allowsNativePurchase(input: {
 }): boolean {
   return (
     input.isPersonalOrganization === true &&
+    allowsPurchaseForBillingStatus(input.status) &&
     input.status !== "past_due" &&
     input.subscriptionSource !== "stripe" &&
     (!input.isActive || input.subscriptionSource === "native")
@@ -147,6 +154,7 @@ function useDirectCheckoutWiring(input: {
     input.isOrgAdmin &&
       view !== null &&
       !view.isActive &&
+      allowsPurchaseForBillingStatus(view.status) &&
       view.status !== "past_due" &&
       input.management.subscriptionSource !== "stripe",
   );
@@ -247,7 +255,8 @@ function BillingPanelSubscriptionControls(input: {
         restoreAvailable={
           input.isOrgAdmin &&
           actions.purchaseAvailable &&
-          input.isPersonalOrganization === true
+          input.isPersonalOrganization === true &&
+          input.nativePurchaseAllowed
         }
         view={billing.view}
       />
