@@ -121,6 +121,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "buildRootContainerCreatePlan",
   "buildRosterProfileDocumentPatch",
   "cacheReferencedPrincipalPolicies",
+  "checkNativePurchaseEligibility",
   "clearRemoteSyncState",
   "createBlobByteSource",
   "createBlobStore",

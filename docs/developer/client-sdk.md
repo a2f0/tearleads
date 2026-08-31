@@ -96,7 +96,7 @@ Client capabilities:
 | `symcrypt.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `symcrypt.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `symcrypt.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
-| `symcrypt.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
+| `symcrypt.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, and server-authoritative billing eligibility |
 | `symcrypt.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `symcrypt.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
@@ -530,9 +530,12 @@ Both ship an unavailable stub (`createUnavailablePurchases` and
 checkout. Native purchases are personal-org only. `PurchaseIdentityPendingError`
 means retry; `PurchaseProviderStalledError` means restart. Recover
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; its `claim`
-calls `symcrypt.organizations.claimNativeSubscription`. Never split
-restore/claim/bind: the atomic move keeps one buyer and publishes attribution
-only after acceptance.
+calls `symcrypt.organizations.claimNativeSubscription`. Call
+`symcrypt.organizations.checkNativePurchaseEligibility` immediately before a
+native purchase or restore; it is a point-in-time preflight, so the later claim
+and webhook still enforce the same ownership and provider-conflict policy.
+Never split restore/claim/bind: the atomic move keeps one buyer and publishes
+attribution only after acceptance.
 See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

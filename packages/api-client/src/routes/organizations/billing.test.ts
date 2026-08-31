@@ -4,6 +4,7 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   startOrganizationTrialOperation,
 } from "@symcrypt/validators/operation";
 import {
@@ -11,6 +12,7 @@ import {
   organizationBillingGet,
   organizationBillingHistoryGet,
   organizationBillingManagementUrlGet,
+  organizationNativePurchaseEligibilityGet,
   organizationTrialStart,
 } from "./billing";
 
@@ -41,6 +43,12 @@ test("organization billing client metadata derives from shared operations", () =
   expect(
     nativeOrganizationSubscriptionClaim.path(organizationId, "play_store"),
   ).toBe(`/organizations/${organizationId}/billing/native/play_store/claim`);
+  expect(organizationNativePurchaseEligibilityGet.method).toBe(
+    getOrganizationNativePurchaseEligibilityOperation.method,
+  );
+  expect(organizationNativePurchaseEligibilityGet.path(organizationId)).toBe(
+    `/organizations/${organizationId}/billing/native/eligibility`,
+  );
   expect(organizationTrialStart.method).toBe(
     startOrganizationTrialOperation.method,
   );
@@ -54,6 +62,7 @@ test("organization billing client metadata exposes runtime guards", () => {
   expect(organizationBillingHistoryGet.isResponse).toBeDefined();
   expect(organizationBillingManagementUrlGet.isResponse).toBeDefined();
   expect(nativeOrganizationSubscriptionClaim.isResponse).toBeDefined();
+  expect(organizationNativePurchaseEligibilityGet.isResponse).toBeDefined();
   expect(organizationTrialStart.isResponse).toBeDefined();
 });
 

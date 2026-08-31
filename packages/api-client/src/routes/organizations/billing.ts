@@ -3,10 +3,12 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   isClaimNativeOrganizationSubscriptionOperationResponse,
   isGetOrganizationBillingHistoryOperationResponse,
   isGetOrganizationBillingManagementUrlOperationResponse,
   isGetOrganizationBillingOperationResponse,
+  isGetOrganizationNativePurchaseEligibilityOperationResponse,
   isStartOrganizationTrialOperationResponse,
   type OrganizationBillingNativeClaimPathParams,
   type OrganizationBillingPathParams,
@@ -60,6 +62,16 @@ export const organizationBillingManagementUrlGet = {
     ),
 };
 
+export const organizationNativePurchaseEligibilityGet = {
+  isResponse: isGetOrganizationNativePurchaseEligibilityOperationResponse,
+  method: getOrganizationNativePurchaseEligibilityOperation.method,
+  path: (organizationId: OrganizationId) =>
+    organizationBillingPath(
+      getOrganizationNativePurchaseEligibilityOperation,
+      organizationId,
+    ),
+};
+
 export const nativeOrganizationSubscriptionClaim = {
   isResponse: isClaimNativeOrganizationSubscriptionOperationResponse,
   method: claimNativeOrganizationSubscriptionOperation.method,
@@ -82,6 +94,7 @@ export const organizationBilling = {
   get: organizationBillingGet,
   history: organizationBillingHistoryGet,
   managementUrl: organizationBillingManagementUrlGet,
+  nativeEligibility: organizationNativePurchaseEligibilityGet,
   nativeClaim: nativeOrganizationSubscriptionClaim,
   startTrial: organizationTrialStart,
 } as const;

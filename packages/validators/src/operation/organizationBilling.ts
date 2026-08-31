@@ -6,9 +6,11 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
+  isOrganizationNativePurchaseEligibilityResponse,
   OrganizationBillingHistoryResponseSchema,
   OrganizationBillingManagementUrlResponseSchema,
   OrganizationBillingResponseSchema,
+  OrganizationNativePurchaseEligibilityResponseSchema,
 } from "../response";
 import { defineJsonOperation, type RuntimeRefinement } from "./definition";
 import { OrganizationPathParamsSchema } from "./organizations";
@@ -86,6 +88,13 @@ export const getOrganizationBillingManagementUrlOperation =
     response: OrganizationBillingManagementUrlResponseSchema,
   });
 
+export const getOrganizationNativePurchaseEligibilityOperation =
+  defineOrganizationBillingReadOperation({
+    id: "organizations.billing.native.eligibility.get",
+    path: "/organizations/{organizationId}/billing/native/eligibility",
+    response: OrganizationNativePurchaseEligibilityResponseSchema,
+  });
+
 export const startOrganizationTrialOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
@@ -125,6 +134,8 @@ export const isGetOrganizationBillingHistoryOperationResponse =
   isOrganizationBillingHistoryResponse;
 export const isGetOrganizationBillingManagementUrlOperationResponse =
   isOrganizationBillingManagementUrlResponse;
+export const isGetOrganizationNativePurchaseEligibilityOperationResponse =
+  isOrganizationNativePurchaseEligibilityResponse;
 export const isStartOrganizationTrialOperationResponse =
   isOrganizationBillingResponse;
 export const isClaimNativeOrganizationSubscriptionOperationResponse =

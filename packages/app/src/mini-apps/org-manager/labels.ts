@@ -53,6 +53,22 @@ export const ORG_MANAGER_LABELS = {
   billingHistoryTabsLabel: "Billing history sections",
   billingHistoryTitle: "Billing history",
   billingIdentityPending: "Billing account is still updating. Try again.",
+  billingEligibilityAdminRequired:
+    "You must be an organization admin to purchase sync.",
+  billingEligibilityBuyerMismatch:
+    "This subscription belongs to another buyer. Restore purchases from that buyer's account or contact support.",
+  billingEligibilityExistingSubscription:
+    "Manage or cancel the existing subscription before starting another purchase.",
+  billingEligibilityPastDue:
+    "Resolve the past-due subscription before starting another purchase.",
+  billingEligibilityPersonalRequired:
+    "Native purchases can only fund your personal organization.",
+  billingEligibilityStripeConflict:
+    "Cancel the web subscription before purchasing through the app.",
+  billingEligibilityTerminal:
+    "This organization can no longer be purchased for. Select its replacement organization.",
+  billingEligibilityUnavailable:
+    "Couldn't verify purchase eligibility. Refresh and try again.",
   billingLocal: "Local only",
   billingManageSubscription: "Manage subscription",
   billingManageSubscriptionFailed:

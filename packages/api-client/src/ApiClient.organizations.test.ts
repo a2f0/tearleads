@@ -112,6 +112,33 @@ testApiClient(
   },
 );
 
+testApiClient("reads native purchase eligibility before checkout", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/organizations/:organizationId/billing/native/eligibility`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json({ eligible: true, reason: null });
+      },
+    ),
+  );
+
+  const result = await new ApiClient(
+    apiBaseUrl,
+  ).getOrganizationNativePurchaseEligibility("org-1");
+  expect(result).toEqual({ eligible: true, reason: null });
+  expect(calls).toEqual([
+    {
+      authorization: null,
+      body: null,
+      contentType: null,
+      method: "GET",
+      url: `${apiBaseUrl}/organizations/org-1/billing/native/eligibility`,
+    },
+  ]);
+});
+
 testApiClient("coalesces only in-flight principal policy reads", async () => {
   let callCount = 0;
   const firstRequestStarted = createDeferred<void>();

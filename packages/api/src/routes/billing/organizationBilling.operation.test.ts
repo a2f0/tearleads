@@ -4,6 +4,7 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   operationRoutePath,
   startOrganizationTrialOperation,
 } from "@symcrypt/validators/operation";
@@ -16,6 +17,7 @@ const operations = [
   getOrganizationBillingOperation,
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   claimNativeOrganizationSubscriptionOperation,
   startOrganizationTrialOperation,
 ] as const;
@@ -48,6 +50,7 @@ test("organization billing routes authenticate before path validation", async ()
     ["GET", "/organizations/invalid/billing"],
     ["GET", "/organizations/invalid/billing/history"],
     ["GET", "/organizations/invalid/billing/management-url"],
+    ["GET", "/organizations/invalid/billing/native/eligibility"],
     ["POST", "/organizations/invalid/billing/native/invalid/claim"],
     ["POST", "/organizations/invalid/billing/trial"],
   ] as const;
@@ -65,6 +68,7 @@ test("organization billing routes reject invalid organization ids at the boundar
     ["GET", "/organizations/invalid/billing"],
     ["GET", "/organizations/invalid/billing/history"],
     ["GET", "/organizations/invalid/billing/management-url"],
+    ["GET", "/organizations/invalid/billing/native/eligibility"],
     ["POST", "/organizations/invalid/billing/native/play_store/claim"],
     ["POST", "/organizations/invalid/billing/trial"],
   ] as const;

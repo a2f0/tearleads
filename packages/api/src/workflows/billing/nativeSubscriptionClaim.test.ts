@@ -14,6 +14,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { OrganizationManagerError } from "../organizations/errors";
+import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runClaimNativeSubscriptionWorkflow } from "./nativeSubscriptionClaim";
 import { runGetOrganizationBillingHistoryWorkflow } from "./organizationBillingHistory";
 
@@ -338,8 +339,15 @@ test("rejects unknown products and a different destination subscription", async 
   );
 });
 
-test("rejects native claims for deleting and purged organization generations", async () => {
+test("revalidates terminal state after a successful purchase preflight", async () => {
   const destination = await registerPersonalOrganization();
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+    ),
+  ).toEqual({ eligible: true, reason: null });
   for (const status of ["deleting", "purged"] as const) {
     await db
       .update(organizationBilling)

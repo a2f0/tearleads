@@ -7,6 +7,7 @@ import type {
   OrganizationBillingHistoryResponse,
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
+  OrganizationNativePurchaseEligibilityResponse,
 } from "@symcrypt/validators/response";
 import {
   serializeOrganizationBilling,
@@ -19,6 +20,7 @@ import {
 } from "../../billing/revenueCatApi";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getSyncBillingTierForStripePrice } from "../../billing/stripeHttp";
+import { runNativePurchaseEligibilityWorkflow } from "../../workflows/billing/nativePurchaseEligibility";
 import {
   runAuthorizeNativeSubscriptionClaimWorkflow,
   runClaimNativeSubscriptionWorkflow,
@@ -59,6 +61,18 @@ export async function getOrganizationBillingHistory(
       organizationId,
       sessionUserId,
     ),
+  );
+}
+
+export function getOrganizationNativePurchaseEligibility(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+): Promise<OrganizationNativePurchaseEligibilityResponse> {
+  return runNativePurchaseEligibilityWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
   );
 }
 

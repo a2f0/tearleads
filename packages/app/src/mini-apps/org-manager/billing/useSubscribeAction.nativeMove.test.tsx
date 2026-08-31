@@ -8,6 +8,7 @@ import {
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../../providers/logging/LogProvider";
+import { useNativeSubscriptionMove } from "../hooks/useNativeSubscriptionMove";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type BillingActionScope,
@@ -15,7 +16,6 @@ import {
   emptyActionState,
   type UpdateActionState,
 } from "./billingActionScope";
-import { useNativeSubscriptionMove } from "./useSubscribeAction";
 
 const SCOPE: BillingActionScope = {
   generation: 1,
@@ -54,6 +54,13 @@ function purchases(
 
 function setup(input: {
   readonly bindOrganization?: PurchasesCapability["bindOrganization"];
+  readonly checkNativePurchaseEligibility?: () => Promise<
+    | { readonly eligible: true; readonly reason: null }
+    | {
+        readonly eligible: false;
+        readonly reason: "terminal_organization";
+      }
+  >;
   readonly claim: () => Promise<boolean>;
   readonly restore: RestoreReceipt;
 }) {
@@ -62,10 +69,14 @@ function setup(input: {
     state = update(state);
   };
   const view = renderHook(
-    () =>
+    ({ nativePurchaseAllowed }: { nativePurchaseAllowed: boolean }) =>
       useNativeSubscriptionMove({
+        checkNativePurchaseEligibility:
+          input.checkNativePurchaseEligibility ??
+          (() => Promise.resolve({ eligible: true, reason: null })),
         claimNativeSubscription: input.claim,
         currentScope: SCOPE,
+        nativePurchaseAllowed,
         purchases: purchases(input.restore, input.bindOrganization),
         refresh: () => Promise.resolve(),
         scopeRef: { current: SCOPE },
@@ -73,6 +84,7 @@ function setup(input: {
         userId: SCOPE.userId,
       }),
     {
+      initialProps: { nativePurchaseAllowed: true },
       wrapper: ({ children }: PropsWithChildren) => (
         <LogProvider>{children}</LogProvider>
       ),
@@ -80,6 +92,44 @@ function setup(input: {
   );
   return { state: () => state, view };
 }
+
+test("restore preflight blocks the provider for terminal server state", async () => {
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      Promise.resolve({
+        eligible: false,
+        reason: "terminal_organization",
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.billingEligibilityTerminal,
+    ),
+  );
+  expect(restore).not.toHaveBeenCalled();
+});
+
+test("losing local eligibility closes and disables an open restore", () => {
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+  act(() => flow.view.result.current.request());
+  expect(flow.view.result.current.open).toBe(true);
+
+  flow.view.rerender({ nativePurchaseAllowed: false });
+  expect(flow.view.result.current.open).toBe(false);
+  act(() => flow.view.result.current.confirm());
+
+  expect(restore).not.toHaveBeenCalled();
+});
 
 function startMove(view: ReturnType<typeof setup>["view"]): void {
   act(() => view.result.current.request());

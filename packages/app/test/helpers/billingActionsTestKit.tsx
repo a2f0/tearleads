@@ -4,6 +4,7 @@ import type {
   SyncPurchaseResult,
   SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
+import type { OrganizationNativePurchaseEligibilityResponse } from "@symcrypt/validators/response";
 import { renderHook } from "@testing-library/react";
 import type { PropsWithChildren, RefObject } from "react";
 import {
@@ -107,6 +108,7 @@ export function renderBillingActions(input: {
   nativePurchaseAllowed?: boolean;
   optionsRetryDelaysMs?: readonly number[];
   claimNativeSubscription?: () => Promise<boolean>;
+  checkNativePurchaseEligibility?: () => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
 }) {
@@ -141,6 +143,9 @@ export function renderBillingActions(input: {
         billingSeatCount: billingSeatCount ?? null,
         claimNativeSubscription:
           input.claimNativeSubscription ?? (() => Promise.resolve(true)),
+        checkNativePurchaseEligibility:
+          input.checkNativePurchaseEligibility ??
+          (() => Promise.resolve({ eligible: true, reason: null })),
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),

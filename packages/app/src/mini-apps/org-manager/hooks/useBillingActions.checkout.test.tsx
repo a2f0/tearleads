@@ -35,12 +35,42 @@ test("purchase failures emit an ordered error trace", async () => {
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
     { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
     { level: "info", message: "billing purchase stage=identified" },
     { level: "info", message: "billing purchase stage=provider-started" },
     {
       level: "error",
       message:
         "billing purchase stage=failed code=product-unavailable native=none userCancelled=unknown",
+    },
+  ]);
+});
+
+test("server preflight blocks the provider before a native purchase", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({
+    checkNativePurchaseEligibility: () =>
+      Promise.resolve({
+        eligible: false,
+        reason: "stripe_subscription_conflict",
+      }),
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(
+    ORG_MANAGER_LABELS.billingEligibilityStripeConflict,
+  );
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
+  expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
+    { level: "info", message: "billing purchase stage=started" },
+    {
+      level: "error",
+      message:
+        "billing purchase stage=failed code=other native=none userCancelled=unknown",
     },
   ]);
 });
@@ -359,6 +389,7 @@ test("a cancelled checkout clears the busy state without an error", async () => 
   expect(result.current.activationPending).toBe(false);
   expect(purchaseTraceEntries(result.current.logEntries)).toEqual([
     { level: "info", message: "billing purchase stage=started" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
     { level: "info", message: "billing purchase stage=identified" },
     { level: "info", message: "billing purchase stage=provider-started" },
     { level: "info", message: "billing purchase stage=cancelled" },

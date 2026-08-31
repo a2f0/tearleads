@@ -4,6 +4,7 @@ import {
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
   getOrganizationBillingOperation,
+  getOrganizationNativePurchaseEligibilityOperation,
   operationRoutePath,
   startOrganizationTrialOperation,
 } from "@symcrypt/validators/operation";
@@ -15,6 +16,7 @@ import {
   getOrganizationBilling,
   getOrganizationBillingHistory,
   getOrganizationBillingManagementUrl,
+  getOrganizationNativePurchaseEligibility,
   startOrganizationTrial,
 } from "../../services/billing/organizationBilling";
 import { OrganizationBillingProviderUnavailableError } from "../../services/billing/organizationBillingErrors";
@@ -101,6 +103,22 @@ function registerOrganizationBillingReadRoutes(
       const { organizationId } = c.req.valid("param");
       return respondForOrganization(c, organizationId, (id, sessionUserId) =>
         getOrganizationBillingManagementUrl(runtime, id, sessionUserId),
+      );
+    },
+  );
+
+  route.on(
+    getOrganizationNativePurchaseEligibilityOperation.method,
+    operationRoutePath(getOrganizationNativePurchaseEligibilityOperation),
+    requireAuth,
+    pathParamsValidator(
+      getOrganizationNativePurchaseEligibilityOperation.params,
+      "Invalid organizationId",
+    ),
+    (c) => {
+      const { organizationId } = c.req.valid("param");
+      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
+        getOrganizationNativePurchaseEligibility(runtime, id, sessionUserId),
       );
     },
   );

@@ -906,6 +906,14 @@ export class ApiClient {
     );
   }
 
+  getOrganizationNativePurchaseEligibility(organizationId: string) {
+    return this.request(
+      organizationBilling.nativeEligibility.path(organizationId),
+      organizationBilling.nativeEligibility.isResponse,
+      organizationBilling.nativeEligibility.method,
+    );
+  }
+
   claimNativeOrganizationSubscription(
     organizationId: string,
     store: NativeSubscriptionStore,

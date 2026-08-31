@@ -282,6 +282,27 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
+function useNativeBillingRequests(
+  symcrypt: ReturnType<typeof useSymCrypt>,
+  organizationId: string,
+) {
+  const claimNativeSubscription = useCallback(
+    async (store: NativeSubscriptionStore) =>
+      (
+        await symcrypt.organizations.claimNativeSubscription(
+          organizationId,
+          store,
+        )
+      )?.organizationId === organizationId,
+    [organizationId, symcrypt],
+  );
+  const checkNativePurchaseEligibility = useCallback(
+    () => symcrypt.organizations.checkNativePurchaseEligibility(organizationId),
+    [organizationId, symcrypt],
+  );
+  return { checkNativePurchaseEligibility, claimNativeSubscription };
+}
+
 export function BillingPanel({
   isOrgAdmin,
   isPersonalOrganization = null,
@@ -322,20 +343,13 @@ export function BillingPanel({
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
-  const claimNativeSubscription = useCallback(
-    async (store: NativeSubscriptionStore) =>
-      (
-        await symcrypt.organizations.claimNativeSubscription(
-          organizationId,
-          store,
-        )
-      )?.organizationId === organizationId,
-    [organizationId, symcrypt],
-  );
+  const { checkNativePurchaseEligibility, claimNativeSubscription } =
+    useNativeBillingRequests(symcrypt, organizationId);
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),
     isOrgAdmin,
     nativePurchaseAllowed,
+    checkNativePurchaseEligibility,
     claimNativeSubscription,
     checkoutHostRef,
     organizationId,

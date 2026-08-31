@@ -27,16 +27,15 @@ import {
   ACTIVATION_POLL_DELAYS_MS,
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
-import {
-  useNativeSubscriptionMove,
-  useSubscribeAction,
-} from "../billing/useSubscribeAction";
+import { useSubscribeAction } from "../billing/useSubscribeAction";
+import type { CheckNativePurchaseEligibility } from "./nativePurchaseEligibility";
 import {
   type BillingOptionsState,
   billingOptionsErrorLabel,
   emptyOptionsState,
 } from "./useBillingOptions";
 import { useBillingUpdateSettlement } from "./useBillingUpdateSettlement";
+import { useNativeSubscriptionMove } from "./useNativeSubscriptionMove";
 import { useResolvedBillingOptions } from "./useResolvedBillingOptions";
 
 export interface BillingActions {
@@ -149,6 +148,7 @@ function useCheckoutCancellation(
  */
 function usePurchaseActions(input: {
   canSubscribe: boolean;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   checkoutEligible: boolean;
   checkoutHostRef?: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
@@ -176,6 +176,7 @@ function usePurchaseActions(input: {
   const subscribe = useSubscribeAction({
     canSubscribe: input.canSubscribe,
     cancelPurchaseRef,
+    checkNativePurchaseEligibility: input.checkNativePurchaseEligibility,
     checkoutHostRef: input.checkoutHostRef,
     currentScope: input.currentScope,
     purchases: input.purchases,
@@ -287,6 +288,7 @@ interface UseBillingActionsInput {
   billingIsActive: boolean;
   billingPendingSeatCount: number | null;
   billingSeatCount: number | null;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   claimNativeSubscription: (store: NativeSubscriptionStore) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
@@ -343,6 +345,27 @@ function projectBillingActions(input: {
   };
 }
 
+function useBillingActionSettlement(input: {
+  readonly actionState: BillingActionState;
+  readonly actionStateMatches: boolean;
+  readonly activationPollDelaysMs: readonly number[];
+  readonly billingIsActive: boolean;
+  readonly billingPendingSeatCount: number | null;
+  readonly billingSeatCount: number | null;
+  readonly currentScope: BillingActionScope;
+  readonly refresh: () => Promise<void>;
+  readonly updateActionState: UpdateActionState;
+}) {
+  const settlement = useBillingUpdateSettlement(input);
+  useActivationBillingPoll(
+    input.actionStateMatches && input.actionState.activationPending,
+    settlement.settled,
+    input.refresh,
+    input.activationPollDelaysMs,
+    settlement.expire,
+  );
+}
+
 /**
  * Owns the billing panel's in-flight action state and orchestrates the platform
  * purchases capability (list options, identify + purchase, restore), refetching
@@ -353,6 +376,7 @@ export function useBillingActions({
   billingIsActive,
   billingPendingSeatCount,
   billingSeatCount,
+  checkNativePurchaseEligibility,
   claimNativeSubscription,
   checkoutHostRef,
   isOrgAdmin,
@@ -364,9 +388,11 @@ export function useBillingActions({
   userId,
 }: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
-  const hasBuyer = userId !== null;
   const canSubscribe =
-    isOrgAdmin && nativePurchaseAllowed && purchases.isAvailable && hasBuyer;
+    isOrgAdmin &&
+    nativePurchaseAllowed &&
+    purchases.isAvailable &&
+    userId !== null;
   const {
     actionState,
     currentScope,
@@ -376,8 +402,10 @@ export function useBillingActions({
     updateActionState,
   } = useBillingActionState(organizationId, userId);
   const subscriptionMove = useNativeSubscriptionMove({
+    checkNativePurchaseEligibility,
     claimNativeSubscription,
     currentScope,
+    nativePurchaseAllowed,
     purchases,
     refresh,
     scopeRef,
@@ -404,6 +432,7 @@ export function useBillingActions({
   });
   const actions = usePurchaseActions({
     canSubscribe: purchaseCanSubscribe,
+    checkNativePurchaseEligibility,
     checkoutEligible: canSubscribe,
     checkoutHostRef,
     currentScope,
@@ -416,22 +445,17 @@ export function useBillingActions({
     userId,
     onAlreadyOwned: subscriptionMove.request,
   });
-  const activationSettlement = useBillingUpdateSettlement({
+  useBillingActionSettlement({
     actionState,
     actionStateMatches,
+    activationPollDelaysMs,
     billingIsActive,
     billingPendingSeatCount,
     billingSeatCount,
     currentScope,
+    refresh,
     updateActionState,
   });
-  useActivationBillingPoll(
-    actionStateMatches && actionState.activationPending,
-    activationSettlement.settled,
-    refresh,
-    activationPollDelaysMs,
-    activationSettlement.expire,
-  );
   return projectBillingActions({
     actionState,
     actionStateMatches,
