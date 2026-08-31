@@ -461,18 +461,17 @@ sessions remain valid until `session.dispose()`.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
 handle for the scope.
 
-Session state is explicit. Registration flows should call
-`symcrypt.session.registerIdentity()`, which submits the current identity,
-persists the local bootstrap, and updates the session with canonical user,
-organization, and container IDs. Login stores the auth token on
-`symcrypt.session` and configures the internal API client:
+Session state is explicit. `session.registerIdentity()` persists the current
+identity and canonical IDs. Login stores the token and configures API access:
 
 ```ts
 const registration = await symcrypt.session.registerIdentity();
-if (registration) {
-  const authenticated = await symcrypt.session.login(registration.challenge);
-}
+if (registration) await symcrypt.session.login(registration.challenge);
 ```
+
+`prepareNativeSubscriptionRestoreOrganization()` durably replays one fresh
+restore org. Activate it, then call
+`completeNativeSubscriptionRestoreOrganization(organizationId)`.
 
 ## Public API Entry Points
 

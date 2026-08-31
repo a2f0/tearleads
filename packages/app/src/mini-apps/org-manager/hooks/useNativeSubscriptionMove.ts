@@ -5,7 +5,7 @@ import {
   type SessionCreateOrganizationResult,
 } from "@symcrypt/client-sdk";
 import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
-import { type RefObject, useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { formatBillingPurchaseFailure } from "../../../utils/billingPurchaseTrace";
 import {
@@ -23,6 +23,9 @@ interface UseNativeSubscriptionMoveInput {
   readonly claimNativeSubscription: (
     organizationId: string,
     store: NativeSubscriptionStore,
+  ) => Promise<boolean>;
+  readonly completeRestoreOrganization: (
+    organizationId: string,
   ) => Promise<boolean>;
   readonly createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   readonly currentScope: BillingActionScope;
@@ -62,10 +65,6 @@ async function restoreClaimAndBindNativeSubscription(input: {
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
   readonly createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
-  readonly pendingOrganizationRef: RefObject<{
-    readonly organization: SessionCreateOrganizationResult;
-    readonly scope: BillingActionScope;
-  } | null>;
   readonly purchases: PurchasesCapability;
   readonly scope: BillingActionScope;
   readonly scopeRef: BillingScopeRef;
@@ -74,6 +73,7 @@ async function restoreClaimAndBindNativeSubscription(input: {
   if (!input.userId || !input.purchases.nativeStore) {
     throw new Error("Native subscription restore is unavailable");
   }
+  const preparedOrganizations: SessionCreateOrganizationResult[] = [];
   const move = await input.purchases.moveNativeSubscription({
     claim: async (organizationId, store) => {
       if (!scopeMatches(input.scopeRef.current, input.scope)) return false;
@@ -81,31 +81,23 @@ async function restoreClaimAndBindNativeSubscription(input: {
     },
     prepareClaim: async () => {
       if (!scopeMatches(input.scopeRef.current, input.scope)) return null;
-      let pending = input.pendingOrganizationRef.current;
-      if (!pending || !scopeMatches(pending.scope, input.scope)) {
-        const organization = await input.createRestoreOrganization();
-        if (
-          !organization ||
-          !scopeMatches(input.scopeRef.current, input.scope)
-        ) {
-          return null;
-        }
-        pending = { organization, scope: input.scope };
-        input.pendingOrganizationRef.current = pending;
+      const preparedOrganization = await input.createRestoreOrganization();
+      if (
+        !preparedOrganization ||
+        !scopeMatches(input.scopeRef.current, input.scope)
+      ) {
+        return null;
       }
-      return pending.organization.organizationId;
+      preparedOrganizations.push(preparedOrganization);
+      return preparedOrganization.organizationId;
     },
     userId: input.userId,
   });
-  const pending = input.pendingOrganizationRef.current;
-  if (
-    !pending ||
-    !scopeMatches(pending.scope, input.scope) ||
-    pending.organization.organizationId !== move.organizationId
-  ) {
+  const preparedOrganization = preparedOrganizations[0];
+  if (preparedOrganization?.organizationId !== move.organizationId) {
     throw new Error("Native subscription restore target was lost");
   }
-  return pending.organization;
+  return preparedOrganization;
 }
 
 /** Owns confirmation and the verified native restore/claim sequence. */
@@ -115,6 +107,7 @@ export function useNativeSubscriptionMove(
   const {
     activateRestoredOrganization,
     claimNativeSubscription,
+    completeRestoreOrganization,
     createRestoreOrganization,
     currentScope,
     purchases,
@@ -124,10 +117,6 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const pendingOrganizationRef = useRef<{
-    readonly organization: SessionCreateOrganizationResult;
-    readonly scope: BillingActionScope;
-  } | null>(null);
   const open = openScope !== null && scopeMatches(openScope, currentScope);
   const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
   const dismiss = useCallback(() => setOpenScope(null), []);
@@ -146,15 +135,19 @@ export function useNativeSubscriptionMove(
           await restoreClaimAndBindNativeSubscription({
             claimNativeSubscription,
             createRestoreOrganization,
-            pendingOrganizationRef,
             purchases,
             scope,
             scopeRef,
             userId,
           });
         if (scopeMatches(scopeRef.current, scope)) {
-          pendingOrganizationRef.current = null;
           activateRestoredOrganization(restoredOrganization);
+          const completed = await completeRestoreOrganization(
+            restoredOrganization.organizationId,
+          );
+          if (!completed) {
+            throw new Error("Native subscription restore completion was lost");
+          }
         }
       } catch (error) {
         logError(formatBillingPurchaseFailure(error, false));
@@ -170,6 +163,7 @@ export function useNativeSubscriptionMove(
   }, [
     activateRestoredOrganization,
     claimNativeSubscription,
+    completeRestoreOrganization,
     createRestoreOrganization,
     currentScope,
     dismiss,

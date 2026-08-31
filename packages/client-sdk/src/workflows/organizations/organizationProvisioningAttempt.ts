@@ -20,6 +20,7 @@ interface DurableOrganizationProvisioningAttempt {
 function buildCreateOrganizationRequest(input: {
   artifacts: OrganizationProvisioningArtifacts;
   finalizeReplacement?: boolean | undefined;
+  nativeSubscriptionRestore?: boolean | undefined;
   replacesOrganizationId?: string | undefined;
   rootContainerId: string;
   userId: string;
@@ -47,6 +48,9 @@ function buildCreateOrganizationRequest(input: {
       (systemContainer) => systemContainer.containerRequest,
     ),
     ...(input.finalizeReplacement ? { finalizeReplacement: true } : {}),
+    ...(input.nativeSubscriptionRestore
+      ? { nativeSubscriptionRestore: true as const }
+      : {}),
     ...(input.replacesOrganizationId
       ? { replacesOrganizationId: input.replacesOrganizationId }
       : {}),
@@ -200,11 +204,17 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
   artifacts: OrganizationProvisioningArtifacts;
   canStartDurableMutation?: (() => boolean) | undefined;
   dbClient: ExecSqlClientLike;
+  nativeSubscriptionRestore?: boolean | undefined;
   replacesOrganizationId?: string | undefined;
   rootContainerId: string;
   userId: string;
 }): Promise<DurableOrganizationProvisioningAttempt | null> {
-  if (!input.replacesOrganizationId) {
+  const attemptKey =
+    input.replacesOrganizationId ??
+    (input.nativeSubscriptionRestore
+      ? `native-subscription-restore:${input.userId}`
+      : null);
+  if (!attemptKey) {
     return {
       artifacts: input.artifacts,
       request: buildCreateOrganizationRequest(input),
@@ -214,7 +224,7 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
   const stored = await sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
     createExecSql(input.dbClient),
     {
-      replacedOrganizationId: input.replacesOrganizationId,
+      replacedOrganizationId: attemptKey,
       userId: input.userId,
       organizationId: input.artifacts.organizationId,
       rootContainerId: input.rootContainerId,
@@ -231,6 +241,7 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
   const artifacts = deserializeArtifacts(stored.serializedArtifacts);
   const request = buildCreateOrganizationRequest({
     artifacts,
+    nativeSubscriptionRestore: input.nativeSubscriptionRestore,
     replacesOrganizationId: input.replacesOrganizationId,
     rootContainerId: stored.rootContainerId,
     userId: stored.userId,
@@ -244,6 +255,35 @@ export async function makeOrganizationProvisioningAttemptDurable(input: {
     throw new Error("Stored organization provisioning attempt is inconsistent");
   }
   return { artifacts, request, rootContainerId: stored.rootContainerId };
+}
+
+export async function removeNativeSubscriptionRestoreProvisioningAttempt(input: {
+  canCommit?: (() => boolean) | undefined;
+  dbClient: ExecSqlClientLike;
+  organizationId: string;
+  userId: string;
+}): Promise<boolean> {
+  const attemptKey = `native-subscription-restore:${input.userId}`;
+  const execSql = createExecSql(input.dbClient);
+  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+    execSql,
+    attemptKey,
+  );
+  if (!stored) return true;
+  if (
+    stored.userId !== input.userId ||
+    stored.organizationId !== input.organizationId
+  ) {
+    throw new Error(
+      "Stored native restore organization provisioning attempt is inconsistent",
+    );
+  }
+  return removeOrganizationProvisioningAttempt({
+    canCommit: input.canCommit,
+    execSql,
+    replacedOrganizationId: attemptKey,
+    userId: input.userId,
+  });
 }
 
 export async function removeOrganizationProvisioningAttempt(input: {

@@ -160,6 +160,7 @@ export function renderBillingActions(input: {
         billingSeatCount: billingSeatCount ?? null,
         claimNativeSubscription:
           input.claimNativeSubscription ?? (() => Promise.resolve(true)),
+        completeRestoreOrganization: () => Promise.resolve(true),
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),

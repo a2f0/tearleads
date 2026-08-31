@@ -293,6 +293,7 @@ interface UseBillingActionsInput {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
+  completeRestoreOrganization: (organizationId: string) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
   createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
@@ -361,6 +362,7 @@ export function useBillingActions({
   billingPendingSeatCount,
   billingSeatCount,
   claimNativeSubscription,
+  completeRestoreOrganization,
   checkoutHostRef,
   createRestoreOrganization,
   isOrgAdmin,
@@ -386,6 +388,7 @@ export function useBillingActions({
   const subscriptionMove = useNativeSubscriptionMove({
     activateRestoredOrganization,
     claimNativeSubscription,
+    completeRestoreOrganization,
     createRestoreOrganization,
     currentScope,
     purchases,

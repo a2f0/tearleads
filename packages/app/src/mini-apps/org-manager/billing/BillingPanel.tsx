@@ -286,7 +286,7 @@ function useRestoreOrganizationWiring() {
   const symcrypt = useSymCrypt();
   const createRestoreOrganization = useCallback(
     () =>
-      symcrypt.session.createOrganization({
+      symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
         organizationProfileName:
           ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
       }),
@@ -302,6 +302,13 @@ function useRestoreOrganizationWiring() {
       )?.organizationId === organizationId,
     [symcrypt],
   );
+  const completeRestoreOrganization = useCallback(
+    (organizationId: string) =>
+      symcrypt.session.completeNativeSubscriptionRestoreOrganization(
+        organizationId,
+      ),
+    [symcrypt],
+  );
   const activateRestoredOrganization = useCallback(
     (organization: { containerId: string; organizationId: string }) => {
       symcrypt.session.setContext(organization);
@@ -311,6 +318,7 @@ function useRestoreOrganizationWiring() {
   return {
     activateRestoredOrganization,
     claimNativeSubscription,
+    completeRestoreOrganization,
     createRestoreOrganization,
   };
 }

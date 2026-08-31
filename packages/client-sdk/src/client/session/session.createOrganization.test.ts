@@ -44,6 +44,7 @@ function billingSnapshot(
 function createHarness(input: {
   execSql: ExecSql;
   databaseId: string;
+  identity?: ReturnType<typeof createIdentity>;
   onCreateOrganization?: () => Promise<void>;
   onExec?: () => void;
   onOrganizationRequest?: (
@@ -74,11 +75,13 @@ function createHarness(input: {
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
-  const identity = createIdentity(
-    {},
-    () => undefined,
-    () => undefined,
-  );
+  const identity =
+    input.identity ??
+    createIdentity(
+      {},
+      () => undefined,
+      () => undefined,
+    );
   const session = createSession({
     api,
     database: new Database({
@@ -150,6 +153,51 @@ test("createOrganization discards the result after the identity changes", async 
 
     await expect(session.createOrganization()).resolves.toBeNull();
     expect(persistenceWritesAfterSwitch).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("native restore replays its organization after a client reload", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "session-native-restore-reload-test",
+  );
+  const requests: Array<Parameters<ApiClient["createOrganization"]>[0]> = [];
+  const first = createHarness({
+    databaseId: "native-restore-reload-db",
+    execSql,
+    onOrganizationRequest: (request) => requests.push(request),
+  });
+  try {
+    await setGeneratedIdentity(first.identity);
+    const userId = crypto.randomUUID();
+    first.session.setContext({ userId });
+    const beforeReload =
+      await first.session.prepareNativeSubscriptionRestoreOrganization();
+    invariant(beforeReload, "expected native restore organization");
+
+    const reloaded = createHarness({
+      databaseId: "native-restore-reload-db",
+      execSql,
+      identity: first.identity,
+      onOrganizationRequest: (request) => requests.push(request),
+    });
+    reloaded.session.setContext({ userId });
+    const afterReload =
+      await reloaded.session.prepareNativeSubscriptionRestoreOrganization();
+
+    expect(afterReload).toEqual(beforeReload);
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.nativeSubscriptionRestore).toBe(true);
+    expect(requests[1]?.organizationId).toBe(requests[0]?.organizationId);
+    expect(
+      await reloaded.session.completeNativeSubscriptionRestoreOrganization(
+        beforeReload.organizationId,
+      ),
+    ).toBe(true);
+    const nextRestore =
+      await reloaded.session.prepareNativeSubscriptionRestoreOrganization();
+    expect(nextRestore?.organizationId).not.toBe(beforeReload.organizationId);
   } finally {
     close();
   }

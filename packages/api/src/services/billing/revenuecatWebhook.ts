@@ -19,9 +19,9 @@ import {
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   NativeSubscriptionTransferAwaitingClaimError,
-  resolveNativeSubscriptionOrganizationForUser,
   runClaimNativeSubscriptionWorkflow,
 } from "../../workflows/billing/nativeSubscriptionClaim";
+import { resolveNativeSubscriptionOrganizationForUser } from "../../workflows/billing/nativeSubscriptionResolution";
 import { runRecordIgnoredRevenueCatTransferWorkflow } from "../../workflows/billing/revenuecatTransferAudit";
 import {
   type RevenueCatWebhookOutcome,

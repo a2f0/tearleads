@@ -78,6 +78,7 @@ function setup(input: {
       useNativeSubscriptionMove({
         activateRestoredOrganization: input.activate ?? (() => undefined),
         claimNativeSubscription: input.claim,
+        completeRestoreOrganization: () => Promise.resolve(true),
         createRestoreOrganization:
           input.create ?? (() => Promise.resolve(RESTORED_ORGANIZATION)),
         currentScope: SCOPE,
@@ -256,7 +257,10 @@ test("a binding failure can retry the idempotent native move", async () => {
   await waitFor(() => expect(flow.state().busy).toBeNull());
 
   expect(restore).toHaveBeenCalledTimes(2);
-  expect(create).toHaveBeenCalledTimes(1);
+  // Each UI attempt asks the durable session workflow for a destination; it
+  // replays the same organization until completion instead of relying on hook
+  // memory that disappears on reload.
+  expect(create).toHaveBeenCalledTimes(2);
   expect(claim).toHaveBeenCalledTimes(2);
   expect(bindOrganization).toHaveBeenCalledTimes(2);
   expect(flow.state().actionError).toBeNull();

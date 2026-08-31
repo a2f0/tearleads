@@ -171,7 +171,7 @@ export async function startOrganizationTrial(
 
 /**
  * Verifies the current RevenueCat App User ID's native receipt and assigns its
- * one active store subscription to an organization the user administers.
+ * one active store subscription to a freshly provisioned restore organization.
  * Restore on the device may have transferred the receipt between App User IDs;
  * this operation moves the server-side organization binding to match.
  */
@@ -224,6 +224,7 @@ export async function claimNativeOrganizationSubscription(
       now,
       organizationId,
       recordAlreadyOwnedAudit: false,
+      requireRestoreIntent: true,
       requireSessionAccess: true,
       sourceId,
       subscription: resolved.subscription,

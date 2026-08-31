@@ -34,6 +34,18 @@ async function registerPersonalOrganization(): Promise<{
   return { organizationId: registered.organizationId, user };
 }
 
+async function registerRestoreOrganization(): Promise<{
+  readonly organizationId: string;
+  readonly user: TestUser;
+}> {
+  const destination = await registerPersonalOrganization();
+  await db
+    .update(organizationBilling)
+    .set({ nativeRestoreUserId: destination.user.userId })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  return destination;
+}
+
 function providerFetch(subscriptionId = "GPA.transfer-webhook") {
   return (async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -61,7 +73,7 @@ function providerFetch(subscriptionId = "GPA.transfer-webhook") {
 
 test("only an authenticated claim can move billing before a transfer webhook", async () => {
   const previous = await registerPersonalOrganization();
-  const destination = await registerPersonalOrganization();
+  const destination = await registerRestoreOrganization();
   await db
     .update(organizationBilling)
     .set({
@@ -151,7 +163,7 @@ test("only an authenticated claim can move billing before a transfer webhook", a
 });
 
 test("a transfer without its optional store resolves the sole native subscription", async () => {
-  const destination = await registerPersonalOrganization();
+  const destination = await registerRestoreOrganization();
   const event = {
     environment: "SANDBOX",
     event_timestamp_ms: Date.now(),

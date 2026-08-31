@@ -124,6 +124,57 @@ async function assertReplacementReady(
   return null;
 }
 
+async function readNativeRestoreReplay(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+): Promise<CreateOrganizationResponse | null> {
+  if (!input.nativeSubscriptionRestore) return null;
+  const [billing] = await tx
+    .select({
+      response: organizationBilling.nativeRestoreProvisioningResponse,
+      userId: organizationBilling.nativeRestoreUserId,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, input.organizationId))
+    .limit(1);
+  if (!billing) return null;
+  if (
+    billing.userId !== input.userId ||
+    !isCreateOrganizationResponse(billing.response) ||
+    billing.response.organizationId !== input.organizationId ||
+    billing.response.rootContainerId !== input.rootContainerId ||
+    billing.response.userId !== input.userId
+  ) {
+    throw new OrganizationProvisioningError(
+      "Stored native restore organization is inconsistent",
+      409,
+    );
+  }
+  return billing.response;
+}
+
+async function markNativeRestoreDestination(
+  tx: DatabaseTransaction,
+  input: CreateOrganizationRequest,
+  response: CreateOrganizationResponse,
+): Promise<void> {
+  if (!input.nativeSubscriptionRestore) return;
+  const [marked] = await tx
+    .update(organizationBilling)
+    .set({
+      nativeRestoreProvisioningResponse: response,
+      nativeRestoreUserId: input.userId,
+    })
+    .where(eq(organizationBilling.organizationId, input.organizationId))
+    .returning({ organizationId: organizationBilling.organizationId });
+  if (!marked) {
+    throw new OrganizationProvisioningError(
+      "Native restore organization billing was not provisioned",
+      409,
+    );
+  }
+}
+
 async function linkReplacementOrganization(
   tx: DatabaseTransaction,
   input: CreateOrganizationRequest,
@@ -211,6 +262,15 @@ export async function runCreateOrganizationWorkflow(
   db: ApiDatabase,
   input: CreateOrganizationRequest,
 ): Promise<CreateOrganizationResponse> {
+  if (
+    input.nativeSubscriptionRestore &&
+    (input.finalizeReplacement || input.replacesOrganizationId)
+  ) {
+    throw new OrganizationProvisioningError(
+      "Native restore cannot replace a personal organization",
+      400,
+    );
+  }
   if (input.finalizeReplacement && !input.replacesOrganizationId) {
     throw new OrganizationProvisioningError(
       "Replacement finalization requires a replaced organization",
@@ -221,6 +281,8 @@ export async function runCreateOrganizationWorkflow(
   await validateOrganizationProvisioningInput(input, signer);
   try {
     return await db.transaction(async (tx) => {
+      const nativeRestoreReplay = await readNativeRestoreReplay(tx, input);
+      if (nativeRestoreReplay) return nativeRestoreReplay;
       const existingReplacement = await assertReplacementReady(tx, input);
       if (existingReplacement) {
         await finalizeReplacementDefaultOrganization(
@@ -240,6 +302,7 @@ export async function runCreateOrganizationWorkflow(
         input.userId,
         provisioned,
       );
+      await markNativeRestoreDestination(tx, input, response);
       await linkReplacementOrganization(tx, input, response);
       await finalizeReplacementDefaultOrganization(tx, input, response);
       return response;
