@@ -136,12 +136,6 @@ test("a paid native tier activates but freezes an oversized roster", async () =>
   await db
     .delete(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
-  await db.insert(organizationBillingStripeSeats).values({
-    organizationId,
-    priceId: "price_cancelled",
-    subscriptionId: `sub_cancelled_${organizationId}`,
-    subscriptionItemId: `si_cancelled_${organizationId}`,
-  });
 
   const response = await postWebhook(
     webhookBody({

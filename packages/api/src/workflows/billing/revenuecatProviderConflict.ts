@@ -1,29 +1,44 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import {
-  type OrganizationBillingStatus,
-  organizationBillingStripeSeats,
-} from "@symcrypt/api-shared/schema";
+import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
 import { eq } from "drizzle-orm";
+import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
+import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
 const NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON =
   "Native entitlement is active while a retained Stripe subscription may still bill";
+const NATIVE_GRANT_CONFLICTS_WITH_STRIPE_CHECKOUT_REASON =
+  "Native purchase conflicts with an active web checkout";
+
+const NATIVE_PURCHASE_EVENT_TYPES = new Set([
+  "INITIAL_PURCHASE",
+  "NON_RENEWING_PURCHASE",
+]);
+
+export function isNativePurchaseEventType(eventType: string): boolean {
+  return NATIVE_PURCHASE_EVENT_TYPES.has(eventType);
+}
 
 /** Detects a live Stripe identity that must remain available for cancellation. */
 export async function resolveNativeStripeConflictReason(input: {
+  readonly billing: LockedBillingIdentity;
   readonly executor: DatabaseSession;
+  readonly now: Date;
   readonly organizationId: string;
-  readonly status: OrganizationBillingStatus;
   readonly store: string | null | undefined;
 }): Promise<string | null> {
-  if (
-    !isNativeRevenueCatStore(input.store) ||
-    (input.status !== "active" &&
-      input.status !== "past_due" &&
-      input.status !== "trialing")
-  ) {
+  if (!isNativeRevenueCatStore(input.store)) {
     return null;
+  }
+  if (
+    blocksNativePurchaseForStripeCheckoutAttempt({
+      attemptExpiresAt: input.billing.checkoutAttemptExpiresAt,
+      attemptId: input.billing.checkoutAttemptId,
+      now: input.now,
+    })
+  ) {
+    return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_CHECKOUT_REASON;
   }
   const [binding] = await input.executor
     .select({

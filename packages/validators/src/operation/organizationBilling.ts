@@ -89,10 +89,18 @@ export const getOrganizationBillingManagementUrlOperation =
   });
 
 export const getOrganizationNativePurchaseEligibilityOperation =
-  defineOrganizationBillingReadOperation({
+  defineJsonOperation({
+    auth: "session",
+    failureResponses: {
+      ...organizationBillingReadFailureResponses,
+      409: ErrorResponseSchema,
+    },
+    failureStatuses: [400, 401, 403, 404, 409, 500],
     id: "organizations.billing.native.eligibility.get",
+    method: "GET",
+    params: OrganizationBillingPathParamsSchema,
     path: "/organizations/{organizationId}/billing/native/eligibility",
-    response: OrganizationNativePurchaseEligibilityResponseSchema,
+    responses: { 200: OrganizationNativePurchaseEligibilityResponseSchema },
   });
 
 export const startOrganizationTrialOperation = defineJsonOperation({

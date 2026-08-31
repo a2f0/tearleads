@@ -31,6 +31,8 @@ export type ImmutableStripeStoreOrgResolution =
   | { kind: "error" };
 
 export interface LockedBillingIdentity {
+  readonly checkoutAttemptExpiresAt: Date | null;
+  readonly checkoutAttemptId: string | null;
   readonly provider: OrganizationBillingProvider | null;
   readonly providerCustomerId: string | null;
   readonly providerProductId: string | null;

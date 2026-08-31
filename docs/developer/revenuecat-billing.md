@@ -174,6 +174,11 @@ quantities never update Stripe seats.
 Paid grant events with an unknown product stem also return 503 without claiming
 the event id. This lets a corrected catalog mapping recover through RevenueCat
 redelivery instead of permanently recording a charged purchase as ignored.
+New native purchase events also return 503 unclaimed when the locked
+organization has an unexpired web checkout attempt or a durable Stripe
+subscription identity. Clear the stale attempt or cancel the web subscription,
+then redeliver the RevenueCat event; ordinary renewals of an existing native
+subscription are not blocked by this new-purchase guard.
 Promotional grants must cite one of the same tier stems. The server stores them
 as `promotional:<stem>` so they remain non-native, then derives their capacity
 from the canonical active-roster tiers rather than imposing a store-purchase cap.

@@ -16837,6 +16837,19 @@ export interface operations {
                 };
             };
             /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
             500: {
                 headers: {
                     [name: string]: unknown;

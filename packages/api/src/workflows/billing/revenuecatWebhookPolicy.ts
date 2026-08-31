@@ -42,6 +42,8 @@ export async function lockRevenueCatBillingIdentity(
 ): Promise<LockedBillingIdentity | undefined> {
   const query = executor
     .select({
+      checkoutAttemptExpiresAt: organizationBilling.checkoutAttemptExpiresAt,
+      checkoutAttemptId: organizationBilling.checkoutAttemptId,
       provider: organizationBilling.provider,
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,

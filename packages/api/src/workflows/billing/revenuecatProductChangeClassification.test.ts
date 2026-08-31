@@ -23,6 +23,8 @@ const PRODUCT_CHANGE: RevenueCatWebhookEvent = {
   type: "PRODUCT_CHANGE",
 };
 const BOUND_SOLO_BILLING: LockedBillingIdentity = {
+  checkoutAttemptExpiresAt: null,
+  checkoutAttemptId: null,
   provider: "revenuecat",
   providerCustomerId: "buyer",
   providerProductId: "sync_solo_monthly",

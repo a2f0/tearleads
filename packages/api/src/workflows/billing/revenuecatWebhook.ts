@@ -23,7 +23,10 @@ import {
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
-import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
+import {
+  isNativePurchaseEventType,
+  resolveNativeStripeConflictReason,
+} from "./revenuecatProviderConflict";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -79,6 +82,7 @@ async function resolveGrantApplicationDisposition(input: {
   readonly billing: LockedBillingIdentity | undefined;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
+  readonly now: Date;
   readonly organizationId: string | null;
   readonly skipSeatReconciliation: boolean;
   readonly transition: RevenueCatBillingTransition;
@@ -87,12 +91,22 @@ async function resolveGrantApplicationDisposition(input: {
   const nativeStripeConflict =
     input.transition.kind === "grant" && input.organizationId && input.billing
       ? await resolveNativeStripeConflictReason({
+          billing: input.billing,
           executor: input.executor,
+          now: input.now,
           organizationId: input.organizationId,
-          status: input.billing.status,
           store: input.event.store,
         })
       : null;
+  if (
+    nativeStripeConflict !== null &&
+    isNativePurchaseEventType(input.event.type)
+  ) {
+    console.error(
+      `RevenueCat paid grant ${input.event.id} was not applied: ${nativeStripeConflict}`,
+    );
+    return { kind: "retry", reason: nativeStripeConflict };
+  }
   return {
     deleteStripeBinding: false,
     ignoredReason: null,
@@ -226,6 +240,7 @@ async function resolvePreclaimDisposition(
     billing,
     event: input.event,
     executor: input.executor,
+    now: input.now,
     organizationId: input.organizationId,
     skipSeatReconciliation: warning !== null,
     transition,

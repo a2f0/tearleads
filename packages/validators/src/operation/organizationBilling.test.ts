@@ -112,7 +112,7 @@ test("organization billing operations document their handler failures", () => {
   ]);
   expect(
     getOrganizationNativePurchaseEligibilityOperation.failureStatuses,
-  ).toEqual([400, 401, 403, 404, 500]);
+  ).toEqual([400, 401, 403, 404, 409, 500]);
   expect(startOrganizationTrialOperation.failureStatuses).toEqual([
     400, 401, 403, 404, 409, 500,
   ]);

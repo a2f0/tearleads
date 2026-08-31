@@ -50,6 +50,10 @@
       "lines": 564,
       "bytes": 26675
     },
+    "docs/developer/revenuecat-billing.md": {
+      "lines": 359,
+      "bytes": 20292
+    },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
       "bytes": 20904
@@ -71,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 55724,
-      "bytes": 2312561
+      "lines": 55743,
+      "bytes": 2313091
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -355,8 +359,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 21405,
-      "bytes": 884786
+      "lines": 21418,
+      "bytes": 885189
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,
