@@ -20,6 +20,10 @@ import {
   bootstrapRoot,
   createDocument,
 } from "../../../../test/helpers/keyingWriterProjectionKit";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "../../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../../test/helpers/registerUser";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
@@ -77,85 +81,66 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a bind that locks first revives the blob before reclamation",
   async () => {
     const fixture = await createDereferencedBlobFixture();
-    let markHeld!: () => void;
-    const held = new Promise<void>((resolve) => {
-      markHeld = resolve;
-    });
-    let releaseHold!: () => void;
-    const hold = new Promise<void>((resolve) => {
-      releaseHold = resolve;
-    });
-    const documentHolder = db.transaction(async (tx) => {
+    const documentLock = await holdPostgresLock(async (tx) => {
       const query = tx
         .select({ id: documents.id })
         .from(documents)
         .where(eq(documents.id, fixture.document.id))
         .limit(1);
       await lockRowForUpdate(query);
-      markHeld();
-      await hold;
     });
 
-    await held;
-    let bindSettled = false;
     const bind = bindForTest({
       blobId: fixture.blobId,
       owner: fixture.owner,
       request: fixture.rebind.request,
     }).then(
-      () => {
-        bindSettled = true;
-        return { kind: "fulfilled" as const };
-      },
-      (error: unknown) => {
-        bindSettled = true;
-        return { error, kind: "rejected" as const };
-      },
+      () => ({ kind: "fulfilled" as const }),
+      (error: unknown) => ({ error, kind: "rejected" as const }),
     );
-    let reclaimSettled = false;
     let reclaim:
       | ReturnType<typeof runReclaimDereferencedBlobsWorkflow>
       | undefined;
+    let synchronizationError: unknown;
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      expect(bindSettled).toBe(false);
+      await waitForPostgresLockWait({
+        blockerPid: documentLock.backendPid,
+        queryFragment: "documents",
+      });
       const activeReclaim = runReclaimDereferencedBlobsWorkflow(db, {
         gracePeriodMs: 24 * HOUR_MS,
         now: fixture.sweepAt,
-      }).then((result) => {
-        reclaimSettled = true;
-        return result;
       });
       reclaim = activeReclaim;
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      expect(reclaimSettled).toBe(false);
-
-      releaseHold();
-      const [, bindResult, result] = await Promise.all([
-        documentHolder,
-        bind,
-        activeReclaim,
-      ]);
-      expect(bindResult).toEqual({ kind: "fulfilled" });
-      expect(result.reclaimedBlobIds).not.toContain(fixture.blobId);
-      const [blob] = await db
-        .select({ dereferencedAt: blobs.dereferencedAt })
-        .from(blobs)
-        .where(eq(blobs.id, fixture.blobId));
-      const [binding] = await db
-        .select({ detachedAt: attachmentBindings.detachedAt })
-        .from(attachmentBindings)
-        .where(eq(attachmentBindings.id, fixture.rebind.binding.bindingId));
-      expect(blob?.dereferencedAt).toBeNull();
-      expect(binding?.detachedAt).toBeNull();
+      await waitForPostgresLockWait({
+        blockerPid: documentLock.backendPid,
+        queryFragment: "blobs",
+      });
+    } catch (error) {
+      synchronizationError = error;
     } finally {
-      releaseHold();
-      await Promise.all([
-        documentHolder.catch(() => undefined),
-        bind.catch(() => undefined),
-        reclaim?.catch(() => undefined),
-      ]);
+      await documentLock.release();
     }
+    if (synchronizationError) {
+      await Promise.allSettled([bind, ...(reclaim ? [reclaim] : [])]);
+      throw synchronizationError;
+    }
+    if (!reclaim) {
+      throw new Error("Expected blob reclamation to start");
+    }
+    const [bindResult, result] = await Promise.all([bind, reclaim]);
+    expect(bindResult).toEqual({ kind: "fulfilled" });
+    expect(result.reclaimedBlobIds).not.toContain(fixture.blobId);
+    const [blob] = await db
+      .select({ dereferencedAt: blobs.dereferencedAt })
+      .from(blobs)
+      .where(eq(blobs.id, fixture.blobId));
+    const [binding] = await db
+      .select({ detachedAt: attachmentBindings.detachedAt })
+      .from(attachmentBindings)
+      .where(eq(attachmentBindings.id, fixture.rebind.binding.bindingId));
+    expect(blob?.dereferencedAt).toBeNull();
+    expect(binding?.detachedAt).toBeNull();
   },
   30_000,
 );
@@ -164,85 +149,71 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "reclamation that locks first rejects the bind without a dangling row",
   async () => {
     const fixture = await createDereferencedBlobFixture();
-    let markHeld!: () => void;
-    const held = new Promise<void>((resolve) => {
-      markHeld = resolve;
-    });
-    let releaseHold!: () => void;
-    const hold = new Promise<void>((resolve) => {
-      releaseHold = resolve;
-    });
-    const auditHolder = db.transaction(async (tx) => {
+    const auditLock = await holdPostgresLock(async (tx) => {
       const query = tx
         .select({ blobId: blobAuditObjects.blobId })
         .from(blobAuditObjects)
         .where(eq(blobAuditObjects.blobId, fixture.blobId))
         .limit(1);
       await lockRowForUpdate(query);
-      markHeld();
-      await hold;
     });
 
-    await held;
-    let reclaimSettled = false;
     const reclaim = runReclaimDereferencedBlobsWorkflow(db, {
       gracePeriodMs: 24 * HOUR_MS,
       now: fixture.sweepAt,
-    }).then((result) => {
-      reclaimSettled = true;
-      return result;
     });
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    let bindSettled = false;
-    const bind = bindForTest({
-      blobId: fixture.blobId,
-      owner: fixture.owner,
-      request: fixture.rebind.request,
-    }).then(
-      () => {
-        bindSettled = true;
-        return { kind: "fulfilled" as const };
-      },
-      (error: unknown) => {
-        bindSettled = true;
-        return { error, kind: "rejected" as const };
-      },
-    );
-
+    let bind:
+      | Promise<
+          | { readonly kind: "fulfilled" }
+          | { readonly error: unknown; readonly kind: "rejected" }
+        >
+      | undefined;
+    let synchronizationError: unknown;
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      expect(reclaimSettled).toBe(false);
-      expect(bindSettled).toBe(false);
-      releaseHold();
-
-      const [, result, bindResult] = await Promise.all([
-        auditHolder,
-        reclaim,
-        bind,
-      ]);
-      expect(result.reclaimedBlobIds).toContain(fixture.blobId);
-      expect(bindResult).toMatchObject({
-        error: { message: "Blob not found", status: 404 },
-        kind: "rejected",
+      await waitForPostgresLockWait({
+        blockerPid: auditLock.backendPid,
+        queryFragment: "blob_audit_objects",
       });
-      const blobRows = await db
-        .select({ id: blobs.id })
-        .from(blobs)
-        .where(eq(blobs.id, fixture.blobId));
-      const bindingRows = await db
-        .select({ id: attachmentBindings.id })
-        .from(attachmentBindings)
-        .where(eq(attachmentBindings.id, fixture.rebind.binding.bindingId));
-      expect(blobRows).toEqual([]);
-      expect(bindingRows).toEqual([]);
+      bind = bindForTest({
+        blobId: fixture.blobId,
+        owner: fixture.owner,
+        request: fixture.rebind.request,
+      }).then(
+        () => ({ kind: "fulfilled" as const }),
+        (error: unknown) => ({ error, kind: "rejected" as const }),
+      );
+      await waitForPostgresLockWait({
+        blockerPid: auditLock.backendPid,
+        queryFragment: "blobs",
+      });
+    } catch (error) {
+      synchronizationError = error;
     } finally {
-      releaseHold();
-      await Promise.all([
-        auditHolder.catch(() => undefined),
-        reclaim.catch(() => undefined),
-        bind.catch(() => undefined),
-      ]);
+      await auditLock.release();
     }
+    if (synchronizationError) {
+      await Promise.allSettled([reclaim, ...(bind ? [bind] : [])]);
+      throw synchronizationError;
+    }
+    if (!bind) {
+      throw new Error("Expected blob bind to start");
+    }
+    const [result, bindResult] = await Promise.all([reclaim, bind]);
+    expect(result.reclaimedBlobIds).toContain(fixture.blobId);
+    expect(bindResult).toMatchObject({
+      error: { message: "Blob not found", status: 404 },
+      kind: "rejected",
+    });
+    const blobRows = await db
+      .select({ id: blobs.id })
+      .from(blobs)
+      .where(eq(blobs.id, fixture.blobId));
+    const bindingRows = await db
+      .select({ id: attachmentBindings.id })
+      .from(attachmentBindings)
+      .where(eq(attachmentBindings.id, fixture.rebind.binding.bindingId));
+    expect(blobRows).toEqual([]);
+    expect(bindingRows).toEqual([]);
   },
   30_000,
 );
