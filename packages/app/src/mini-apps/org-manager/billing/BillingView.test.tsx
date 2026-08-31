@@ -442,3 +442,17 @@ test("past-due Stripe billing cannot be replaced by a native purchase", () => {
     }),
   ).toBe(false);
 });
+
+test.each([
+  "deleting",
+  "purged",
+] as const)("%s billing cannot start a native purchase", (status) => {
+  expect(
+    allowsNativePurchase({
+      isActive: false,
+      isPersonalOrganization: true,
+      status,
+      subscriptionSource: null,
+    }),
+  ).toBe(false);
+});
