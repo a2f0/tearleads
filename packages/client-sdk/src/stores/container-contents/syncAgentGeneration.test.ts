@@ -77,3 +77,66 @@ test("a reset while restoration awaits stops the stale structural pass", async (
     disposeDomainSyncCoordinator(domainScope);
   }
 });
+
+test("a reset while create intents load stops later structural phases", async () => {
+  const domainScope = createDomainScope();
+  const keyPair = generateKemSeedAndKeyPair();
+  const staleExecSql = mock(async () => []);
+  const replacementExecSql = mock(async () => []);
+  let createListStarted = false;
+  let resolveCreateList: () => void = () => {
+    throw new Error("create-intent promise was not initialized");
+  };
+  const listUnsyncedMoveIntents = mock(async () => []);
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    listDormantMetadataSweepRequests: async () => [],
+    listPendingCreateIntents: () => {
+      createListStarted = true;
+      return new Promise((resolve) => {
+        resolveCreateList = () => resolve([]);
+      });
+    },
+    listUnsyncedMoveIntents,
+  };
+  const readyRuntime = createContainerContentsTestRuntime({
+    domainScope,
+    encapsulationKeyPair: keyPair,
+    execSql: staleExecSql,
+  });
+  const idleRuntime = createContainerContentsTestRuntime({
+    dbStatus: "idle",
+    domainScope,
+    encapsulationKeyPair: keyPair,
+    execSql: replacementExecSql,
+  });
+  const state = createContainerContentsStoreState(readyRuntime, persistence);
+  const syncAgent = createContainerContentsStoreSyncAgent({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("the stale pass must not persist container state");
+      },
+      requestDocumentPriming: () => {},
+      updateSnapshot: () => updateContainerContentsSnapshot(state),
+    },
+    state,
+  });
+  updateContainerContentsSnapshot(state);
+
+  try {
+    state.syncLane?.requestSync();
+    await waitFor(
+      () => createListStarted,
+      "Structural sync did not reach create-intent loading.",
+    );
+
+    updateContainerContentsStoreRuntime(state, idleRuntime, syncAgent);
+    resolveCreateList();
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
+
+    expect(listUnsyncedMoveIntents).not.toHaveBeenCalled();
+    expect(replacementExecSql).not.toHaveBeenCalled();
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+  }
+});

@@ -20,6 +20,9 @@ type ContainerMetadataMutationOptions = Pick<
   Parameters<typeof persistContainerMetadataStateFromRuntime>[0],
   "preserveDurableStructureWhenPending"
 >;
+type ContainerStateMutationOptions = ContainerMetadataMutationOptions & {
+  isCurrent?: (() => boolean) | undefined;
+};
 
 export async function persistContainerState(
   state: ContainerContentsStoreState,
@@ -28,7 +31,7 @@ export async function persistContainerState(
   updateView = true,
   saveOptions?: PersistContainerSaveOptions,
   localMutation?: LocalContainerMetadataMutation,
-  mutationOptions?: ContainerMetadataMutationOptions,
+  mutationOptions?: ContainerStateMutationOptions,
 ): Promise<PersistContainerStateResult> {
   const persisted = await persistContainerMetadataStateFromRuntime({
     metadataState: containerState,
@@ -41,6 +44,9 @@ export async function persistContainerState(
     runtime: state.runtime,
     saveOptions,
   });
+  if (mutationOptions?.isCurrent?.() === false) {
+    return { status: "stale-generation" };
+  }
   if (!persisted) {
     removeMissingContainerState(state, containerState);
     return { status: "missing" };

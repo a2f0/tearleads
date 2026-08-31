@@ -118,6 +118,7 @@ test("container create sync propagates identity failures without recording a ret
           throw new Error("unexpected persist");
         },
       },
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state,
     }),
@@ -253,6 +254,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     // marked synced yet — matching the "no errors anywhere" the user observed.
     const firstCreated = await syncPendingContainerCreateIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state,
     });
@@ -272,6 +274,7 @@ test("container create sync defers a lost-response conflict and heals on hydrati
 
     const secondCreated = await syncPendingContainerCreateIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state,
     });
@@ -382,6 +385,7 @@ test("container create sync keeps an intent pending while the container row lack
         throw new Error("unexpected persist");
       },
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => true,
     state,
   });

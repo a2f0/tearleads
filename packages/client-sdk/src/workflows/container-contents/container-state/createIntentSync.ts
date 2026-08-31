@@ -12,12 +12,24 @@ import type {
   CreatedRemoteContainerState,
 } from "./types";
 
+type CreateIntentSyncResult = "abandoned" | "blocked" | "created" | "failed";
+
+function currentCreateResult<
+  Result extends Exclude<CreateIntentSyncResult, "abandoned">,
+>(isCurrent: () => boolean, result: Result): "abandoned" | Result {
+  return isCurrent() ? result : "abandoned";
+}
+
 async function reportContainerCreateIntegrityFailure(input: {
   readonly containerId: string;
   readonly error: unknown;
+  readonly isCurrent: () => boolean;
   readonly organizationId: string;
   readonly state: ContainerCreateIntentSyncState;
 }): Promise<void> {
+  if (!input.isCurrent()) {
+    return;
+  }
   await reportAndRethrowKeyingVerificationError(
     input.error,
     input.state.runtime.util.reportSecurityIncident,
@@ -32,35 +44,44 @@ async function reportContainerCreateIntegrityFailure(input: {
 
 async function recordContainerCreateFailure(input: {
   readonly error: unknown;
+  readonly isCurrent: () => boolean;
   readonly intent: ContainerCreateIntentSyncInput["intent"];
   readonly organizationId: string;
   readonly state: ContainerCreateIntentSyncState;
-}): Promise<"failed"> {
+}): Promise<"abandoned" | "failed"> {
   await reportContainerCreateIntegrityFailure({
     containerId: input.intent.containerId,
     error: input.error,
+    isCurrent: input.isCurrent,
     organizationId: input.organizationId,
     state: input.state,
   });
+  if (!input.isCurrent()) {
+    return "abandoned";
+  }
   await input.state.persistence.recordCreateIntentError(
     input.state.runtime.infra.execSql,
     input.intent.containerId,
     `Remote container create failed: ${errorMessage(input.error)}`,
   );
-  return "failed";
+  return currentCreateResult(input.isCurrent, "failed");
 }
 
 async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   containerState: ContainerState;
+  isCurrent: () => boolean;
   intent: ContainerCreateIntentSyncInput["intent"];
   state: ContainerCreateIntentSyncState;
-}) {
+}): Promise<boolean> {
   const { containerState, intent, state } = input;
   const remoteMetadataDocumentId = containerState.record.documentId;
   const remoteMetadataAccessStateHash = containerState.record.accessStateHash;
 
   if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
-    return;
+    return false;
+  }
+  if (!input.isCurrent()) {
+    return false;
   }
   const execSql = state.runtime.infra.execSql;
 
@@ -71,16 +92,21 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
   });
+  return input.isCurrent();
 }
 
 async function persistCreatedRemoteContainerStateFromIntent(input: {
   containerState: ContainerState;
   created: CreatedRemoteContainerState;
   host: ContainerCreateIntentSyncHost;
+  isCurrent: () => boolean;
   intent: ContainerCreateIntentSyncInput["intent"];
   state: ContainerCreateIntentSyncState;
-}): Promise<"identity-superseded" | "missing" | "persisted"> {
+}): Promise<"abandoned" | "identity-superseded" | "missing" | "persisted"> {
   const { containerState, created, host, intent, state } = input;
+  if (!input.isCurrent()) {
+    return "abandoned";
+  }
   containerState.container = {
     ...containerState.container,
     createdAt: created.createdAt,
@@ -109,7 +135,11 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
         updatedAt: created.updatedAt,
       },
     },
+    { isCurrent: input.isCurrent },
   );
+  if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
+    return "abandoned";
+  }
   if (persistenceResult.status !== "persisted") {
     return persistenceResult.status;
   }
@@ -137,13 +167,17 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     remoteMetadataAccessStateHash: created.accessManifestHash,
     remoteMetadataDocumentId: created.metadataDocumentId,
   });
-  return "persisted";
+  return input.isCurrent() ? "persisted" : "abandoned";
 }
 
 async function discardOrphanedRemoteContainer(input: {
   created: CreatedRemoteContainerState;
+  isCurrent: () => boolean;
   state: ContainerCreateIntentSyncState;
 }): Promise<void> {
+  if (!input.isCurrent()) {
+    return;
+  }
   const discardFailure = await deleteRemoteContainer({
     containerId: input.created.containerId,
     runtime: input.state.runtime,
@@ -151,113 +185,65 @@ async function discardOrphanedRemoteContainer(input: {
     (deleted) => (deleted ? null : "the server rejected the delete"),
     (error: unknown) => errorMessage(error),
   );
-  if (discardFailure !== null) {
+  if (input.isCurrent() && discardFailure !== null) {
     input.state.runtime.util.log(
       `Container contents: failed to discard orphaned remote container ${input.created.containerId} after local delete: ${discardFailure}`,
     );
   }
 }
 
-async function trySyncPendingContainerContentsContainerCreateIntent(
-  input: ContainerCreateIntentSyncInput,
-): Promise<"created" | "blocked" | "failed"> {
-  const { host, intent, state } = input;
-  const containerState = state.containersById.get(intent.containerId);
-  const parentState = state.containersById.get(intent.parentContainerId);
-
-  if (!containerState || !parentState) {
-    const execSql = state.runtime.infra.execSql;
-    await state.persistence.recordCreateIntentError(
-      execSql,
-      intent.containerId,
-      "Container create intent references a missing local container",
-    );
-    return "failed";
-  }
-
-  if (hasRemoteContainerMetadataState(containerState)) {
-    await markContainerContentsContainerCreateIntentAlreadySynced({
-      containerState,
-      intent,
-      state,
-    });
-    return "created";
-  }
-
-  if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {
-    return "blocked";
-  }
-
-  if (!hasRemoteContainerMetadataState(parentState)) {
-    return "blocked";
-  }
-
-  let created: Awaited<ReturnType<typeof createRemoteContainer>>;
-  try {
-    created = await createRemoteContainer({
-      systemSlot: containerState.container.systemSlot,
-      containerId: containerState.container.id,
-      parentContainerId: parentState.container.id,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-    });
-  } catch (error) {
-    return recordContainerCreateFailure({
-      error,
-      intent,
-      organizationId: parentState.container.organizationId,
-      state,
-    });
-  }
-
+async function settleRemoteContainerCreate(input: {
+  containerState: ContainerState;
+  created: Awaited<ReturnType<typeof createRemoteContainer>>;
+  syncInput: ContainerCreateIntentSyncInput;
+}): Promise<CreateIntentSyncResult> {
+  const { containerState, created, syncInput } = input;
+  const { host, intent, state } = syncInput;
   if (created === CONTAINER_ALREADY_COMMITTED) {
-    // The container's create response was lost but the server committed it; the
-    // re-submit reported the manifest already exists. This is not a failure — the
-    // remote container is real. Its metadata state lands when the parent's
-    // contents are next hydrated, which marks this intent synced via the
-    // hasRemoteContainerMetadataState check above. Leave the intent pending
-    // without recording an error so it reconciles quietly instead of surfacing a
-    // spurious write-queue failure.
+    // A lost create response leaves the intent pending until hydration installs
+    // the committed remote metadata state.
     state.runtime.util.log(
       `Container contents: deferred create intent for ${intent.containerId}; container already committed remotely, awaiting hydration.`,
     );
     return "blocked";
   }
-
   if (!created) {
-    const execSql = state.runtime.infra.execSql;
     await state.persistence.recordCreateIntentError(
-      execSql,
+      state.runtime.infra.execSql,
       intent.containerId,
       "Remote container create was rejected or unavailable",
     );
-    return "failed";
+    return currentCreateResult(syncInput.isCurrent, "failed");
   }
-
   if (!state.containersById.has(intent.containerId)) {
-    // The container was deleted locally while its remote create was in flight:
-    // frontend writes run on the store's write chain, outside this sync lane, so
-    // a delete can land between the createRemoteContainer await above and the
-    // persist below. Re-inserting the container's just-deleted rows here would
-    // resurrect a container the user removed. The local delete already cascaded
-    // away this create intent (see deleteContainer), so there is nothing to mark
-    // synced — discard the now-orphaned remote container we created instead.
-    // deleteRemoteContainer resolves false (not throws) when the server rejects
-    // the delete, so log both the false result and any thrown error.
-    await discardOrphanedRemoteContainer({ created, state });
-    return "failed";
+    // A same-generation local delete wins; discard the remote orphan instead
+    // of resurrecting the deleted local container.
+    await discardOrphanedRemoteContainer({
+      created,
+      isCurrent: syncInput.isCurrent,
+      state,
+    });
+    return currentCreateResult(syncInput.isCurrent, "failed");
   }
 
   const persistenceStatus = await persistCreatedRemoteContainerStateFromIntent({
     containerState,
     created,
     host,
+    isCurrent: syncInput.isCurrent,
     intent,
     state,
   });
+  if (persistenceStatus === "abandoned") {
+    return "abandoned";
+  }
   if (persistenceStatus === "missing") {
-    await discardOrphanedRemoteContainer({ created, state });
-    return "failed";
+    await discardOrphanedRemoteContainer({
+      created,
+      isCurrent: syncInput.isCurrent,
+      state,
+    });
+    return currentCreateResult(syncInput.isCurrent, "failed");
   }
   if (persistenceStatus === "identity-superseded") {
     state.runtime.util.log(
@@ -271,22 +257,110 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   return "created";
 }
 
+async function createPendingRemoteContainer(input: {
+  containerState: ContainerState;
+  parentState: ContainerState;
+  syncInput: ContainerCreateIntentSyncInput;
+}): Promise<CreateIntentSyncResult> {
+  const { containerState, parentState, syncInput } = input;
+  const { intent, state } = syncInput;
+  let created: Awaited<ReturnType<typeof createRemoteContainer>>;
+  try {
+    created = await createRemoteContainer({
+      systemSlot: containerState.container.systemSlot,
+      containerId: containerState.container.id,
+      parentContainerId: parentState.container.id,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      runtime: state.runtime,
+    });
+  } catch (error) {
+    if (!syncInput.isCurrent()) {
+      return "abandoned";
+    }
+    return recordContainerCreateFailure({
+      error,
+      isCurrent: syncInput.isCurrent,
+      intent,
+      organizationId: parentState.container.organizationId,
+      state,
+    });
+  }
+  if (!syncInput.isCurrent()) {
+    return "abandoned";
+  }
+  return settleRemoteContainerCreate({ containerState, created, syncInput });
+}
+
+async function trySyncPendingContainerContentsContainerCreateIntent(
+  input: ContainerCreateIntentSyncInput,
+): Promise<CreateIntentSyncResult> {
+  const { intent, state } = input;
+  if (!input.isCurrent()) {
+    return "abandoned";
+  }
+  const containerState = state.containersById.get(intent.containerId);
+  const parentState = state.containersById.get(intent.parentContainerId);
+
+  if (!containerState || !parentState) {
+    const execSql = state.runtime.infra.execSql;
+    await state.persistence.recordCreateIntentError(
+      execSql,
+      intent.containerId,
+      "Container create intent references a missing local container",
+    );
+    return currentCreateResult(input.isCurrent, "failed");
+  }
+
+  if (hasRemoteContainerMetadataState(containerState)) {
+    const marked =
+      await markContainerContentsContainerCreateIntentAlreadySynced({
+        containerState,
+        isCurrent: input.isCurrent,
+        intent,
+        state,
+      });
+    return marked ? "created" : "abandoned";
+  }
+
+  if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {
+    return "blocked";
+  }
+
+  if (!hasRemoteContainerMetadataState(parentState)) {
+    return "blocked";
+  }
+
+  return createPendingRemoteContainer({
+    containerState,
+    parentState,
+    syncInput: input,
+  });
+}
+
 export async function syncPendingContainerCreateIntents(input: {
   host: ContainerCreateIntentSyncHost;
+  isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
-  const { host, state } = input;
+  if (!input.isCurrent()) {
+    return 0;
+  }
+  const { host } = input;
+  const state = { ...input.state };
   const execSql = state.runtime.infra.execSql;
   const pendingIntents =
     await state.persistence.listPendingCreateIntents(execSql);
+  if (!input.isCurrent()) {
+    return 0;
+  }
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),
   );
   let createdCount = 0;
   let progressed = true;
 
-  while (progressed) {
+  while (progressed && input.isCurrent()) {
     progressed = false;
 
     for (const intent of pendingIntents) {
@@ -297,11 +371,15 @@ export async function syncPendingContainerCreateIntents(input: {
       const result = await trySyncPendingContainerContentsContainerCreateIntent(
         {
           host,
+          isCurrent: input.isCurrent,
           isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
           state,
         },
       );
+      if (result === "abandoned") {
+        return createdCount;
+      }
 
       if (result === "blocked") {
         continue;

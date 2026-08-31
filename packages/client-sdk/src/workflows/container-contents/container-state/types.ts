@@ -135,6 +135,7 @@ export type ContainerCreateIntentSyncHost = Pick<
 
 export interface ContainerCreateIntentSyncInput {
   host: ContainerCreateIntentSyncHost;
+  isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerCreateIntentRecord;
   state: ContainerCreateIntentSyncState;
@@ -149,6 +150,7 @@ export type ContainerMoveIntentSyncHost = Pick<
 
 export interface ContainerMoveIntentSyncInput {
   host: ContainerMoveIntentSyncHost;
+  isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
   state: ContainerMoveIntentSyncState;

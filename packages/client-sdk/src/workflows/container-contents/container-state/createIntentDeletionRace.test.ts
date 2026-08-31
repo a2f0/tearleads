@@ -138,6 +138,7 @@ async function runCreatePersistenceOutcome(
     };
     const createdCount = await syncPendingContainerCreateIntents({
       host,
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state,
     });

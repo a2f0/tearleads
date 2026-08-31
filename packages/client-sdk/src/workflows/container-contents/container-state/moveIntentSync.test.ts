@@ -133,6 +133,7 @@ test("pending container move sync records per-intent failures and continues", as
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
@@ -176,6 +177,7 @@ test("container move sync propagates identity failures without recording a retry
         },
         updateSnapshot: () => {},
       },
+      isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       state: createMoveIntentSyncState({
         containersById,
@@ -248,6 +250,7 @@ test("a blocked organization does not prevent another organization's move from s
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizations.push(organizationId);
       return organizationId === "custom-organization";
@@ -303,6 +306,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
       },
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
@@ -336,6 +340,7 @@ test("an accepted remote move is not settled when local persistence observes del
       persistContainerState: async () => ({ status: "missing" }),
       updateSnapshot: () => {},
     },
+    isCurrent: () => true,
     intent: moveIntentRecord({ containerId: "child" }),
     moved: {
       createdAt: "2026-05-31T00:00:00.000Z",
@@ -354,4 +359,78 @@ test("an accepted remote move is not settled when local persistence observes del
 
   expect(persisted).toBe(false);
   expect(settled).toBe(false);
+});
+
+test("a generation change during move persistence cannot settle on a replacement executor", async () => {
+  const child = createTestContainerState({ id: "child", parentId: "root" });
+  const originalMetadataDocumentId = child.container.metadataDocumentId;
+  let current = true;
+  let persistenceStarted = false;
+  let releasePersistence: () => void = () => {
+    throw new Error("persistence promise was not initialized");
+  };
+  let persistedGuard: (() => boolean) | undefined;
+  let settled = false;
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    markMoveIntentSynced: async () => {
+      settled = true;
+    },
+  };
+  const state = createMoveIntentSyncState({
+    containersById: new Map([["child", child]]),
+    persistence,
+  });
+  const replacementExecSql: ExecSql = async () => {
+    throw new Error("replacement executor must remain untouched");
+  };
+  const persisted = persistAcceptedMoveIntent({
+    host: {
+      persistContainerState: async (
+        _containerState,
+        _patch,
+        _updateView,
+        _saveOptions,
+        mutationOptions,
+      ) => {
+        persistedGuard = mutationOptions?.isCurrent;
+        persistenceStarted = true;
+        await new Promise<void>((resolve) => {
+          releasePersistence = resolve;
+        });
+        return { record: child.record, status: "persisted" };
+      },
+      updateSnapshot: () => {},
+    },
+    isCurrent: () => current,
+    intent: moveIntentRecord({ containerId: "child" }),
+    moved: {
+      createdAt: "2026-05-31T00:00:00.000Z",
+      effectiveAccessLevel: "admin",
+      id: "child",
+      metadataAccessEpoch: 2,
+      metadataAccessStateHash: "access-after-move",
+      metadataDocumentId: "metadata-after-move",
+      metadataReferencedPrincipals: [],
+      organizationId: "organization",
+      parentId: "parent",
+      updatedAt: "2026-05-31T00:01:00.000Z",
+    },
+    state,
+  });
+
+  while (!persistenceStarted) {
+    await Promise.resolve();
+  }
+  current = false;
+  state.runtime = {
+    ...state.runtime,
+    infra: { ...state.runtime.infra, execSql: replacementExecSql },
+  };
+  releasePersistence();
+
+  await expect(persisted).resolves.toBe(false);
+  expect(persistedGuard?.()).toBe(false);
+  expect(settled).toBe(false);
+  expect(child.container.metadataDocumentId).toBe(originalMetadataDocumentId);
 });

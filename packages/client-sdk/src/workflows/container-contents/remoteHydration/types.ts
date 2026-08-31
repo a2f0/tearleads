@@ -100,7 +100,8 @@ export interface RemoteContainerHydrationState {
 export type PersistContainerStateResult =
   | { status: "identity-superseded"; record: ContainerDocumentRecord }
   | { status: "missing" }
-  | { status: "persisted"; record: ContainerDocumentRecord };
+  | { status: "persisted"; record: ContainerDocumentRecord }
+  | { status: "stale-generation" };
 
 export interface RemoteContainerHydrationHost {
   persistContainerState: (
@@ -109,6 +110,7 @@ export interface RemoteContainerHydrationHost {
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
     mutationOptions?: {
+      isCurrent?: (() => boolean) | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
     },
   ) => Promise<PersistContainerStateResult>;

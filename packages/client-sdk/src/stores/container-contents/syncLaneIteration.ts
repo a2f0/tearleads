@@ -36,11 +36,9 @@ function requestContainerContentsStoreSync(
   state.syncLane?.requestSync();
 }
 
-function isRemoteSyncBlocked(
-  state: ContainerContentsStoreSyncState,
-  organizationId: string,
-): boolean {
-  return state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
+function createRemoteSyncBlocker(runtime: ContainerContentsStoreRuntime) {
+  return (organizationId: string) =>
+    runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
 }
 
 function createContainerContentsStoreDocumentMoveHost(
@@ -121,25 +119,30 @@ async function syncSingleContainerMetadata(input: {
   }
 }
 
-export async function runContainerContentsStoreSyncIteration(input: {
+interface ContainerContentsStoreSyncIterationInput {
   host: RemoteContainerHydrationHost;
   reconcileRestoredAccess: () => Promise<void>;
   state: ContainerContentsStoreSyncState;
-}) {
+}
+
+export async function runContainerContentsStoreSyncIteration(
+  input: ContainerContentsStoreSyncIterationInput,
+) {
   const { host, reconcileRestoredAccess, state } = input;
-  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
+  const runtime = state.runtime;
+  const encapsulationKeyPair = runtime.crypto.encapsulationKeyPair;
   if (
-    state.runtime.infra.dbStatus !== "ready" ||
+    runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !state.runtime.state.online ||
-    !state.runtime.auth.isAuthenticated ||
+    !runtime.state.online ||
+    !runtime.auth.isAuthenticated ||
     !encapsulationKeyPair
   ) {
     return;
   }
   const lifecycleGeneration = state.lifecycleGeneration;
-  const domainScope = state.runtime.state.domainScope;
-  const execSql = state.runtime.infra.execSql;
+  const domainScope = runtime.state.domainScope;
+  const execSql = runtime.infra.execSql;
   const resolveProjectionUserKey = state.resolveProjectionUserKey;
   const syncLane = state.syncLane;
   const isCurrent = () =>
@@ -154,11 +157,11 @@ export async function runContainerContentsStoreSyncIteration(input: {
   if (!isCurrent()) {
     return;
   }
-  const isOrganizationBlocked = (organizationId: string) =>
-    isRemoteSyncBlocked(state, organizationId);
+  const isOrganizationBlocked = createRemoteSyncBlocker(runtime);
 
   const createdContainerCount = await syncPendingContainerCreateIntents({
     host,
+    isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
     state,
   });
@@ -172,6 +175,7 @@ export async function runContainerContentsStoreSyncIteration(input: {
 
   const movedContainerCount = await syncPendingContainerMoveIntents({
     host,
+    isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
     state,
   });
@@ -181,7 +185,7 @@ export async function runContainerContentsStoreSyncIteration(input: {
   if (movedContainerCount > 0) {
     state.documentStoresNeedPriming = true;
     host.updateSnapshot();
-    requestDomainDocumentSync(state.runtime.state.domainScope);
+    requestDomainDocumentSync(domainScope);
     requestContainerContentsStoreSync(state);
   }
 
@@ -202,10 +206,17 @@ export async function runContainerContentsStoreSyncIteration(input: {
   // metadata converge first so a recovered system container is never exposed
   // under its placeholder name when the active root changes.
   await runContainerDocumentWork({
-    onContextChanged: () => requestContainerContentsStoreSync(state),
+    isCurrent,
+    onContextChanged: () => {
+      if (isCurrent()) {
+        requestContainerContentsStoreSync(state);
+      }
+    },
     onDocumentsMoved: () => {
-      requestDomainDocumentSync(state.runtime.state.domainScope);
-      requestContainerContentsStoreSync(state);
+      if (isCurrent()) {
+        requestDomainDocumentSync(domainScope);
+        requestContainerContentsStoreSync(state);
+      }
     },
     primeDocuments: () => primeStoreDocuments(state),
     recoverStaleRoot: () => recoverStoreStaleRoot(state),
