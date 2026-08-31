@@ -52,10 +52,11 @@ async function bindSubscription(input: {
 
 function nativeEvent(input: {
   buyerId: string;
+  newProductId?: string;
   organizationId: string;
   store: "APP_STORE" | "PLAY_STORE";
   subscriptionId: string;
-  type: "INITIAL_PURCHASE" | "RENEWAL";
+  type: "INITIAL_PURCHASE" | "PRODUCT_CHANGE" | "RENEWAL";
 }): RevenueCatWebhookEvent {
   const now = Date.now();
   return {
@@ -64,6 +65,7 @@ function nativeEvent(input: {
     event_timestamp_ms: now,
     expiration_at_ms: now + PERIOD_MS,
     id: crypto.randomUUID(),
+    ...(input.newProductId ? { new_product_id: input.newProductId } : {}),
     original_transaction_id: input.subscriptionId,
     product_id: "com.symcrypt.sync.monthly",
     purchased_at_ms: now,
@@ -160,5 +162,43 @@ test("native lifecycle events route by subscription across two store bindings", 
   );
   expect(await readSubscriptionId(restoredOrganizationId)).toBe(
     "play-subscription",
+  );
+});
+
+test("a replacement Play token fails closed across same-tier bindings", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  const restoredOrganizationId = await createOrganization(user);
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    subscriptionId: "first-play-subscription",
+  });
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    subscriptionId: "second-play-subscription",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      newProductId: "sync_team_5_monthly",
+      organizationId: restoredOrganizationId,
+      store: "PLAY_STORE",
+      subscriptionId: "replacement-play-token",
+      type: "PRODUCT_CHANGE",
+    }),
+  );
+
+  expect(outcome).toEqual({
+    reason: "Product change does not match a bound native subscription",
+    status: "ignored",
+  });
+  expect(await readSubscriptionId(personalOrganizationId)).toBe(
+    "first-play-subscription",
+  );
+  expect(await readSubscriptionId(restoredOrganizationId)).toBe(
+    "second-play-subscription",
   );
 });

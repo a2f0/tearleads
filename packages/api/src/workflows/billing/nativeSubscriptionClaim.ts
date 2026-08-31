@@ -423,12 +423,14 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
 export async function resolveNativeSubscriptionOrganizationForUser(
   db: ApiDatabase,
   userId: string,
+  subscriptionId?: string,
 ): Promise<string | null | "ambiguous"> {
   return db.transaction(async (tx) => {
     const nativeBindings = await tx
       .select({
         organizationId: organizationBilling.organizationId,
         productId: organizationBilling.providerProductId,
+        subscriptionId: organizationBilling.providerSubscriptionId,
       })
       .from(organizationBilling)
       .where(
@@ -441,6 +443,12 @@ export async function resolveNativeSubscriptionOrganizationForUser(
     const recognizedNativeBindings = nativeBindings.filter((binding) =>
       getSyncBillingTierForNativeProduct(binding.productId),
     );
+    const exactBinding = subscriptionId
+      ? recognizedNativeBindings.find(
+          (binding) => binding.subscriptionId === subscriptionId,
+        )
+      : undefined;
+    if (exactBinding) return exactBinding.organizationId;
     if (recognizedNativeBindings.length > 1) return "ambiguous";
     if (recognizedNativeBindings[0]) {
       return recognizedNativeBindings[0].organizationId;

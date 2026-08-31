@@ -3,12 +3,11 @@ import type {
   DatabaseSession,
 } from "@symcrypt/api-shared/postgres";
 import {
-  organizationBilling,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@symcrypt/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";
 import {
@@ -17,14 +16,13 @@ import {
   classifyRevenueCatEvent,
   isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
-  resolveOrganizationIdFromEvent,
   resolveRevenueCatRecordedProductId,
   SANDBOX_IGNORED_REASON,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
-import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
+import { resolveRevenueCatWebhookOrganizationId } from "./revenuecatOrganizationRouting";
 import { resolveNativeStripeConflictReason } from "./revenuecatProviderConflict";
 import {
   type ImmutableStripeStoreOrgResolution,
@@ -75,50 +73,6 @@ interface RevenueCatPreclaimInput {
   readonly stripeResolution: ImmutableStripeStoreOrgResolution;
   readonly stripeTierUnresolved: boolean;
   readonly transition: RevenueCatBillingTransition;
-}
-
-async function resolveBoundNativeOrganizationId(
-  db: ApiDatabase,
-  event: RevenueCatWebhookEvent,
-): Promise<string | null> {
-  if (
-    !isRecognizedNativeRevenueCatStore(event.store) ||
-    !event.original_transaction_id
-  ) {
-    return null;
-  }
-  const [binding] = await db
-    .select({ organizationId: organizationBilling.organizationId })
-    .from(organizationBilling)
-    .where(
-      and(
-        eq(organizationBilling.provider, "revenuecat"),
-        eq(
-          organizationBilling.providerSubscriptionId,
-          event.original_transaction_id,
-        ),
-      ),
-    )
-    .limit(1);
-  return binding?.organizationId ?? null;
-}
-
-async function resolveWebhookOrganizationId(input: {
-  readonly db: ApiDatabase;
-  readonly event: RevenueCatWebhookEvent;
-  readonly stripeResolution: ImmutableStripeStoreOrgResolution;
-}): Promise<string | null> {
-  if (input.stripeResolution.kind === "resolved") {
-    return input.stripeResolution.organizationId;
-  }
-  if (input.event.store?.toUpperCase() === "STRIPE") return null;
-  // Native subscriber attributes are customer-level and mutable. Once a
-  // receipt has a durable binding, route its lifecycle by the immutable
-  // original transaction id so another Apple/Play purchase cannot redirect it.
-  return (
-    (await resolveBoundNativeOrganizationId(input.db, input.event)) ??
-    resolveOrganizationIdFromEvent(input.event)
-  );
 }
 
 async function resolveGrantApplicationDisposition(input: {
@@ -453,7 +407,7 @@ export async function runRevenueCatWebhookWorkflow(
           stripeSeatCount: stripeResolution.seatCount ?? 1,
         })
       : initialTransition;
-  const organizationId = await resolveWebhookOrganizationId({
+  const organizationId = await resolveRevenueCatWebhookOrganizationId({
     db,
     event,
     stripeResolution,

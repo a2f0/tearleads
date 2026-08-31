@@ -1,3 +1,4 @@
+import { users } from "@symcrypt/api-shared/schema";
 import {
   NATIVE_SUBSCRIPTION_STORES,
   type NativeSubscriptionStore,
@@ -8,6 +9,7 @@ import type {
 } from "@symcrypt/validators/request";
 import { isRevenueCatTransferWebhookEvent } from "@symcrypt/validators/request";
 import { isUuidV4String } from "@symcrypt/validators/util";
+import { eq } from "drizzle-orm";
 import { isNativeSubscriptionMoveConflict } from "../../billing/databaseErrors";
 import {
   type ActiveNativeSubscription,
@@ -90,22 +92,37 @@ async function resolveTransferredSubscription(input: {
   return found ?? { kind: "not_found" };
 }
 
-async function resolveTransferDestination(
+async function resolveTransferAppUserId(
   runtime: ApiServiceRuntime,
   appUserIds: readonly string[],
-): Promise<TransferDestination | null | "ambiguous"> {
-  const destinations: TransferDestination[] = [];
+): Promise<string | null | "ambiguous"> {
+  const registeredUserIds: string[] = [];
   for (const appUserId of new Set(appUserIds)) {
     if (!isUuidV4String(appUserId)) continue;
-    const organizationId = await resolveNativeSubscriptionOrganizationForUser(
-      runtime.db,
-      appUserId,
-    );
-    if (organizationId === "ambiguous") return "ambiguous";
-    if (organizationId) destinations.push({ appUserId, organizationId });
+    const [registered] = await runtime.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, appUserId))
+      .limit(1);
+    if (registered) registeredUserIds.push(registered.id);
   }
-  if (destinations.length > 1) return "ambiguous";
-  return destinations[0] ?? null;
+  if (registeredUserIds.length > 1) return "ambiguous";
+  return registeredUserIds[0] ?? null;
+}
+
+async function resolveTransferDestination(input: {
+  readonly appUserId: string;
+  readonly runtime: ApiServiceRuntime;
+  readonly subscriptionId?: string;
+}): Promise<TransferDestination | null | "ambiguous"> {
+  const organizationId = await resolveNativeSubscriptionOrganizationForUser(
+    input.runtime.db,
+    input.appUserId,
+    input.subscriptionId,
+  );
+  return typeof organizationId === "string"
+    ? { appUserId: input.appUserId, organizationId }
+    : organizationId;
 }
 
 interface TransferDestination {
@@ -205,6 +222,80 @@ async function claimTransferredSubscription(input: {
       };
 }
 
+async function processVerifiedRevenueCatTransfer(input: {
+  readonly appUserId: string;
+  readonly deps: RevenueCatApiDeps;
+  readonly event: RevenueCatTransferWebhookEvent;
+  readonly runtime: ApiServiceRuntime;
+  readonly store: NativeSubscriptionStore | null;
+}): Promise<RevenueCatWebhookOutcome> {
+  const resolved = await resolveTransferredSubscription(input);
+  if (resolved.kind === "not_found") {
+    return ignoreRevenueCatTransfer({
+      event: input.event,
+      reason: "Transferred subscription is not active",
+      runtime: input.runtime,
+    });
+  }
+  if (resolved.kind === "customer_not_found") {
+    const destination = await resolveTransferDestination(input);
+    if (destination === "ambiguous") {
+      return ignoreRevenueCatTransfer({
+        event: input.event,
+        reason: "Transfer subscription destination is ambiguous",
+        runtime: input.runtime,
+      });
+    }
+    if (!destination) {
+      return ignoreRevenueCatTransfer({
+        event: input.event,
+        reason: "Transfer destination is not a SymCrypt user",
+        runtime: input.runtime,
+      });
+    }
+    return deferUnconfirmedTransfer({
+      destination,
+      event: input.event,
+      reason: "Transferred subscription has not propagated to RevenueCat",
+      runtime: input.runtime,
+    });
+  }
+  if (resolved.kind !== "found") {
+    const reason = `Transferred subscription verification is ${resolved.kind}`;
+    return resolved.kind === "ambiguous"
+      ? ignoreRevenueCatTransfer({
+          event: input.event,
+          reason,
+          runtime: input.runtime,
+        })
+      : { reason, status: "retry" };
+  }
+  const destination = await resolveTransferDestination({
+    ...input,
+    subscriptionId: resolved.subscription.subscriptionId,
+  });
+  if (destination === "ambiguous") {
+    return ignoreRevenueCatTransfer({
+      event: input.event,
+      reason: "Transfer subscription destination is ambiguous",
+      runtime: input.runtime,
+    });
+  }
+  if (!destination) {
+    return ignoreRevenueCatTransfer({
+      event: input.event,
+      reason: "Transfer destination is not a SymCrypt user",
+      runtime: input.runtime,
+    });
+  }
+  return claimTransferredSubscription({
+    destination,
+    event: input.event,
+    runtime: input.runtime,
+    subscription: resolved.subscription,
+  });
+}
+
 async function processRevenueCatTransfer(
   runtime: ApiServiceRuntime,
   event: RevenueCatTransferWebhookEvent,
@@ -238,55 +329,29 @@ async function processRevenueCatTransfer(
       runtime,
     });
   }
-  const destination = await resolveTransferDestination(
+  const appUserId = await resolveTransferAppUserId(
     runtime,
     event.transferred_to,
   );
-  if (destination === "ambiguous") {
+  if (appUserId === "ambiguous") {
     return ignoreRevenueCatTransfer({
       event,
       reason: "Transfer has more than one registered destination",
       runtime,
     });
   }
-  if (!destination) {
+  if (!appUserId) {
     return ignoreRevenueCatTransfer({
       event,
       reason: "Transfer destination is not a SymCrypt user",
       runtime,
     });
   }
-  const resolved = await resolveTransferredSubscription({
-    appUserId: destination.appUserId,
+  return processVerifiedRevenueCatTransfer({
+    appUserId,
     deps,
-    store,
-  });
-  if (resolved.kind === "not_found") {
-    return ignoreRevenueCatTransfer({
-      destination,
-      event,
-      reason: "Transferred subscription is not active",
-      runtime,
-    });
-  }
-  if (resolved.kind === "customer_not_found") {
-    return deferUnconfirmedTransfer({
-      destination,
-      event,
-      reason: "Transferred subscription has not propagated to RevenueCat",
-      runtime,
-    });
-  }
-  if (resolved.kind !== "found") {
-    const reason = `Transferred subscription verification is ${resolved.kind}`;
-    return resolved.kind === "ambiguous"
-      ? ignoreRevenueCatTransfer({ destination, event, reason, runtime })
-      : { reason, status: "retry" };
-  }
-  return claimTransferredSubscription({
-    destination,
     event,
     runtime,
-    subscription: resolved.subscription,
+    store,
   });
 }
