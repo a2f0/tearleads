@@ -16753,7 +16753,9 @@ export interface operations {
     };
     "organizations.billing.native.eligibility.get": {
         parameters: {
-            query?: never;
+            query: {
+                store: "app_store" | "play_store" | "test_store";
+            };
             header?: never;
             path: {
                 organizationId: string;

@@ -11,6 +11,7 @@ import {
   isGetOrganizationNativePurchaseEligibilityOperationResponse,
   isStartOrganizationTrialOperationResponse,
   type OrganizationBillingNativeClaimPathParams,
+  type OrganizationBillingNativeEligibilityQuery,
   type OrganizationBillingPathParams,
   startOrganizationTrialOperation,
 } from "@symcrypt/validators/operation";
@@ -19,6 +20,8 @@ import { pathSegment } from "../path";
 type OrganizationId = OrganizationBillingPathParams["organizationId"];
 type NativeSubscriptionStore =
   OrganizationBillingNativeClaimPathParams["store"];
+type NativeEligibilityStore =
+  OrganizationBillingNativeEligibilityQuery["store"];
 
 // Billing clients historically encoded arbitrary organization ids and returned
 // request results for them. Keep that behavior while deriving the path template
@@ -65,11 +68,11 @@ export const organizationBillingManagementUrlGet = {
 export const organizationNativePurchaseEligibilityGet = {
   isResponse: isGetOrganizationNativePurchaseEligibilityOperationResponse,
   method: getOrganizationNativePurchaseEligibilityOperation.method,
-  path: (organizationId: OrganizationId) =>
-    organizationBillingPath(
+  path: (organizationId: OrganizationId, store: NativeEligibilityStore) =>
+    `${organizationBillingPath(
       getOrganizationNativePurchaseEligibilityOperation,
       organizationId,
-    ),
+    )}?store=${pathSegment(store)}`,
 };
 
 export const nativeOrganizationSubscriptionClaim = {

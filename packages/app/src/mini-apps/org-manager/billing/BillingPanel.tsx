@@ -297,7 +297,11 @@ function useNativeBillingRequests(
     [organizationId, symcrypt],
   );
   const checkNativePurchaseEligibility = useCallback(
-    () => symcrypt.organizations.checkNativePurchaseEligibility(organizationId),
+    (store: NativeSubscriptionStore) =>
+      symcrypt.organizations.checkNativePurchaseEligibility(
+        organizationId,
+        store,
+      ),
     [organizationId, symcrypt],
   );
   return { checkNativePurchaseEligibility, claimNativeSubscription };

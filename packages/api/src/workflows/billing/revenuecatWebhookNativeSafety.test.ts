@@ -108,6 +108,7 @@ test("a webhook revalidates a web checkout started after native preflight", asyn
       db,
       organizationId,
       admin.userId,
+      "app_store",
     ),
   ).toEqual({ eligible: true, reason: null });
 

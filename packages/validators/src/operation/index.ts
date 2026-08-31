@@ -178,6 +178,8 @@ export {
   isStartOrganizationTrialOperationResponse,
   type OrganizationBillingNativeClaimPathParams,
   OrganizationBillingNativeClaimPathParamsSchema,
+  type OrganizationBillingNativeEligibilityQuery,
+  OrganizationBillingNativeEligibilityQuerySchema,
   type OrganizationBillingPathParams,
   OrganizationBillingPathParamsSchema,
   startOrganizationTrialOperation,

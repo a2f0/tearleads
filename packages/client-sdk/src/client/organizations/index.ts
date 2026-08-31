@@ -115,6 +115,7 @@ export interface Organizations {
   ) => ReturnType<typeof claimNativeOrganizationSubscription>;
   checkNativePurchaseEligibility: (
     organizationId: string,
+    store: NativeSubscriptionStore,
   ) => ReturnType<typeof checkNativePurchaseEligibility>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
@@ -297,9 +298,12 @@ class OrganizationsService implements Organizations {
     );
   }
 
-  checkNativePurchaseEligibility(organizationId: string) {
+  checkNativePurchaseEligibility(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
     return runForOrganization(this.runtimeService, organizationId, (input) =>
-      checkNativePurchaseEligibility(input),
+      checkNativePurchaseEligibility({ ...input, store }),
     );
   }
 

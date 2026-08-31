@@ -14,6 +14,7 @@ import {
   getOrganizationBillingOperation,
   getOrganizationNativePurchaseEligibilityOperation,
   OrganizationBillingNativeClaimPathParamsSchema,
+  OrganizationBillingNativeEligibilityQuerySchema,
   OrganizationBillingPathParamsSchema,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
@@ -88,6 +89,7 @@ test("organization billing operations own their wire contracts", () => {
   expect(getOrganizationNativePurchaseEligibilityOperation).toMatchObject({
     method: "GET",
     path: "/organizations/{organizationId}/billing/native/eligibility",
+    query: OrganizationBillingNativeEligibilityQuerySchema,
     responses: { 200: OrganizationNativePurchaseEligibilityResponseSchema },
   });
   expect(startOrganizationTrialOperation).toMatchObject({

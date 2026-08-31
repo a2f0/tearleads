@@ -126,7 +126,7 @@ testApiClient("reads native purchase eligibility before checkout", async () => {
 
   const result = await new ApiClient(
     apiBaseUrl,
-  ).getOrganizationNativePurchaseEligibility("org-1");
+  ).getOrganizationNativePurchaseEligibility("org-1", "play_store");
   expect(result).toEqual({ eligible: true, reason: null });
   expect(calls).toEqual([
     {
@@ -134,7 +134,7 @@ testApiClient("reads native purchase eligibility before checkout", async () => {
       body: null,
       contentType: null,
       method: "GET",
-      url: `${apiBaseUrl}/organizations/org-1/billing/native/eligibility`,
+      url: `${apiBaseUrl}/organizations/org-1/billing/native/eligibility?store=play_store`,
     },
   ]);
 });

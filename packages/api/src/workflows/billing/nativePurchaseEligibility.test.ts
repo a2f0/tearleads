@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import type { OrganizationBillingStatus } from "@symcrypt/validators/response";
 import {
   blocksNativePurchaseForStripeCheckoutAttempt,
@@ -11,12 +12,14 @@ function eligibility(
     readonly hasActiveStripeCheckoutAttempt?: boolean;
     readonly isOrgAdmin?: boolean;
     readonly isPersonalOrganization?: boolean;
+    readonly persistedNativeStore?: string | null;
     readonly provider?: "revenuecat" | null;
     readonly providerCustomerId?: string | null;
     readonly providerProductId?: string | null;
     readonly providerSubscriptionId?: string | null;
     readonly providerTransactionId?: string | null;
     readonly status?: OrganizationBillingStatus;
+    readonly targetNativeStore?: NativeSubscriptionStore;
   } = {},
 ) {
   return resolveNativePurchaseEligibility({
@@ -33,7 +36,9 @@ function eligibility(
     hasStripeBinding: overrides.hasStripeBinding ?? false,
     isOrgAdmin: overrides.isOrgAdmin ?? true,
     isPersonalOrganization: overrides.isPersonalOrganization ?? true,
+    persistedNativeStore: overrides.persistedNativeStore ?? null,
     sessionUserId: "user-1",
+    targetNativeStore: overrides.targetNativeStore ?? "test_store",
   });
 }
 
@@ -74,9 +79,27 @@ test("allows a tier change for the buyer's complete native binding", () => {
       providerCustomerId: "user-1",
       providerProductId: "sync_team_5_monthly:monthly",
       providerSubscriptionId: "native-subscription-1",
+      persistedNativeStore: "TEST_STORE",
       status: "active",
     }),
   ).toEqual({ eligible: true, reason: null });
+});
+
+test("rejects a second native subscription on another store", () => {
+  expect(
+    eligibility({
+      persistedNativeStore: "APP_STORE",
+      provider: "revenuecat",
+      providerCustomerId: "user-1",
+      providerProductId: "sync_solo_monthly",
+      providerSubscriptionId: "apple-subscription",
+      status: "active",
+      targetNativeStore: "play_store",
+    }),
+  ).toEqual({
+    eligible: false,
+    reason: "existing_subscription_conflict",
+  });
 });
 
 test("fails closed for incomplete, foreign, and unexplained active bindings", () => {

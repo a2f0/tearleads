@@ -72,7 +72,10 @@ async function restoreClaimAndBindNativeSubscription(input: {
   if (!input.userId || !input.purchases.nativeStore) {
     throw new Error("Native subscription restore is unavailable");
   }
-  await requireNativePurchaseEligibility(input.checkNativePurchaseEligibility);
+  await requireNativePurchaseEligibility(
+    input.checkNativePurchaseEligibility,
+    input.purchases.nativeStore,
+  );
   await input.purchases.moveNativeSubscription({
     claim: input.claimNativeSubscription,
     organizationId: input.scope.organizationId,

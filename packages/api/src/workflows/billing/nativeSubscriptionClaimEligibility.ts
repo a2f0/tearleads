@@ -1,12 +1,16 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import {
+  getSyncBillingTierForNativeProduct,
+  type NativeSubscriptionStore,
+} from "@symcrypt/validators/billing";
 import { eq } from "drizzle-orm";
 import { OrganizationManagerError } from "../organizations/errors";
 import {
   blocksNativePurchaseForStripeCheckoutAttempt,
   resolveNativePurchaseEligibility,
 } from "./nativePurchaseEligibility";
+import { resolvePersistedNativeSubscriptionStore } from "./nativeSubscriptionIdentity";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
 type NativeClaimBilling = Parameters<
@@ -22,6 +26,7 @@ export async function assertNativeClaimEligibility(input: {
   readonly appUserId: string;
   readonly executor: DatabaseSession;
   readonly now: Date;
+  readonly store: NativeSubscriptionStore;
   readonly subscriptionId: string;
   readonly target: NativeClaimBilling;
 }): Promise<void> {
@@ -50,7 +55,13 @@ export async function assertNativeClaimEligibility(input: {
     hasStripeBinding: hasStripeBindingIdentity(binding),
     isOrgAdmin: true,
     isPersonalOrganization: true,
+    persistedNativeStore: await resolvePersistedNativeSubscriptionStore({
+      billing: input.target,
+      executor: input.executor,
+      organizationId: input.target.organizationId,
+    }),
     sessionUserId: input.appUserId,
+    targetNativeStore: input.store,
   });
   if (eligibility.eligible) return;
   if (eligibility.reason === "terminal_organization") {

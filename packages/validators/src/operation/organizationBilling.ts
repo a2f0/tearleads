@@ -21,12 +21,18 @@ export const OrganizationBillingNativeClaimPathParamsSchema = z.strictObject({
   organizationId: OrganizationPathParamsSchema.shape.organizationId,
   store: NativeSubscriptionStoreSchema,
 });
+export const OrganizationBillingNativeEligibilityQuerySchema = z.strictObject({
+  store: NativeSubscriptionStoreSchema,
+});
 
 export type OrganizationBillingPathParams = z.infer<
   typeof OrganizationBillingPathParamsSchema
 >;
 export type OrganizationBillingNativeClaimPathParams = z.infer<
   typeof OrganizationBillingNativeClaimPathParamsSchema
+>;
+export type OrganizationBillingNativeEligibilityQuery = z.infer<
+  typeof OrganizationBillingNativeEligibilityQuerySchema
 >;
 
 const organizationBillingReadFailureResponses = {
@@ -100,6 +106,7 @@ export const getOrganizationNativePurchaseEligibilityOperation =
     method: "GET",
     params: OrganizationBillingPathParamsSchema,
     path: "/organizations/{organizationId}/billing/native/eligibility",
+    query: OrganizationBillingNativeEligibilityQuerySchema,
     responses: { 200: OrganizationNativePurchaseEligibilityResponseSchema },
   });
 

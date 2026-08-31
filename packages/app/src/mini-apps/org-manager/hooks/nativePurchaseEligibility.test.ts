@@ -41,8 +41,9 @@ test.each([
 });
 
 test("fails closed when the eligibility response is unavailable", async () => {
-  const error = await requireNativePurchaseEligibility(() =>
-    Promise.resolve(null),
+  const error = await requireNativePurchaseEligibility(
+    () => Promise.resolve(null),
+    "test_store",
   ).catch((reason: unknown) => reason);
   expect(nativePurchaseEligibilityErrorLabel(error)).toBe(
     ORG_MANAGER_LABELS.billingEligibilityUnavailable,

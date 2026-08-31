@@ -530,10 +530,10 @@ Both ship an unavailable stub (`createUnavailablePurchases` and
 checkout. Native purchases are personal-org only. `PurchaseIdentityPendingError`
 means retry; `PurchaseProviderStalledError` means restart. Recover
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; its `claim`
-calls `symcrypt.organizations.claimNativeSubscription`. Call
-`symcrypt.organizations.checkNativePurchaseEligibility` immediately before a
-native purchase or restore; it is a point-in-time preflight, so the later claim
-and webhook still enforce the same ownership and provider-conflict policy.
+calls `symcrypt.organizations.claimNativeSubscription`. Before native purchase
+or restore, call `checkNativePurchaseEligibility(organizationId, store)`; the
+store blocks a second storefront subscription. Claim and webhook processing
+still recheck ownership and provider conflicts.
 Never split restore/claim/bind: the atomic move keeps one buyer and publishes
 attribution only after acceptance.
 See [revenuecat-billing.md](./revenuecat-billing.md).

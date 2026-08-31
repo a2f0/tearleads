@@ -68,11 +68,13 @@ export function getOrganizationNativePurchaseEligibility(
   runtime: ApiServiceRuntime,
   organizationId: string,
   sessionUserId: string,
+  store: NativeSubscriptionStore,
 ): Promise<OrganizationNativePurchaseEligibilityResponse> {
   return runNativePurchaseEligibilityWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
+    store,
   );
 }
 

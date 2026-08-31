@@ -346,6 +346,7 @@ test("revalidates terminal state after a successful purchase preflight", async (
       db,
       destination.organizationId,
       destination.user.userId,
+      "test_store",
     ),
   ).toEqual({ eligible: true, reason: null });
   for (const status of ["deleting", "purged"] as const) {
@@ -377,6 +378,7 @@ test("revalidates an active Stripe checkout after native preflight", async () =>
       db,
       destination.organizationId,
       destination.user.userId,
+      "test_store",
     ),
   ).toEqual({ eligible: true, reason: null });
   const now = new Date();
@@ -393,6 +395,7 @@ test("revalidates an active Stripe checkout after native preflight", async () =>
       db,
       destination.organizationId,
       destination.user.userId,
+      "test_store",
     ),
   ).toEqual({ eligible: false, reason: "stripe_subscription_conflict" });
   await expect(

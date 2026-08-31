@@ -8,6 +8,7 @@ import {
   PurchasesUnavailableError,
   type SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import { type RefObject, useCallback } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
@@ -243,10 +244,12 @@ function purchaseErrorLabel(error: unknown): string {
 
 async function traceNativePurchaseEligibility(
   check: CheckNativePurchaseEligibility,
+  store: NativeSubscriptionStore | null,
   cancelSignal: Promise<never>,
   trace: (line: string) => void,
 ): Promise<void> {
-  const eligibility = requireNativePurchaseEligibility(check);
+  if (!store) throw new NativePurchaseEligibilityError("unavailable");
+  const eligibility = requireNativePurchaseEligibility(check, store);
   eligibility.catch(() => {
     // A cancelled flow may leave the request settling after the panel is idle.
   });
@@ -335,6 +338,7 @@ async function purchaseForOrganization({
   try {
     await traceNativePurchaseEligibility(
       checkNativePurchaseEligibility,
+      purchases.nativeStore,
       cancellation.signal,
       trace,
     );

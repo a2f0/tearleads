@@ -67,11 +67,34 @@ test("native purchase eligibility responses are never cacheable", async () => {
     },
   } as unknown as ApiServiceRuntime;
   const response = await createTestRoute(requireAuth, runtime).request(
-    "/organizations/11111111-1111-4111-8111-111111111111/billing/native/eligibility",
+    "/organizations/11111111-1111-4111-8111-111111111111/billing/native/eligibility?store=play_store",
   );
 
   expect(response.status).toBe(409);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+});
+
+test("native eligibility requires a recognized target store", async () => {
+  const requireAuth = createMiddleware<SessionEnv>(async (c, next) => {
+    c.set("session", {
+      createdAt: 0,
+      fingerprint: "test-fingerprint",
+      id: "test-session",
+      ipAddresses: [],
+      lastActiveAt: 0,
+      lastActiveIp: null,
+      userId: "user-1",
+    });
+    return next();
+  });
+  const response = await createTestRoute(requireAuth).request(
+    "/organizations/11111111-1111-4111-8111-111111111111/billing/native/eligibility?store=stripe",
+  );
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Invalid native subscription store",
+  });
 });
 
 test("organization billing routes authenticate before path validation", async () => {

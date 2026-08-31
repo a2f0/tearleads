@@ -56,6 +56,7 @@ interface OrganizationBillingApi {
   ) => Promise<RequestResult<OrganizationBillingResponse>>;
   readonly getOrganizationNativePurchaseEligibility: (
     organizationId: string,
+    store: NativeSubscriptionStore,
   ) => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
   readonly getStripeCheckoutOptions: (
     organizationId: string,
@@ -134,9 +135,11 @@ export function checkNativePurchaseEligibility(input: {
     "getOrganizationNativePurchaseEligibility"
   >;
   readonly organizationId: string;
+  readonly store: NativeSubscriptionStore;
 }): Promise<OrganizationNativePurchaseEligibility | null> {
   return input.apiClient.getOrganizationNativePurchaseEligibility(
     input.organizationId,
+    input.store,
   );
 }
 

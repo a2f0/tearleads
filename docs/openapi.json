@@ -30634,6 +30634,21 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "store",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "app_store",
+                "play_store",
+                "test_store"
+              ]
+            },
+            "style": "form"
           }
         ],
         "responses": {

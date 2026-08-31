@@ -46,8 +46,10 @@ test("organization billing client metadata derives from shared operations", () =
   expect(organizationNativePurchaseEligibilityGet.method).toBe(
     getOrganizationNativePurchaseEligibilityOperation.method,
   );
-  expect(organizationNativePurchaseEligibilityGet.path(organizationId)).toBe(
-    `/organizations/${organizationId}/billing/native/eligibility`,
+  expect(
+    organizationNativePurchaseEligibilityGet.path(organizationId, "play_store"),
+  ).toBe(
+    `/organizations/${organizationId}/billing/native/eligibility?store=play_store`,
   );
   expect(organizationTrialStart.method).toBe(
     startOrganizationTrialOperation.method,

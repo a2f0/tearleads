@@ -4,7 +4,10 @@ import {
   organizationBillingStripeSeats,
   users,
 } from "@symcrypt/api-shared/schema";
-import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import {
+  getSyncBillingTierForNativeProduct,
+  type NativeSubscriptionStore,
+} from "@symcrypt/validators/billing";
 import type {
   OrganizationBillingStatus,
   OrganizationNativePurchaseEligibilityResponse,
@@ -13,6 +16,10 @@ import type {
 import { eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import {
+  resolvePersistedNativeSubscriptionStore,
+  revenueCatStoreForNativeStore,
+} from "./nativeSubscriptionIdentity";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
 interface NativePurchasePolicyInput {
@@ -28,7 +35,9 @@ interface NativePurchasePolicyInput {
   readonly hasStripeBinding: boolean;
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization: boolean;
+  readonly persistedNativeStore: string | null;
   readonly sessionUserId: string;
+  readonly targetNativeStore: NativeSubscriptionStore;
 }
 
 export function blocksNativePurchaseForStripeCheckoutAttempt(input: {
@@ -90,6 +99,14 @@ export function resolveNativePurchaseEligibility(
     if (input.billing.providerCustomerId !== input.sessionUserId) {
       return ineligible("native_subscription_buyer_mismatch");
     }
+    if (
+      (input.billing.status === "active" ||
+        input.billing.status === "trialing") &&
+      input.persistedNativeStore !==
+        revenueCatStoreForNativeStore(input.targetNativeStore)
+    ) {
+      return ineligible("existing_subscription_conflict");
+    }
   } else if (input.billing.status === "active") {
     return ineligible("existing_subscription_conflict");
   }
@@ -102,6 +119,7 @@ export function runNativePurchaseEligibilityWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
+  targetNativeStore: NativeSubscriptionStore,
 ): Promise<OrganizationNativePurchaseEligibilityResponse> {
   return db.transaction(async (tx) => {
     const access = await requireDirectOrganizationAccess({
@@ -150,7 +168,13 @@ export function runNativePurchaseEligibilityWorkflow(
       hasStripeBinding: hasStripeBindingIdentity(stripeBinding),
       isOrgAdmin: access.isOrgAdmin,
       isPersonalOrganization: buyer?.defaultOrganizationId === organizationId,
+      persistedNativeStore: await resolvePersistedNativeSubscriptionStore({
+        billing,
+        executor: tx,
+        organizationId,
+      }),
       sessionUserId,
+      targetNativeStore,
     });
   });
 }

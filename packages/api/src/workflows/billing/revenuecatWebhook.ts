@@ -24,10 +24,9 @@ import {
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
 import {
-  isNativePurchaseEventType,
-  matchesLockedNativeSubscription,
-  resolveNativeStripeConflictReason,
-} from "./revenuecatProviderConflict";
+  resolveNativeGrantDisposition,
+  resolveNativeProductChangeConflict,
+} from "./revenuecatNativeBindingPolicy";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -79,54 +78,6 @@ interface RevenueCatPreclaimInput {
   readonly transition: RevenueCatBillingTransition;
 }
 
-async function resolveGrantApplicationDisposition(input: {
-  readonly billing: LockedBillingIdentity | undefined;
-  readonly event: RevenueCatWebhookEvent;
-  readonly executor: DatabaseSession;
-  readonly now: Date;
-  readonly organizationId: string | null;
-  readonly skipSeatReconciliation: boolean;
-  readonly transition: RevenueCatBillingTransition;
-  readonly warning: string | null;
-}): Promise<PreclaimDisposition> {
-  const nativeStripeConflict =
-    input.transition.kind === "grant" && input.organizationId && input.billing
-      ? await resolveNativeStripeConflictReason({
-          billing: input.billing,
-          executor: input.executor,
-          now: input.now,
-          organizationId: input.organizationId,
-          store: input.event.store,
-        })
-      : null;
-  const newPurchase = isNativePurchaseEventType(input.event.type);
-  const matchesNativeLifecycle =
-    input.billing !== undefined &&
-    matchesLockedNativeSubscription(input.billing, input.event);
-  if (
-    nativeStripeConflict !== null &&
-    (newPurchase || !matchesNativeLifecycle)
-  ) {
-    console.error(
-      `RevenueCat paid grant ${input.event.id} was not applied: ${nativeStripeConflict}`,
-    );
-    return { kind: "retry", reason: nativeStripeConflict };
-  }
-  return {
-    deleteStripeBinding: false,
-    ignoredReason: null,
-    kind: "continue",
-    preserveStripeBinding: nativeStripeConflict !== null,
-    skipSeatReconciliation:
-      input.skipSeatReconciliation || nativeStripeConflict !== null,
-    transition: input.transition,
-    warning:
-      [input.warning, nativeStripeConflict]
-        .filter((reason): reason is string => reason !== null)
-        .join("; ") || null,
-  };
-}
-
 function unresolvedStripeTierRetry(
   event: RevenueCatWebhookEvent,
 ): PreclaimDisposition {
@@ -163,6 +114,21 @@ async function stripeBindingChanged(
         resolution: input.stripeResolution,
       }))
     : false;
+}
+
+function ignoredPreclaimDisposition(
+  ignoredReason: string,
+  transition: RevenueCatBillingTransition,
+): PreclaimDisposition {
+  return {
+    deleteStripeBinding: false,
+    ignoredReason,
+    kind: "continue",
+    preserveStripeBinding: false,
+    skipSeatReconciliation: true,
+    transition,
+    warning: null,
+  };
 }
 
 async function resolvePreclaimDisposition(
@@ -231,17 +197,17 @@ async function resolvePreclaimDisposition(
     transition,
   });
   if (ignoredReason) {
-    return {
-      deleteStripeBinding: false,
-      ignoredReason,
-      kind: "continue",
-      preserveStripeBinding: false,
-      skipSeatReconciliation: true,
-      transition,
-      warning: null,
-    };
+    return ignoredPreclaimDisposition(ignoredReason, transition);
   }
-  return resolveGrantApplicationDisposition({
+  const productChangeConflict = await resolveNativeProductChangeConflict({
+    ...input,
+    billing,
+    transition,
+  });
+  if (productChangeConflict) {
+    return { kind: "retry", reason: productChangeConflict };
+  }
+  return resolveNativeGrantDisposition({
     billing,
     event: input.event,
     executor: input.executor,

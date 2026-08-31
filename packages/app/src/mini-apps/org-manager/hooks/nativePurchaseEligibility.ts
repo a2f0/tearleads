@@ -1,11 +1,13 @@
+import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import type {
   OrganizationNativePurchaseEligibilityResponse,
   OrganizationNativePurchaseIneligibilityReason,
 } from "@symcrypt/validators/response";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-export type CheckNativePurchaseEligibility =
-  () => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
+export type CheckNativePurchaseEligibility = (
+  store: NativeSubscriptionStore,
+) => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
 
 type EligibilityFailure =
   | OrganizationNativePurchaseIneligibilityReason
@@ -23,10 +25,11 @@ export class NativePurchaseEligibilityError extends Error {
 
 export async function requireNativePurchaseEligibility(
   check: CheckNativePurchaseEligibility,
+  store: NativeSubscriptionStore,
 ): Promise<void> {
   let result: OrganizationNativePurchaseEligibilityResponse | null;
   try {
-    result = await check();
+    result = await check(store);
   } catch (cause) {
     throw new NativePurchaseEligibilityError("unavailable", { cause });
   }

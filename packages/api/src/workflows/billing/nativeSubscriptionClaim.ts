@@ -381,6 +381,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       appUserId: input.appUserId,
       executor: tx,
       now,
+      store: input.subscription.store,
       subscriptionId: input.subscription.subscriptionId,
       target,
     });

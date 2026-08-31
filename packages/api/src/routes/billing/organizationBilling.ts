@@ -21,6 +21,7 @@ import {
 } from "../../services/billing/organizationBilling";
 import { OrganizationBillingProviderUnavailableError } from "../../services/billing/organizationBillingErrors";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 import {
   type OrganizationsRouterDeps,
   toOrganizationManagerErrorResponse,
@@ -115,13 +116,23 @@ function registerOrganizationBillingReadRoutes(
       getOrganizationNativePurchaseEligibilityOperation.params,
       "Invalid organizationId",
     ),
+    queryParamsValidator(
+      getOrganizationNativePurchaseEligibilityOperation.query,
+      "Invalid native subscription store",
+    ),
     async (c) => {
       const { organizationId } = c.req.valid("param");
+      const { store } = c.req.valid("query");
       const response = await respondForOrganization(
         c,
         organizationId,
         (id, sessionUserId) =>
-          getOrganizationNativePurchaseEligibility(runtime, id, sessionUserId),
+          getOrganizationNativePurchaseEligibility(
+            runtime,
+            id,
+            sessionUserId,
+            store,
+          ),
       );
       response.headers.set("Cache-Control", "private, no-store");
       return response;

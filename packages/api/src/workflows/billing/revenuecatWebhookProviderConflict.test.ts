@@ -164,16 +164,24 @@ for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
 test("an existing native renewal is not mistaken for a new purchase", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  await db
-    .update(organizationBilling)
-    .set({
-      provider: "revenuecat",
-      providerCustomerId: admin.userId,
-      providerProductId: "sync_solo_monthly",
-      providerSubscriptionId: "native_subscription",
-      status: "active",
-    })
-    .where(eq(organizationBilling.organizationId, organizationId));
+  const now = Date.now();
+  const initial: RevenueCatWebhookEvent = {
+    app_user_id: admin.userId,
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: now,
+    expiration_at_ms: now + 30 * 24 * 60 * 60 * 1_000,
+    id: crypto.randomUUID(),
+    original_transaction_id: "native_subscription",
+    product_id: "sync_solo_monthly",
+    purchased_at_ms: now,
+    store: "APP_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type: "INITIAL_PURCHASE",
+  };
+  expect(await runRevenueCatWebhookWorkflow(db, initial)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
   await db
     .delete(organizationBillingStripeSeats)
     .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
@@ -188,15 +196,9 @@ test("an existing native renewal is not mistaken for a new purchase", async () =
 
   expect(
     await runRevenueCatWebhookWorkflow(db, {
-      app_user_id: admin.userId,
-      entitlement_ids: ["sync"],
-      event_timestamp_ms: Date.now(),
-      expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+      ...initial,
+      event_timestamp_ms: now + 1,
       id: eventId,
-      original_transaction_id: "native_subscription",
-      product_id: "sync_solo_monthly",
-      store: "APP_STORE",
-      subscriber_attributes: { orgId: { value: organizationId } },
       type: "RENEWAL",
     }),
   ).toMatchObject({ organizationId, status: "applied" });
