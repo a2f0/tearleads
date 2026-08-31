@@ -1,5 +1,8 @@
 import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
-import { organizationBilling } from "@symcrypt/api-shared/schema";
+import {
+  organizationBilling,
+  revenuecatWebhookEvents,
+} from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { and, eq } from "drizzle-orm";
@@ -11,6 +14,49 @@ type NativeOrganizationResolution =
   | { readonly kind: "ambiguous" }
   | { readonly kind: "none" }
   | { readonly kind: "resolved"; readonly organizationId: string };
+
+async function resolveAppliedProductChangeOrganization(
+  db: ApiDatabase,
+  event: RevenueCatWebhookEvent,
+): Promise<NativeOrganizationResolution> {
+  const productId = event.product_id;
+  const store = event.store?.toUpperCase();
+  if (
+    event.type !== "INITIAL_PURCHASE" ||
+    !event.original_transaction_id ||
+    !productId ||
+    !store
+  ) {
+    return { kind: "none" };
+  }
+  const changes = await db
+    .select({ organizationId: revenuecatWebhookEvents.organizationId })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.appUserId, event.app_user_id),
+        eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+        eq(
+          revenuecatWebhookEvents.originalTransactionId,
+          event.original_transaction_id,
+        ),
+        eq(revenuecatWebhookEvents.productId, productId),
+        eq(revenuecatWebhookEvents.store, store),
+      ),
+    )
+    .groupBy(revenuecatWebhookEvents.organizationId)
+    .limit(2);
+  const organizationIds = changes.flatMap(({ organizationId }) =>
+    organizationId ? [organizationId] : [],
+  );
+  if (changes.length !== organizationIds.length || organizationIds.length > 1) {
+    return { kind: "ambiguous" };
+  }
+  return organizationIds[0]
+    ? { kind: "resolved", organizationId: organizationIds[0] }
+    : { kind: "none" };
+}
 
 async function resolveBoundNativeOrganization(
   db: ApiDatabase,
@@ -38,6 +84,11 @@ async function resolveBoundNativeOrganization(
   if (binding) {
     return { kind: "resolved", organizationId: binding.organizationId };
   }
+  const appliedChange = await resolveAppliedProductChangeOrganization(
+    db,
+    event,
+  );
+  if (appliedChange.kind !== "none") return appliedChange;
   if (event.type !== "PRODUCT_CHANGE") return { kind: "none" };
 
   const sourceTier = getSyncBillingTierForNativeProduct(event.product_id);

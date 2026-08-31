@@ -35,6 +35,7 @@ async function createOrganization(user: TestUser): Promise<string> {
 async function bindSubscription(input: {
   buyerId: string;
   organizationId: string;
+  productId?: string;
   subscriptionId: string;
 }): Promise<void> {
   await db
@@ -42,7 +43,7 @@ async function bindSubscription(input: {
     .set({
       provider: "revenuecat",
       providerCustomerId: input.buyerId,
-      providerProductId: "com.symcrypt.sync.monthly",
+      providerProductId: input.productId ?? "com.symcrypt.sync.monthly",
       providerSubscriptionId: input.subscriptionId,
       seatCount: 1,
       status: "active",
@@ -54,6 +55,7 @@ function nativeEvent(input: {
   buyerId: string;
   newProductId?: string;
   organizationId: string;
+  productId?: string;
   store: "APP_STORE" | "PLAY_STORE";
   subscriptionId: string;
   type: "INITIAL_PURCHASE" | "PRODUCT_CHANGE" | "RENEWAL";
@@ -67,7 +69,7 @@ function nativeEvent(input: {
     id: crypto.randomUUID(),
     ...(input.newProductId ? { new_product_id: input.newProductId } : {}),
     original_transaction_id: input.subscriptionId,
-    product_id: "com.symcrypt.sync.monthly",
+    product_id: input.productId ?? "com.symcrypt.sync.monthly",
     purchased_at_ms: now,
     store: input.store,
     subscriber_attributes: { orgId: { value: input.organizationId } },
@@ -82,6 +84,15 @@ async function readSubscriptionId(organizationId: string) {
     .where(eq(organizationBilling.organizationId, organizationId));
   invariant(billing, "expected organization billing");
   return billing.subscriptionId;
+}
+
+async function readProductId(organizationId: string) {
+  const [billing] = await db
+    .select({ productId: organizationBilling.providerProductId })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(billing, "expected organization billing");
+  return billing.productId;
 }
 
 test("a new native purchase cannot overwrite a restored organization binding", async () => {
@@ -211,5 +222,65 @@ test("a replacement Play token fails closed across same-tier bindings", async ()
   });
   expect(await readSubscriptionId(restoredOrganizationId)).toBe(
     "second-play-subscription",
+  );
+});
+
+test("an applied Play change routes its token despite a wrong orgId", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  const restoredOrganizationId = await createOrganization(user);
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: personalOrganizationId,
+    productId: "sync_team_5_monthly",
+    subscriptionId: "unrelated-team-subscription",
+  });
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    productId: "com.symcrypt.sync.monthly",
+    subscriptionId: "restored-solo-subscription",
+  });
+
+  const replacementToken = "applied-replacement-play-token";
+  const changeOutcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      newProductId: "sync_team_5_monthly",
+      // The mutable customer attribute points at the unrelated organization.
+      organizationId: personalOrganizationId,
+      store: "PLAY_STORE",
+      subscriptionId: replacementToken,
+      type: "PRODUCT_CHANGE",
+    }),
+  );
+  expect(changeOutcome).toMatchObject({
+    organizationId: restoredOrganizationId,
+    status: "applied",
+  });
+
+  const effectiveOutcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      organizationId: personalOrganizationId,
+      productId: "sync_team_5_monthly",
+      store: "PLAY_STORE",
+      subscriptionId: replacementToken,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+  expect(effectiveOutcome).toMatchObject({
+    organizationId: restoredOrganizationId,
+    status: "applied",
+  });
+  expect(await readSubscriptionId(restoredOrganizationId)).toBe(
+    replacementToken,
+  );
+  expect(await readProductId(restoredOrganizationId)).toBe(
+    "sync_team_5_monthly",
+  );
+  expect(await readSubscriptionId(personalOrganizationId)).toBe(
+    "unrelated-team-subscription",
   );
 });

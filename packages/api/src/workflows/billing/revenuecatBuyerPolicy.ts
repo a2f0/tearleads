@@ -64,9 +64,13 @@ async function hasPriorNativeProductChange(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }): Promise<boolean> {
+  const productId = input.event.product_id;
+  const store = input.event.store?.toUpperCase();
   if (
     input.event.type !== "INITIAL_PURCHASE" ||
-    !input.event.original_transaction_id
+    !input.event.original_transaction_id ||
+    !productId ||
+    !store
   ) {
     return false;
   }
@@ -83,6 +87,8 @@ async function hasPriorNativeProductChange(input: {
           revenuecatWebhookEvents.originalTransactionId,
           input.event.original_transaction_id,
         ),
+        eq(revenuecatWebhookEvents.productId, productId),
+        eq(revenuecatWebhookEvents.store, store),
       ),
     )
     .limit(1);
