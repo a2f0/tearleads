@@ -78,6 +78,7 @@ async function hasPriorNativeProductChange(input: {
         eq(revenuecatWebhookEvents.organizationId, input.organizationId),
         eq(revenuecatWebhookEvents.appUserId, input.event.app_user_id),
         eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
         eq(
           revenuecatWebhookEvents.originalTransactionId,
           input.event.original_transaction_id,

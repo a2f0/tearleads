@@ -179,17 +179,15 @@ test("a replacement Play token fails closed across same-tier bindings", async ()
     subscriptionId: "second-play-subscription",
   });
 
-  const outcome = await runRevenueCatWebhookWorkflow(
-    db,
-    nativeEvent({
-      buyerId: user.userId,
-      newProductId: "sync_team_5_monthly",
-      organizationId: restoredOrganizationId,
-      store: "PLAY_STORE",
-      subscriptionId: "replacement-play-token",
-      type: "PRODUCT_CHANGE",
-    }),
-  );
+  const replacementEvent = nativeEvent({
+    buyerId: user.userId,
+    newProductId: "sync_team_5_monthly",
+    organizationId: restoredOrganizationId,
+    store: "PLAY_STORE",
+    subscriptionId: "replacement-play-token",
+    type: "PRODUCT_CHANGE",
+  });
+  const outcome = await runRevenueCatWebhookWorkflow(db, replacementEvent);
 
   expect(outcome).toEqual({
     reason: "Product change does not match a bound native subscription",
@@ -198,6 +196,19 @@ test("a replacement Play token fails closed across same-tier bindings", async ()
   expect(await readSubscriptionId(personalOrganizationId)).toBe(
     "first-play-subscription",
   );
+  expect(await readSubscriptionId(restoredOrganizationId)).toBe(
+    "second-play-subscription",
+  );
+
+  const effectiveOutcome = await runRevenueCatWebhookWorkflow(db, {
+    ...replacementEvent,
+    id: crypto.randomUUID(),
+    type: "INITIAL_PURCHASE",
+  });
+  expect(effectiveOutcome).toEqual({
+    reason: "Native purchases may only fund the buyer's personal organization",
+    status: "ignored",
+  });
   expect(await readSubscriptionId(restoredOrganizationId)).toBe(
     "second-play-subscription",
   );
