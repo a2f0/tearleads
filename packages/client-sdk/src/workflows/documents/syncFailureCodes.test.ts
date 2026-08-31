@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { ApiClient } from "@symcrypt/api-client";
+import { documentSyncOperation } from "@symcrypt/validators/operation";
+import type { DocumentSyncRequest } from "@symcrypt/validators/request";
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
@@ -22,6 +25,29 @@ function failure(
     report: () => undefined,
     status,
   };
+}
+
+const READ_ONLY_SYNC_REQUEST: DocumentSyncRequest = {
+  contentKeyEpoch: 1,
+  expectedLinkSetManifestHash: "manifest-hash",
+  expectedTargetHash: "target-hash",
+  localVersionVector: null,
+  outgoingUpdates: [],
+  supportsPullPagination: true,
+};
+
+function parsedFailureCode(input: {
+  code: unknown;
+  error: unknown;
+  status: number;
+}): string | undefined {
+  if (input.status >= 200 && input.status < 300) return undefined;
+  return typeof input.error === "string" &&
+    input.error.trim().length > 0 &&
+    typeof input.code === "string" &&
+    input.code.length > 0
+    ? input.code
+    : undefined;
 }
 
 test("document sync stale-state retries depend on status and code", () => {
@@ -126,4 +152,111 @@ test("the destructive wipe gate fails closed on every uncoded 404 — NO legacy 
       failure(DOCUMENT_NOT_FOUND_ERROR_CODE, "Document not found", 409),
     ),
   ).toBe(false);
+});
+
+test("HTTP response fields exhaustively preserve exact sync status/code mappings", async () => {
+  const statuses = [200, ...documentSyncOperation.failureStatuses] as const;
+  const codes: readonly unknown[] = [
+    undefined,
+    null,
+    false,
+    0,
+    {},
+    [],
+    "",
+    " ",
+    DOCUMENT_NOT_FOUND_ERROR_CODE,
+    ` ${DOCUMENT_NOT_FOUND_ERROR_CODE}`,
+    `${DOCUMENT_NOT_FOUND_ERROR_CODE} `,
+    DOCUMENT_NOT_FOUND_ERROR_CODE.toUpperCase(),
+    ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
+    ` ${DOCUMENT_SYNC_ERROR_CODES.stateStale} `,
+    "unknown_code",
+  ];
+  const errors: readonly unknown[] = [
+    undefined,
+    null,
+    false,
+    0,
+    {},
+    [],
+    "",
+    " ",
+    "Diagnostic text is not authority",
+    " Document not found ",
+  ];
+  const previousFetch = globalThis.fetch;
+  let nextResponse = new Response(null, { status: 500 });
+  globalThis.fetch = Object.assign(async () => nextResponse, {
+    preconnect: previousFetch.preconnect,
+  });
+  const apiClient = new ApiClient("https://api.example.test");
+  const mismatches: unknown[] = [];
+
+  try {
+    for (const status of statuses) {
+      for (const code of codes) {
+        for (const error of errors) {
+          nextResponse = new Response(JSON.stringify({ code, error }), {
+            headers: { "content-type": "application/json" },
+            status,
+            statusText: "Fuzzed",
+          });
+          const result = await apiClient.syncDocumentResult(
+            "document-failure-matrix",
+            READ_ONLY_SYNC_REQUEST,
+            { reportErrors: false },
+          );
+          if (result.ok) {
+            mismatches.push({
+              code,
+              error,
+              reason: "unexpected success",
+              status,
+            });
+            continue;
+          }
+
+          const expectedCode = parsedFailureCode({ code, error, status });
+          const expected = {
+            deleteLocalDocument:
+              status === 404 && expectedCode === DOCUMENT_NOT_FOUND_ERROR_CODE,
+            recoverUpdateId:
+              status === 409 &&
+              expectedCode === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+            retryStaleState:
+              status === 409 &&
+              expectedCode === DOCUMENT_SYNC_ERROR_CODES.stateStale,
+          };
+          const actual = {
+            deleteLocalDocument: isUpstreamDeletedDocumentSyncFailure(result),
+            recoverUpdateId: isRecoverableDocumentUpdateIdConflict(result),
+            retryStaleState: isRetryableDocumentSyncConflict(result),
+          };
+          if (
+            result.code !== expectedCode ||
+            result.status !== status ||
+            actual.deleteLocalDocument !== expected.deleteLocalDocument ||
+            actual.recoverUpdateId !== expected.recoverUpdateId ||
+            actual.retryStaleState !== expected.retryStaleState
+          ) {
+            mismatches.push({
+              actual,
+              code,
+              error,
+              expected,
+              expectedCode,
+              resultCode: result.code,
+              resultStatus: result.status,
+              status,
+            });
+          }
+        }
+      }
+    }
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+
+  expect(mismatches).toEqual([]);
 });
