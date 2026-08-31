@@ -110,6 +110,7 @@ export interface RemoteContainerHydrationHost {
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
     mutationOptions?: {
+      expectedStateWhenMissing?: ContainerState | undefined;
       isCurrent?: (() => boolean) | undefined;
       preserveDurableStructureWhenPending?: boolean | undefined;
     },

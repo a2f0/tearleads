@@ -33,6 +33,9 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
     if (input.fromContainerId === input.toContainerId) {
       return;
     }
+    if (input.stillCurrent?.() === false) {
+      return;
+    }
 
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
@@ -41,16 +44,25 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
         ...documentMoveIntentTables,
         ...documentProjectionTables,
       ]);
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          await reassignContainerDocumentsInTransaction({
-            fromContainerId: input.fromContainerId,
-            toContainerId: input.toContainerId,
-            tx,
-            updatedAt,
-          });
-        },
-      );
+      if (input.stillCurrent?.() === false) {
+        return;
+      }
+      const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+      const reassign = async (
+        tx: Parameters<typeof reassignContainerDocumentsInTransaction>[0]["tx"],
+      ) => {
+        await reassignContainerDocumentsInTransaction({
+          fromContainerId: input.fromContainerId,
+          toContainerId: input.toContainerId,
+          tx,
+          updatedAt,
+        });
+      };
+      if (input.stillCurrent) {
+        await runtime.guardedTransaction(reassign, input.stillCurrent);
+      } else {
+        await runtime.transaction(reassign);
+      }
     });
   },
   async reconcileLocalRootContainer(execSql, input) {

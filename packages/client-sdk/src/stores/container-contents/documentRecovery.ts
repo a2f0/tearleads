@@ -109,7 +109,11 @@ export async function primeStoreDocuments(
 
 export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
+  isCurrent: () => boolean = () => true,
 ): Promise<StaleRootRecoveryStatus> {
+  if (!isCurrent()) {
+    return "context-changed";
+  }
   const runtime = state.runtime;
   if (rejectedAdoptionRuntime.get(state) === runtime) {
     return "not-needed";
@@ -117,8 +121,11 @@ export async function recoverStoreStaleRoot(
 
   let result: Awaited<ReturnType<typeof recoverStaleSessionRoot>>;
   try {
-    result = await recoverStaleSessionRoot({ ...state, runtime });
+    result = await recoverStaleSessionRoot({ ...state, runtime }, isCurrent);
   } catch (error) {
+    if (!isCurrent()) {
+      return "context-changed";
+    }
     if (isDatabaseUnavailableError(error)) {
       throw error;
     }
@@ -129,6 +136,9 @@ export async function recoverStoreStaleRoot(
       state.runtime.util.log(message);
     }
     return "not-needed";
+  }
+  if (!isCurrent()) {
+    return "context-changed";
   }
   const message = `${getContainerContentsStoreLogLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
   const previousLogState = staleRootRecoveryLogState.get(state);

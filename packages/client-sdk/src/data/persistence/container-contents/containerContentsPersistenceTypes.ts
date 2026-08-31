@@ -203,6 +203,7 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: {
       fromContainerId: string;
+      stillCurrent?: (() => boolean) | undefined;
       toContainerId: string;
       updatedAt?: string | undefined;
     },

@@ -155,7 +155,10 @@ export async function persistAcceptedMoveIntent(input: {
         updatedAt: moved.updatedAt,
       },
     },
-    { isCurrent: input.isCurrent },
+    {
+      expectedStateWhenMissing: containerState,
+      isCurrent: input.isCurrent,
+    },
   );
   if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
     return false;

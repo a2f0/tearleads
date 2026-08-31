@@ -21,6 +21,7 @@ type ContainerMetadataMutationOptions = Pick<
   "preserveDurableStructureWhenPending"
 >;
 type ContainerStateMutationOptions = ContainerMetadataMutationOptions & {
+  expectedStateWhenMissing?: ContainerState | undefined;
   isCurrent?: (() => boolean) | undefined;
 };
 
@@ -48,7 +49,10 @@ export async function persistContainerState(
     return { status: "stale-generation" };
   }
   if (!persisted) {
-    removeMissingContainerState(state, containerState);
+    removeMissingContainerState(
+      state,
+      mutationOptions?.expectedStateWhenMissing ?? containerState,
+    );
     return { status: "missing" };
   }
   containerState.container = persisted.container;

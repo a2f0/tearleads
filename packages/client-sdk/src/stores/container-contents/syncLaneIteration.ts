@@ -41,6 +41,28 @@ function createRemoteSyncBlocker(runtime: ContainerContentsStoreRuntime) {
     runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
 }
 
+function captureStructuralSyncGeneration(
+  state: ContainerContentsStoreSyncState,
+  runtime: ContainerContentsStoreRuntime,
+) {
+  const activeContainerId = runtime.state.containerId;
+  const activeOrganizationId = runtime.auth.organizationId;
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const domainScope = runtime.state.domainScope;
+  const execSql = runtime.infra.execSql;
+  const resolveProjectionUserKey = state.resolveProjectionUserKey;
+  const syncLane = state.syncLane;
+  return () =>
+    state.lifecycleGeneration === lifecycleGeneration &&
+    state.runtime.auth.organizationId === activeOrganizationId &&
+    state.runtime.state.containerId === activeContainerId &&
+    state.runtime.state.domainScope === domainScope &&
+    state.runtime.infra.execSql === execSql &&
+    state.resolveProjectionUserKey === resolveProjectionUserKey &&
+    state.syncLane === syncLane &&
+    !syncLane?.isDisposed?.();
+}
+
 function createContainerContentsStoreDocumentMoveHost(
   state: ContainerContentsStoreSyncState,
 ): DocumentMoveIntentSyncHost<ContainerContentsStorePrimeDocumentRuntime> {
@@ -156,18 +178,8 @@ export async function runContainerContentsStoreSyncIteration(
   ) {
     return;
   }
-  const lifecycleGeneration = state.lifecycleGeneration;
   const domainScope = runtime.state.domainScope;
-  const execSql = runtime.infra.execSql;
-  const resolveProjectionUserKey = state.resolveProjectionUserKey;
-  const syncLane = state.syncLane;
-  const isCurrent = () =>
-    state.lifecycleGeneration === lifecycleGeneration &&
-    state.runtime.state.domainScope === domainScope &&
-    state.runtime.infra.execSql === execSql &&
-    state.resolveProjectionUserKey === resolveProjectionUserKey &&
-    state.syncLane === syncLane &&
-    !syncLane?.isDisposed?.();
+  const isCurrent = captureStructuralSyncGeneration(state, runtime);
 
   await reconcileRestoredAccess();
   if (!isCurrent()) {
@@ -235,7 +247,7 @@ export async function runContainerContentsStoreSyncIteration(
       }
     },
     primeDocuments: () => primeStoreDocuments(state, isCurrent),
-    recoverStaleRoot: () => recoverStoreStaleRoot(state),
+    recoverStaleRoot: () => recoverStoreStaleRoot(state, isCurrent),
     shouldPrimeDocuments: () => state.documentStoresNeedPriming,
     // Document move intents live in the structural phase because they may
     // target containers created locally in the same session, such as Trash.

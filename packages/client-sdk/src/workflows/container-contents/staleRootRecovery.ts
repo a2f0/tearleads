@@ -97,6 +97,7 @@ function listAuthoritativeRootCandidates(
  */
 export async function recoverStaleSessionRoot(
   state: StaleRootRecoveryState,
+  isCurrent: () => boolean = () => true,
 ): Promise<StaleRootRecoveryResult> {
   const staleContainerId = state.runtime.state.containerId;
   const domainScope = state.runtime.state.domainScope;
@@ -104,6 +105,7 @@ export async function recoverStaleSessionRoot(
   const organizationId = state.runtime.auth.organizationId;
   const userId = state.runtime.auth.userId;
   if (
+    !isCurrent() ||
     !state.runtime.auth.isAuthenticated ||
     !staleContainerId ||
     !defaultOrganizationId ||
@@ -115,6 +117,13 @@ export async function recoverStaleSessionRoot(
   ) {
     return { candidateCount: 0, reassigned: false, status: "not-needed" };
   }
+  const recoveryContext = {
+    domainScope,
+    defaultOrganizationId,
+    organizationId,
+    staleContainerId,
+    userId,
+  };
 
   const storedContainerExists = await state.persistence.containerExists(
     state.runtime.infra.execSql,
@@ -123,15 +132,7 @@ export async function recoverStaleSessionRoot(
   if (storedContainerExists) {
     return { candidateCount: 0, reassigned: false, status: "not-needed" };
   }
-  if (
-    !hasSameRecoveryContext(state, {
-      domainScope,
-      defaultOrganizationId,
-      organizationId,
-      staleContainerId,
-      userId,
-    })
-  ) {
+  if (!isCurrent() || !hasSameRecoveryContext(state, recoveryContext)) {
     return { candidateCount: 0, reassigned: false, status: "context-changed" };
   }
   if (state.containersById.has(staleContainerId)) {
@@ -153,15 +154,7 @@ export async function recoverStaleSessionRoot(
   if (!state.runtime.adoptRootContainer) {
     return { candidateCount: 1, reassigned: false, status: "unsupported" };
   }
-  if (
-    !hasSameRecoveryContext(state, {
-      domainScope,
-      defaultOrganizationId,
-      organizationId,
-      staleContainerId,
-      userId,
-    })
-  ) {
+  if (!isCurrent() || !hasSameRecoveryContext(state, recoveryContext)) {
     return { candidateCount: 0, reassigned: false, status: "context-changed" };
   }
 
@@ -169,9 +162,13 @@ export async function recoverStaleSessionRoot(
     state.runtime.infra.execSql,
     {
       fromContainerId: staleContainerId,
+      stillCurrent: isCurrent,
       toContainerId: remoteRootState.container.id,
     },
   );
+  if (!isCurrent() || !hasSameRecoveryContext(state, recoveryContext)) {
+    return { candidateCount: 1, reassigned: false, status: "context-changed" };
+  }
   const adoptionResult = state.runtime.adoptRootContainer({
     domainScope,
     expectedContainerId: staleContainerId,
