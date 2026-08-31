@@ -52,8 +52,9 @@ test("native move rejects an entitlement-free restore before claiming or binding
     purchases(backend).moveNativeSubscription({
       claim: async () => {
         claimAttempts += 1;
-        return "org-new";
+        return true;
       },
+      prepareClaim: async () => "org-new",
       userId: "user-1",
     }),
   ).rejects.toThrow("The restored receipt has no sync entitlement");
@@ -69,10 +70,11 @@ test("native move rejects a denied server claim before binding", async () => {
 
   await expect(
     purchases(backend).moveNativeSubscription({
-      claim: async (store) => {
+      claim: async (_organizationId, store) => {
         claimedStores.push(store);
-        return null;
+        return false;
       },
+      prepareClaim: async () => "org-new",
       userId: "user-1",
     }),
   ).rejects.toThrow("The server did not accept the native subscription");
@@ -87,7 +89,8 @@ test("native move binds the organization selected by the verified claim", async 
 
   await expect(
     purchases(backend).moveNativeSubscription({
-      claim: async () => "fresh-org",
+      claim: async () => true,
+      prepareClaim: async () => "fresh-org",
       userId: "user-1",
     }),
   ).resolves.toEqual({ organizationId: "fresh-org" });

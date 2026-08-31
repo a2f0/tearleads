@@ -419,7 +419,8 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);
   await expect(
     purchases.moveNativeSubscription({
-      claim: () => Promise.resolve("org-1"),
+      claim: () => Promise.resolve(true),
+      prepareClaim: () => Promise.resolve("org-1"),
       userId: "user-1",
     }),
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);

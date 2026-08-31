@@ -528,10 +528,11 @@ Org sync billing exposes two provider-neutral capabilities:
 Both ship unavailable stubs. Web keeps entitlement reads but uses direct
 checkout. New native purchases are personal-org only. Recover
 `PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; after
-receipt verification, its `claim` creates a fresh organization and submits its
-id to `symcrypt.organizations.claimNativeSubscription`. The move returns that id
-and publishes attribution only after server acceptance. Identity-pending errors
-mean retry; provider-stalled errors mean restart. Keep restore/claim/bind atomic.
+receipt verification, `prepareClaim` creates a fresh organization outside the
+claim deadline; `claim` submits its id to
+`symcrypt.organizations.claimNativeSubscription`. Only accepted claims publish
+attribution. Identity-pending errors mean retry; provider-stalled errors mean
+restart. Keep restore/claim/bind atomic.
 See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

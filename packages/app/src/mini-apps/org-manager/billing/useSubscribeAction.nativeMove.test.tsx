@@ -48,8 +48,11 @@ function purchases(
       if (!restored.syncEntitlementActive) {
         throw new Error("The restored receipt has no sync entitlement");
       }
-      const organizationId = await input.claim("play_store");
+      const organizationId = await input.prepareClaim();
       if (!organizationId) {
+        throw new Error("The native subscription destination was not prepared");
+      }
+      if (!(await input.claim(organizationId, "play_store"))) {
         throw new Error("The server did not accept the native subscription");
       }
       await bindOrganization({ organizationId });

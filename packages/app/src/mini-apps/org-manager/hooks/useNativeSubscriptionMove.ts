@@ -75,7 +75,11 @@ async function restoreClaimAndBindNativeSubscription(input: {
     throw new Error("Native subscription restore is unavailable");
   }
   const move = await input.purchases.moveNativeSubscription({
-    claim: async (store) => {
+    claim: async (organizationId, store) => {
+      if (!scopeMatches(input.scopeRef.current, input.scope)) return false;
+      return input.claimNativeSubscription(organizationId, store);
+    },
+    prepareClaim: async () => {
       if (!scopeMatches(input.scopeRef.current, input.scope)) return null;
       let pending = input.pendingOrganizationRef.current;
       if (!pending || !scopeMatches(pending.scope, input.scope)) {
@@ -89,12 +93,7 @@ async function restoreClaimAndBindNativeSubscription(input: {
         pending = { organization, scope: input.scope };
         input.pendingOrganizationRef.current = pending;
       }
-      return (await input.claimNativeSubscription(
-        pending.organization.organizationId,
-        store,
-      ))
-        ? pending.organization.organizationId
-        : null;
+      return pending.organization.organizationId;
     },
     userId: input.userId,
   });

@@ -69,8 +69,13 @@ export function createPurchases(
         if (!purchaseResult.syncEntitlementActive) {
           throw new Error("The restored receipt has no sync entitlement");
         }
-        const organizationId = await input.claim("test_store");
+        const organizationId = await input.prepareClaim();
         if (!organizationId) {
+          throw new Error(
+            "The native subscription destination was not prepared",
+          );
+        }
+        if (!(await input.claim(organizationId, "test_store"))) {
           throw new Error("The server did not accept the native subscription");
         }
         await purchases.bindOrganization({
