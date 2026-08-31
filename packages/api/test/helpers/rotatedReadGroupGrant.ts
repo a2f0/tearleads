@@ -316,6 +316,7 @@ async function rotateRootGroupPolicy(input: {
   });
   return {
     bundle: accessManifestFromContainerResponse(mutation),
+    keyringEntries: rekey.keyringEntries,
     kekState: kekStateFromContainerResponse(mutation),
     plaintextKek: rekey.plaintextKek,
     principalPolicies: rekey.container.principalPolicies ?? [],
@@ -406,6 +407,31 @@ export async function grantRootThroughRotatedReadGroup(input: {
     successor: rotated,
   });
   return { groupId, root: rotatedRoot };
+}
+
+export async function rotateRootGroupMembership(input: {
+  readonly actor: TestUser;
+  readonly groupId: string;
+  readonly removedMemberUserId: string;
+  readonly root: DecryptableStoredRootFixture;
+}): Promise<DecryptableStoredRootFixture> {
+  const current = await loadVerifiedPrincipalPolicy(db, "group", input.groupId);
+  const successor = await signGroupSuccessor({
+    actor: input.actor,
+    current,
+    grants: current.grants,
+    projection: current.projection.filter(
+      (member) => member.userId !== input.removedMemberUserId,
+    ),
+  });
+  return rotateRootGroupPolicy({
+    actor: input.actor,
+    groupId: input.groupId,
+    organizationId: asVerifiedContainerManifest(input.root.bundle).state
+      .organizationId,
+    root: input.root,
+    successor,
+  });
 }
 
 export async function revokeRootRotatedReadGroup(input: {

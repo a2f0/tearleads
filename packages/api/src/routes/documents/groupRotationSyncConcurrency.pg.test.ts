@@ -21,7 +21,7 @@ import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKe
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   grantRootThroughRotatedReadGroup,
-  revokeRootRotatedReadGroup,
+  rotateRootGroupMembership,
 } from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
 
@@ -45,7 +45,7 @@ function postDocumentSync(input: {
 }
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
-  "a group rotation queued ahead of its writer rejects the stale write",
+  "a group membership rotation queued ahead of its writer rejects the stale write",
   async () => {
     const owner = createTestUser();
     const writer = createTestUser();
@@ -87,7 +87,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     let synchronizationError: unknown;
     try {
       contenders.push(
-        revokeRootRotatedReadGroup({
+        rotateRootGroupMembership({
           actor: owner,
           groupId: granted.groupId,
           removedMemberUserId: writer.userId,
@@ -146,6 +146,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     expect(updates).toHaveLength(0);
     expect(heads[0]?.manifestHash).not.toBe(granted.root.bundle.manifestHash);
     expect(rotatedGroup.version).toBe(currentGroup.version + 1);
+    expect(rotatedGroup.grants).toEqual(currentGroup.grants);
     expect(
       rotatedGroup.projection.some((member) => member.userId === writer.userId),
     ).toBe(false);
