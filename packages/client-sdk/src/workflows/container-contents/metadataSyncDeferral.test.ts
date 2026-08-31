@@ -53,6 +53,7 @@ function createMetadataSyncRuntime(input: {
 function createForcedMetadataSyncInput(runtime: never) {
   return {
     forceReadSync: true,
+    isCurrent: () => true,
     persistence: createContainerContentsPersistence({}),
     resolveProjectionUserKey: async () => null,
     runtime,

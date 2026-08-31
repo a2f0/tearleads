@@ -17,15 +17,20 @@ export function applyIncomingContainerMetadataUpdates(
 export function metadataIncomingUpdateIsolation(input: {
   currentDocument: ContainerMetadataState["doc"];
   execSql: ExecSql;
+  isCurrent?: (() => boolean) | undefined;
   metadataScope: { appKind: string; localId: string };
 }) {
   return {
-    onIncomingUpdateIsolationFailure: (failure: { readonly message: string }) =>
-      recordDocumentSyncFailure(input.execSql, input.metadataScope, {
+    onIncomingUpdateIsolationFailure: async (failure: {
+      readonly message: string;
+    }) => {
+      if (input.isCurrent?.() === false) return;
+      await recordDocumentSyncFailure(input.execSql, input.metadataScope, {
         attemptedAt: new Date().toISOString(),
         message: failure.message,
         status: null,
-      }),
+      });
+    },
     validateIncomingUpdates: (
       result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) =>

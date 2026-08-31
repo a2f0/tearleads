@@ -1,6 +1,10 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { installContainerMetadataRecord } from "../metadataPersistence";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -23,13 +27,9 @@ function currentCreateResult<
 async function reportContainerCreateIntegrityFailure(input: {
   readonly containerId: string;
   readonly error: unknown;
-  readonly isCurrent: () => boolean;
   readonly organizationId: string;
   readonly state: ContainerCreateIntentSyncState;
 }): Promise<void> {
-  if (!input.isCurrent()) {
-    return;
-  }
   await reportAndRethrowKeyingVerificationError(
     input.error,
     input.state.runtime.util.reportSecurityIncident,
@@ -52,7 +52,6 @@ async function recordContainerCreateFailure(input: {
   await reportContainerCreateIntegrityFailure({
     containerId: input.intent.containerId,
     error: input.error,
-    isCurrent: input.isCurrent,
     organizationId: input.organizationId,
     state: input.state,
   });
@@ -107,8 +106,13 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   if (!input.isCurrent()) {
     return "abandoned";
   }
-  containerState.container = {
-    ...containerState.container,
+  const persistenceCandidate =
+    await createDetachedContainerMetadataState(containerState);
+  if (!input.isCurrent()) {
+    return "abandoned";
+  }
+  persistenceCandidate.container = {
+    ...persistenceCandidate.container,
     createdAt: created.createdAt,
     serverCreatedAt: created.createdAt,
     serverUpdatedAt: created.updatedAt,
@@ -116,7 +120,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   };
 
   const persistenceResult = await host.persistContainerState(
-    containerState,
+    persistenceCandidate,
     {
       accessEpoch: 1,
       accessStateHash: created.accessManifestHash,
@@ -145,6 +149,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   }
   const { record: nextRecord } = persistenceResult;
 
+  installDetachedContainerMetadataState(containerState, persistenceCandidate);
   installContainerMetadataRecord(containerState, nextRecord);
   containerState.container = {
     ...containerState.container,
@@ -274,9 +279,6 @@ async function createPendingRemoteContainer(input: {
       runtime: state.runtime,
     });
   } catch (error) {
-    if (!syncInput.isCurrent()) {
-      return "abandoned";
-    }
     return recordContainerCreateFailure({
       error,
       isCurrent: syncInput.isCurrent,

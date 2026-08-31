@@ -7,6 +7,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
+import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import {
@@ -19,7 +20,7 @@ import { syncPendingContainerCreateIntents } from "./createIntentSync";
 import type { ContainerCreateIntentSyncState } from "./types";
 
 async function runCreatePersistenceOutcome(
-  persistenceStatus: "identity-superseded" | "missing",
+  persistenceStatus: "identity-superseded" | "missing" | "stale-generation",
 ) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
@@ -114,6 +115,8 @@ async function runCreatePersistenceOutcome(
     parentId: parentContainerId,
     synced: false,
   });
+  childState.doc = await createContainerMetadataDocument(childContainerId);
+  const originalContainer = { ...childState.container };
   const state: ContainerCreateIntentSyncState = {
     containersById: new Map([
       [childContainerId, childState],
@@ -128,13 +131,16 @@ async function runCreatePersistenceOutcome(
     const host: Parameters<
       typeof syncPendingContainerCreateIntents
     >[0]["host"] = {
-      persistContainerState: async () =>
-        persistenceStatus === "missing"
-          ? { status: "missing" }
-          : {
-              record: childState.record,
-              status: "identity-superseded",
-            },
+      persistContainerState: async () => {
+        if (persistenceStatus === "missing") return { status: "missing" };
+        if (persistenceStatus === "stale-generation") {
+          return { status: "stale-generation" };
+        }
+        return {
+          record: childState.record,
+          status: "identity-superseded",
+        };
+      },
     };
     const createdCount = await syncPendingContainerCreateIntents({
       host,
@@ -142,7 +148,14 @@ async function runCreatePersistenceOutcome(
       isRemoteSyncBlocked: () => false,
       state,
     });
-    return { childContainerId, createdCount, deletedRemoteIds, syncedIntents };
+    return {
+      childContainerId,
+      childState,
+      createdCount,
+      deletedRemoteIds,
+      originalContainer,
+      syncedIntents,
+    };
   } finally {
     close();
   }
@@ -161,4 +174,12 @@ test("create persistence discards only when the local container is missing", asy
   expect(superseded.createdCount).toBe(0);
   expect(superseded.deletedRemoteIds).toEqual([]);
   expect(superseded.syncedIntents).toEqual([]);
+});
+
+test("a stale create settlement leaves the live container projection unchanged", async () => {
+  const stale = await runCreatePersistenceOutcome("stale-generation");
+
+  expect(stale.createdCount).toBe(0);
+  expect(stale.childState.container).toEqual(stale.originalContainer);
+  expect(stale.syncedIntents).toEqual([]);
 });

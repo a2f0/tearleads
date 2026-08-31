@@ -2,6 +2,10 @@ import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { installContainerMetadataRecord } from "../metadataPersistence";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "../metadataStateIsolation";
 import type { ContainerState, RemoteContainer } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { moveRemoteContainer } from "./remote";
@@ -120,15 +124,20 @@ export async function persistAcceptedMoveIntent(input: {
   if (!input.isCurrent() || localUpdatedAt === null) {
     return false;
   }
-  containerState.container = {
-    ...containerState.container,
+  const persistenceCandidate =
+    await createDetachedContainerMetadataState(containerState);
+  if (!input.isCurrent()) {
+    return false;
+  }
+  persistenceCandidate.container = {
+    ...persistenceCandidate.container,
     createdAt: moved.createdAt,
     serverCreatedAt: moved.createdAt,
     serverUpdatedAt: moved.updatedAt,
     updatedAt: moved.updatedAt,
   };
   const persistenceResult = await host.persistContainerState(
-    containerState,
+    persistenceCandidate,
     {
       accessEpoch: moved.metadataAccessEpoch,
       accessStateHash: moved.metadataAccessStateHash,
@@ -153,6 +162,7 @@ export async function persistAcceptedMoveIntent(input: {
   }
   if (persistenceResult.status !== "persisted") return false;
   const { record: nextRecord } = persistenceResult;
+  installDetachedContainerMetadataState(containerState, persistenceCandidate);
   installContainerMetadataRecord(containerState, nextRecord);
   containerState.container = {
     ...containerState.container,
@@ -210,9 +220,6 @@ async function movePendingRemoteContainer(input: {
     );
     return "moved";
   } catch (error: unknown) {
-    if (!syncInput.isCurrent()) {
-      return "abandoned";
-    }
     await reportAndRethrowKeyingVerificationError(
       error,
       state.runtime.util.reportSecurityIncident,

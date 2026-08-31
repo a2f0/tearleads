@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@symcrypt/crypto";
+import { waitFor } from "../../../../test/helpers/waitFor";
+import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -20,6 +22,8 @@ type MoveIntentError = Parameters<
 
 function createMoveIntentSyncState(input: {
   containersById: Map<string, ContainerState>;
+  incidents?: unknown[];
+  onProjectionRequest?: () => void;
   persistence: ContainerMoveIntentSyncState["persistence"];
   projectionError?: unknown;
 }): ContainerMoveIntentSyncState {
@@ -31,6 +35,7 @@ function createMoveIntentSyncState(input: {
     runtime: {
       apiClient: {
         getContainerWriterProjection: () => {
+          input.onProjectionRequest?.();
           if (input.projectionError !== undefined) {
             throw input.projectionError;
           }
@@ -68,7 +73,9 @@ function createMoveIntentSyncState(input: {
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async () => undefined,
+        reportSecurityIncident: async (error) => {
+          input.incidents?.push(error);
+        },
       },
     },
   };
@@ -155,6 +162,8 @@ test("container move sync propagates identity failures without recording a retry
     "trusted identity changed",
   );
   const errors: MoveIntentError[] = [];
+  const incidents: unknown[] = [];
+  let current = true;
   const containersById = new Map([
     ["child", createTestContainerState({ id: "child", parentId: "root" })],
     ["parent", createTestContainerState({ id: "parent", parentId: "root" })],
@@ -177,15 +186,20 @@ test("container move sync propagates identity failures without recording a retry
         },
         updateSnapshot: () => {},
       },
-      isCurrent: () => true,
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       state: createMoveIntentSyncState({
         containersById,
+        incidents,
+        onProjectionRequest: () => {
+          current = false;
+        },
         persistence,
         projectionError: integrityError,
       }),
     }),
   ).rejects.toBe(integrityError);
+  expect(incidents).toEqual([integrityError]);
   expect(errors).toEqual([]);
 });
 
@@ -325,6 +339,7 @@ test("an accepted remote move is not settled when local persistence observes del
     id: "child",
     parentId: "root",
   });
+  child.doc = await createContainerMetadataDocument(child.container.id);
   const containersById = new Map([["child", child]]);
   let settled = false;
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
@@ -363,7 +378,8 @@ test("an accepted remote move is not settled when local persistence observes del
 
 test("a generation change during move persistence cannot settle on a replacement executor", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
-  const originalMetadataDocumentId = child.container.metadataDocumentId;
+  child.doc = await createContainerMetadataDocument(child.container.id);
+  const originalContainer = { ...child.container };
   let current = true;
   let persistenceStarted = false;
   let releasePersistence: () => void = () => {
@@ -419,9 +435,7 @@ test("a generation change during move persistence cannot settle on a replacement
     state,
   });
 
-  while (!persistenceStarted) {
-    await Promise.resolve();
-  }
+  await waitFor(() => persistenceStarted, "Move persistence did not start.");
   current = false;
   state.runtime = {
     ...state.runtime,
@@ -432,5 +446,5 @@ test("a generation change during move persistence cannot settle on a replacement
   await expect(persisted).resolves.toBe(false);
   expect(persistedGuard?.()).toBe(false);
   expect(settled).toBe(false);
-  expect(child.container.metadataDocumentId).toBe(originalMetadataDocumentId);
+  expect(child.container).toEqual(originalContainer);
 });

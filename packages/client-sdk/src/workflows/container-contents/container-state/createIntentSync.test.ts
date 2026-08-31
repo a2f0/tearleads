@@ -39,6 +39,8 @@ test("container create sync propagates identity failures without recording a ret
     updatedAt: "2026-07-15T00:00:00.000Z",
   };
   const recordedErrors: string[] = [];
+  const incidents: unknown[] = [];
+  let current = true;
   let projectionRequests = 0;
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
@@ -72,6 +74,7 @@ test("container create sync propagates identity failures without recording a ret
       apiClient: {
         getContainerWriterProjection: async () => {
           projectionRequests += 1;
+          current = false;
           throw integrityError;
         },
       } as unknown as ContainerCreateIntentSyncState["runtime"]["apiClient"],
@@ -106,7 +109,9 @@ test("container create sync propagates identity failures without recording a ret
       },
       util: {
         log: () => {},
-        reportSecurityIncident: async () => undefined,
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
       },
     },
   };
@@ -118,12 +123,13 @@ test("container create sync propagates identity failures without recording a ret
           throw new Error("unexpected persist");
         },
       },
-      isCurrent: () => true,
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       state,
     }),
   ).rejects.toBe(integrityError);
   expect(projectionRequests).toBe(1);
+  expect(incidents).toEqual([integrityError]);
   expect(recordedErrors).toEqual([]);
 });
 

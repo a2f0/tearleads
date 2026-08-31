@@ -50,11 +50,13 @@ function metadataInvalidationStateMatches(input: {
 
 export async function invalidateContainerMetadataPullContinuation(input: {
   continuation: DocumentSyncPullContinuation;
+  isCurrent?: (() => boolean) | undefined;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerContentsWorkflowSqlRuntime;
 }): Promise<void> {
   const { continuation, metadataState, runtime } = input;
+  if (input.isCurrent?.() === false) return;
   const { accessEpoch, documentId } = metadataState.record;
   if (!documentId) return;
 
@@ -78,6 +80,7 @@ export async function invalidateContainerMetadataPullContinuation(input: {
           },
         );
       if (
+        input.isCurrent?.() === false ||
         !durableRecord ||
         !metadataInvalidationStateMatches({
           accessEpoch,

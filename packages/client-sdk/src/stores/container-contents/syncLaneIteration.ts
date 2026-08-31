@@ -44,17 +44,32 @@ function createRemoteSyncBlocker(runtime: ContainerContentsStoreRuntime) {
 function createContainerContentsStoreDocumentMoveHost(
   state: ContainerContentsStoreSyncState,
 ): DocumentMoveIntentSyncHost<ContainerContentsStorePrimeDocumentRuntime> {
+  const runtime = state.runtime;
+  const domainScope = runtime.state.domainScope;
   return {
     documentWorkflowRuntime: (containerId) =>
-      createContainerContentsDocumentsRuntime(state.runtime, containerId),
+      createContainerContentsDocumentsRuntime(runtime, containerId),
     openDocumentStore: ({ containerId, documentId, localId }) =>
       openDocumentStore(
-        state.runtime.state.domainScope,
+        domainScope,
         localId,
-        createContainerContentsDocumentsRuntime(state.runtime, containerId),
+        createContainerContentsDocumentsRuntime(runtime, containerId),
         documentId,
       ),
   };
+}
+
+function syncPendingStoreDocumentMoves(input: {
+  isCurrent: () => boolean;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
+  state: ContainerContentsStoreSyncState;
+}) {
+  return syncPendingDocumentMoveIntents({
+    host: createContainerContentsStoreDocumentMoveHost(input.state),
+    isCurrent: input.isCurrent,
+    isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    state: input.state,
+  });
 }
 
 async function syncSingleContainerMetadata(input: {
@@ -82,6 +97,7 @@ async function syncSingleContainerMetadata(input: {
       typeof metadataDocumentId === "string" &&
       state.metadataDocumentIdsNeedingSync.has(metadataDocumentId),
     locallyAcceptedUpdateIds: state.locallyAcceptedMetadataUpdateIds,
+    isCurrent,
     metadataState: containerState,
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
@@ -226,8 +242,8 @@ export async function runContainerContentsStoreSyncIteration(
     // Root recovery rewrites stale endpoints and returns their intents to
     // pending, so replay follows recovery in this same pass.
     syncPendingDocumentMoves: () =>
-      syncPendingDocumentMoveIntents({
-        host: createContainerContentsStoreDocumentMoveHost(state),
+      syncPendingStoreDocumentMoves({
+        isCurrent,
         isRemoteSyncBlocked: isOrganizationBlocked,
         state,
       }),

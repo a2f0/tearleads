@@ -2,28 +2,11 @@ import { encodeVersionVector, exportFullHistorySnapshot } from "@symcrypt/loro";
 import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
 import { readPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import {
-  CONTAINER_METADATA_APP_KIND,
-  type ContainerContentsPersistence,
-} from "../../data/persistence/container-contents/containerContentsPersistence";
-import {
-  type PendingUpdateRecord,
-  recordDocumentSyncFailure,
-} from "../../data/sqlite/documentPersistence";
+import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
-import {
-  createDocumentWriterPublicKeyResolver,
-  describeDocumentSyncSubmitFailure,
-  type RekeyPendingUpdate,
-  resolveDocumentCreateAuthor,
-  shouldClearDocumentSyncFailureAfterPass,
-  syncRemoteDocument,
-} from "../documents";
-import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
-import {
-  applyIncomingContainerMetadataUpdates,
-  metadataIncomingUpdateIsolation,
-} from "./metadataIncomingUpdateIsolation";
+import { shouldClearDocumentSyncFailureAfterPass } from "../documents";
+import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   createReadOnlyMetadataSyncSaveOptions,
   currentMetadataPullContinuation,
@@ -31,7 +14,15 @@ import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
 } from "./metadataPersistence";
-import { deferRecoverableMetadataSyncError } from "./metadataSyncErrors";
+import {
+  type ContainerMetadataSyncAttempt,
+  type ContainerMetadataSyncRuntime,
+  syncRemoteContainerMetadata,
+} from "./metadataRemoteSync";
+import {
+  createDetachedContainerMetadataState,
+  installDetachedContainerMetadataState,
+} from "./metadataStateIsolation";
 import { shouldRequestContainerMetadataFollowup } from "./metadataSyncFollowup";
 
 export {
@@ -63,57 +54,6 @@ export {
 } from "./metadataSyncRegistrations";
 export type { ContainerMetadataPatch } from "./metadataTypes";
 
-import type { ContainerContentsWorkflowRuntime } from "./runtime";
-
-type ContainerMetadataSyncApi = Parameters<
-  typeof syncRemoteDocument
->[0]["apiClient"] &
-  Pick<
-    ContainerContentsWorkflowRuntime["apiClient"],
-    "getCurrentPrincipalPolicy"
-  >;
-
-interface ContainerMetadataSyncRuntime
-  extends Pick<
-    ContainerContentsWorkflowRuntime,
-    | "auth"
-    | "crypto"
-    | "infra"
-    | "resolveTrustedUserIdentity"
-    | "state"
-    | "util"
-  > {
-  apiClient: ContainerMetadataSyncApi;
-}
-
-type ContainerMetadataSyncResult = NonNullable<
-  Awaited<ReturnType<typeof syncRemoteDocument>>
->;
-
-interface ContainerMetadataSyncAttempt {
-  consumedPullContinuation: ContainerMetadataState["pullContinuation"];
-  outgoingUpdateCount: number;
-  requestRecord: ContainerMetadataState["record"];
-  synced: ContainerMetadataSyncResult;
-}
-
-function createContainerMetadataSyncAttempt(input: {
-  outgoingUpdateCount: number;
-  requestedPullContinuation: ContainerMetadataState["pullContinuation"];
-  requestRecord: ContainerMetadataState["record"];
-  synced: ContainerMetadataSyncResult;
-}): ContainerMetadataSyncAttempt {
-  return {
-    consumedPullContinuation:
-      input.synced.plan.request.pullCursor === undefined
-        ? null
-        : (input.requestedPullContinuation ?? null),
-    outgoingUpdateCount: input.outgoingUpdateCount,
-    requestRecord: input.requestRecord,
-    synced: input.synced,
-  };
-}
-
 export function settleContainerMetadataOutgoingPass(
   metadataState: ContainerMetadataState,
   attempt: ContainerMetadataSyncAttempt,
@@ -130,118 +70,6 @@ export function settleContainerMetadataOutgoingPass(
     shouldReArmOutgoing ||
     attempt.synced.hasIncompletePull
   );
-}
-
-interface SyncRemoteContainerMetadataInput {
-  buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
-  containerId: string;
-  currentDocument: ContainerMetadataState["doc"];
-  documentId: string | null;
-  lastCommitLsn?: string | null | undefined;
-  localVersionVector: string | null;
-  onOutgoingUpdatesMaterialized?:
-    | ((updateIds: readonly string[]) => void)
-    | undefined;
-  onPullContinuationInvalidated?: Parameters<
-    typeof syncRemoteDocument
-  >[0]["onPullContinuationInvalidated"];
-  pendingUpdates: readonly PendingUpdateRecord[];
-  persistedState: ContainerMetadataState["record"];
-  pullContinuation?: ContainerMetadataState["pullContinuation"];
-  rekeyPendingUpdate: RekeyPendingUpdate;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  runtime: ContainerMetadataSyncRuntime;
-  targetSecretKey: Uint8Array;
-  writerProjection?: DocumentWriterProjectionResponse | undefined;
-}
-
-async function syncRemoteContainerMetadata(
-  input: SyncRemoteContainerMetadataInput,
-): Promise<ContainerMetadataSyncAttempt | null> {
-  const {
-    buildRotationSnapshot,
-    containerId,
-    currentDocument,
-    documentId,
-    lastCommitLsn,
-    localVersionVector,
-    onOutgoingUpdatesMaterialized,
-    pendingUpdates,
-    persistedState,
-    rekeyPendingUpdate,
-    resolveProjectionUserKey,
-    runtime,
-    targetSecretKey,
-    writerProjection,
-  } = input;
-  const execSql = runtime.infra.execSql;
-
-  if (!documentId) {
-    return null;
-  }
-
-  const author = resolveDocumentCreateAuthor(runtime);
-  if (!author) {
-    runtime.util.log(
-      "Container contents: skipped metadata sync because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  const metadataScope = {
-    appKind: CONTAINER_METADATA_APP_KIND,
-    localId: containerId,
-  };
-  const synced = await syncRemoteDocument({
-    apiClient: runtime.apiClient,
-    author,
-    buildRotationSnapshot,
-    documentId,
-    execSql,
-    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
-    localVersionVector,
-    minLsn: lastCommitLsn ?? undefined,
-    ...metadataIncomingUpdateIsolation({
-      currentDocument,
-      execSql,
-      metadataScope,
-    }),
-    onOutgoingUpdatesMaterialized,
-    onPullContinuationInvalidated: input.onPullContinuationInvalidated,
-    onSyncTrace: (line) => runtime.util.log(`Container contents: ${line}`),
-    onTerminalSubmitFailure: (failure) =>
-      recordDocumentSyncFailure(execSql, metadataScope, {
-        attemptedAt: new Date().toISOString(),
-        message: describeDocumentSyncSubmitFailure(failure),
-        status: failure.status,
-      }),
-    pendingUpdates,
-    persistedState,
-    pullContinuation: input.pullContinuation ?? undefined,
-    rekeyPendingUpdate,
-    resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: "Container contents",
-      runtime,
-      writerKeyLabel: "metadata writer key",
-    }),
-    targetSecretKey,
-    warmReferencedPrincipalPolicies:
-      createRuntimePrincipalPolicyWarmer(runtime),
-    writerProjection,
-  }).catch((error: unknown) =>
-    deferRecoverableMetadataSyncError({ containerId, error, runtime }),
-  );
-  if (!synced) {
-    return null;
-  }
-
-  return createContainerMetadataSyncAttempt({
-    outgoingUpdateCount: pendingUpdates.length,
-    requestedPullContinuation: input.pullContinuation,
-    requestRecord: persistedState,
-    synced,
-  });
 }
 
 function documentWriterProjectionMatchesMetadataSyncResponse(
@@ -293,6 +121,7 @@ function metadataRotationSnapshotProvider(
 
 interface SyncContainerMetadataStateInput {
   forceReadSync?: boolean | undefined;
+  isCurrent: () => boolean;
   /**
    * Register sent ids before the network await so early self echoes cannot arm
    * a redundant read-sync. Shared with {@link listContainerMetadataDocumentUpdateIds}.
@@ -305,19 +134,73 @@ interface SyncContainerMetadataStateInput {
   targetSecretKey: Uint8Array;
 }
 
+async function requestContainerMetadataSync(input: {
+  documentId: string;
+  metadataState: ContainerMetadataState;
+  pendingUpdates: readonly PendingUpdateRecord[];
+  sentUpdateIds: string[];
+  syncInput: SyncContainerMetadataStateInput;
+}): Promise<ContainerMetadataSyncAttempt | null> {
+  const { metadataState, sentUpdateIds, syncInput } = input;
+  const { isCurrent, persistence, runtime } = syncInput;
+  return cleanupContainerMetadataRegistrationsOnFailure(
+    syncInput.locallyAcceptedUpdateIds,
+    sentUpdateIds,
+    () =>
+      syncRemoteContainerMetadata({
+        buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
+        containerId: metadataState.container.id,
+        currentDocument: metadataState.doc,
+        documentId: input.documentId,
+        isCurrent,
+        lastCommitLsn: metadataState.record.lastCommitLsn,
+        localVersionVector: encodeVersionVector(metadataState.doc),
+        onOutgoingUpdatesMaterialized: (updateIds) => {
+          if (isCurrent()) {
+            preRegisterMaterializedContainerMetadataUpdateIds(
+              syncInput.locallyAcceptedUpdateIds,
+              sentUpdateIds,
+              updateIds,
+            );
+          }
+        },
+        onPullContinuationInvalidated: (continuation) =>
+          invalidateContainerMetadataPullContinuation({
+            continuation,
+            isCurrent,
+            metadataState,
+            persistence,
+            runtime,
+          }),
+        pendingUpdates: input.pendingUpdates,
+        persistedState: metadataState.record,
+        pullContinuation:
+          currentMetadataPullContinuation(metadataState) ?? undefined,
+        rekeyPendingUpdate: persistence.rekeyPendingUpdate,
+        resolveProjectionUserKey: syncInput.resolveProjectionUserKey,
+        runtime,
+        targetSecretKey: syncInput.targetSecretKey,
+        writerProjection:
+          metadataState.metadataWriterProjection?.documentId ===
+          input.documentId
+            ? metadataState.metadataWriterProjection
+            : undefined,
+      }),
+  );
+}
+
 export async function syncContainerMetadataState(
   input: SyncContainerMetadataStateInput,
 ): Promise<
   SyncedContainerMetadataState | MissingContainerMetadataState | null
 > {
-  const {
-    metadataState,
-    persistence,
-    resolveProjectionUserKey,
-    runtime,
-    targetSecretKey,
-  } = input;
-  const { documentId } = metadataState.record;
+  const { persistence, runtime } = input;
+  const liveMetadataState = input.metadataState;
+  const { isCurrent } = input;
+  if (!isCurrent()) {
+    return null;
+  }
+  const { documentId } = liveMetadataState.record;
   if (!documentId) {
     return null;
   }
@@ -325,63 +208,49 @@ export async function syncContainerMetadataState(
 
   const pendingUpdates = await persistence.listPendingUpdates(
     execSql,
-    metadataState.container.id,
+    liveMetadataState.container.id,
   );
+  if (!isCurrent()) {
+    return null;
+  }
   if (
     pendingUpdates.length === 0 &&
-    currentMetadataPullContinuation(metadataState) === null &&
-    !metadataState.record.pullContinuationRecoveryRequired &&
+    currentMetadataPullContinuation(liveMetadataState) === null &&
+    !liveMetadataState.record.pullContinuationRecoveryRequired &&
     !input.forceReadSync &&
-    hasCurrentContainerMetadataReadState(metadataState.record)
+    hasCurrentContainerMetadataReadState(liveMetadataState.record)
   ) {
+    return null;
+  }
+  const metadataState =
+    await createDetachedContainerMetadataState(liveMetadataState);
+  if (!isCurrent()) {
     return null;
   }
 
   const sentUpdateIds: string[] = [];
 
-  const syncAttempt = await cleanupContainerMetadataRegistrationsOnFailure(
-    input.locallyAcceptedUpdateIds,
+  const syncAttempt = await requestContainerMetadataSync({
+    documentId,
+    metadataState,
+    pendingUpdates,
     sentUpdateIds,
-    () =>
-      syncRemoteContainerMetadata({
-        buildRotationSnapshot: metadataRotationSnapshotProvider(metadataState),
-        containerId: metadataState.container.id,
-        currentDocument: metadataState.doc,
-        documentId,
-        lastCommitLsn: metadataState.record.lastCommitLsn,
-        localVersionVector: encodeVersionVector(metadataState.doc),
-        onOutgoingUpdatesMaterialized: (updateIds) =>
-          preRegisterMaterializedContainerMetadataUpdateIds(
-            input.locallyAcceptedUpdateIds,
-            sentUpdateIds,
-            updateIds,
-          ),
-        onPullContinuationInvalidated: (continuation) =>
-          invalidateContainerMetadataPullContinuation({
-            continuation,
-            metadataState,
-            persistence,
-            runtime,
-          }),
-        pendingUpdates,
-        persistedState: metadataState.record,
-        pullContinuation:
-          currentMetadataPullContinuation(metadataState) ?? undefined,
-        rekeyPendingUpdate: persistence.rekeyPendingUpdate,
-        resolveProjectionUserKey,
-        runtime,
-        targetSecretKey,
-        writerProjection:
-          metadataState.metadataWriterProjection?.documentId === documentId
-            ? metadataState.metadataWriterProjection
-            : undefined,
-      }),
-  );
+    syncInput: input,
+  });
   if (!syncAttempt) {
     return null;
   }
-  return finalizeContainerMetadataSync({
+  if (!isCurrent()) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      input.locallyAcceptedUpdateIds,
+      sentUpdateIds,
+      [],
+    );
+    return null;
+  }
+  const finalized = await finalizeContainerMetadataSync({
     documentId,
+    isCurrent,
     locallyAcceptedUpdateIds: input.locallyAcceptedUpdateIds,
     metadataState,
     persistence,
@@ -389,19 +258,37 @@ export async function syncContainerMetadataState(
     sentUpdateIds,
     syncAttempt,
   });
+  if (!isCurrent() || !finalized) {
+    return null;
+  }
+  if (!("missing" in finalized)) {
+    installDetachedContainerMetadataState(liveMetadataState, metadataState);
+  }
+  return finalized;
 }
 
 async function finalizeContainerMetadataSync(input: {
   documentId: string;
+  isCurrent: () => boolean;
   locallyAcceptedUpdateIds: Set<string> | undefined;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataSyncRuntime;
   sentUpdateIds: readonly string[];
   syncAttempt: ContainerMetadataSyncAttempt;
-}): Promise<SyncedContainerMetadataState | MissingContainerMetadataState> {
+}): Promise<
+  SyncedContainerMetadataState | MissingContainerMetadataState | null
+> {
   const { metadataState, syncAttempt } = input;
   const { outgoingUpdateCount, synced } = syncAttempt;
+  if (!input.isCurrent()) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      input.locallyAcceptedUpdateIds,
+      input.sentUpdateIds,
+      [],
+    );
+    return null;
+  }
   // An id sent but not accepted will never be echoed. Accepted ids stay
   // registered until their realtime echo consumes them.
   discardUnacceptedContainerMetadataUpdateIds(
@@ -440,6 +327,14 @@ async function finalizeContainerMetadataSync(input: {
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
   });
+  if (!input.isCurrent()) {
+    discardUnacceptedContainerMetadataUpdateIds(
+      input.locallyAcceptedUpdateIds,
+      input.sentUpdateIds,
+      [],
+    );
+    return null;
+  }
   if (!persisted) {
     discardUnacceptedContainerMetadataUpdateIds(
       input.locallyAcceptedUpdateIds,

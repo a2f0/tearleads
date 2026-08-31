@@ -365,6 +365,7 @@ test("syncContainerMetadataState skips clean metadata with current read state", 
   const persistence = createContainerContentsPersistence({});
 
   const synced = await syncContainerMetadataState({
+    isCurrent: () => true,
     metadataState: { container, doc, record },
     persistence: {
       ...persistence,
