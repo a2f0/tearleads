@@ -1,5 +1,6 @@
 import { db } from "@symcrypt/api-shared/postgres";
 import type { TestUser } from "@symcrypt/bob-and-alice";
+import type { ContainerKekKeyringEntry } from "@symcrypt/crypto";
 import { unwrapDek } from "@symcrypt/crypto";
 import { base64ToBytes } from "@symcrypt/encoding";
 import invariant from "invariant";
@@ -7,6 +8,7 @@ import { listCurrentPrincipalMemberEnvelopes } from "../../src/access/read/princ
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 export interface DecryptableStoredRootFixture extends StoredRootFixture {
+  readonly keyringEntries?: readonly ContainerKekKeyringEntry[];
   readonly plaintextKek: Uint8Array;
 }
 
