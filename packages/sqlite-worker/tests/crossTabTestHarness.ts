@@ -92,8 +92,16 @@ class MockBroadcastChannel extends EventTarget {
     Set<MockBroadcastChannel>
   >();
 
+  private readonly pendingMessages: unknown[] = [];
+  private suspended = false;
+
   static reset(): void {
     MockBroadcastChannel.channelsByName.clear();
+  }
+
+  static first(): MockBroadcastChannel | null {
+    const channels = MockBroadcastChannel.channelsByName.values().next().value;
+    return channels?.values().next().value ?? null;
   }
 
   constructor(readonly name: string) {
@@ -114,11 +122,61 @@ class MockBroadcastChannel extends EventTarget {
         continue;
       }
 
-      queueMicrotask(() => {
-        channel.dispatchEvent(new MessageEvent("message", { data: message }));
-      });
+      channel.receive(message);
     }
   }
+
+  suspend(): void {
+    this.suspended = true;
+  }
+
+  resume(): void {
+    this.suspended = false;
+    for (const message of this.pendingMessages.splice(0)) {
+      this.dispatch(message);
+    }
+  }
+
+  get pendingMessageCount(): number {
+    return this.pendingMessages.length;
+  }
+
+  private receive(message: unknown): void {
+    if (this.suspended) {
+      this.pendingMessages.push(message);
+      return;
+    }
+
+    this.dispatch(message);
+  }
+
+  private dispatch(message: unknown): void {
+    queueMicrotask(() => {
+      this.dispatchEvent(new MessageEvent("message", { data: message }));
+    });
+  }
+}
+
+interface BroadcastChannelSuspension {
+  readonly pendingMessageCount: number;
+  resume(): void;
+}
+
+export function suspendFirstCrossTabChannel(): BroadcastChannelSuspension {
+  const channel = MockBroadcastChannel.first();
+  if (!channel) {
+    throw new Error("Expected a cross-tab broadcast channel.");
+  }
+
+  channel.suspend();
+  return {
+    get pendingMessageCount() {
+      return channel.pendingMessageCount;
+    },
+    resume() {
+      channel.resume();
+    },
+  };
 }
 
 export class ThrowingWorker extends EventTarget {
