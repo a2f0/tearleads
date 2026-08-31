@@ -1,6 +1,7 @@
 import { mock } from "bun:test";
 import type {
   PurchasesCapability,
+  SessionCreateOrganizationResult,
   SyncPurchaseResult,
   SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
@@ -30,6 +31,11 @@ export const OPTION: SyncSubscriptionOption = {
   title: "Sync",
   description: "Cloud sync",
   priceLabel: "$4.99",
+};
+
+export const RESTORE_ORGANIZATION: SessionCreateOrganizationResult = {
+  containerId: "restored-root",
+  organizationId: "restored-org",
 };
 
 type BillingTraceEntry = {
@@ -63,12 +69,14 @@ export function createPurchases(
         if (!purchaseResult.syncEntitlementActive) {
           throw new Error("The restored receipt has no sync entitlement");
         }
-        if (!(await input.claim("test_store"))) {
+        const organizationId = await input.claim("test_store");
+        if (!organizationId) {
           throw new Error("The server did not accept the native subscription");
         }
         await purchases.bindOrganization({
-          organizationId: input.organizationId,
+          organizationId,
         });
+        return { organizationId };
       },
     ),
     purchaseSync: mock(() => Promise.resolve(purchaseResult)),
@@ -106,7 +114,11 @@ export function renderBillingActions(input: {
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
   optionsRetryDelaysMs?: readonly number[];
-  claimNativeSubscription?: () => Promise<boolean>;
+  activateRestoredOrganization?: (
+    organization: SessionCreateOrganizationResult,
+  ) => void;
+  claimNativeSubscription?: (organizationId: string) => Promise<boolean>;
+  createRestoreOrganization?: () => Promise<SessionCreateOrganizationResult | null>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
 }) {
@@ -135,6 +147,8 @@ export function renderBillingActions(input: {
       userId,
     }) => {
       const actions = useBillingActions({
+        activateRestoredOrganization:
+          input.activateRestoredOrganization ?? (() => undefined),
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingIsActive,
         billingPendingSeatCount: billingPendingSeatCount ?? null,
@@ -144,6 +158,9 @@ export function renderBillingActions(input: {
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),
+        createRestoreOrganization:
+          input.createRestoreOrganization ??
+          (() => Promise.resolve(RESTORE_ORGANIZATION)),
         isOrgAdmin: isOrgAdmin ?? true,
         nativePurchaseAllowed: input.nativePurchaseAllowed ?? true,
         ...(input.optionsRetryDelaysMs

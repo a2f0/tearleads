@@ -13,13 +13,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { runGetOrganizationBillingWorkflow } from "./organizationBilling";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
-/**
- * A store-sandbox purchase — StoreKit sandbox, TestFlight, Play internal
- * testing — costs the tester nothing but reaches this webhook as an event
- * indistinguishable from a paid one apart from `environment`. These cover the
- * native-store lane specifically, since sandbox purchases are how mobile
- * billing is exercised at all.
- */
+/** Covers the native-store sandbox lane used by mobile billing tests. */
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -165,7 +159,7 @@ test("a sandbox store purchase activates sync on a tier that opts in", async () 
   });
 });
 
-test("a Stripe-bound customer cannot fund a custom org through Test Store", async () => {
+test("a verified native binding accepts a delayed initial event outside the default organization", async () => {
   const { organizationId, user } = await registerOrganizationAdmin();
   const eventId = crypto.randomUUID();
   const replacement = await registerOrganizationAdmin();
@@ -178,37 +172,31 @@ test("a Stripe-bound customer cannot fund a custom org through Test Store", asyn
     .set({
       provider: "revenuecat",
       providerCustomerId: user.userId,
-      providerProductId: "price_lapsed_stripe",
-      status: "disabled",
+      providerProductId: "com.symcrypt.sync.monthly",
+      providerSubscriptionId: eventId,
+      seatCount: 1,
+      status: "active",
     })
     .where(eq(organizationBilling.organizationId, organizationId));
 
-  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
-  try {
-    const outcome = await runRevenueCatWebhookWorkflow(
-      db,
-      appStorePurchase({
-        appUserId: user.userId,
-        environment: "SANDBOX",
-        eventId,
-        organizationId,
-        store: "TEST_STORE",
-      }),
-      new Date(),
-      { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
-    );
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      environment: "SANDBOX",
+      eventId,
+      organizationId,
+      store: "TEST_STORE",
+    }),
+    new Date(),
+    { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
+  );
 
-    expect(outcome).toEqual({
-      status: "ignored",
-      reason:
-        "Native purchases may only fund the buyer's personal organization",
-    });
-    expect(errorSpy).toHaveBeenCalledWith(
-      `RevenueCat paid grant ${eventId} was not applied: Native purchases may only fund the buyer's personal organization`,
-    );
-  } finally {
-    errorSpy.mockRestore();
-  }
+  expect(outcome).toEqual({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
 });
 
 test("an unknown paid native product is retried with an operator alert", async () => {
@@ -382,9 +370,9 @@ test("unknown and missing stores require the personal-organization policy", asyn
     const outcome = await runRevenueCatWebhookWorkflow(db, event);
 
     expect(outcome).toEqual({
-      status: "ignored",
       reason:
         "Native purchases may only fund the buyer's personal organization",
+      status: "ignored",
     });
   }
 });

@@ -24,24 +24,6 @@ import { withOrganizationAdminTransaction } from "../organizations/mutationAcces
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
-async function requirePersonalOrganization(input: {
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly userId: string;
-}): Promise<void> {
-  const [user] = await input.executor
-    .select({ defaultOrganizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
-  if (!user || user.defaultOrganizationId !== input.organizationId) {
-    throw new OrganizationManagerError(
-      "Native subscriptions can only be assigned to a personal organization",
-      409,
-    );
-  }
-}
-
 async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
     .select({
@@ -265,7 +247,7 @@ async function applyNativeSubscriptionClaim(input: {
     input.target.providerSubscriptionId !== input.subscription.subscriptionId
   ) {
     throw new OrganizationManagerError(
-      "The personal organization already has a different subscription",
+      "The organization already has a different subscription",
       409,
     );
   }
@@ -329,13 +311,7 @@ export async function runAuthorizeNativeSubscriptionClaimWorkflow(
   await withOrganizationAdminTransaction(
     db,
     { organizationId, userId: sessionUserId },
-    async (tx) => {
-      await requirePersonalOrganization({
-        executor: tx,
-        organizationId,
-        userId: sessionUserId,
-      });
-    },
+    async () => undefined,
   );
 }
 
@@ -384,11 +360,6 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
         userId: input.appUserId,
       });
     }
-    await requirePersonalOrganization({
-      executor: tx,
-      organizationId: input.organizationId,
-      userId: input.appUserId,
-    });
     const target = await lockBilling(tx, input.organizationId);
     if (target.status === "deleting" || target.status === "purged") {
       throw new OrganizationManagerError(
@@ -449,11 +420,32 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   });
 }
 
-export async function resolvePersonalOrganizationForUser(
+export async function resolveNativeSubscriptionOrganizationForUser(
   db: ApiDatabase,
   userId: string,
-): Promise<string | null> {
+): Promise<string | null | "ambiguous"> {
   return db.transaction(async (tx) => {
+    const nativeBindings = await tx
+      .select({
+        organizationId: organizationBilling.organizationId,
+        productId: organizationBilling.providerProductId,
+      })
+      .from(organizationBilling)
+      .where(
+        and(
+          eq(organizationBilling.provider, "revenuecat"),
+          eq(organizationBilling.providerCustomerId, userId),
+          eq(organizationBilling.status, "active"),
+        ),
+      );
+    const recognizedNativeBindings = nativeBindings.filter((binding) =>
+      getSyncBillingTierForNativeProduct(binding.productId),
+    );
+    if (recognizedNativeBindings.length > 1) return "ambiguous";
+    if (recognizedNativeBindings[0]) {
+      return recognizedNativeBindings[0].organizationId;
+    }
+
     const [user] = await tx
       .select({ organizationId: users.defaultOrganizationId })
       .from(users)

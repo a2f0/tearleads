@@ -129,9 +129,8 @@ test("native move holds its buyer through claim and binding", async () => {
       fixture.calls.push("claim");
       claimStarted.resolve();
       await claim.promise;
-      return true;
+      return "org-1";
     },
-    organizationId: "org-1",
     userId: "user-1",
   });
   await claimStarted.promise;

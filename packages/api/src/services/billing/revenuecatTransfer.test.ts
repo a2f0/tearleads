@@ -203,6 +203,47 @@ test("a transfer without its optional store resolves the sole native subscriptio
   });
 });
 
+test("a transfer follows an existing native binding outside the personal organization", async () => {
+  const destination = await registerPersonalOrganization();
+  const replacementDefault = await registerPersonalOrganization();
+  const subscriptionId = `GPA.non-default-${crypto.randomUUID()}`;
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacementDefault.organizationId })
+    .where(eq(users.id, destination.user.userId));
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: destination.user.userId,
+      providerProductId: "sync_team_5_monthly:monthly",
+      providerSubscriptionId: subscriptionId,
+      seatCount: 5,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  const event = {
+    environment: "SANDBOX",
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    store: "PLAY_STORE",
+    transferred_from: [crypto.randomUUID()],
+    transferred_to: [destination.user.userId],
+    type: "TRANSFER" as const,
+  };
+
+  expect(
+    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+      env: ENV,
+      fetchImpl: providerFetch(subscriptionId),
+    }),
+  ).toEqual({
+    billingStatus: "active",
+    organizationId: destination.organizationId,
+    status: "applied",
+  });
+});
+
 test("permanent transfer claim rejections are acknowledged without redelivery", async () => {
   const destination = await registerPersonalOrganization();
   const eventId = crypto.randomUUID();

@@ -11,6 +11,7 @@ import { isOrganizationBillingResponse } from "@symcrypt/validators/response";
 import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import invariant from "invariant";
+import * as api from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   setTestOrganizationBillingExpiredTrial,
@@ -379,7 +380,11 @@ test("native claim moves verified billing and records both sides of the transfer
   const previous = createTestUser();
   const previousOrganizationId = await registerAndAuthenticate(previous);
   const destination = createTestUser();
-  const destinationOrganizationId = await registerAndAuthenticate(destination);
+  await registerAndAuthenticate(destination);
+  const request = await api.createOrganizationRequestBody(destination);
+  const creation = await api.submitCreateOrganization(destination, request);
+  expect(creation.status).toBe(200);
+  const destinationOrganizationId = request.organizationId;
   await db
     .update(organizationBilling)
     .set({
@@ -488,7 +493,6 @@ test("native claim maps ambiguous receipts to 409", async () => {
         items: [active("GPA.ambiguous-1"), active("GPA.ambiguous-2")],
       })) as typeof fetch,
   });
-  expect((await ambiguous.request(claimUrl, { method: "POST" })).status).toBe(
-    409,
-  );
+  const response = await ambiguous.request(claimUrl, { method: "POST" });
+  expect(response.status).toBe(409);
 });

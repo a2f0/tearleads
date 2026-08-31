@@ -11,6 +11,7 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import {
   createPurchases,
   OPTION,
+  RESTORE_ORGANIZATION,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -165,9 +166,15 @@ test("ignores an old organization's action callbacks after a switch", async () =
 test("restores and claims a native subscription only after confirmation", async () => {
   const purchases = createPurchases({ syncEntitlementActive: true });
   const claimNativeSubscription = mock(() => Promise.resolve(true));
+  const createRestoreOrganization = mock(() =>
+    Promise.resolve(RESTORE_ORGANIZATION),
+  );
+  const activateRestoredOrganization = mock(() => undefined);
   const refresh = mock(() => Promise.resolve());
   const { result } = renderBillingActions({
+    activateRestoredOrganization,
     claimNativeSubscription,
+    createRestoreOrganization,
     purchases,
     refresh,
   });
@@ -175,15 +182,23 @@ test("restores and claims a native subscription only after confirmation", async 
   act(() => result.current.requestSubscriptionMove());
   expect(result.current.subscriptionMoveOpen).toBe(true);
   expect(purchases.moveNativeSubscription).not.toHaveBeenCalled();
+  expect(createRestoreOrganization).not.toHaveBeenCalled();
 
   act(() => result.current.confirmSubscriptionMove());
   await waitFor(() => expect(result.current.busy).toBeNull());
   expect(purchases.moveNativeSubscription).toHaveBeenCalledTimes(1);
-  expect(claimNativeSubscription).toHaveBeenCalledWith("test_store");
+  expect(createRestoreOrganization).toHaveBeenCalledTimes(1);
+  expect(claimNativeSubscription).toHaveBeenCalledWith(
+    RESTORE_ORGANIZATION.organizationId,
+    "test_store",
+  );
   expect(purchases.bindOrganization).toHaveBeenCalledWith({
-    organizationId: "org-1",
+    organizationId: RESTORE_ORGANIZATION.organizationId,
   });
-  expect(refresh).toHaveBeenCalled();
+  expect(activateRestoredOrganization).toHaveBeenCalledWith(
+    RESTORE_ORGANIZATION,
+  );
+  expect(refresh).not.toHaveBeenCalled();
 });
 
 test("an already-owned purchase offers the same explicit move flow", async () => {

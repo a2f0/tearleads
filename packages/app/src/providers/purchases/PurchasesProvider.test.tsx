@@ -15,7 +15,8 @@ const availableCapability: PurchasesCapability = {
   identify: () => Promise.resolve(),
   reset: () => Promise.resolve(),
   listSyncOptions: () => Promise.resolve([]),
-  moveNativeSubscription: () => Promise.resolve(),
+  moveNativeSubscription: () =>
+    Promise.resolve({ organizationId: "restored-org" }),
   purchaseSync: () => Promise.resolve({ syncEntitlementActive: false }),
   hasActiveSyncEntitlement: () => Promise.resolve(false),
 };

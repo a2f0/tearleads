@@ -71,12 +71,11 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     input.currentProviderCustomerId === input.event.app_user_id;
   const isNativeStore = isNativeRevenueCatStore(input.event.store);
   if (isNativeStore) {
-    // A lifecycle event may continue an already-policy-checked native binding
-    // after the buyer changes default context. A Stripe-associated customer is
-    // not proof of native eligibility, and INITIAL_PURCHASE always rechecks.
+    // Any event may continue an already-verified native binding after restore
+    // moves it outside the personal org. A Stripe-associated customer is not
+    // proof of native eligibility.
     if (
       sameProviderCustomer &&
-      input.event.type !== "INITIAL_PURCHASE" &&
       getSyncBillingTierForNativeProduct(input.currentProviderProductId)
     ) {
       return null;

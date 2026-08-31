@@ -16,8 +16,7 @@ test("the unavailable stub degrades reads and rejects purchases", async () => {
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);
   await expect(
     purchases.moveNativeSubscription({
-      claim: () => Promise.resolve(true),
-      organizationId: "org-1",
+      claim: () => Promise.resolve("org-1"),
       userId: "user-1",
     }),
   ).rejects.toBeInstanceOf(PurchasesUnavailableError);

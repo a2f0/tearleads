@@ -171,9 +171,9 @@ export async function startOrganizationTrial(
 
 /**
  * Verifies the current RevenueCat App User ID's native receipt and assigns its
- * one active store subscription to the user's personal organization. Restore
- * on the device may have transferred the receipt between App User IDs; this
- * operation moves the server-side organization binding to match.
+ * one active store subscription to an organization the user administers.
+ * Restore on the device may have transferred the receipt between App User IDs;
+ * this operation moves the server-side organization binding to match.
  */
 export async function claimNativeOrganizationSubscription(
   runtime: ApiServiceRuntime,

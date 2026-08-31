@@ -42,15 +42,14 @@ function normalizeClaimError(error: unknown): never {
 function moveRevenueCatNativeSubscription(input: {
   readonly attributeKey: string;
   readonly backend: NativeSubscriptionMoveBackend;
-  readonly claim: (store: NativeSubscriptionStore) => Promise<boolean>;
+  readonly claim: (store: NativeSubscriptionStore) => Promise<string | null>;
   readonly claimTimeoutMs: number;
   readonly entitlementId: string;
   readonly identity: RevenueCatIdentityCoordinator;
-  readonly organizationId: string;
   readonly restorePurchasesUsesCheckoutTimeout: boolean;
   readonly store: NativeSubscriptionStore;
   readonly userId: string;
-}): Promise<void> {
+}): Promise<{ readonly organizationId: string }> {
   return input.identity.runProviderOperation({
     expectedAppUserId: input.userId,
     operation: async (providerPhase) => {
@@ -72,21 +71,22 @@ function moveRevenueCatNativeSubscription(input: {
       ) {
         throw new Error("The restored receipt has no sync entitlement");
       }
-      const claimAccepted = await withRevenueCatOperationTimeout({
+      const organizationId = await withRevenueCatOperationTimeout({
         operation: () => input.claim(input.store),
         operationName: "native subscription claim",
         timeoutMs: input.claimTimeoutMs,
       }).catch(normalizeClaimError);
-      if (!claimAccepted) {
+      if (!organizationId) {
         throw new Error("The server did not accept the native subscription");
       }
       await providerPhase.run(
         () =>
           input.backend.setAttributes({
-            [input.attributeKey]: input.organizationId,
+            [input.attributeKey]: organizationId,
           }),
         { operationName: "organization binding" },
       );
+      return { organizationId };
     },
     operationName: "native subscription move",
     phasedProviderOperations: true,
@@ -100,10 +100,9 @@ export function nativeMove(
   identity: RevenueCatIdentityCoordinator,
   attributeKey: string,
 ): (request: {
-  readonly claim: (store: NativeSubscriptionStore) => Promise<boolean>;
-  readonly organizationId: string;
+  readonly claim: (store: NativeSubscriptionStore) => Promise<string | null>;
   readonly userId: string;
-}) => Promise<void> {
+}) => Promise<{ readonly organizationId: string }> {
   const claimTimeoutMs = revenueCatOperationTimeoutMs(
     config.operationTimeoutMs,
   );
@@ -111,7 +110,7 @@ export function nativeMove(
     if (config.purchasesEnabled === false || !config.nativeStore) {
       throw new PurchasesUnavailableError();
     }
-    await moveRevenueCatNativeSubscription({
+    return moveRevenueCatNativeSubscription({
       attributeKey,
       backend,
       claimTimeoutMs,

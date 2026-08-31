@@ -1,5 +1,6 @@
 import type {
   PurchasesCapability,
+  SessionCreateOrganizationResult,
   SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
 import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
@@ -27,16 +28,14 @@ import {
   ACTIVATION_POLL_DELAYS_MS,
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
-import {
-  useNativeSubscriptionMove,
-  useSubscribeAction,
-} from "../billing/useSubscribeAction";
+import { useSubscribeAction } from "../billing/useSubscribeAction";
 import {
   type BillingOptionsState,
   billingOptionsErrorLabel,
   emptyOptionsState,
 } from "./useBillingOptions";
 import { useBillingUpdateSettlement } from "./useBillingUpdateSettlement";
+import { useNativeSubscriptionMove } from "./useNativeSubscriptionMove";
 import { useResolvedBillingOptions } from "./useResolvedBillingOptions";
 
 export interface BillingActions {
@@ -287,11 +286,18 @@ interface UseBillingActionsInput {
   billingIsActive: boolean;
   billingPendingSeatCount: number | null;
   billingSeatCount: number | null;
-  claimNativeSubscription: (store: NativeSubscriptionStore) => Promise<boolean>;
+  activateRestoredOrganization: (
+    organization: SessionCreateOrganizationResult,
+  ) => void;
+  claimNativeSubscription: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
+  createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   isOrgAdmin: boolean;
-  /** Native store purchases may fund only the buyer's personal organization. */
+  /** New native purchases are offered only for the buyer's personal organization. */
   nativePurchaseAllowed?: boolean;
   organizationId: string;
   refresh: () => Promise<void>;
@@ -349,12 +355,14 @@ function projectBillingActions(input: {
  * billing afterwards. Trial start is delegated to the billing snapshot hook.
  */
 export function useBillingActions({
+  activateRestoredOrganization,
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingIsActive,
   billingPendingSeatCount,
   billingSeatCount,
   claimNativeSubscription,
   checkoutHostRef,
+  createRestoreOrganization,
   isOrgAdmin,
   nativePurchaseAllowed = true,
   optionsRetryDelaysMs,
@@ -376,10 +384,11 @@ export function useBillingActions({
     updateActionState,
   } = useBillingActionState(organizationId, userId);
   const subscriptionMove = useNativeSubscriptionMove({
+    activateRestoredOrganization,
     claimNativeSubscription,
+    createRestoreOrganization,
     currentScope,
     purchases,
-    refresh,
     scopeRef,
     updateActionState,
     userId,

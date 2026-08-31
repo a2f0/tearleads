@@ -282,6 +282,39 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
+function useRestoreOrganizationWiring() {
+  const symcrypt = useSymCrypt();
+  const createRestoreOrganization = useCallback(
+    () =>
+      symcrypt.session.createOrganization({
+        organizationProfileName:
+          ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
+      }),
+    [symcrypt],
+  );
+  const claimNativeSubscription = useCallback(
+    async (organizationId: string, store: NativeSubscriptionStore) =>
+      (
+        await symcrypt.organizations.claimNativeSubscription(
+          organizationId,
+          store,
+        )
+      )?.organizationId === organizationId,
+    [symcrypt],
+  );
+  const activateRestoredOrganization = useCallback(
+    (organization: { containerId: string; organizationId: string }) => {
+      symcrypt.session.setContext(organization);
+    },
+    [symcrypt],
+  );
+  return {
+    activateRestoredOrganization,
+    claimNativeSubscription,
+    createRestoreOrganization,
+  };
+}
+
 export function BillingPanel({
   isOrgAdmin,
   isPersonalOrganization = null,
@@ -293,8 +326,8 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
-  const symcrypt = useSymCrypt();
   const billing = useOrganizationBilling();
+  const restoreOrganization = useRestoreOrganizationWiring();
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
     void refresh();
@@ -322,21 +355,11 @@ export function BillingPanel({
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
-  const claimNativeSubscription = useCallback(
-    async (store: NativeSubscriptionStore) =>
-      (
-        await symcrypt.organizations.claimNativeSubscription(
-          organizationId,
-          store,
-        )
-      )?.organizationId === organizationId,
-    [organizationId, symcrypt],
-  );
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),
+    ...restoreOrganization,
     isOrgAdmin,
     nativePurchaseAllowed,
-    claimNativeSubscription,
     checkoutHostRef,
     organizationId,
     refresh,

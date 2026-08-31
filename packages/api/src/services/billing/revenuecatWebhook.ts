@@ -17,7 +17,7 @@ import {
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   NativeSubscriptionTransferAwaitingClaimError,
-  resolvePersonalOrganizationForUser,
+  resolveNativeSubscriptionOrganizationForUser,
   runClaimNativeSubscriptionWorkflow,
 } from "../../workflows/billing/nativeSubscriptionClaim";
 import { runRecordIgnoredRevenueCatTransferWorkflow } from "../../workflows/billing/revenuecatTransferAudit";
@@ -97,10 +97,11 @@ async function resolveTransferDestination(
   const destinations: TransferDestination[] = [];
   for (const appUserId of new Set(appUserIds)) {
     if (!isUuidV4String(appUserId)) continue;
-    const organizationId = await resolvePersonalOrganizationForUser(
+    const organizationId = await resolveNativeSubscriptionOrganizationForUser(
       runtime.db,
       appUserId,
     );
+    if (organizationId === "ambiguous") return "ambiguous";
     if (organizationId) destinations.push({ appUserId, organizationId });
   }
   if (destinations.length > 1) return "ambiguous";
