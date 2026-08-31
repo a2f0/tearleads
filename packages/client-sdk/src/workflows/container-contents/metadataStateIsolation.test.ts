@@ -24,11 +24,13 @@ test("detached metadata state does not mutate its live source before install", a
     container,
     doc,
     record: createDocumentRecord({ id: container.id }),
+    rekeyOnlyPassCount: 2,
   };
 
   const candidate = await createDetachedContainerMetadataState(live);
   candidate.container = { ...candidate.container, name: "Candidate name" };
   candidate.record = { ...candidate.record, lastCommitLsn: "0/2" };
+  candidate.rekeyOnlyPassCount = 3;
   writeContainerMetadataValue(candidate.doc, {
     icon: "archive",
     name: "Candidate name",
@@ -44,6 +46,7 @@ test("detached metadata state does not mutate its live source before install", a
   installDetachedContainerMetadataState(live, candidate);
   expect(live.container.name).toBe("Candidate name");
   expect(live.record.lastCommitLsn).toBe("0/2");
+  expect(live.rekeyOnlyPassCount).toBe(3);
   expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
     icon: "archive",
     name: "Candidate name",

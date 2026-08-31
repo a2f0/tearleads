@@ -234,7 +234,7 @@ export async function runContainerContentsStoreSyncIteration(
         requestContainerContentsStoreSync(state);
       }
     },
-    primeDocuments: () => primeStoreDocuments(state),
+    primeDocuments: () => primeStoreDocuments(state, isCurrent),
     recoverStaleRoot: () => recoverStoreStaleRoot(state),
     shouldPrimeDocuments: () => state.documentStoresNeedPriming,
     // Document move intents live in the structural phase because they may

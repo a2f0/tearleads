@@ -183,6 +183,61 @@ test("priming traverses a loaded root subtree", async () => {
   }
 });
 
+test("loaded-root priming abandons the next chunk after its generation changes", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-priming-generation-chunk",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const expectedLocalIds: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const localId = `generation-${String(index).padStart(2, "0")}`;
+      expectedLocalIds.push(localId);
+      await saveTestDocument({
+        containerId: "root",
+        documentId: null,
+        execSql,
+        id: localId,
+        title: `Generation ${index}`,
+        updatedAt: `2026-08-31T00:00:${String(index).padStart(2, "0")}.000Z`,
+      });
+    }
+    let current = true;
+    const opened: string[] = [];
+
+    const result = await primeDocumentsForLoadedRoots({
+      containersById: new Map([
+        ["root", { container: { id: "root", parentId: null } }],
+      ]),
+      host: {
+        documentWorkflowRuntime: () => null,
+        openDocumentStore: ({ localId }) => {
+          opened.push(localId);
+          return {
+            getSnapshot: () => ({ ready: true }),
+            requestSync: () => {
+              if (opened.length === 8) {
+                queueMicrotask(() => {
+                  current = false;
+                });
+              }
+            },
+          };
+        },
+      },
+      isCurrent: () => current,
+      runtime: { infra: { execSql } },
+    });
+
+    expect(opened.toSorted()).toEqual(expectedLocalIds.slice(2));
+    expect(result.primedCount).toBe(8);
+    expect(result.unroutableCount).toBe(2);
+  } finally {
+    close();
+  }
+});
+
 test("a last-link orphan primes with a null container scope", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-priming-null-container-orphan",

@@ -29,4 +29,5 @@ export function installDetachedContainerMetadataState(
   target.metadataWriterProjection = candidate.metadataWriterProjection;
   target.pullContinuation = candidate.pullContinuation;
   target.record = candidate.record;
+  target.rekeyOnlyPassCount = candidate.rekeyOnlyPassCount;
 }

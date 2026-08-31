@@ -46,18 +46,18 @@ const rejectedAdoptionRuntime = new WeakMap<
 >();
 
 function createPrimeHost(
-  state: DocumentRecoveryStoreState,
+  runtime: ContainerContentsStoreWorkflowRuntime,
 ): ContainerDocumentPrimeHost<PrimeDocumentRuntime> {
   return {
     documentWorkflowRuntime: (containerId) =>
-      createContainerContentsDocumentsRuntime(state.runtime, containerId),
+      createContainerContentsDocumentsRuntime(runtime, containerId),
     openDocumentStore: ({
       documentId,
       localId,
       runtime,
     }): ContainerDocumentPrimeStore =>
       openDocumentStore(
-        state.runtime.state.domainScope,
+        runtime.state.domainScope,
         localId,
         runtime,
         documentId,
@@ -69,17 +69,21 @@ export async function primeStoreDocumentSubtree(
   state: DocumentRecoveryStoreState,
   rootContainerId: string,
 ): Promise<void> {
+  const runtime = state.runtime;
   await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
-    host: createPrimeHost(state),
+    host: createPrimeHost(runtime),
     rootContainerId,
-    runtime: state.runtime,
+    runtime,
   });
 }
 
 export async function primeStoreDocuments(
   state: DocumentRecoveryStoreState,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
+  if (!isCurrent()) return;
+  const runtime = state.runtime;
   // Consume the current signal before scanning. A topology/root reconciliation
   // that lands during an awaited query can then re-arm the next pass without
   // this pass erasing that newer signal when it completes.
@@ -87,14 +91,17 @@ export async function primeStoreDocuments(
   try {
     const result = await primeDocumentsForLoadedRoots({
       containersById: state.containersById,
-      host: createPrimeHost(state),
-      organizationId: state.runtime.auth?.organizationId ?? null,
-      runtime: state.runtime,
+      host: createPrimeHost(runtime),
+      isCurrent,
+      organizationId: runtime.auth?.organizationId ?? null,
+      runtime,
     });
-    state.runtime.util.log(
+    if (!isCurrent()) return;
+    runtime.util.log(
       `${getContainerContentsStoreLogLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} orphaned=${result.orphanPrimedCount} unroutable=${result.unroutableCount}`,
     );
   } catch (error) {
+    if (!isCurrent()) return;
     state.documentStoresNeedPriming = true;
     throw error;
   }
