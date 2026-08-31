@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import type { OrganizationBillingStatus } from "@symcrypt/validators/response";
-import { resolveNativePurchaseEligibility } from "./nativePurchaseEligibility";
+import {
+  blocksNativePurchaseForStripeCheckoutAttempt,
+  resolveNativePurchaseEligibility,
+} from "./nativePurchaseEligibility";
 
 function eligibility(
   overrides: {
     readonly hasStripeBinding?: boolean;
+    readonly hasActiveStripeCheckoutAttempt?: boolean;
     readonly isOrgAdmin?: boolean;
     readonly isPersonalOrganization?: boolean;
     readonly provider?: "revenuecat" | null;
@@ -24,6 +28,8 @@ function eligibility(
       providerTransactionId: overrides.providerTransactionId ?? null,
       status: overrides.status ?? "local",
     },
+    hasActiveStripeCheckoutAttempt:
+      overrides.hasActiveStripeCheckoutAttempt ?? false,
     hasStripeBinding: overrides.hasStripeBinding ?? false,
     isOrgAdmin: overrides.isOrgAdmin ?? true,
     isPersonalOrganization: overrides.isPersonalOrganization ?? true,
@@ -41,9 +47,24 @@ test.each([
   [{ status: "deleting" as const }, "terminal_organization"],
   [{ status: "purged" as const }, "terminal_organization"],
   [{ status: "past_due" as const }, "billing_past_due"],
+  [{ hasActiveStripeCheckoutAttempt: true }, "stripe_subscription_conflict"],
   [{ hasStripeBinding: true }, "stripe_subscription_conflict"],
 ] as const)("rejects an ineligible policy state", (overrides, reason) => {
   expect(eligibility(overrides)).toEqual({ eligible: false, reason });
+});
+
+test("active Stripe attempts block until their stored expiry", () => {
+  const now = new Date("2030-01-01T00:00:00Z");
+  const blocks = (attemptId: string | null, attemptExpiresAt: Date | null) =>
+    blocksNativePurchaseForStripeCheckoutAttempt({
+      attemptExpiresAt,
+      attemptId,
+      now,
+    });
+  expect(blocks("attempt-1", null)).toBe(true);
+  expect(blocks(null, new Date("2030-01-01T00:01:00Z"))).toBe(true);
+  expect(blocks("attempt-1", new Date("2029-12-31T23:59:59Z"))).toBe(false);
+  expect(blocks(null, null)).toBe(false);
 });
 
 test("allows a tier change for the buyer's complete native binding", () => {

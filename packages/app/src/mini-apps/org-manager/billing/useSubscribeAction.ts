@@ -230,10 +230,38 @@ function purchaseErrorLabel(error: unknown): string {
 
 async function traceNativePurchaseEligibility(
   check: CheckNativePurchaseEligibility,
+  cancelSignal: Promise<never>,
   trace: (line: string) => void,
 ): Promise<void> {
-  await requireNativePurchaseEligibility(check);
+  const eligibility = requireNativePurchaseEligibility(check);
+  eligibility.catch(() => {
+    // A cancelled flow may leave the request settling after the panel is idle.
+  });
+  await Promise.race([eligibility, cancelSignal]);
   trace(formatBillingPurchaseStage("eligibility-checked"));
+}
+
+function createPurchaseCancellation() {
+  let cancelled = false;
+  let rejectSignal: ((error: Error) => void) | undefined;
+  const signal = new Promise<never>((_, reject) => {
+    rejectSignal = reject;
+  });
+  signal.catch(() => {
+    // Cancellation before a race begins must not be unhandled.
+  });
+  const abortController = new AbortController();
+  const cancel = () => {
+    cancelled = true;
+    abortController.abort();
+    rejectSignal?.(new PurchaseCancelledError());
+  };
+  return {
+    abortController,
+    cancel,
+    isCancelled: () => cancelled,
+    signal,
+  };
 }
 
 /**
@@ -282,23 +310,8 @@ async function purchaseForOrganization({
   onAlreadyOwned: () => void;
 }): Promise<void> {
   trace(formatBillingPurchaseStage("started"));
-  let cancelled = false;
-  let rejectCancelSignal: ((error: Error) => void) | undefined;
-  const cancelSignal = new Promise<never>((_, reject) => {
-    rejectCancelSignal = reject;
-  });
-  cancelSignal.catch(() => {
-    // Cancellation before the race begins (during identify) must not surface
-    // as an unhandled rejection; the flow reads `cancelled` instead.
-  });
-  // Aborting tells the backend not to mount a checkout it has not mounted
-  // yet; it cannot stop a checkout that is already on screen (no SDK API).
-  const abortController = new AbortController();
-  const cancelPurchase = () => {
-    cancelled = true;
-    abortController.abort();
-    rejectCancelSignal?.(new PurchaseCancelledError());
-  };
+  const cancellation = createPurchaseCancellation();
+  const cancelPurchase = cancellation.cancel;
   cancelPurchaseRef.current = cancelPurchase;
   // Each attempt mounts into its own child of the panel's host. The SDK
   // empties its target element when a purchase finishes or fails — with a
@@ -307,7 +320,11 @@ async function purchaseForOrganization({
   // to the attempt's own (by then detached) element.
   const attemptHost = createAttemptHost(checkoutHost);
   try {
-    await traceNativePurchaseEligibility(checkNativePurchaseEligibility, trace);
+    await traceNativePurchaseEligibility(
+      checkNativePurchaseEligibility,
+      cancellation.signal,
+      trace,
+    );
     if (!scopeMatches(scopeRef.current, scope)) {
       trace(formatBillingPurchaseStage("superseded"));
       return;
@@ -319,9 +336,9 @@ async function purchaseForOrganization({
       // Outcome delivered through the race; without this handler a losing
       // identify would surface as an unhandled rejection.
     });
-    await Promise.race([identify, cancelSignal]);
+    await Promise.race([identify, cancellation.signal]);
     trace(formatBillingPurchaseStage("identified"));
-    if (cancelled) {
+    if (cancellation.isCancelled()) {
       trace(formatBillingPurchaseStage("cancelled"));
       return;
     }
@@ -333,14 +350,14 @@ async function purchaseForOrganization({
     const purchase = purchases.purchaseSync({
       organizationId: scope.organizationId,
       packageId: option.packageId,
-      abortSignal: abortController.signal,
+      abortSignal: cancellation.abortController.signal,
       ...(attemptHost ? { checkoutHost: attemptHost } : {}),
     });
     // A cancellation only dismisses the checkout UI. If the provider had
     // already taken payment, the promise can still settle after the local race.
     observeLatePurchase({
       cancelPurchaseRef,
-      isCancelled: () => cancelled,
+      isCancelled: cancellation.isCancelled,
       purchase,
       refresh,
       scope,
@@ -350,7 +367,7 @@ async function purchaseForOrganization({
       traceError,
       updateActionState,
     });
-    const result = await Promise.race([purchase, cancelSignal]);
+    const result = await Promise.race([purchase, cancellation.signal]);
     trace(formatBillingPurchaseSuccess(result.syncEntitlementActive));
     // The checkout is settled — Cancel has nothing left to reach, so retire
     // the affordance now rather than after the billing refresh below.

@@ -24,10 +24,22 @@ interface NativePurchasePolicyInput {
     readonly providerTransactionId: string | null;
     readonly status: OrganizationBillingStatus;
   };
+  readonly hasActiveStripeCheckoutAttempt: boolean;
   readonly hasStripeBinding: boolean;
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization: boolean;
   readonly sessionUserId: string;
+}
+
+export function blocksNativePurchaseForStripeCheckoutAttempt(input: {
+  readonly attemptExpiresAt: Date | null;
+  readonly attemptId: string | null;
+  readonly now: Date;
+}): boolean {
+  if (!input.attemptExpiresAt) {
+    return input.attemptId !== null;
+  }
+  return input.attemptExpiresAt > input.now;
 }
 
 function ineligible(
@@ -55,7 +67,7 @@ export function resolveNativePurchaseEligibility(
   if (input.billing.status === "past_due") {
     return ineligible("billing_past_due");
   }
-  if (input.hasStripeBinding) {
+  if (input.hasActiveStripeCheckoutAttempt || input.hasStripeBinding) {
     return ineligible("stripe_subscription_conflict");
   }
 
@@ -104,6 +116,8 @@ export function runNativePurchaseEligibilityWorkflow(
       .limit(1);
     const [billing] = await tx
       .select({
+        checkoutAttemptExpiresAt: organizationBilling.checkoutAttemptExpiresAt,
+        checkoutAttemptId: organizationBilling.checkoutAttemptId,
         provider: organizationBilling.provider,
         providerCustomerId: organizationBilling.providerCustomerId,
         providerProductId: organizationBilling.providerProductId,
@@ -127,6 +141,12 @@ export function runNativePurchaseEligibilityWorkflow(
       .limit(1);
     return resolveNativePurchaseEligibility({
       billing,
+      hasActiveStripeCheckoutAttempt:
+        blocksNativePurchaseForStripeCheckoutAttempt({
+          attemptExpiresAt: billing.checkoutAttemptExpiresAt,
+          attemptId: billing.checkoutAttemptId,
+          now: new Date(),
+        }),
       hasStripeBinding: hasStripeBindingIdentity(stripeBinding),
       isOrgAdmin: access.isOrgAdmin,
       isPersonalOrganization: buyer?.defaultOrganizationId === organizationId,

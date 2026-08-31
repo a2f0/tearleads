@@ -115,11 +115,16 @@ function registerOrganizationBillingReadRoutes(
       getOrganizationNativePurchaseEligibilityOperation.params,
       "Invalid organizationId",
     ),
-    (c) => {
+    async (c) => {
       const { organizationId } = c.req.valid("param");
-      return respondForOrganization(c, organizationId, (id, sessionUserId) =>
-        getOrganizationNativePurchaseEligibility(runtime, id, sessionUserId),
+      const response = await respondForOrganization(
+        c,
+        organizationId,
+        (id, sessionUserId) =>
+          getOrganizationNativePurchaseEligibility(runtime, id, sessionUserId),
       );
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
     },
   );
 }

@@ -9,8 +9,10 @@ import {
   startOrganizationTrialOperation,
 } from "@symcrypt/validators/operation";
 import type { MiddlewareHandler } from "hono";
+import { createMiddleware } from "hono/factory";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import { createOrganizationBillingRoute } from "./organizationBilling";
 
 const operations = [
@@ -22,10 +24,13 @@ const operations = [
   startOrganizationTrialOperation,
 ] as const;
 
-function createTestRoute(requireAuth: MiddlewareHandler<SessionEnv>) {
+function createTestRoute(
+  requireAuth: MiddlewareHandler<SessionEnv>,
+  runtime: ApiServiceRuntime = {} as ApiServiceRuntime,
+) {
   return createOrganizationBillingRoute({
     requireAuth,
-    runtime: {} as ApiServiceRuntime,
+    runtime,
   });
 }
 
@@ -40,6 +45,33 @@ test("organization billing routes register from shared operations", () => {
       ),
     ).toBe(true);
   }
+});
+
+test("native purchase eligibility responses are never cacheable", async () => {
+  const requireAuth = createMiddleware<SessionEnv>(async (c, next) => {
+    c.set("session", {
+      createdAt: 0,
+      fingerprint: "test-fingerprint",
+      id: "test-session",
+      ipAddresses: [],
+      lastActiveAt: 0,
+      lastActiveIp: null,
+      userId: "user-1",
+    });
+    return next();
+  });
+  const runtime = {
+    db: {
+      transaction: () =>
+        Promise.reject(new OrganizationManagerError("Conflict", 409)),
+    },
+  } as unknown as ApiServiceRuntime;
+  const response = await createTestRoute(requireAuth, runtime).request(
+    "/organizations/11111111-1111-4111-8111-111111111111/billing/native/eligibility",
+  );
+
+  expect(response.status).toBe(409);
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 });
 
 test("organization billing routes authenticate before path validation", async () => {

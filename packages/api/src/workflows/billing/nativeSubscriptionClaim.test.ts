@@ -370,6 +370,44 @@ test("revalidates terminal state after a successful purchase preflight", async (
   }
 });
 
+test("revalidates an active Stripe checkout after native preflight", async () => {
+  const destination = await registerPersonalOrganization();
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+    ),
+  ).toEqual({ eligible: true, reason: null });
+  const now = new Date();
+  await db
+    .update(organizationBilling)
+    .set({
+      checkoutAttemptExpiresAt: new Date(now.getTime() + 60_000),
+      checkoutAttemptId: crypto.randomUUID(),
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      destination.organizationId,
+      destination.user.userId,
+    ),
+  ).toEqual({ eligible: false, reason: "stripe_subscription_conflict" });
+  await expect(
+    runClaimNativeSubscriptionWorkflow({
+      appUserId: destination.user.userId,
+      db,
+      now,
+      organizationId: destination.organizationId,
+      requireSessionAccess: false,
+      sourceId: crypto.randomUUID(),
+      subscription: subscription(crypto.randomUUID()),
+    }),
+  ).rejects.toThrow("A web checkout is already in progress");
+});
+
 /** The API package runs this concurrency case on memory and SQLite adapters. */
 test("the database matrix leaves one owner after concurrent claims", async () => {
   const first = await registerPersonalOrganization();

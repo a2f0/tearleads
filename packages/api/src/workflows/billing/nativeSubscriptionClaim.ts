@@ -21,6 +21,7 @@ import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
+import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
@@ -45,6 +46,8 @@ async function requirePersonalOrganization(input: {
 async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
     .select({
+      checkoutAttemptExpiresAt: organizationBilling.checkoutAttemptExpiresAt,
+      checkoutAttemptId: organizationBilling.checkoutAttemptId,
       organizationId: organizationBilling.organizationId,
       provider: organizationBilling.provider,
       providerCustomerId: organizationBilling.providerCustomerId,
@@ -356,6 +359,24 @@ function targetOwnsNativeSubscription(input: {
   );
 }
 
+function assertNoActiveStripeCheckoutAttempt(
+  target: Awaited<ReturnType<typeof lockBilling>>,
+  now: Date,
+): void {
+  if (
+    blocksNativePurchaseForStripeCheckoutAttempt({
+      attemptExpiresAt: target.checkoutAttemptExpiresAt,
+      attemptId: target.checkoutAttemptId,
+      now,
+    })
+  ) {
+    throw new OrganizationManagerError(
+      "A web checkout is already in progress for this organization",
+      409,
+    );
+  }
+}
+
 /** Revalidates policy and atomically moves a verified native subscription. */
 export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly appUserId: string;
@@ -390,12 +411,14 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       userId: input.appUserId,
     });
     const target = await lockBilling(tx, input.organizationId);
+    const now = input.now ?? new Date();
     if (target.status === "deleting" || target.status === "purged") {
       throw new OrganizationManagerError(
         "Organization purge is terminal; provision a replacement organization",
         409,
       );
     }
+    assertNoActiveStripeCheckoutAttempt(target, now);
     const alreadyOwned = targetOwnsNativeSubscription({
       appUserId: input.appUserId,
       subscription: input.subscription,
@@ -433,7 +456,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
     const applied = await applyNativeSubscriptionClaim({
       appUserId: input.appUserId,
       executor: tx,
-      now: input.now ?? new Date(),
+      now,
       organizationId: input.organizationId,
       sourceId: input.sourceId,
       subscription: input.subscription,

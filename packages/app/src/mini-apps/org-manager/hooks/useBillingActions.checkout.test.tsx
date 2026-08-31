@@ -75,6 +75,23 @@ test("server preflight blocks the provider before a native purchase", async () =
   ]);
 });
 
+test("cancelCheckout settles a stalled server preflight", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({
+    checkNativePurchaseEligibility: () => new Promise(() => undefined),
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(result.current.checkoutActive).toBe(true));
+  act(() => result.current.cancelCheckout());
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
+  expect(purchases.purchaseSync).not.toHaveBeenCalled();
+});
+
 test("subscribe embeds the checkout in a child of the host element", async () => {
   let purchaseInput:
     | { organizationId: string; checkoutHost?: HTMLElement }
