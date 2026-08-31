@@ -39,6 +39,7 @@ cd packages/api
 exec bun test \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
+  src/routes/documents/unlinkSyncConcurrency.pg.test.ts \
   src/routes/documents/syncPaginationConcurrency.pg.test.ts \
   src/routes/documents/syncConcurrency.pg.test.ts \
   src/workflows/blobs/gc/reclaimDereferencedBlobs.test.ts \
