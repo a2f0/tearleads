@@ -6,7 +6,6 @@ import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
-  organizationBillingStripeSeats,
   revenuecatWebhookEvents,
   users,
 } from "@symcrypt/api-shared/schema";
@@ -21,9 +20,8 @@ import { lockRowForUpdate } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { withOrganizationAdminTransaction } from "../organizations/mutationAccess";
-import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
+import { assertNativeClaimEligibility } from "./nativeSubscriptionClaimEligibility";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
-import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
 
 async function requirePersonalOrganization(input: {
   readonly executor: DatabaseSession;
@@ -53,6 +51,7 @@ async function lockBilling(executor: DatabaseSession, organizationId: string) {
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      providerTransactionId: organizationBilling.providerTransactionId,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -86,26 +85,6 @@ async function findCurrentOwner(input: {
     .limit(1);
   const [owner] = await lockRowForUpdate(query);
   return owner ?? null;
-}
-
-async function assertNoStripeBinding(
-  executor: DatabaseSession,
-  organizationId: string,
-): Promise<void> {
-  const [binding] = await executor
-    .select({
-      subscriptionId: organizationBillingStripeSeats.subscriptionId,
-      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
-    })
-    .from(organizationBillingStripeSeats)
-    .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
-    .limit(1);
-  if (hasStripeBindingIdentity(binding)) {
-    throw new OrganizationManagerError(
-      "Cancel the organization's web subscription before moving a native subscription",
-      409,
-    );
-  }
 }
 
 async function disablePreviousOwner(input: {
@@ -262,7 +241,6 @@ async function applyNativeSubscriptionClaim(input: {
       409,
     );
   }
-  await assertNoStripeBinding(input.executor, input.organizationId);
   if (
     input.target.providerSubscriptionId !== null &&
     input.target.providerSubscriptionId !== input.subscription.subscriptionId
@@ -359,24 +337,6 @@ function targetOwnsNativeSubscription(input: {
   );
 }
 
-function assertNoActiveStripeCheckoutAttempt(
-  target: Awaited<ReturnType<typeof lockBilling>>,
-  now: Date,
-): void {
-  if (
-    blocksNativePurchaseForStripeCheckoutAttempt({
-      attemptExpiresAt: target.checkoutAttemptExpiresAt,
-      attemptId: target.checkoutAttemptId,
-      now,
-    })
-  ) {
-    throw new OrganizationManagerError(
-      "A web checkout is already in progress for this organization",
-      409,
-    );
-  }
-}
-
 /** Revalidates policy and atomically moves a verified native subscription. */
 export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly appUserId: string;
@@ -412,16 +372,16 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
     });
     const target = await lockBilling(tx, input.organizationId);
     const now = input.now ?? new Date();
-    if (target.status === "deleting" || target.status === "purged") {
-      throw new OrganizationManagerError(
-        "Organization purge is terminal; provision a replacement organization",
-        409,
-      );
-    }
-    assertNoActiveStripeCheckoutAttempt(target, now);
     const alreadyOwned = targetOwnsNativeSubscription({
       appUserId: input.appUserId,
       subscription: input.subscription,
+      target,
+    });
+    await assertNativeClaimEligibility({
+      appUserId: input.appUserId,
+      executor: tx,
+      now,
+      subscriptionId: input.subscription.subscriptionId,
       target,
     });
     if (input.requireExistingBinding && !alreadyOwned) {

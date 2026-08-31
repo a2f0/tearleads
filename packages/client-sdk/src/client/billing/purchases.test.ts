@@ -20,6 +20,7 @@ interface RecordingBackend extends RevenueCatBackend {
     htmlTarget?: HTMLElement;
     metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
+    onProviderPresented?: () => void;
   }>;
 }
 
@@ -207,12 +208,14 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   const purchases = createRevenueCatPurchases(backend, CONFIG);
   const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
   const abortSignal = new AbortController().signal;
+  const onProviderPresented = () => {};
 
   await purchases.purchaseSync({
     organizationId: "org-9",
     packageId: "monthly",
     checkoutHost,
     abortSignal,
+    onProviderPresented,
   });
   await purchases.purchaseSync({
     organizationId: "org-9",
@@ -221,8 +224,12 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
 
   expect(backend.purchaseInputs[0]?.htmlTarget).toBe(checkoutHost);
   expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
+  expect(backend.purchaseInputs[0]?.onProviderPresented).toBe(
+    onProviderPresented,
+  );
   expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
+  expect(backend.purchaseInputs[1]?.onProviderPresented).toBeUndefined();
 });
 
 test("a buyer-paced checkout keeps a delayed identity change retryable", async () => {

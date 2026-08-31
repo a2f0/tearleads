@@ -25,6 +25,7 @@ import type { StripeApiDeps } from "../../billing/stripeApi";
 import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
 import {
   isNativePurchaseEventType,
+  matchesLockedNativeSubscription,
   resolveNativeStripeConflictReason,
 } from "./revenuecatProviderConflict";
 import {
@@ -98,9 +99,13 @@ async function resolveGrantApplicationDisposition(input: {
           store: input.event.store,
         })
       : null;
+  const newPurchase = isNativePurchaseEventType(input.event.type);
+  const matchesNativeLifecycle =
+    input.billing !== undefined &&
+    matchesLockedNativeSubscription(input.billing, input.event);
   if (
     nativeStripeConflict !== null &&
-    isNativePurchaseEventType(input.event.type)
+    (newPurchase || !matchesNativeLifecycle)
   ) {
     console.error(
       `RevenueCat paid grant ${input.event.id} was not applied: ${nativeStripeConflict}`,

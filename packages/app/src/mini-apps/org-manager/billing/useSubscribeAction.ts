@@ -360,13 +360,15 @@ async function purchaseForOrganization({
       return;
     }
     trace(formatBillingPurchaseStage("provider-started"));
-    // Lifecycle cleanup may cancel native eligibility and identification, but
-    // it must stop doing so once the undismissable store sheet is presented.
-    retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
     const purchase = purchases.purchaseSync({
       organizationId: scope.organizationId,
       packageId: option.packageId,
       abortSignal: cancellation.abortController.signal,
+      onProviderPresented: () => {
+        // Preparation remains cancellable; only an actually presented native
+        // sheet is outside lifecycle control.
+        retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
+      },
       ...(attemptHost ? { checkoutHost: attemptHost } : {}),
     });
     // A cancellation only dismisses the checkout UI. If the provider had

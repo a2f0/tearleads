@@ -158,12 +158,12 @@ test("cancelCheckout settles a hung purchase silently and empties the host", asy
 
 test("a scope switch leaves a native purchase running", async () => {
   const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
-  const purchaseSync = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        purchaseResolvers.push(resolve);
-      }),
-  );
+  const purchaseSync = mock((input: { onProviderPresented?: () => void }) => {
+    input.onProviderPresented?.();
+    return new Promise<SyncPurchaseResult>((resolve) => {
+      purchaseResolvers.push(resolve);
+    });
+  });
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
     // A native platform: the purchase runs in a store sheet the app cannot

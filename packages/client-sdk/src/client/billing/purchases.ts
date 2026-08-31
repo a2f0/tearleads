@@ -97,6 +97,8 @@ export interface PurchasesCapability {
     packageId: string;
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
+    /** Called synchronously when provider UI becomes impossible to dismiss. */
+    onProviderPresented?: () => void;
   }): Promise<SyncPurchaseResult>;
   /** Publish a server-accepted personal-org binding for later lifecycle events. */
   bindOrganization(input: { organizationId: string }): Promise<void>;
@@ -156,6 +158,7 @@ export interface RevenueCatBackend {
     metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
     preparedPurchase?: unknown;
+    onProviderPresented?: () => void;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -204,6 +207,10 @@ export interface RevenueCatPurchasesConfig {
    * until the bridge settles or the app restarts.
    */
   readonly operationTimeoutMs?: number;
+}
+
+function providerPresentedInput(callback: (() => void) | undefined) {
+  return callback ? { onProviderPresented: callback } : {};
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
@@ -307,6 +314,7 @@ export function createRevenueCatPurchases(
               ...(preparedPurchase === undefined ? {} : { preparedPurchase }),
               ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
               ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
+              ...providerPresentedInput(input.onProviderPresented),
             }),
           // Bind inside the checkout gate so native events carry the org the
           // webhook resolves. Web metadata is immutable per transaction;

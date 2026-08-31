@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
+import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
@@ -19,6 +20,19 @@ const NATIVE_PURCHASE_EVENT_TYPES = new Set([
 
 export function isNativePurchaseEventType(eventType: string): boolean {
   return NATIVE_PURCHASE_EVENT_TYPES.has(eventType);
+}
+
+export function matchesLockedNativeSubscription(
+  billing: LockedBillingIdentity,
+  event: RevenueCatWebhookEvent,
+): boolean {
+  return Boolean(
+    billing.provider === "revenuecat" &&
+      billing.providerCustomerId === event.app_user_id &&
+      billing.providerSubscriptionId &&
+      billing.providerSubscriptionId === event.original_transaction_id &&
+      getSyncBillingTierForNativeProduct(billing.providerProductId),
+  );
 }
 
 function conflictsWithLockedBillingIdentity(

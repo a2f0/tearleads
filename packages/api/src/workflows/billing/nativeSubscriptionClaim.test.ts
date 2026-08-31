@@ -408,6 +408,39 @@ test("revalidates an active Stripe checkout after native preflight", async () =>
   ).rejects.toThrow("A web checkout is already in progress");
 });
 
+for (const conflict of [
+  { name: "past-due billing", values: { status: "past_due" as const } },
+  {
+    name: "active billing without provider identity",
+    values: { status: "active" as const },
+  },
+  {
+    name: "a partial provider identity",
+    values: { providerCustomerId: "stale-customer" },
+  },
+]) {
+  test(`claim revalidation rejects ${conflict.name}`, async () => {
+    const destination = await registerPersonalOrganization();
+    await db
+      .update(organizationBilling)
+      .set(conflict.values)
+      .where(
+        eq(organizationBilling.organizationId, destination.organizationId),
+      );
+
+    await expect(
+      runClaimNativeSubscriptionWorkflow({
+        appUserId: destination.user.userId,
+        db,
+        organizationId: destination.organizationId,
+        requireSessionAccess: false,
+        sourceId: crypto.randomUUID(),
+        subscription: subscription(crypto.randomUUID()),
+      }),
+    ).rejects.toThrow("Native subscription claim is ineligible");
+  });
+}
+
 /** The API package runs this concurrency case on memory and SQLite adapters. */
 test("the database matrix leaves one owner after concurrent claims", async () => {
   const first = await registerPersonalOrganization();
