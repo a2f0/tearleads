@@ -6,6 +6,19 @@ import { organizationBilling, users } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { and, eq } from "drizzle-orm";
 
+const NATIVE_BINDING_CONTINUATION_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "EXPIRATION",
+  "RENEWAL",
+  "SUBSCRIPTION_EXTENDED",
+  "SUBSCRIPTION_PAUSED",
+  "UNCANCELLATION",
+]);
+
+/** Whether a receipt-less event can safely continue one unique native binding. */
+export function canInferNativeBindingWithoutReceiptId(type: string): boolean {
+  return NATIVE_BINDING_CONTINUATION_EVENT_TYPES.has(type);
+}
+
 export async function resolveActiveNativeSubscriptionOrganizationForUser(
   executor: DatabaseSession,
   userId: string,

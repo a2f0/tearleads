@@ -6,7 +6,10 @@ import { isUuidV4String } from "@symcrypt/validators/util";
 import { and, eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
-import { resolveActiveNativeSubscriptionOrganizationForUser } from "./nativeSubscriptionResolution";
+import {
+  canInferNativeBindingWithoutReceiptId,
+  resolveActiveNativeSubscriptionOrganizationForUser,
+} from "./nativeSubscriptionResolution";
 
 const NON_NATIVE_REVENUECAT_STORES = new Set([
   "PROMOTIONAL",
@@ -125,6 +128,7 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
         input.event.type === "PRODUCT_CHANGE" ||
         (await hasPriorNativeProductChange(input)) ||
         (!input.event.original_transaction_id &&
+          canInferNativeBindingWithoutReceiptId(input.event.type) &&
           (await resolveActiveNativeSubscriptionOrganizationForUser(
             input.executor,
             input.event.app_user_id,

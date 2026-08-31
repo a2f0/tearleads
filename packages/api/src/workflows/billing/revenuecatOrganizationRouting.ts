@@ -1,4 +1,4 @@
-import type { ApiDatabase } from "@symcrypt/api-shared/postgres";
+import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import {
   organizationBilling,
   revenuecatWebhookEvents,
@@ -7,7 +7,10 @@ import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { and, eq } from "drizzle-orm";
 import { resolveOrganizationIdFromEvent } from "../../billing/revenuecatWebhook";
-import { resolveActiveNativeSubscriptionOrganizationForUser } from "./nativeSubscriptionResolution";
+import {
+  canInferNativeBindingWithoutReceiptId,
+  resolveActiveNativeSubscriptionOrganizationForUser,
+} from "./nativeSubscriptionResolution";
 import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import type { ImmutableStripeStoreOrgResolution } from "./revenuecatStripeResolution";
 
@@ -17,7 +20,7 @@ type NativeOrganizationResolution =
   | { readonly kind: "resolved"; readonly organizationId: string };
 
 async function resolveAppliedProductChangeOrganization(
-  db: ApiDatabase,
+  db: DatabaseSession,
   event: RevenueCatWebhookEvent,
 ): Promise<NativeOrganizationResolution> {
   const productId = event.product_id;
@@ -60,13 +63,16 @@ async function resolveAppliedProductChangeOrganization(
 }
 
 async function resolveBoundNativeOrganization(
-  db: ApiDatabase,
+  db: DatabaseSession,
   event: RevenueCatWebhookEvent,
 ): Promise<NativeOrganizationResolution> {
   if (!isRecognizedNativeRevenueCatStore(event.store)) {
     return { kind: "none" };
   }
   if (!event.original_transaction_id) {
+    if (!canInferNativeBindingWithoutReceiptId(event.type)) {
+      return { kind: "none" };
+    }
     const activeOrganizationId =
       await resolveActiveNativeSubscriptionOrganizationForUser(
         db,
@@ -129,7 +135,7 @@ async function resolveBoundNativeOrganization(
 }
 
 export async function resolveRevenueCatWebhookOrganizationId(input: {
-  readonly db: ApiDatabase;
+  readonly db: DatabaseSession;
   readonly event: RevenueCatWebhookEvent;
   readonly stripeResolution: ImmutableStripeStoreOrgResolution;
 }): Promise<string | null> {

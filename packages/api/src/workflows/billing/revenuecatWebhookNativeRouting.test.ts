@@ -220,6 +220,34 @@ test("a missing receipt id routes to the unique restored binding", async () => {
   );
 });
 
+test("a receipt-less initial purchase cannot overwrite a restored binding", async () => {
+  const { user } = await registerBuyer();
+  const restoredOrganizationId = await createOrganization(user);
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    subscriptionId: "restored-subscription-before-receipt-less-purchase",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      organizationId: restoredOrganizationId,
+      store: "PLAY_STORE",
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(outcome).toEqual({
+    reason: "Native purchases may only fund the buyer's personal organization",
+    status: "ignored",
+  });
+  expect(await readSubscriptionId(restoredOrganizationId)).toBe(
+    "restored-subscription-before-receipt-less-purchase",
+  );
+});
+
 test("a replacement Play token fails closed across same-tier bindings", async () => {
   const { personalOrganizationId, user } = await registerBuyer();
   const restoredOrganizationId = await createOrganization(user);
