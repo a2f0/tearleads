@@ -108,17 +108,12 @@ function useStartTrialAction(
 }
 
 /**
- * Owns the cancel action for the purchase currently in flight. Also ties the
- * embedded checkout to its host's lifetime: when the buyer scope changes,
- * purchase eligibility is lost (e.g. the buyer's admin role is revoked
- * mid-purchase, which unmounts the admin actions and the host with them), or
- * the panel unmounts, the in-flight purchase is cancelled so an orphaned
- * provider flow is not left running with no reachable UI. Embedded web only:
- * a native purchase runs in a store sheet the app cannot cancel, so settling
- * it as cancelled here would just desync the panel from a still-active sheet.
+ * Owns the cancel action for the purchase currently in flight. Lifecycle
+ * cleanup cancels eligibility and identity work before any provider UI starts.
+ * Native flows retire this action when the store sheet opens because the app
+ * cannot dismiss that sheet; embedded web keeps it through checkout teardown.
  */
 function useCheckoutCancellation(
-  embeddedCheckout: boolean,
   organizationId: string,
   userId: string | null,
   canSubscribe: boolean,
@@ -131,13 +126,10 @@ function useCheckoutCancellation(
     cancelPurchaseRef.current?.();
   }, []);
   useEffect(() => {
-    if (!embeddedCheckout) {
-      return;
-    }
     return () => {
       cancelPurchaseRef.current?.();
     };
-  }, [embeddedCheckout, organizationId, userId, canSubscribe]);
+  }, [organizationId, userId, canSubscribe]);
   return { cancelPurchaseRef, cancelCheckout };
 }
 
@@ -168,7 +160,6 @@ function usePurchaseActions(input: {
     input.updateActionState,
   );
   const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
-    input.purchases.supportsEmbeddedCheckout === true,
     input.organizationId,
     input.userId,
     input.checkoutEligible,

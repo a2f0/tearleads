@@ -283,6 +283,18 @@ async function claimRevenueCatEvent(input: {
   return claimed !== undefined;
 }
 
+async function isRevenueCatEventClaimed(
+  executor: DatabaseSession,
+  eventId: string,
+): Promise<boolean> {
+  const [claimed] = await executor
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId))
+    .limit(1);
+  return claimed !== undefined;
+}
+
 async function runRevenueCatWebhookTransaction(input: {
   readonly allowSandboxEvents: boolean;
   readonly event: RevenueCatWebhookEvent;
@@ -293,6 +305,12 @@ async function runRevenueCatWebhookTransaction(input: {
   readonly stripeTierUnresolved: boolean;
   readonly transition: RevenueCatBillingTransition;
 }): Promise<RevenueCatWebhookOutcome> {
+  // An exact redelivery is terminally idempotent even if later provider state
+  // would now fail a new-purchase guard. Concurrent first deliveries still
+  // race through the unique insert below and return duplicate there.
+  if (await isRevenueCatEventClaimed(input.executor, input.event.id)) {
+    return { status: "duplicate" };
+  }
   const disposition = await resolvePreclaimDisposition(input);
   if (disposition.kind === "retry") {
     return { status: "retry", reason: disposition.reason };

@@ -48,6 +48,7 @@ export async function lockRevenueCatBillingIdentity(
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
       providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      providerTransactionId: organizationBilling.providerTransactionId,
       seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })

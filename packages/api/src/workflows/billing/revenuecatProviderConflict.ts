@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
 import { organizationBillingStripeSeats } from "@symcrypt/api-shared/schema";
+import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { eq } from "drizzle-orm";
 import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
@@ -18,6 +19,26 @@ const NATIVE_PURCHASE_EVENT_TYPES = new Set([
 
 export function isNativePurchaseEventType(eventType: string): boolean {
   return NATIVE_PURCHASE_EVENT_TYPES.has(eventType);
+}
+
+function conflictsWithLockedBillingIdentity(
+  billing: LockedBillingIdentity,
+): boolean {
+  const hasProviderIdentity = Boolean(
+    billing.provider ||
+      billing.providerCustomerId ||
+      billing.providerProductId ||
+      billing.providerSubscriptionId ||
+      billing.providerTransactionId,
+  );
+  if (!hasProviderIdentity) {
+    return billing.status === "active";
+  }
+  return !(
+    billing.provider === "revenuecat" &&
+    billing.providerSubscriptionId &&
+    getSyncBillingTierForNativeProduct(billing.providerProductId)
+  );
 }
 
 /** Detects a live Stripe identity that must remain available for cancellation. */
@@ -39,6 +60,9 @@ export async function resolveNativeStripeConflictReason(input: {
     })
   ) {
     return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_CHECKOUT_REASON;
+  }
+  if (conflictsWithLockedBillingIdentity(input.billing)) {
+    return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON;
   }
   const [binding] = await input.executor
     .select({

@@ -37,6 +37,19 @@ import {
  */
 type CancelPurchaseRef = RefObject<(() => void) | null>;
 
+function retireNativeCancellation(
+  cancelPurchaseRef: CancelPurchaseRef,
+  cancelPurchase: () => void,
+  purchases: PurchasesCapability,
+): void {
+  if (
+    purchases.supportsEmbeddedCheckout !== true &&
+    cancelPurchaseRef.current === cancelPurchase
+  ) {
+    cancelPurchaseRef.current = null;
+  }
+}
+
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,
 ): HTMLDivElement | undefined {
@@ -347,6 +360,9 @@ async function purchaseForOrganization({
       return;
     }
     trace(formatBillingPurchaseStage("provider-started"));
+    // Lifecycle cleanup may cancel native eligibility and identification, but
+    // it must stop doing so once the undismissable store sheet is presented.
+    retireNativeCancellation(cancelPurchaseRef, cancelPurchase, purchases);
     const purchase = purchases.purchaseSync({
       organizationId: scope.organizationId,
       packageId: option.packageId,

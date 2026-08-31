@@ -100,6 +100,62 @@ for (const conflict of [
   });
 }
 
+test("a native purchase retries behind a locked Stripe identity without its seat row", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_5",
+      providerSubscriptionId: "sub_missing_binding",
+      providerTransactionId: "si_missing_binding",
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  const eventId = crypto.randomUUID();
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: admin.userId,
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: Date.now(),
+    expiration_at_ms: Date.now() + 30 * 24 * 60 * 60 * 1_000,
+    id: eventId,
+    original_transaction_id: "native_transaction",
+    product_id: "sync_solo_monthly",
+    store: "APP_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type: "INITIAL_PURCHASE",
+  });
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: STRIPE_CONFLICT_REASON,
+  });
+  errorSpy.mockRestore();
+  const [billing] = await db
+    .select({
+      providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing).toEqual({
+    providerProductId: "price_team_5",
+    providerSubscriptionId: "sub_missing_binding",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+});
+
 test("an existing native renewal is not mistaken for a new purchase", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

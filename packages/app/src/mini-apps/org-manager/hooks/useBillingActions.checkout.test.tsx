@@ -201,7 +201,7 @@ test("a scope switch leaves a native purchase running", async () => {
   expect(result.current.activationPending).toBe(true);
 });
 
-test("a scope switch during native identification emits a terminal trace", async () => {
+test("a scope switch cancels native identification before provider start", async () => {
   let identifyCalls = 0;
   let resolvePurchaseIdentify: (() => void) | undefined;
   const identify = mock(() => {
@@ -233,8 +233,8 @@ test("a scope switch during native identification emits a terminal trace", async
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(purchases.purchaseSync).not.toHaveBeenCalled();
   expect(purchaseTraceEntries(result.current.logEntries).slice(-2)).toEqual([
-    { level: "info", message: "billing purchase stage=identified" },
-    { level: "info", message: "billing purchase stage=superseded" },
+    { level: "info", message: "billing purchase stage=eligibility-checked" },
+    { level: "info", message: "billing purchase stage=cancelled" },
   ]);
 });
 

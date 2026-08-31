@@ -37,6 +37,7 @@ export interface LockedBillingIdentity {
   readonly providerCustomerId: string | null;
   readonly providerProductId: string | null;
   readonly providerSubscriptionId: string | null;
+  readonly providerTransactionId: string | null;
   readonly seatCount: number;
   readonly status: OrganizationBillingStatus;
 }

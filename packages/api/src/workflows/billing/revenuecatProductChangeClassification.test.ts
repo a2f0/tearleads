@@ -29,6 +29,7 @@ const BOUND_SOLO_BILLING: LockedBillingIdentity = {
   providerCustomerId: "buyer",
   providerProductId: "sync_solo_monthly",
   providerSubscriptionId: "native-subscription",
+  providerTransactionId: "native-transaction",
   seatCount: 1,
   status: "active",
 };
