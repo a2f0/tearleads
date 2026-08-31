@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import {
   PurchaseAbortedError,
   type PurchasesCapability,
@@ -12,6 +12,26 @@ import {
 } from "../../../../test/helpers/billingActionsTestKit";
 
 afterEach(() => cleanup());
+
+test("embedded web checkout skips native purchase preflight", async () => {
+  const checkNativePurchaseEligibility = mock(() =>
+    Promise.resolve({ eligible: true as const, reason: null }),
+  );
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    nativeStore: null,
+  };
+  const { result } = renderBillingActions({
+    checkNativePurchaseEligibility,
+    purchases,
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+
+  await waitFor(() => expect(purchases.purchaseSync).toHaveBeenCalledTimes(1));
+  expect(checkNativePurchaseEligibility).not.toHaveBeenCalled();
+});
 
 test("losing eligibility cancels a stalled native preflight", async () => {
   let resolveEligibility:

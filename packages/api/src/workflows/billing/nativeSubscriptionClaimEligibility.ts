@@ -11,7 +11,10 @@ import {
   resolveNativePurchaseEligibility,
 } from "./nativePurchaseEligibility";
 import { resolvePersistedNativeSubscriptionStore } from "./nativeSubscriptionIdentity";
-import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
+import {
+  hasAppliedStripeExpiration,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 type NativeClaimBilling = Parameters<
   typeof resolveNativePurchaseEligibility
@@ -21,6 +24,21 @@ type NativeClaimBilling = Parameters<
   readonly organizationId: string;
 };
 
+async function loadStripeBinding(
+  executor: DatabaseSession,
+  organizationId: string,
+) {
+  const [binding] = await executor
+    .select({
+      subscriptionId: organizationBillingStripeSeats.subscriptionId,
+      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
+    .limit(1);
+  return binding;
+}
+
 /** Reuses purchase policy against the locked billing row before a claim. */
 export async function assertNativeClaimEligibility(input: {
   readonly appUserId: string;
@@ -29,30 +47,29 @@ export async function assertNativeClaimEligibility(input: {
   readonly store: NativeSubscriptionStore;
   readonly subscriptionId: string;
   readonly target: NativeClaimBilling;
-}): Promise<void> {
-  const [binding] = await input.executor
-    .select({
-      subscriptionId: organizationBillingStripeSeats.subscriptionId,
-      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
-    })
-    .from(organizationBillingStripeSeats)
-    .where(
-      eq(
-        organizationBillingStripeSeats.organizationId,
-        input.target.organizationId,
-      ),
-    )
-    .limit(1);
+}): Promise<{ readonly deleteExpiredStripeBinding: boolean }> {
+  const binding = await loadStripeBinding(
+    input.executor,
+    input.target.organizationId,
+  );
   const hasActiveStripeCheckoutAttempt =
     blocksNativePurchaseForStripeCheckoutAttempt({
       attemptExpiresAt: input.target.checkoutAttemptExpiresAt,
       attemptId: input.target.checkoutAttemptId,
       now: input.now,
     });
+  const hasStripeBinding = hasStripeBindingIdentity(binding);
+  const hasExpiredStripeBinding = await hasAppliedStripeExpiration({
+    billingStatus: input.target.status,
+    binding,
+    executor: input.executor,
+    organizationId: input.target.organizationId,
+  });
   const eligibility = resolveNativePurchaseEligibility({
     billing: input.target,
     hasActiveStripeCheckoutAttempt,
-    hasStripeBinding: hasStripeBindingIdentity(binding),
+    hasExpiredStripeBinding,
+    hasStripeBinding: hasStripeBinding && !hasExpiredStripeBinding,
     isOrgAdmin: true,
     isPersonalOrganization: true,
     persistedNativeStore: await resolvePersistedNativeSubscriptionStore({
@@ -63,7 +80,9 @@ export async function assertNativeClaimEligibility(input: {
     sessionUserId: input.appUserId,
     targetNativeStore: input.store,
   });
-  if (eligibility.eligible) return;
+  if (eligibility.eligible) {
+    return { deleteExpiredStripeBinding: hasExpiredStripeBinding };
+  }
   if (eligibility.reason === "terminal_organization") {
     throw new OrganizationManagerError(
       "Organization purge is terminal; provision a replacement organization",

@@ -20,7 +20,10 @@ import {
   resolvePersistedNativeSubscriptionStore,
   revenueCatStoreForNativeStore,
 } from "./nativeSubscriptionIdentity";
-import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
+import {
+  hasAppliedStripeExpiration,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 interface NativePurchasePolicyInput {
   readonly billing: {
@@ -32,6 +35,7 @@ interface NativePurchasePolicyInput {
     readonly status: OrganizationBillingStatus;
   };
   readonly hasActiveStripeCheckoutAttempt: boolean;
+  readonly hasExpiredStripeBinding: boolean;
   readonly hasStripeBinding: boolean;
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization: boolean;
@@ -55,6 +59,15 @@ function ineligible(
   reason: OrganizationNativePurchaseIneligibilityReason,
 ): OrganizationNativePurchaseEligibilityResponse {
   return { eligible: false, reason };
+}
+
+function hasExpiredStripeProviderIdentity(
+  input: NativePurchasePolicyInput,
+): boolean {
+  return Boolean(
+    input.hasExpiredStripeBinding &&
+      !getSyncBillingTierForNativeProduct(input.billing.providerProductId),
+  );
 }
 
 /** Pure, provider-neutral policy shared by the transactional preflight. */
@@ -87,7 +100,7 @@ export function resolveNativePurchaseEligibility(
       input.billing.providerSubscriptionId ||
       input.billing.providerTransactionId,
   );
-  if (hasProviderIdentity) {
+  if (hasProviderIdentity && !hasExpiredStripeProviderIdentity(input)) {
     const isCompleteNativeBinding = Boolean(
       input.billing.provider === "revenuecat" &&
         input.billing.providerSubscriptionId &&
@@ -157,6 +170,13 @@ export function runNativePurchaseEligibilityWorkflow(
       .from(organizationBillingStripeSeats)
       .where(eq(organizationBillingStripeSeats.organizationId, organizationId))
       .limit(1);
+    const hasStripeBinding = hasStripeBindingIdentity(stripeBinding);
+    const stripeBindingExpired = await hasAppliedStripeExpiration({
+      billingStatus: billing.status,
+      binding: stripeBinding,
+      executor: tx,
+      organizationId,
+    });
     return resolveNativePurchaseEligibility({
       billing,
       hasActiveStripeCheckoutAttempt:
@@ -165,7 +185,8 @@ export function runNativePurchaseEligibilityWorkflow(
           attemptId: billing.checkoutAttemptId,
           now: new Date(),
         }),
-      hasStripeBinding: hasStripeBindingIdentity(stripeBinding),
+      hasExpiredStripeBinding: stripeBindingExpired,
+      hasStripeBinding: hasStripeBinding && !stripeBindingExpired,
       isOrgAdmin: access.isOrgAdmin,
       isPersonalOrganization: buyer?.defaultOrganizationId === organizationId,
       persistedNativeStore: await resolvePersistedNativeSubscriptionStore({

@@ -5,7 +5,10 @@ import { eq } from "drizzle-orm";
 import { blocksNativePurchaseForStripeCheckoutAttempt } from "./nativePurchaseEligibility";
 import { isNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import type { LockedBillingIdentity } from "./revenuecatStripeResolution";
-import { hasStripeBindingIdentity } from "./stripeBindingPolicy";
+import {
+  hasAppliedStripeExpiration,
+  hasStripeBindingIdentity,
+} from "./stripeBindingPolicy";
 
 const NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON =
   "Native entitlement is active while a retained Stripe subscription may still bill";
@@ -61,9 +64,6 @@ export async function resolveNativeStripeConflictReason(input: {
   ) {
     return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_CHECKOUT_REASON;
   }
-  if (conflictsWithLockedBillingIdentity(input.billing)) {
-    return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON;
-  }
   const [binding] = await input.executor
     .select({
       subscriptionId: organizationBillingStripeSeats.subscriptionId,
@@ -74,7 +74,21 @@ export async function resolveNativeStripeConflictReason(input: {
       eq(organizationBillingStripeSeats.organizationId, input.organizationId),
     )
     .limit(1);
+  const stripeBindingExpired = await hasAppliedStripeExpiration({
+    billingStatus: input.billing.status,
+    binding,
+    executor: input.executor,
+    organizationId: input.organizationId,
+  });
+  if (
+    !stripeBindingExpired &&
+    conflictsWithLockedBillingIdentity(input.billing)
+  ) {
+    return NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON;
+  }
   return hasStripeBindingIdentity(binding)
-    ? NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON
+    ? stripeBindingExpired
+      ? null
+      : NATIVE_GRANT_CONFLICTS_WITH_STRIPE_REASON
     : null;
 }

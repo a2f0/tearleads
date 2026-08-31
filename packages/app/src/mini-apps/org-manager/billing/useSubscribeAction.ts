@@ -244,11 +244,10 @@ function purchaseErrorLabel(error: unknown): string {
 
 async function traceNativePurchaseEligibility(
   check: CheckNativePurchaseEligibility,
-  store: NativeSubscriptionStore | null,
+  store: NativeSubscriptionStore,
   cancelSignal: Promise<never>,
   trace: (line: string) => void,
 ): Promise<void> {
-  if (!store) throw new NativePurchaseEligibilityError("unavailable");
   const eligibility = requireNativePurchaseEligibility(check, store);
   eligibility.catch(() => {
     // A cancelled flow may leave the request settling after the panel is idle.
@@ -336,12 +335,14 @@ async function purchaseForOrganization({
   // to the attempt's own (by then detached) element.
   const attemptHost = createAttemptHost(checkoutHost);
   try {
-    await traceNativePurchaseEligibility(
-      checkNativePurchaseEligibility,
-      purchases.nativeStore,
-      cancellation.signal,
-      trace,
-    );
+    if (purchases.nativeStore) {
+      await traceNativePurchaseEligibility(
+        checkNativePurchaseEligibility,
+        purchases.nativeStore,
+        cancellation.signal,
+        trace,
+      );
+    }
     if (!scopeMatches(scopeRef.current, scope)) {
       trace(formatBillingPurchaseStage("superseded"));
       return;

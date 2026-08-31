@@ -9,6 +9,7 @@ import { createTestUser } from "@symcrypt/bob-and-alice";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
+import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
 
 const STRIPE_CONFLICT_REASON =
@@ -99,6 +100,82 @@ for (const conflict of [
     expect(claimed).toBeUndefined();
   });
 }
+
+test("an applied Stripe expiration releases native purchase and webhook guards", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const subscriptionId = `sub_expired_${crypto.randomUUID()}`;
+  const subscriptionItemId = `si_expired_${crypto.randomUUID()}`;
+  const now = Date.now();
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: admin.userId,
+      providerProductId: "price_team_5",
+      providerSubscriptionId: subscriptionItemId,
+      providerTransactionId: subscriptionId,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    priceId: "price_team_5",
+    subscriptionId,
+    subscriptionItemId,
+  });
+
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      app_user_id: admin.userId,
+      event_timestamp_ms: now,
+      id: crypto.randomUUID(),
+      original_transaction_id: subscriptionId,
+      store: "STRIPE",
+      transaction_id: subscriptionItemId,
+      type: "EXPIRATION",
+    }),
+  ).toMatchObject({
+    billingStatus: "disabled",
+    organizationId,
+    status: "applied",
+  });
+  expect(
+    await runNativePurchaseEligibilityWorkflow(
+      db,
+      organizationId,
+      admin.userId,
+      "app_store",
+    ),
+  ).toEqual({ eligible: true, reason: null });
+
+  expect(
+    await runRevenueCatWebhookWorkflow(db, {
+      app_user_id: admin.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: now + 1,
+      expiration_at_ms: now + 30 * 24 * 60 * 60 * 1_000,
+      id: crypto.randomUUID(),
+      original_transaction_id: `native_${crypto.randomUUID()}`,
+      product_id: "sync_solo_monthly",
+      store: "APP_STORE",
+      subscriber_attributes: { orgId: { value: organizationId } },
+      type: "INITIAL_PURCHASE",
+    }),
+  ).toMatchObject({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+  const [retainedBinding] = await db
+    .select({ organizationId: organizationBillingStripeSeats.organizationId })
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(retainedBinding).toBeUndefined();
+});
 
 for (const eventType of ["INITIAL_PURCHASE", "RENEWAL"] as const) {
   test(`a native ${eventType.toLowerCase()} retries behind a locked Stripe identity without its seat row`, async () => {

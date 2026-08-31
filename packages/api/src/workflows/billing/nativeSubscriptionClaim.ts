@@ -6,6 +6,7 @@ import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
+  organizationBillingStripeSeats,
   revenuecatWebhookEvents,
   users,
 } from "@symcrypt/api-shared/schema";
@@ -227,12 +228,12 @@ async function activateNewOwner(input: {
 
 async function applyNativeSubscriptionClaim(input: {
   readonly appUserId: string;
+  readonly deleteExpiredStripeBinding: boolean;
   readonly executor: DatabaseSession;
   readonly now: Date;
   readonly organizationId: string;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
-  readonly target: Awaited<ReturnType<typeof lockBilling>>;
 }): Promise<{ readonly sourceOrganizationId: string | null }> {
   const tier = getSyncBillingTierForNativeProduct(input.subscription.productId);
   if (!tier) {
@@ -241,23 +242,12 @@ async function applyNativeSubscriptionClaim(input: {
       409,
     );
   }
-  if (
-    input.target.providerSubscriptionId !== null &&
-    input.target.providerSubscriptionId !== input.subscription.subscriptionId
-  ) {
-    throw new OrganizationManagerError(
-      "The personal organization already has a different subscription",
-      409,
-    );
-  }
-  if (
-    input.target.providerProductId !== null &&
-    getSyncBillingTierForNativeProduct(input.target.providerProductId) === null
-  ) {
-    throw new OrganizationManagerError(
-      "Cancel the organization's existing subscription before moving a native subscription",
-      409,
-    );
+  if (input.deleteExpiredStripeBinding) {
+    await input.executor
+      .delete(organizationBillingStripeSeats)
+      .where(
+        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
+      );
   }
 
   const source = await findCurrentOwner({
@@ -377,7 +367,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       subscription: input.subscription,
       target,
     });
-    await assertNativeClaimEligibility({
+    const { deleteExpiredStripeBinding } = await assertNativeClaimEligibility({
       appUserId: input.appUserId,
       executor: tx,
       now,
@@ -416,12 +406,12 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
     }
     const applied = await applyNativeSubscriptionClaim({
       appUserId: input.appUserId,
+      deleteExpiredStripeBinding,
       executor: tx,
       now,
       organizationId: input.organizationId,
       sourceId: input.sourceId,
       subscription: input.subscription,
-      target,
     });
     if (input.auditEvent && applied.sourceOrganizationId) {
       await tx

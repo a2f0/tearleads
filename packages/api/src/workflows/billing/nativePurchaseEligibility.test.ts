@@ -9,6 +9,7 @@ import {
 function eligibility(
   overrides: {
     readonly hasStripeBinding?: boolean;
+    readonly hasExpiredStripeBinding?: boolean;
     readonly hasActiveStripeCheckoutAttempt?: boolean;
     readonly isOrgAdmin?: boolean;
     readonly isPersonalOrganization?: boolean;
@@ -33,6 +34,7 @@ function eligibility(
     },
     hasActiveStripeCheckoutAttempt:
       overrides.hasActiveStripeCheckoutAttempt ?? false,
+    hasExpiredStripeBinding: overrides.hasExpiredStripeBinding ?? false,
     hasStripeBinding: overrides.hasStripeBinding ?? false,
     isOrgAdmin: overrides.isOrgAdmin ?? true,
     isPersonalOrganization: overrides.isPersonalOrganization ?? true,
@@ -44,6 +46,20 @@ function eligibility(
 
 test("allows a personal admin with no existing provider binding", () => {
   expect(eligibility()).toEqual({ eligible: true, reason: null });
+});
+
+test("allows an audit-confirmed expired Stripe binding", () => {
+  expect(
+    eligibility({
+      hasExpiredStripeBinding: true,
+      provider: "revenuecat",
+      providerCustomerId: "stripe-customer",
+      providerProductId: "price_team_5",
+      providerSubscriptionId: "sub_expired",
+      providerTransactionId: "si_expired",
+      status: "disabled",
+    }),
+  ).toEqual({ eligible: true, reason: null });
 });
 
 test.each([
