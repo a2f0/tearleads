@@ -19,22 +19,13 @@ import {
   bootstrapRoot,
   createDocument,
 } from "../../../../test/helpers/keyingWriterProjectionKit";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "../../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../../test/helpers/registerUser";
 import { lockRowForUpdate } from "../../../utils/sqlDialect";
 import { runPurgeDocumentWorkflow } from "./purgeDocument";
-
-const INTERLEAVING_WAIT_MS = 300;
-
-function deferred(): {
-  readonly promise: Promise<void>;
-  readonly resolve: () => void;
-} {
-  let resolvePromise = () => {};
-  const promise = new Promise<void>((resolve) => {
-    resolvePromise = resolve;
-  });
-  return { promise, resolve: resolvePromise };
-}
 
 async function createPurgeBindRaceFixture() {
   const owner = createTestUser();
@@ -85,77 +76,68 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a bind that reaches blob mutation first survives document purge",
   async () => {
     const fixture = await createPurgeBindRaceFixture();
-    const epochHeld = deferred();
-    const releaseEpoch = deferred();
-    const epochHolder = db.transaction(async (tx) => {
+    const epochLock = await holdPostgresLock(async (tx) => {
       const query = tx
         .select({ id: blobContentKeyEpochs.id })
         .from(blobContentKeyEpochs)
         .where(eq(blobContentKeyEpochs.blobId, fixture.blobId));
       await lockRowForUpdate(query);
-      epochHeld.resolve();
-      await releaseEpoch.promise;
     });
-    await epochHeld.promise;
 
-    let bindSettled = false;
     const bind = bindForTest({
       blobId: fixture.blobId,
       owner: fixture.owner,
       request: fixture.racingBind.request,
-    }).then(() => {
-      bindSettled = true;
     });
-    let purgeSettled = false;
     let purge: ReturnType<typeof runPurgeDocumentWorkflow> | undefined;
+    let synchronizationError: unknown;
     try {
-      await new Promise((resolve) => setTimeout(resolve, INTERLEAVING_WAIT_MS));
-      expect(bindSettled).toBe(false);
+      await waitForPostgresLockWait({
+        blockerPid: epochLock.backendPid,
+        queryFragment: "blob_content_key_epochs",
+      });
       const activePurge = runPurgeDocumentWorkflow(db, {
         documentId: fixture.sourceDocument.id,
         fingerprint: fixture.owner.fingerprint,
         request: fixture.purgeRequest,
         userId: fixture.owner.userId,
-      }).then((result) => {
-        purgeSettled = true;
-        return result;
       });
       purge = activePurge;
-      await new Promise((resolve) => setTimeout(resolve, INTERLEAVING_WAIT_MS));
-      expect(purgeSettled).toBe(false);
-
-      releaseEpoch.resolve();
-      const [, , purgeResult] = await Promise.all([
-        epochHolder,
-        bind,
-        activePurge,
-      ]);
-      expect(purgeResult.response.documentId).toBe(fixture.sourceDocument.id);
-      const destinationBindings = await db
-        .select({ id: attachmentBindings.id })
-        .from(attachmentBindings)
-        .where(
-          and(
-            eq(attachmentBindings.documentId, fixture.destinationDocument.id),
-            isNull(attachmentBindings.detachedAt),
-          ),
-        );
-      expect(destinationBindings).toEqual([
-        { id: fixture.racingBind.binding.bindingId },
-      ]);
-      const [blob] = await db
-        .select({ dereferencedAt: blobs.dereferencedAt })
-        .from(blobs)
-        .where(eq(blobs.id, fixture.blobId));
-      expect(blob?.dereferencedAt).toBeNull();
+      await waitForPostgresLockWait({
+        blockerPid: epochLock.backendPid,
+        queryFragment: "access_manifest_heads",
+      });
+    } catch (error) {
+      synchronizationError = error;
     } finally {
-      releaseEpoch.resolve();
-      await Promise.all([
-        epochHolder.catch(() => undefined),
-        bind.catch(() => undefined),
-        purge?.catch(() => undefined),
-      ]);
+      await epochLock.release();
     }
+    if (synchronizationError) {
+      await Promise.allSettled([bind, ...(purge ? [purge] : [])]);
+      throw synchronizationError;
+    }
+    if (!purge) {
+      throw new Error("Expected document purge to start");
+    }
+    const [, purgeResult] = await Promise.all([bind, purge]);
+    expect(purgeResult.response.documentId).toBe(fixture.sourceDocument.id);
+    const destinationBindings = await db
+      .select({ id: attachmentBindings.id })
+      .from(attachmentBindings)
+      .where(
+        and(
+          eq(attachmentBindings.documentId, fixture.destinationDocument.id),
+          isNull(attachmentBindings.detachedAt),
+        ),
+      );
+    expect(destinationBindings).toEqual([
+      { id: fixture.racingBind.binding.bindingId },
+    ]);
+    const [blob] = await db
+      .select({ dereferencedAt: blobs.dereferencedAt })
+      .from(blobs)
+      .where(eq(blobs.id, fixture.blobId));
+    expect(blob?.dereferencedAt).toBeNull();
   },
   30_000,
 );
@@ -164,82 +146,72 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   "a purge that reaches blob mutation first rejects a stale bind",
   async () => {
     const fixture = await createPurgeBindRaceFixture();
-    const documentHeld = deferred();
-    const releaseDocument = deferred();
-    const documentHolder = db.transaction(async (tx) => {
+    const documentLock = await holdPostgresLock(async (tx) => {
       const query = tx
         .select({ id: documents.id })
         .from(documents)
         .where(eq(documents.id, fixture.sourceDocument.id));
       await lockRowForUpdate(query);
-      documentHeld.resolve();
-      await releaseDocument.promise;
     });
-    await documentHeld.promise;
 
-    let purgeSettled = false;
     const purge = runPurgeDocumentWorkflow(db, {
       documentId: fixture.sourceDocument.id,
       fingerprint: fixture.owner.fingerprint,
       request: fixture.purgeRequest,
       userId: fixture.owner.userId,
-    }).then((result) => {
-      purgeSettled = true;
-      return result;
     });
-    await new Promise((resolve) => setTimeout(resolve, INTERLEAVING_WAIT_MS));
-    expect(purgeSettled).toBe(false);
-
-    let bindSettled = false;
-    const bind = bindForTest({
-      blobId: fixture.blobId,
-      owner: fixture.owner,
-      request: fixture.racingBind.request,
-    }).then(
-      () => {
-        bindSettled = true;
-        return { kind: "fulfilled" as const };
-      },
-      (error: unknown) => {
-        bindSettled = true;
-        return { error, kind: "rejected" as const };
-      },
-    );
+    let bind:
+      | Promise<
+          | { readonly kind: "fulfilled" }
+          | { readonly error: unknown; readonly kind: "rejected" }
+        >
+      | undefined;
+    let synchronizationError: unknown;
     try {
-      await new Promise((resolve) => setTimeout(resolve, INTERLEAVING_WAIT_MS));
-      expect(bindSettled).toBe(false);
-
-      releaseDocument.resolve();
-      const [, purgeResult, bindResult] = await Promise.all([
-        documentHolder,
-        purge,
-        bind,
-      ]);
-      expect(purgeResult.response.documentId).toBe(fixture.sourceDocument.id);
-      expect(bindResult).toMatchObject({
-        error: { status: 409 },
-        kind: "rejected",
+      await waitForPostgresLockWait({
+        blockerPid: documentLock.backendPid,
+        queryFragment: "documents",
       });
-      const destinationBindings = await db
-        .select({ id: attachmentBindings.id })
-        .from(attachmentBindings)
-        .where(
-          eq(attachmentBindings.documentId, fixture.destinationDocument.id),
-        );
-      expect(destinationBindings).toEqual([]);
-      const [blob] = await db
-        .select({ dereferencedAt: blobs.dereferencedAt })
-        .from(blobs)
-        .where(eq(blobs.id, fixture.blobId));
-      expect(blob?.dereferencedAt).toBeInstanceOf(Date);
+      bind = bindForTest({
+        blobId: fixture.blobId,
+        owner: fixture.owner,
+        request: fixture.racingBind.request,
+      }).then(
+        () => ({ kind: "fulfilled" as const }),
+        (error: unknown) => ({ error, kind: "rejected" as const }),
+      );
+      await waitForPostgresLockWait({
+        blockerPid: documentLock.backendPid,
+        queryFragment: "access_manifest_heads",
+      });
+    } catch (error) {
+      synchronizationError = error;
     } finally {
-      releaseDocument.resolve();
-      await Promise.all([
-        documentHolder.catch(() => undefined),
-        purge.catch(() => undefined),
-        bind.catch(() => undefined),
-      ]);
+      await documentLock.release();
     }
+    if (synchronizationError) {
+      await Promise.allSettled([purge, ...(bind ? [bind] : [])]);
+      throw synchronizationError;
+    }
+    if (!bind) {
+      throw new Error("Expected blob bind to start");
+    }
+    const [purgeResult, bindResult] = await Promise.all([purge, bind]);
+    expect(purgeResult.response.documentId).toBe(fixture.sourceDocument.id);
+    expect(bindResult).toMatchObject({
+      error: { status: 409 },
+      kind: "rejected",
+    });
+    const destinationBindings = await db
+      .select({ id: attachmentBindings.id })
+      .from(attachmentBindings)
+      .where(eq(attachmentBindings.documentId, fixture.destinationDocument.id));
+    expect(destinationBindings).toEqual([]);
+    const [blob] = await db
+      .select({ dereferencedAt: blobs.dereferencedAt })
+      .from(blobs)
+      .where(eq(blobs.id, fixture.blobId));
+    expect(blob?.dereferencedAt).toBeInstanceOf(Date);
   },
   30_000,
 );
