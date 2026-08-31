@@ -162,5 +162,21 @@ export function resolveBoundRevenueCatTransition(input: {
       now: input.now,
     });
   }
+  if (
+    transition.kind === "grant" &&
+    isRecognizedNativeRevenueCatStore(input.event.store) &&
+    !input.event.original_transaction_id &&
+    input.billing?.provider === "revenuecat" &&
+    input.billing.providerCustomerId === input.event.app_user_id &&
+    input.billing.providerSubscriptionId
+  ) {
+    return {
+      ...transition,
+      fields: {
+        ...transition.fields,
+        providerSubscriptionId: input.billing.providerSubscriptionId,
+      },
+    };
+  }
   return transition;
 }

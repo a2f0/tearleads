@@ -6,6 +6,7 @@ import { isUuidV4String } from "@symcrypt/validators/util";
 import { and, eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { resolveActiveNativeSubscriptionOrganizationForUser } from "./nativeSubscriptionResolution";
 
 const NON_NATIVE_REVENUECAT_STORES = new Set([
   "PROMOTIONAL",
@@ -112,8 +113,9 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     // but buyer identity alone is not enough: one RevenueCat customer can own
     // multiple Apple/Play subscriptions. Require the exact durable receipt, or
     // the provider's preceding product-change event for a replacement Play
-    // token. PRODUCT_CHANGE itself is separately checked against the locked
-    // source tier before it reaches this policy.
+    // token, or the unique active binding when the provider omits the receipt
+    // id. PRODUCT_CHANGE itself is separately checked against the locked source
+    // tier before it reaches this policy.
     if (
       sameProviderCustomer &&
       getSyncBillingTierForNativeProduct(input.currentProviderProductId) &&
@@ -121,7 +123,12 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
       (input.event.original_transaction_id ===
         input.currentProviderSubscriptionId ||
         input.event.type === "PRODUCT_CHANGE" ||
-        (await hasPriorNativeProductChange(input)))
+        (await hasPriorNativeProductChange(input)) ||
+        (!input.event.original_transaction_id &&
+          (await resolveActiveNativeSubscriptionOrganizationForUser(
+            input.executor,
+            input.event.app_user_id,
+          )) === input.organizationId))
     ) {
       return null;
     }

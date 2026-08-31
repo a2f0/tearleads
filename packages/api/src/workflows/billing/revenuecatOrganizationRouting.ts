@@ -7,6 +7,7 @@ import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { and, eq } from "drizzle-orm";
 import { resolveOrganizationIdFromEvent } from "../../billing/revenuecatWebhook";
+import { resolveActiveNativeSubscriptionOrganizationForUser } from "./nativeSubscriptionResolution";
 import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import type { ImmutableStripeStoreOrgResolution } from "./revenuecatStripeResolution";
 
@@ -62,11 +63,19 @@ async function resolveBoundNativeOrganization(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
 ): Promise<NativeOrganizationResolution> {
-  if (
-    !isRecognizedNativeRevenueCatStore(event.store) ||
-    !event.original_transaction_id
-  ) {
+  if (!isRecognizedNativeRevenueCatStore(event.store)) {
     return { kind: "none" };
+  }
+  if (!event.original_transaction_id) {
+    const activeOrganizationId =
+      await resolveActiveNativeSubscriptionOrganizationForUser(
+        db,
+        event.app_user_id,
+      );
+    if (activeOrganizationId === "ambiguous") return { kind: "ambiguous" };
+    return activeOrganizationId
+      ? { kind: "resolved", organizationId: activeOrganizationId }
+      : { kind: "none" };
   }
   const [binding] = await db
     .select({ organizationId: organizationBilling.organizationId })

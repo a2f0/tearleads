@@ -57,7 +57,7 @@ function nativeEvent(input: {
   organizationId: string;
   productId?: string;
   store: "APP_STORE" | "PLAY_STORE";
-  subscriptionId: string;
+  subscriptionId?: string;
   type: "INITIAL_PURCHASE" | "PRODUCT_CHANGE" | "RENEWAL";
 }): RevenueCatWebhookEvent {
   const now = Date.now();
@@ -68,7 +68,9 @@ function nativeEvent(input: {
     expiration_at_ms: now + PERIOD_MS,
     id: crypto.randomUUID(),
     ...(input.newProductId ? { new_product_id: input.newProductId } : {}),
-    original_transaction_id: input.subscriptionId,
+    ...(input.subscriptionId
+      ? { original_transaction_id: input.subscriptionId }
+      : {}),
     product_id: input.productId ?? "com.symcrypt.sync.monthly",
     purchased_at_ms: now,
     store: input.store,
@@ -173,6 +175,48 @@ test("native lifecycle events route by subscription across two store bindings", 
   );
   expect(await readSubscriptionId(restoredOrganizationId)).toBe(
     "play-subscription",
+  );
+
+  const missingIdOutcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      organizationId: restoredOrganizationId,
+      store: "PLAY_STORE",
+      type: "RENEWAL",
+    }),
+  );
+  expect(missingIdOutcome).toEqual({
+    reason: "Event carried no organization id",
+    status: "ignored",
+  });
+});
+
+test("a missing receipt id routes to the unique restored binding", async () => {
+  const { personalOrganizationId, user } = await registerBuyer();
+  const restoredOrganizationId = await createOrganization(user);
+  await bindSubscription({
+    buyerId: user.userId,
+    organizationId: restoredOrganizationId,
+    subscriptionId: "restored-subscription-with-omitted-event-id",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    nativeEvent({
+      buyerId: user.userId,
+      // The mutable customer attribute does not identify the restored binding.
+      organizationId: personalOrganizationId,
+      store: "APP_STORE",
+      type: "RENEWAL",
+    }),
+  );
+  expect(outcome).toMatchObject({
+    organizationId: restoredOrganizationId,
+    status: "applied",
+  });
+  expect(await readSubscriptionId(restoredOrganizationId)).toBe(
+    "restored-subscription-with-omitted-event-id",
   );
 });
 
