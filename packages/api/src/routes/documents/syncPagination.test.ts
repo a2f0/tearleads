@@ -15,7 +15,7 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
-test("the sync route traverses more than 64 updates exactly once", async () => {
+async function createPaginatedDocumentHistory() {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -39,6 +39,12 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
   expect(firstWrite.status).toBe(200);
   const lastWrite = await postSync(owner.token, created.id, last.request);
   expect(lastWrite.status).toBe(200);
+
+  return { created, owner, signed };
+}
+
+test("the sync route traverses more than 64 updates exactly once", async () => {
+  const { created, owner, signed } = await createPaginatedDocumentHistory();
 
   const receivedIds: string[] = [];
   let pullCursor: string | undefined;
@@ -64,6 +70,65 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
   expect(pageCount).toBe(2);
   expect(receivedIds).toHaveLength(signed.length);
   expect(new Set(receivedIds)).toEqual(
+    new Set(signed.map(({ updateId }) => updateId)),
+  );
+});
+
+test("a lost continuation response retries without skipped or duplicated updates", async () => {
+  const { created, owner, signed } = await createPaginatedDocumentHistory();
+
+  const initialRequest: DocumentSyncRequest = {
+    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    expectedTargetHash: created.contentKeyBundle.targetHash,
+    localVersionVector: null,
+    outgoingUpdates: [],
+    supportsPullPagination: true,
+    supportsUntrackedCommitLsn: true,
+  };
+  const firstPageResponse = await postSync(
+    owner.token,
+    created.id,
+    initialRequest,
+  );
+  expect(firstPageResponse.status).toBe(200);
+  const firstPage = (await firstPageResponse.json()) as DocumentSyncResponse;
+  expect(firstPage.pullPage.hasMore).toBe(true);
+  if (!firstPage.pullPage.nextCursor) {
+    throw new Error("Expected a continuation cursor");
+  }
+
+  const continuationRequest: DocumentSyncRequest = {
+    ...initialRequest,
+    pullCursor: firstPage.pullPage.nextCursor,
+  };
+  const lostResponse = await postSync(
+    owner.token,
+    created.id,
+    continuationRequest,
+  );
+  expect(lostResponse.status).toBe(200);
+  const lostPage = (await lostResponse.json()) as DocumentSyncResponse;
+
+  const retryResponse = await postSync(
+    owner.token,
+    created.id,
+    continuationRequest,
+  );
+  expect(retryResponse.status).toBe(200);
+  const retriedPage = (await retryResponse.json()) as DocumentSyncResponse;
+  expect(retriedPage.pullPage).toEqual({ hasMore: false, nextCursor: null });
+  expect(retriedPage.updates.map(({ id }) => id)).toEqual(
+    lostPage.updates.map(({ id }) => id),
+  );
+
+  // The lost page is observed only by the test. Convergence includes its retry.
+  const convergedIds = [...firstPage.updates, ...retriedPage.updates].map(
+    ({ id }) => id,
+  );
+  expect(convergedIds).toHaveLength(signed.length);
+  expect(new Set(convergedIds).size).toBe(convergedIds.length);
+  expect(new Set(convergedIds)).toEqual(
     new Set(signed.map(({ updateId }) => updateId)),
   );
 });
