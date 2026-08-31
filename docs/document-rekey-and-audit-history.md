@@ -144,12 +144,11 @@ The resulting risk has these bounds:
   read-only sync can retrieve retained ciphertext without redirection, but only
   when the client can unwrap every historical epoch key
 
-The stronger mitigation remains per-update re-encryption with inner author
-signatures. Other hardening includes:
-
-- restrict `rotate_baseline` authorship by policy, narrowing which principals
-  can trigger redirection
-- [use raw-history recovery to replay retained ciphertext](./raw-document-history-recovery.md)
+Any authorized writer may author `rotate_baseline`, keeping lazy healing
+independent of an administrator or original creator. A client that distrusts a
+baseline can use [raw recovery](./raw-document-history-recovery.md) to
+reconstruct from retained ordinary updates without redirection. Inner author
+signatures remain the stronger mitigation.
 
 ### There Must Be Only One Canonical Bundle Per Epoch
 
