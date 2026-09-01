@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient } from "@symcrypt/test-utils";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { DocumentSyncRequest } from "@symcrypt/validators/request";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@symcrypt/validators/response";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,

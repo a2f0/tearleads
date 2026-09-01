@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import {

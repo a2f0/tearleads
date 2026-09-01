@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@symcrypt/loro";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";

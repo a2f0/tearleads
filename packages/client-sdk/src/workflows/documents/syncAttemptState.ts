@@ -1,4 +1,4 @@
-import type { DocumentWriterProjectionResponse } from "@symcrypt/validators/response";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { DocumentSyncPullContinuation } from "../../data/documents/shared/syncPagination";
 import type { SyncRemoteDocumentResult } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";

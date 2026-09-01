@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createDocument, exportAllUpdates } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { enqueuePendingContainerUpdate } from "../../../workflows/container-contents/containerPersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 

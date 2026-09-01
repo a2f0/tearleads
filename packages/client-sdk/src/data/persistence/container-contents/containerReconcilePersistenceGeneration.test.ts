@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";

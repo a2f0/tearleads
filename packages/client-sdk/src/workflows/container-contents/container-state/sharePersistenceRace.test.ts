@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { exportAllUpdates } from "@symcrypt/loro";
-import { createTestExecSql } from "@symcrypt/test-utils";
-import type { ContainerWriterProjectionResponse } from "@symcrypt/validators/response";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,

@@ -6,6 +6,7 @@ import {
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
+import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
   readonly execSql: ExecSql;
@@ -73,6 +74,7 @@ export async function commitProjectionCheckpoints(
     readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
+  assertProjectionVerificationCurrent(input?.stillCurrent);
   await enforceAccessManifestCheckpoints({
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: input?.execSql ?? context.execSql,
@@ -82,4 +84,5 @@ export async function commitProjectionCheckpoints(
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   });
+  assertProjectionVerificationCurrent(input?.stillCurrent);
 }

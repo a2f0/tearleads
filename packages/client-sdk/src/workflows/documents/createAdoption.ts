@@ -87,6 +87,7 @@ export async function adoptExistingRemoteDocument(
     writerProjection,
     ...projectionVerificationOptions(input),
   });
+  if (input.stillCurrent?.() === false) return null;
   input.apiClient.primeDocumentWriterProjection(
     writerProjection.documentId,
     writerProjection,

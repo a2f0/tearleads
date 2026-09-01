@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DomainScope } from "../../data/domainScope";
 import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";

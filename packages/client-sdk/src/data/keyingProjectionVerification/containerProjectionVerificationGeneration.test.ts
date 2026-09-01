@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
-} from "@symcrypt/crypto";
+} from "@tearleads/crypto";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
-} from "@symcrypt/test-utils";
+} from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";

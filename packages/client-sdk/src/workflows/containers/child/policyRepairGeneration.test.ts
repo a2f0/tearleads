@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { createMockApiClient, createTestExecSql } from "@symcrypt/test-utils";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import {
   policyBundleFromInitialRequest,

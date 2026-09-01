@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@symcrypt/crypto";
-import { createTestExecSql } from "@symcrypt/test-utils";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   createMutationResponseFromRequest,

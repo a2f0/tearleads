@@ -170,7 +170,9 @@ function resolveContainerDocumentMoveUnlinkIds(input: {
     : [input.currentContainerId];
 
   return Array.from(new Set(unlinkContainerIds)).filter(
-    (containerId) => containerId !== input.targetContainerId,
+    (containerId) =>
+      containerId !== input.targetContainerId &&
+      input.linkedContainerIds.includes(containerId),
   );
 }
 

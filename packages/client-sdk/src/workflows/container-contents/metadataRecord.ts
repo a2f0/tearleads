@@ -1,5 +1,5 @@
-import { bytesToBase64 } from "@symcrypt/encoding";
-import { exportAllUpdates } from "@symcrypt/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
 import type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 import type { ContainerDocumentRecord as DocumentRecord } from "./containerPersistence";
 import {

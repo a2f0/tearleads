@@ -372,12 +372,15 @@ export async function createRemoteDocument(
       containerProjection: createPlan.containerProjection,
       response,
     });
-    await assertDocumentWriterProjectionConsistent(writerProjection, {
-      execSql: input.execSql,
-      resolveProjectionUserKey,
-      stillCurrent: input.stillCurrent,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
+    const verifiedTargets = await nullOnProjectionVerificationCancellation(() =>
+      assertDocumentWriterProjectionConsistent(writerProjection, {
+        execSql: input.execSql,
+        resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      }),
+    );
+    if (!verifiedTargets) return null;
     if (input.stillCurrent?.() === false) return null;
     // Seed the projection the create response already gave us so the first read
     // after create (sync, blob attach, container-contents hydration) resolves
@@ -402,21 +405,24 @@ export async function createRemoteDocument(
   // not a failure — the first attempt committed. Adopt the existing remote
   // document instead of leaking a duplicate. Requires the stable id we sent, so
   // we can fetch its projection back.
-  if (input.documentId && isDocumentManifestAlreadyExistsConflict(submission)) {
+  const stableDocumentId = input.documentId;
+  if (stableDocumentId && isDocumentManifestAlreadyExistsConflict(submission)) {
     if (input.stillCurrent?.() === false) return null;
-    const adopted = await adoptExistingRemoteDocument({
-      apiClient: input.apiClient,
-      documentId: input.documentId,
-      execSql: input.execSql,
-      expectedContainerId: input.containerId,
-      expectedOrganizationId:
-        input.expectedOrganizationId ??
-        createPlan.containerProjection.organizationId,
-      resolveProjectionUserKey,
-      stillCurrent: input.stillCurrent,
-      targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
+    const adopted = await nullOnProjectionVerificationCancellation(() =>
+      adoptExistingRemoteDocument({
+        apiClient: input.apiClient,
+        documentId: stableDocumentId,
+        execSql: input.execSql,
+        expectedContainerId: input.containerId,
+        expectedOrganizationId:
+          input.expectedOrganizationId ??
+          createPlan.containerProjection.organizationId,
+        resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      }),
+    );
     if (adopted) {
       return adopted;
     }
