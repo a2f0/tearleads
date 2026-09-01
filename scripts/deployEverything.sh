@@ -6,20 +6,23 @@
 #   2. Production iOS release to TestFlight
 #   3. Staging Android release to Google Play
 #   4. Production Android release to Google Play
-#   5. Full production deployment
-#   6. Full staging deployment
+#   5. Full staging deployment
+#   6. Staging Code Assist deployment
+#   7. Full production deployment
+#   8. Production Code Assist deployment
 
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)"
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0")
 
 Builds and uploads the staging and production iOS and Android releases, then
-runs the full production and staging deployments. Terraform and Ansible are
-included in both deployments.
+deploys staging before production. Terraform, Ansible, and the separately
+released Code Assist service are included for both tiers.
 
 Options:
   -h, --help    Show this help and exit.
@@ -78,8 +81,12 @@ run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
-run_step "deploy-production" "$SCRIPT_DIR/deployProduction.sh"
 run_step "deploy-staging" "$SCRIPT_DIR/deployStaging.sh"
+run_step "code-assist-staging" \
+  "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
+run_step "deploy-production" "$SCRIPT_DIR/deployProduction.sh"
+run_step "code-assist-production" \
+  "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
 
 echo "=== Everything deployment finished ==="
 echo "All steps succeeded."
