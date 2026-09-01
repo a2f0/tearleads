@@ -102,7 +102,7 @@ load_secrets_env() {
     unset SSH_TARGET
   fi
 
-  _source_env_file "$secrets_dir/root.env"
+  _source_env_file "$secrets_dir/root.env" || return 1
 
   if [[ -n "$tier" ]]; then
     if [[ -n "${SSH_TARGET:-}" ]]; then
@@ -111,8 +111,8 @@ load_secrets_env() {
       echo "Set the target in $secrets_dir/${tier}.env or use the tier-specific override." >&2
       return 1
     fi
-    _source_env_file "$secrets_dir/${tier}.env"
-    _source_optional_env_file "$secrets_dir/${tier}.garage.env"
+    _source_env_file "$secrets_dir/${tier}.env" || return 1
+    _source_optional_env_file "$secrets_dir/${tier}.garage.env" || return 1
   fi
 
   if [[ -n "$ssh_target_override" ]]; then
@@ -372,23 +372,30 @@ wait_for_ssh_ready() {
 # Returns 2 when the stack has no server outputs yet.
 read_stack_ssh_target() {
   local stack_dir="$1"
-  local outputs username hostname
+  local username_status=0
+  local hostname_status=0
+  local state_resources
+  local username hostname
 
-  outputs="$(terraform -chdir="$stack_dir" output -json)" || return 1
-  username="$(jq -r 'if (.server_username.value? | type) == "string" then .server_username.value else "" end' <<< "$outputs")" || return 1
-  hostname="$(jq -r 'if (.ssh_hostname.value? | type) == "string" then .ssh_hostname.value else "" end' <<< "$outputs")" || return 1
+  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null)" || username_status=$?
+  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null)" || hostname_status=$?
 
-  if [[ -z "$username" && -z "$hostname" ]]; then
-    return 2
+  if [[ "$username_status" -ne 0 && "$hostname_status" -ne 0 ]]; then
+    state_resources="$(terraform -chdir="$stack_dir" state list)" || return 1
+    if [[ -z "$state_resources" ]]; then
+      return 2
+    fi
+    echo "ERROR: Terraform state exists but server SSH outputs are unavailable." >&2
+    return 1
   fi
 
-  if [[ -z "$username" ]]; then
+  if [[ "$username_status" -ne 0 || -z "$username" ]]; then
     echo "ERROR: Could not resolve server username from terraform outputs." >&2
     echo "       Run 'terraform apply' in $stack_dir first." >&2
     return 1
   fi
 
-  if [[ -z "$hostname" ]]; then
+  if [[ "$hostname_status" -ne 0 || -z "$hostname" ]]; then
     echo "ERROR: Could not resolve the Tailscale ssh_hostname from terraform outputs." >&2
     echo "       Run 'terraform apply' in $stack_dir first." >&2
     return 1

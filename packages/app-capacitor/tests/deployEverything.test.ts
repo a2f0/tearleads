@@ -322,6 +322,19 @@ test("secret loading rejects a generic target and preserves a tier override", as
           "export STAGING_SSH_TARGET=explicit-target",
           "load_secrets_env staging",
           "printf '%s\\n' \"$SSH_TARGET\"",
+          'rm "$COMMON_TEST_ROOT/.secrets/root.env"',
+          'mkdir "$COMMON_TEST_ROOT/.secrets/root.env"',
+          "unset SSH_TARGET STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
+          "if load_secrets_env staging; then exit 93; fi",
+          "printf '%s\\n' source-failure-rejected",
+          "terraform() {",
+          '  case "$*" in',
+          "    *\"output -raw server_username\") printf '%s\\n' state-user ;;",
+          "    *\"output -raw ssh_hostname\") printf '%s\\n' state-host ;;",
+          "    *) return 94 ;;",
+          "  esac",
+          "}",
+          "read_stack_ssh_target /unused",
         ].join("\n"),
         "bash",
         commonScript,
@@ -342,9 +355,12 @@ test("secret loading rejects a generic target and preserves a tier override", as
       "generic-rejected",
       "root-generic-rejected",
       "explicit-target",
+      "source-failure-rejected",
+      "state-user@state-host",
     ]);
     expect(stderr).toContain("PRODUCTION_SSH_TARGET");
     expect(stderr).toContain("root.env must not define SSH_TARGET");
+    expect(stderr).toContain("exists but is not a regular file");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -90,9 +90,9 @@ read_tier_ssh_target() {
     return 0
   fi
 
-  validate_aws_env
-  backend_config="$(get_backend_config)"
-  terraform -chdir="$stack_dir" init -backend-config="$backend_config" >&2
+  validate_aws_env || return 1
+  backend_config="$(get_backend_config)" || return 1
+  terraform -chdir="$stack_dir" init -backend-config="$backend_config" >&2 || return 1
   read_stack_ssh_target "$stack_dir"
 }
 
