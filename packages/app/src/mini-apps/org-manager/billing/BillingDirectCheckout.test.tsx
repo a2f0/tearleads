@@ -19,7 +19,10 @@ afterEach(() => {
 
 /** The idle checkout renders the hosted-link, which reads the SDK facade. */
 function stubSymCrypt(
-  createStripeCheckoutSession: () => Promise<{
+  createStripeCheckoutSession: (
+    returnUrl: string,
+    organizationId?: string,
+  ) => Promise<{
     url: string | null;
   } | null> = () => Promise.resolve({ url: null }),
 ) {
@@ -45,6 +48,7 @@ function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
   return {
     available: true,
     option: OPTION,
+    organizationId: "org-1",
     phase: { kind: "idle" },
     error: null,
     hostRef: createRef<HTMLDivElement>(),
@@ -288,8 +292,9 @@ function stubOpen(impl: () => unknown) {
 }
 
 test("the hosted-checkout link opens the Stripe session in a new tab", async () => {
-  const createStripeCheckoutSession = mock(() =>
-    Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
+  const createStripeCheckoutSession = mock(
+    (_returnUrl: string, _organizationId?: string) =>
+      Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
   stubSymCrypt(createStripeCheckoutSession);
   const tab = fakeTab();
@@ -304,6 +309,7 @@ test("the hosted-checkout link opens the Stripe session in a new tab", async () 
   await waitFor(() =>
     expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
   );
+  expect(createStripeCheckoutSession.mock.calls[0]?.[1]).toBe("org-1");
   // Opened synchronously on the click (before the await), then pointed at the
   // minted URL once it resolves.
   expect(openMock).toHaveBeenCalledWith("about:blank", "_blank");

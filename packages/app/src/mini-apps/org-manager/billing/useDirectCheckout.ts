@@ -39,6 +39,7 @@ export interface DirectCheckoutState {
   /** Whether this platform can run the in-app form at all. */
   readonly available: boolean;
   readonly option: StripeSyncOptionResponse | null;
+  readonly organizationId: string;
   readonly phase: DirectCheckoutPhase;
   readonly error: string | null;
   /** Attach to the element the payment form mounts into. */
@@ -87,6 +88,7 @@ function useCheckoutOption(
   canSubscribe: boolean,
   /** The panel is offering the checkout; false for an org that already syncs. */
   enabled: boolean,
+  organizationId: string,
   symcrypt: ReturnType<typeof useSymCrypt>,
 ): {
   readonly error: string | null;
@@ -106,7 +108,10 @@ function useCheckoutOption(
     let cancelled = false;
     void (async () => {
       try {
-        const result = await symcrypt.organizations.loadStripeCheckoutOptions();
+        const result =
+          await symcrypt.organizations.loadStripeCheckoutOptions(
+            organizationId,
+          );
         if (!cancelled) {
           const option = result?.options[0] ?? null;
           setState({
@@ -131,8 +136,25 @@ function useCheckoutOption(
     return () => {
       cancelled = true;
     };
-  }, [available, canSubscribe, enabled, symcrypt]);
+  }, [available, canSubscribe, enabled, organizationId, symcrypt]);
   return state;
+}
+
+function useCheckoutOptionForFlow(
+  input: Pick<
+    Parameters<typeof useDirectCheckoutFlow>[0],
+    "canSubscribe" | "enabled" | "organizationId"
+  >,
+  available: boolean,
+  symcrypt: ReturnType<typeof useSymCrypt>,
+) {
+  return useCheckoutOption(
+    available,
+    input.canSubscribe,
+    input.enabled,
+    input.organizationId,
+    symcrypt,
+  );
 }
 
 /** Refs the begin/confirm actions share with the flow hook. */
@@ -161,6 +183,7 @@ interface BeginCheckoutDeps {
   readonly available: boolean;
   readonly canSubscribe: boolean;
   readonly enabled: boolean;
+  readonly organizationId: string;
   readonly capability: DirectCheckoutCapability;
   readonly symcrypt: ReturnType<typeof useSymCrypt>;
   readonly teardown: () => void;
@@ -194,8 +217,9 @@ function useBeginCheckout(
       const token = refs.startTokenRef.current;
       void (async () => {
         try {
-          const intent =
-            await deps.symcrypt.organizations.createStripeCheckout();
+          const intent = await deps.symcrypt.organizations.createStripeCheckout(
+            deps.organizationId,
+          );
           // Every continuation re-checks the token: teardown (cancel, org
           // switch, disable, unmount) bumps it, and a losing attempt must
           // neither write state onto the panel it no longer owns nor cancel the
@@ -340,12 +364,7 @@ export function useDirectCheckoutFlow(input: {
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
-  const checkoutOption = useCheckoutOption(
-    available,
-    input.canSubscribe,
-    input.enabled,
-    symcrypt,
-  );
+  const checkoutOption = useCheckoutOptionForFlow(input, available, symcrypt);
 
   const teardown = useCallback(() => {
     startTokenRef.current += 1;
@@ -386,6 +405,7 @@ export function useDirectCheckoutFlow(input: {
       available,
       canSubscribe: input.canSubscribe,
       enabled: input.enabled,
+      organizationId: input.organizationId,
       capability,
       symcrypt,
       teardown,
@@ -395,6 +415,7 @@ export function useDirectCheckoutFlow(input: {
       capability,
       input.canSubscribe,
       input.enabled,
+      input.organizationId,
       symcrypt,
       teardown,
     ],
@@ -412,6 +433,7 @@ export function useDirectCheckoutFlow(input: {
   return {
     available,
     option: checkoutOption.option,
+    organizationId: input.organizationId,
     phase,
     error: error ?? checkoutOption.error,
     hostRef,

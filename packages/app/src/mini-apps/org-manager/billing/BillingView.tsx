@@ -31,6 +31,34 @@ import { BillingPlanSwitcher } from "./BillingPlanSwitcher";
 /** Which action is currently in flight (`subscribe:<packageId>` while purchasing). */
 export type BillingBusyAction = "trial" | "restore" | "refresh" | string;
 
+export function BillingRecoveryStatus({
+  error,
+  message,
+  onRetry,
+}: {
+  readonly error: string | null;
+  readonly message: string | null;
+  readonly onRetry: () => void;
+}) {
+  return (
+    <>
+      {message ? (
+        <MiniAppStatus className="org-manager-hint">{message}</MiniAppStatus>
+      ) : null}
+      {error ? (
+        <>
+          <MiniAppStatus tone="error">{error}</MiniAppStatus>
+          <MiniAppActions>
+            <MiniAppButton onClick={onRetry} type="button">
+              {ORG_MANAGER_LABELS.purgeRecoveryRetry}
+            </MiniAppButton>
+          </MiniAppActions>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export interface BillingViewProps {
   readonly view: OrganizationBillingView | null;
   readonly loading: boolean;

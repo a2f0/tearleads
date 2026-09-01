@@ -236,6 +236,7 @@ export async function ensureRemoteDocument(
       generation,
     ),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    stillCurrent: generationIsCurrent,
     targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),

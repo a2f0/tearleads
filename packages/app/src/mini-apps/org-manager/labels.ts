@@ -94,6 +94,16 @@ export const ORG_MANAGER_LABELS = {
     "Billing stopped responding. Restart the app and try again.",
   billingPurchaseUnavailable: "Purchases aren't available right now.",
   billingPurged: "Remote data purged",
+  purgeRecoveryBillingRequired:
+    "A replacement organization is ready. Activate sync billing to restore your retained local data.",
+  purgeRecoveryFailed:
+    "Could not continue recovery. Refresh to retry without creating another replacement.",
+  purgeRecoveryFinalizing:
+    "Billing is active. Restoring retained local data to the replacement organization…",
+  purgeRecoveryPreparing:
+    "Preparing a replacement organization for your retained local data…",
+  purgeRecoveryRetry: "Retry recovery",
+  recoveredOrganizationName: "Recovered Organization",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",
   billingRetryOptions: "Retry plans",
