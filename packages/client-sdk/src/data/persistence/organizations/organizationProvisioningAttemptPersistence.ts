@@ -90,7 +90,11 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
 
   async remove(
     execSql: ExecSql,
-    input: { replacedOrganizationId: string; userId: string },
+    input: {
+      organizationId?: string | undefined;
+      replacedOrganizationId: string;
+      userId: string;
+    },
     canCommit?: (() => boolean) | undefined,
   ): Promise<boolean> {
     await ensureSqlTables(execSql, organizationProvisioningAttemptTables);
@@ -106,6 +110,14 @@ export const sqlOrganizationProvisioningAttemptPersistence = {
               input.replacedOrganizationId,
             ),
             eq(organizationProvisioningAttempts.userId, input.userId),
+            ...(input.organizationId
+              ? [
+                  eq(
+                    organizationProvisioningAttempts.organizationId,
+                    input.organizationId,
+                  ),
+                ]
+              : []),
           ),
         )
         .run();

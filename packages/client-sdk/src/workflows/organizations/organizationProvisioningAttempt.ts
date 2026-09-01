@@ -281,6 +281,7 @@ export async function removeNativeSubscriptionRestoreProvisioningAttempt(input: 
   return removeOrganizationProvisioningAttempt({
     canCommit: input.canCommit,
     execSql,
+    organizationId: input.organizationId,
     replacedOrganizationId: attemptKey,
     userId: input.userId,
   });
@@ -289,6 +290,7 @@ export async function removeNativeSubscriptionRestoreProvisioningAttempt(input: 
 export async function removeOrganizationProvisioningAttempt(input: {
   canCommit?: (() => boolean) | undefined;
   execSql: ExecSql;
+  organizationId?: string | undefined;
   replacedOrganizationId: string;
   userId: string;
 }): Promise<boolean> {

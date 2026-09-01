@@ -314,7 +314,9 @@ function useRestoreOrganizationWiring() {
   const activateRestoredOrganization = useCallback(
     async (organization: { containerId: string; organizationId: string }) => {
       symcrypt.session.setContext(organization);
-      await persistSession();
+      if (!(await persistSession())) {
+        throw new Error("Restored organization session was not persisted");
+      }
     },
     [persistSession, symcrypt],
   );

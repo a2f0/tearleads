@@ -41,30 +41,34 @@ test("crypto sessions are persisted independently for each identity", async () =
     storageKey: localCryptoSessionStorageKey(namespace, signingFingerprint),
   });
 
-  await persistCryptoSession({
-    context: {
-      authToken: "token-a",
-      containerId: "container-a",
-      defaultOrganizationId: "default-org-a",
-      isAuthenticated: true,
-      organizationId: "org-a",
-      userId: "user-a",
-    },
-    localPersistence: persistenceFor(identityA),
-    signingFingerprint: identityA,
-  });
-  await persistCryptoSession({
-    context: {
-      authToken: "token-b",
-      containerId: "container-b",
-      defaultOrganizationId: "default-org-b",
-      isAuthenticated: true,
-      organizationId: "org-b",
-      userId: "user-b",
-    },
-    localPersistence: persistenceFor(identityB),
-    signingFingerprint: identityB,
-  });
+  expect(
+    await persistCryptoSession({
+      context: {
+        authToken: "token-a",
+        containerId: "container-a",
+        defaultOrganizationId: "default-org-a",
+        isAuthenticated: true,
+        organizationId: "org-a",
+        userId: "user-a",
+      },
+      localPersistence: persistenceFor(identityA),
+      signingFingerprint: identityA,
+    }),
+  ).toBe(true);
+  expect(
+    await persistCryptoSession({
+      context: {
+        authToken: "token-b",
+        containerId: "container-b",
+        defaultOrganizationId: "default-org-b",
+        isAuthenticated: true,
+        organizationId: "org-b",
+        userId: "user-b",
+      },
+      localPersistence: persistenceFor(identityB),
+      signingFingerprint: identityB,
+    }),
+  ).toBe(true);
 
   expect(storage.values.size).toBe(2);
   expect(
@@ -134,6 +138,34 @@ test("an authenticated session without a default org fails closed", async () => 
   ).toBeNull();
 });
 
+test("a session write reports unavailable key material", async () => {
+  const namespace = `session-unavailable-${crypto.randomUUID()}`;
+  const signingFingerprint = "d".repeat(64);
+  const keyring = createSharedMemoryLocalKeyringFactory()();
+  const storage = createMemoryStorage();
+
+  expect(
+    await queueCryptoSessionPersistence({
+      context: {
+        authToken: "token",
+        containerId: "container",
+        defaultOrganizationId: "default-organization",
+        isAuthenticated: true,
+        organizationId: "organization",
+        userId: "user",
+      },
+      localPersistence: {
+        keyring,
+        scope: localIdentityScope(namespace),
+        storage,
+        storageKey: localCryptoSessionStorageKey(namespace, signingFingerprint),
+      },
+      signingFingerprint,
+    }),
+  ).toBe(false);
+  expect(storage.values.size).toBe(0);
+});
+
 test("clearing an identity session wins over an older in-flight write", async () => {
   const namespace = `session-clear-${crypto.randomUUID()}`;
   const signingFingerprint = "a".repeat(64);
@@ -160,18 +192,20 @@ test("clearing an identity session wins over an older in-flight write", async ()
     },
   };
 
-  await queueCryptoSessionPersistence({
-    context: {
-      authToken: "stale-token",
-      containerId: "stale-container",
-      defaultOrganizationId: "stale-default-organization",
-      isAuthenticated: true,
-      organizationId: "stale-organization",
-      userId: "stale-user",
-    },
-    localPersistence: { keyring, scope, storage, storageKey },
-    signingFingerprint,
-  });
+  expect(
+    await queueCryptoSessionPersistence({
+      context: {
+        authToken: "stale-token",
+        containerId: "stale-container",
+        defaultOrganizationId: "stale-default-organization",
+        isAuthenticated: true,
+        organizationId: "stale-organization",
+        userId: "stale-user",
+      },
+      localPersistence: { keyring, scope, storage, storageKey },
+      signingFingerprint,
+    }),
+  ).toBe(false);
 
   expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
 });
