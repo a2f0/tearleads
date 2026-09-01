@@ -84,7 +84,11 @@ export async function repairContainerCreateFailure(input: {
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly state: ContainerCreateRepairState;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<ContainerCreateFailureRepair> {
+  if (input.stillCurrent?.() === false) {
+    return { kind: "unavailable" };
+  }
   if (
     !input.state.didRepairStalePolicies &&
     (await cacheRemoteContainerCreatePolicyRepair({
@@ -94,10 +98,14 @@ export async function repairContainerCreateFailure(input: {
       organizationId: input.parentProjection.organizationId,
       reportSecurityIncident: input.reportSecurityIncident,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      stillCurrent: input.stillCurrent,
     }))
   ) {
     input.state.didRepairStalePolicies = true;
     return { kind: "retry", parentProjection: input.parentProjection };
+  }
+  if (input.stillCurrent?.() === false) {
+    return { kind: "unavailable" };
   }
   if (
     input.state.didRepairStaleParent ||
@@ -111,6 +119,9 @@ export async function repairContainerCreateFailure(input: {
   const parentProjection = await input.apiClient.getContainerWriterProjection(
     input.parentContainerId,
   );
+  if (input.stillCurrent?.() === false) {
+    return { kind: "unavailable" };
+  }
   return parentProjection
     ? { kind: "retry", parentProjection }
     : { kind: "unavailable" };

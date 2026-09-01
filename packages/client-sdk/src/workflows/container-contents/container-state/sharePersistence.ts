@@ -39,6 +39,7 @@ export async function persistSharedContainerState(input: {
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.shared.writerProjection.organizationId,
     references: input.shared.referencedPrincipalHeads,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return null;
   const candidateState = await createDetachedContainerMetadataState(
@@ -109,6 +110,7 @@ export async function persistDuplicateContainerShare(input: {
   await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.projection.organizationId,
     references: input.grant.referencedPrincipalHeads,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return null;
   const candidateState = await createDetachedContainerMetadataState(

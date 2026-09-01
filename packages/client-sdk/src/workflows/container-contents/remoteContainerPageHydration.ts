@@ -52,6 +52,7 @@ async function applyRemoteContainerPage(input: {
       state.runtime,
     ),
     remoteContainers: items,
+    stillCurrent: input.isCurrent,
   });
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, completed: false };

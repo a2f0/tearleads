@@ -14,9 +14,15 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   readonly organizationId: string;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
-  if (!input.execSql || !bundles || bundles.length === 0) {
+  if (
+    !input.execSql ||
+    !bundles ||
+    bundles.length === 0 ||
+    input.stillCurrent?.() === false
+  ) {
     return false;
   }
 
@@ -29,6 +35,7 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
     organizationId: input.organizationId,
     reportSecurityIncident: input.reportSecurityIncident,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
-  return true;
+  return input.stillCurrent?.() !== false;
 }

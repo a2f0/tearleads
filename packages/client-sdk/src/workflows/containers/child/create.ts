@@ -430,7 +430,6 @@ async function createRemoteContainerWithRepairs(input: {
     });
     if (!submitted) return null;
     if (!submitted.ok) {
-      if (input.request.stillCurrent?.() === false) return null;
       const repair = await repairContainerCreateFailure({
         apiClient: input.request.apiClient,
         execSql: input.request.execSql,
@@ -440,6 +439,7 @@ async function createRemoteContainerWithRepairs(input: {
         reportSecurityIncident: input.request.reportSecurityIncident,
         resolveTrustedUserIdentity: input.request.resolveTrustedUserIdentity,
         state: repairState,
+        stillCurrent: input.request.stillCurrent,
       });
       if (repair.kind === "retry") {
         parentProjection = repair.parentProjection;

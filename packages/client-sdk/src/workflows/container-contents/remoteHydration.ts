@@ -194,6 +194,7 @@ async function drainRemoteContainerIngestQueue(input: {
           state.runtime,
         ),
         remoteContainers: queuedRemoteContainers,
+        stillCurrent: input.isCurrent,
       });
       if (!input.isCurrent()) {
         return;

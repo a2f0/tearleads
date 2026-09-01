@@ -83,10 +83,12 @@ async function cacheStalePrincipalPolicyBundles(input: {
   readonly failure: ContainerMutationSubmitFailure;
   readonly organizationId: string;
   readonly runtime: ContainerWorkflowRuntime;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
   const getCurrentPrincipalPolicy =
     input.runtime.apiClient.getCurrentPrincipalPolicy;
+  if (input.stillCurrent?.() === false) return false;
   if (!bundles || bundles.length === 0 || !getCurrentPrincipalPolicy) {
     return false;
   }
@@ -101,8 +103,16 @@ async function cacheStalePrincipalPolicyBundles(input: {
     organizationId: input.organizationId,
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
-  return true;
+  return input.stillCurrent?.() !== false;
+}
+
+function reportContainerCreateFailureIfCurrent(
+  failure: ContainerMutationSubmitFailure,
+  stillCurrent: (() => boolean) | undefined,
+): void {
+  if (stillCurrent?.() !== false) failure.report();
 }
 
 /**
@@ -392,6 +402,7 @@ async function createContainerWithMetadataWithRepairs(
         failure: submitted,
         organizationId: parentProjection.organizationId,
         runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
       }))
     ) {
       didRepairStalePolicies = true;
@@ -400,7 +411,8 @@ async function createContainerWithMetadataWithRepairs(
     if (
       !didRepairStaleParent &&
       isStaleParentContainerPathFailure(submitted) &&
-      apiClient.evictContainerWriterProjection
+      apiClient.evictContainerWriterProjection &&
+      input.stillCurrent?.() !== false
     ) {
       didRepairStaleParent = true;
       apiClient.evictContainerWriterProjection(input.parentContainerId);
@@ -410,6 +422,7 @@ async function createContainerWithMetadataWithRepairs(
       if (!refreshedProjection) {
         return null;
       }
+      if (input.stillCurrent?.() === false) return null;
       parentProjection = refreshedProjection;
       continue;
     }
@@ -421,7 +434,7 @@ async function createContainerWithMetadataWithRepairs(
       // manifest-exists handling on the document create path.
       return CONTAINER_ALREADY_COMMITTED;
     }
-    submitted.report();
+    reportContainerCreateFailureIfCurrent(submitted, input.stillCurrent);
     return null;
   }
 }

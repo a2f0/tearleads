@@ -103,6 +103,7 @@ export async function persistAcceptedMoveIntent(input: {
   await createRuntimePrincipalPolicyWarmer(state.runtime)({
     organizationId: moved.organizationId,
     references: moved.metadataReferencedPrincipals,
+    stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) {
     return abandon();

@@ -214,6 +214,7 @@ async function runPrincipalPolicyCache<Item>(input: {
         try {
           await input.cacheItem(item, loadExternalAdminPolicy);
         } catch (error) {
+          if (input.stillCurrent?.() === false) return;
           await reportAndRethrowKeyingVerificationError(
             error,
             input.reportSecurityIncident,
@@ -232,6 +233,7 @@ async function runPrincipalPolicyCache<Item>(input: {
       }),
     );
   } catch (error) {
+    if (input.stillCurrent?.() === false) return;
     // Per-item verification failures were reported above before reaching this
     // initialization/aggregation boundary.
     rethrowKeyingVerificationError(error);

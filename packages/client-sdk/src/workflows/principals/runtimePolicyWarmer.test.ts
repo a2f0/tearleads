@@ -12,6 +12,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
+import { cacheRemoteContainerPrincipalPolicies } from "../container-contents/remoteHydration/principalPolicyCache";
 import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
@@ -60,7 +61,7 @@ test("runtime policy warmer fetches policies for every requested organization", 
   }
 });
 
-test("runtime policy warmer rolls back a fetched policy after generation expiry", async () => {
+test("remote policy warming rolls back a fetched policy after generation expiry", async () => {
   const database = await createTestExecSql(
     "runtime-principal-policy-warmer-generation",
   );
@@ -108,9 +109,14 @@ test("runtime policy warmer rolls back a fetched policy after generation expiry"
   });
 
   try {
-    await warmer({
-      organizationId: author.organizationId,
-      references: [reference],
+    await cacheRemoteContainerPrincipalPolicies({
+      cacheReferencedPrincipalPolicies: warmer,
+      remoteContainers: [
+        {
+          metadataReferencedPrincipals: [reference],
+          organizationId: author.organizationId,
+        },
+      ],
       stillCurrent: () => current,
     });
 

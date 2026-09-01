@@ -144,6 +144,62 @@ test("createRemoteContainer preserves a committed response after generation expi
   }
 });
 
+test("createRemoteContainer does not retry or report after stale-parent refresh expiry", async () => {
+  const parent = await createParentProjection();
+  const { close, execSql } = await createTestExecSql(
+    "container-create-stale-parent-generation",
+  );
+  let current = true;
+  let evictions = 0;
+  let projectionReads = 0;
+  let reported = false;
+  let submissions = 0;
+
+  try {
+    const created = await createRemoteContainer({
+      apiClient: {
+        createContainer: async () => null,
+        createContainerResult: async () => {
+          submissions += 1;
+          return {
+            message: STALE_PARENT_FAILURE,
+            ok: false as const,
+            report: () => {
+              reported = true;
+            },
+            status: 409,
+          };
+        },
+        evictContainerWriterProjection: () => {
+          evictions += 1;
+        },
+        getContainerWriterProjection: async () => {
+          projectionReads += 1;
+          if (projectionReads === 2) current = false;
+          return parent.projection;
+        },
+        getCurrentPrincipalPolicy: async () => null,
+      },
+      author: parent.author,
+      execSql,
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => current,
+    });
+
+    expect(created).toBeNull();
+    expect(submissions).toBe(1);
+    expect(evictions).toBe(1);
+    expect(projectionReads).toBe(2);
+    expect(reported).toBe(false);
+  } finally {
+    close();
+  }
+});
+
 test("createRemoteContainer does not retry an unrelated conflict", async () => {
   const parent = await createParentProjection();
   let evictions = 0;
