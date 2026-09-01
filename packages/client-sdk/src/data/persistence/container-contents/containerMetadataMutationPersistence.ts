@@ -46,11 +46,15 @@ function sameNullableValue(
 
 function committedMetadataMutationResult(input: {
   container: ContainerRecord;
+  createIntentSettled: boolean;
   moveIntentSettled: boolean;
 }) {
   return {
     committed: true as const,
     container: input.container,
+    ...(input.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
     ...(input.moveIntentSettled ? { moveIntentSettled: true as const } : {}),
   };
 }
@@ -392,6 +396,7 @@ export async function commitStoredMetadataMutation(
         }
         return committedMetadataMutationResult({
           container: savedContainer,
+          createIntentSettled: input.createIntentSettlement !== undefined,
           moveIntentSettled: input.moveIntentSettlement !== undefined,
         });
       },

@@ -218,6 +218,9 @@ async function persistPreparedMetadataMutation(input: {
   return {
     container: committed.container,
     record: nextRecord,
+    ...(committed.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
     ...(committed.moveIntentSettled
       ? { moveIntentSettled: true as const }
       : {}),

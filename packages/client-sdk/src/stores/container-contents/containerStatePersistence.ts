@@ -87,6 +87,9 @@ export async function persistContainerState(
   return {
     record: persisted.record,
     status: "persisted",
+    ...(persisted.createIntentSettled
+      ? { createIntentSettled: true as const }
+      : {}),
     ...(persisted.moveIntentSettled
       ? { moveIntentSettled: true as const }
       : {}),

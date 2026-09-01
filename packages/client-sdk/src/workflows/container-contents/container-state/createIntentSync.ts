@@ -8,6 +8,10 @@ import {
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
+import {
+  settleContainerCreateIntent,
+  settlePersistedContainerCreateIntent,
+} from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -89,24 +93,16 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
     return false;
   }
-  if (!input.isCurrent()) {
-    return false;
-  }
-  const execSql = state.runtime.infra.execSql;
-
-  const settled = await state.persistence.markCreateIntentSynced(execSql, {
-    containerId: intent.containerId,
-    expectedIntentId: intent.id,
-    expectedUpdatedAt: intent.updatedAt,
+  return settleContainerCreateIntent({
+    alreadySettled: false,
+    intent,
+    isCurrent: input.isCurrent,
     remoteContainerId: containerState.container.id,
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
-    stillCurrent: input.isCurrent,
+    state,
     supersededMovePreviousParentId: intent.parentContainerId,
   });
-  // Adapters predating conditional settlement resolve with void. Only an
-  // explicit false means that a conditional adapter rejected this revision.
-  return settled !== false && input.isCurrent();
 }
 
 async function persistCreatedRemoteContainerStateFromIntent(input: {
@@ -124,14 +120,10 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   | "persisted"
 > {
   const { containerState, created, host, intent, state } = input;
-  if (!input.isCurrent()) {
-    return "abandoned";
-  }
+  if (!input.isCurrent()) return "abandoned";
   const persistenceCandidate =
     await createDetachedContainerMetadataState(containerState);
-  if (!input.isCurrent()) {
-    return "abandoned";
-  }
+  if (!input.isCurrent()) return "abandoned";
   persistenceCandidate.container = {
     ...persistenceCandidate.container,
     createdAt: created.createdAt,
@@ -188,9 +180,15 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   if (!input.isCurrent() || persistenceResult.status === "stale-generation") {
     return "abandoned";
   }
-  if (persistenceResult.status !== "persisted") {
-    return persistenceResult.status;
-  }
+  if (persistenceResult.status !== "persisted") return persistenceResult.status;
+  const settlementFailure = await settlePersistedContainerCreateIntent({
+    alreadySettled: persistenceResult.createIntentSettled === true,
+    created,
+    intent,
+    isCurrent: input.isCurrent,
+    state,
+  });
+  if (settlementFailure) return settlementFailure;
   const { record: nextRecord } = persistenceResult;
   if (!input.isCurrent()) return "abandoned";
   const currentContainerState = state.containersById.get(intent.containerId);

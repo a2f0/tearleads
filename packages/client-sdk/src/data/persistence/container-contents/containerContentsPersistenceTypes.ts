@@ -373,6 +373,7 @@ export interface ContainerContentsPersistence
     | {
         committed: true;
         container: ContainerRecord;
+        createIntentSettled?: true | undefined;
         moveIntentSettled?: true | undefined;
       }
     | {

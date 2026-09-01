@@ -25,6 +25,7 @@ async function runCreatePersistenceOutcome(
     | "deleted-during-settlement"
     | "identity-superseded"
     | "intent-superseded"
+    | "legacy-persisted"
     | "missing"
     | "planning-stale"
     | "response-stale"
@@ -167,7 +168,7 @@ async function runCreatePersistenceOutcome(
     const host: Parameters<
       typeof syncPendingContainerCreateIntents
     >[0]["host"] = {
-      persistContainerState: async () => {
+      persistContainerState: async (_containerState, patch) => {
         if (persistenceStatus === "missing") return { status: "missing" };
         if (persistenceStatus === "stale-generation") {
           return { status: "stale-generation" };
@@ -182,6 +183,20 @@ async function runCreatePersistenceOutcome(
         }
         if (persistenceStatus === "intent-superseded") {
           throw new ContainerCreateIntentSupersededError();
+        }
+        if (persistenceStatus === "legacy-persisted") {
+          return {
+            record: {
+              ...childState.record,
+              accessStateHash:
+                patch?.accessStateHash ??
+                childState.record.accessStateHash ??
+                null,
+              documentId:
+                patch?.metadataDocumentId ?? childState.record.documentId,
+            },
+            status: "persisted",
+          };
         }
         return {
           record: childState.record,
@@ -212,6 +227,14 @@ async function runCreatePersistenceOutcome(
     close();
   }
 }
+
+test("legacy create persistence settles the accepted intent explicitly", async () => {
+  const legacy = await runCreatePersistenceOutcome("legacy-persisted");
+
+  expect(legacy.createdCount).toBe(1);
+  expect(legacy.syncedIntents).toEqual([legacy.childContainerId]);
+  expect(legacy.deletedRemoteIds).toEqual([]);
+});
 
 test("create persistence discards only when the local container is missing", async () => {
   const missing = await runCreatePersistenceOutcome("missing");

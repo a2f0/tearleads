@@ -104,6 +104,7 @@ export type PersistContainerStateResult =
   | {
       status: "persisted";
       record: ContainerDocumentRecord;
+      createIntentSettled?: true | undefined;
       moveIntentSettled?: true | undefined;
     }
   | { status: "stale-generation" };

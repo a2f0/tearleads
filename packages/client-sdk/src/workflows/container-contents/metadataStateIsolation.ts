@@ -1,7 +1,9 @@
 import {
   encodeVersionVector,
+  exportAllUpdates,
   exportFullHistorySnapshot,
   importSnapshot,
+  importUpdates,
   satisfiesVersionVector,
 } from "@tearleads/loro";
 import {
@@ -84,6 +86,7 @@ export function installDetachedContainerMetadataState(
     : candidateRecord;
 
   if (preserveConcurrentLiveMetadata) {
+    importUpdates(target.doc, [exportAllUpdates(candidate.doc)]);
     const metadata = readContainerMetadataValue(
       target.doc,
       getDefaultContainerName(candidate.container.parentId),

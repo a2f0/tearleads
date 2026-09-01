@@ -222,7 +222,10 @@ test("an overtaking create can atomically adopt remote identity as a move", asyn
         settleAcceptedPendingOnConflict: false,
       });
 
-    expect(converted.committed).toBe(true);
+    expect(converted).toMatchObject({
+      committed: true,
+      createIntentSettled: true,
+    });
     const adopted =
       await sqlContainerContentsPersistence.loadContainerMetadataState(
         execSql,
