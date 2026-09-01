@@ -90,16 +90,15 @@ async function settleLegacyAcceptedMoveIntent(input: {
   if (input.alreadySettled) {
     return true;
   }
-  const settled = await input.state.persistence.markMoveIntentSynced(
-    input.execSql,
-    {
-      containerId: input.intent.containerId,
-      expectedIntentId: input.intent.id,
-      expectedUpdatedAt: input.intent.updatedAt,
-      stillCurrent: input.isCurrent,
-    },
-  );
-  return input.isCurrent() && settled !== false;
+  const settleRevision = input.state.persistence.markMoveIntentRevisionSynced;
+  if (!settleRevision) return false;
+  const settled = await settleRevision(input.execSql, {
+    containerId: input.intent.containerId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+    stillCurrent: input.isCurrent,
+  });
+  return input.isCurrent() && settled;
 }
 
 export async function persistAcceptedMoveIntent(input: {

@@ -70,21 +70,11 @@ export type ContainerCreateIntentErrorRecorder =
   | ContainerCreateIntentErrorInputRecorder
   | ((execSql: ExecSql, containerId: string, message: string) => Promise<void>);
 
-const revisionGuardedCreateIntentErrorRecorders =
-  new WeakSet<ContainerCreateIntentErrorRecorder>();
-
-/** Opts a recorder into the revision-guarded object argument contract. */
-export function revisionGuardedCreateIntentErrorRecorder<
-  Recorder extends ContainerCreateIntentErrorInputRecorder,
->(recorder: Recorder): Recorder {
-  revisionGuardedCreateIntentErrorRecorders.add(recorder);
-  return recorder;
-}
-
-export function usesRevisionGuardedCreateIntentErrorInput(
-  recorder: ContainerCreateIntentErrorRecorder,
-): recorder is ContainerCreateIntentErrorInputRecorder {
-  return revisionGuardedCreateIntentErrorRecorders.has(recorder);
+export interface ContainerMoveIntentRevisionInput {
+  containerId: string;
+  expectedIntentId: string;
+  expectedUpdatedAt: string;
+  stillCurrent: () => boolean;
 }
 
 export interface LocalRootDescendantReparentInput {
@@ -242,6 +232,10 @@ export interface ContainerContentsPersistence
   ) => Promise<PendingUpdateRecord[]>;
   rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
   recordCreateIntentError: ContainerCreateIntentErrorRecorder;
+  /** Revision-CAS error recorder used by asynchronous create replay. */
+  recordCreateIntentRevisionError?:
+    | ContainerCreateIntentErrorInputRecorder
+    | undefined;
   recordMoveIntentError: (
     execSql: ExecSql,
     input: {
@@ -445,13 +439,13 @@ export interface ContainerContentsPersistence
   ) => Promise<boolean> | Promise<void>;
   markMoveIntentSynced: (
     execSql: ExecSql,
-    input: {
-      containerId: string;
-      // Every enqueue rotates this token. The timestamp remains a secondary
-      // diagnostic guard, but cannot distinguish moves queued in one clock tick.
-      expectedIntentId: string;
-      expectedUpdatedAt: string;
-      stillCurrent: () => boolean;
-    },
+    input: ContainerMoveIntentRevisionInput,
   ) => Promise<boolean> | Promise<void>;
+  /** Revision-CAS settlement used by asynchronous move replay. */
+  markMoveIntentRevisionSynced?:
+    | ((
+        execSql: ExecSql,
+        input: ContainerMoveIntentRevisionInput,
+      ) => Promise<boolean>)
+    | undefined;
 }

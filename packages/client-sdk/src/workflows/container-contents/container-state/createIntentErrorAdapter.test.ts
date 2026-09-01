@@ -4,7 +4,6 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
-  revisionGuardedCreateIntentErrorRecorder,
 } from "../containerPersistence";
 import { recordContainerCreateIntentError } from "./createIntentErrorAdapter";
 
@@ -13,6 +12,7 @@ test("guarded create intent errors skip legacy recorders without revision CAS", 
   const calls: Array<{ containerId: string; message: string }> = [];
   const persistence: ContainerContentsPersistence = {
     ...defaultContainerContentsPersistence,
+    recordCreateIntentRevisionError: undefined,
     recordCreateIntentError: async (
       _execSql: ExecSql,
       containerId: string,
@@ -33,18 +33,18 @@ test("guarded create intent errors skip legacy recorders without revision CAS", 
   expect(calls).toEqual([]);
 });
 
-test("create intent errors use the explicit revision-guarded adapter capability", async () => {
+test("create intent errors use the structural revision-guarded adapter capability", async () => {
   const execSql: ExecSql = async () => [];
   const calls: unknown[] = [];
   const persistence: ContainerContentsPersistence = {
     ...defaultContainerContentsPersistence,
-    // A rest-parameter function has length zero. The capability marker, not
-    // Function.length, must select the object contract.
-    recordCreateIntentError: revisionGuardedCreateIntentErrorRecorder(
-      async (...args: [ExecSql, ContainerCreateIntentErrorInput]) => {
-        calls.push(args[1]);
-      },
-    ),
+    // A rest-parameter function has length zero. The named capability, not
+    // Function.length or function identity, selects the guarded contract.
+    recordCreateIntentRevisionError: async (
+      ...args: [ExecSql, ContainerCreateIntentErrorInput]
+    ) => {
+      calls.push(args[1]);
+    },
   };
 
   const input = {

@@ -21,7 +21,6 @@ export type {
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-export { revisionGuardedCreateIntentErrorRecorder } from "../../data/persistence/container-contents/containerContentsPersistenceTypes";
 export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
 export type { ContainerSyncWatermarkLane } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
 

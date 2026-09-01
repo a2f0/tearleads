@@ -12,7 +12,6 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
-  revisionGuardedCreateIntentErrorRecorder,
 } from "../containerPersistence";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import { createTestContainerState } from "./containerState.testFixtures";
@@ -46,16 +45,12 @@ test("stale container create identity failures do not report into a replacement"
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: revisionGuardedCreateIntentErrorRecorder(
-      async (
-        _execSql: ExecSql,
-        input: {
-          message: string;
-        },
-      ) => {
-        recordedErrors.push(input.message);
-      },
-    ),
+    recordCreateIntentRevisionError: async (
+      _execSql: ExecSql,
+      input: { message: string },
+    ) => {
+      recordedErrors.push(input.message);
+    },
   };
   const state: ContainerCreateIntentSyncState = {
     containersById: new Map([
@@ -243,16 +238,12 @@ test("container create sync heals lost-response conflicts with legacy void settl
   const persistence: ContainerCreateIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
     listPendingCreateIntents: async () => [intent],
-    recordCreateIntentError: revisionGuardedCreateIntentErrorRecorder(
-      async (
-        _execSql: ExecSql,
-        input: {
-          message: string;
-        },
-      ) => {
-        recordedErrors.push(input.message);
-      },
-    ),
+    recordCreateIntentRevisionError: async (
+      _execSql: ExecSql,
+      input: { message: string },
+    ) => {
+      recordedErrors.push(input.message);
+    },
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
       syncedPreviousParentIds.push(input.supersededMovePreviousParentId);

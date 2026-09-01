@@ -18,8 +18,8 @@ import {
   type ContainerCreateIntentSyncStatus,
   type ContainerMoveIntentInput,
   type ContainerMoveIntentRecord,
+  type ContainerMoveIntentRevisionInput,
   type ContainerMoveIntentSyncStatus,
-  revisionGuardedCreateIntentErrorRecorder,
 } from "./containerContentsPersistenceTypes";
 
 function parseCreateIntentSyncStatus(
@@ -291,13 +291,83 @@ export async function deleteContainerMoveIntentRevision(input: {
   return deleted.length > 0;
 }
 
+async function recordCreateIntentError(
+  execSql: ExecSql,
+  inputOrContainerId: ContainerCreateIntentErrorInput | string,
+  ...legacyMessage: [message?: string]
+): Promise<void> {
+  const legacy = typeof inputOrContainerId === "string";
+  const containerId = legacy
+    ? inputOrContainerId
+    : inputOrContainerId.containerId;
+  const message = legacy ? legacyMessage[0] : inputOrContainerId.message;
+  if (!message) throw new Error("Container create intent error is required");
+  const expectedIntentId = legacy
+    ? undefined
+    : inputOrContainerId.expectedIntentId;
+  const expectedUpdatedAt = legacy
+    ? undefined
+    : inputOrContainerId.expectedUpdatedAt;
+  const stillCurrent = legacy ? undefined : inputOrContainerId.stillCurrent;
+  const runtime = getClientSQLitePersistenceRuntime(execSql);
+  const record = async (tx: ClientSQLiteTransactionScope) => {
+    const updatedAt = new Date().toISOString();
+    await tx
+      .update(containerCreateIntents)
+      .set({
+        lastAttemptedAt: updatedAt,
+        lastError: message,
+        updatedAt,
+      })
+      .where(
+        and(
+          eq(containerCreateIntents.containerId, containerId),
+          eq(containerCreateIntents.syncStatus, "pending"),
+          eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ...(expectedIntentId
+            ? [eq(containerCreateIntents.id, expectedIntentId)]
+            : []),
+          ...(expectedUpdatedAt
+            ? [eq(containerCreateIntents.updatedAt, expectedUpdatedAt)]
+            : []),
+        ),
+      )
+      .run();
+  };
+  if (stillCurrent) {
+    await runtime.guardedTransaction(record, stillCurrent, {
+      behavior: "immediate",
+    });
+    return;
+  }
+  await runtime.transaction(record, { behavior: "immediate" });
+}
+
+async function markMoveIntentRevisionSynced(
+  execSql: ExecSql,
+  input: ContainerMoveIntentRevisionInput,
+): Promise<boolean> {
+  const outcome = await getClientSQLitePersistenceRuntime(
+    execSql,
+  ).guardedTransaction(
+    async (tx) => {
+      return deleteContainerMoveIntentRevision({ ...input, tx });
+    },
+    input.stillCurrent,
+    { behavior: "immediate" },
+  );
+  return outcome.committed && outcome.result === true;
+}
+
 type ContainerIntentPersistence = Pick<
   ContainerContentsPersistence,
   | "listPendingCreateIntents"
   | "listUnsyncedMoveIntents"
   | "recordCreateIntentError"
+  | "recordCreateIntentRevisionError"
   | "recordMoveIntentError"
   | "markCreateIntentSynced"
+  | "markMoveIntentRevisionSynced"
   | "markMoveIntentSynced"
 >;
 
@@ -357,57 +427,8 @@ export const containerIntentPersistence = {
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
-  async recordCreateIntentError(
-    execSql: ExecSql,
-    inputOrContainerId: ContainerCreateIntentErrorInput | string,
-    ...legacyMessage: [message?: string]
-  ) {
-    const legacy = typeof inputOrContainerId === "string";
-    const containerId = legacy
-      ? inputOrContainerId
-      : inputOrContainerId.containerId;
-    const message = legacy ? legacyMessage[0] : inputOrContainerId.message;
-    if (!message) throw new Error("Container create intent error is required");
-    const expectedIntentId = legacy
-      ? undefined
-      : inputOrContainerId.expectedIntentId;
-    const expectedUpdatedAt = legacy
-      ? undefined
-      : inputOrContainerId.expectedUpdatedAt;
-    const stillCurrent = legacy ? undefined : inputOrContainerId.stillCurrent;
-    const runtime = getClientSQLitePersistenceRuntime(execSql);
-    const record = async (tx: ClientSQLiteTransactionScope) => {
-      const updatedAt = new Date().toISOString();
-      await tx
-        .update(containerCreateIntents)
-        .set({
-          lastAttemptedAt: updatedAt,
-          lastError: message,
-          updatedAt,
-        })
-        .where(
-          and(
-            eq(containerCreateIntents.containerId, containerId),
-            eq(containerCreateIntents.syncStatus, "pending"),
-            eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-            ...(expectedIntentId
-              ? [eq(containerCreateIntents.id, expectedIntentId)]
-              : []),
-            ...(expectedUpdatedAt
-              ? [eq(containerCreateIntents.updatedAt, expectedUpdatedAt)]
-              : []),
-          ),
-        )
-        .run();
-    };
-    if (stillCurrent) {
-      await runtime.guardedTransaction(record, stillCurrent, {
-        behavior: "immediate",
-      });
-      return;
-    }
-    await runtime.transaction(record, { behavior: "immediate" });
-  },
+  recordCreateIntentError,
+  recordCreateIntentRevisionError: recordCreateIntentError,
   async recordMoveIntentError(execSql, input) {
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     const record = async (tx: ClientSQLiteTransactionScope) => {
@@ -457,20 +478,6 @@ export const containerIntentPersistence = {
     );
     return outcome.committed && outcome.result !== "superseded";
   },
-  async markMoveIntentSynced(execSql, input) {
-    const outcome = await getClientSQLitePersistenceRuntime(
-      execSql,
-    ).guardedTransaction(
-      async (tx) => {
-        return deleteContainerMoveIntentRevision({ ...input, tx });
-      },
-      input.stillCurrent,
-      { behavior: "immediate" },
-    );
-    return outcome.committed && outcome.result === true;
-  },
+  markMoveIntentRevisionSynced,
+  markMoveIntentSynced: markMoveIntentRevisionSynced,
 } satisfies ContainerIntentPersistence;
-
-revisionGuardedCreateIntentErrorRecorder(
-  containerIntentPersistence.recordCreateIntentError,
-);

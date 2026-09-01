@@ -1,7 +1,6 @@
-import {
-  type ContainerContentsPersistence,
-  type ContainerCreateIntentErrorInput,
-  usesRevisionGuardedCreateIntentErrorInput,
+import type {
+  ContainerContentsPersistence,
+  ContainerCreateIntentErrorInput,
 } from "../../../data/persistence/container-contents/containerContentsPersistenceTypes";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
@@ -10,8 +9,8 @@ export async function recordContainerCreateIntentError(
   execSql: ExecSql,
   input: ContainerCreateIntentErrorInput,
 ): Promise<void> {
-  const record = persistence.recordCreateIntentError;
-  if (usesRevisionGuardedCreateIntentErrorInput(record)) {
+  const record = persistence.recordCreateIntentRevisionError;
+  if (record) {
     await record(execSql, input);
   }
   // A legacy three-argument recorder cannot atomically compare either the
