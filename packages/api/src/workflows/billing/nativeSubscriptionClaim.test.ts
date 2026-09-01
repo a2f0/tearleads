@@ -314,16 +314,28 @@ test("rejects unknown products and a different destination subscription", async 
   ).rejects.toThrow(
     "The native subscription product is not configured for sync billing",
   );
-
   await db
     .update(organizationBilling)
     .set({
       provider: "revenuecat",
+      providerCustomerId: destination.user.userId,
       providerProductId: "sync_solo_monthly:monthly",
-      providerSubscriptionId: `existing-${crypto.randomUUID()}`,
+      providerSubscriptionId: "existing-native-subscription",
       status: "active",
     })
     .where(eq(organizationBilling.organizationId, destination.organizationId));
+  await db.insert(revenuecatWebhookEvents).values({
+    appUserId: destination.user.userId,
+    eventId: crypto.randomUUID(),
+    eventTimestamp: new Date(),
+    eventType: "INITIAL_PURCHASE",
+    organizationId: destination.organizationId,
+    originalTransactionId: "existing-native-subscription",
+    outcome: "applied",
+    productId: "sync_solo_monthly:monthly",
+    store: "PLAY_STORE",
+    transactionId: "existing-native-subscription",
+  });
   await expect(
     runClaimNativeSubscriptionWorkflow({
       appUserId: destination.user.userId,

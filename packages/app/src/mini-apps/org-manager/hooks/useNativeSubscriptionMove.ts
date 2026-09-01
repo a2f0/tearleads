@@ -5,7 +5,14 @@ import {
   type SessionCreateOrganizationResult,
 } from "@symcrypt/client-sdk";
 import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
-import { useCallback, useEffect, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { formatBillingPurchaseFailure } from "../../../utils/billingPurchaseTrace";
 import {
@@ -68,6 +75,14 @@ function nativeSubscriptionClaimErrorLabel(error: unknown): string {
   return ORG_MANAGER_LABELS.failedRestorePurchases;
 }
 
+function useAllowedRef(nativePurchaseAllowed: boolean): RefObject<boolean> {
+  const ref = useRef(nativePurchaseAllowed);
+  useLayoutEffect(() => {
+    ref.current = nativePurchaseAllowed;
+  }, [nativePurchaseAllowed]);
+  return ref;
+}
+
 async function restoreClaimAndBindNativeSubscription(input: {
   readonly checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   readonly claimNativeSubscription: (
@@ -75,11 +90,12 @@ async function restoreClaimAndBindNativeSubscription(input: {
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
   readonly createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
+  readonly nativePurchaseAllowedRef: RefObject<boolean>;
   readonly purchases: PurchasesCapability;
   readonly scope: BillingActionScope;
   readonly scopeRef: BillingScopeRef;
   readonly userId: string | null;
-}): Promise<SessionCreateOrganizationResult> {
+}): Promise<SessionCreateOrganizationResult | null> {
   if (!input.userId || !input.purchases.nativeStore) {
     throw new Error("Native subscription restore is unavailable");
   }
@@ -87,17 +103,34 @@ async function restoreClaimAndBindNativeSubscription(input: {
     input.checkNativePurchaseEligibility,
     input.purchases.nativeStore,
   );
+  if (
+    !input.nativePurchaseAllowedRef.current ||
+    !scopeMatches(input.scopeRef.current, input.scope)
+  ) {
+    return null;
+  }
   const preparedOrganizations: SessionCreateOrganizationResult[] = [];
   const move = await input.purchases.moveNativeSubscription({
     claim: async (organizationId, store) => {
-      if (!scopeMatches(input.scopeRef.current, input.scope)) return false;
+      if (
+        !input.nativePurchaseAllowedRef.current ||
+        !scopeMatches(input.scopeRef.current, input.scope)
+      ) {
+        return false;
+      }
       return input.claimNativeSubscription(organizationId, store);
     },
     prepareClaim: async () => {
-      if (!scopeMatches(input.scopeRef.current, input.scope)) return null;
+      if (
+        !input.nativePurchaseAllowedRef.current ||
+        !scopeMatches(input.scopeRef.current, input.scope)
+      ) {
+        return null;
+      }
       const preparedOrganization = await input.createRestoreOrganization();
       if (
         !preparedOrganization ||
+        !input.nativePurchaseAllowedRef.current ||
         !scopeMatches(input.scopeRef.current, input.scope)
       ) {
         return null;
@@ -132,6 +165,7 @@ export function useNativeSubscriptionMove(
     userId,
   } = input;
   const { logError } = useLog();
+  const nativePurchaseAllowedRef = useAllowedRef(nativePurchaseAllowed);
   const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
   const open =
     nativePurchaseAllowed &&
@@ -164,11 +198,13 @@ export function useNativeSubscriptionMove(
             checkNativePurchaseEligibility,
             claimNativeSubscription,
             createRestoreOrganization,
+            nativePurchaseAllowedRef,
             purchases,
             scope,
             scopeRef,
             userId,
           });
+        if (!restoredOrganization) return;
         if (scopeMatches(scopeRef.current, scope)) {
           await activateRestoredOrganization(restoredOrganization);
           const completed = await completeRestoreOrganization(

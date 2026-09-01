@@ -151,6 +151,30 @@ test("losing local eligibility closes and disables an open restore", () => {
   expect(restore).not.toHaveBeenCalled();
 });
 
+test("losing local eligibility during preflight never starts restore", async () => {
+  let finishPreflight:
+    | ((result: { readonly eligible: true; readonly reason: null }) => void)
+    | undefined;
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      new Promise((resolve) => {
+        finishPreflight = resolve;
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflight).toBeDefined());
+  flow.view.rerender({ nativePurchaseAllowed: false });
+  finishPreflight?.({ eligible: true, reason: null });
+
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(restore).not.toHaveBeenCalled();
+  expect(flow.state().actionError).toBeNull();
+});
+
 function startMove(view: ReturnType<typeof setup>["view"]): void {
   act(() => view.result.current.request());
   act(() => view.result.current.confirm());

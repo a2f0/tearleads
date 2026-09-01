@@ -11,6 +11,7 @@ import {
   resolveNativePurchaseEligibility,
 } from "./nativePurchaseEligibility";
 import {
+  hasAcceptedPlayReplacement,
   resolvePersistedNativeSubscriptionStore,
   revenueCatStoreForNativeStore,
 } from "./nativeSubscriptionIdentity";
@@ -31,6 +32,7 @@ interface NativeClaimEligibilityInput {
   readonly appUserId: string;
   readonly executor: DatabaseSession;
   readonly now: Date;
+  readonly productId: string;
   readonly store: NativeSubscriptionStore;
   readonly subscriptionId: string;
   readonly target: NativeClaimBilling;
@@ -73,6 +75,26 @@ async function resolveClaimNativeStore(
     : null;
 }
 
+async function hasConflictingActiveNativeBinding(
+  input: NativeClaimEligibilityInput,
+): Promise<boolean> {
+  if (
+    (input.target.status !== "active" && input.target.status !== "trialing") ||
+    input.target.providerSubscriptionId === null ||
+    input.target.providerSubscriptionId === input.subscriptionId
+  ) {
+    return false;
+  }
+  return !(await hasAcceptedPlayReplacement({
+    appUserId: input.appUserId,
+    executor: input.executor,
+    organizationId: input.target.organizationId,
+    productId: input.productId,
+    store: input.store,
+    subscriptionId: input.subscriptionId,
+  }));
+}
+
 /** Reuses purchase policy against the locked billing row before a claim. */
 export async function assertNativeClaimEligibility(
   input: NativeClaimEligibilityInput,
@@ -106,6 +128,12 @@ export async function assertNativeClaimEligibility(
     targetNativeStore: input.store,
   });
   if (eligibility.eligible) {
+    if (await hasConflictingActiveNativeBinding(input)) {
+      throw new OrganizationManagerError(
+        "The organization already has a different subscription",
+        409,
+      );
+    }
     return { deleteExpiredStripeBinding: hasExpiredStripeBinding };
   }
   if (eligibility.reason === "terminal_organization") {

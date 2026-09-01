@@ -74,13 +74,15 @@ export async function resolvePersistedNativeSubscriptionStore(input: {
 }
 
 /** Play plan changes can replace the purchase token before the next grant. */
-async function hasAcceptedPlayReplacement(input: {
-  readonly event: RevenueCatWebhookEvent;
+export async function hasAcceptedPlayReplacement(input: {
+  readonly appUserId: string;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
+  readonly productId: string | null;
+  readonly store: string | null;
+  readonly subscriptionId: string | null;
 }): Promise<boolean> {
-  const replacementId = input.event.original_transaction_id;
-  if (!replacementId || input.event.store?.toUpperCase() !== "PLAY_STORE") {
+  if (!input.subscriptionId || input.store?.toUpperCase() !== "PLAY_STORE") {
     return false;
   }
   const [change] = await input.executor
@@ -90,14 +92,14 @@ async function hasAcceptedPlayReplacement(input: {
       and(
         eq(revenuecatWebhookEvents.organizationId, input.organizationId),
         eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
-        eq(revenuecatWebhookEvents.appUserId, input.event.app_user_id),
+        eq(revenuecatWebhookEvents.appUserId, input.appUserId),
         eq(revenuecatWebhookEvents.store, "PLAY_STORE"),
-        eq(revenuecatWebhookEvents.originalTransactionId, replacementId),
+        eq(revenuecatWebhookEvents.originalTransactionId, input.subscriptionId),
         or(
           and(
             eq(revenuecatWebhookEvents.outcome, "applied"),
-            input.event.product_id
-              ? eq(revenuecatWebhookEvents.productId, input.event.product_id)
+            input.productId
+              ? eq(revenuecatWebhookEvents.productId, input.productId)
               : undefined,
           ),
           and(
@@ -135,7 +137,14 @@ export async function matchesLockedNativeSubscription(input: {
   ) {
     return true;
   }
-  return hasAcceptedPlayReplacement(input);
+  return hasAcceptedPlayReplacement({
+    appUserId: input.event.app_user_id,
+    executor: input.executor,
+    organizationId: input.organizationId,
+    productId: input.event.product_id ?? null,
+    store: input.event.store ?? null,
+    subscriptionId: input.event.original_transaction_id ?? null,
+  });
 }
 
 /** Confirms buyer, configured product, and durable store without token equality. */
