@@ -32,7 +32,7 @@ function fakeFetch(responses: unknown[]): {
 test("direct subscription creation selects a fixed tier at quantity one", async () => {
   const { fetchImpl, requests } = fakeFetch([
     TEAM_5_PRICE,
-    { data: [] },
+    { data: [], has_more: false },
     {
       id: "sub_1",
       latest_invoice: { payment_intent: { client_secret: "pi_secret" } },
@@ -82,7 +82,10 @@ test("hosted Checkout selects a fixed tier at quantity one", async () => {
 test("does not resume an incomplete checkout with a stale quantity", async () => {
   const { fetchImpl, requests } = fakeFetch([
     TEAM_5_PRICE,
-    { data: [{ id: "sub_pending", status: "incomplete" }] },
+    {
+      data: [{ id: "sub_pending", status: "incomplete" }],
+      has_more: false,
+    },
     {
       id: "sub_pending",
       status: "incomplete",

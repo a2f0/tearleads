@@ -15,6 +15,7 @@ import {
   stripeRequest,
 } from "./stripeHttp";
 import { getStripeSyncOption } from "./stripePrice";
+import { findInStripeSubscriptionSearch } from "./stripeSubscriptionSearch";
 
 export {
   isStripeCheckoutConfigured,
@@ -200,56 +201,46 @@ async function findOrgSubscription(
   candidate: { subscriptionId: string; status: string } | null;
   terminalAttemptWasUsed: boolean;
 }> {
-  const query = encodeURIComponent(
-    `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
-  );
-  const found = await stripeRequest({
-    ...request,
-    method: "GET",
-    // Stripe's max page size; an org would need >100 checkout attempts for
-    // a live subscription to hide beyond this page.
-    path: `/v1/subscriptions/search?query=${query}&limit=100`,
-    operation: "subscription search",
-  });
-  const items = prop(found, "data");
-  if (!Array.isArray(items)) {
-    return { candidate: null, terminalAttemptWasUsed: false };
-  }
   let terminalAttemptWasUsed = false;
   let pendingCandidate: { subscriptionId: string; status: string } | null =
     null;
-  for (const item of items) {
-    const status = readString(prop(item, "status"));
-    const subscriptionId = readString(prop(item, "id"));
-    if (!status || !subscriptionId) {
-      continue;
-    }
-    if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
-      return { candidate: { subscriptionId, status }, terminalAttemptWasUsed };
-    }
-    if (status === "incomplete") {
-      if (pendingCandidate !== null) {
-        // Multiple payable intents are already anomalous. Fail closed rather
-        // than choosing one and creating alongside the other.
-        return {
-          candidate: { ...pendingCandidate, status: "ambiguous" },
-          terminalAttemptWasUsed,
-        };
+  const decisiveCandidate = await findInStripeSubscriptionSearch(
+    organizationId,
+    request,
+    (item) => {
+      const status = readString(prop(item, "status"));
+      const subscriptionId = readString(prop(item, "id"));
+      if (!status || !subscriptionId) {
+        return null;
       }
-      pendingCandidate = { subscriptionId, status };
-      continue;
-    }
-    const itemAttemptId = readString(
-      prop(prop(item, "metadata"), "checkoutAttemptId"),
-    );
-    if (
-      checkoutAttemptId !== undefined &&
-      itemAttemptId === checkoutAttemptId
-    ) {
-      terminalAttemptWasUsed = true;
-    }
-  }
-  return { candidate: pendingCandidate, terminalAttemptWasUsed };
+      if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
+        return { subscriptionId, status };
+      }
+      if (status === "incomplete") {
+        if (pendingCandidate !== null) {
+          // Multiple payable intents are already anomalous. Fail closed rather
+          // than choosing one and creating alongside the other.
+          return { ...pendingCandidate, status: "ambiguous" };
+        }
+        pendingCandidate = { subscriptionId, status };
+        return null;
+      }
+      const itemAttemptId = readString(
+        prop(prop(item, "metadata"), "checkoutAttemptId"),
+      );
+      if (
+        checkoutAttemptId !== undefined &&
+        itemAttemptId === checkoutAttemptId
+      ) {
+        terminalAttemptWasUsed = true;
+      }
+      return null;
+    },
+  );
+  return {
+    candidate: decisiveCandidate ?? pendingCandidate,
+    terminalAttemptWasUsed,
+  };
 }
 
 /** True for a live or still-incomplete org subscription. */
@@ -399,44 +390,39 @@ export async function findLiveOrgSubscription(
   if (!secretKey) {
     return null;
   }
-  const query = encodeURIComponent(
-    `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
-  );
   // Stripe subscription search is eventually consistent, so a cancel/portal
   // fired in the seconds right after checkout may transiently find nothing and
   // no-op. That is strictly better than the stale-id 404 this replaced, and it
   // self-heals on the next attempt once the index catches up.
-  const found = await stripeRequest({
-    fetchImpl,
-    secretKey,
-    method: "GET",
-    path: `/v1/subscriptions/search?query=${query}&limit=100`,
-    operation: "subscription search",
-  });
-  const items = prop(found, "data");
-  if (!Array.isArray(items)) {
-    return null;
-  }
   // The first live subscription wins. An org holds at most one at a time — the
   // checkout conflict guard refuses a second — so there is nothing to
   // disambiguate; search order (not creation order) does not matter here.
-  for (const item of items) {
-    const status = readString(prop(item, "status"));
-    const subscriptionId = readString(prop(item, "id"));
-    if (!status || !subscriptionId || !LIVE_SUBSCRIPTION_STATUSES.has(status)) {
-      continue;
-    }
-    const customer = prop(item, "customer");
-    const customerId = readString(customer) ?? readString(prop(customer, "id"));
-    // The search already filters on our own `orgId` metadata; re-confirm it
-    // before returning a customer whose Billing Portal exposes ALL its
-    // subscriptions, so a pooled customer can never leak another org's billing.
-    const orgId = readString(prop(prop(item, "metadata"), "orgId"));
-    if (customerId && orgId === organizationId) {
-      return { subscriptionId, customerId };
-    }
-  }
-  return null;
+  return findInStripeSubscriptionSearch(
+    organizationId,
+    { fetchImpl, secretKey },
+    (item) => {
+      const status = readString(prop(item, "status"));
+      const subscriptionId = readString(prop(item, "id"));
+      if (
+        !status ||
+        !subscriptionId ||
+        !LIVE_SUBSCRIPTION_STATUSES.has(status)
+      ) {
+        return null;
+      }
+      const customer = prop(item, "customer");
+      const customerId =
+        readString(customer) ?? readString(prop(customer, "id"));
+      // The search already filters on our own `orgId` metadata; re-confirm it
+      // before returning a customer whose Billing Portal exposes ALL its
+      // subscriptions, so a pooled customer can never leak another org's billing.
+      const orgId = readString(prop(prop(item, "metadata"), "orgId"));
+      if (customerId && orgId === organizationId) {
+        return { subscriptionId, customerId };
+      }
+      return null;
+    },
+  );
 }
 
 /**

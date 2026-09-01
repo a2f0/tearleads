@@ -49,7 +49,13 @@ function fakeFetch(responses: Array<{ status?: number; body: unknown }>): {
       headers: new Headers(init?.headers),
     });
     const next = responses.shift() ?? { body: {} };
-    return new Response(JSON.stringify(next.body), {
+    const body =
+      String(input).includes("/subscriptions/search") &&
+      typeof next.body === "object" &&
+      next.body !== null
+        ? { has_more: false, ...next.body }
+        : next.body;
+    return new Response(JSON.stringify(body), {
       status: next.status ?? 200,
     });
   }) as typeof fetch;
@@ -135,7 +141,6 @@ test("customer lookup creates one with userId metadata when none exists", async 
 test("subscription create binds org metadata and returns the client secret", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: VALID_TEAM_5_PRICE },
-    // No existing subscription for the org, then the create.
     { body: { data: [] } },
     {
       body: {

@@ -51,7 +51,7 @@ function checkoutFetch(recordedCreates: Request[]): typeof fetch {
       });
     }
     if (path.endsWith("/subscriptions/search")) {
-      return Response.json({ data: [] });
+      return Response.json({ data: [], has_more: false });
     }
     if (path.endsWith("/customers/search")) {
       return Response.json({ data: [{ id: "cus_org" }] });

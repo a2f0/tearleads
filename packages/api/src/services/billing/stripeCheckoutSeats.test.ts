@@ -125,7 +125,7 @@ test("inline checkout selects the current membership tier at quantity one", asyn
       return Response.json({ id: "cus_org" });
     }
     if (path.endsWith("/subscriptions/search")) {
-      return Response.json({ data: [] });
+      return Response.json({ data: [], has_more: false });
     }
     if (path.endsWith("/subscriptions")) {
       subscriptionBody = String(init?.body ?? "");
@@ -187,7 +187,7 @@ test("hosted checkout selects the current membership tier at quantity one", asyn
       });
     }
     if (path.endsWith("/subscriptions/search")) {
-      return Response.json({ data: [] });
+      return Response.json({ data: [], has_more: false });
     }
     if (path.endsWith("/customers/search")) {
       return Response.json({ data: [] });
