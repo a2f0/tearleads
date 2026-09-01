@@ -319,17 +319,19 @@ export async function deleteContainer(
     containerState: existingState,
     persistence: state.persistence,
     runtime: state.runtime,
+    stillCurrent: isCurrent,
   });
-  if (!deleted) {
+  if (deleted === "remote-failed") {
     return null;
   }
-  if (!isCurrent()) {
+  if (deleted === "local-conflict" || !isCurrent()) {
     state.localContainersNeedRefresh = true;
     await syncAgent.refreshLocalContainers();
     // The delete committed before this operation lost its generation. Evict
     // only the exact state it deleted: a concurrent replacement with the same
     // id owns a different object and must survive.
     if (
+      deleted === "deleted" &&
       state.containersById.get(existingState.container.id) === existingState
     ) {
       state.containersById.delete(existingState.container.id);

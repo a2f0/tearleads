@@ -85,20 +85,19 @@ async function settleAcceptedMoveIntentAfterPersistence(input: {
   execSql: ExecSql;
   intent: ContainerMoveIntentSyncInput["intent"];
   isCurrent: () => boolean;
-  state: ContainerMoveIntentSyncState;
+  markMoveIntentRevisionSynced: NonNullable<
+    ContainerMoveIntentSyncState["persistence"]["markMoveIntentRevisionSynced"]
+  >;
 }): Promise<boolean> {
   if (input.alreadySettled) {
     return true;
   }
-  const settled = await input.state.persistence.markMoveIntentRevisionSynced(
-    input.execSql,
-    {
-      containerId: input.intent.containerId,
-      expectedIntentId: input.intent.id,
-      expectedUpdatedAt: input.intent.updatedAt,
-      stillCurrent: input.isCurrent,
-    },
-  );
+  const settled = await input.markMoveIntentRevisionSynced(input.execSql, {
+    containerId: input.intent.containerId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+    stillCurrent: input.isCurrent,
+  });
   return input.isCurrent() && settled;
 }
 
@@ -111,13 +110,13 @@ export async function persistAcceptedMoveIntent(input: {
   state: ContainerMoveIntentSyncState;
 }): Promise<boolean> {
   const { host, intent, moved, state } = input;
+  const { markMoveIntentRevisionSynced } = state.persistence;
+  if (!markMoveIntentRevisionSynced) return false;
   const abandon = () => {
     input.requestRemoteReconciliation(moved.parentId);
     return false;
   };
-  if (!input.isCurrent()) {
-    return abandon();
-  }
+  if (!input.isCurrent()) return abandon();
   const containerState = state.containersById.get(intent.containerId);
   if (!containerState) {
     return false;
@@ -191,7 +190,7 @@ export async function persistAcceptedMoveIntent(input: {
     execSql,
     intent,
     isCurrent: input.isCurrent,
-    state,
+    markMoveIntentRevisionSynced,
   });
   if (!intentSettled) return abandon();
   const { record: nextRecord } = persistenceResult;

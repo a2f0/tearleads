@@ -127,7 +127,7 @@ test("remote deletion reconciles the replacement executor after a mid-request sw
         originalDatabase.execSql,
         source.container.id,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       await defaultContainerContentsPersistence.containerExists(
         replacementDatabase.execSql,

@@ -86,9 +86,11 @@ test("a partial purge refreshes current state after generation rollover", async 
     let current = true;
     const persistence: ContainerContentsPersistence = {
       ...defaultContainerContentsPersistence,
-      deleteContainer: async (...args) => {
-        await defaultContainerContentsPersistence.deleteContainer(...args);
+      deleteContainers: async (...args) => {
+        const deleted =
+          await defaultContainerContentsPersistence.deleteContainers(...args);
         current = false;
+        return deleted;
       },
     };
     const state = createContainerContentsStoreState(

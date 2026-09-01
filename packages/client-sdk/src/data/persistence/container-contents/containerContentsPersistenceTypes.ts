@@ -443,9 +443,14 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: ContainerMoveIntentRevisionInput,
   ) => Promise<boolean> | Promise<void>;
-  /** Required revision-CAS settlement used by asynchronous move replay. */
-  markMoveIntentRevisionSynced: (
-    execSql: ExecSql,
-    input: ContainerMoveIntentRevisionInput,
-  ) => Promise<boolean>;
+  /**
+   * Revision-CAS settlement used by asynchronous move replay. Legacy adapters
+   * without this capability are rejected before the remote mutation begins.
+   */
+  markMoveIntentRevisionSynced?:
+    | ((
+        execSql: ExecSql,
+        input: ContainerMoveIntentRevisionInput,
+      ) => Promise<boolean>)
+    | undefined;
 }

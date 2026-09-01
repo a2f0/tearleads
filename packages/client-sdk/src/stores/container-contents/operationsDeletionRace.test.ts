@@ -205,8 +205,9 @@ test("a completed deletion forces a current local refresh after generation rollo
   let current = true;
   const persistence: ContainerContentsPersistence = {
     ...defaultContainerContentsPersistence,
-    deleteContainer: async () => {
+    deleteContainers: async (_execSql, removals) => {
       current = false;
+      return removals.map((removal) => removal.containerId);
     },
   };
   const state = createContainerContentsStoreState(

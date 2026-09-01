@@ -29,22 +29,23 @@ test("remote deletion uses the server clock for its hydration fence", async () =
 
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await sqlContainerContentsPersistence.saveContainer(
-      execSql,
-      containerState.container,
-      containerState.record,
-      {
-        localUpdatedAt: T2,
-        serverTimestamps: { createdAt: T2, updatedAt: T2 },
-      },
-    );
+    containerState.container =
+      await sqlContainerContentsPersistence.saveContainer(
+        execSql,
+        containerState.container,
+        containerState.record,
+        {
+          localUpdatedAt: T2,
+          serverTimestamps: { createdAt: T2, updatedAt: T2 },
+        },
+      );
     await expect(
       deleteContainerState({
         containerState,
         persistence: sqlContainerContentsPersistence,
         runtime,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBe("deleted");
 
     const hydrate = (updatedAt: string) =>
       sqlContainerContentsPersistence.commitHydratedContainer(execSql, {

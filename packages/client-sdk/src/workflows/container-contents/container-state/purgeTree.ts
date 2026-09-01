@@ -344,11 +344,15 @@ async function deleteSubtreeContainers(input: {
       containerState,
       persistence: input.persistence,
       runtime: input.runtime,
+      stillCurrent: input.stillCurrent,
     });
-    if (deleted) {
+    if (deleted === "deleted") {
       purgedContainerIds.push(containerId);
       input.reportStep(true);
     } else {
+      if (deleted === "local-conflict" && purgeWasCancelled(input)) {
+        return { aborted: true, purgedContainerIds };
+      }
       if (parentId !== null) {
         blockedParentIds.add(parentId);
       }
