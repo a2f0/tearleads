@@ -29,10 +29,12 @@ interface OrganizationSubscriptionRef {
 }
 
 interface ResolvedSubscription {
+  readonly customerId: string | null;
   readonly currentPeriodEndsAt: Date | null;
   readonly currentPeriodStartsAt: Date | null;
   readonly environment: string | null;
   readonly givesAccess: boolean;
+  readonly id: string | null;
   readonly managementUrl: string | null;
   readonly productResourceId: string | null;
   readonly store: string | null;
@@ -74,10 +76,12 @@ function readDate(value: unknown): Date | null {
 function readSubscription(item: unknown): ResolvedSubscription {
   if (typeof item !== "object" || item === null) {
     return {
+      customerId: null,
       currentPeriodEndsAt: null,
       currentPeriodStartsAt: null,
       environment: null,
       givesAccess: false,
+      id: null,
       managementUrl: null,
       productResourceId: null,
       store: null,
@@ -85,6 +89,7 @@ function readSubscription(item: unknown): ResolvedSubscription {
     };
   }
   return {
+    customerId: readString("customer_id" in item ? item.customer_id : null),
     currentPeriodEndsAt: readDate(
       "current_period_ends_at" in item ? item.current_period_ends_at : null,
     ),
@@ -93,6 +98,7 @@ function readSubscription(item: unknown): ResolvedSubscription {
     ),
     environment: readString("environment" in item ? item.environment : null),
     givesAccess: "gives_access" in item && item.gives_access === true,
+    id: readString("id" in item ? item.id : null),
     managementUrl: readString(
       "management_url" in item ? item.management_url : null,
     ),
@@ -106,6 +112,115 @@ function readSubscription(item: unknown): ResolvedSubscription {
         : null,
     ),
   };
+}
+
+type PlayReplacementVerificationResult =
+  | { readonly kind: "verified" }
+  | { readonly kind: "not_found" }
+  | { readonly kind: "unavailable" };
+
+async function searchSubscriptionsByStoreIdentifier(input: {
+  readonly fetchImpl: typeof fetch;
+  readonly identifier: string;
+  readonly projectId: string;
+  readonly secretKey: string;
+}): Promise<{
+  readonly complete: boolean;
+  readonly items: ResolvedSubscription[];
+}> {
+  const headers = {
+    Authorization: `Bearer ${input.secretKey}`,
+    Accept: "application/json",
+  };
+  let path =
+    `/v2/projects/${encodeURIComponent(input.projectId)}/subscriptions` +
+    `?store_subscription_identifier=${encodeURIComponent(input.identifier)}` +
+    "&include_scheduled=true";
+  const items: ResolvedSubscription[] = [];
+  for (let page = 0; page < MAX_SUBSCRIPTION_PAGES; page++) {
+    const response = await input.fetchImpl(`${REVENUECAT_API_ORIGIN}${path}`, {
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      if (response.status !== 404) {
+        console.error(
+          `RevenueCat subscription identifier lookup failed with status ${response.status}`,
+        );
+      }
+      return { complete: response.status === 404 && page === 0, items };
+    }
+    const parsed = parseSubscriptionPage(await response.json());
+    items.push(...parsed.subscriptions);
+    if (!parsed.nextPage) return { complete: true, items };
+    path = parsed.nextPage;
+  }
+  return { complete: false, items };
+}
+
+/** Confirms that two Play order identifiers belong to one RevenueCat subscription. */
+export async function verifyRevenueCatPlaySubscriptionReplacement(
+  input: {
+    readonly appUserId: string;
+    readonly predecessorSubscriptionId: string;
+    readonly productId: string;
+    readonly replacementSubscriptionId: string;
+  },
+  deps: RevenueCatApiDeps = {},
+): Promise<PlayReplacementVerificationResult> {
+  const env = deps.env ?? process.env;
+  const credentials = readRevenueCatV2Credentials(env);
+  if (!credentials) return { kind: "unavailable" };
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  try {
+    const [predecessor, replacement] = await Promise.all([
+      searchSubscriptionsByStoreIdentifier({
+        fetchImpl,
+        identifier: input.predecessorSubscriptionId,
+        ...credentials,
+      }),
+      searchSubscriptionsByStoreIdentifier({
+        fetchImpl,
+        identifier: input.replacementSubscriptionId,
+        ...credentials,
+      }),
+    ]);
+    if (!predecessor.complete || !replacement.complete) {
+      return { kind: "unavailable" };
+    }
+    const previous = predecessor.items[0];
+    const current = replacement.items[0];
+    const allowSandbox = allowsRevenueCatSandboxEvents(env);
+    if (
+      predecessor.items.length !== 1 ||
+      replacement.items.length !== 1 ||
+      !previous?.id ||
+      previous.id !== current?.id ||
+      previous.customerId !== input.appUserId ||
+      current.customerId !== input.appUserId ||
+      previous.store?.toLowerCase() !== "play_store" ||
+      current.store?.toLowerCase() !== "play_store" ||
+      !current.givesAccess ||
+      (current.environment?.toLowerCase() === "sandbox" && !allowSandbox) ||
+      !current.productResourceId
+    ) {
+      return { kind: "not_found" };
+    }
+    const productId = await fetchProductStoreIdentifier({
+      fetchImpl,
+      productResourceId: current.productResourceId,
+      projectId: credentials.projectId,
+      secretKey: credentials.secretKey,
+    });
+    return productId === input.productId
+      ? { kind: "verified" }
+      : productId === null
+        ? { kind: "unavailable" }
+        : { kind: "not_found" };
+  } catch (error) {
+    console.error("RevenueCat Play replacement lookup errored:", error);
+    return { kind: "unavailable" };
+  }
 }
 
 function subscriptionMatchesStore(

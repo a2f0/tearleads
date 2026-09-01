@@ -5,8 +5,9 @@ import type {
   SyncPurchaseResult,
   SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
+import type { OrganizationNativePurchaseEligibilityResponse } from "@symcrypt/validators/response";
 import { renderHook } from "@testing-library/react";
-import type { PropsWithChildren, RefObject } from "react";
+import { type PropsWithChildren, type RefObject, useLayoutEffect } from "react";
 import {
   type CreatePurchasesFn,
   createAppHostConfig,
@@ -119,6 +120,7 @@ export function renderBillingActions(input: {
   purchases: PurchasesCapability;
   nativePurchaseAllowed?: boolean;
   optionsRetryDelaysMs?: readonly number[];
+  checkNativePurchaseEligibility?: () => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
   activateRestoredOrganization?: (
     organization: SessionCreateOrganizationResult,
   ) => Promise<void>;
@@ -126,6 +128,7 @@ export function renderBillingActions(input: {
   createRestoreOrganization?: () => Promise<SessionCreateOrganizationResult | null>;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
+  observeLayout?: () => void;
 }) {
   return renderHook<
     BillingActions & {
@@ -160,6 +163,9 @@ export function renderBillingActions(input: {
         billingSeatCount: billingSeatCount ?? null,
         claimNativeSubscription:
           input.claimNativeSubscription ?? (() => Promise.resolve(true)),
+        checkNativePurchaseEligibility:
+          input.checkNativePurchaseEligibility ??
+          (() => Promise.resolve({ eligible: true, reason: null })),
         completeRestoreOrganization: () => Promise.resolve(true),
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
@@ -177,6 +183,9 @@ export function renderBillingActions(input: {
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),
         userId,
       });
+      useLayoutEffect(() => {
+        input.observeLayout?.();
+      }, [organizationId, userId]);
       const { entries } = useLog();
       return {
         ...actions,

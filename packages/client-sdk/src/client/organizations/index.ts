@@ -3,6 +3,7 @@ import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVer
 import {
   type addOrganizationGroupUser,
   cancelStripeSubscription,
+  checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   type createOrganizationGroup,
   createStripeCheckout,
@@ -112,6 +113,10 @@ export interface Organizations {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) => ReturnType<typeof claimNativeOrganizationSubscription>;
+  checkNativePurchaseEligibility: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) => ReturnType<typeof checkNativePurchaseEligibility>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -290,6 +295,15 @@ class OrganizationsService implements Organizations {
   ) {
     return runForOrganization(this.runtimeService, organizationId, (input) =>
       claimNativeOrganizationSubscription({ ...input, store }),
+    );
+  }
+
+  checkNativePurchaseEligibility(
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) {
+    return runForOrganization(this.runtimeService, organizationId, (input) =>
+      checkNativePurchaseEligibility({ ...input, store }),
     );
   }
 

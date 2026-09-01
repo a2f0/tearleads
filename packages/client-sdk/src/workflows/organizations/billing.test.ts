@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { OrganizationBillingResponse } from "@symcrypt/validators/response";
 import {
+  checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
@@ -278,4 +279,26 @@ test("claimNativeOrganizationSubscription passes the org and store through", asy
   });
   expect(calls).toEqual([["org-9", "app_store"]]);
   expect(result).toBe(snapshot);
+});
+
+test("checkNativePurchaseEligibility returns the server policy decision", async () => {
+  const calls: Array<[string, string]> = [];
+  const result = await checkNativePurchaseEligibility({
+    apiClient: {
+      getOrganizationNativePurchaseEligibility: async (
+        organizationId,
+        store,
+      ) => {
+        calls.push([organizationId, store]);
+        return { eligible: false, reason: "terminal_organization" };
+      },
+    },
+    organizationId: "org-9",
+    store: "play_store",
+  });
+  expect(calls).toEqual([["org-9", "play_store"]]);
+  expect(result).toEqual({
+    eligible: false,
+    reason: "terminal_organization",
+  });
 });

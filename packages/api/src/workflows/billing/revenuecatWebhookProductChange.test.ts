@@ -5,6 +5,7 @@ import { createTestUser } from "@symcrypt/bob-and-alice";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
+import { playReplacementApiDeps } from "../../../test/helpers/revenuecatPlayReplacement";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import {
   APP_PRODUCT_CHANGE_WITHOUT_DESTINATION_REASON,
@@ -278,7 +279,7 @@ test("a Play upgrade settles from its effective purchase event", async () => {
         event_timestamp_ms: now + 2,
         id: crypto.randomUUID(),
         new_product_id: null,
-        original_transaction_id: "replacement_play_token",
+        original_transaction_id: "native_immediate_upgrade",
         type: "PRODUCT_CHANGE",
       }),
     ).toEqual({
@@ -299,15 +300,27 @@ test("a Play upgrade settles from its effective purchase event", async () => {
   ).toBeNull();
 
   expect(
-    await runRevenueCatWebhookWorkflow(db, {
-      ...initial,
-      // RevenueCat does not guarantee that this effective purchase has a
-      // later timestamp than its informational PRODUCT_CHANGE.
-      event_timestamp_ms: now + 1,
-      id: crypto.randomUUID(),
-      original_transaction_id: "replacement_play_token",
-      product_id: "sync_team_5_monthly",
-    }),
+    await runRevenueCatWebhookWorkflow(
+      db,
+      {
+        ...initial,
+        // RevenueCat does not guarantee that this effective purchase has a
+        // later timestamp than its informational PRODUCT_CHANGE.
+        event_timestamp_ms: now + 1,
+        id: crypto.randomUUID(),
+        original_transaction_id: "replacement_play_token",
+        product_id: "sync_team_5_monthly",
+      },
+      undefined,
+      {
+        revenuecat: playReplacementApiDeps({
+          appUserId: admin.userId,
+          predecessorSubscriptionId: "native_immediate_upgrade",
+          productId: "sync_team_5_monthly",
+          replacementSubscriptionId: "replacement_play_token",
+        }),
+      },
+    ),
   ).toMatchObject({ organizationId, status: "applied" });
   expect(await readTier(organizationId)).toEqual({
     providerProductId: "sync_team_5_monthly",

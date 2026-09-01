@@ -405,6 +405,7 @@ export {
 // tests that compose low-level runtimes use the testing package subpath.
 export type {
   OrganizationGroupPolicyHistoryEntry,
+  OrganizationNativePurchaseEligibility,
   OrganizationPrincipalMemberChange,
   OrganizationPrincipalMemberChangeType,
   OrganizationPrincipalPolicyHistory,
@@ -418,6 +419,7 @@ export {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationProfileDocumentPatch,
   buildRosterProfileDocumentPatch,
+  checkNativePurchaseEligibility,
   createInitializedRosterProfileDocument,
   createOrganizationGroup,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,

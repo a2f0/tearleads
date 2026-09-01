@@ -112,12 +112,15 @@ export function revenuecatWebhookBody(input: WebhookEventInput): string {
           ? Date.now() + THIRTY_DAYS_MS
           : input.expirationAtMs,
       id: input.eventId ?? crypto.randomUUID(),
-      original_transaction_id: input.originalTransactionId,
+      original_transaction_id:
+        input.originalTransactionId === undefined
+          ? `native-${input.organizationId}`
+          : input.originalTransactionId,
       product_id: input.productId ?? "sync_monthly",
       period_type: input.periodType,
       price_in_purchased_currency: input.priceInPurchasedCurrency,
       purchased_at_ms: input.purchasedAtMs,
-      store: input.store,
+      store: input.store ?? "APP_STORE",
       subscriber_attributes: { orgId: { value: input.organizationId } },
       transaction_id: input.transactionId,
       type: input.type,

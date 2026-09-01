@@ -6,9 +6,11 @@ import {
   isOrganizationBillingHistoryResponse,
   isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
+  isOrganizationNativePurchaseEligibilityResponse,
   OrganizationBillingHistoryResponseSchema,
   OrganizationBillingManagementUrlResponseSchema,
   OrganizationBillingResponseSchema,
+  OrganizationNativePurchaseEligibilityResponseSchema,
 } from "../response";
 import { defineJsonOperation, type RuntimeRefinement } from "./definition";
 import { OrganizationPathParamsSchema } from "./organizations";
@@ -19,12 +21,18 @@ export const OrganizationBillingNativeClaimPathParamsSchema = z.strictObject({
   organizationId: OrganizationPathParamsSchema.shape.organizationId,
   store: NativeSubscriptionStoreSchema,
 });
+export const OrganizationBillingNativeEligibilityQuerySchema = z.strictObject({
+  store: NativeSubscriptionStoreSchema,
+});
 
 export type OrganizationBillingPathParams = z.infer<
   typeof OrganizationBillingPathParamsSchema
 >;
 export type OrganizationBillingNativeClaimPathParams = z.infer<
   typeof OrganizationBillingNativeClaimPathParamsSchema
+>;
+export type OrganizationBillingNativeEligibilityQuery = z.infer<
+  typeof OrganizationBillingNativeEligibilityQuerySchema
 >;
 
 const organizationBillingReadFailureResponses = {
@@ -86,6 +94,22 @@ export const getOrganizationBillingManagementUrlOperation =
     response: OrganizationBillingManagementUrlResponseSchema,
   });
 
+export const getOrganizationNativePurchaseEligibilityOperation =
+  defineJsonOperation({
+    auth: "session",
+    failureResponses: {
+      ...organizationBillingReadFailureResponses,
+      409: ErrorResponseSchema,
+    },
+    failureStatuses: [400, 401, 403, 404, 409, 500],
+    id: "organizations.billing.native.eligibility.get",
+    method: "GET",
+    params: OrganizationBillingPathParamsSchema,
+    path: "/organizations/{organizationId}/billing/native/eligibility",
+    query: OrganizationBillingNativeEligibilityQuerySchema,
+    responses: { 200: OrganizationNativePurchaseEligibilityResponseSchema },
+  });
+
 export const startOrganizationTrialOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
@@ -125,6 +149,8 @@ export const isGetOrganizationBillingHistoryOperationResponse =
   isOrganizationBillingHistoryResponse;
 export const isGetOrganizationBillingManagementUrlOperationResponse =
   isOrganizationBillingManagementUrlResponse;
+export const isGetOrganizationNativePurchaseEligibilityOperationResponse =
+  isOrganizationNativePurchaseEligibilityResponse;
 export const isStartOrganizationTrialOperationResponse =
   isOrganizationBillingResponse;
 export const isClaimNativeOrganizationSubscriptionOperationResponse =

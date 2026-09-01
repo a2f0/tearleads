@@ -28,3 +28,20 @@ test("bounds iOS package preparation before opening StoreKit", async () => {
   expect(fixture.purchaseCalls).toEqual([]);
   expect(fixture.nativePurchaseCalls).toEqual([]);
 });
+
+test("reports presentation only after native preparation completes", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.platform = "ios";
+  fixture.packages = [nativePackage("monthly", "com.symcrypt.sync.monthly")];
+  const events: string[] = [];
+  fixture.onNativePrepare = () => events.push("prepare");
+  fixture.onNativePurchase = () => events.push("purchase");
+
+  await createCapacitorPurchases().purchaseSync({
+    organizationId: "org-1",
+    packageId: "monthly",
+    onProviderPresented: () => events.push("presented"),
+  });
+
+  expect(events).toEqual(["prepare", "presented", "purchase"]);
+});

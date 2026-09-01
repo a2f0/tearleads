@@ -67,6 +67,13 @@ function setup(input: {
     organization: SessionCreateOrganizationResult,
   ) => Promise<void>;
   readonly bindOrganization?: PurchasesCapability["bindOrganization"];
+  readonly checkNativePurchaseEligibility?: () => Promise<
+    | { readonly eligible: true; readonly reason: null }
+    | {
+        readonly eligible: false;
+        readonly reason: "terminal_organization";
+      }
+  >;
   readonly claim: (organizationId: string, store: string) => Promise<boolean>;
   readonly complete?: (organizationId: string) => Promise<boolean>;
   readonly create?: () => Promise<SessionCreateOrganizationResult | null>;
@@ -77,22 +84,27 @@ function setup(input: {
     state = update(state);
   };
   const view = renderHook(
-    () =>
+    ({ nativePurchaseAllowed }: { nativePurchaseAllowed: boolean }) =>
       useNativeSubscriptionMove({
         activateRestoredOrganization:
           input.activate ?? (() => Promise.resolve()),
+        checkNativePurchaseEligibility:
+          input.checkNativePurchaseEligibility ??
+          (() => Promise.resolve({ eligible: true, reason: null })),
         claimNativeSubscription: input.claim,
         completeRestoreOrganization:
           input.complete ?? (() => Promise.resolve(true)),
         createRestoreOrganization:
           input.create ?? (() => Promise.resolve(RESTORED_ORGANIZATION)),
         currentScope: SCOPE,
+        nativePurchaseAllowed,
         purchases: purchases(input.restore, input.bindOrganization),
         scopeRef: { current: SCOPE },
         updateActionState,
         userId: SCOPE.userId,
       }),
     {
+      initialProps: { nativePurchaseAllowed: true },
       wrapper: ({ children }: PropsWithChildren) => (
         <LogProvider>{children}</LogProvider>
       ),
@@ -100,6 +112,107 @@ function setup(input: {
   );
   return { state: () => state, view };
 }
+
+test("restore preflight blocks the provider for terminal server state", async () => {
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      Promise.resolve({
+        eligible: false,
+        reason: "terminal_organization",
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.billingEligibilityTerminal,
+    ),
+  );
+  expect(restore).not.toHaveBeenCalled();
+});
+
+test("losing local eligibility closes and disables an open restore", () => {
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+  act(() => flow.view.result.current.request());
+  expect(flow.view.result.current.open).toBe(true);
+
+  flow.view.rerender({ nativePurchaseAllowed: false });
+  expect(flow.view.result.current.open).toBe(false);
+  act(() => flow.view.result.current.confirm());
+
+  expect(restore).not.toHaveBeenCalled();
+});
+
+test("losing local eligibility clears a stalled restore before provider work", async () => {
+  let finishPreflight:
+    | ((result: { readonly eligible: true; readonly reason: null }) => void)
+    | undefined;
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      new Promise((resolve) => {
+        finishPreflight = resolve;
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflight).toBeDefined());
+  flow.view.rerender({ nativePurchaseAllowed: false });
+
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(restore).not.toHaveBeenCalled();
+  await act(async () => {
+    finishPreflight?.({ eligible: true, reason: null });
+    await Promise.resolve();
+  });
+  expect(restore).not.toHaveBeenCalled();
+  expect(flow.state().actionError).toBeNull();
+});
+
+test("an invalidated restore cannot clear its replacement attempt", async () => {
+  type Eligibility = { readonly eligible: true; readonly reason: null };
+  const finishPreflights: Array<(result: Eligibility) => void> = [];
+  const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
+  const flow = setup({
+    checkNativePurchaseEligibility: () =>
+      new Promise<Eligibility>((resolve) => {
+        finishPreflights.push(resolve);
+      }),
+    claim: () => Promise.resolve(true),
+    restore,
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflights).toHaveLength(1));
+  flow.view.rerender({ nativePurchaseAllowed: false });
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+
+  flow.view.rerender({ nativePurchaseAllowed: true });
+  startMove(flow.view);
+  await waitFor(() => expect(finishPreflights).toHaveLength(2));
+  expect(flow.state().busy).toBe("restore");
+
+  await act(async () => {
+    finishPreflights[0]?.({ eligible: true, reason: null });
+    await Promise.resolve();
+  });
+  expect(restore).not.toHaveBeenCalled();
+  expect(flow.state().busy).toBe("restore");
+
+  finishPreflights[1]?.({ eligible: true, reason: null });
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(restore).toHaveBeenCalledTimes(1);
+});
 
 function startMove(view: ReturnType<typeof setup>["view"]): void {
   act(() => view.result.current.request());

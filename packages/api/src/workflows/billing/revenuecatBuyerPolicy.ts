@@ -1,15 +1,17 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { revenuecatWebhookEvents, users } from "@symcrypt/api-shared/schema";
+import { users } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { isUuidV4String } from "@symcrypt/validators/util";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { hasAcceptedPlayReplacement } from "./nativeSubscriptionIdentity";
 import {
   canInferNativeBindingWithoutReceiptId,
   resolveRetainedNativeSubscriptionOrganizationForUser,
 } from "./nativeSubscriptionResolution";
+import type { VerifiedPlayReplacement } from "./revenuecatPlayReplacement";
 
 const NON_NATIVE_REVENUECAT_STORES = new Set([
   "PROMOTIONAL",
@@ -64,39 +66,28 @@ async function isOrganizationAdmin(
 }
 
 async function hasPriorNativeProductChange(input: {
+  readonly currentProviderSubscriptionId: string | null;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<boolean> {
-  const productId = input.event.product_id;
-  const store = input.event.store?.toUpperCase();
   if (
-    input.event.type !== "INITIAL_PURCHASE" ||
-    !input.event.original_transaction_id ||
-    !productId ||
-    !store
+    input.event.type !== "INITIAL_PURCHASE" &&
+    input.event.type !== "RENEWAL"
   ) {
     return false;
   }
-  const [change] = await input.executor
-    .select({ id: revenuecatWebhookEvents.id })
-    .from(revenuecatWebhookEvents)
-    .where(
-      and(
-        eq(revenuecatWebhookEvents.organizationId, input.organizationId),
-        eq(revenuecatWebhookEvents.appUserId, input.event.app_user_id),
-        eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
-        eq(revenuecatWebhookEvents.outcome, "applied"),
-        eq(
-          revenuecatWebhookEvents.originalTransactionId,
-          input.event.original_transaction_id,
-        ),
-        eq(revenuecatWebhookEvents.productId, productId),
-        eq(revenuecatWebhookEvents.store, store),
-      ),
-    )
-    .limit(1);
-  return change !== undefined;
+  return hasAcceptedPlayReplacement({
+    appUserId: input.event.app_user_id,
+    currentSubscriptionId: input.currentProviderSubscriptionId,
+    executor: input.executor,
+    organizationId: input.organizationId,
+    productId: input.event.product_id ?? null,
+    store: input.event.store ?? null,
+    subscriptionId: input.event.original_transaction_id ?? null,
+    verifiedReplacement: input.verifiedReplacement,
+  });
 }
 
 /** Returns the buyer-policy reason a paid grant must be ignored, if any. */
@@ -107,6 +98,7 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
+  readonly verifiedReplacement?: VerifiedPlayReplacement | null | undefined;
 }): Promise<string | null> {
   const sameProviderCustomer =
     input.currentProviderCustomerId === input.event.app_user_id;
@@ -125,7 +117,6 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
       input.currentProviderSubscriptionId &&
       (input.event.original_transaction_id ===
         input.currentProviderSubscriptionId ||
-        input.event.type === "PRODUCT_CHANGE" ||
         (await hasPriorNativeProductChange(input)) ||
         (!input.event.original_transaction_id &&
           canInferNativeBindingWithoutReceiptId(input.event.type) &&

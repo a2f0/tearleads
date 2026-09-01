@@ -1,0 +1,1 @@
+ALTER TABLE "revenuecat_webhook_events" ADD COLUMN "source_original_transaction_id" text;

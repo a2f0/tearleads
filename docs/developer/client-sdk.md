@@ -96,7 +96,7 @@ Client capabilities:
 | `symcrypt.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `symcrypt.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `symcrypt.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
-| `symcrypt.organizations` | strict local-first organization and durable data-usage projections, plus exact-head history from verified policy storage |
+| `symcrypt.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, and server-authoritative billing eligibility |
 | `symcrypt.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `symcrypt.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
@@ -524,14 +524,17 @@ Org sync billing exposes two provider-neutral capabilities:
 | `PurchasesCapability` | App Store or Play; web uses it only to observe RevenueCat entitlements | `AppHostConfig.createPurchases` |
 | `DirectCheckoutCapability` | The app around Stripe's mounted element | `AppHostConfig.createDirectCheckout` |
 
-Both ship unavailable stubs. Web keeps entitlement reads but uses direct
-checkout. New native purchases are personal-org only. Recover
-`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; after
-receipt verification, `prepareClaim` creates a fresh organization outside the
-claim deadline; `claim` submits its id to
-`symcrypt.organizations.claimNativeSubscription`. Only accepted claims publish
-attribution. Identity-pending errors mean retry; provider-stalled errors mean
-restart. Keep restore/claim/bind atomic.
+Both have unavailable stubs. Web only observes RevenueCat and purchases through
+direct checkout. Native purchases are personal-org only. Handle
+`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
+receipt, prepare a fresh org outside the claim deadline, claim it, then publish
+attribution. Identity pending means retry; provider stalled means restart.
+Before purchase or restore, use
+`checkNativePurchaseEligibility(organizationId, store)` to block a second
+subscription; claims and webhooks still recheck ownership and conflicts. Native
+capabilities set `supportsProviderPresentationCallback` only when they precisely
+report store-sheet presentation; otherwise checkout is non-dismissible from
+provider start. Keep restore/claim/bind atomic.
 See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

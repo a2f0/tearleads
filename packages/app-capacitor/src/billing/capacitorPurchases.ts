@@ -267,7 +267,12 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
       normalizeCapacitorPreparationError(error, input.abortSignal),
     );
   },
-  async purchasePackage({ abortSignal, packageId, preparedPurchase }) {
+  async purchasePackage({
+    abortSignal,
+    onProviderPresented,
+    packageId,
+    preparedPurchase,
+  }) {
     if (abortSignal?.aborted) throw new PurchaseAbortedError();
     if (
       !(preparedPurchase instanceof CapacitorPreparedPurchase) ||
@@ -280,6 +285,8 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
         ),
       );
     }
+    if (abortSignal?.aborted) throw new PurchaseAbortedError();
+    onProviderPresented?.();
     try {
       return await purchaseCapacitorRevenueCatPackage(
         preparedPurchase.aPackage,
@@ -364,6 +371,7 @@ export function createCapacitorPurchases(input?: {
         ? "app_store"
         : "play_store",
     restorePurchasesUsesCheckoutTimeout: true,
+    supportsProviderPresentationCallback: true,
     syncEntitlementId,
     ...(operationTimeoutMs === undefined ? {} : { operationTimeoutMs }),
   });

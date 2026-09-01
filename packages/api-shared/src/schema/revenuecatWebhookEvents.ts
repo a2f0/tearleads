@@ -36,6 +36,8 @@ import {
  * - `periodType`: RevenueCat's uppercase transaction period classification.
  * - `transactionId` / `originalTransactionId`: Provider transaction ids used to
  *   correlate the applied billing row back to RevenueCat/store history.
+ * - `sourceOriginalTransactionId`: For a Play `PRODUCT_CHANGE`, the locked
+ *   predecessor token present when the change marker was processed.
  * - `organizationId`: Organization the event was applied to, resolved from the
  *   `orgId` subscriber attribute. Null when the event carried no resolvable org.
  * - `sourceOrganizationId`: Previous owner for a `TRANSFER` event. This lets
@@ -63,6 +65,7 @@ export const revenuecatWebhookEvents = pgTable(
     periodType: text("period_type"),
     transactionId: text("transaction_id"),
     originalTransactionId: text("original_transaction_id"),
+    sourceOriginalTransactionId: text("source_original_transaction_id"),
     organizationId: uuid("organization_id"),
     sourceOrganizationId: uuid("source_organization_id"),
     outcome: text("outcome").notNull(),

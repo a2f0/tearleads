@@ -9,7 +9,6 @@ import {
   type RefObject,
   type SetStateAction,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -29,6 +28,7 @@ import {
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
 import { useSubscribeAction } from "../billing/useSubscribeAction";
+import type { CheckNativePurchaseEligibility } from "./nativePurchaseEligibility";
 import {
   type BillingOptionsState,
   billingOptionsErrorLabel,
@@ -108,17 +108,12 @@ function useStartTrialAction(
 }
 
 /**
- * Owns the cancel action for the purchase currently in flight. Also ties the
- * embedded checkout to its host's lifetime: when the buyer scope changes,
- * purchase eligibility is lost (e.g. the buyer's admin role is revoked
- * mid-purchase, which unmounts the admin actions and the host with them), or
- * the panel unmounts, the in-flight purchase is cancelled so an orphaned
- * provider flow is not left running with no reachable UI. Embedded web only:
- * a native purchase runs in a store sheet the app cannot cancel, so settling
- * it as cancelled here would just desync the panel from a still-active sheet.
+ * Owns the cancel action for the purchase currently in flight. Lifecycle
+ * cleanup cancels eligibility and identity work before any provider UI starts.
+ * Native flows retire this action when the store sheet opens because the app
+ * cannot dismiss that sheet; embedded web keeps it through checkout teardown.
  */
 function useCheckoutCancellation(
-  embeddedCheckout: boolean,
   organizationId: string,
   userId: string | null,
   canSubscribe: boolean,
@@ -130,14 +125,11 @@ function useCheckoutCancellation(
   const cancelCheckout = useCallback(() => {
     cancelPurchaseRef.current?.();
   }, []);
-  useEffect(() => {
-    if (!embeddedCheckout) {
-      return;
-    }
+  useLayoutEffect(() => {
     return () => {
       cancelPurchaseRef.current?.();
     };
-  }, [embeddedCheckout, organizationId, userId, canSubscribe]);
+  }, [organizationId, userId, canSubscribe]);
   return { cancelPurchaseRef, cancelCheckout };
 }
 
@@ -148,6 +140,7 @@ function useCheckoutCancellation(
  */
 function usePurchaseActions(input: {
   canSubscribe: boolean;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   checkoutEligible: boolean;
   checkoutHostRef?: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
@@ -167,7 +160,6 @@ function usePurchaseActions(input: {
     input.updateActionState,
   );
   const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
-    input.purchases.supportsEmbeddedCheckout === true,
     input.organizationId,
     input.userId,
     input.checkoutEligible,
@@ -175,6 +167,7 @@ function usePurchaseActions(input: {
   const subscribe = useSubscribeAction({
     canSubscribe: input.canSubscribe,
     cancelPurchaseRef,
+    checkNativePurchaseEligibility: input.checkNativePurchaseEligibility,
     checkoutHostRef: input.checkoutHostRef,
     currentScope: input.currentScope,
     purchases: input.purchases,
@@ -286,6 +279,7 @@ interface UseBillingActionsInput {
   billingIsActive: boolean;
   billingPendingSeatCount: number | null;
   billingSeatCount: number | null;
+  checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   activateRestoredOrganization: (
     organization: SessionCreateOrganizationResult,
   ) => Promise<void>;
@@ -350,6 +344,27 @@ function projectBillingActions(input: {
   };
 }
 
+function useBillingActionSettlement(input: {
+  readonly actionState: BillingActionState;
+  readonly actionStateMatches: boolean;
+  readonly activationPollDelaysMs: readonly number[];
+  readonly billingIsActive: boolean;
+  readonly billingPendingSeatCount: number | null;
+  readonly billingSeatCount: number | null;
+  readonly currentScope: BillingActionScope;
+  readonly refresh: () => Promise<void>;
+  readonly updateActionState: UpdateActionState;
+}) {
+  const settlement = useBillingUpdateSettlement(input);
+  useActivationBillingPoll(
+    input.actionStateMatches && input.actionState.activationPending,
+    settlement.settled,
+    input.refresh,
+    input.activationPollDelaysMs,
+    settlement.expire,
+  );
+}
+
 /**
  * Owns the billing panel's in-flight action state and orchestrates the platform
  * purchases capability (list options, identify + purchase, restore), refetching
@@ -361,6 +376,7 @@ export function useBillingActions({
   billingIsActive,
   billingPendingSeatCount,
   billingSeatCount,
+  checkNativePurchaseEligibility,
   claimNativeSubscription,
   completeRestoreOrganization,
   checkoutHostRef,
@@ -374,9 +390,11 @@ export function useBillingActions({
   userId,
 }: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
-  const hasBuyer = userId !== null;
   const canSubscribe =
-    isOrgAdmin && nativePurchaseAllowed && purchases.isAvailable && hasBuyer;
+    isOrgAdmin &&
+    nativePurchaseAllowed &&
+    purchases.isAvailable &&
+    userId !== null;
   const {
     actionState,
     currentScope,
@@ -387,10 +405,12 @@ export function useBillingActions({
   } = useBillingActionState(organizationId, userId);
   const subscriptionMove = useNativeSubscriptionMove({
     activateRestoredOrganization,
+    checkNativePurchaseEligibility,
     claimNativeSubscription,
     completeRestoreOrganization,
     createRestoreOrganization,
     currentScope,
+    nativePurchaseAllowed,
     purchases,
     scopeRef,
     updateActionState,
@@ -416,6 +436,7 @@ export function useBillingActions({
   });
   const actions = usePurchaseActions({
     canSubscribe: purchaseCanSubscribe,
+    checkNativePurchaseEligibility,
     checkoutEligible: canSubscribe,
     checkoutHostRef,
     currentScope,
@@ -428,22 +449,17 @@ export function useBillingActions({
     userId,
     onAlreadyOwned: subscriptionMove.request,
   });
-  const activationSettlement = useBillingUpdateSettlement({
+  useBillingActionSettlement({
     actionState,
     actionStateMatches,
+    activationPollDelaysMs,
     billingIsActive,
     billingPendingSeatCount,
     billingSeatCount,
     currentScope,
+    refresh,
     updateActionState,
   });
-  useActivationBillingPoll(
-    actionStateMatches && actionState.activationPending,
-    activationSettlement.settled,
-    refresh,
-    activationPollDelaysMs,
-    activationSettlement.expire,
-  );
   return projectBillingActions({
     actionState,
     actionStateMatches,

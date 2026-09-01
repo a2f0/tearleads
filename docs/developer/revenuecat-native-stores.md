@@ -45,8 +45,11 @@ is specific to the native bridge, as opposed to the web one:
   it.** A presented StoreKit or Play sheet has no programmatic dismissal, so the
   abort is checked on entry and after both the adapter and native package
   lookups. Those lookups remain inside the preparation deadline; only the
-  buyer-controlled store sheet is unbounded. The abort takes precedence over an
-  unknown package so an abandoned flow's outcome stays a pre-sheet abort.
+  buyer-controlled store sheet is unbounded. The adapter synchronously reports
+  that presentation boundary immediately before calling the native bridge, so
+  app navigation can cancel preparation without abandoning an already-presented
+  purchase. The abort takes precedence over an unknown package so an abandoned
+  flow's outcome stays a pre-sheet abort.
 - **Configure binds the known buyer.** `Purchases.configure` receives the
   `appUserID` when the sdk has one; configuring anonymously and aliasing on the
   following `logIn` leaves a stray anonymous customer per fresh install.

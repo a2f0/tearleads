@@ -76,6 +76,13 @@ export interface PurchasesCapability {
    * Cancel affordance.
    */
   readonly supportsEmbeddedCheckout?: boolean;
+  /**
+   * True when a native provider invokes `onProviderPresented` at the exact
+   * point its store sheet can no longer be withdrawn by the app. Legacy
+   * providers leave this false so callers stop offering cancellation before
+   * handing control to them.
+   */
+  readonly supportsProviderPresentationCallback?: boolean;
   /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
   identify(input: { userId: string }): Promise<void>;
   /** Forget the identified buyer (e.g. on sign-out). */
@@ -97,6 +104,8 @@ export interface PurchasesCapability {
     packageId: string;
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
+    /** Called synchronously when provider UI becomes impossible to dismiss. */
+    onProviderPresented?: () => void;
   }): Promise<SyncPurchaseResult>;
   /** Publish a server-accepted organization binding for later lifecycle events. */
   bindOrganization(input: { organizationId: string }): Promise<void>;
@@ -163,6 +172,7 @@ export interface RevenueCatBackend {
     metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
     preparedPurchase?: unknown;
+    onProviderPresented?: () => void;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -203,6 +213,8 @@ export interface RevenueCatPurchasesConfig {
    * carry their own dismissal.
    */
   readonly supportsEmbeddedCheckout?: boolean;
+  /** Whether the native backend honors the purchase presentation callback. */
+  readonly supportsProviderPresentationCallback?: boolean;
   /**
    * Maximum wait for provider setup, identity, and non-checkout operations.
    * Defaults to 30 seconds. Purchase checkout itself is not timed because the
@@ -211,6 +223,10 @@ export interface RevenueCatPurchasesConfig {
    * until the bridge settles or the app restarts.
    */
   readonly operationTimeoutMs?: number;
+}
+
+function providerPresentedInput(callback: (() => void) | undefined) {
+  return callback ? { onProviderPresented: callback } : {};
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
@@ -252,6 +268,20 @@ function requirePurchasesEnabled(enabled: boolean): void {
   }
 }
 
+function purchaseCapabilityFlags(
+  config: RevenueCatPurchasesConfig,
+  purchasesEnabled: boolean,
+) {
+  return {
+    supportsEmbeddedCheckout:
+      purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
+    supportsProviderPresentationCallback:
+      purchasesEnabled &&
+      config.nativeStore !== null &&
+      config.supportsProviderPresentationCallback === true,
+  };
+}
+
 /**
  * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
  * provider is configured lazily and exactly once (the first call that needs it),
@@ -275,8 +305,7 @@ export function createRevenueCatPurchases(
   return {
     isAvailable: purchasesEnabled,
     nativeStore: config.nativeStore,
-    supportsEmbeddedCheckout:
-      purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
+    ...purchaseCapabilityFlags(config, purchasesEnabled),
     identify(input) {
       return identity
         .identify(input.userId)
@@ -314,6 +343,7 @@ export function createRevenueCatPurchases(
               ...(preparedPurchase === undefined ? {} : { preparedPurchase }),
               ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
               ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
+              ...providerPresentedInput(input.onProviderPresented),
             }),
           // Bind inside the checkout gate so native events carry the org the
           // webhook resolves. Web metadata is immutable per transaction;

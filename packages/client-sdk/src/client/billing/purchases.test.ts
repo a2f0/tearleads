@@ -20,6 +20,7 @@ interface RecordingBackend extends RevenueCatBackend {
     htmlTarget?: HTMLElement;
     metadata?: Record<string, string>;
     abortSignal?: AbortSignal;
+    onProviderPresented?: () => void;
   }>;
 }
 
@@ -93,6 +94,26 @@ test("configures the backend lazily and only once", async () => {
   await purchases.hasActiveSyncEntitlement();
 
   expect(backend.calls.filter((call) => call === "configure")).toHaveLength(1);
+});
+
+test("advertises native provider presentation callbacks only when configured", () => {
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), CONFIG)
+      .supportsProviderPresentationCallback,
+  ).toBe(false);
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), {
+      ...CONFIG,
+      supportsProviderPresentationCallback: true,
+    }).supportsProviderPresentationCallback,
+  ).toBe(true);
+  expect(
+    createRevenueCatPurchases(createFakeBackend(), {
+      ...CONFIG,
+      nativeStore: null,
+      supportsProviderPresentationCallback: true,
+    }).supportsProviderPresentationCallback,
+  ).toBe(false);
 });
 
 test("retries configuration after a failed attempt instead of caching the rejection", async () => {
@@ -207,12 +228,14 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   const purchases = createRevenueCatPurchases(backend, CONFIG);
   const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
   const abortSignal = new AbortController().signal;
+  const onProviderPresented = () => {};
 
   await purchases.purchaseSync({
     organizationId: "org-9",
     packageId: "monthly",
     checkoutHost,
     abortSignal,
+    onProviderPresented,
   });
   await purchases.purchaseSync({
     organizationId: "org-9",
@@ -221,8 +244,12 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
 
   expect(backend.purchaseInputs[0]?.htmlTarget).toBe(checkoutHost);
   expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
+  expect(backend.purchaseInputs[0]?.onProviderPresented).toBe(
+    onProviderPresented,
+  );
   expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
+  expect(backend.purchaseInputs[1]?.onProviderPresented).toBeUndefined();
 });
 
 test("a buyer-paced checkout keeps a delayed identity change retryable", async () => {
@@ -406,10 +433,12 @@ test("observation-only RevenueCat disables purchases but preserves entitlement r
     ...CONFIG,
     purchasesEnabled: false,
     supportsEmbeddedCheckout: true,
+    supportsProviderPresentationCallback: true,
   });
 
   expect(purchases.isAvailable).toBe(false);
   expect(purchases.supportsEmbeddedCheckout).toBe(false);
+  expect(purchases.supportsProviderPresentationCallback).toBe(false);
   expect(await purchases.listSyncOptions()).toEqual([]);
   await expect(
     purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),

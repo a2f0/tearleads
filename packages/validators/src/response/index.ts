@@ -294,6 +294,13 @@ export {
   type OrganizationDocumentUsageCategoryBreakdown,
 } from "./organizationDataUsage";
 export {
+  isOrganizationNativePurchaseEligibilityResponse,
+  type OrganizationNativePurchaseEligibilityResponse,
+  OrganizationNativePurchaseEligibilityResponseSchema,
+  type OrganizationNativePurchaseIneligibilityReason,
+  OrganizationNativePurchaseIneligibilityReasonSchema,
+} from "./organizationNativePurchaseEligibility";
+export {
   type CreateOrganizationResponse,
   isCreateOrganizationResponse,
   isOrganizationProvisioningResponse,

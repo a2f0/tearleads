@@ -5,6 +5,7 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
   OrganizationBillingStatus,
+  OrganizationNativePurchaseEligibilityResponse,
   StripeCancelResponse,
   StripeCheckoutIntentResponse,
   StripeCheckoutOptionsResponse,
@@ -24,6 +25,10 @@ export type OrganizationBillingHistoryEntry =
 /** Per-organization subscription-management URL (the server wire shape). */
 export type OrganizationBillingManagementUrl =
   OrganizationBillingManagementUrlResponse;
+
+/** Server-backed, point-in-time policy decision made before native checkout. */
+export type OrganizationNativePurchaseEligibility =
+  OrganizationNativePurchaseEligibilityResponse;
 
 /** Purchasable sync options for the direct Stripe checkout (the wire shape). */
 export type StripeCheckoutOptions = StripeCheckoutOptionsResponse;
@@ -49,6 +54,10 @@ interface OrganizationBillingApi {
     organizationId: string,
     store: NativeSubscriptionStore,
   ) => Promise<RequestResult<OrganizationBillingResponse>>;
+  readonly getOrganizationNativePurchaseEligibility: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) => Promise<OrganizationNativePurchaseEligibilityResponse | null>;
   readonly getStripeCheckoutOptions: (
     organizationId: string,
     options?: RequestResultOptions,
@@ -118,6 +127,20 @@ export async function claimNativeOrganizationSubscription(input: {
     throw Object.assign(new Error(result.message), { status: result.status });
   }
   return result.data;
+}
+
+export function checkNativePurchaseEligibility(input: {
+  readonly apiClient: Pick<
+    OrganizationBillingApi,
+    "getOrganizationNativePurchaseEligibility"
+  >;
+  readonly organizationId: string;
+  readonly store: NativeSubscriptionStore;
+}): Promise<OrganizationNativePurchaseEligibility | null> {
+  return input.apiClient.getOrganizationNativePurchaseEligibility(
+    input.organizationId,
+    input.store,
+  );
 }
 
 export async function loadStripeCheckoutOptions(input: {

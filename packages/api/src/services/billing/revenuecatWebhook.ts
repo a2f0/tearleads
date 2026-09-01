@@ -47,6 +47,7 @@ export async function processRevenueCatWebhook(
   }
   return runRevenueCatWebhookWorkflow(runtime.db, event, new Date(), {
     ...(deps.env ? { env: deps.env } : {}),
+    revenuecat: deps,
   });
 }
 
