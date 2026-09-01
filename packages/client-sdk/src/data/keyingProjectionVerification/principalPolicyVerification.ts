@@ -40,10 +40,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
-import {
-  generationGuardedPrincipalPolicyWarmer,
-  rethrowProjectionVerificationCancelled,
-} from "./types";
+import { generationGuardedPrincipalPolicyWarmer } from "./types";
 
 function principalPolicyReferenceLabel(
   reference: ReferencedPrincipalHead,
@@ -292,7 +289,6 @@ async function loadOrganizationExternalAuthority(
     );
     return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
-    rethrowProjectionVerificationCancelled(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
@@ -422,23 +418,30 @@ export async function collectReferencedPrincipalPolicies(input: {
       references,
     });
     if (uncached.length > 0) {
+      if (input.stillCurrent?.() === false) return [];
       await warmReferencedPrincipalPolicies({
         organizationId: input.organizationId,
         references: uncached,
       });
+      if (input.stillCurrent?.() === false) return [];
     }
   }
 
-  return Promise.all(
-    references.map((reference) =>
-      verifyReferencedPrincipalPolicy({
-        checkpointContext: input.checkpointContext,
-        organizationId: input.organizationId,
-        principalPolicyCache: input.principalPolicyCache,
-        reference,
-        resolveUserKey: input.resolveUserKey,
-        warmReferencedPrincipalPolicies,
-      }),
-    ),
-  );
+  try {
+    return await Promise.all(
+      references.map((reference) =>
+        verifyReferencedPrincipalPolicy({
+          checkpointContext: input.checkpointContext,
+          organizationId: input.organizationId,
+          principalPolicyCache: input.principalPolicyCache,
+          reference,
+          resolveUserKey: input.resolveUserKey,
+          warmReferencedPrincipalPolicies,
+        }),
+      ),
+    );
+  } catch (error) {
+    if (input.stillCurrent?.() === false) return [];
+    throw error;
+  }
 }

@@ -5,7 +5,6 @@ import type {
   SecurityIncidentReporter,
 } from "../securityIncidents";
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
-import { rethrowProjectionVerificationCancelled } from "./types";
 
 const KEYING_VERIFICATION_CONTEXT_LIMIT = 16;
 const KEYING_VERIFICATION_CAUSE_LIMIT = 16;
@@ -99,18 +98,10 @@ export function rethrowDatabaseUnavailableError(error: unknown): void {
   }
 }
 
-export function rethrowProjectionVerificationBoundaryError(
-  error: unknown,
-): void {
-  rethrowDatabaseUnavailableError(error);
-  rethrowProjectionVerificationCancelled(error);
-}
-
 export function throwKeyingVerificationErrorWithContext(
   error: unknown,
   context: string,
 ): never {
-  rethrowProjectionVerificationCancelled(error);
   if (isKeyingVerificationError(error)) {
     // Preserve identity so nested reporting boundaries persist one incident.
     // The incident's operation supplies boundary context without minting a new

@@ -37,7 +37,7 @@ import {
 } from "./documentManifestPolicies";
 import { requireVerifiedDocumentPredecessor } from "./documentManifestPredecessor";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
-import { rethrowProjectionVerificationBoundaryError } from "./error";
+import { rethrowDatabaseUnavailableError } from "./error";
 import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
@@ -488,7 +488,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
     await commitProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
+    rethrowDatabaseUnavailableError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }

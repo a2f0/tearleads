@@ -259,6 +259,7 @@ export async function assertDocumentWriterProjectionConsistent(
   try {
     return await assertDocumentWriterProjectionConsistentInternal(...input);
   } catch (error) {
+    if (input[1].stillCurrent?.() === false) return [];
     rethrowDatabaseUnavailableError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;

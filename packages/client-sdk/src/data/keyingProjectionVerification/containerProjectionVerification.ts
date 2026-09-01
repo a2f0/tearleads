@@ -23,7 +23,7 @@ import {
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
-import { rethrowProjectionVerificationBoundaryError } from "./error";
+import { rethrowDatabaseUnavailableError } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import {
   readContainerKekRecipientTarget,
@@ -355,7 +355,8 @@ export async function verifyContainerWriterProjection(
     await commitProjectionCheckpoints(checkpointContext, input);
     return verifiedPath;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
+    if (input.stillCurrent?.() === false) return [];
+    rethrowDatabaseUnavailableError(error);
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
@@ -376,37 +377,42 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
-  const warmReferencedPrincipalPolicies =
-    generationGuardedPrincipalPolicyWarmer(
-      input.warmReferencedPrincipalPolicies,
-      input.stillCurrent,
+  try {
+    const warmReferencedPrincipalPolicies =
+      generationGuardedPrincipalPolicyWarmer(
+        input.warmReferencedPrincipalPolicies,
+        input.stillCurrent,
+      );
+    const principalPolicyCache =
+      input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+    const checkpointContext = createProjectionCheckpointContext({
+      execSql: input.execSql,
+      organizationId: input.projection.organizationId,
+    });
+    const verifiedPath = await verifyContainerWriterProjectionWithContext(
+      {
+        principalPolicyCache,
+        projection: input.projection,
+        resolveUserKey: input.resolveUserKey,
+        warmReferencedPrincipalPolicies,
+      },
+      checkpointContext,
     );
-  const principalPolicyCache =
-    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
-  const checkpointContext = createProjectionCheckpointContext({
-    execSql: input.execSql,
-    organizationId: input.projection.organizationId,
-  });
-  const verifiedPath = await verifyContainerWriterProjectionWithContext(
-    {
+
+    const policies = await collectPrincipalPoliciesForContainerPaths({
+      checkpointContext,
+      organizationId: input.projection.organizationId,
+      paths: [verifiedPath],
       principalPolicyCache,
-      projection: input.projection,
       resolveUserKey: input.resolveUserKey,
       warmReferencedPrincipalPolicies,
-    },
-    checkpointContext,
-  );
-
-  const policies = await collectPrincipalPoliciesForContainerPaths({
-    checkpointContext,
-    organizationId: input.projection.organizationId,
-    paths: [verifiedPath],
-    principalPolicyCache,
-    resolveUserKey: input.resolveUserKey,
-    warmReferencedPrincipalPolicies,
-  });
-  await commitProjectionCheckpoints(checkpointContext, input);
-  return policies;
+    });
+    await commitProjectionCheckpoints(checkpointContext, input);
+    return policies;
+  } catch (error) {
+    if (input.stillCurrent?.() === false) return [];
+    throw error;
+  }
 }
 
 export function addContainerWriterProjectionBundles(
