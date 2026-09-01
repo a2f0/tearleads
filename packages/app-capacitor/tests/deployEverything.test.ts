@@ -74,10 +74,10 @@ async function runHarness(
       "#!/usr/bin/env bash",
       "load_secrets_env() {",
       '  case "$1" in',
-      `    staging) SSH_TARGET="\${STUB_STAGING_SECRET_TARGET:-}" ;;`,
-      `    prod) SSH_TARGET="\${STUB_PRODUCTION_SECRET_TARGET:-}" ;;`,
+      `    staging) SSH_TARGET="\${STUB_STAGING_SECRET_TARGET:-}"; CODE_ASSIST_ENABLED="\${STUB_STAGING_CODE_ASSIST_ENABLED:-false}" ;;`,
+      `    prod) SSH_TARGET="\${STUB_PRODUCTION_SECRET_TARGET:-}"; CODE_ASSIST_ENABLED="\${STUB_PRODUCTION_CODE_ASSIST_ENABLED:-false}" ;;`,
       "  esac",
-      "  export SSH_TARGET",
+      "  export SSH_TARGET CODE_ASSIST_ENABLED",
       "}",
       "validate_aws_env() { :; }",
       `wait_for_ssh_ready() { [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ]; }`,
@@ -175,6 +175,8 @@ async function runHarness(
         STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
         STUB_STAGING_MACHINE_ID: "11111111111111111111111111111111",
         STUB_PRODUCTION_MACHINE_ID: "22222222222222222222222222222222",
+        STUB_STAGING_CODE_ASSIST_ENABLED: "true",
+        STUB_PRODUCTION_CODE_ASSIST_ENABLED: "true",
         ...options.environment,
       },
       stdout: "ignore",
@@ -223,6 +225,26 @@ test("stops at the first failing release command", async () => {
     "deployStagingCodeAssist.sh",
     "uploadIosStagingRelease.sh",
     "uploadAndroidStagingRelease.sh",
+  ]);
+});
+
+test("skips Code Assist for tiers where it is disabled", async () => {
+  const run = await runHarness({
+    environment: {
+      STUB_STAGING_CODE_ASSIST_ENABLED: "false",
+      STUB_PRODUCTION_CODE_ASSIST_ENABLED: "false",
+    },
+  });
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "terraform-staging",
+    "deployStaging.sh",
+    "uploadIosStagingRelease.sh",
+    "uploadAndroidStagingRelease.sh",
+    "terraform-production",
+    "deployProduction.sh",
+    "uploadIosRelease.sh",
+    "uploadAndroidRelease.sh",
   ]);
 });
 
