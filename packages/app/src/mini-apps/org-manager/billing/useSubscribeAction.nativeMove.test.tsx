@@ -3,6 +3,7 @@ import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type PurchasesCapability,
+  type SessionCreateOrganizationResult,
   type SyncPurchaseResult,
 } from "@symcrypt/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
@@ -21,6 +22,10 @@ const SCOPE: BillingActionScope = {
   generation: 1,
   organizationId: "org-1",
   userId: "user-1",
+};
+const RESTORED_ORGANIZATION: SessionCreateOrganizationResult = {
+  containerId: "restored-root",
+  organizationId: "restored-org",
 };
 
 afterEach(cleanup);
@@ -43,16 +48,24 @@ function purchases(
       if (!restored.syncEntitlementActive) {
         throw new Error("The restored receipt has no sync entitlement");
       }
-      if (!(await input.claim("play_store"))) {
+      const organizationId = await input.prepareClaim();
+      if (!organizationId) {
+        throw new Error("The native subscription destination was not prepared");
+      }
+      if (!(await input.claim(organizationId, "play_store"))) {
         throw new Error("The server did not accept the native subscription");
       }
-      await bindOrganization({ organizationId: input.organizationId });
+      await bindOrganization({ organizationId });
+      return { organizationId };
     },
     nativeStore: "play_store",
   } as never;
 }
 
 function setup(input: {
+  readonly activate?: (
+    organization: SessionCreateOrganizationResult,
+  ) => Promise<void>;
   readonly bindOrganization?: PurchasesCapability["bindOrganization"];
   readonly checkNativePurchaseEligibility?: () => Promise<
     | { readonly eligible: true; readonly reason: null }
@@ -61,7 +74,9 @@ function setup(input: {
         readonly reason: "terminal_organization";
       }
   >;
-  readonly claim: () => Promise<boolean>;
+  readonly claim: (organizationId: string, store: string) => Promise<boolean>;
+  readonly complete?: (organizationId: string) => Promise<boolean>;
+  readonly create?: () => Promise<SessionCreateOrganizationResult | null>;
   readonly restore: RestoreReceipt;
 }) {
   let state: BillingActionState = emptyActionState(SCOPE);
@@ -71,14 +86,19 @@ function setup(input: {
   const view = renderHook(
     ({ nativePurchaseAllowed }: { nativePurchaseAllowed: boolean }) =>
       useNativeSubscriptionMove({
+        activateRestoredOrganization:
+          input.activate ?? (() => Promise.resolve()),
         checkNativePurchaseEligibility:
           input.checkNativePurchaseEligibility ??
           (() => Promise.resolve({ eligible: true, reason: null })),
         claimNativeSubscription: input.claim,
+        completeRestoreOrganization:
+          input.complete ?? (() => Promise.resolve(true)),
+        createRestoreOrganization:
+          input.create ?? (() => Promise.resolve(RESTORED_ORGANIZATION)),
         currentScope: SCOPE,
         nativePurchaseAllowed,
         purchases: purchases(input.restore, input.bindOrganization),
-        refresh: () => Promise.resolve(),
         scopeRef: { current: SCOPE },
         updateActionState,
         userId: SCOPE.userId,
@@ -215,7 +235,7 @@ test("restore surfaces a server-side claim rejection", async () => {
       ORG_MANAGER_LABELS.failedRestorePurchases,
     ),
   );
-  expect(claim).toHaveBeenCalledWith("play_store");
+  expect(claim).toHaveBeenCalledWith("restored-org", "play_store");
   expect(bindOrganization).not.toHaveBeenCalled();
 });
 
@@ -241,8 +261,79 @@ test("restore binds lifecycle attribution only after the claim succeeds", async 
   expect(calls).toEqual(["restore", "claim", "bind"]);
 });
 
+test("restore verifies the receipt before creating its fresh organization", async () => {
+  const create = mock(() => Promise.resolve(RESTORED_ORGANIZATION));
+  const flow = setup({
+    claim: () => Promise.resolve(true),
+    create,
+    restore: () => Promise.resolve({ syncEntitlementActive: false }),
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+
+  expect(create).not.toHaveBeenCalled();
+});
+
+test("restore activates the new organization after claim and binding", async () => {
+  const activate = mock(() => Promise.resolve());
+  const flow = setup({
+    activate,
+    claim: () => Promise.resolve(true),
+    restore: () => Promise.resolve({ syncEntitlementActive: true }),
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+
+  expect(activate).toHaveBeenCalledWith(RESTORED_ORGANIZATION);
+});
+
+test("restore completion waits for durable organization activation", async () => {
+  let finishActivation: (() => void) | undefined;
+  const activate = mock(
+    () =>
+      new Promise<void>((resolve) => {
+        finishActivation = resolve;
+      }),
+  );
+  const complete = mock(() => Promise.resolve(true));
+  const flow = setup({
+    activate,
+    claim: () => Promise.resolve(true),
+    complete,
+    restore: () => Promise.resolve({ syncEntitlementActive: true }),
+  });
+
+  startMove(flow.view);
+  await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
+  expect(complete).not.toHaveBeenCalled();
+  finishActivation?.();
+  await waitFor(() => expect(flow.state().busy).toBeNull());
+  expect(complete).toHaveBeenCalledWith(RESTORED_ORGANIZATION.organizationId);
+});
+
+test("failed durable activation retains the restore completion marker", async () => {
+  const complete = mock(() => Promise.resolve(true));
+  const flow = setup({
+    activate: () => Promise.reject(new Error("session persistence failed")),
+    claim: () => Promise.resolve(true),
+    complete,
+    restore: () => Promise.resolve({ syncEntitlementActive: true }),
+  });
+
+  startMove(flow.view);
+  await waitFor(() =>
+    expect(flow.state().actionError).toBe(
+      ORG_MANAGER_LABELS.failedRestorePurchases,
+    ),
+  );
+  expect(complete).not.toHaveBeenCalled();
+});
+
 test("a binding failure can retry the idempotent native move", async () => {
   const claim = mock(() => Promise.resolve(true));
+  const create = mock(() => Promise.resolve(RESTORED_ORGANIZATION));
   const restore = mock(() => Promise.resolve({ syncEntitlementActive: true }));
   let bindAttempts = 0;
   const bindOrganization = mock(() => {
@@ -251,7 +342,7 @@ test("a binding failure can retry the idempotent native move", async () => {
       ? Promise.reject(new PurchaseProviderStalledError())
       : Promise.resolve();
   });
-  const flow = setup({ bindOrganization, claim, restore });
+  const flow = setup({ bindOrganization, claim, create, restore });
   startMove(flow.view);
   await waitFor(() =>
     expect(flow.state().actionError).toBe(
@@ -263,6 +354,10 @@ test("a binding failure can retry the idempotent native move", async () => {
   await waitFor(() => expect(flow.state().busy).toBeNull());
 
   expect(restore).toHaveBeenCalledTimes(2);
+  // Each UI attempt asks the durable session workflow for a destination; it
+  // replays the same organization until completion instead of relying on hook
+  // memory that disappears on reload.
+  expect(create).toHaveBeenCalledTimes(2);
   expect(claim).toHaveBeenCalledTimes(2);
   expect(bindOrganization).toHaveBeenCalledTimes(2);
   expect(flow.state().actionError).toBeNull();

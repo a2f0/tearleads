@@ -3,11 +3,12 @@ import type {
   DatabaseSession,
 } from "@symcrypt/api-shared/postgres";
 import {
+  organizationBilling,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@symcrypt/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import { resolveRevenueCatFinancialAuditFields } from "../../billing/revenuecatFinancials";
 import {
@@ -16,17 +17,18 @@ import {
   classifyRevenueCatEvent,
   isRevenueCatGrantEventType,
   type RevenueCatBillingTransition,
-  resolveOrganizationIdFromEvent,
   resolveRevenueCatRecordedProductId,
   SANDBOX_IGNORED_REASON,
   UNCONFIGURED_SYNC_BILLING_TIER_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { isRecognizedNativeRevenueCatStore } from "./revenuecatBuyerPolicy";
 import { resolveBoundRevenueCatTransition } from "./revenuecatGrantCapacity";
 import {
   resolveNativeGrantDisposition,
   resolveNativeProductChangeConflict,
 } from "./revenuecatNativeBindingPolicy";
+import { resolveRevenueCatWebhookOrganizationId } from "./revenuecatOrganizationRouting";
 import {
   type ImmutableStripeStoreOrgResolution,
   type LockedBillingIdentity,
@@ -131,6 +133,34 @@ function ignoredPreclaimDisposition(
   };
 }
 
+async function nativeBindingChanged(
+  input: RevenueCatPreclaimInput,
+  billing: LockedBillingIdentity | undefined,
+): Promise<boolean> {
+  const subscriptionId = input.event.original_transaction_id;
+  if (
+    !billing ||
+    input.organizationId === null ||
+    !subscriptionId ||
+    !isRecognizedNativeRevenueCatStore(input.event.store) ||
+    (billing.provider === "revenuecat" &&
+      billing.providerSubscriptionId === subscriptionId)
+  ) {
+    return false;
+  }
+  const [owner] = await input.executor
+    .select({ organizationId: organizationBilling.organizationId })
+    .from(organizationBilling)
+    .where(
+      and(
+        eq(organizationBilling.provider, "revenuecat"),
+        eq(organizationBilling.providerSubscriptionId, subscriptionId),
+      ),
+    )
+    .limit(1);
+  return owner !== undefined && owner.organizationId !== input.organizationId;
+}
+
 async function resolvePreclaimDisposition(
   input: RevenueCatPreclaimInput,
 ): Promise<PreclaimDisposition> {
@@ -145,6 +175,12 @@ async function resolvePreclaimDisposition(
           input.organizationId,
         )
       : undefined;
+  if (await nativeBindingChanged(input, billing)) {
+    return {
+      kind: "retry",
+      reason: "Native binding changed before RevenueCat event application",
+    };
+  }
   let transition = resolveBoundRevenueCatTransition({
     allowSandboxEvents: input.allowSandboxEvents,
     billing,
@@ -411,17 +447,16 @@ export async function runRevenueCatWebhookWorkflow(
           stripeSeatCount: stripeResolution.seatCount ?? 1,
         })
       : initialTransition;
-  const organizationId =
-    stripeResolution.kind === "resolved"
-      ? stripeResolution.organizationId
-      : event.store?.toUpperCase() === "STRIPE"
-        ? null
-        : resolveOrganizationIdFromEvent(event);
-
+  let organizationId: string | null = null;
   let outcome: RevenueCatWebhookOutcome;
   try {
-    outcome = await db.transaction((tx) =>
-      runRevenueCatWebhookTransaction({
+    outcome = await db.transaction(async (tx) => {
+      organizationId = await resolveRevenueCatWebhookOrganizationId({
+        db: tx,
+        event,
+        stripeResolution,
+      });
+      return runRevenueCatWebhookTransaction({
         allowSandboxEvents: classificationOptions.allowSandboxEvents,
         event,
         executor: tx,
@@ -430,8 +465,8 @@ export async function runRevenueCatWebhookWorkflow(
         stripeResolution,
         stripeTierUnresolved,
         transition,
-      }),
-    );
+      });
+    });
   } catch (error) {
     const ownershipOutcome = await resolveLifecycleOwnershipConflict({
       db,

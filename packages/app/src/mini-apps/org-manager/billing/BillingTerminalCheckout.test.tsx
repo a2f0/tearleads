@@ -6,6 +6,7 @@ import { createAppHostConfig } from "../../../host/AppHostConfig";
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
 import { DirectCheckoutProvider } from "../../../providers/direct-checkout/DirectCheckoutProvider";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
+import * as IdentityProvider from "../../../providers/identity/IdentityProvider";
 import { LogProvider } from "../../../providers/logging/LogProvider";
 import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
 import * as SymCryptProvider from "../../../providers/sdk/SymCryptProvider";
@@ -35,6 +36,11 @@ function stubTerminalBilling(status: "deleting" | "purged") {
         status,
       },
     }),
+  );
+  spies.push(
+    spyOn(IdentityProvider, "useIdentity").mockReturnValue({
+      persistSession: () => Promise.resolve(true),
+    } as ReturnType<typeof IdentityProvider.useIdentity>),
   );
   const loadStripeCheckoutOptions = mock(() =>
     Promise.resolve({ options: [] }),

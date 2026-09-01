@@ -77,5 +77,11 @@ export const revenuecatWebhookEvents = pgTable(
     index("revenuecat_webhook_events_source_org_idx").on(
       table.sourceOrganizationId,
     ),
+    index("revenuecat_webhook_events_native_route_idx").on(
+      table.appUserId,
+      table.originalTransactionId,
+      table.store,
+      table.outcome,
+    ),
   ],
 );

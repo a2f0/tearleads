@@ -15,6 +15,7 @@ import {
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -282,19 +283,26 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
-function useNativeBillingRequests(
-  symcrypt: ReturnType<typeof useSymCrypt>,
-  organizationId: string,
-) {
+function useRestoreOrganizationWiring(organizationId: string) {
+  const symcrypt = useSymCrypt();
+  const { persistSession } = useIdentity();
+  const createRestoreOrganization = useCallback(
+    () =>
+      symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
+        organizationProfileName:
+          ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
+      }),
+    [symcrypt],
+  );
   const claimNativeSubscription = useCallback(
-    async (store: NativeSubscriptionStore) =>
+    async (organizationId: string, store: NativeSubscriptionStore) =>
       (
         await symcrypt.organizations.claimNativeSubscription(
           organizationId,
           store,
         )
       )?.organizationId === organizationId,
-    [organizationId, symcrypt],
+    [symcrypt],
   );
   const checkNativePurchaseEligibility = useCallback(
     (store: NativeSubscriptionStore) =>
@@ -304,7 +312,29 @@ function useNativeBillingRequests(
       ),
     [organizationId, symcrypt],
   );
-  return { checkNativePurchaseEligibility, claimNativeSubscription };
+  const completeRestoreOrganization = useCallback(
+    (organizationId: string) =>
+      symcrypt.session.completeNativeSubscriptionRestoreOrganization(
+        organizationId,
+      ),
+    [symcrypt],
+  );
+  const activateRestoredOrganization = useCallback(
+    async (organization: { containerId: string; organizationId: string }) => {
+      symcrypt.session.setContext(organization);
+      if (!(await persistSession())) {
+        throw new Error("Restored organization session was not persisted");
+      }
+    },
+    [persistSession, symcrypt],
+  );
+  return {
+    activateRestoredOrganization,
+    checkNativePurchaseEligibility,
+    claimNativeSubscription,
+    completeRestoreOrganization,
+    createRestoreOrganization,
+  };
 }
 
 export function BillingPanel({
@@ -318,8 +348,8 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
-  const symcrypt = useSymCrypt();
   const billing = useOrganizationBilling();
+  const restoreOrganization = useRestoreOrganizationWiring(organizationId);
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
     void refresh();
@@ -347,14 +377,11 @@ export function BillingPanel({
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
-  const { checkNativePurchaseEligibility, claimNativeSubscription } =
-    useNativeBillingRequests(symcrypt, organizationId);
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),
+    ...restoreOrganization,
     isOrgAdmin,
     nativePurchaseAllowed,
-    checkNativePurchaseEligibility,
-    claimNativeSubscription,
     checkoutHostRef,
     organizationId,
     refresh,

@@ -13,7 +13,6 @@ import { createTestUser, type TestUser } from "@symcrypt/bob-and-alice";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { OrganizationManagerError } from "../organizations/errors";
 import { runNativePurchaseEligibilityWorkflow } from "./nativePurchaseEligibility";
 import { runClaimNativeSubscriptionWorkflow } from "./nativeSubscriptionClaim";
 import { runGetOrganizationBillingHistoryWorkflow } from "./organizationBillingHistory";
@@ -42,7 +41,7 @@ function subscription(subscriptionId: string) {
   };
 }
 
-test("atomically moves a native subscription between personal organizations", async () => {
+test("atomically moves a native subscription between organizations", async () => {
   const previous = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
   const nativeSubscription = subscription(`GPA.${crypto.randomUUID()}`);
@@ -250,7 +249,7 @@ test("moving a native subscription preserves a purged source generation", async 
   );
 });
 
-test("rejects custom organizations and Stripe-bound destinations", async () => {
+test("allows a custom destination and rejects Stripe-bound destinations", async () => {
   const destination = await registerPersonalOrganization();
   const customOrganizationId = crypto.randomUUID();
   await db.insert(organizations).values({
@@ -272,7 +271,7 @@ test("rejects custom organizations and Stripe-bound destinations", async () => {
       sourceId: crypto.randomUUID(),
       subscription: subscription(crypto.randomUUID()),
     }),
-  ).rejects.toBeInstanceOf(OrganizationManagerError);
+  ).resolves.toMatchObject({ duplicate: false });
 
   await db
     .update(organizationBillingStripeSeats)
@@ -334,9 +333,7 @@ test("rejects unknown products and a different destination subscription", async 
       sourceId: crypto.randomUUID(),
       subscription: subscription(crypto.randomUUID()),
     }),
-  ).rejects.toThrow(
-    "The personal organization already has a different subscription",
-  );
+  ).rejects.toThrow("The organization already has a different subscription");
 });
 
 test("revalidates terminal state after a successful purchase preflight", async () => {

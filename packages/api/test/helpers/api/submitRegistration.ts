@@ -128,14 +128,16 @@ export async function createRegistrationRequestBody(
   encapsulationPublicKey: Uint8Array,
   options: {
     userId?: string | undefined;
+    organizationId?: string | undefined;
+    rootContainerId?: string | undefined;
     includeOrganizationProfileDocument?: boolean | undefined;
     includeRosterProfileDocument?: boolean | undefined;
     includeTrashSystemContainer?: boolean | undefined;
   } = {},
 ): Promise<RegistrationRequest> {
   const userId = options.userId ?? crypto.randomUUID();
-  const organizationId = crypto.randomUUID();
-  const rootContainerId = crypto.randomUUID();
+  const organizationId = options.organizationId ?? crypto.randomUUID();
+  const rootContainerId = options.rootContainerId ?? crypto.randomUUID();
   const organizationMetadataContainerId =
     options.includeOrganizationProfileDocument
       ? crypto.randomUUID()

@@ -25,6 +25,14 @@ const REVENUECAT_STORE_BY_NATIVE_STORE: Record<
   test_store: "TEST_STORE",
 };
 
+const TOKENLESS_NATIVE_GRANT_CONTINUATION_EVENT_TYPES: ReadonlySet<string> =
+  new Set([
+    "RENEWAL",
+    "SUBSCRIPTION_EXTENDED",
+    "TEMPORARY_ENTITLEMENT_GRANT",
+    "UNCANCELLATION",
+  ]);
+
 export function revenueCatStoreForNativeStore(
   store: NativeSubscriptionStore,
 ): string {
@@ -113,8 +121,14 @@ export async function matchesLockedNativeSubscription(input: {
   if (!(await matchesLockedNativeStore(input))) return false;
   if (!input.event.original_transaction_id) {
     // Product-bearing grants can replace the durable binding below. Without a
-    // subscription token they cannot prove that they belong to this chain.
-    return !input.event.product_id;
+    // subscription token they may continue only the same product on the one
+    // store-bound chain selected by routing. Purchases and destructive events
+    // must still provide the exact immutable subscription identity.
+    return (
+      !input.event.product_id ||
+      (TOKENLESS_NATIVE_GRANT_CONTINUATION_EVENT_TYPES.has(input.event.type) &&
+        input.billing.providerProductId === input.event.product_id)
+    );
   }
   if (
     input.billing.providerSubscriptionId === input.event.original_transaction_id

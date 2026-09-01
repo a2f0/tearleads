@@ -8,7 +8,6 @@ import {
   organizationBillingSeatEvents,
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
-  users,
 } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
@@ -24,30 +23,14 @@ import { withOrganizationAdminTransaction } from "../organizations/mutationAcces
 import { assertNativeClaimEligibility } from "./nativeSubscriptionClaimEligibility";
 import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 
-async function requirePersonalOrganization(input: {
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly userId: string;
-}): Promise<void> {
-  const [user] = await input.executor
-    .select({ defaultOrganizationId: users.defaultOrganizationId })
-    .from(users)
-    .where(eq(users.id, input.userId))
-    .limit(1);
-  if (!user || user.defaultOrganizationId !== input.organizationId) {
-    throw new OrganizationManagerError(
-      "Native subscriptions can only be assigned to a personal organization",
-      409,
-    );
-  }
-}
-
 async function lockBilling(executor: DatabaseSession, organizationId: string) {
   const query = executor
     .select({
       checkoutAttemptExpiresAt: organizationBilling.checkoutAttemptExpiresAt,
       checkoutAttemptId: organizationBilling.checkoutAttemptId,
       organizationId: organizationBilling.organizationId,
+      nativeRestoreClaimedAt: organizationBilling.nativeRestoreClaimedAt,
+      nativeRestoreUserId: organizationBilling.nativeRestoreUserId,
       provider: organizationBilling.provider,
       providerCustomerId: organizationBilling.providerCustomerId,
       providerProductId: organizationBilling.providerProductId,
@@ -301,11 +284,13 @@ export async function runAuthorizeNativeSubscriptionClaimWorkflow(
     db,
     { organizationId, userId: sessionUserId },
     async (tx) => {
-      await requirePersonalOrganization({
-        executor: tx,
-        organizationId,
-        userId: sessionUserId,
-      });
+      const target = await lockBilling(tx, organizationId);
+      if (target.nativeRestoreUserId !== sessionUserId) {
+        throw new OrganizationManagerError(
+          "Native subscription restore requires a fresh restore organization",
+          409,
+        );
+      }
     },
   );
 }
@@ -327,6 +312,54 @@ function targetOwnsNativeSubscription(input: {
   );
 }
 
+async function authorizeNativeSubscriptionClaimTarget(input: {
+  readonly appUserId: string;
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly requireExistingBinding: boolean;
+  readonly requireRestoreIntent: boolean;
+  readonly requireSessionAccess: boolean;
+  readonly subscription: ActiveNativeSubscription;
+}): Promise<{
+  readonly alreadyOwned: boolean;
+  readonly target: Awaited<ReturnType<typeof lockBilling>>;
+}> {
+  if (input.requireSessionAccess) {
+    await requireDirectOrganizationAccess({
+      executor: input.executor,
+      organizationId: input.organizationId,
+      requireAdmin: true,
+      userId: input.appUserId,
+    });
+  }
+  const target = await lockBilling(input.executor, input.organizationId);
+  if (target.status === "deleting" || target.status === "purged") {
+    throw new OrganizationManagerError(
+      "Organization purge is terminal; provision a replacement organization",
+      409,
+    );
+  }
+  const alreadyOwned = targetOwnsNativeSubscription({
+    appUserId: input.appUserId,
+    subscription: input.subscription,
+    target,
+  });
+  if (input.requireExistingBinding && !alreadyOwned) {
+    throw new NativeSubscriptionTransferAwaitingClaimError();
+  }
+  if (
+    input.requireRestoreIntent &&
+    (target.nativeRestoreUserId !== input.appUserId ||
+      (target.nativeRestoreClaimedAt !== null && !alreadyOwned))
+  ) {
+    throw new OrganizationManagerError(
+      "Native subscription restore requires a fresh restore organization",
+      409,
+    );
+  }
+  return { alreadyOwned, target };
+}
+
 /** Revalidates policy and atomically moves a verified native subscription. */
 export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly appUserId: string;
@@ -339,6 +372,7 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly organizationId: string;
   readonly recordAlreadyOwnedAudit?: boolean;
   readonly requireExistingBinding?: boolean;
+  readonly requireRestoreIntent?: boolean;
   readonly requireSessionAccess: boolean;
   readonly sourceId: string;
   readonly subscription: ActiveNativeSubscription;
@@ -347,26 +381,17 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
   readonly sourceOrganizationId: string | null;
 }> {
   return input.db.transaction(async (tx) => {
-    if (input.requireSessionAccess) {
-      await requireDirectOrganizationAccess({
+    const { alreadyOwned, target } =
+      await authorizeNativeSubscriptionClaimTarget({
+        appUserId: input.appUserId,
         executor: tx,
         organizationId: input.organizationId,
-        requireAdmin: true,
-        userId: input.appUserId,
+        requireExistingBinding: input.requireExistingBinding === true,
+        requireRestoreIntent: input.requireRestoreIntent === true,
+        requireSessionAccess: input.requireSessionAccess,
+        subscription: input.subscription,
       });
-    }
-    await requirePersonalOrganization({
-      executor: tx,
-      organizationId: input.organizationId,
-      userId: input.appUserId,
-    });
-    const target = await lockBilling(tx, input.organizationId);
     const now = input.now ?? new Date();
-    const alreadyOwned = targetOwnsNativeSubscription({
-      appUserId: input.appUserId,
-      subscription: input.subscription,
-      target,
-    });
     const { deleteExpiredStripeBinding } = await assertNativeClaimEligibility({
       appUserId: input.appUserId,
       executor: tx,
@@ -375,9 +400,6 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       subscriptionId: input.subscription.subscriptionId,
       target,
     });
-    if (input.requireExistingBinding && !alreadyOwned) {
-      throw new NativeSubscriptionTransferAwaitingClaimError();
-    }
     if (input.recordAlreadyOwnedAudit === false && alreadyOwned) {
       return { duplicate: true, sourceOrganizationId: null };
     }
@@ -413,6 +435,12 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
       sourceId: input.sourceId,
       subscription: input.subscription,
     });
+    if (input.requireRestoreIntent) {
+      await tx
+        .update(organizationBilling)
+        .set({ nativeRestoreClaimedAt: now })
+        .where(eq(organizationBilling.organizationId, input.organizationId));
+    }
     if (input.auditEvent && applied.sourceOrganizationId) {
       await tx
         .update(revenuecatWebhookEvents)
@@ -420,19 +448,5 @@ export async function runClaimNativeSubscriptionWorkflow(input: {
         .where(eq(revenuecatWebhookEvents.eventId, input.auditEvent.eventId));
     }
     return { duplicate: false, ...applied };
-  });
-}
-
-export async function resolvePersonalOrganizationForUser(
-  db: ApiDatabase,
-  userId: string,
-): Promise<string | null> {
-  return db.transaction(async (tx) => {
-    const [user] = await tx
-      .select({ organizationId: users.defaultOrganizationId })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    return user?.organizationId ?? null;
   });
 }

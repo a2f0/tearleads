@@ -109,7 +109,7 @@ export async function assertNativeClaimEligibility(input: {
     input.target.providerSubscriptionId !== input.subscriptionId
   ) {
     throw new OrganizationManagerError(
-      "The personal organization already has a different subscription",
+      "The organization already has a different subscription",
       409,
     );
   }

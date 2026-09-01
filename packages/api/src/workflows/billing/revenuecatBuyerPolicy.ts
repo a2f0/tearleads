@@ -1,11 +1,15 @@
 import type { DatabaseSession } from "@symcrypt/api-shared/postgres";
-import { users } from "@symcrypt/api-shared/schema";
+import { revenuecatWebhookEvents, users } from "@symcrypt/api-shared/schema";
 import { getSyncBillingTierForNativeProduct } from "@symcrypt/validators/billing";
 import type { RevenueCatWebhookEvent } from "@symcrypt/validators/request";
 import { isUuidV4String } from "@symcrypt/validators/util";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import {
+  canInferNativeBindingWithoutReceiptId,
+  resolveRetainedNativeSubscriptionOrganizationForUser,
+} from "./nativeSubscriptionResolution";
 
 const NON_NATIVE_REVENUECAT_STORES = new Set([
   "PROMOTIONAL",
@@ -59,10 +63,47 @@ async function isOrganizationAdmin(
   }
 }
 
+async function hasPriorNativeProductChange(input: {
+  readonly event: RevenueCatWebhookEvent;
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+}): Promise<boolean> {
+  const productId = input.event.product_id;
+  const store = input.event.store?.toUpperCase();
+  if (
+    input.event.type !== "INITIAL_PURCHASE" ||
+    !input.event.original_transaction_id ||
+    !productId ||
+    !store
+  ) {
+    return false;
+  }
+  const [change] = await input.executor
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.organizationId, input.organizationId),
+        eq(revenuecatWebhookEvents.appUserId, input.event.app_user_id),
+        eq(revenuecatWebhookEvents.eventType, "PRODUCT_CHANGE"),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+        eq(
+          revenuecatWebhookEvents.originalTransactionId,
+          input.event.original_transaction_id,
+        ),
+        eq(revenuecatWebhookEvents.productId, productId),
+        eq(revenuecatWebhookEvents.store, store),
+      ),
+    )
+    .limit(1);
+  return change !== undefined;
+}
+
 /** Returns the buyer-policy reason a paid grant must be ignored, if any. */
 export async function resolveRevenueCatBuyerIgnoredReason(input: {
   readonly currentProviderCustomerId: string | null;
   readonly currentProviderProductId: string | null;
+  readonly currentProviderSubscriptionId: string | null;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
@@ -71,13 +112,27 @@ export async function resolveRevenueCatBuyerIgnoredReason(input: {
     input.currentProviderCustomerId === input.event.app_user_id;
   const isNativeStore = isNativeRevenueCatStore(input.event.store);
   if (isNativeStore) {
-    // A lifecycle event may continue an already-policy-checked native binding
-    // after the buyer changes default context. A Stripe-associated customer is
-    // not proof of native eligibility, and INITIAL_PURCHASE always rechecks.
+    // A verified receipt may continue outside the personal org after restore,
+    // but buyer identity alone is not enough: one RevenueCat customer can own
+    // multiple Apple/Play subscriptions. Require the exact durable receipt, or
+    // the provider's preceding product-change event for a replacement Play
+    // token, or the unique retained binding when a continuation event omits the
+    // receipt id. PRODUCT_CHANGE itself is separately checked against the
+    // locked source tier before it reaches this policy.
     if (
       sameProviderCustomer &&
-      input.event.type !== "INITIAL_PURCHASE" &&
-      getSyncBillingTierForNativeProduct(input.currentProviderProductId)
+      getSyncBillingTierForNativeProduct(input.currentProviderProductId) &&
+      input.currentProviderSubscriptionId &&
+      (input.event.original_transaction_id ===
+        input.currentProviderSubscriptionId ||
+        input.event.type === "PRODUCT_CHANGE" ||
+        (await hasPriorNativeProductChange(input)) ||
+        (!input.event.original_transaction_id &&
+          canInferNativeBindingWithoutReceiptId(input.event.type) &&
+          (await resolveRetainedNativeSubscriptionOrganizationForUser(
+            input.executor,
+            input.event.app_user_id,
+          )) === input.organizationId))
     ) {
       return null;
     }

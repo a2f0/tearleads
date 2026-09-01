@@ -163,6 +163,7 @@ export async function resolveRevenueCatIgnoredReason(input: {
     const buyerIgnoredReason = await resolveRevenueCatBuyerIgnoredReason({
       currentProviderCustomerId: input.billing.providerCustomerId,
       currentProviderProductId: input.billing.providerProductId,
+      currentProviderSubscriptionId: input.billing.providerSubscriptionId,
       event: input.event,
       executor: input.executor,
       organizationId: input.organizationId,

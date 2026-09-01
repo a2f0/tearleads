@@ -93,11 +93,17 @@ export interface Session {
   createOrganization(
     options?: CreateOrganizationOptions,
   ): Promise<SessionCreateOrganizationResult | null>;
+  completeNativeSubscriptionRestoreOrganization(
+    organizationId: string,
+  ): Promise<boolean>;
   destroySession(sessionId: string): Promise<boolean>;
   listSessions(): Promise<UserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
   logoutRemote(): Promise<boolean>;
+  prepareNativeSubscriptionRestoreOrganization(
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionCreateOrganizationResult | null>;
   registerIdentity(
     options?: RegisterIdentityOptions,
   ): Promise<SessionRegistrationResult | null>;

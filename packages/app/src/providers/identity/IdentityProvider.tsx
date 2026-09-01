@@ -59,6 +59,8 @@ export interface IdentityContextValue {
    */
   localIdentityRestoreSettled: boolean;
   localIdentityRestoredFingerprint: string | null;
+  /** Flushes the current SDK session to encrypted local persistence. */
+  persistSession: () => Promise<boolean>;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   restoreSeedPhrase: (seedPhrase: string) => Promise<void>;
   seedPhrase: string | null;
@@ -201,6 +203,7 @@ function useIdentityContextValue(input: {
   readonly localIdentityRestoreSettled: boolean;
   readonly localIdentityRestoredFingerprint: string | null;
   readonly localPersistence: ReturnType<typeof useLocalIdentityPersistence>;
+  readonly persistSession: () => Promise<boolean>;
   readonly snapshot: IdentitySnapshot;
 }): IdentityContextValue {
   const {
@@ -210,6 +213,7 @@ function useIdentityContextValue(input: {
     localIdentityRestoreSettled,
     localIdentityRestoredFingerprint,
     localPersistence,
+    persistSession,
     snapshot,
   } = input;
   return useMemo(
@@ -224,6 +228,7 @@ function useIdentityContextValue(input: {
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       localIdentitySwitchingAvailable: localPersistence !== null,
+      persistSession,
       restoreKeyPackage: identityActions.restoreKeyPackage,
       restoreSeedPhrase: identityActions.restoreSeedPhrase,
       seedPhrase: snapshot.seedPhrase,
@@ -238,9 +243,46 @@ function useIdentityContextValue(input: {
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       localPersistence,
+      persistSession,
       snapshot,
     ],
   );
+}
+
+function usePersistCurrentSession(input: {
+  readonly localPersistence: ReturnType<
+    typeof useLocalCryptoSessionPersistence
+  >;
+  readonly signingFingerprint: string | null;
+  readonly symcrypt: ReturnType<typeof useSymCrypt>;
+}): () => Promise<boolean> {
+  const {
+    localPersistence,
+    signingFingerprint: expectedFingerprint,
+    symcrypt,
+  } = input;
+  return useCallback(async () => {
+    const signingFingerprint = symcrypt.identity.signingFingerprint;
+    if (
+      !signingFingerprint ||
+      signingFingerprint !== expectedFingerprint ||
+      !localPersistence
+    ) {
+      return false;
+    }
+    while (symcrypt.identity.signingFingerprint === signingFingerprint) {
+      const sessionSnapshot = symcrypt.session.snapshot;
+      const persisted = await queueCryptoSessionPersistence({
+        context: { ...sessionSnapshot },
+        localPersistence,
+        signingFingerprint,
+      });
+      if (symcrypt.session.snapshot === sessionSnapshot) {
+        return persisted;
+      }
+    }
+    return false;
+  }, [expectedFingerprint, localPersistence, symcrypt]);
 }
 
 export function IdentityProvider({ children }: PropsWithChildren) {
@@ -271,27 +313,14 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       : (hostConfig.localIdentityNamespace ?? null),
     signingFingerprint: snapshot.signingFingerprint,
   });
+  const persistCurrentSession = usePersistCurrentSession({
+    localPersistence: localSessionPersistence,
+    signingFingerprint: snapshot.signingFingerprint,
+    symcrypt,
+  });
   const persistSessionBeforeIdentityTransition = useCallback(async () => {
-    const signingFingerprint = symcrypt.identity.signingFingerprint;
-    if (
-      !signingFingerprint ||
-      signingFingerprint !== snapshot.signingFingerprint ||
-      !localSessionPersistence
-    ) {
-      return;
-    }
-    while (symcrypt.identity.signingFingerprint === signingFingerprint) {
-      const sessionSnapshot = symcrypt.session.snapshot;
-      await queueCryptoSessionPersistence({
-        context: { ...sessionSnapshot },
-        localPersistence: localSessionPersistence,
-        signingFingerprint,
-      });
-      if (symcrypt.session.snapshot === sessionSnapshot) {
-        return;
-      }
-    }
-  }, [localSessionPersistence, snapshot.signingFingerprint, symcrypt]);
+    await persistCurrentSession();
+  }, [persistCurrentSession]);
   const {
     identities: localIdentities,
     restoredFingerprint: localIdentityRestoredFingerprint,
@@ -325,6 +354,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     localIdentityRestoreSettled,
     localIdentityRestoredFingerprint,
     localPersistence,
+    persistSession: persistCurrentSession,
     snapshot,
   });
 

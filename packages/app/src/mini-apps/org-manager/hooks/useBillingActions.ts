@@ -1,5 +1,6 @@
 import type {
   PurchasesCapability,
+  SessionCreateOrganizationResult,
   SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
 import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
@@ -280,11 +281,19 @@ interface UseBillingActionsInput {
   billingPendingSeatCount: number | null;
   billingSeatCount: number | null;
   checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
-  claimNativeSubscription: (store: NativeSubscriptionStore) => Promise<boolean>;
+  activateRestoredOrganization: (
+    organization: SessionCreateOrganizationResult,
+  ) => Promise<void>;
+  claimNativeSubscription: (
+    organizationId: string,
+    store: NativeSubscriptionStore,
+  ) => Promise<boolean>;
+  completeRestoreOrganization: (organizationId: string) => Promise<boolean>;
   /** Checkout embed host, read at purchase time; absent = full-page overlay. */
   checkoutHostRef?: RefObject<HTMLElement | null>;
+  createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   isOrgAdmin: boolean;
-  /** Native store purchases may fund only the buyer's personal organization. */
+  /** New native purchases are offered only for the buyer's personal organization. */
   nativePurchaseAllowed?: boolean;
   organizationId: string;
   refresh: () => Promise<void>;
@@ -363,13 +372,16 @@ function useBillingActionSettlement(input: {
  * billing afterwards. Trial start is delegated to the billing snapshot hook.
  */
 export function useBillingActions({
+  activateRestoredOrganization,
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingIsActive,
   billingPendingSeatCount,
   billingSeatCount,
   checkNativePurchaseEligibility,
   claimNativeSubscription,
+  completeRestoreOrganization,
   checkoutHostRef,
+  createRestoreOrganization,
   isOrgAdmin,
   nativePurchaseAllowed = true,
   optionsRetryDelaysMs,
@@ -393,12 +405,14 @@ export function useBillingActions({
     updateActionState,
   } = useBillingActionState(organizationId, userId);
   const subscriptionMove = useNativeSubscriptionMove({
+    activateRestoredOrganization,
     checkNativePurchaseEligibility,
     claimNativeSubscription,
+    completeRestoreOrganization,
+    createRestoreOrganization,
     currentScope,
     nativePurchaseAllowed,
     purchases,
-    refresh,
     scopeRef,
     updateActionState,
     userId,

@@ -32,8 +32,7 @@ RevenueCat capability with `purchasesEnabled: false`: identification and
 entitlement reads remain available, while package listing returns no options and
 purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
 native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md))
-only. Native purchases are offered only for the buyer's personal organization;
-custom organizations always subscribe on the web.
+only. Native purchases are personal-org only; restore always creates a new org.
 
 ## Native restore and subscription moves
 
@@ -46,15 +45,16 @@ user-confirmed recovery flow instead:
    need its encrypted data.
 2. RevenueCat restore/sync runs under the new SymCrypt user id without changing
    the customer-level `orgId` attribution.
-3. `POST /organizations/:id/billing/native/:store/claim` verifies the current
+3. Once the receipt exposes `sync`, the client creates a fresh organization.
+4. `POST /organizations/:id/billing/native/:store/claim` verifies the current
    App User ID's active subscription through RevenueCat v2. The client never
    supplies the product, receipt id, billing period, or seat capacity.
-4. One database transaction disables and unbinds the previous personal
+5. One database transaction disables and unbinds the previous
    organization, activates the destination at the verified product's fixed
    capacity, and reconciles its seats. A target with a different native
    subscription or any Stripe identity is rejected.
-5. Only after the server accepts the claim does the client stamp the destination
-   personal organization as `orgId` for later native lifecycle events.
+6. After acceptance, the client sets its `orgId` and switches to it. The
+   personal organization remains the default.
 
 RevenueCat `TRANSFER` webhooks use the same verified claim workflow. Transfer
 events do not include `app_user_id`; the server resolves the registered
@@ -67,15 +67,16 @@ This is a greenfield ownership invariant, not a legacy-data migration: the
 initial Postgres and SQLite migrations intentionally add the unique index
 without deduplicating billing rows. Prelaunch environments with conflicting
 fixture data must be reset before applying it. One store subscription funds one
-personal organization even when Apple or Google exposes the receipt through
-family sharing; restoring it moves that single billing entitlement rather than
-minting capacity for another organization. A stale lifecycle grant for the old
-organization is stored as ignored and emits an operator warning.
+organization even when Apple or Google exposes the receipt through family
+sharing; restoring it moves that single billing entitlement rather than minting
+capacity for another organization. A stale lifecycle grant for the old
+organization is stored as ignored and emits an operator warning. Native grants
+require the personal org unless continuing a verified restore binding.
 
 This moves billing entitlement only. It does not copy the old organization's
 encrypted documents, keys, or identity. The store restore must be initiated on
 a device signed into the Apple or Google account that owns the purchase; after
-the server activates the personal organization, sync is cross-platform.
+the server activates the new organization, sync is cross-platform.
 
 Set the RevenueCat project's restore behavior to **Transfer to new App User
 ID**. Do not auto-restore during app launch: Apple restore/sync should follow an

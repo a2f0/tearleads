@@ -48,7 +48,7 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 564,
-      "bytes": 26675
+      "bytes": 26693
     },
     "docs/developer/revenuecat-billing.md": {
       "lines": 359,
@@ -75,8 +75,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 55758,
-      "bytes": 2313458
+      "lines": 55762,
+      "bytes": 2313601
     },
     "docs/protocol-specification.md": {
       "lines": 585,
@@ -359,8 +359,8 @@
       "bytes": 19200
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 21420,
-      "bytes": 885264
+      "lines": 21422,
+      "bytes": 885355
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

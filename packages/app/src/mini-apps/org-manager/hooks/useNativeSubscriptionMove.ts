@@ -2,6 +2,7 @@ import {
   PurchaseIdentityPendingError,
   PurchaseProviderStalledError,
   type PurchasesCapability,
+  type SessionCreateOrganizationResult,
 } from "@symcrypt/client-sdk";
 import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
 import { useCallback, useEffect, useState } from "react";
@@ -21,14 +22,21 @@ import {
 } from "./nativePurchaseEligibility";
 
 interface UseNativeSubscriptionMoveInput {
+  readonly activateRestoredOrganization: (
+    organization: SessionCreateOrganizationResult,
+  ) => Promise<void>;
   readonly checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   readonly claimNativeSubscription: (
+    organizationId: string,
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
+  readonly completeRestoreOrganization: (
+    organizationId: string,
+  ) => Promise<boolean>;
+  readonly createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   readonly currentScope: BillingActionScope;
   readonly nativePurchaseAllowed: boolean;
   readonly purchases: PurchasesCapability;
-  readonly refresh: () => Promise<void>;
   readonly scopeRef: BillingScopeRef;
   readonly updateActionState: UpdateActionState;
   readonly userId: string | null;
@@ -63,12 +71,15 @@ function nativeSubscriptionClaimErrorLabel(error: unknown): string {
 async function restoreClaimAndBindNativeSubscription(input: {
   readonly checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   readonly claimNativeSubscription: (
+    organizationId: string,
     store: NativeSubscriptionStore,
   ) => Promise<boolean>;
+  readonly createRestoreOrganization: () => Promise<SessionCreateOrganizationResult | null>;
   readonly purchases: PurchasesCapability;
   readonly scope: BillingActionScope;
+  readonly scopeRef: BillingScopeRef;
   readonly userId: string | null;
-}): Promise<void> {
+}): Promise<SessionCreateOrganizationResult> {
   if (!input.userId || !input.purchases.nativeStore) {
     throw new Error("Native subscription restore is unavailable");
   }
@@ -76,11 +87,31 @@ async function restoreClaimAndBindNativeSubscription(input: {
     input.checkNativePurchaseEligibility,
     input.purchases.nativeStore,
   );
-  await input.purchases.moveNativeSubscription({
-    claim: input.claimNativeSubscription,
-    organizationId: input.scope.organizationId,
+  const preparedOrganizations: SessionCreateOrganizationResult[] = [];
+  const move = await input.purchases.moveNativeSubscription({
+    claim: async (organizationId, store) => {
+      if (!scopeMatches(input.scopeRef.current, input.scope)) return false;
+      return input.claimNativeSubscription(organizationId, store);
+    },
+    prepareClaim: async () => {
+      if (!scopeMatches(input.scopeRef.current, input.scope)) return null;
+      const preparedOrganization = await input.createRestoreOrganization();
+      if (
+        !preparedOrganization ||
+        !scopeMatches(input.scopeRef.current, input.scope)
+      ) {
+        return null;
+      }
+      preparedOrganizations.push(preparedOrganization);
+      return preparedOrganization.organizationId;
+    },
     userId: input.userId,
   });
+  const preparedOrganization = preparedOrganizations[0];
+  if (preparedOrganization?.organizationId !== move.organizationId) {
+    throw new Error("Native subscription restore target was lost");
+  }
+  return preparedOrganization;
 }
 
 /** Owns confirmation and the verified native restore/claim sequence. */
@@ -88,12 +119,14 @@ export function useNativeSubscriptionMove(
   input: UseNativeSubscriptionMoveInput,
 ) {
   const {
+    activateRestoredOrganization,
     checkNativePurchaseEligibility,
     claimNativeSubscription,
+    completeRestoreOrganization,
+    createRestoreOrganization,
     currentScope,
     nativePurchaseAllowed,
     purchases,
-    refresh,
     scopeRef,
     updateActionState,
     userId,
@@ -126,14 +159,25 @@ export function useNativeSubscriptionMove(
     }));
     void (async () => {
       try {
-        await restoreClaimAndBindNativeSubscription({
-          checkNativePurchaseEligibility,
-          claimNativeSubscription,
-          purchases,
-          scope,
-          userId,
-        });
-        if (scopeMatches(scopeRef.current, scope)) await refresh();
+        const restoredOrganization =
+          await restoreClaimAndBindNativeSubscription({
+            checkNativePurchaseEligibility,
+            claimNativeSubscription,
+            createRestoreOrganization,
+            purchases,
+            scope,
+            scopeRef,
+            userId,
+          });
+        if (scopeMatches(scopeRef.current, scope)) {
+          await activateRestoredOrganization(restoredOrganization);
+          const completed = await completeRestoreOrganization(
+            restoredOrganization.organizationId,
+          );
+          if (!completed) {
+            throw new Error("Native subscription restore completion was lost");
+          }
+        }
       } catch (error) {
         logError(formatBillingPurchaseFailure(error, false));
         updateActionState(scope, (current) => ({
@@ -142,21 +186,20 @@ export function useNativeSubscriptionMove(
         }));
       } finally {
         if (scopeMatches(scopeRef.current, scope)) dismiss();
-        updateActionState(scope, (current) => ({
-          ...current,
-          busy: null,
-        }));
+        updateActionState(scope, (current) => ({ ...current, busy: null }));
       }
     })();
   }, [
+    activateRestoredOrganization,
     checkNativePurchaseEligibility,
     claimNativeSubscription,
+    completeRestoreOrganization,
+    createRestoreOrganization,
     currentScope,
     dismiss,
     logError,
     nativePurchaseAllowed,
     purchases,
-    refresh,
     scopeRef,
     updateActionState,
     userId,
