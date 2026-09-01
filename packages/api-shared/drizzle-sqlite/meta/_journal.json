@@ -85,6 +85,13 @@
       "when": 1788222740456,
       "tag": "0011_fat_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1788223625262,
+      "tag": "0012_loving_wonder_man",
+      "breakpoints": true
     }
   ]
 }

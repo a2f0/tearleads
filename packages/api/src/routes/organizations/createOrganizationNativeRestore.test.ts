@@ -32,18 +32,33 @@ test("POST /organizations durably replays a native restore destination", async (
   const replay = await submitCreateOrganization(user, body);
   expect(replay.status).toBe(200);
   expect(await replay.json()).toEqual(provisioned);
+  const { nativeSubscriptionRestore, ...provisioningBody } = body;
+  const reorderedReplay = await submitCreateOrganization(user, {
+    nativeSubscriptionRestore,
+    ...provisioningBody,
+  });
+  expect(reorderedReplay.status).toBe(200);
+  expect(await reorderedReplay.json()).toEqual(provisioned);
+  const mismatchedReplay = await submitCreateOrganization(user, {
+    ...(await createOrganizationRequestBody(user, {
+      organizationId: body.organizationId,
+      rootContainerId: body.rootContainerId,
+    })),
+    nativeSubscriptionRestore: true,
+  });
+  expect(mismatchedReplay.status).toBe(409);
 
   const [billing] = await db
     .select({
       claimedAt: organizationBilling.nativeRestoreClaimedAt,
+      requestSha256: organizationBilling.nativeRestoreProvisioningRequestSha256,
       response: organizationBilling.nativeRestoreProvisioningResponse,
       userId: organizationBilling.nativeRestoreUserId,
     })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, body.organizationId));
-  expect(billing).toEqual({
-    claimedAt: null,
-    response: provisioned,
-    userId: user.userId,
-  });
+  expect(billing?.claimedAt).toBeNull();
+  expect(billing?.requestSha256).toHaveLength(64);
+  expect(billing?.response).toEqual(provisioned);
+  expect(billing?.userId).toBe(user.userId);
 });

@@ -85,6 +85,13 @@
       "when": 1788222740096,
       "tag": "0011_lonely_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788223624894,
+      "tag": "0012_wandering_patch",
+      "breakpoints": true
     }
   ]
 }

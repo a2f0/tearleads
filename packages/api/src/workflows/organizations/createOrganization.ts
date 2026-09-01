@@ -3,6 +3,7 @@ import type {
   DatabaseTransaction,
 } from "@symcrypt/api-shared/postgres";
 import { organizationBilling, users } from "@symcrypt/api-shared/schema";
+import { serializeKeyingCanonicalJson } from "@symcrypt/crypto";
 import { base64ToBytes } from "@symcrypt/encoding";
 import type { CreateOrganizationRequest } from "@symcrypt/validators/request";
 import {
@@ -10,6 +11,8 @@ import {
   isCreateOrganizationResponse,
 } from "@symcrypt/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
+import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import { sha256Hex } from "../../utils/sha256";
 import { lockRowForUpdate } from "../../utils/sqlDialect";
 import {
   assertOrganizationCanSync,
@@ -35,6 +38,14 @@ const ADDITIONAL_ORGANIZATION_OPTIONS: ProvisionOrganizationOptions = {
   initialBilling: "local",
   organizationName: "Organization",
 };
+
+function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {
+  return sha256Hex(
+    `symcrypt.native-restore-provisioning-request.v1\0${serializeKeyingCanonicalJson(
+      readKeyingCanonicalJson(input, "native restore provisioning request"),
+    )}`,
+  );
+}
 
 /**
  * Resolves the founding admin's stored key material into an
@@ -132,6 +143,7 @@ async function readNativeRestoreReplay(
   if (!input.nativeSubscriptionRestore) return null;
   const [billing] = await tx
     .select({
+      requestSha256: organizationBilling.nativeRestoreProvisioningRequestSha256,
       response: organizationBilling.nativeRestoreProvisioningResponse,
       userId: organizationBilling.nativeRestoreUserId,
     })
@@ -141,6 +153,7 @@ async function readNativeRestoreReplay(
   if (!billing) return null;
   if (
     billing.userId !== input.userId ||
+    billing.requestSha256 !== nativeRestoreRequestSha256(input) ||
     !isCreateOrganizationResponse(billing.response) ||
     billing.response.organizationId !== input.organizationId ||
     billing.response.rootContainerId !== input.rootContainerId ||
@@ -164,6 +177,7 @@ async function markNativeRestoreDestination(
     .update(organizationBilling)
     .set({
       nativeRestoreProvisioningResponse: response,
+      nativeRestoreProvisioningRequestSha256: nativeRestoreRequestSha256(input),
       nativeRestoreUserId: input.userId,
     })
     .where(eq(organizationBilling.organizationId, input.organizationId))
