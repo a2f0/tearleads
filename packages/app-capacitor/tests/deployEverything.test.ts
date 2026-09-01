@@ -175,11 +175,11 @@ test("runs every release in promotion order from the repository root", async () 
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
     ["terraform-staging", ""],
+    ["terraform-production", ""],
     ["deployStaging.sh", "staging-user@staging-host"],
     ["deployStagingCodeAssist.sh", "staging-user@staging-host"],
     ["uploadIosStagingRelease.sh", ""],
     ["uploadAndroidStagingRelease.sh", ""],
-    ["terraform-production", ""],
     ["deployProduction.sh", "prod-user@prod-host"],
     ["deployProductionCodeAssist.sh", "prod-user@prod-host"],
     ["uploadIosRelease.sh", ""],
@@ -196,6 +196,7 @@ test("stops at the first failing release command", async () => {
   expect(run.exitCode).toBe(23);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
+    "terraform-production",
     "deployStaging.sh",
     "deployStagingCodeAssist.sh",
     "uploadIosStagingRelease.sh",
@@ -214,6 +215,7 @@ test("stops before native releases when SSH readiness fails", async () => {
   expect(run.exitCode).toBe(1);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
+    "terraform-production",
   ]);
 });
 
@@ -259,7 +261,7 @@ test("rejects different SSH users on the same explicit host", async () => {
   expect(run.calls).toEqual([]);
 });
 
-test("rejects a single override matching the other resolved tier", async () => {
+test("rejects a single override matching the other tier before deployment", async () => {
   const run = await runHarness({
     environment: { PRODUCTION_SSH_TARGET: "staging-user@staging-host" },
   });
@@ -267,10 +269,6 @@ test("rejects a single override matching the other resolved tier", async () => {
   expect(run.stderr).toContain("staging-user@staging-host");
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
-    "deployStaging.sh",
-    "deployStagingCodeAssist.sh",
-    "uploadIosStagingRelease.sh",
-    "uploadAndroidStagingRelease.sh",
     "terraform-production",
   ]);
 });
@@ -290,10 +288,7 @@ test("rejects different hostnames that resolve to one address", async () => {
 test("secret loading rejects a generic target and preserves a tier override", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-common-env-"));
   await mkdir(resolve(root, ".secrets"), { recursive: true });
-  await Bun.write(
-    resolve(root, ".secrets/root.env"),
-    "SSH_TARGET=root-target\n",
-  );
+  await Bun.write(resolve(root, ".secrets/root.env"), "TF_VAR_shared=value\n");
   await Bun.write(
     resolve(root, ".secrets/staging.env"),
     "SSH_TARGET=staging-target\n",
@@ -314,6 +309,12 @@ test("secret loading rejects a generic target and preserves a tier override", as
           "unset PRODUCTION_SSH_TARGET",
           "if load_secrets_env prod; then exit 91; fi",
           "printf '%s\\n' generic-rejected",
+          "unset SSH_TARGET",
+          "unset STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
+          "printf '%s\\n' SSH_TARGET=root-target > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
+          "if load_secrets_env prod; then exit 92; fi",
+          "printf '%s\\n' root-generic-rejected",
+          "printf '%s\\n' TF_VAR_shared=value > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
           "export SSH_TARGET=explicit-target",
           "export STAGING_SSH_TARGET=explicit-target",
           "load_secrets_env staging",
@@ -336,9 +337,11 @@ test("secret loading rejects a generic target and preserves a tier override", as
     expect(exitCode, stderr).toBe(0);
     expect(stdout.trim().split("\n")).toEqual([
       "generic-rejected",
+      "root-generic-rejected",
       "explicit-target",
     ]);
     expect(stderr).toContain("PRODUCTION_SSH_TARGET");
+    expect(stderr).toContain("root.env must not define SSH_TARGET");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

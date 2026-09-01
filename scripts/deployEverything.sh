@@ -3,10 +3,9 @@
 # every server tier.
 #
 # Runs in order:
-#   1. Staging Terraform, server services, and Code Assist
-#   2. Staging iOS and Android releases
-#   3. Production Terraform, server services, and Code Assist
-#   4. Production iOS and Android releases
+#   1. Apply both Terraform stacks and verify their SSH targets are distinct
+#   2. Staging server services, Code Assist, and native releases
+#   3. Production server services, Code Assist, and native releases
 
 set -euo pipefail
 
@@ -223,9 +222,17 @@ echo ""
 
 run_step "terraform-staging" \
   "$REPO_ROOT/terraform/stacks/staging/server/scripts/apply.sh" --auto-approve
+run_step "terraform-production" \
+  "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
 STAGING_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
 )"
+PRODUCTION_EFFECTIVE_SSH_TARGET="$(
+  resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
+)"
+reject_shared_ssh_host \
+  "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
+
 run_tier_step "deploy-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
 run_tier_step "code-assist-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
@@ -233,13 +240,6 @@ run_tier_step "code-assist-staging" staging "$STAGING_EFFECTIVE_SSH_TARGET" \
 run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 
-run_step "terraform-production" \
-  "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
-PRODUCTION_EFFECTIVE_SSH_TARGET="$(
-  resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
-)"
-reject_shared_ssh_host \
-  "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
 run_tier_step "deploy-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
 run_tier_step "code-assist-production" prod "$PRODUCTION_EFFECTIVE_SSH_TARGET" \

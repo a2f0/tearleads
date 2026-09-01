@@ -105,6 +105,12 @@ load_secrets_env() {
   _source_env_file "$secrets_dir/root.env"
 
   if [[ -n "$tier" ]]; then
+    if [[ -n "${SSH_TARGET:-}" ]]; then
+      unset SSH_TARGET
+      echo "ERROR: $secrets_dir/root.env must not define SSH_TARGET." >&2
+      echo "Set the target in $secrets_dir/${tier}.env or use the tier-specific override." >&2
+      return 1
+    fi
     _source_env_file "$secrets_dir/${tier}.env"
     _source_optional_env_file "$secrets_dir/${tier}.garage.env"
   fi
