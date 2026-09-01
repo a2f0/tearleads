@@ -101,7 +101,7 @@ test("createRemoteContainer replans once after the parent head advances", async 
   }
 });
 
-test("createRemoteContainer discards a response after generation expiry", async () => {
+test("createRemoteContainer preserves a committed response after generation expiry", async () => {
   const parent = await createParentProjection();
   const { close, execSql } = await createTestExecSql(
     "container-create-submit-generation",
@@ -130,7 +130,7 @@ test("createRemoteContainer discards a response after generation expiry", async 
       stillCurrent: () => current,
     });
 
-    expect(created).toBeNull();
+    expect(created?.containerId).toBe("expired-created-container");
     await expect(
       loadAccessManifestCheckpoint(
         execSql,
