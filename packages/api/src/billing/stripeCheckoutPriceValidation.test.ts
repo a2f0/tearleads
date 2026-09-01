@@ -6,8 +6,10 @@ const ENV = {
   STRIPE_SYNC_TEAM_5_PRICE_ID: "price_sync",
 };
 const TEAM_5_PRICE = {
+  active: true,
   currency: "usd",
   id: "price_sync",
+  product: { active: true, id: "prod_sync" },
   recurring: { interval: "month", interval_count: 1 },
   unit_amount: 1_000,
 };
@@ -36,7 +38,9 @@ test("subscription creation fails closed for a mispriced configured tier", async
   );
 
   expect(result).toBeNull();
-  expect(urls).toEqual(["https://api.stripe.com/v1/prices/price_sync"]);
+  expect(urls).toEqual([
+    "https://api.stripe.com/v1/prices/price_sync?expand[]=product",
+  ]);
 });
 
 test("hosted checkout fails closed for a mispriced configured tier", async () => {
@@ -58,5 +62,7 @@ test("hosted checkout fails closed for a mispriced configured tier", async () =>
   );
 
   expect(result).toBeNull();
-  expect(urls).toEqual(["https://api.stripe.com/v1/prices/price_sync"]);
+  expect(urls).toEqual([
+    "https://api.stripe.com/v1/prices/price_sync?expand[]=product",
+  ]);
 });
