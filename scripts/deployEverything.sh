@@ -56,14 +56,45 @@ if [[ -n "${SSH_TARGET:-}" ]]; then
   exit 1
 fi
 
-if [[ -n "${STAGING_SSH_TARGET:-}" && \
-  -n "${PRODUCTION_SSH_TARGET:-}" && \
-  "$STAGING_SSH_TARGET" == "$PRODUCTION_SSH_TARGET" ]]; then
-  echo "Error: staging and production SSH targets must be different." >&2
+cd "$REPO_ROOT"
+
+# shellcheck source=../terraform/scripts/common.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/terraform/scripts/common.sh"
+
+resolve_tier_ssh_target() {
+  local tier="$1"
+  local explicit_target="$2"
+  local stack_dir="$REPO_ROOT/terraform/stacks/$tier/server"
+
+  (
+    unset SSH_TARGET
+    load_secrets_env "$tier"
+    if [[ -n "$explicit_target" ]]; then
+      export SSH_TARGET="$explicit_target"
+    fi
+    if [[ -z "${SSH_TARGET:-}" ]]; then
+      validate_aws_env
+      terraform -chdir="$stack_dir" init \
+        -backend-config="$(get_backend_config)" >&2
+      SSH_TARGET="$(resolve_stack_ssh_target "$stack_dir")"
+    fi
+    printf '%s\n' "$SSH_TARGET"
+  )
+}
+
+STAGING_EFFECTIVE_SSH_TARGET="$(
+  resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
+)"
+PRODUCTION_EFFECTIVE_SSH_TARGET="$(
+  resolve_tier_ssh_target prod "${PRODUCTION_SSH_TARGET:-}"
+)"
+
+if [[ "$STAGING_EFFECTIVE_SSH_TARGET" == "$PRODUCTION_EFFECTIVE_SSH_TARGET" ]]; then
+  echo "Error: staging and production resolve to the same SSH target:" >&2
+  echo "  $STAGING_EFFECTIVE_SSH_TARGET" >&2
   exit 1
 fi
-
-cd "$REPO_ROOT"
 
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
@@ -91,11 +122,7 @@ run_tier_step() {
   local ssh_target="$2"
   shift 2
 
-  if [[ -n "$ssh_target" ]]; then
-    run_step "$label" env SSH_TARGET="$ssh_target" "$@"
-  else
-    run_step "$label" env -u SSH_TARGET "$@"
-  fi
+  run_step "$label" env SSH_TARGET="$ssh_target" "$@"
 }
 
 print_timing_summary() {
@@ -115,13 +142,13 @@ run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
 run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
 run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
 run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
-run_tier_step "deploy-staging" "${STAGING_SSH_TARGET:-}" \
+run_tier_step "deploy-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployStaging.sh"
-run_tier_step "code-assist-staging" "${STAGING_SSH_TARGET:-}" \
+run_tier_step "code-assist-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
   "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
-run_tier_step "deploy-production" "${PRODUCTION_SSH_TARGET:-}" \
+run_tier_step "deploy-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh"
-run_tier_step "code-assist-production" "${PRODUCTION_SSH_TARGET:-}" \
+run_tier_step "code-assist-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
 
 echo "=== Everything deployment finished ==="

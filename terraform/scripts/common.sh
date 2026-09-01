@@ -51,6 +51,7 @@ _source_optional_env_file() {
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
+  local ssh_target_override="${SSH_TARGET:-}"
   secrets_dir="$(get_repo_root)/.secrets"
 
   _source_env_file "$secrets_dir/root.env"
@@ -58,6 +59,10 @@ load_secrets_env() {
   if [[ -n "$tier" ]]; then
     _source_env_file "$secrets_dir/${tier}.env"
     _source_optional_env_file "$secrets_dir/${tier}.garage.env"
+  fi
+
+  if [[ -n "$ssh_target_override" ]]; then
+    export SSH_TARGET="$ssh_target_override"
   fi
 }
 
