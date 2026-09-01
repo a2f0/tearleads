@@ -56,6 +56,13 @@ if [[ -n "${SSH_TARGET:-}" ]]; then
   exit 1
 fi
 
+if [[ -n "${STAGING_SSH_TARGET:-}" && \
+  -n "${PRODUCTION_SSH_TARGET:-}" && \
+  "$STAGING_SSH_TARGET" == "$PRODUCTION_SSH_TARGET" ]]; then
+  echo "Error: staging and production SSH targets must be different." >&2
+  exit 1
+fi
+
 cd "$REPO_ROOT"
 
 DEPLOY_START="$SECONDS"
