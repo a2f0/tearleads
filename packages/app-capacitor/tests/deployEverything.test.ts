@@ -151,15 +151,15 @@ test("runs every release in promotion order from the repository root", async () 
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
     ["terraform-staging", ""],
-    ["terraform-production", ""],
-    ["uploadIosStagingRelease.sh", ""],
-    ["uploadIosRelease.sh", ""],
-    ["uploadAndroidStagingRelease.sh", ""],
-    ["uploadAndroidRelease.sh", ""],
     ["deployStaging.sh", "staging-user@staging-host"],
     ["deployStagingCodeAssist.sh", "staging-user@staging-host"],
+    ["uploadIosStagingRelease.sh", ""],
+    ["uploadAndroidStagingRelease.sh", ""],
+    ["terraform-production", ""],
     ["deployProduction.sh", "prod-user@prod-host"],
     ["deployProductionCodeAssist.sh", "prod-user@prod-host"],
+    ["uploadIosRelease.sh", ""],
+    ["uploadAndroidRelease.sh", ""],
   ]);
   const workingDirectories = new Set(
     run.calls.map((call) => call.split("|").slice(2).join("|")),
@@ -172,9 +172,9 @@ test("stops at the first failing release command", async () => {
   expect(run.exitCode).toBe(23);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
-    "terraform-production",
+    "deployStaging.sh",
+    "deployStagingCodeAssist.sh",
     "uploadIosStagingRelease.sh",
-    "uploadIosRelease.sh",
     "uploadAndroidStagingRelease.sh",
   ]);
 });
@@ -203,7 +203,7 @@ test("keeps distinct tier overrides isolated", async () => {
     secretProductionTarget: "wrong-secret-target",
   });
   expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls.slice(6).map((call) => call.split("|")[1])).toEqual([
+  expect(run.calls.map((call) => call.split("|")[1]).filter(Boolean)).toEqual([
     "staging-user@explicit-staging",
     "staging-user@explicit-staging",
     "prod-user@explicit-production",
@@ -237,12 +237,16 @@ test("rejects different SSH users on the same explicit host", async () => {
 
 test("rejects a single override matching the other resolved tier", async () => {
   const run = await runHarness({
-    environment: { STAGING_SSH_TARGET: "prod-user@prod-host" },
+    environment: { PRODUCTION_SSH_TARGET: "staging-user@staging-host" },
   });
   expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("prod-user@prod-host");
+  expect(run.stderr).toContain("staging-user@staging-host");
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
     "terraform-staging",
+    "deployStaging.sh",
+    "deployStagingCodeAssist.sh",
+    "uploadIosStagingRelease.sh",
+    "uploadAndroidStagingRelease.sh",
     "terraform-production",
   ]);
 });

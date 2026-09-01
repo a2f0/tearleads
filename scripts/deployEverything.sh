@@ -3,11 +3,10 @@
 # every server tier.
 #
 # Runs in order:
-#   1. Terraform apply for staging and production
-#   2. Staging and production iOS releases to TestFlight
-#   3. Staging and production Android releases to Google Play
-#   4. Remaining staging deployment and staging Code Assist
-#   5. Remaining production deployment and production Code Assist
+#   1. Staging Terraform, server services, and Code Assist
+#   2. Staging iOS and Android releases
+#   3. Production Terraform, server services, and Code Assist
+#   4. Production iOS and Android releases
 
 set -euo pipefail
 
@@ -18,10 +17,9 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0")
 
-Applies and validates both server tiers, builds and uploads the staging and
-production iOS and Android releases, then deploys staging before production.
-Terraform, Ansible, and the separately released Code Assist service are
-included for both tiers.
+Deploys and publishes every staging target before promoting the same release
+to production. Terraform, Ansible, server applications, the separately
+released Code Assist service, and both native stores are included.
 
 Options:
   -h, --help    Show this help and exit.
@@ -152,6 +150,13 @@ run_step "terraform-staging" \
 STAGING_EFFECTIVE_SSH_TARGET="$(
   resolve_tier_ssh_target staging "${STAGING_SSH_TARGET:-}"
 )"
+run_tier_step "deploy-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
+  "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
+run_tier_step "code-assist-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
+  "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
+run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
+run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
+
 run_step "terraform-production" \
   "$REPO_ROOT/terraform/stacks/prod/server/scripts/apply.sh" --auto-approve
 PRODUCTION_EFFECTIVE_SSH_TARGET="$(
@@ -159,19 +164,12 @@ PRODUCTION_EFFECTIVE_SSH_TARGET="$(
 )"
 reject_shared_ssh_host \
   "$STAGING_EFFECTIVE_SSH_TARGET" "$PRODUCTION_EFFECTIVE_SSH_TARGET"
-
-run_step "ios-staging" "$SCRIPT_DIR/uploadIosStagingRelease.sh"
-run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
-run_step "android-staging" "$SCRIPT_DIR/uploadAndroidStagingRelease.sh"
-run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
-run_tier_step "deploy-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
-  "$SCRIPT_DIR/deployStaging.sh" --skip-terraform
-run_tier_step "code-assist-staging" "$STAGING_EFFECTIVE_SSH_TARGET" \
-  "$REPO_ROOT/packages/code-assist/scripts/deployStagingCodeAssist.sh"
 run_tier_step "deploy-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$SCRIPT_DIR/deployProduction.sh" --skip-terraform
 run_tier_step "code-assist-production" "$PRODUCTION_EFFECTIVE_SSH_TARGET" \
   "$REPO_ROOT/packages/code-assist/scripts/deployProductionCodeAssist.sh"
+run_step "ios-production" "$SCRIPT_DIR/uploadIosRelease.sh"
+run_step "android-production" "$SCRIPT_DIR/uploadAndroidRelease.sh"
 
 echo "=== Everything deployment finished ==="
 echo "All steps succeeded."
