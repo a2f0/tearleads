@@ -17,7 +17,10 @@ load_secrets_env staging
 validate_aws_env
 
 echo "Building website..."
-(cd "$WEBSITE_DIR" && PUBLIC_ENVIRONMENT=staging bun run build)
+(cd "$WEBSITE_DIR" && \
+  PUBLIC_ENVIRONMENT=staging \
+  PUBLIC_STRIPE_CUSTOMER_PORTAL_URL="https://billing.stripe.com/p/login/test_00w7sKaemgcfdhb5lR0x200" \
+  bun run build)
 
 if [ -z "${SSH_TARGET:-}" ]; then
   STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
