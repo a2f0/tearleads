@@ -120,9 +120,8 @@ async function resolveTransferDestination(input: {
     input.appUserId,
     input.subscriptionId,
   );
-  return typeof organizationId === "string"
-    ? { appUserId: input.appUserId, organizationId }
-    : organizationId;
+  if (organizationId === "ambiguous") return organizationId;
+  return organizationId ? { appUserId: input.appUserId, organizationId } : null;
 }
 
 interface TransferDestination {
@@ -151,7 +150,7 @@ async function ignoreRevenueCatTransfer(input: {
 }
 
 async function deferUnconfirmedTransfer(input: {
-  readonly destination: TransferDestination;
+  readonly destination?: TransferDestination;
   readonly event: RevenueCatTransferWebhookEvent;
   readonly reason: string;
   readonly runtime: ApiServiceRuntime;
@@ -160,7 +159,7 @@ async function deferUnconfirmedTransfer(input: {
     return { reason: input.reason, status: "retry" };
   }
   return ignoreRevenueCatTransfer({
-    destination: input.destination,
+    ...(input.destination ? { destination: input.destination } : {}),
     event: input.event,
     reason: "Transfer was not confirmed by an authenticated native claim",
     runtime: input.runtime,
@@ -240,7 +239,7 @@ async function processVerifiedRevenueCatTransfer(input: {
   if (resolved.kind === "customer_not_found") {
     const destination = await resolveTransferDestination(input);
     if (destination === "ambiguous") {
-      return ignoreRevenueCatTransfer({
+      return deferUnconfirmedTransfer({
         event: input.event,
         reason: "Transfer subscription destination is ambiguous",
         runtime: input.runtime,
@@ -275,7 +274,7 @@ async function processVerifiedRevenueCatTransfer(input: {
     subscriptionId: resolved.subscription.subscriptionId,
   });
   if (destination === "ambiguous") {
-    return ignoreRevenueCatTransfer({
+    return deferUnconfirmedTransfer({
       event: input.event,
       reason: "Transfer subscription destination is ambiguous",
       runtime: input.runtime,
