@@ -149,6 +149,7 @@ async function applyContainerTombstoneCascade(input: {
         reasonByContainerId,
         removedContainerIds,
       }).concat(fenceOnlyContainerIds),
+      stillCurrent: input.isCurrent,
     },
   );
   if (deletedContainerIds.length !== affectedContainerIds.size) {

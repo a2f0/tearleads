@@ -137,6 +137,7 @@ export interface ContainerContentsPersistence
             }
           | undefined;
       };
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<
     { committed: true; container: ContainerRecord } | { committed: false }
@@ -169,6 +170,7 @@ export interface ContainerContentsPersistence
        * container id when access restoration rehydrates the container.
        */
       retainMetadataForContainerIds?: ReadonlyArray<string>;
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ReadonlyArray<string>>;
   deletePendingUpdates: (

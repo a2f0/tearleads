@@ -214,34 +214,41 @@ export async function deleteStoredContainers(
     await ensureContainerTables(lockedExecSql);
     await ensureDocumentProjectionTables(lockedExecSql);
     await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-    return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-      async (tx) => {
-        if (
-          !(await canApplyContainerRemovals({
-            expectedContainers: options?.expectedContainers,
-            removals: uniqueRemovals,
-            tx,
-          }))
-        ) {
-          return [];
-        }
-        const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
-          options?.retainMetadataForContainerIds?.includes(removal.containerId)
-            ? [removal.containerId]
-            : [],
-        );
-        return applyContainerRemovals({
-          metadataDeleteIds: uniqueRemovals.flatMap((removal) =>
-            retainedMetadataIds.includes(removal.containerId)
-              ? []
-              : [removal.containerId],
-          ),
+    const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
+    const remove = async (tx: ClientSQLiteTransactionScope) => {
+      if (
+        !(await canApplyContainerRemovals({
+          expectedContainers: options?.expectedContainers,
           removals: uniqueRemovals,
-          retainedMetadataIds,
           tx,
-        });
-      },
+        }))
+      ) {
+        return [];
+      }
+      const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
+        options?.retainMetadataForContainerIds?.includes(removal.containerId)
+          ? [removal.containerId]
+          : [],
+      );
+      return applyContainerRemovals({
+        metadataDeleteIds: uniqueRemovals.flatMap((removal) =>
+          retainedMetadataIds.includes(removal.containerId)
+            ? []
+            : [removal.containerId],
+        ),
+        removals: uniqueRemovals,
+        retainedMetadataIds,
+        tx,
+      });
+    };
+    if (!options?.stillCurrent) {
+      return runtime.transaction(remove, { behavior: "immediate" });
+    }
+    const outcome = await runtime.guardedTransaction(
+      remove,
+      options.stillCurrent,
       { behavior: "immediate" },
     );
+    return outcome.result ?? [];
   });
 }
