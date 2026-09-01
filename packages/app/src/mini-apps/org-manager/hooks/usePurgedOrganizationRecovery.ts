@@ -23,21 +23,29 @@ interface RecoveryTarget {
 
 interface ScopedRecoveryState {
   readonly error: string | null;
+  readonly persistencePending: boolean;
   readonly recovering: boolean;
   readonly scopeKey: string;
   readonly target: RecoveryTarget | null;
 }
 
 interface RecoveryAttempt {
-  readonly promise: Promise<boolean>;
-  readonly scopeKey: string;
+  completionScopeKey: string | null;
+  promise: Promise<boolean>;
+  readonly sourceScopeKey: string;
   readonly token: symbol;
 }
 
 type RecoveryStateSetter = Dispatch<SetStateAction<ScopedRecoveryState>>;
 
 function emptyRecoveryState(scopeKey: string): ScopedRecoveryState {
-  return { error: null, recovering: false, scopeKey, target: null };
+  return {
+    error: null,
+    persistencePending: false,
+    recovering: false,
+    scopeKey,
+    target: null,
+  };
 }
 
 function stateForScope(
@@ -48,6 +56,9 @@ function stateForScope(
 }
 
 function recoveryMessage(state: ScopedRecoveryState): string | null {
+  if (state.persistencePending) {
+    return state.recovering ? ORG_MANAGER_LABELS.purgeRecoveryFinalizing : null;
+  }
   if (state.target) {
     return state.recovering
       ? ORG_MANAGER_LABELS.purgeRecoveryFinalizing
@@ -88,14 +99,17 @@ function useReplacementBilling(
 
 function handleRecoveryError(input: {
   readonly error: unknown;
+  readonly persistencePending: boolean;
   readonly scopeIsCurrent: boolean;
   readonly scopeKey: string;
   readonly setState: RecoveryStateSetter;
+  readonly target: RecoveryTarget | null;
 }): boolean {
   if (!input.scopeIsCurrent) return false;
   if (input.error instanceof PurgedOrganizationRecoveryBillingRequiredError) {
     input.setState({
       error: null,
+      persistencePending: false,
       recovering: false,
       scopeKey: input.scopeKey,
       target: {
@@ -106,69 +120,177 @@ function handleRecoveryError(input: {
     return false;
   }
   console.error("Failed to recover purged organization:", input.error);
-  input.setState((current) => ({
-    ...stateForScope(current, input.scopeKey),
-    error: ORG_MANAGER_LABELS.purgeRecoveryFailed,
-    recovering: false,
-  }));
+  input.setState((current) => {
+    const scoped = stateForScope(current, input.scopeKey);
+    return {
+      ...scoped,
+      error: ORG_MANAGER_LABELS.purgeRecoveryFailed,
+      persistencePending: input.persistencePending,
+      recovering: false,
+      target: input.target ?? scoped.target,
+    };
+  });
   return false;
 }
 
-function useRecoveryAttempt(input: {
+function recoveryScopeKey(userId: string, organizationId: string): string {
+  return `${userId}:${organizationId}`;
+}
+
+function attemptCoversScope(
+  attempt: RecoveryAttempt,
+  scopeKey: string,
+): boolean {
+  return (
+    attempt.sourceScopeKey === scopeKey ||
+    attempt.completionScopeKey === scopeKey
+  );
+}
+
+interface RecoveryAttemptInput {
   readonly organizationId: string;
+  readonly persistenceTarget: RecoveryTarget | null;
   readonly persistSession: () => Promise<boolean>;
   readonly scopeKey: string;
   readonly setState: RecoveryStateSetter;
   readonly symcrypt: ReturnType<typeof useSymCrypt>;
-}) {
+  readonly userId: string | null;
+}
+
+interface RecoveryExecution {
+  readonly stateScopeKey: string;
+  readonly target: RecoveryTarget;
+}
+
+interface RecoveryAttemptRuntime extends RecoveryAttemptInput {
+  readonly attempt: RecoveryAttempt;
+  readonly attemptRef: { current: RecoveryAttempt | null };
+  readonly scopeKeyRef: { readonly current: string };
+}
+
+async function resolveRecoveryExecution(
+  input: RecoveryAttemptRuntime,
+): Promise<RecoveryExecution | null> {
+  if (input.persistenceTarget) {
+    return { stateScopeKey: input.scopeKey, target: input.persistenceTarget };
+  }
+  if (!input.userId) return null;
+  const recovered = await input.symcrypt.session.recoverPurgedOrganization(
+    input.organizationId,
+    { organizationProfileName: ORG_MANAGER_LABELS.recoveredOrganizationName },
+  );
+  if (!recovered) return null;
+  const stateScopeKey = recoveryScopeKey(
+    input.userId,
+    recovered.organizationId,
+  );
+  input.attempt.completionScopeKey = stateScopeKey;
+  if (!attemptCoversScope(input.attempt, input.scopeKeyRef.current))
+    return null;
+  const target: RecoveryTarget = recovered;
+  input.setState({
+    error: null,
+    persistencePending: true,
+    recovering: true,
+    scopeKey: stateScopeKey,
+    target,
+  });
+  return { stateScopeKey, target };
+}
+
+async function executeRecoveryAttempt(
+  input: RecoveryAttemptRuntime,
+): Promise<boolean> {
+  let execution: RecoveryExecution | null = null;
+  input.setState((current) => ({
+    ...stateForScope(current, input.scopeKey),
+    error: null,
+    recovering: true,
+  }));
+  try {
+    execution = await resolveRecoveryExecution(input);
+    if (!execution) return false;
+    if (!(await input.persistSession())) {
+      throw new Error("Recovered organization session was not persisted");
+    }
+    if (!attemptCoversScope(input.attempt, input.scopeKeyRef.current)) {
+      return false;
+    }
+    input.setState(emptyRecoveryState(execution.stateScopeKey));
+    return true;
+  } catch (error) {
+    const stateScopeKey = execution?.stateScopeKey ?? input.scopeKey;
+    const target = execution?.target ?? input.persistenceTarget;
+    return handleRecoveryError({
+      error,
+      persistencePending: target !== null,
+      scopeIsCurrent: attemptCoversScope(
+        input.attempt,
+        input.scopeKeyRef.current,
+      ),
+      scopeKey: stateScopeKey,
+      setState: input.setState,
+      target,
+    });
+  } finally {
+    if (input.attemptRef.current?.token === input.attempt.token) {
+      input.attemptRef.current = null;
+    }
+    if (attemptCoversScope(input.attempt, input.scopeKeyRef.current)) {
+      const stateScopeKey = execution?.stateScopeKey ?? input.scopeKey;
+      input.setState((current) => ({
+        ...stateForScope(current, stateScopeKey),
+        recovering: false,
+      }));
+    }
+  }
+}
+
+function useRecoveryAttempt(input: RecoveryAttemptInput) {
   const attemptRef = useRef<RecoveryAttempt | null>(null);
   const scopeKeyRef = useRef(input.scopeKey);
   scopeKeyRef.current = input.scopeKey;
   return useCallback((): Promise<boolean> => {
-    const { organizationId, persistSession, scopeKey, setState, symcrypt } =
-      input;
     const existing = attemptRef.current;
-    if (existing?.scopeKey === scopeKey) return existing.promise;
+    if (existing && attemptCoversScope(existing, input.scopeKey)) {
+      return existing.promise;
+    }
     const token = Symbol("purge-recovery-attempt");
-    const promise = (async () => {
-      setState((current) => ({
-        ...stateForScope(current, scopeKey),
-        error: null,
-        recovering: true,
-      }));
-      try {
-        const recovered = await symcrypt.session.recoverPurgedOrganization(
-          organizationId,
-          {
-            organizationProfileName:
-              ORG_MANAGER_LABELS.recoveredOrganizationName,
-          },
-        );
-        if (scopeKeyRef.current !== scopeKey || !recovered) return false;
-        if (!(await persistSession())) {
-          throw new Error("Recovered organization session was not persisted");
-        }
-        return true;
-      } catch (error) {
-        return handleRecoveryError({
-          error,
-          scopeIsCurrent: scopeKeyRef.current === scopeKey,
-          scopeKey,
-          setState,
-        });
-      } finally {
-        if (attemptRef.current?.token === token) attemptRef.current = null;
-        if (scopeKeyRef.current === scopeKey) {
-          setState((current) => ({
-            ...stateForScope(current, scopeKey),
-            recovering: false,
-          }));
-        }
-      }
-    })();
-    attemptRef.current = { promise, scopeKey, token };
+    const attempt: RecoveryAttempt = {
+      completionScopeKey: null,
+      promise: Promise.resolve(false),
+      sourceScopeKey: input.scopeKey,
+      token,
+    };
+    const promise = executeRecoveryAttempt({
+      ...input,
+      attempt,
+      attemptRef,
+      scopeKeyRef,
+    });
+    attempt.promise = promise;
+    attemptRef.current = attempt;
     return promise;
   }, [input]);
+}
+
+function resolveAutomaticRecoverySignal(input: {
+  readonly currentState: ScopedRecoveryState;
+  readonly enabled: boolean;
+  readonly replacementBilling: ReturnType<typeof useReplacementBilling>;
+  readonly sourceBilling: unknown;
+  readonly sourceIsPurged: boolean;
+  readonly userId: string | null;
+}): unknown {
+  if (input.currentState.persistencePending) return null;
+  if (input.currentState.target) {
+    return input.replacementBilling.view?.canSync
+      ? input.replacementBilling.billing
+      : null;
+  }
+  return input.sourceIsPurged && input.enabled && input.userId
+    ? input.sourceBilling
+    : null;
 }
 
 /** Coordinates the app-owned handoff around the SDK's durable recovery. */
@@ -189,7 +311,10 @@ export function usePurgedOrganizationRecovery(input: {
 }) {
   const symcrypt = useSymCrypt();
   const { persistSession } = useIdentity();
-  const scopeKey = `${input.userId ?? "signed-out"}:${input.organizationId}`;
+  const scopeKey = recoveryScopeKey(
+    input.userId ?? "signed-out",
+    input.organizationId,
+  );
   const [state, setState] = useState<ScopedRecoveryState>(() =>
     emptyRecoveryState(scopeKey),
   );
@@ -200,31 +325,45 @@ export function usePurgedOrganizationRecovery(input: {
     symcrypt,
   );
   const attemptedSignalRef = useRef<unknown>(null);
-  const [retryVersion, setRetryVersion] = useState(0);
   const recoveryAttemptInput = useMemo(
     () => ({
       organizationId: input.organizationId,
+      persistenceTarget: currentState.persistencePending
+        ? currentState.target
+        : null,
       persistSession,
       scopeKey,
       setState,
       symcrypt,
+      userId: input.userId,
     }),
-    [input.organizationId, persistSession, scopeKey, symcrypt],
+    [
+      currentState.persistencePending,
+      currentState.target,
+      input.organizationId,
+      input.userId,
+      persistSession,
+      scopeKey,
+      symcrypt,
+    ],
   );
   const runRecovery = useRecoveryAttempt(recoveryAttemptInput);
 
   const sourceIsPurged = input.sourceBilling.view?.status === "purged";
-  const recoverySignal = currentState.target
-    ? replacementBilling.view?.canSync
-      ? replacementBilling.billing
-      : null
-    : sourceIsPurged && input.enabled && input.userId
-      ? input.sourceBilling.billing
-      : null;
+  const recoverySignal = resolveAutomaticRecoverySignal({
+    currentState,
+    enabled: input.enabled,
+    replacementBilling,
+    sourceBilling: input.sourceBilling.billing,
+    sourceIsPurged,
+    userId: input.userId,
+  });
 
   useEffect(() => {
     attemptedSignalRef.current = null;
-    setState(emptyRecoveryState(scopeKey));
+    setState((current) =>
+      current.scopeKey === scopeKey ? current : emptyRecoveryState(scopeKey),
+    );
   }, [scopeKey]);
 
   useEffect(() => {
@@ -233,19 +372,18 @@ export function usePurgedOrganizationRecovery(input: {
     }
     attemptedSignalRef.current = recoverySignal;
     void runRecovery();
-  }, [recoverySignal, retryVersion, runRecovery]);
+  }, [recoverySignal, runRecovery]);
 
   const retry = useCallback(() => {
-    attemptedSignalRef.current = null;
-    setRetryVersion((current) => current + 1);
-  }, []);
+    void runRecovery();
+  }, [runRecovery]);
   const billingRefresh = currentState.target
     ? replacementBilling.refresh
     : input.sourceBilling.refresh;
   const refresh = useCallback(async () => {
     await billingRefresh();
-    retry();
-  }, [billingRefresh, retry]);
+    await runRecovery();
+  }, [billingRefresh, runRecovery]);
 
   const active =
     currentState.target !== null || (input.enabled && sourceIsPurged);

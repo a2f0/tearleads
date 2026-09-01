@@ -102,6 +102,7 @@ export const ORG_MANAGER_LABELS = {
     "Billing is active. Restoring retained local data to the replacement organization…",
   purgeRecoveryPreparing:
     "Preparing a replacement organization for your retained local data…",
+  purgeRecoveryRetry: "Retry recovery",
   recoveredOrganizationName: "Recovered Organization",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",

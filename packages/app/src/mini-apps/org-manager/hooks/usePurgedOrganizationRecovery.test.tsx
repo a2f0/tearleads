@@ -10,7 +10,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import { type PropsWithChildren, useState } from "react";
 import { billingFixture } from "../../../../test/helpers/organizationBillingTestFixtures";
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import * as BillingProvider from "../../../providers/billing/BillingProvider";
@@ -42,26 +42,29 @@ function billing(status: "active" | "local", organizationId: string) {
   return { ...fixture.billing, organizationId, status };
 }
 
+function billingState(status: "active" | "purged", organizationId: string) {
+  const active = status === "active";
+  const fixture = billingFixture(active, active, false);
+  return {
+    billing: { ...fixture.billing, organizationId, status },
+    error: null,
+    loading: false,
+    refresh: () => Promise.resolve(),
+    startTrial: () => Promise.resolve(false),
+    view: {
+      ...fixture.view,
+      isLocal: false,
+      needsAttention: !active,
+      status,
+    },
+  };
+}
+
 function stubSourceBilling() {
-  const fixture = billingFixture(false, false, false);
   spies.push(
-    spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
-      billing: {
-        ...fixture.billing,
-        organizationId: SOURCE_ORGANIZATION_ID,
-        status: "purged",
-      },
-      error: null,
-      loading: false,
-      refresh: () => Promise.resolve(),
-      startTrial: () => Promise.resolve(false),
-      view: {
-        ...fixture.view,
-        isLocal: false,
-        needsAttention: true,
-        status: "purged",
-      },
-    }),
+    spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue(
+      billingState("purged", SOURCE_ORGANIZATION_ID),
+    ),
   );
 }
 
@@ -194,20 +197,39 @@ test("bills the durable replacement and resumes purge recovery after payment", a
 });
 
 test("surfaces and retries a finalized recovery whose session was not persisted", async () => {
-  stubSourceBilling();
   const recovered: SessionRecoverOrganizationResult = {
     containerId: REPLACEMENT_CONTAINER_ID,
     organizationId: REPLACEMENT_ORGANIZATION_ID,
     replacedOrganizationId: SOURCE_ORGANIZATION_ID,
     reset: { clearedOrganizationId: SOURCE_ORGANIZATION_ID } as never,
   };
-  const recoverPurgedOrganization = mock(() => Promise.resolve(recovered));
+  let liveOrganizationId = SOURCE_ORGANIZATION_ID;
+  let emitOrganizationId: (organizationId: string) => void = () => undefined;
+  let settleFirstPersistence: (persisted: boolean) => void = () => undefined;
+  const sourceBillingState = billingState("purged", SOURCE_ORGANIZATION_ID);
+  const replacementBillingState = billingState(
+    "active",
+    REPLACEMENT_ORGANIZATION_ID,
+  );
+  const recoverPurgedOrganization = mock(async () => {
+    emitOrganizationId(REPLACEMENT_ORGANIZATION_ID);
+    return recovered;
+  });
   let persistenceAttempt = 0;
   const persistSession = mock(() => {
     persistenceAttempt += 1;
-    return Promise.resolve(persistenceAttempt > 1);
+    return persistenceAttempt === 1
+      ? new Promise<boolean>((resolve) => {
+          settleFirstPersistence = resolve;
+        })
+      : Promise.resolve(true);
   });
   spies.push(
+    spyOn(BillingProvider, "useOrganizationBilling").mockImplementation(() =>
+      liveOrganizationId === SOURCE_ORGANIZATION_ID
+        ? sourceBillingState
+        : replacementBillingState,
+    ),
     spyOn(IdentityProvider, "useIdentity").mockReturnValue({
       persistSession,
     } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
@@ -215,7 +237,9 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
       organizations: {
         checkNativePurchaseEligibility: () => Promise.resolve(null),
         claimNativeSubscription: () => Promise.resolve(null),
-        loadBillingForOrganization: () => Promise.resolve(null),
+        loadBillingForOrganization: () =>
+          Promise.resolve(replacementBillingState.billing),
+        loadBillingHistory: () => Promise.resolve(null),
         loadBillingManagementUrl: () => Promise.resolve(null),
         loadStripeCheckoutOptions: () => Promise.resolve({ options: [] }),
         startTrial: () => Promise.resolve(null),
@@ -224,25 +248,38 @@ test("surfaces and retries a finalized recovery whose session was not persisted"
     } as never),
   );
 
-  const view = render(
-    <BillingPanel
-      isOrgAdmin
-      isPersonalOrganization
-      organizationId={SOURCE_ORGANIZATION_ID}
-      userId="user-1"
-    />,
-    { wrapper: wrapperWithPurchases(() => new Promise(() => undefined)) },
-  );
+  function SessionEmittingPanel() {
+    const [organizationId, setOrganizationId] = useState(
+      SOURCE_ORGANIZATION_ID,
+    );
+    emitOrganizationId = (nextOrganizationId) => {
+      liveOrganizationId = nextOrganizationId;
+      setOrganizationId(nextOrganizationId);
+    };
+    return (
+      <BillingPanel
+        isOrgAdmin
+        isPersonalOrganization
+        organizationId={organizationId}
+        userId="user-1"
+      />
+    );
+  }
 
+  const view = render(<SessionEmittingPanel />, {
+    wrapper: wrapperWithPurchases(() => new Promise(() => undefined)),
+  });
+
+  await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(1));
+  await act(async () => settleFirstPersistence(false));
   await view.findByText(ORG_MANAGER_LABELS.purgeRecoveryFailed);
   expect(recoverPurgedOrganization).toHaveBeenCalledTimes(1);
-  expect(persistSession).toHaveBeenCalledTimes(1);
 
   fireEvent.click(
-    view.getByRole("button", { name: ORG_MANAGER_LABELS.refresh }),
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.purgeRecoveryRetry }),
   );
   await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(2));
-  expect(recoverPurgedOrganization).toHaveBeenCalledTimes(2);
+  expect(recoverPurgedOrganization).toHaveBeenCalledTimes(1);
   expect(view.queryByText(ORG_MANAGER_LABELS.purgeRecoveryFailed)).toBeNull();
 });
 

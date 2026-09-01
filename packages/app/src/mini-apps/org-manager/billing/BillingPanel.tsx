@@ -13,7 +13,6 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-  MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
@@ -24,7 +23,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingCancelSubscription } from "./BillingCancelSubscription";
 import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { OptionalBillingHistory } from "./BillingHistory";
-import { BillingView } from "./BillingView";
+import { BillingRecoveryStatus, BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
 import {
   useBillingManagementUrl,
@@ -356,23 +355,6 @@ function useRestoreOrganizationWiring(
   };
 }
 
-function BillingRecoveryStatus({
-  error,
-  message,
-}: {
-  readonly error: string | null;
-  readonly message: string | null;
-}) {
-  return (
-    <>
-      {message ? (
-        <MiniAppStatus className="org-manager-hint">{message}</MiniAppStatus>
-      ) : null}
-      {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
-    </>
-  );
-}
-
 interface BillingPanelProps {
   readonly isOrgAdmin: boolean;
   readonly isPersonalOrganization?: boolean | null;
@@ -468,10 +450,7 @@ export function BillingPanel({
 
   return (
     <div>
-      <BillingRecoveryStatus
-        error={recovery.error}
-        message={recovery.message}
-      />
+      <BillingRecoveryStatus {...recovery} onRetry={recovery.retry} />
       <BillingPanelSubscriptionControls
         actions={actions}
         billing={billing}
