@@ -413,7 +413,7 @@ export interface ContainerContentsPersistence
       stillCurrent: () => boolean;
       supersededMovePreviousParentId?: string | null | undefined;
     },
-  ) => Promise<boolean>;
+  ) => Promise<boolean> | Promise<void>;
   markMoveIntentSynced: (
     execSql: ExecSql,
     input: {
@@ -424,5 +424,5 @@ export interface ContainerContentsPersistence
       expectedUpdatedAt: string;
       stillCurrent: () => boolean;
     },
-  ) => Promise<boolean>;
+  ) => Promise<boolean> | Promise<void>;
 }

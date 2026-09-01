@@ -102,7 +102,9 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
     stillCurrent: input.isCurrent,
     supersededMovePreviousParentId: intent.parentContainerId,
   });
-  return settled && input.isCurrent();
+  // Adapters predating conditional settlement resolve with void. Only an
+  // explicit false means that a conditional adapter rejected this revision.
+  return settled !== false && input.isCurrent();
 }
 
 async function persistCreatedRemoteContainerStateFromIntent(input: {

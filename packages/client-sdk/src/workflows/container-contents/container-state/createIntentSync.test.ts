@@ -134,7 +134,7 @@ test("stale container create identity failures do not report into a replacement"
   expect(recordedErrors).toEqual([]);
 });
 
-test("container create sync defers a lost-response conflict and heals on hydration", async () => {
+test("container create sync heals lost-response conflicts with legacy void settlement", async () => {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
   const childContainerId = "child-with-lost-create-response";
@@ -241,7 +241,6 @@ test("container create sync defers a lost-response conflict and heals on hydrati
     markCreateIntentSynced: async (_execSql, input) => {
       syncedIntents.push(input.containerId);
       syncedPreviousParentIds.push(input.supersededMovePreviousParentId);
-      return true;
     },
   };
   const state: ContainerCreateIntentSyncState = {

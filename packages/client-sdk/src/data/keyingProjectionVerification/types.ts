@@ -27,7 +27,10 @@ export function generationGuardedPrincipalPolicyWarmer(
   stillCurrent: (() => boolean) | undefined,
 ): ReferencedPrincipalPolicyWarmer | undefined {
   return warmer && stillCurrent
-    ? (input) => warmer({ ...input, stillCurrent })
+    ? async (input) => {
+        if (!stillCurrent()) return;
+        await warmer({ ...input, stillCurrent });
+      }
     : warmer;
 }
 

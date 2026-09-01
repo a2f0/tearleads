@@ -42,3 +42,35 @@ test("principal verification recognizes expiry after one warming pass", async ()
     database.close();
   }
 });
+
+test("principal verification does not invoke a legacy warmer after expiry", async () => {
+  const database = await createTestExecSql(
+    "principal-policy-verification-stale-warmer",
+  );
+  let guardChecks = 0;
+  let warmCount = 0;
+
+  try {
+    const verification = collectReferencedPrincipalPolicies({
+      checkpointContext: createProjectionCheckpointContext({
+        execSql: database.execSql,
+      }),
+      organizationId: "organization-1",
+      principalPolicyCache: new Map(),
+      references: [REFERENCE],
+      resolveUserKey: async () => null,
+      stillCurrent: () => {
+        guardChecks += 1;
+        return guardChecks === 1;
+      },
+      warmReferencedPrincipalPolicies: async () => {
+        warmCount += 1;
+      },
+    });
+
+    await expect(verification).resolves.toEqual([]);
+    expect(warmCount).toBe(0);
+  } finally {
+    database.close();
+  }
+});
