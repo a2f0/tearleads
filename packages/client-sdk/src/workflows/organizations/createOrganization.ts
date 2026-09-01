@@ -10,7 +10,13 @@ import {
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../registration/registerIdentity";
-import { makeOrganizationProvisioningAttemptDurable } from "./organizationProvisioningAttempt";
+
+import {
+  makeOrganizationProvisioningAttemptDurable,
+  removeNativeSubscriptionRestoreProvisioningAttempt,
+} from "./organizationProvisioningAttempt";
+
+export { removeNativeSubscriptionRestoreProvisioningAttempt };
 
 export interface CreateOrganizationApi {
   createOrganization(
@@ -47,6 +53,8 @@ export interface CreateOrganizationInput {
     | undefined;
   /** Purged organization whose personal-org generation this replaces. */
   replacesOrganizationId?: string | undefined;
+  /** Marks and durably replays a fresh native-subscription restore target. */
+  nativeSubscriptionRestore?: boolean | undefined;
   /** Overrides the seeded self roster-profile nickname; see registration. */
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -124,6 +132,7 @@ export async function createOrganization(
     artifacts: candidateArtifacts,
     canStartDurableMutation: input.isIdentityCurrent,
     dbClient: input.dbClient,
+    nativeSubscriptionRestore: input.nativeSubscriptionRestore,
     replacesOrganizationId: input.replacesOrganizationId,
     rootContainerId,
     userId: input.userId,

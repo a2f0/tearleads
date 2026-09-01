@@ -73,7 +73,7 @@ test("moves prior purchases atomically through the native bridge", async () => {
   const purchases = createCapacitorPurchases();
   await purchases.moveNativeSubscription({
     claim: () => Promise.resolve(true),
-    organizationId: "org-1",
+    prepareClaim: () => Promise.resolve("org-1"),
     userId: "user-1",
   });
   expect(fixture.configureCalls).toEqual([
@@ -90,7 +90,7 @@ test("an iOS Test Store native move remains buyer paced", async () => {
     operationTimeoutMs: 5,
   }).moveNativeSubscription({
     claim: () => Promise.resolve(true),
-    organizationId: "org-1",
+    prepareClaim: () => Promise.resolve("org-1"),
     userId: "user-1",
   });
 
@@ -106,5 +106,5 @@ test("an iOS Test Store native move remains buyer paced", async () => {
 
   expect(earlyOutcome).toBe("pending");
   restoreResult.resolve({ customerInfo: fixture.customerInfo });
-  await expect(moving).resolves.toBeUndefined();
+  await expect(moving).resolves.toEqual({ organizationId: "org-1" });
 });

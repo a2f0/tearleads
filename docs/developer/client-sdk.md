@@ -461,18 +461,17 @@ sessions remain valid until `session.dispose()`.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
 handle for the scope.
 
-Session state is explicit. Registration flows should call
-`symcrypt.session.registerIdentity()`, which submits the current identity,
-persists the local bootstrap, and updates the session with canonical user,
-organization, and container IDs. Login stores the auth token on
-`symcrypt.session` and configures the internal API client:
+Session state is explicit. `session.registerIdentity()` persists the current
+identity and canonical IDs. Login stores the token and configures API access:
 
 ```ts
 const registration = await symcrypt.session.registerIdentity();
-if (registration) {
-  const authenticated = await symcrypt.session.login(registration.challenge);
-}
+if (registration) await symcrypt.session.login(registration.challenge);
 ```
+
+`prepareNativeSubscriptionRestoreOrganization()` durably replays one fresh
+restore org. Activate it, then call
+`completeNativeSubscriptionRestoreOrganization(organizationId)`.
 
 ## Public API Entry Points
 
@@ -525,14 +524,14 @@ Org sync billing exposes two provider-neutral capabilities:
 | `PurchasesCapability` | App Store or Play; web uses it only to observe RevenueCat entitlements | `AppHostConfig.createPurchases` |
 | `DirectCheckoutCapability` | The app around Stripe's mounted element | `AppHostConfig.createDirectCheckout` |
 
-Both ship an unavailable stub (`createUnavailablePurchases` and
-`createUnavailableDirectCheckout`). Web keeps entitlement reads but uses direct
-checkout. Native purchases are personal-org only. `PurchaseIdentityPendingError`
-means retry; `PurchaseProviderStalledError` means restart. Recover
-`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; its `claim`
-calls `symcrypt.organizations.claimNativeSubscription`. Never split
-restore/claim/bind: the atomic move keeps one buyer and publishes attribution
-only after acceptance.
+Both ship unavailable stubs. Web keeps entitlement reads but uses direct
+checkout. New native purchases are personal-org only. Recover
+`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`; after
+receipt verification, `prepareClaim` creates a fresh organization outside the
+claim deadline; `claim` submits its id to
+`symcrypt.organizations.claimNativeSubscription`. Only accepted claims publish
+attribution. Identity-pending errors mean retry; provider-stalled errors mean
+restart. Keep restore/claim/bind atomic.
 See [revenuecat-billing.md](./revenuecat-billing.md).
 
 ## Package Contract

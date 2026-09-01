@@ -15502,6 +15502,8 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    /** @constant */
+                    nativeSubscriptionRestore?: true;
                     organizationId: string;
                     replacesOrganizationId?: string;
                     rootContainerId: string;

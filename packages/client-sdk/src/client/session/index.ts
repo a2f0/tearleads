@@ -1,6 +1,6 @@
 import type { ApiClient } from "@symcrypt/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations";
+import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
 import {
   bootstrapRootContainer,
   type ProvisionedSystemContainerSpec,
@@ -15,6 +15,7 @@ import {
   requireUserIdentityAvailable,
   type UserIdentityAvailable,
 } from "./sessionIdentityTrust";
+import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
   recoverPurgedSessionOrganization,
@@ -338,70 +339,37 @@ class SessionService implements Session {
   async createOrganization(
     options?: CreateOrganizationOptions,
     replacesOrganizationId?: string,
+    nativeSubscriptionRestore?: boolean,
   ): Promise<SessionCreateOrganizationResult | null> {
+    return createSessionOrganization(this.dependencies, {
+      nativeSubscriptionRestore,
+      options,
+      replacesOrganizationId,
+      userId: this.userId,
+    });
+  }
+
+  prepareNativeSubscriptionRestoreOrganization(
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionCreateOrganizationResult | null> {
+    return this.createOrganization(options, undefined, true);
+  }
+
+  async completeNativeSubscriptionRestoreOrganization(
+    organizationId: string,
+  ): Promise<boolean> {
     const userId = this.userId;
-    if (!userId) {
-      this.dependencies.log(
-        "Create organization skipped: user id is unavailable",
-      );
-      return null;
-    }
-
-    const identitySnapshot = this.dependencies.identity.snapshot;
-    const { encapsulationKeyPair, signingKeyPair } = identitySnapshot;
-    if (!signingKeyPair || !encapsulationKeyPair) {
-      this.dependencies.log(
-        "Create organization skipped: identity keys are unavailable",
-      );
-      return null;
-    }
-
     const dbClient = this.dependencies.database.client;
-    if (!dbClient) {
-      this.dependencies.log(
-        "Create organization skipped: database client is unavailable",
-      );
-      return null;
-    }
-
-    let response: Awaited<ReturnType<typeof createOrganizationWorkflow>>;
-    try {
-      response = await createOrganizationWorkflow({
-        apiClient: this.dependencies.api,
-        dbClient,
-        documentProjectors: this.dependencies.documentProjectors,
-        encapsulationKeyPair,
-        isIdentityCurrent: () =>
-          this.dependencies.identity.snapshot === identitySnapshot,
-        log: this.dependencies.log,
-        logError: this.dependencies.logError,
-        organizationProfileName: options?.organizationProfileName,
-        provisionedSystemContainers:
-          this.dependencies.provisionedSystemContainers,
-        replacesOrganizationId,
-        rosterProfileNickname: options?.rosterProfileNickname,
-        signingKeyPair,
-        userId,
-      });
-    } catch (error: unknown) {
-      this.dependencies.logError("Organization creation failed", error);
-      throw error;
-    }
-
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return null;
-    }
-
-    if (!response) {
-      this.dependencies.log("Organization creation failed");
-      return null;
-    }
-
-    // Creating an organization does not switch the active organization.
-    return {
-      containerId: response.rootContainerId,
-      organizationId: response.organizationId,
-    };
+    const identitySnapshot = this.dependencies.identity.snapshot;
+    if (!userId || !dbClient) return false;
+    return removeNativeSubscriptionRestoreProvisioningAttempt({
+      canCommit: () =>
+        this.userId === userId &&
+        this.dependencies.identity.snapshot === identitySnapshot,
+      dbClient,
+      organizationId,
+      userId,
+    });
   }
 
   async recoverPurgedOrganization(

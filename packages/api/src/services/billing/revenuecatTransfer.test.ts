@@ -34,6 +34,18 @@ async function registerPersonalOrganization(): Promise<{
   return { organizationId: registered.organizationId, user };
 }
 
+async function registerRestoreOrganization(): Promise<{
+  readonly organizationId: string;
+  readonly user: TestUser;
+}> {
+  const destination = await registerPersonalOrganization();
+  await db
+    .update(organizationBilling)
+    .set({ nativeRestoreUserId: destination.user.userId })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  return destination;
+}
+
 function providerFetch(subscriptionId = "GPA.transfer-webhook") {
   return (async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -61,7 +73,7 @@ function providerFetch(subscriptionId = "GPA.transfer-webhook") {
 
 test("only an authenticated claim can move billing before a transfer webhook", async () => {
   const previous = await registerPersonalOrganization();
-  const destination = await registerPersonalOrganization();
+  const destination = await registerRestoreOrganization();
   await db
     .update(organizationBilling)
     .set({
@@ -151,7 +163,7 @@ test("only an authenticated claim can move billing before a transfer webhook", a
 });
 
 test("a transfer without its optional store resolves the sole native subscription", async () => {
-  const destination = await registerPersonalOrganization();
+  const destination = await registerRestoreOrganization();
   const event = {
     environment: "SANDBOX",
     event_timestamp_ms: Date.now(),
@@ -195,6 +207,47 @@ test("a transfer without its optional store resolves the sole native subscriptio
     await processRevenueCatWebhook(runtime, event, {
       env: ENV,
       fetchImpl,
+    }),
+  ).toEqual({
+    billingStatus: "active",
+    organizationId: destination.organizationId,
+    status: "applied",
+  });
+});
+
+test("a transfer follows an existing native binding outside the personal organization", async () => {
+  const destination = await registerPersonalOrganization();
+  const replacementDefault = await registerPersonalOrganization();
+  const subscriptionId = `GPA.non-default-${crypto.randomUUID()}`;
+  await db
+    .update(users)
+    .set({ defaultOrganizationId: replacementDefault.organizationId })
+    .where(eq(users.id, destination.user.userId));
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: destination.user.userId,
+      providerProductId: "sync_team_5_monthly:monthly",
+      providerSubscriptionId: subscriptionId,
+      seatCount: 5,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, destination.organizationId));
+  const event = {
+    environment: "SANDBOX",
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    store: "PLAY_STORE",
+    transferred_from: [crypto.randomUUID()],
+    transferred_to: [destination.user.userId],
+    type: "TRANSFER" as const,
+  };
+
+  expect(
+    await processRevenueCatWebhook(getDefaultApiServiceRuntime(), event, {
+      env: ENV,
+      fetchImpl: providerFetch(subscriptionId),
     }),
   ).toEqual({
     billingStatus: "active",

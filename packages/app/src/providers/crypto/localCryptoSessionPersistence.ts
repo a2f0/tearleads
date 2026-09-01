@@ -232,12 +232,12 @@ export async function persistCryptoSession(input: {
   readonly context: PersistedCryptoSessionContext;
   readonly localPersistence: LocalCryptoSessionPersistence;
   readonly signingFingerprint: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const session = await input.localPersistence.keyring.loadSession(
     input.localPersistence.scope,
   );
   if (!session) {
-    return;
+    return false;
   }
 
   try {
@@ -255,6 +255,7 @@ export async function persistCryptoSession(input: {
       input.localPersistence.storageKey,
       serializedEnvelope,
     );
+    return true;
   } finally {
     session.dispose();
   }
@@ -273,21 +274,26 @@ function cryptoSessionWriteState(storageKey: string): CryptoSessionWriteState {
 /** Serialize writes so an identity transition can durably flush its session. */
 export function queueCryptoSessionPersistence(
   input: Parameters<typeof persistCryptoSession>[0],
-): Promise<void> {
+): Promise<boolean> {
   const state = cryptoSessionWriteState(input.localPersistence.storageKey);
   const generation = state.generation;
   const operation = state.tail.then(async () => {
     if (state.generation !== generation) {
-      return;
+      return false;
     }
-    await persistCryptoSession(input);
+    const persisted = await persistCryptoSession(input);
     if (state.generation !== generation) {
       input.localPersistence.storage.removeItem(
         input.localPersistence.storageKey,
       );
+      return false;
     }
+    return persisted;
   });
-  state.tail = operation.catch(() => undefined);
+  state.tail = operation.then(
+    () => undefined,
+    () => undefined,
+  );
   return operation;
 }
 

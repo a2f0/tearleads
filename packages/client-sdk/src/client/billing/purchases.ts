@@ -98,14 +98,21 @@ export interface PurchasesCapability {
     checkoutHost?: HTMLElement;
     abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
-  /** Publish a server-accepted personal-org binding for later lifecycle events. */
+  /** Publish a server-accepted organization binding for later lifecycle events. */
   bindOrganization(input: { organizationId: string }): Promise<void>;
-  /** Atomically restore, server-claim, and bind a native receipt for one buyer. */
+  /**
+   * Restore, prepare a destination, server-claim, and bind a native receipt for
+   * one buyer. Destination preparation starts only after receipt verification
+   * and is outside the bounded server-claim phase.
+   */
   moveNativeSubscription(input: {
     userId: string;
-    organizationId: string;
-    claim: (store: NativeSubscriptionStore) => Promise<boolean>;
-  }): Promise<void>;
+    prepareClaim: () => Promise<string | null>;
+    claim: (
+      organizationId: string,
+      store: NativeSubscriptionStore,
+    ) => Promise<boolean>;
+  }): Promise<{ readonly organizationId: string }>;
   /** Whether the identified buyer currently holds the sync entitlement. */
   hasActiveSyncEntitlement(): Promise<boolean>;
 }

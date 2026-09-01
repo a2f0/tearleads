@@ -24,7 +24,9 @@ test("identifies the buyer before loading subscription options", async () => {
     bindOrganization: mock(() => Promise.resolve()),
     isAvailable: true,
     nativeStore: "test_store",
-    moveNativeSubscription: mock(() => Promise.resolve()),
+    moveNativeSubscription: mock(() =>
+      Promise.resolve({ organizationId: "restored-org" }),
+    ),
     identify: mock(() => {
       calls.push("identify");
       return Promise.resolve();
@@ -259,7 +261,10 @@ test("billing actions pause option retries and hide their stale error", async ()
   });
   let finishMove = () => {};
   purchases.moveNativeSubscription = mock(
-    () => new Promise<void>((resolve) => (finishMove = resolve)),
+    () =>
+      new Promise<{ organizationId: string }>((resolve) => {
+        finishMove = () => resolve({ organizationId: "restored-org" });
+      }),
   );
   const { result } = renderBillingActions({
     optionsRetryDelaysMs: [200],
@@ -290,7 +295,10 @@ test("revoking purchase eligibility clears options during a native action", asyn
   const purchases = createPurchases({ syncEntitlementActive: true });
   let finishMove = () => {};
   purchases.moveNativeSubscription = mock(
-    () => new Promise<void>((resolve) => (finishMove = resolve)),
+    () =>
+      new Promise<{ organizationId: string }>((resolve) => {
+        finishMove = () => resolve({ organizationId: "restored-org" });
+      }),
   );
   const { result, rerender } = renderBillingActions({ purchases });
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
@@ -317,7 +325,10 @@ test("billing actions do not reset an exhausted options retry budget", async () 
   );
   let finishMove = () => {};
   purchases.moveNativeSubscription = mock(
-    () => new Promise<void>((resolve) => (finishMove = resolve)),
+    () =>
+      new Promise<{ organizationId: string }>((resolve) => {
+        finishMove = () => resolve({ organizationId: "restored-org" });
+      }),
   );
   const { result } = renderBillingActions({
     optionsRetryDelaysMs: [100],

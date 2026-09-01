@@ -8,8 +8,7 @@ import {
   PurchasesUnavailableError,
   type SyncSubscriptionOption,
 } from "@symcrypt/client-sdk";
-import type { NativeSubscriptionStore } from "@symcrypt/validators/billing";
-import { type RefObject, useCallback, useState } from "react";
+import { type RefObject, useCallback } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import {
   formatBillingPurchaseFailure,
@@ -31,125 +30,6 @@ import {
  * the flow as a cancellation.
  */
 type CancelPurchaseRef = RefObject<(() => void) | null>;
-
-interface UseNativeSubscriptionMoveInput {
-  readonly claimNativeSubscription: (
-    store: NativeSubscriptionStore,
-  ) => Promise<boolean>;
-  readonly currentScope: BillingActionScope;
-  readonly purchases: PurchasesCapability;
-  readonly refresh: () => Promise<void>;
-  readonly scopeRef: BillingScopeRef;
-  readonly updateActionState: UpdateActionState;
-  readonly userId: string | null;
-}
-
-function nativeSubscriptionClaimErrorLabel(error: unknown): string {
-  if (error instanceof PurchaseProviderStalledError) {
-    return ORG_MANAGER_LABELS.billingProviderStalled;
-  }
-  if (error instanceof PurchaseIdentityPendingError) {
-    return ORG_MANAGER_LABELS.billingIdentityPending;
-  }
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "native-claim-timeout"
-  ) {
-    return ORG_MANAGER_LABELS.nativeClaimTimedOut;
-  }
-  if (typeof error !== "object" || error === null || !("status" in error)) {
-    return ORG_MANAGER_LABELS.failedRestorePurchases;
-  }
-  if (error.status === 404) return ORG_MANAGER_LABELS.nativeClaimNotFound;
-  if (error.status === 409) return ORG_MANAGER_LABELS.nativeClaimConflict;
-  if (error.status === 503) return ORG_MANAGER_LABELS.nativeClaimPending;
-  return ORG_MANAGER_LABELS.failedRestorePurchases;
-}
-
-async function restoreClaimAndBindNativeSubscription(input: {
-  readonly claimNativeSubscription: (
-    store: NativeSubscriptionStore,
-  ) => Promise<boolean>;
-  readonly purchases: PurchasesCapability;
-  readonly scope: BillingActionScope;
-  readonly userId: string | null;
-}): Promise<void> {
-  if (!input.userId || !input.purchases.nativeStore) {
-    throw new Error("Native subscription restore is unavailable");
-  }
-  await input.purchases.moveNativeSubscription({
-    claim: input.claimNativeSubscription,
-    organizationId: input.scope.organizationId,
-    userId: input.userId,
-  });
-}
-
-/** Owns confirmation and the verified native restore/claim sequence. */
-export function useNativeSubscriptionMove(
-  input: UseNativeSubscriptionMoveInput,
-) {
-  const {
-    claimNativeSubscription,
-    currentScope,
-    purchases,
-    refresh,
-    scopeRef,
-    updateActionState,
-    userId,
-  } = input;
-  const { logError } = useLog();
-  const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const open = openScope !== null && scopeMatches(openScope, currentScope);
-  const request = useCallback(() => setOpenScope(currentScope), [currentScope]);
-  const dismiss = useCallback(() => setOpenScope(null), []);
-
-  const confirm = useCallback(() => {
-    const scope = currentScope;
-    if (!scopeMatches(scopeRef.current, scope)) return;
-    updateActionState(scope, (current) => ({
-      ...current,
-      actionError: null,
-      busy: "restore",
-    }));
-    void (async () => {
-      try {
-        await restoreClaimAndBindNativeSubscription({
-          claimNativeSubscription,
-          purchases,
-          scope,
-          userId,
-        });
-        if (scopeMatches(scopeRef.current, scope)) await refresh();
-      } catch (error) {
-        logError(formatBillingPurchaseFailure(error, false));
-        updateActionState(scope, (current) => ({
-          ...current,
-          actionError: nativeSubscriptionClaimErrorLabel(error),
-        }));
-      } finally {
-        if (scopeMatches(scopeRef.current, scope)) dismiss();
-        updateActionState(scope, (current) => ({
-          ...current,
-          busy: null,
-        }));
-      }
-    })();
-  }, [
-    claimNativeSubscription,
-    currentScope,
-    dismiss,
-    logError,
-    purchases,
-    refresh,
-    scopeRef,
-    updateActionState,
-    userId,
-  ]);
-
-  return { confirm, dismiss, open, request };
-}
 
 function createAttemptHost(
   checkoutHost: HTMLElement | undefined,

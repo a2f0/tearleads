@@ -15,6 +15,7 @@ import {
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useSymCrypt } from "../../../providers/sdk/SymCryptProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -282,6 +283,51 @@ function BillingPanelSubscriptionControls(input: {
   );
 }
 
+function useRestoreOrganizationWiring() {
+  const symcrypt = useSymCrypt();
+  const { persistSession } = useIdentity();
+  const createRestoreOrganization = useCallback(
+    () =>
+      symcrypt.session.prepareNativeSubscriptionRestoreOrganization({
+        organizationProfileName:
+          ORG_MANAGER_LABELS.restoredSubscriptionOrganizationName,
+      }),
+    [symcrypt],
+  );
+  const claimNativeSubscription = useCallback(
+    async (organizationId: string, store: NativeSubscriptionStore) =>
+      (
+        await symcrypt.organizations.claimNativeSubscription(
+          organizationId,
+          store,
+        )
+      )?.organizationId === organizationId,
+    [symcrypt],
+  );
+  const completeRestoreOrganization = useCallback(
+    (organizationId: string) =>
+      symcrypt.session.completeNativeSubscriptionRestoreOrganization(
+        organizationId,
+      ),
+    [symcrypt],
+  );
+  const activateRestoredOrganization = useCallback(
+    async (organization: { containerId: string; organizationId: string }) => {
+      symcrypt.session.setContext(organization);
+      if (!(await persistSession())) {
+        throw new Error("Restored organization session was not persisted");
+      }
+    },
+    [persistSession, symcrypt],
+  );
+  return {
+    activateRestoredOrganization,
+    claimNativeSubscription,
+    completeRestoreOrganization,
+    createRestoreOrganization,
+  };
+}
+
 export function BillingPanel({
   isOrgAdmin,
   isPersonalOrganization = null,
@@ -293,8 +339,8 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
-  const symcrypt = useSymCrypt();
   const billing = useOrganizationBilling();
+  const restoreOrganization = useRestoreOrganizationWiring();
   const { refresh } = billing;
   const handleRefresh = useCallback(() => {
     void refresh();
@@ -322,21 +368,11 @@ export function BillingPanel({
   // Where the Web Billing checkout embeds so a purchase runs inside the panel
   // (the view keeps the div mounted; the hook reads it at purchase time).
   const checkoutHostRef = useRef<HTMLDivElement | null>(null);
-  const claimNativeSubscription = useCallback(
-    async (store: NativeSubscriptionStore) =>
-      (
-        await symcrypt.organizations.claimNativeSubscription(
-          organizationId,
-          store,
-        )
-      )?.organizationId === organizationId,
-    [organizationId, symcrypt],
-  );
   const actions = useBillingActions({
     ...billingActionSnapshot(billing.view),
+    ...restoreOrganization,
     isOrgAdmin,
     nativePurchaseAllowed,
-    claimNativeSubscription,
     checkoutHostRef,
     organizationId,
     refresh,

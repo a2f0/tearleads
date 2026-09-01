@@ -27,7 +27,7 @@ async function registerPersonalOrganization(): Promise<{
 }
 
 test("a stale lifecycle grant for a moved subscription is ignored", async () => {
-  const warning = spyOn(console, "warn").mockImplementation(() => undefined);
+  const alert = spyOn(console, "error").mockImplementation(() => undefined);
   const previous = await registerPersonalOrganization();
   const destination = await registerPersonalOrganization();
   const subscriptionId = `native-${crypto.randomUUID()}`;
@@ -57,7 +57,7 @@ test("a stale lifecycle grant for a moved subscription is ignored", async () => 
   };
 
   expect(await runRevenueCatWebhookWorkflow(db, event, new Date(now))).toEqual({
-    reason: "Native subscription belongs to a different organization",
+    reason: "Native purchases may only fund the buyer's personal organization",
     status: "ignored",
   });
   const [audit] = await db
@@ -68,6 +68,6 @@ test("a stale lifecycle grant for a moved subscription is ignored", async () => 
   expect(await runRevenueCatWebhookWorkflow(db, event, new Date(now))).toEqual({
     status: "duplicate",
   });
-  expect(warning).toHaveBeenCalledTimes(1);
-  warning.mockRestore();
+  expect(alert).toHaveBeenCalledTimes(1);
+  alert.mockRestore();
 });
