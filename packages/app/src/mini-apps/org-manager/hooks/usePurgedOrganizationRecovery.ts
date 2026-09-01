@@ -145,7 +145,9 @@ function useRecoveryAttempt(input: {
           },
         );
         if (scopeKeyRef.current !== scopeKey || !recovered) return false;
-        await persistSession();
+        if (!(await persistSession())) {
+          throw new Error("Recovered organization session was not persisted");
+        }
         return true;
       } catch (error) {
         return handleRecoveryError({

@@ -193,6 +193,59 @@ test("bills the durable replacement and resumes purge recovery after payment", a
   expect(persistSession).toHaveBeenCalledTimes(1);
 });
 
+test("surfaces and retries a finalized recovery whose session was not persisted", async () => {
+  stubSourceBilling();
+  const recovered: SessionRecoverOrganizationResult = {
+    containerId: REPLACEMENT_CONTAINER_ID,
+    organizationId: REPLACEMENT_ORGANIZATION_ID,
+    replacedOrganizationId: SOURCE_ORGANIZATION_ID,
+    reset: { clearedOrganizationId: SOURCE_ORGANIZATION_ID } as never,
+  };
+  const recoverPurgedOrganization = mock(() => Promise.resolve(recovered));
+  let persistenceAttempt = 0;
+  const persistSession = mock(() => {
+    persistenceAttempt += 1;
+    return Promise.resolve(persistenceAttempt > 1);
+  });
+  spies.push(
+    spyOn(IdentityProvider, "useIdentity").mockReturnValue({
+      persistSession,
+    } as unknown as ReturnType<typeof IdentityProvider.useIdentity>),
+    spyOn(SymCryptProvider, "useSymCrypt").mockReturnValue({
+      organizations: {
+        checkNativePurchaseEligibility: () => Promise.resolve(null),
+        claimNativeSubscription: () => Promise.resolve(null),
+        loadBillingForOrganization: () => Promise.resolve(null),
+        loadBillingManagementUrl: () => Promise.resolve(null),
+        loadStripeCheckoutOptions: () => Promise.resolve({ options: [] }),
+        startTrial: () => Promise.resolve(null),
+      },
+      session: { recoverPurgedOrganization },
+    } as never),
+  );
+
+  const view = render(
+    <BillingPanel
+      isOrgAdmin
+      isPersonalOrganization
+      organizationId={SOURCE_ORGANIZATION_ID}
+      userId="user-1"
+    />,
+    { wrapper: wrapperWithPurchases(() => new Promise(() => undefined)) },
+  );
+
+  await view.findByText(ORG_MANAGER_LABELS.purgeRecoveryFailed);
+  expect(recoverPurgedOrganization).toHaveBeenCalledTimes(1);
+  expect(persistSession).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.refresh }),
+  );
+  await waitFor(() => expect(persistSession).toHaveBeenCalledTimes(2));
+  expect(recoverPurgedOrganization).toHaveBeenCalledTimes(2);
+  expect(view.queryByText(ORG_MANAGER_LABELS.purgeRecoveryFailed)).toBeNull();
+});
+
 test("reopens the same durable replacement after the panel remounts", async () => {
   stubSourceBilling();
   const recoverPurgedOrganization = mock((_organizationId: string) =>
