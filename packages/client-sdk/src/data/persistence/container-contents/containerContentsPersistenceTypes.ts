@@ -307,6 +307,7 @@ export interface ContainerContentsPersistence
       containerId: string;
       expectedRecord: ContainerMetadataRecord;
       pendingUpdateIds: readonly string[];
+      stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<StoredContainerState | null>;
   /**

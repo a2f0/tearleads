@@ -48,12 +48,14 @@ function captureStructuralSyncGeneration(
   const activeContainerId = runtime.state.containerId;
   const activeOrganizationId = runtime.auth.organizationId;
   const lifecycleGeneration = state.lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
   const domainScope = runtime.state.domainScope;
   const execSql = runtime.infra.execSql;
   const resolveProjectionUserKey = state.resolveProjectionUserKey;
   const syncLane = state.syncLane;
   return () =>
     state.lifecycleGeneration === lifecycleGeneration &&
+    state.structuralGeneration === structuralGeneration &&
     state.runtime.auth.organizationId === activeOrganizationId &&
     state.runtime.state.containerId === activeContainerId &&
     state.runtime.state.domainScope === domainScope &&

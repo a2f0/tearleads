@@ -39,7 +39,6 @@ import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 
 type ContainerMetadataPersistenceRuntime = ContainerContentsWorkflowSqlRuntime;
 const MAX_METADATA_MUTATION_COMMIT_ATTEMPTS = 8;
-
 type NullableContainerMetadataDocumentField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -167,7 +166,6 @@ type ApplicableContainerMetadataMutation = Exclude<
   PreparedContainerMetadataMutation,
   { authoritativeState: unknown }
 >;
-
 async function settleSupersededMetadataMutation(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
@@ -175,6 +173,7 @@ async function settleSupersededMetadataMutation(input: {
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   prepared: PreparedContainerMetadataMutation;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<PersistedContainerMetadataState | null> {
   const { metadataState, persistence, prepared } = input;
   const settledState = input.expectedRecord
@@ -182,6 +181,7 @@ async function settleSupersededMetadataMutation(input: {
         containerId: metadataState.container.id,
         expectedRecord: input.expectedRecord,
         pendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
+        stillCurrent: input.stillCurrent,
       })
     : undefined;
   if ("authoritativeState" in prepared) {
@@ -372,6 +372,7 @@ async function persistContainerMetadataState(
           metadataState: input.metadataState,
           persistence: input.persistence,
           prepared,
+          stillCurrent: input.stillCurrent,
         });
       }
       const persisted = await persistPreparedMetadataMutation({
@@ -402,7 +403,6 @@ async function persistContainerMetadataState(
     );
   });
 }
-
 type PersistContainerMetadataStateRuntimeInput = Omit<
   PersistContainerMetadataStateInput,
   "execSql"

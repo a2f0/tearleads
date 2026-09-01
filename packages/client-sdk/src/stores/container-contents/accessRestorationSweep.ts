@@ -31,11 +31,14 @@ function createRestorationSweepSession(
   };
 }
 
-function captureLifecycleGeneration(
+function captureRestorationGeneration(
   state: ContainerContentsStoreSyncState,
 ): () => boolean {
   const lifecycleGeneration = state.lifecycleGeneration;
-  return () => state.lifecycleGeneration === lifecycleGeneration;
+  const structuralGeneration = state.structuralGeneration;
+  return () =>
+    state.lifecycleGeneration === lifecycleGeneration &&
+    state.structuralGeneration === structuralGeneration;
 }
 
 const DELETION_PROBE_CONCURRENCY = 4;
@@ -201,6 +204,7 @@ async function completeRestorationSweeps(
 async function claimDueRestorationSweeps(
   session: RestorationSweepSession,
   sweeps: readonly DormantMetadataSweep[],
+  ignoreRetryDelay = false,
 ): Promise<DormantMetadataSweep[]> {
   const now = Date.now();
   const attemptedAt = new Date(now).toISOString();
@@ -222,7 +226,7 @@ async function claimDueRestorationSweeps(
       );
       continue;
     }
-    if (!isSweepAttemptDue(sweep, now)) {
+    if (!ignoreRetryDelay && !isSweepAttemptDue(sweep, now)) {
       continue;
     }
     const didClaim = await session.persistence.claimDormantMetadataSweepAttempt(
@@ -244,16 +248,13 @@ async function claimDueRestorationSweeps(
   return claimed;
 }
 
-async function reconcileRestoredAccess(input: {
-  isCurrent: () => boolean;
-  requestHydration: RemoteHydrationRequester;
-  state: ContainerContentsStoreSyncState;
-}): Promise<void> {
-  const { requestHydration, state } = input;
-  const session = createRestorationSweepSession(state, input.isCurrent);
+async function loadAndClaimRestorationSweeps(
+  session: RestorationSweepSession,
+  ignoreRetryDelay = false,
+): Promise<DormantMetadataSweep[]> {
   const requesterUserId = session.runtime.auth.userId;
   if (!requesterUserId) {
-    return;
+    return [];
   }
   const pendingSweeps =
     await session.persistence.listDormantMetadataSweepRequests(
@@ -261,22 +262,42 @@ async function reconcileRestoredAccess(input: {
       requesterUserId,
     );
   if (!session.isCurrent()) {
-    return;
+    return [];
   }
-  const sweeps = await claimDueRestorationSweeps(session, pendingSweeps);
+  return claimDueRestorationSweeps(session, pendingSweeps, ignoreRetryDelay);
+}
+
+function recreateRestorationSweepCompletion(
+  state: ContainerContentsStoreSyncState,
+): () => Promise<void> {
+  const session = createRestorationSweepSession(
+    state,
+    captureRestorationGeneration(state),
+  );
+  return async () => {
+    const sweeps = await loadAndClaimRestorationSweeps(session, true);
+    if (session.isCurrent() && sweeps.length > 0) {
+      await completeRestorationSweeps(session, sweeps);
+    }
+  };
+}
+
+async function reconcileRestoredAccess(input: {
+  isCurrent: () => boolean;
+  requestHydration: RemoteHydrationRequester;
+  state: ContainerContentsStoreSyncState;
+}): Promise<void> {
+  const { requestHydration, state } = input;
+  const session = createRestorationSweepSession(state, input.isCurrent);
+  const sweeps = await loadAndClaimRestorationSweeps(session);
   if (!session.isCurrent() || sweeps.length === 0) {
     return;
   }
 
   await refreshAllRemoteHydration({
     onFullyHydrated: () => completeRestorationSweeps(session, sweeps),
-    recreateOnFullyHydratedAfterReset: () => {
-      const retrySession = createRestorationSweepSession(
-        state,
-        captureLifecycleGeneration(state),
-      );
-      return () => completeRestorationSweeps(retrySession, sweeps);
-    },
+    recreateOnFullyHydratedAfterReset: () =>
+      recreateRestorationSweepCompletion(state),
     requestHydration,
     resetAllLaneWatermarks: true,
     scheduleSyncAfterHydration: false,
@@ -290,7 +311,7 @@ export function createRestoredAccessReconciler(input: {
   state: ContainerContentsStoreSyncState;
 }): (isCurrent?: () => boolean) => Promise<void> {
   const { state } = input;
-  return async (isCurrent = captureLifecycleGeneration(state)) => {
+  return async (isCurrent = captureRestorationGeneration(state)) => {
     try {
       await reconcileRestoredAccess({ ...input, isCurrent });
     } catch (error) {

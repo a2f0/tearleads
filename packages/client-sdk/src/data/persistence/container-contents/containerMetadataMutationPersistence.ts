@@ -379,8 +379,10 @@ export async function settleStoredMetadataPendingUpdates(
     ContainerContentsPersistence["settleAcceptedMetadataPendingUpdates"]
   >[1],
 ) {
-  return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-    getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const outcome = await getClientSQLitePersistenceRuntime(
+      lockedExecSql,
+    ).guardedTransaction(
       async (tx) => {
         const currentState = await loadStoredContainerState(
           lockedExecSql,
@@ -401,7 +403,9 @@ export async function settleStoredMetadataPendingUpdates(
         }
         return currentState;
       },
+      () => !input.stillCurrent || input.stillCurrent(),
       { behavior: "immediate" },
-    ),
-  );
+    );
+    return outcome.committed ? outcome.result : null;
+  });
 }

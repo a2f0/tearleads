@@ -27,10 +27,12 @@ import {
   createContainerContentsStoreState,
   subscribeToContainerContentsStore,
   updateContainerContentsSnapshot,
+  updateContainerContentsStorePersistence,
   updateContainerContentsStoreRuntime,
 } from "./state";
 import {
   type ContainerContentsStoreRuntime,
+  type ContainerContentsStoreSyncAgent,
   createContainerContentsStoreSyncAgent,
 } from "./syncAgent";
 import type {
@@ -52,6 +54,7 @@ interface ContainerContentsStoreEntry {
 
 function applyContainerContentsStoreOptions(
   state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
   options: ContainerContentsStoreOptions,
 ): void {
   if ("logLabel" in options) {
@@ -59,8 +62,11 @@ function applyContainerContentsStoreOptions(
   }
 
   if ("persistence" in options) {
-    state.persistence =
-      options.persistence ?? defaultContainerContentsPersistence;
+    updateContainerContentsStorePersistence(
+      state,
+      options.persistence ?? defaultContainerContentsPersistence,
+      syncAgent,
+    );
   }
 }
 
@@ -294,7 +300,7 @@ function createContainerContentsStoreEntry(
         updateContainerContentsStoreRuntime(state, runtime, syncAgent),
     },
     updateOptions: (nextOptions) =>
-      applyContainerContentsStoreOptions(state, nextOptions),
+      applyContainerContentsStoreOptions(state, syncAgent, nextOptions),
   };
 }
 

@@ -91,6 +91,7 @@ export function createContainerContentsStoreState(
       ready: false,
     },
     syncLane: null,
+    structuralGeneration: 0,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
 }
@@ -161,6 +162,10 @@ export function updateContainerContentsStoreRuntime(
   syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
+  const runtimeReplaced = previousRuntime !== nextRuntime;
+  if (runtimeReplaced) {
+    state.structuralGeneration += 1;
+  }
   const contextChanged =
     previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
     previousRuntime.state.containerId !== nextRuntime.state.containerId;
@@ -202,6 +207,10 @@ export function updateContainerContentsStoreRuntime(
 
   syncAgent.handleRemoteEvents();
 
+  if (runtimeReplaced) {
+    syncAgent.scheduleSync();
+  }
+
   if (
     state.snapshot.ready &&
     didRegainSyncPrerequisites(previousRuntime, nextRuntime)
@@ -212,4 +221,17 @@ export function updateContainerContentsStoreRuntime(
     syncAgent.scheduleSync();
     syncAgent.scheduleRemoteHydration();
   }
+}
+
+export function updateContainerContentsStorePersistence(
+  state: ContainerContentsStoreState,
+  nextPersistence: ContainerContentsPersistence,
+  syncAgent: ContainerContentsStoreSyncAgent,
+): void {
+  if (state.persistence === nextPersistence) {
+    return;
+  }
+  state.persistence = nextPersistence;
+  state.structuralGeneration += 1;
+  syncAgent.scheduleSync();
 }

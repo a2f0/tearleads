@@ -9,7 +9,10 @@ import { createContainerContentsTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
+  updateContainerContentsStorePersistence,
+  updateContainerContentsStoreRuntime,
 } from "./state";
+import type { ContainerContentsStoreSyncAgent } from "./syncAgent";
 import { runContainerContentsStoreSyncIteration } from "./syncLaneIteration";
 
 const contextChanges = [
@@ -79,3 +82,123 @@ for (const change of contextChanges) {
     expect(listPendingCreateIntents).not.toHaveBeenCalled();
   });
 }
+
+test("runtime ABA replacement invalidates and re-arms a structural pass", async () => {
+  const domainScope = createDomainScope();
+  const execSql = mock(async () => []);
+  const keyPair = generateKemSeedAndKeyPair();
+  const listPendingCreateIntents = mock(async () => []);
+  const persistence: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    listPendingCreateIntents,
+  };
+  const runtimeA = createContainerContentsTestRuntime({
+    apiClient: {} as never,
+    containerId: "root-a",
+    domainScope,
+    encapsulationKeyPair: keyPair,
+    execSql,
+    organizationId: "org-a",
+  });
+  const runtimeB = createContainerContentsTestRuntime({
+    apiClient: { replacement: true } as never,
+    containerId: "root-a",
+    domainScope,
+    encapsulationKeyPair: keyPair,
+    execSql,
+    organizationId: "org-a",
+  });
+  const state = createContainerContentsStoreState(runtimeA, persistence);
+  updateContainerContentsSnapshot(state);
+  const scheduleSync = mock(() => {});
+  const syncAgent = {
+    ensureInitialized: () => {},
+    handleRemoteEvents: () => {},
+    scheduleSync,
+  } as unknown as ContainerContentsStoreSyncAgent;
+  let releaseRestoration: () => void = () => {
+    throw new Error("restoration promise was not initialized");
+  };
+
+  const iteration = runContainerContentsStoreSyncIteration({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("the stale pass must not persist container state");
+      },
+      updateSnapshot: () => updateContainerContentsSnapshot(state),
+    },
+    reconcileRestoredAccess: (isCurrent) =>
+      new Promise<void>((resolve) => {
+        releaseRestoration = () => {
+          expect(isCurrent()).toBe(false);
+          resolve();
+        };
+      }),
+    state,
+  });
+
+  updateContainerContentsStoreRuntime(state, runtimeB, syncAgent);
+  updateContainerContentsStoreRuntime(state, runtimeA, syncAgent);
+  releaseRestoration();
+  await iteration;
+
+  expect(state.runtime).toBe(runtimeA);
+  expect(state.structuralGeneration).toBe(2);
+  expect(scheduleSync).toHaveBeenCalledTimes(2);
+  expect(listPendingCreateIntents).not.toHaveBeenCalled();
+});
+
+test("persistence ABA replacement invalidates and re-arms a structural pass", async () => {
+  const domainScope = createDomainScope();
+  const execSql = mock(async () => []);
+  const keyPair = generateKemSeedAndKeyPair();
+  const listPendingCreateIntents = mock(async () => []);
+  const persistenceA: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+    listPendingCreateIntents,
+  };
+  const persistenceB: ContainerContentsPersistence = {
+    ...defaultContainerContentsPersistence,
+  };
+  const runtime = createContainerContentsTestRuntime({
+    domainScope,
+    encapsulationKeyPair: keyPair,
+    execSql,
+  });
+  const state = createContainerContentsStoreState(runtime, persistenceA);
+  updateContainerContentsSnapshot(state);
+  const scheduleSync = mock(() => {});
+  const syncAgent = {
+    scheduleSync,
+  } as unknown as ContainerContentsStoreSyncAgent;
+  let releaseRestoration: () => void = () => {
+    throw new Error("restoration promise was not initialized");
+  };
+
+  const iteration = runContainerContentsStoreSyncIteration({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("the stale pass must not persist container state");
+      },
+      updateSnapshot: () => updateContainerContentsSnapshot(state),
+    },
+    reconcileRestoredAccess: (isCurrent) =>
+      new Promise<void>((resolve) => {
+        releaseRestoration = () => {
+          expect(isCurrent()).toBe(false);
+          resolve();
+        };
+      }),
+    state,
+  });
+
+  updateContainerContentsStorePersistence(state, persistenceB, syncAgent);
+  updateContainerContentsStorePersistence(state, persistenceA, syncAgent);
+  releaseRestoration();
+  await iteration;
+
+  expect(state.persistence).toBe(persistenceA);
+  expect(state.structuralGeneration).toBe(2);
+  expect(scheduleSync).toHaveBeenCalledTimes(2);
+  expect(listPendingCreateIntents).not.toHaveBeenCalled();
+});

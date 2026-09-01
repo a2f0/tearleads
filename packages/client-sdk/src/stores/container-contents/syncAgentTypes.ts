@@ -18,6 +18,8 @@ export interface ContainerContentsStoreSyncState {
   localContainersNeedRefresh: boolean;
   /** Invalidates asynchronous hydration work when this store is reset. */
   lifecycleGeneration: number;
+  /** Invalidates structural work when its runtime or persistence is replaced. */
+  structuralGeneration: number;
   lastEventCount: number;
   /**
    * Update ids this client sent for container metadata documents, registered

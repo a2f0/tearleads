@@ -326,6 +326,7 @@ async function finalizeContainerMetadataSync(input: {
       outgoingUpdateCount === 0
         ? createReadOnlyMetadataSyncSaveOptions()
         : undefined,
+    stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) {
     discardUnacceptedContainerMetadataUpdateIds(
