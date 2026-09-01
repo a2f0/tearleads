@@ -329,7 +329,12 @@ test("recoverPurgedOrganization waits for replacement billing before local rebin
       }
     }
     invariant(billingError, "expected replacement billing error");
+    const firstOrganizationRequest = organizationRequests[0];
+    invariant(firstOrganizationRequest, "expected replacement request");
     expect(billingError.billingStatus).toBe("local");
+    expect(billingError.replacementContainerId).toBe(
+      firstOrganizationRequest.rootContainerId,
+    );
     expect(organizationRequests).toHaveLength(1);
     expect(organizationRequests[0]?.finalizeReplacement).toBeUndefined();
     expect(session.organizationId).toBe(oldOrganizationId);

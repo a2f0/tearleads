@@ -16,6 +16,7 @@ import {
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { getOrgManagerBillingEventLabel, ORG_MANAGER_LABELS } from "../labels";
 import { BillingHistoryEntryDetails } from "./BillingHistoryEntryDetails";
+import type { useBillingHistory } from "./useBillingHistory";
 
 type BillingHistoryTabId = "activity" | "events";
 
@@ -30,6 +31,16 @@ interface BillingHistoryProps {
   readonly entries: ReadonlyArray<OrganizationBillingHistoryEntry> | null;
   readonly loading: boolean;
   readonly error: string | null;
+}
+
+export function OptionalBillingHistory({
+  enabled,
+  history,
+}: {
+  readonly enabled: boolean;
+  readonly history: ReturnType<typeof useBillingHistory>;
+}) {
+  return enabled ? <BillingHistory {...history} /> : null;
 }
 
 // Activity: only events that changed billing, phrased as friendly labels.

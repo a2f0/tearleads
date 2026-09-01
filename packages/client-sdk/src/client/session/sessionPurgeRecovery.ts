@@ -32,6 +32,22 @@ interface SessionPurgeRecoveryContext {
   userId: string | null;
 }
 
+function requireReplacementCanSync(
+  replacement: SessionCreateOrganizationResult,
+  billing: Awaited<ReturnType<ApiClient["getOrganizationBilling"]>>,
+): void {
+  if (!billing) {
+    throw new Error("Replacement organization billing could not be loaded");
+  }
+  if (!resolveOrganizationBillingView(billing, Date.now()).canSync) {
+    throw new PurgedOrganizationRecoveryBillingRequiredError(
+      replacement.organizationId,
+      billing.status,
+      replacement.containerId,
+    );
+  }
+}
+
 export async function clearSessionRemoteSyncState(
   dependencies: SessionPurgeRecoveryDependencies,
   session: SessionPurgeRecoveryContext,
@@ -86,15 +102,7 @@ export async function recoverPurgedSessionOrganization(
     replacement.organizationId,
   );
   if (!isRecoveryCurrent()) return null;
-  if (!replacementBilling) {
-    throw new Error("Replacement organization billing could not be loaded");
-  }
-  if (!resolveOrganizationBillingView(replacementBilling, Date.now()).canSync) {
-    throw new PurgedOrganizationRecoveryBillingRequiredError(
-      replacement.organizationId,
-      replacementBilling.status,
-    );
-  }
+  requireReplacementCanSync(replacement, replacementBilling);
   const execSql = dependencies.database.requireExecSql(
     "recoverPurgedOrganization",
   );

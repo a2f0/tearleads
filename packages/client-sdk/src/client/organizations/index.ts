@@ -103,10 +103,15 @@ export interface Organizations {
     typeof loadOrganizationBillingManagementUrl
   >;
   /** Direct Stripe checkout (issue #1654): options, start, and cancel. */
-  loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
-  createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
+  loadStripeCheckoutOptions: (
+    organizationId?: string,
+  ) => ReturnType<typeof loadStripeCheckoutOptions>;
+  createStripeCheckout: (
+    organizationId?: string,
+  ) => ReturnType<typeof createStripeCheckout>;
   createStripeCheckoutSession: (
     returnUrl: string,
+    organizationId?: string,
   ) => ReturnType<typeof createStripeCheckoutSession>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   claimNativeSubscription: (
@@ -169,7 +174,9 @@ export interface Organizations {
     | Awaited<ReturnType<typeof revokeOrganizationContainerGrant>>
     | Awaited<ReturnType<typeof rotateOrganizationGroupForAccessSetShrink>>
   >;
-  startTrial: () => ReturnType<typeof startOrganizationTrial>;
+  startTrial: (
+    organizationId?: string,
+  ) => ReturnType<typeof startOrganizationTrial>;
 }
 
 export function createOrganizations(
@@ -257,26 +264,39 @@ class OrganizationsService implements Organizations {
       loadOrganizationBillingManagementUrl,
     );
   }
-  loadStripeCheckoutOptions() {
-    return runForAuthenticatedOrganization(
-      this.runtimeService,
-      loadStripeCheckoutOptions,
-    );
+  loadStripeCheckoutOptions(organizationId?: string) {
+    return organizationId
+      ? runForOrganization(
+          this.runtimeService,
+          organizationId,
+          loadStripeCheckoutOptions,
+        )
+      : runForAuthenticatedOrganization(
+          this.runtimeService,
+          loadStripeCheckoutOptions,
+        );
   }
-  createStripeCheckout() {
-    return runForAuthenticatedOrganization(
-      this.runtimeService,
-      createStripeCheckout,
-    );
+  createStripeCheckout(organizationId?: string) {
+    return organizationId
+      ? runForOrganization(
+          this.runtimeService,
+          organizationId,
+          createStripeCheckout,
+        )
+      : runForAuthenticatedOrganization(
+          this.runtimeService,
+          createStripeCheckout,
+        );
   }
 
-  createStripeCheckoutSession(returnUrl: string) {
+  createStripeCheckoutSession(returnUrl: string, organizationId?: string) {
     const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
+    const targetOrganizationId =
+      organizationId ?? authenticatedOrganizationId(runtime);
+    return authenticatedOrganizationId(runtime) && targetOrganizationId
       ? createStripeCheckoutSession({
           apiClient: runtime.apiClient,
-          organizationId,
+          organizationId: targetOrganizationId,
           returnUrl,
         })
       : Promise.resolve(null);
@@ -461,10 +481,16 @@ class OrganizationsService implements Organizations {
     });
   }
 
-  startTrial() {
-    return runForAuthenticatedOrganization(
-      this.runtimeService,
-      startOrganizationTrial,
-    );
+  startTrial(organizationId?: string) {
+    return organizationId
+      ? runForOrganization(
+          this.runtimeService,
+          organizationId,
+          startOrganizationTrial,
+        )
+      : runForAuthenticatedOrganization(
+          this.runtimeService,
+          startOrganizationTrial,
+        );
   }
 }

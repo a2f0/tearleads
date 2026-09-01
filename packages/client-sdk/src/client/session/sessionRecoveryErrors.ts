@@ -7,6 +7,7 @@ export class PurgedOrganizationRecoveryBillingRequiredError extends Error {
   constructor(
     readonly replacementOrganizationId: string,
     readonly billingStatus: OrganizationBillingStatus,
+    readonly replacementContainerId: string,
   ) {
     super(
       `Organization ${replacementOrganizationId} requires active sync billing before purge recovery can finish`,

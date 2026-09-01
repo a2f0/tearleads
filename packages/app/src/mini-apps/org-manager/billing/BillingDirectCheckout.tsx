@@ -32,7 +32,7 @@ import "./BillingCheckout.css";
  * minted URL once it resolves; if the pop-up was blocked (no handle), the
  * current tab navigates instead so the buyer is never stranded.
  */
-function useHostedCheckout(): {
+function useHostedCheckout(organizationId: string): {
   readonly open: () => void;
   readonly busy: boolean;
   readonly unavailable: boolean;
@@ -54,6 +54,7 @@ function useHostedCheckout(): {
       try {
         const result = await symcrypt.organizations.createStripeCheckoutSession(
           globalThis.location?.href ?? "",
+          organizationId,
         );
         if (result?.url) {
           if (tab) {
@@ -81,12 +82,18 @@ function useHostedCheckout(): {
         setBusy(false);
       }
     })();
-  }, [busy, symcrypt]);
+  }, [busy, organizationId, symcrypt]);
   return { open, busy, unavailable };
 }
 
-function HostedCheckoutLink({ disabled }: { readonly disabled: boolean }) {
-  const hosted = useHostedCheckout();
+function HostedCheckoutLink({
+  disabled,
+  organizationId,
+}: {
+  readonly disabled: boolean;
+  readonly organizationId: string;
+}) {
+  const hosted = useHostedCheckout(organizationId);
   return (
     <>
       <MiniAppActions>
@@ -166,7 +173,10 @@ export function BillingDirectCheckout({
           />
           {/* The hosted-page escape hatch for buyers who prefer not to type
               their card into our inline form. */}
-          <HostedCheckoutLink disabled={disabled} />
+          <HostedCheckoutLink
+            disabled={disabled}
+            organizationId={checkout.organizationId}
+          />
         </>
       ) : null}
 
