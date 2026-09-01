@@ -25,6 +25,10 @@ const REVENUECAT_STORE_BY_NATIVE_STORE: Record<
   test_store: "TEST_STORE",
 };
 
+const NATIVE_REVENUECAT_STORES = new Set(
+  Object.values(REVENUECAT_STORE_BY_NATIVE_STORE),
+);
+
 const TOKENLESS_NATIVE_GRANT_CONTINUATION_EVENT_TYPES: ReadonlySet<string> =
   new Set([
     "RENEWAL",
@@ -154,13 +158,22 @@ export async function matchesLockedNativeStore(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
 }): Promise<boolean> {
-  const persistedStore = await resolvePersistedNativeSubscriptionStore(input);
-  return Boolean(
+  const eventStore = input.event.store?.toUpperCase();
+  const matchesBindingIdentity = Boolean(
     input.billing.provider === "revenuecat" &&
       input.billing.providerCustomerId === input.event.app_user_id &&
       input.billing.providerSubscriptionId &&
       getSyncBillingTierForNativeProduct(input.billing.providerProductId) &&
-      persistedStore &&
-      input.event.store?.toUpperCase() === persistedStore,
+      eventStore &&
+      NATIVE_REVENUECAT_STORES.has(eventStore),
+  );
+  if (!matchesBindingIdentity) return false;
+  const persistedStore = await resolvePersistedNativeSubscriptionStore(input);
+  if (persistedStore) return eventStore === persistedStore;
+  // Pre-audit bindings have no durable store row to consult. Their exact token,
+  // buyer, configured product, and native event store still form a safe legacy
+  // identity; a different token continues to fail closed.
+  return (
+    input.event.original_transaction_id === input.billing.providerSubscriptionId
   );
 }

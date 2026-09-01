@@ -83,6 +83,42 @@ function useAllowedRef(nativePurchaseAllowed: boolean): RefObject<boolean> {
   return ref;
 }
 
+function useNativeSubscriptionMoveDialog(
+  currentScope: BillingActionScope,
+  nativePurchaseAllowed: boolean,
+) {
+  const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
+  const open =
+    nativePurchaseAllowed &&
+    openScope !== null &&
+    scopeMatches(openScope, currentScope);
+  const request = useCallback(() => {
+    if (nativePurchaseAllowed) setOpenScope(currentScope);
+  }, [currentScope, nativePurchaseAllowed]);
+  const dismiss = useCallback(() => setOpenScope(null), []);
+  return { dismiss, open, request };
+}
+
+function useDismissDisallowedNativeMove(input: {
+  readonly currentScope: BillingActionScope;
+  readonly dismiss: () => void;
+  readonly nativePurchaseAllowed: boolean;
+  readonly updateActionState: UpdateActionState;
+}): void {
+  useEffect(() => {
+    if (input.nativePurchaseAllowed) return;
+    input.dismiss();
+    input.updateActionState(input.currentScope, (current) =>
+      current.busy === "restore" ? { ...current, busy: null } : current,
+    );
+  }, [
+    input.currentScope,
+    input.dismiss,
+    input.nativePurchaseAllowed,
+    input.updateActionState,
+  ]);
+}
+
 async function restoreClaimAndBindNativeSubscription(input: {
   readonly checkNativePurchaseEligibility: CheckNativePurchaseEligibility;
   readonly claimNativeSubscription: (
@@ -147,6 +183,60 @@ async function restoreClaimAndBindNativeSubscription(input: {
   return preparedOrganization;
 }
 
+type NativeSubscriptionMoveExecution = Pick<
+  UseNativeSubscriptionMoveInput,
+  | "activateRestoredOrganization"
+  | "checkNativePurchaseEligibility"
+  | "claimNativeSubscription"
+  | "completeRestoreOrganization"
+  | "createRestoreOrganization"
+  | "purchases"
+  | "scopeRef"
+  | "updateActionState"
+  | "userId"
+> & {
+  readonly dismiss: () => void;
+  readonly logError: (message: string) => void;
+  readonly nativePurchaseAllowedRef: RefObject<boolean>;
+  readonly scope: BillingActionScope;
+};
+
+async function runNativeSubscriptionMove(
+  input: NativeSubscriptionMoveExecution,
+): Promise<void> {
+  try {
+    const restoredOrganization =
+      await restoreClaimAndBindNativeSubscription(input);
+    if (!restoredOrganization) return;
+    if (scopeMatches(input.scopeRef.current, input.scope)) {
+      await input.activateRestoredOrganization(restoredOrganization);
+      const completed = await input.completeRestoreOrganization(
+        restoredOrganization.organizationId,
+      );
+      if (!completed) {
+        throw new Error("Native subscription restore completion was lost");
+      }
+    }
+  } catch (error) {
+    input.logError(formatBillingPurchaseFailure(error, false));
+    if (
+      input.nativePurchaseAllowedRef.current &&
+      scopeMatches(input.scopeRef.current, input.scope)
+    ) {
+      input.updateActionState(input.scope, (current) => ({
+        ...current,
+        actionError: nativeSubscriptionClaimErrorLabel(error),
+      }));
+    }
+  } finally {
+    if (scopeMatches(input.scopeRef.current, input.scope)) input.dismiss();
+    input.updateActionState(input.scope, (current) => ({
+      ...current,
+      busy: null,
+    }));
+  }
+}
+
 /** Owns confirmation and the verified native restore/claim sequence. */
 export function useNativeSubscriptionMove(
   input: UseNativeSubscriptionMoveInput,
@@ -166,65 +256,46 @@ export function useNativeSubscriptionMove(
   } = input;
   const { logError } = useLog();
   const nativePurchaseAllowedRef = useAllowedRef(nativePurchaseAllowed);
-  const [openScope, setOpenScope] = useState<BillingActionScope | null>(null);
-  const open =
-    nativePurchaseAllowed &&
-    openScope !== null &&
-    scopeMatches(openScope, currentScope);
-  const request = useCallback(() => {
-    if (nativePurchaseAllowed) setOpenScope(currentScope);
-  }, [currentScope, nativePurchaseAllowed]);
-  const dismiss = useCallback(() => setOpenScope(null), []);
+  const { dismiss, open, request } = useNativeSubscriptionMoveDialog(
+    currentScope,
+    nativePurchaseAllowed,
+  );
 
-  useEffect(() => {
-    if (!nativePurchaseAllowed) dismiss();
-  }, [dismiss, nativePurchaseAllowed]);
+  useDismissDisallowedNativeMove({
+    currentScope,
+    dismiss,
+    nativePurchaseAllowed,
+    updateActionState,
+  });
 
   const confirm = useCallback(() => {
-    const scope = currentScope;
-    if (!nativePurchaseAllowed || !scopeMatches(scopeRef.current, scope)) {
+    if (
+      !nativePurchaseAllowed ||
+      !scopeMatches(scopeRef.current, currentScope)
+    ) {
       dismiss();
       return;
     }
-    updateActionState(scope, (current) => ({
+    updateActionState(currentScope, (current) => ({
       ...current,
       actionError: null,
       busy: "restore",
     }));
-    void (async () => {
-      try {
-        const restoredOrganization =
-          await restoreClaimAndBindNativeSubscription({
-            checkNativePurchaseEligibility,
-            claimNativeSubscription,
-            createRestoreOrganization,
-            nativePurchaseAllowedRef,
-            purchases,
-            scope,
-            scopeRef,
-            userId,
-          });
-        if (!restoredOrganization) return;
-        if (scopeMatches(scopeRef.current, scope)) {
-          await activateRestoredOrganization(restoredOrganization);
-          const completed = await completeRestoreOrganization(
-            restoredOrganization.organizationId,
-          );
-          if (!completed) {
-            throw new Error("Native subscription restore completion was lost");
-          }
-        }
-      } catch (error) {
-        logError(formatBillingPurchaseFailure(error, false));
-        updateActionState(scope, (current) => ({
-          ...current,
-          actionError: nativeSubscriptionClaimErrorLabel(error),
-        }));
-      } finally {
-        if (scopeMatches(scopeRef.current, scope)) dismiss();
-        updateActionState(scope, (current) => ({ ...current, busy: null }));
-      }
-    })();
+    void runNativeSubscriptionMove({
+      activateRestoredOrganization,
+      checkNativePurchaseEligibility,
+      claimNativeSubscription,
+      completeRestoreOrganization,
+      createRestoreOrganization,
+      dismiss,
+      logError,
+      nativePurchaseAllowedRef,
+      purchases,
+      scope: currentScope,
+      scopeRef,
+      updateActionState,
+      userId,
+    });
   }, [
     activateRestoredOrganization,
     checkNativePurchaseEligibility,

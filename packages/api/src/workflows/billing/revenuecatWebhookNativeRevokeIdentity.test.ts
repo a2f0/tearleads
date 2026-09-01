@@ -122,3 +122,47 @@ test.each([
     .where(eq(revenuecatWebhookEvents.eventId, revoke.id));
   expect(unclaimed).toBeUndefined();
 });
+
+test.each([
+  ["RENEWAL", "active"],
+  ["EXPIRATION", "disabled"],
+] as const)("an exact-token legacy %s applies without audit store lineage", async (type, expectedStatus) => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const now = Date.now();
+  const subscriptionId = `legacy_${crypto.randomUUID()}`;
+  await db
+    .update(organizationBilling)
+    .set({
+      provider: "revenuecat",
+      providerCustomerId: admin.userId,
+      providerProductId: "sync_solo_monthly",
+      providerSubscriptionId: subscriptionId,
+      status: "active",
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const event: RevenueCatWebhookEvent = {
+    app_user_id: admin.userId,
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: now,
+    expiration_at_ms: now + 30 * 24 * 60 * 60 * 1_000,
+    id: crypto.randomUUID(),
+    original_transaction_id: subscriptionId,
+    product_id: "sync_solo_monthly",
+    purchased_at_ms: now,
+    store: "APP_STORE",
+    subscriber_attributes: { orgId: { value: organizationId } },
+    type,
+  };
+
+  expect(await runRevenueCatWebhookWorkflow(db, event)).toMatchObject({
+    organizationId,
+    status: "applied",
+  });
+  const [billing] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  expect(billing?.status).toBe(expectedStatus);
+});
