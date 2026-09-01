@@ -8,6 +8,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { addSyntheticMember } from "../../../test/helpers/revenuecatWebhook";
+import { activeStripePrice } from "../../../test/helpers/stripeCatalog";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   cancelStripeSubscription,
@@ -42,12 +43,7 @@ const REVENUECAT_ENV = {
   REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
-const STRIPE_SOLO_PRICE = {
-  currency: "usd",
-  id: "price_sync",
-  recurring: { interval: "month", interval_count: 1 },
-  unit_amount: 500,
-};
+const STRIPE_SOLO_PRICE = activeStripePrice("price_sync", 500);
 
 function respondingFetch(
   responses: Array<{ status?: number; body: unknown }>,
@@ -166,16 +162,7 @@ test("options select Team 5 for a two-member effective roster", async () => {
       stripe: {
         env: STRIPE_ENV,
         fetchImpl: respondingFetch(
-          [
-            {
-              body: {
-                id: "price_team_5",
-                currency: "usd",
-                unit_amount: 1_000,
-                recurring: { interval: "month", interval_count: 1 },
-              },
-            },
-          ],
+          [{ body: activeStripePrice("price_team_5", 1_000) }],
           urls,
         ),
       },
