@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@symcrypt/test-utils";
-import type { RemoteContainerHydrationHost } from "../../workflows/container-contents/remoteHydration";
+import {
+  createGenerationGuardedHydrationHost,
+  type RemoteContainerHydrationHost,
+  StaleRemoteHydrationError,
+} from "../../workflows/container-contents/remoteHydration";
 import {
   requestContainerContentsRemoteHydration,
   resumeContainerContentsRecoveryHydration,
@@ -26,6 +30,40 @@ const laneResponse: LaneResponse = {
     },
   ],
 };
+
+test("structural generation guards the hydration persistence transaction", async () => {
+  let current = true;
+  let transactionalGuard: (() => boolean) | undefined;
+  const host: RemoteContainerHydrationHost = {
+    persistContainerState: async (
+      _containerState,
+      _patch,
+      _updateView,
+      _saveOptions,
+      mutationOptions,
+    ) => {
+      transactionalGuard = mutationOptions?.isCurrent;
+      expect(transactionalGuard?.()).toBe(true);
+      current = false;
+      expect(transactionalGuard?.()).toBe(false);
+      return { status: "stale-generation" };
+    },
+    updateSnapshot: () => {},
+  };
+  const guardedHost = createGenerationGuardedHydrationHost({
+    host,
+    isCurrent: () => current,
+  });
+
+  await expect(
+    guardedHost.persistContainerState(
+      {} as Parameters<
+        RemoteContainerHydrationHost["persistContainerState"]
+      >[0],
+    ),
+  ).rejects.toBeInstanceOf(StaleRemoteHydrationError);
+  expect(transactionalGuard).toBeDefined();
+});
 
 test("structural replacement retries hydration in the current generation", async () => {
   const { close, execSql } = await createTestExecSql(

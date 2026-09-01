@@ -40,9 +40,25 @@ export function createGenerationGuardedHydrationHost(input: {
   };
 
   return {
-    persistContainerState: async (...args) => {
+    persistContainerState: async (
+      containerState,
+      patch,
+      updateView,
+      saveOptions,
+      mutationOptions,
+    ) => {
+      const callerIsCurrent = mutationOptions?.isCurrent;
+      const isCurrent = callerIsCurrent
+        ? () => input.isCurrent() && callerIsCurrent()
+        : input.isCurrent;
       assertCurrent();
-      const record = await input.host.persistContainerState(...args);
+      const record = await input.host.persistContainerState(
+        containerState,
+        patch,
+        updateView,
+        saveOptions,
+        { ...mutationOptions, isCurrent },
+      );
       assertCurrent();
       return record;
     },

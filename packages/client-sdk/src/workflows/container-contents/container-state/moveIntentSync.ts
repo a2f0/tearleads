@@ -1,7 +1,6 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
-import { installContainerMetadataRecord } from "../metadataPersistence";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -177,8 +176,10 @@ export async function persistAcceptedMoveIntent(input: {
     return false;
   }
 
-  installDetachedContainerMetadataState(containerState, persistenceCandidate);
-  installContainerMetadataRecord(containerState, nextRecord);
+  installDetachedContainerMetadataState(containerState, persistenceCandidate, {
+    candidateRecord: nextRecord,
+    preserveConcurrentMetadataEdit: true,
+  });
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: moved.metadataDocumentId,

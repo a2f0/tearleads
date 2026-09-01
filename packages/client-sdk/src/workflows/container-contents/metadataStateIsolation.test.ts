@@ -28,6 +28,7 @@ test("detached metadata state does not mutate its live source before install", a
   };
 
   const candidate = await createDetachedContainerMetadataState(live);
+  const candidateDoc = candidate.doc;
   candidate.container = { ...candidate.container, name: "Candidate name" };
   candidate.record = { ...candidate.record, lastCommitLsn: "0/2" };
   candidate.rekeyOnlyPassCount = 3;
@@ -47,8 +48,66 @@ test("detached metadata state does not mutate its live source before install", a
   expect(live.container.name).toBe("Candidate name");
   expect(live.record.lastCommitLsn).toBe("0/2");
   expect(live.rekeyOnlyPassCount).toBe(3);
+  expect(live.doc).toBe(candidateDoc);
   expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
     icon: "archive",
     name: "Candidate name",
   });
+});
+
+test("detached settlement preserves a completed concurrent metadata edit", async () => {
+  const container = createContainerRecord({
+    id: "metadata-concurrent-edit-container",
+    parentId: "local-parent",
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  writeContainerMetadataValue(doc, { icon: null, name: "Before" });
+  const live = {
+    container,
+    doc,
+    record: createDocumentRecord({ id: container.id }),
+  };
+  const candidate = await createDetachedContainerMetadataState(live);
+  const liveDoc = live.doc;
+  candidate.container = {
+    ...candidate.container,
+    parentId: "remote-parent",
+  };
+  const candidateRecord = {
+    ...candidate.record,
+    accessStateHash: "remote-access-state",
+    documentId: "remote-metadata-document",
+  };
+
+  writeContainerMetadataValue(live.doc, {
+    icon: "archive",
+    name: "Concurrent rename",
+  });
+  live.container = {
+    ...candidate.container,
+    icon: "archive",
+    name: "Concurrent rename",
+  };
+  const completedEditRecord = {
+    ...candidateRecord,
+    lastCommitLsn: "0/3",
+  };
+  live.record = completedEditRecord;
+
+  installDetachedContainerMetadataState(live, candidate, {
+    candidateRecord,
+    preserveConcurrentMetadataEdit: true,
+  });
+
+  expect(live.container).toMatchObject({
+    icon: "archive",
+    name: "Concurrent rename",
+    parentId: "remote-parent",
+  });
+  expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
+    icon: "archive",
+    name: "Concurrent rename",
+  });
+  expect(live.record).toBe(completedEditRecord);
+  expect(live.doc).toBe(liveDoc);
 });

@@ -1,6 +1,5 @@
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { installContainerMetadataRecord } from "../metadataPersistence";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -169,10 +168,15 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) return "abandoned";
+  const currentContainerState = state.containersById.get(intent.containerId);
+  if (!currentContainerState) return "missing";
+  if (currentContainerState !== containerState) return "identity-superseded";
   if (!settled) return "intent-superseded";
 
-  installDetachedContainerMetadataState(containerState, persistenceCandidate);
-  installContainerMetadataRecord(containerState, nextRecord);
+  installDetachedContainerMetadataState(containerState, persistenceCandidate, {
+    candidateRecord: nextRecord,
+    preserveConcurrentMetadataEdit: true,
+  });
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: created.metadataDocumentId,
