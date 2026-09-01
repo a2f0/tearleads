@@ -57,6 +57,46 @@ function areSnapshotNodesEqual(
   });
 }
 
+function didStructuralRuntimeChange(
+  previousRuntime: ContainerContentsStoreRuntime,
+  nextRuntime: ContainerContentsStoreRuntime,
+): boolean {
+  return (
+    previousRuntime.adoptRootContainer !== nextRuntime.adoptRootContainer ||
+    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.auth.defaultOrganizationId !==
+      nextRuntime.auth.defaultOrganizationId ||
+    previousRuntime.auth.isAuthenticated !== nextRuntime.auth.isAuthenticated ||
+    previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
+    previousRuntime.auth.userId !== nextRuntime.auth.userId ||
+    previousRuntime.crypto.encapsulationKeyPair !==
+      nextRuntime.crypto.encapsulationKeyPair ||
+    previousRuntime.crypto.signingFingerprint !==
+      nextRuntime.crypto.signingFingerprint ||
+    previousRuntime.crypto.signingKeyPair !==
+      nextRuntime.crypto.signingKeyPair ||
+    previousRuntime.infra.blobStore !== nextRuntime.infra.blobStore ||
+    previousRuntime.infra.dbStatus !== nextRuntime.infra.dbStatus ||
+    previousRuntime.infra.documentProjectors !==
+      nextRuntime.infra.documentProjectors ||
+    previousRuntime.infra.execSql !== nextRuntime.infra.execSql ||
+    previousRuntime.resolveTrustedUserIdentity !==
+      nextRuntime.resolveTrustedUserIdentity ||
+    previousRuntime.state.containerId !== nextRuntime.state.containerId ||
+    previousRuntime.state.domainScope !== nextRuntime.state.domainScope ||
+    previousRuntime.state.online !== nextRuntime.state.online ||
+    previousRuntime.state.peerScope !== nextRuntime.state.peerScope ||
+    previousRuntime.state.serverEventsConnectionGeneration !==
+      nextRuntime.state.serverEventsConnectionGeneration ||
+    previousRuntime.util.isRemoteSyncBlocked !==
+      nextRuntime.util.isRemoteSyncBlocked ||
+    previousRuntime.util.log !== nextRuntime.util.log ||
+    previousRuntime.util.logError !== nextRuntime.util.logError ||
+    previousRuntime.util.reportSecurityIncident !==
+      nextRuntime.util.reportSecurityIncident
+  );
+}
+
 export function createContainerContentsStoreState(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence,
@@ -162,7 +202,10 @@ export function updateContainerContentsStoreRuntime(
   syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
-  const runtimeReplaced = previousRuntime !== nextRuntime;
+  const runtimeReplaced = didStructuralRuntimeChange(
+    previousRuntime,
+    nextRuntime,
+  );
   if (runtimeReplaced) {
     state.structuralGeneration += 1;
   }

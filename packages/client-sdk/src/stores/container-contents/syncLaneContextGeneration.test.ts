@@ -83,6 +83,35 @@ for (const change of contextChanges) {
   });
 }
 
+test("an event snapshot does not re-arm structural sync", () => {
+  const runtime = createContainerContentsTestRuntime({
+    domainScope: createDomainScope(),
+    execSql: mock(async () => []),
+  });
+  const state = createContainerContentsStoreState(
+    runtime,
+    defaultContainerContentsPersistence,
+  );
+  const scheduleSync = mock(() => {});
+  const syncAgent = {
+    ensureInitialized: () => {},
+    handleRemoteEvents: () => {},
+    scheduleSync,
+  } as unknown as ContainerContentsStoreSyncAgent;
+
+  updateContainerContentsStoreRuntime(
+    state,
+    {
+      ...runtime,
+      state: { ...runtime.state, events: [{ type: "ignored" }] },
+    },
+    syncAgent,
+  );
+
+  expect(state.structuralGeneration).toBe(0);
+  expect(scheduleSync).not.toHaveBeenCalled();
+});
+
 test("runtime ABA replacement invalidates and re-arms a structural pass", async () => {
   const domainScope = createDomainScope();
   const execSql = mock(async () => []);
