@@ -441,6 +441,7 @@ export async function relinkDocumentStore(
         stillCurrent: input.stillCurrent,
       },
       generation,
+      input.commitSideEffect,
     );
     if (result && currentDocumentId !== input.documentId) {
       state.writerProjection = null;

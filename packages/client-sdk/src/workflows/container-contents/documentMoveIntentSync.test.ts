@@ -274,12 +274,13 @@ async function runQueuedDocumentMoveFixture(input: {
             return rotationSnapshot;
           },
           ensureInitialized: async () => true,
-          relink: async (input) => {
-            relinkInputs.push(input);
+          relink: async (relinkInput) => {
+            relinkInputs.push(relinkInput);
+            await relinkInput.commitSideEffect?.(execSql);
             return {
-              containerId: input.containerId,
-              documentId: input.documentId,
-              id: input.localId,
+              containerId: relinkInput.containerId,
+              documentId: relinkInput.documentId,
+              id: relinkInput.localId,
               title: "Queued move",
               updatedAt: "2026-06-23T00:00:00.000Z",
             };

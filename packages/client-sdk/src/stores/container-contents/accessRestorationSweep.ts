@@ -61,6 +61,10 @@ function isSweepAttemptDue(sweep: DormantMetadataSweep, now: number): boolean {
   return lastAttemptedAt + retryDelay <= now;
 }
 
+function restorationSweepIdentity(sweep: DormantMetadataSweep): string {
+  return `${sweep.requesterUserId}\u0000${sweep.organizationId}\u0000${sweep.generation}`;
+}
+
 async function probeContainerDeletion(
   session: RestorationSweepSession,
   containerId: string,
@@ -204,7 +208,7 @@ async function completeRestorationSweeps(
 async function claimDueRestorationSweeps(
   session: RestorationSweepSession,
   sweeps: readonly DormantMetadataSweep[],
-  ignoreRetryDelay = false,
+  forcedRetrySweepIds?: ReadonlySet<string> | undefined,
 ): Promise<DormantMetadataSweep[]> {
   const now = Date.now();
   const attemptedAt = new Date(now).toISOString();
@@ -226,7 +230,10 @@ async function claimDueRestorationSweeps(
       );
       continue;
     }
-    if (!ignoreRetryDelay && !isSweepAttemptDue(sweep, now)) {
+    if (
+      !forcedRetrySweepIds?.has(restorationSweepIdentity(sweep)) &&
+      !isSweepAttemptDue(sweep, now)
+    ) {
       continue;
     }
     const didClaim = await session.persistence.claimDormantMetadataSweepAttempt(
@@ -250,7 +257,7 @@ async function claimDueRestorationSweeps(
 
 async function loadAndClaimRestorationSweeps(
   session: RestorationSweepSession,
-  ignoreRetryDelay = false,
+  forcedRetrySweepIds?: ReadonlySet<string> | undefined,
 ): Promise<DormantMetadataSweep[]> {
   const requesterUserId = session.runtime.auth.userId;
   if (!requesterUserId) {
@@ -264,18 +271,30 @@ async function loadAndClaimRestorationSweeps(
   if (!session.isCurrent()) {
     return [];
   }
-  return claimDueRestorationSweeps(session, pendingSweeps, ignoreRetryDelay);
+  return claimDueRestorationSweeps(session, pendingSweeps, forcedRetrySweepIds);
 }
 
 function recreateRestorationSweepCompletion(
   state: ContainerContentsStoreSyncState,
+  interruptedSession: RestorationSweepSession,
+  interruptedSweeps: readonly DormantMetadataSweep[],
 ): () => Promise<void> {
   const session = createRestorationSweepSession(
     state,
     captureRestorationGeneration(state),
   );
   return async () => {
-    const sweeps = await loadAndClaimRestorationSweeps(session, true);
+    const sameStorage =
+      session.persistence === interruptedSession.persistence &&
+      session.runtime.infra.execSql ===
+        interruptedSession.runtime.infra.execSql;
+    const forcedRetrySweepIds = sameStorage
+      ? new Set(interruptedSweeps.map(restorationSweepIdentity))
+      : undefined;
+    const sweeps = await loadAndClaimRestorationSweeps(
+      session,
+      forcedRetrySweepIds,
+    );
     if (session.isCurrent() && sweeps.length > 0) {
       await completeRestorationSweeps(session, sweeps);
     }
@@ -297,7 +316,7 @@ async function reconcileRestoredAccess(input: {
   await refreshAllRemoteHydration({
     onFullyHydrated: () => completeRestorationSweeps(session, sweeps),
     recreateOnFullyHydratedAfterReset: () =>
-      recreateRestorationSweepCompletion(state),
+      recreateRestorationSweepCompletion(state, session, sweeps),
     requestHydration,
     resetAllLaneWatermarks: true,
     scheduleSyncAfterHydration: false,

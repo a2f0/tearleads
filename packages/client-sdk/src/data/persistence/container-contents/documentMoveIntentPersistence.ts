@@ -115,6 +115,7 @@ export const sqlDocumentMoveIntentPersistence = {
   ): Promise<void> {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+      const id = input.id ?? crypto.randomUUID();
       const updatedAt = new Date().toISOString();
       const replaceLinkedContainers = input.replaceLinkedContainers ?? false;
       const sourceContainerId = input.sourceContainerId ?? null;
@@ -123,7 +124,7 @@ export const sqlDocumentMoveIntentPersistence = {
       await db
         .insert(documentMoveIntents)
         .values({
-          id: input.id ?? crypto.randomUUID(),
+          id,
           documentId: input.documentId,
           intentType: DOCUMENT_MOVE_INTENT_TYPE,
           lastAttemptedAt: null,
@@ -139,6 +140,11 @@ export const sqlDocumentMoveIntentPersistence = {
         .onConflictDoUpdate({
           target: documentMoveIntents.documentId,
           set: {
+            // Every enqueue is a new optimistic-concurrency revision. The
+            // timestamp remains useful diagnostics, but cannot be the sole
+            // revision token because two local moves can land in one clock
+            // tick while an older remote request is settling.
+            id,
             intentType: DOCUMENT_MOVE_INTENT_TYPE,
             lastError: null,
             localId: input.localId,
@@ -196,20 +202,26 @@ export const sqlDocumentMoveIntentPersistence = {
     execSql: ExecSql,
     input: {
       documentId: string;
+      expectedIntentId?: string | undefined;
       expectedUpdatedAt: string;
     },
-  ): Promise<void> {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(documentMoveIntents)
-        .where(
-          and(
-            eq(documentMoveIntents.documentId, input.documentId),
-            eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-            eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt),
-          ),
-        )
-        .run();
+  ): Promise<boolean> {
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const deleted = await lockedExecSql(
+        `DELETE FROM document_move_intents
+         WHERE document_id = ?
+           AND intent_type = ?
+           AND updated_at = ?
+           ${input.expectedIntentId ? "AND id = ?" : ""}
+         RETURNING document_id AS documentId`,
+        [
+          input.documentId,
+          DOCUMENT_MOVE_INTENT_TYPE,
+          input.expectedUpdatedAt,
+          ...(input.expectedIntentId ? [input.expectedIntentId] : []),
+        ],
+      );
+      return deleted.length > 0;
     });
   },
 
@@ -224,6 +236,8 @@ export const sqlDocumentMoveIntentPersistence = {
        */
       denied?: boolean | undefined;
       documentId: string;
+      /** Exact intent revision read by the pass; preferred over wall-clock CAS. */
+      expectedIntentId?: string | undefined;
       /**
        * Optimistic concurrency: when given, the error only records against
        * the intent revision the pass read — a re-enqueued move (new
@@ -259,6 +273,9 @@ export const sqlDocumentMoveIntentPersistence = {
               "denied",
             ]),
             eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+            ...(input.expectedIntentId
+              ? [eq(documentMoveIntents.id, input.expectedIntentId)]
+              : []),
             ...(input.expectedUpdatedAt
               ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
               : []),

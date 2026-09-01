@@ -139,6 +139,7 @@ test("executor replacement clears storage-backed state before reinitializing", (
     }),
   );
   state.initialized = true;
+  state.lastEventCount = 7;
   state.rootLaneHydrated = true;
   updateContainerContentsSnapshot(state);
   const ensureInitialized = mock(() => {});
@@ -156,6 +157,7 @@ test("executor replacement clears storage-backed state before reinitializing", (
 
   expect(state.containersById.size).toBe(0);
   expect(state.rootLaneHydrated).toBe(false);
+  expect(state.lastEventCount).toBe(0);
   expect(state.snapshot).toEqual({ nodes: [], ready: false });
   expect(ensureInitialized).toHaveBeenCalledTimes(1);
   expect(handleRemoteEvents).toHaveBeenCalledTimes(1);
@@ -249,6 +251,7 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
   });
   const state = createContainerContentsStoreState(runtime, persistenceA);
   state.initialized = true;
+  state.lastEventCount = 5;
   state.rootLaneHydrated = true;
   updateContainerContentsSnapshot(state);
   const scheduleSync = mock(() => {});
@@ -286,6 +289,7 @@ test("persistence ABA replacement invalidates and re-arms a structural pass", as
 
   expect(state.persistence).toBe(persistenceA);
   expect(state.structuralGeneration).toBe(2);
+  expect(state.lastEventCount).toBe(0);
   expect(ensureInitialized).toHaveBeenCalledTimes(2);
   expect(scheduleSync).not.toHaveBeenCalled();
   expect(state.snapshot).toEqual({ nodes: [], ready: false });

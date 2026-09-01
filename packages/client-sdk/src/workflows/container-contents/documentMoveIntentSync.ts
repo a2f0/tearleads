@@ -11,6 +11,7 @@ import {
   defaultDocumentsPersistence,
 } from "../documents";
 import { moveRemoteContainerDocument } from "./documentLinks";
+import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import type {
   DocumentStructuralMutationLocalStore,
   DocumentStructuralMutationRelinkInput,
@@ -52,6 +53,7 @@ async function recordPendingDocumentMoveIntentError(input: {
   blocked?: boolean | undefined;
   denied?: boolean | undefined;
   documentId: string;
+  expectedIntentId?: string | undefined;
   expectedUpdatedAt?: string | undefined;
   isCurrent: () => boolean;
   message: string;
@@ -64,25 +66,9 @@ async function recordPendingDocumentMoveIntentError(input: {
       blocked: input.blocked,
       denied: input.denied,
       documentId: input.documentId,
+      expectedIntentId: input.expectedIntentId,
       expectedUpdatedAt: input.expectedUpdatedAt,
       message: input.message,
-    },
-  );
-  return input.isCurrent();
-}
-
-async function markDocumentMoveIntentSynced(input: {
-  documentId: string;
-  expectedUpdatedAt: string;
-  isCurrent: () => boolean;
-  state: DocumentMoveIntentSyncState;
-}): Promise<boolean> {
-  if (!input.isCurrent()) return false;
-  await sqlDocumentMoveIntentPersistence.markMoveIntentSynced(
-    input.state.runtime.infra.execSql,
-    {
-      documentId: input.documentId,
-      expectedUpdatedAt: input.expectedUpdatedAt,
     },
   );
   return input.isCurrent();
@@ -144,6 +130,16 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     documentId: intent.documentId,
     localId: intent.localId,
     ...(moved.remoteState ?? {}),
+    ...(moved.status === "partial"
+      ? {}
+      : {
+          commitSideEffect: (transactionExecSql) =>
+            settleDocumentMoveIntent({
+              execSql: transactionExecSql,
+              intent,
+              isCurrent: input.isCurrent,
+            }),
+        }),
   };
 
   return relinkMovedDocumentStore({
@@ -244,6 +240,8 @@ async function resolveMoveIntentPreflight(input: {
     await recordPendingDocumentMoveIntentError({
       blocked: true,
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: "Document move intent references a missing local document",
       state,
@@ -256,6 +254,8 @@ async function resolveMoveIntentPreflight(input: {
     await recordPendingDocumentMoveIntentError({
       blocked: true,
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message:
         "Document move intent references a missing destination container",
@@ -269,6 +269,8 @@ async function resolveMoveIntentPreflight(input: {
   if (!hasRemoteContainerMetadataState(targetState)) {
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: "Document move destination container is not synced yet",
       state,
@@ -289,6 +291,7 @@ async function recordRejectedDocumentMove(input: {
     // instead of replaying on every structural pass (row 7).
     denied: input.failure.sawPermissionDenial,
     documentId: input.intent.documentId,
+    expectedIntentId: input.intent.id,
     expectedUpdatedAt: input.intent.updatedAt,
     isCurrent: input.isCurrent,
     message: describeRejectedDocumentMove(input.failure.current),
@@ -359,6 +362,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       if (!input.isCurrent()) return "abandoned";
       await recordPendingDocumentMoveIntentError({
         documentId: intent.documentId,
+        expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
         isCurrent: input.isCurrent,
         message: "Document move replay could not relink the local document",
@@ -372,6 +376,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
         // move (row 7); other partials keep row 15's replay.
         denied: lastFailure.sawPermissionDenial,
         documentId: intent.documentId,
+        expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
         isCurrent: input.isCurrent,
         message: "Remote document move partially applied; retry required",
@@ -380,13 +385,6 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       return "partial";
     }
 
-    const marked = await markDocumentMoveIntentSynced({
-      documentId: intent.documentId,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: input.isCurrent,
-      state,
-    });
-    if (!marked) return "abandoned";
     logSyncedDocumentMove(intent, state);
     return "moved";
   } catch (error: unknown) {
@@ -403,6 +401,8 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     const message = errorMessage(error);
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
       isCurrent: input.isCurrent,
       message: `Failed to sync document move: ${message}`,
       state,

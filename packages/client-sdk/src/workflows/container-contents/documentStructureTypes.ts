@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import type { RelinkPersistedDocumentInput } from "../documents";
+import type { ExecSql, RelinkPersistedDocumentInput } from "../documents";
 import type { ContainerContentsProjectionUserKeyResolver } from "./projectionKeys";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
@@ -16,6 +16,9 @@ export type DocumentStructuralMutationRuntime =
 
 export interface DocumentStructuralMutationRelinkInput
   extends RelinkPersistedDocumentInput {
+  commitSideEffect?:
+    | ((transactionExecSql: ExecSql) => Promise<void>)
+    | undefined;
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;

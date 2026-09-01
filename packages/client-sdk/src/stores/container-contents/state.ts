@@ -175,6 +175,11 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.documentStoresNeedPriming = true;
   state.initialized = false;
   state.localContainersNeedRefresh = false;
+  // Runtime events are snapshots, not a destructive queue. A replacement
+  // executor or persistence adapter has not observed any of them, even when
+  // their effects were already applied to the previous database. Replay the
+  // snapshot after replacement initialization rebuilds metadata identities.
+  state.lastEventCount = 0;
   // Accepted-echo suppression state must not survive a reset: after a
   // database loss the tree rehydrates from remote, and a retained id would
   // suppress the next matching remote update signal. Mirrors

@@ -9,6 +9,7 @@ import type { DocumentRow } from "../../data/documents/documentRowList";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type {
   DocumentsWorkflowRuntime,
+  ExecSql,
   RelinkPersistedDocumentInput,
 } from "../../workflows/documents";
 
@@ -127,6 +128,9 @@ export interface DocumentStoreFacade extends DocumentStore {
 export type PersistedDocumentListener = (document: DocumentSummary) => void;
 
 export interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
+  commitSideEffect?:
+    | ((transactionExecSql: ExecSql) => Promise<void>)
+    | undefined;
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;

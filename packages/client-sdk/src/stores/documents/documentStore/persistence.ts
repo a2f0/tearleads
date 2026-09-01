@@ -104,6 +104,7 @@ export async function saveDocumentRecord(
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
+  commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>,
 ): Promise<PersistedDocumentRecord | null> {
   const isCurrent = () =>
     (!expectedGeneration ||
@@ -119,6 +120,7 @@ export async function saveDocumentRecord(
     attachmentRemoval: options.attachmentRemoval,
     attachmentStaging: options.attachmentStaging,
     clearSyncFailure: options.clearSyncFailure,
+    ...(commitSideEffect ? { commitSideEffect } : {}),
     containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,
@@ -226,6 +228,7 @@ export async function persistDocument(
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
+  commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>,
 ): Promise<PersistedDocumentRecord | null> {
   const isCurrent = () =>
     (!expectedGeneration ||
@@ -238,6 +241,7 @@ export async function persistDocument(
     patch,
     options,
     expectedGeneration,
+    commitSideEffect,
   );
   if (!persistedRecord) return null;
   if (!isCurrent()) return null;
