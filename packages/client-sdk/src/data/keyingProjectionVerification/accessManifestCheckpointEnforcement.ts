@@ -67,6 +67,7 @@ export async function enforceAccessManifestCheckpoints(input: {
   readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -76,5 +77,6 @@ export async function enforceAccessManifestCheckpoints(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     policies: input.policies,
+    stillCurrent: input.stillCurrent,
   });
 }

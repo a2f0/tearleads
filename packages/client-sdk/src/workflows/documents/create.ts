@@ -327,6 +327,7 @@ export async function createRemoteDocument(
       plan: createPlan.materializedPlan.plan,
       stillCurrent: input.stillCurrent,
     });
+    if (input.stillCurrent?.() === false) return null;
     const writerProjection = documentWriterProjectionFromCreateResponse({
       containerProjection: createPlan.containerProjection,
       response,
@@ -334,6 +335,7 @@ export async function createRemoteDocument(
     await assertDocumentWriterProjectionConsistent(writerProjection, {
       execSql: input.execSql,
       resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (input.stillCurrent?.() === false) return null;

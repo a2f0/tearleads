@@ -354,6 +354,7 @@ interface DocumentWriterProjectionVerificationInput {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedByHash?: VerifiedManifestMap | undefined;
   readonly warmReferencedPrincipalPolicies?: PolicyWarmer;
 }
@@ -468,7 +469,7 @@ export async function verifyDocumentWriterProjection(
     input,
     checkpointContext,
   );
-  await commitProjectionCheckpoints(checkpointContext);
+  await commitProjectionCheckpoints(checkpointContext, input);
   return verified.headManifest;
 }
 
@@ -483,7 +484,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
       input,
       checkpointContext,
     );
-    await commitProjectionCheckpoints(checkpointContext);
+    await commitProjectionCheckpoints(checkpointContext, input);
     return verified.authorization;
   } catch (error) {
     rethrowDatabaseUnavailableError(error);

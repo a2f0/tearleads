@@ -162,6 +162,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
       | ((authorization: DocumentWriterProjectionAuthorization) => void)
       | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
+    stillCurrent?: (() => boolean) | undefined;
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
   },
 ): Promise<DocumentContentKeyTarget[]> {
@@ -178,6 +179,7 @@ async function assertDocumentWriterProjectionConsistentInternal(
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
       verifiedByHash: input.verifiedByHash,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });

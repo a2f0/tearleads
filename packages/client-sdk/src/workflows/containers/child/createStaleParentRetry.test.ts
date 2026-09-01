@@ -6,6 +6,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { createRemoteContainer } from "./create";
 
 const STALE_PARENT_FAILURE =
@@ -95,6 +96,49 @@ test("createRemoteContainer replans once after the parent head advances", async 
     expect(projectionReads).toBe(2);
     expect(evictions).toBe(1);
     expect(reported).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("createRemoteContainer discards a response after generation expiry", async () => {
+  const parent = await createParentProjection();
+  const { close, execSql } = await createTestExecSql(
+    "container-create-submit-generation",
+  );
+  let current = true;
+
+  try {
+    const created = await createRemoteContainer({
+      apiClient: {
+        createContainer: async (request) => {
+          const response = await createMutationResponseFromRequest(request);
+          current = false;
+          return response;
+        },
+        getContainerWriterProjection: async () => parent.projection,
+        getCurrentPrincipalPolicy: async () => null,
+      },
+      author: parent.author,
+      containerId: "expired-created-container",
+      execSql,
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      reportSecurityIncident: async () => undefined,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
+      stillCurrent: () => current,
+    });
+
+    expect(created).toBeNull();
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        parent.projection.organizationId,
+        "expired-created-container",
+      ),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

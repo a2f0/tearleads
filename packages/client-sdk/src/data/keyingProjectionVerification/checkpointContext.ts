@@ -70,6 +70,7 @@ export async function commitProjectionCheckpoints(
   input?: {
     readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
     readonly execSql?: ExecSql | undefined;
+    readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
   await enforceAccessManifestCheckpoints({
@@ -77,6 +78,7 @@ export async function commitProjectionCheckpoints(
     execSql: input?.execSql ?? context.execSql,
     organizationId: context.organizationId,
     policies: context.policies,
+    stillCurrent: input?.stillCurrent,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   });

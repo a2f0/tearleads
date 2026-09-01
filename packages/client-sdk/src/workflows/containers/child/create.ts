@@ -427,9 +427,7 @@ async function createRemoteContainerWithRepairs(input: {
       plan: materializedPlan.plan,
       stillCurrent: input.request.stillCurrent,
     });
-    if (!submitted) {
-      return null;
-    }
+    if (!submitted || input.request.stillCurrent?.() === false) return null;
     if (!submitted.ok) {
       const repair = await repairContainerCreateFailure({
         apiClient: input.request.apiClient,
@@ -457,6 +455,7 @@ async function createRemoteContainerWithRepairs(input: {
       response: submitted.response,
       stillCurrent: input.request.stillCurrent,
     });
+    if (input.request.stillCurrent?.() === false) return null;
     return {
       containerKey: materializedPlan.containerKey,
       containerId: submitted.response.containerId,
